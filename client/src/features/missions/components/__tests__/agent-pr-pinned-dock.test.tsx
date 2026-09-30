@@ -48,7 +48,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
     enableMcp: vi.fn(async () => {}),
     getAvailableProviders: vi.fn(async () => ({ any: true, installed: ['claude'] })),
     getAgentModels: vi.fn(async () => ({
-      models: [{ value: 'sonnet', label: 'Claude Sonnet', default: true }],
+      models: [{ value: 'sonnet', label: 'Sonnet 5.5', default: true }],
       supportsImageInput: true,
       efforts: ['low', 'medium', 'high'],
     })),
@@ -530,20 +530,23 @@ describe('surfaces', () => {
   })
 })
 
-// ── Thinking halo on the OUTER composer card (Settings ▸ Effects) ────────────
+// ── Thinking halo on the flat composer surface (Settings ▸ Effects) ────────────
 describe('thinking halo on the composer dock', () => {
-  it('orbits the whole dock card while a turn streams and fades once it settles; off ⇒ absent', async () => {
+  it('orbits the flat input surface while a turn streams and fades once it settles; off ⇒ absent', async () => {
     const { resetEffectsPrefsCache, setEffectsPrefs } = await import('../../../settings/lib/effects-prefs')
     localStorage.clear(); resetEffectsPrefsCache()
     render(<AgentChatProvider><InlineHarness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('select')) })
     const dockCard = await screen.findByTestId('agent-composer-dock')
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
-    // The halo lives on the OUTER card, not inside the composer's textarea box.
-    expect(dockCard.querySelector('[data-testid="agent-thinking-halo"]')?.parentElement).toBe(dockCard)
+    // The ring follows the single visible input surface and its new radius.
+    const inputBox = within(dockCard).getByTestId('agent-composer-box')
+    expect(inputBox).toHaveClass('rounded-3xl')
+    expect(dockCard.querySelector('[data-testid="agent-thinking-halo"]')?.parentElement).toBe(inputBox)
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Thinking' }) })
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'true')
-    expect(within(dockCard).getByTestId('builder-halo')).toBeInTheDocument()
+    expect(within(dockCard).getByTestId('builder-halo')).toHaveStyle({ inset: '-1px' })
+    expect(within(dockCard).getByTestId('builder-halo').firstElementChild).toHaveStyle({ borderRadius: '1.5rem' })
     await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'Thinking done' }) })
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
     await act(async () => { setEffectsPrefs({ agentThinkingHalo: false }) })

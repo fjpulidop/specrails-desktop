@@ -20,10 +20,6 @@ Un'etichetta amichevole mostrata nella barra laterale. Se lo lasci vuoto, specra
 
 Questo è tutto il modulo — fai clic su **Aggiungi** e hai finito.
 
-## I provider IA vengono rilevati automaticamente
-
-Non scegli più i provider. Specrails rileva ogni CLI di IA installata sulla tua macchina — **Claude**, **Codex**, **Gemini**, **Kimi** — e ogni progetto può usarli tutti, sempre. Installa un nuovo provider in seguito e apparirà ovunque da solo la prossima volta che torni sull'app; nessuna riconfigurazione, nessuna impostazione per progetto. Se un provider è installato ma non connesso, il suo selettore mostra un badge discreto *Non connesso*.
-
 ## La configurazione avviene in silenzio
 
 Non c'è alcuna procedura guidata. Nel momento in cui fai clic su **Aggiungi**, il progetto è registrato e appare nella barra laterale — puoi aprirlo subito. In background, specrails assembla il workspace del progetto (pochi secondi, completamente offline): un piccolo punto pulsante sulla riga del progetto indica che sta lavorando, e scompare quando tutto è pronto. Se qualcosa fallisce per un provider, il progetto continua a funzionare con gli altri — appare un punto ambra e un clic riprova.

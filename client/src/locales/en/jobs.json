@@ -281,6 +281,8 @@
     "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling.",
     "paused": "Paused",
     "runtimeGraph": "Run graph",
+    "graphFullscreen": "Full screen",
+    "graphExitFullscreen": "Exit full screen",
     "graphBack": "Back",
     "graphOpenComponent": "Open component",
     "graphNoAttempts": "No recorded attempts",

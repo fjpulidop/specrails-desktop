@@ -11,28 +11,13 @@
 
 ## カスタムエージェントを追加する
 
-Role は provider-native asset です。Claude は
-`.claude/agents/custom-<name>.md`、Kimi は
-`.kimi-code/skills/custom-<name>/SKILL.md` を使います。
-
-Asset が存在すると、その provider の Catalog に現れ、同じ provider の Profile に id を追加できます。`custom-docs` は Claude では `.claude/agents/custom-docs.md`、Kimi では `.kimi-code/skills/custom-docs/SKILL.md` に対応し、両者は独立しています。
-
 カスタムエージェントはリポジトリの中に住んでいるので、**コミット可能なチームの資産** です: ファイルをコミットすれば、チーム全員がそのエージェントを手に入れます。これは Agents セクション全体を貫く中心的な考え方を映したものです ——
 
 > **エージェントの定義は共有されます（リポジトリの中に住み、`git` とともに移動します）。モデルの設定はプロジェクトごとです（プロファイルの中に住みます）。**
 
-Core は両形式を保護します。Kimi は manual create/edit/run に対応しますが、
-Generate、Test、AI Refine は spawn 前に拒否されます。
-
 ## カスタムエージェントを実際に使う
 
 典型的な流れは次のとおりです。
-
-1. native Claude asset または Kimi Skill を valid な指示/model で作成する。
-2. それが **Agents → Catalog** の Custom に現れることを確認する。
-3. **Agents → Profiles** で、そのエージェントをプロファイルのチェーンに追加する（必要なら、そのプロファイル用にモデルを上書きする）。
-4. 適切なタグの付いたタスクがそのエージェントに届くようにルーティングルールを追加する —— あるいはチェーンの順序に任せる。
-5. レールヘッダーから、そのプロファイルでレールを起動する。
 
 ## プロファイルの成績を観察する
 

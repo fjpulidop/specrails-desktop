@@ -137,3 +137,9 @@ describe('followUp on a proposal (pr-follow-up-fixes)', () => {
     expect(norm(client)).toBe(norm(server))
   })
 })
+
+it('preserves workspace selections and rejects malformed selections without broadening scope', () => {
+  const base = { ticketIds: [1], mode: 'implement', railIndex: 0, repositoryIds: ['skills'] }
+  expect(extractRailLaunchProposals(block({ ...base, workspaceSelection: { skills: ['/skills/studio'] } })).proposals[0]).toMatchObject({ repositoryIds: ['skills'], workspaceSelection: { skills: ['/skills/studio'] } })
+  for (const workspaceSelection of [{ skills: [] }, { skills: [1] }, [], 'studio']) expect(extractRailLaunchProposals(block({ ...base, workspaceSelection })).proposals).toHaveLength(0)
+})

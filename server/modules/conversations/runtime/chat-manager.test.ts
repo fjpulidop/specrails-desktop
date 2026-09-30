@@ -771,7 +771,7 @@ describe('ChatManager', () => {
     expect(doneMsgs[0].fullText).toBe('Hello back!')
   })
 
-  it('normalizes legacy Claude model ids to Claude Code aliases before spawning', async () => {
+  it('upgrades legacy Claude Sonnet model ids to Sonnet 5.5 before spawning', async () => {
     const convId = setupConversation('claude-sonnet-4-6')
     const child = createMockChildProcess()
     vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -781,7 +781,7 @@ describe('ChatManager', () => {
     const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
     const modelIdx = spawnArgs.indexOf('--model')
     expect(modelIdx).toBeGreaterThan(-1)
-    expect(spawnArgs[modelIdx + 1]).toBe('sonnet')
+    expect(spawnArgs[modelIdx + 1]).toBe('claude-sonnet-5-5')
 
     pushLine(child, assistantEvent('Hello'))
     pushLine(child, resultEvent('sess-abc'))
@@ -1353,7 +1353,7 @@ describe('ChatManager', () => {
       expect(promptArg).not.toContain('---')
     })
 
-    it('defaults to gpt-5.5 when conversation.model is empty string', async () => {
+    it('defaults to gpt-6.1-sol when conversation.model is empty string', async () => {
       // Create a conversation with empty model — simulates a null/missing model override
       createConversation(dbCodex, { id: 'codex-conv-empty-model', model: '' })
       const child = createMockChildProcess()
@@ -1365,7 +1365,7 @@ describe('ChatManager', () => {
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
-      expect(spawnArgs).toContain('gpt-5.5')
+      expect(spawnArgs).toContain('gpt-6.1-sol')
     })
 
     it('captures real thread_id from codex thread.started event on successful close', async () => {

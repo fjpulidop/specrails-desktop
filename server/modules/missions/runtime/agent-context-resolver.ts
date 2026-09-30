@@ -180,7 +180,7 @@ function formatProjectOverview(
     `project.provider: ${safe(project.provider, 80)}`,
     `project.providers: ${(project.providers ?? [project.provider]).join(', ')}`,
     `project.runtime: ${context ? 'available' : 'unavailable; do not interpret this as a deleted project'}`,
-    `project.repositories: ${JSON.stringify(getProjectRepositories(project).map(repository => ({ id: repository.id, name: repository.name, path: repository.path, isPrimary: repository.isPrimary, kind: repository.kind, available: repository.available })))}`,
+    `project.repositories: ${JSON.stringify(getProjectRepositories(project).map(repository => ({ id: repository.id, name: repository.name, path: repository.path, workspacePaths: repository.workspacePaths ?? [repository.workspacePath ?? repository.path], isPrimary: repository.isPrimary, kind: repository.kind, available: repository.available })))}`,
     'repository.scope: One shared project backlog. Files and Git operations require repositoryId when more than one member exists; find/search can discover across members. Reading context does not grant implementation write access. Historical specs without repositoryIds target only the primary.',
   )
   try {

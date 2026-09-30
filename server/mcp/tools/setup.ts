@@ -85,6 +85,8 @@ export function setupTools(): McpToolSpec[] {
           .array(z.string())
           .optional()
           .describe('add_project: providers to install (first = primary/default); de-duped server-side'),
+        workspacePaths: z.array(z.string().min(1)).min(1).max(50).optional().describe('add_project: code workspace directories inside the primary project root'),
+        repositories: z.array(z.object({ path: z.string().min(1), name: z.string().optional(), workspacePaths: z.array(z.string().min(1)).min(1).max(50).optional(), integrationBranch: z.string().nullable().optional() })).max(50).optional().describe('add_project: additional repository memberships with their code workspaces'),
         // install_config
         config: z
           .record(z.unknown())
@@ -108,6 +110,8 @@ export function setupTools(): McpToolSpec[] {
             if (typeof args.name === 'string') body.name = args.name
             if (typeof args.provider === 'string') body.provider = args.provider
             if (Array.isArray(args.providers)) body.providers = args.providers
+            if (args.workspacePaths !== undefined) body.workspacePaths = args.workspacePaths
+            if (args.repositories !== undefined) body.repositories = args.repositories
             return apiCall(ctx, 'POST', '/projects', body)
           }
 
@@ -130,6 +134,8 @@ export function setupTools(): McpToolSpec[] {
             // explicit `providers` list narrows it; a single `provider` still works.
             const body: Record<string, unknown> = {}
             if (Array.isArray(args.providers)) body.providers = args.providers
+            if (args.workspacePaths !== undefined) body.workspacePaths = args.workspacePaths
+            if (args.repositories !== undefined) body.repositories = args.repositories
             else if (typeof args.provider === 'string') body.provider = args.provider
             else body.all = true
             const r = await apiCall(ctx, 'POST', `${base}/setup/install`, body)

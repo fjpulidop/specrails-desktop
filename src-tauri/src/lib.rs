@@ -1,8 +1,10 @@
 mod browser;
 mod desktop_actions;
+mod desktop_status;
 mod invoke_guard;
 mod backend_health;
 mod mission_windows;
+mod loop_windows;
 
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -398,12 +400,17 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .manage(desktop_status::DesktopStatus::default())
         .invoke_handler(|invoke| invoke_guard::dispatch(invoke, tauri::generate_handler![
             restart_app,
             set_tray_labels,
             desktop_actions::desktop_reveal_path,
             desktop_actions::desktop_save_text,
             desktop_actions::desktop_notify,
+            desktop_status::desktop_system_status,
+            desktop_status::desktop_set_awake,
+            loop_windows::loop_window_open,
+            loop_windows::plugin_window_open,
             mission_windows::mission_windows_supported,
             mission_windows::mission_windows_list,
             mission_windows::mission_window_current,
@@ -861,7 +868,10 @@ pub fn run() {
         })
         // Main closes to tray; missions reintegrate after restoration ACK;
         // browser popup windows actually close and release their owner slot.
-        .on_window_event(mission_windows::handle_window_event)
+        .on_window_event(|window, event| {
+            mission_windows::handle_window_event(window, event);
+            loop_windows::handle_window_event(window, event);
+        })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {

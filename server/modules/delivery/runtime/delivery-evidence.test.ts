@@ -590,6 +590,14 @@ function definitionProbe(scopes: NonNullable<DefinitionRunProbe['scopes']>): Def
 const scopedReview = { nodePath: 'implement', scopeId: 'root', kind: 'implementation', status: 'succeeded', attemptId: 'a1', output: { review: { approved: true, score: 88, aspects: { correctness: 90 }, issues: [] } } }
 
 describe('Core definition delivery evidence', () => {
+  it('projects independent verification and reviewer phases without depending on their node names', () => {
+    const probe = definitionProbe([
+      { ...scopedReview, nodePath: 'quality', kind: 'implementation-step', output: { phase: 'reviewer', ...scopedReview.output.review } },
+      { ...scopedReview, nodePath: 'checks', kind: 'implementation-step', output: { phase: 'verify', receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 0 }] } },
+    ])
+    expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ outcome: 'passed' }] })
+  })
+
   it('projects confirmed verification commands and implementation review without inventing durations or output', () => {
     const probe = definitionProbe([scopedReview, { nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'failed', attemptId: 'a2', output: { receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 1 }] } }])
     expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ label: 'npm test', exitCode: 1, outcome: 'failed', hostRun: true, durationMs: null, outputTail: null }] })

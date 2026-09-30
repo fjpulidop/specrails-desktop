@@ -21,9 +21,10 @@ describe('rail-loops helpers', () => {
     expect(deriveRailMode(null)).toBe('loop')
   })
 
-  it('routes open addenda and saved Revision selections to Quick SDD', () => {
-    expect(effectiveLoopId('factory:implement', 'implement', true)).toBe('factory:sdd-quick-openspec')
-    expect(effectiveLoopId('custom', 'loop', true)).toBe('factory:sdd-quick-openspec')
+  it('defaults addenda to Quick SDD while preserving explicit selections', () => {
+    expect(effectiveLoopId('factory:implement', 'implement', true)).toBe('factory:implement')
+    expect(effectiveLoopId(null, 'implement', true)).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId('custom', 'loop', true)).toBe('custom')
     expect(effectiveLoopId('factory:revision', 'loop')).toBe('factory:sdd-quick-openspec')
   })
 

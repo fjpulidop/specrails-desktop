@@ -2,7 +2,7 @@
   "title": "Mission Control",
   "subtitle": "Operate Specrails by chatting",
   "trigger": "Mission Control",
-  "composerPlaceholder": "Ask the agent to do anything…",
+  "composerPlaceholder": "What's the mission?",
   "send": "Send",
   "stop": "Stop",
   "copy": "Copy",
@@ -193,7 +193,7 @@
   },
   "noProvider": {
     "title": "No AI provider installed",
-    "body": "The agent needs Claude, Codex, Gemini or Kimi on your machine. Install one, then reopen the agent to start chatting.",
+    "body": "The agent needs Claude or Codex on your machine. Install one, then reopen the agent to start chatting.",
     "placeholder": "Install an AI provider to use the agent…"
   },
   "degraded": {
@@ -705,5 +705,40 @@
     "briefing": {
       "title": "Automatic failure briefing"
     }
+  },
+  "split": {
+    "open": "Split view",
+    "menu": "Conversation actions",
+    "add": "Add conversation in split view",
+    "close": "Close split view",
+    "loadFailed": "Could not load this conversation.",
+    "retry": "Retry"
+  },
+  "runtimeSelector": {
+    "label": "Model and effort",
+    "resetEffort": "Reset effort",
+    "back": "Back"
+  },
+  "missionPlaceholders": {
+    "0": "What's the mission?",
+    "1": "Which mission shall we start with?",
+    "2": "What's our mission today?",
+    "3": "What's our next mission?",
+    "4": "What do you want to achieve in this mission?",
+    "5": "Which mission shall we launch?",
+    "6": "Where shall we begin this mission?",
+    "7": "What's the goal of this mission?",
+    "8": "What shall we build in this mission?",
+    "9": "What shall we improve in this mission?",
+    "10": "Which challenge shall this mission tackle?",
+    "11": "What's the first step of this mission?",
+    "12": "Tell me about the mission you have in mind…",
+    "13": "Describe your next mission…",
+    "14": "Let's shape your next mission…",
+    "15": "What should this mission accomplish?",
+    "16": "Which mission would you like to complete?",
+    "17": "What shall we solve in this mission?",
+    "18": "What would make this mission a success?",
+    "19": "Ready for a new mission. Shall we begin?"
   }
 }

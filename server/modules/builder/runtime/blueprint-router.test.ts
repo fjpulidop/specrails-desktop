@@ -194,7 +194,7 @@ describe('models', () => {
     expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
 
     const codex = await request(app).get('/api/blueprint/models?provider=codex')
-    expect(codex.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
+    expect(codex.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
 
     const gemini = await request(app).get('/api/blueprint/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="1160" viewBox="0 0 1160 1160" role="img" aria-labelledby="title desc"><title id="title">Subscription usage design reference</title><desc id="desc">Illustrative detailed popover, compact view and stale state. All figures are fictional.</desc>
+<rect x="0" y="0" width="1160" height="1160" rx="0" fill="#101015"/>
+<g transform="translate(0 150)">
+<text x="34" y="42" font-family="Arial, sans-serif" font-size="14" fill="#a5b4fc" font-weight="700">SPEC RAILS / SUBSCRIPTION USAGE</text>
+<text x="34" y="77" font-family="Arial, sans-serif" font-size="24" fill="#fafafa" font-weight="700">Propuesta visual · cuentas locales · datos ilustrativos</text>
+<text x="34" y="105" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">Referencia de composición. La implementación utilizará los tokens del tema de Specrails.</text>
+<rect x="34" y="142" width="150" height="568" rx="12" fill="#18181f" stroke="#30303a"/>
+<text x="50" y="174" font-family="Arial, sans-serif" font-size="18" fill="#a5b4fc" font-weight="700">specrails</text>
+<text x="50" y="215" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">Proyectos</text>
+<text x="50" y="248" font-family="Arial, sans-serif" font-size="14" fill="#e4e4e7" font-weight="400">Desktop</text>
+<text x="50" y="279" font-family="Arial, sans-serif" font-size="14" fill="#e4e4e7" font-weight="400">Core</text>
+<text x="50" y="694" font-family="Arial, sans-serif" font-size="14" fill="#a1a1aa" font-weight="400">Analítica</text>
+<rect x="44" y="488" width="130" height="158" rx="8" fill="#2c2b41"/>
+<text x="58" y="516" font-family="Arial, sans-serif" font-size="14" fill="#c7d2fe" font-weight="700">◉  Uso</text>
+<text x="50" y="674" font-family="Arial, sans-serif" font-size="14" fill="#a1a1aa" font-weight="400">Ajustes</text>
+<rect x="204" y="142" width="414" height="568" rx="16" fill="#1b1b23" stroke="#3f3f49"/>
+<text x="226" y="178" font-family="Arial, sans-serif" font-size="20" fill="#fafafa" font-weight="700">Uso de suscripciones</text>
+<text x="568" y="178" font-family="Arial, sans-serif" font-size="24" fill="#a5b4fc" font-weight="400">↻</text>
+<text x="226" y="205" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">Cuentas iniciadas en este ordenador</text>
+<rect x="226" y="224" width="370" height="38" rx="9" fill="#111116"/>
+<rect x="230" y="228" width="180" height="30" rx="7" fill="#3b3b48"/>
+<text x="275" y="249" font-family="Arial, sans-serif" font-size="14" fill="#fafafa" font-weight="700">Detallado</text>
+<text x="461" y="249" font-family="Arial, sans-serif" font-size="14" fill="#a1a1aa" font-weight="400">Compacto</text>
+<text x="226" y="295" font-family="Arial, sans-serif" font-size="18" fill="#fafafa" font-weight="700">Claude</text>
+<text x="303" y="295" font-family="Arial, sans-serif" font-size="12" fill="#a5b4fc" font-weight="400">Max</text>
+<text x="463" y="295" font-family="Arial, sans-serif" font-size="11" fill="#a1a1aa" font-weight="400">Actualizado hace 1m</text>
+<text x="226" y="328" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">5 horas</text>
+<text x="533" y="328" font-family="Arial, sans-serif" font-size="12" fill="#e4e4e7" font-weight="400">62% usado</text>
+<rect x="226" y="341" width="370" height="6" rx="3" fill="#30303a"/>
+<rect x="226" y="341" width="229.4" height="6" rx="3" fill="#818cf8"/>
+<text x="226" y="368" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Se reinicia en 28m</text>
+<text x="226" y="398" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">7 días</text>
+<text x="533" y="398" font-family="Arial, sans-serif" font-size="12" fill="#fbbf24" font-weight="400">81% usado</text>
+<rect x="226" y="411" width="370" height="6" rx="3" fill="#30303a"/>
+<rect x="226" y="411" width="299.7" height="6" rx="3" fill="#fbbf24"/>
+<text x="226" y="438" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Se reinicia el viernes, 14:00</text>
+<rect x="226" y="459" width="370" height="1" rx="0" fill="#363640"/>
+<text x="226" y="491" font-family="Arial, sans-serif" font-size="18" fill="#fafafa" font-weight="700">Codex</text>
+<text x="299" y="491" font-family="Arial, sans-serif" font-size="12" fill="#a5b4fc" font-weight="400">Plus</text>
+<text x="463" y="491" font-family="Arial, sans-serif" font-size="11" fill="#a1a1aa" font-weight="400">Actualizado hace 1m</text>
+<text x="226" y="524" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">7 días</text>
+<text x="533" y="524" font-family="Arial, sans-serif" font-size="12" fill="#e4e4e7" font-weight="400">23% usado</text>
+<rect x="226" y="537" width="370" height="6" rx="3" fill="#30303a"/>
+<rect x="226" y="537" width="85.1" height="6" rx="3" fill="#818cf8"/>
+<text x="226" y="564" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Se reinicia en 6d 7h</text>
+<rect x="226" y="590" width="370" height="1" rx="0" fill="#363640"/>
+<text x="226" y="620" font-family="Arial, sans-serif" font-size="14" fill="#c7d2fe" font-weight="400">Ver detalles                         →</text>
+<text x="226" y="658" font-family="Arial, sans-serif" font-size="14" fill="#a1a1aa" font-weight="400">Gestionar proveedores         →</text>
+<rect x="646" y="142" width="480" height="230" rx="16" fill="#1b1b23" stroke="#3f3f49"/>
+<text x="668" y="179" font-family="Arial, sans-serif" font-size="18" fill="#fafafa" font-weight="700">Vista compacta</text>
+<text x="668" y="208" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Conserva todas las ventanas</text>
+<text x="668" y="248" font-family="Arial, sans-serif" font-size="15" fill="#fafafa" font-weight="700">Claude</text>
+<text x="785" y="248" font-family="Arial, sans-serif" font-size="13" fill="#c7d2fe" font-weight="400">5h  62% usado</text>
+<text x="948" y="248" font-family="Arial, sans-serif" font-size="13" fill="#fbbf24" font-weight="400">7d  81% usado</text>
+<text x="668" y="291" font-family="Arial, sans-serif" font-size="15" fill="#fafafa" font-weight="700">Codex</text>
+<text x="785" y="291" font-family="Arial, sans-serif" font-size="13" fill="#c7d2fe" font-weight="400">7d  23% usado</text>
+<text x="668" y="342" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Sin sumar cuotas ni ocultar límites por modelo.</text>
+<rect x="646" y="390" width="480" height="180" rx="16" fill="#1b1b23" stroke="#3f3f49"/>
+<text x="668" y="427" font-family="Arial, sans-serif" font-size="18" fill="#fafafa" font-weight="700">Estado desactualizado</text>
+<text x="668" y="459" font-family="Arial, sans-serif" font-size="15" fill="#fafafa" font-weight="700">Claude</text>
+<text x="1030" y="459" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">95% usado</text>
+<rect x="668" y="475" width="436" height="6" rx="3" fill="#30303a"/>
+<rect x="668" y="475" width="414.2" height="6" rx="3" fill="#71717a"/>
+<text x="668" y="507" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">Dato de hace 12m · no se pudo actualizar</text>
+<text x="668" y="540" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Mantener el dato y explicar su antigüedad.</text>
+<rect x="646" y="588" width="480" height="122" rx="16" fill="#1b1b23" stroke="#3f3f49"/>
+<text x="668" y="625" font-family="Arial, sans-serif" font-size="18" fill="#fafafa" font-weight="700">Sin datos de cuota</text>
+<text x="668" y="655" font-family="Arial, sans-serif" font-size="13" fill="#a1a1aa" font-weight="400">Codex    —    Inicia sesión con el CLI y actualiza</text>
+<text x="668" y="684" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">Un dato desconocido nunca se representa como 0%.</text>
+<text x="34" y="741" font-family="Arial, sans-serif" font-size="12" fill="#a1a1aa" font-weight="400">V1: Claude + Codex · detalle en ajustes globales · sin historial ni cambio de cuenta</text>
+<text x="58" y="548" font-family="Arial, sans-serif" font-size="13" fill="#fafafa">Claude</text><text x="58" y="569" font-family="Arial, sans-serif" font-size="11" fill="#a1a1aa">5h 62% · 7d 81%</text><text x="58" y="600" font-family="Arial, sans-serif" font-size="13" fill="#fafafa">Codex</text><text x="58" y="621" font-family="Arial, sans-serif" font-size="11" fill="#a1a1aa">7d 23%</text></g>
+</svg>

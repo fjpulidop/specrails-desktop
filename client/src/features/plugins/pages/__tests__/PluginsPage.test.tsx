@@ -1,3 +1,5 @@
+import { openPluginWindow } from '../../lib/plugin-windows'
+vi.mock('../../lib/plugin-windows', () => ({ isPluginWindowRoute: () => false, openPluginWindow: vi.fn().mockResolvedValue(undefined) }))
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '../../../../test-utils'
 import PluginsPage from '../PluginsPage'
@@ -423,4 +425,14 @@ describe('PluginsPage', () => {
       )
     })
   })
+it('opens the Plugins window and dismisses its modal only after success', async () => {
+  installFetchMock()
+  vi.mocked(openPluginWindow).mockResolvedValue(undefined)
+  const dismiss = vi.fn()
+  render(<PluginsPage onWindowOpened={dismiss} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Open in window' }))
+  expect(openPluginWindow).toHaveBeenCalledOnce()
+  await waitFor(() => expect(dismiss).toHaveBeenCalledOnce())
+})
+
 })

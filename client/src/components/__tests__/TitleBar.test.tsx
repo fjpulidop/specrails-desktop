@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { SidebarPinProvider } from '../../context/SidebarPinContext'
 import { TitleBar } from '../TitleBar'
 
 const mocks = vi.hoisted(() => ({
@@ -51,6 +52,7 @@ describe('TitleBar', () => {
     const titlebar = screen.getByLabelText('Search (⌘K)').parentElement as HTMLElement
     expect(titlebar.style.background).toBe('var(--color-background-deep)')
     expect(titlebar.style.borderBottom).toBe('1px solid var(--color-border)')
+    expect(titlebar.style.height).toBe('36px')
     expect(screen.getByLabelText('Search (⌘K)')).toHaveStyle({
       color: 'var(--color-foreground)',
     })
@@ -74,6 +76,19 @@ describe('TitleBar', () => {
     expect(mocks.close).toHaveBeenCalledTimes(1)
     unmount()
     expect(unlisten).toHaveBeenCalledTimes(1)
+  })
+
+  it('cycles both sidebars from the titlebar without making buttons drag targets', () => {
+    localStorage.clear()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
+    const left = screen.getByRole('button', { name: 'Pin left sidebar open' })
+    expect(left).not.toHaveAttribute('data-tauri-drag-region')
+    fireEvent.click(left)
+    expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Pin right sidebar open' }))
+    expect(screen.getByRole('button', { name: 'Collapse right sidebar (keep pinned)' })).toBeInTheDocument()
+    localStorage.clear()
   })
 
   it('uses theme tokens for default window controls', () => {

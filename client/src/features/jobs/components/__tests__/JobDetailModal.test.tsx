@@ -267,6 +267,14 @@ describe('JobDetailModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('keeps the log open when a foreground dialog has handled Escape', () => {
+    render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    event.preventDefault()
+    fireEvent(window, event)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('shows Cancel button when job is running', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

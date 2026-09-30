@@ -50,7 +50,7 @@ interface DesktopContextValue {
   projects: DesktopProject[]
   activeProjectId: string | null
   setActiveProjectId: (id: string | null) => void
-  addProject: (path: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[]) => Promise<AddProjectResult | null>
+  addProject: (path: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[], workspacePaths?: string[]) => Promise<AddProjectResult | null>
   refreshProjects: () => Promise<void>
   removeProject: (id: string) => Promise<void>
   isLoading: boolean
@@ -272,7 +272,7 @@ export function DesktopProvider({ children, isolated = false }: { children: Reac
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  const addProject = useCallback(async (projectPath: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[]): Promise<AddProjectResult | null> => {
+  const addProject = useCallback(async (projectPath: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[], workspacePaths?: string[]): Promise<AddProjectResult | null> => {
     try {
       // Omitting providers registers with the machine's DETECTED set (server
       // authoritative — global-core-zero-friction). Explicit lists are wire
@@ -281,6 +281,7 @@ export function DesktopProvider({ children, isolated = false }: { children: Reac
       if (providers && providers.length > 0) body.providers = providers
       if (name) body.name = name
       if (repositories?.length) body.repositories = repositories
+      if (workspacePaths?.length) body.workspacePaths = workspacePaths
 
       const res = await fetch('/api/projects', {
         method: 'POST',

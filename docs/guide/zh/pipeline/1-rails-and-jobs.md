@@ -35,8 +35,6 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 | **状态标签** | `idle`、`running` 或 `failed`。这里没有单独的"completed"——任务干净地跑完后，rail 会回到 `idle`。 |
 | **spec 列表** | 分配给这条 rail 的 ID。可以再拖进来，也可以拖出去解除关联。 |
 | **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
-| **Profile 选择器** | 使用哪个 provider profile（Claude/Kimi rail）。 |
-| **引擎选择器** | 哪个 provider 运行 rail——Claude、Codex、Gemini 或 Kimi。 |
 | **▶ Play / ■ Stop** | 启动或取消。 |
 
 ### rail 运行的是什么：Loop
@@ -46,13 +44,8 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 | 内置 loop | 命令 | 作用 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
-| **Freestyle** | Freestyle | Claude 或 Kimi 自主实现每个 spec，**绕过**流水线。 |
 
 要运行多个 spec，可以把相关的（最多 3 个）放到同一条 rail 上——`Implement` 会把它们作为一个整体任务运行——或者把彼此独立的 spec 分到多条 rail：每条基于 git 的 rail 都在自己隔离的 worktree 中并行运行。
-
-Freestyle 使用 provider 的 native tool/model。Claude 有 persistent
-interactive transport；Kimi 使用没有 persistent stdin 的 agentic
-`kimi -p` process。
 
 内置 loop 也可以编辑：在 Loop Builder 里编辑并发布后，所有选用它的 rail 都会运行你的版本（用 **恢复原始版本** 可以改回去）。
 
@@ -84,11 +77,6 @@ interactive transport；Kimi 使用没有 persistent stdin 的 agentic
 
 点击 rail 头部的 **■ Stop**。应用会向子进程发送 `SIGTERM`，等 **5 秒**让它干净退出，然后再 `SIGKILL` 掉它。不会留下半生不熟、还没启动完的进程。
 
-## 如果一条 rail 启动不起来
-
-如果缺少所选 CLI，会在 spawn 前失败。Kimi 需要安装并登录 `kimi`
-0.27+；Desktop 不会启动 server。
-
 ## 全部停下
 
 如果哪里看起来不对劲：
@@ -101,4 +89,3 @@ interactive transport；Kimi 使用没有 persistent stdin 的 agentic
 
 - [Loop Builder](the-loop-builder)——rail 运行的是什么，以及如何搭建你自己的 loop。
 - [任务详情视图](the-job-detail-view)——阶段、实时指标、工单卡片。
-- [为每条 rail 选择引擎](picking-an-engine-per-rail)——Claude、Codex、Gemini 或 Kimi。

@@ -72,7 +72,8 @@
       "advanced": "詳細",
       "webhooks": "Webhooks",
       "about": "概要",
-      "effects": "エフェクト"
+      "effects": "エフェクト",
+      "subscriptionUsage": "サブスクリプション使用量"
     },
     "title": "Desktop 設定",
     "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
@@ -267,7 +268,7 @@
       "budget": "予算",
       "telemetry": "テレメトリ",
       "terminal": "ターミナル",
-      "agentRuntime": "エージェント実行エンジン"
+      "agentRuntime": "検証コマンド"
     }
   },
   "integrationBranch": {

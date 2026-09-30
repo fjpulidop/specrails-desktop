@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -38,6 +39,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   const [projectPath, setProjectPath] = useState('')
   const [projectName, setProjectName] = useState('')
   const [additionalPaths, setAdditionalPaths] = useState<string[]>([])
+  const [workspacePaths, setWorkspacePaths] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   // Providers are auto-detected server-side (global-core-zero-friction) — the
   // dialog only surfaces a warning when nothing is detected. Registration is
@@ -70,7 +72,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
         const avail: Record<string, boolean> = {}
         for (const [k, v] of Object.entries(data)) {
           if (k === 'tiers' || k === 'providerIssues' || k === 'launchDescriptors') continue
-          if (typeof v === 'boolean') avail[k] = v
+          if (typeof v === 'boolean' && isPublicProvider(k)) avail[k] = v
         }
         setAvailableProviders(avail)
       })
@@ -89,8 +91,10 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
       // No provider selection: the server registers with the detected set and
       // assembles the workspace silently in the background (no wizard).
       const roots = additionalPaths.map((path) => ({ path: path.trim() })).filter((root) => root.path)
-      const data = roots.length
-        ? await addProject(trimmedPath, projectName.trim() || undefined, undefined, roots)
+      const workspaces = workspacePaths.trim() ? workspacePaths.split('\n').map(item => item.trim()).filter(Boolean) : undefined
+      const data = workspaces
+        ? await addProject(trimmedPath, projectName.trim() || undefined, undefined, roots, workspaces)
+        : roots.length ? await addProject(trimmedPath, projectName.trim() || undefined, undefined, roots)
         : await addProject(trimmedPath, projectName.trim() || undefined)
       if (!data) return
       toast.success(t('addProject.toasts.registered', { name: data.project.name }))
@@ -106,6 +110,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
     setProjectPath('')
     setProjectName('')
     setAdditionalPaths([])
+    setWorkspacePaths('')
     setStep(chooserEnabled ? 'choose' : 'existing')
     onClose()
   }
@@ -245,6 +250,10 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             </p>
           </div>
 
+          <label className="block space-y-1.5 text-xs font-medium">{t('common:repositories.workspacePath')}
+            <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={workspacePaths} disabled={isAdding} onChange={(event) => setWorkspacePaths(event.target.value)} placeholder={projectPath} />
+            <span className="block font-normal text-muted-foreground">{t('common:repositories.workspaceHint')}</span>
+          </label>
           <fieldset className="space-y-2" disabled={isAdding}>
             <legend className="text-xs font-medium">{t('common:repositories.additional')}</legend>
             <p className="text-xs text-muted-foreground">{t('common:repositories.sharedBacklog')}</p>

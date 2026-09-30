@@ -11,7 +11,7 @@ import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtim
 import { recordLoopRunProvenance } from '../../code/runtime/file-story'
 import { getLoop } from '../../loops/runtime/loops-store'
 import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
-import { isLocalAdapterId } from '../../../providers/registry'
+import { hasAdapter, isLocalAdapterId } from '../../../providers/registry'
 import { getAdapter, reasoningEffortsForModel, supportsToolPolicy } from '../../../providers'
 import { ROLES_ENGINE, loadLoopRoleEngines, resolveLoopRoleEngine } from '../../loops/runtime/loop-role-engines'
 import { isReasoningEffortValidForModel } from '../../../providers/runtime'
@@ -55,7 +55,7 @@ import { isValidBranchName } from '../../../integration-branch'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from '../../../project-git'
 import { defaultExec } from './pr-publisher'
-import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, RepositoryValidationError } from '../../../project-repositories'
+import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from '../../../project-repositories'
 import { checkoutRepositoryDelivery } from './multi-repo-checkout'
 import { resolveRepositoryDeliveryBases } from './multi-repo-bases'
 import { listRepositoryDeliveries } from './multi-repo-execution'
@@ -507,7 +507,7 @@ export function createRailsRouter(): Router {
     catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
     // Non-string values fail the VALID_MODES check below.
     let mode = normalizeRailMode(req.body?.mode ?? 'implement') as string
-    const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
+    const { repositoryIds: rawRepositoryIds, workspaceSelection: rawWorkspaceSelection, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
     // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
     // for "resolve these review comments". It rides the delivery row and every
     // ai-step prompt — never the spec, whose description Jira-linked projects
@@ -559,6 +559,7 @@ export function createRailsRouter(): Router {
     if (baseBranch && !isLoopsEnabled()) {
       res.status(400).json({ error: 'base_branch_requires_isolation', detail: 'baseBranch requires an isolated (worktree) loop launch; loops are disabled' }); return
     }
+    const explicitLoop = (typeof rawLoopId === 'string' && rawLoopId.length > 0) || req.body?.mode != null
     let loopId: unknown = rawLoopId
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
@@ -592,8 +593,8 @@ export function createRailsRouter(): Router {
     if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
       loopId = factoryLoopForMode(mode as string)?.id
     }
-    // Delivery continuation always uses Quick SDD; the old Revision loop is retired.
-    if (revisionOfDeliveryId && isLoopsEnabled()) {
+    // Quick SDD is the continuation default; an explicit workflow takes precedence.
+    if (revisionOfDeliveryId && isLoopsEnabled() && !explicitLoop) {
       loopId = 'factory:sdd-quick-openspec'
       mode = 'loop'
     }
@@ -629,21 +630,23 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
     }
 
-    // The durable delta chooses Quick SDD regardless of stale rail/agent defaults.
+    // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
     // Revision is a delivery-continuation mechanism, not the implementation loop.
     const launchAddenda = planSpecAddendaAt(ticketStorePathForProject(c.project), rail.ticketIds)
-    if (launchAddenda.length && isLoopsEnabled()) {
+    if (launchAddenda.length && isLoopsEnabled() && !explicitLoop) {
       loopId = 'factory:sdd-quick-openspec'
       mode = 'loop'
     }
 
     let repositoryIds: string[]
+    let workspaceSelection: Record<string, string[]> | undefined
     const primaryRepository = getProjectRepositories(c.project).find((repository) => repository.isPrimary)!
     try {
       const requiredRepositoryIds = [...new Set(rail.ticketIds.flatMap((id) =>
         validateTicketRepositoryIds(c.project, c.getTicketSpec?.(id)?.repositoryIds) ?? [primaryRepository.id],
       ))]
       repositoryIds = validateTicketRepositoryIds(c.project, rawRepositoryIds) ?? requiredRepositoryIds
+      workspaceSelection = validateWorkspaceSelection(c.project, rawWorkspaceSelection, repositoryIds)
       const missing = requiredRepositoryIds.filter((id) => !repositoryIds.includes(id))
       if (missing.length) {
         res.status(400).json({ error: 'repository_scope_incomplete', missingRepositoryIds: missing,
@@ -687,10 +690,25 @@ export function createRailsRouter(): Router {
       res.status(409).json({ error: 'tickets_in_flight', ticketIds: inFlightOverlap }); return
     }
 
+    // Resolve once: a concurrent publication cannot mix one recipe's agents
+    // with another recipe's graph. Loop-owned roles bypass project launch presets.
+    let builtinSelection: ReturnType<typeof resolveBuiltinLoop>
+    let librarySelection: ReturnType<typeof getLoop>
+    if (isLoopsEnabled() && typeof loopId === 'string' && loopId) {
+      if (isFactoryLoopId(loopId)) {
+        let capabilities: Record<string, number> | undefined
+        try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* Retained legacy recipes remain available. */ }
+        builtinSelection = resolveBuiltinLoop(c.desktopDb, loopId, capabilities)
+      } else librarySelection = getLoop(c.desktopDb, loopId)
+    }
+    const loopAgents = builtinSelection?.graph.config.agents ?? (librarySelection?.status === 'published' ? librarySelection.graph.config.agents : undefined)
+    const ownsLoopEngine = !!loopAgents && loopAgents.agents.developer.provider !== 'inherit'
+    if (ownsLoopEngine) runtimeProviderOverride = undefined
+
     // AI engine precedence: explicit body param > stored rail engine > primary.
     // `undefined`/empty in both means "run on the project's primary provider".
     const requestedEngineRaw =
-      aiEngine === undefined ? (rail.aiEngine ?? undefined) : aiEngine
+      ownsLoopEngine ? loopAgents!.agents.developer.provider : aiEngine === undefined ? (runtimeProviderOverride?.provider ?? rail.aiEngine ?? undefined) : aiEngine
     // `roles` (hybrid-role-engines): the pipeline roles keep the project's
     // per-role runtime settings (no flattening override) and the loop's own
     // steps come from the stored loop-role engines — verifier for every
@@ -704,7 +722,9 @@ export function createRailsRouter(): Router {
     const requestedEngine = rolesMode
       ? (loopRoleEngines.verifier?.provider && validateRequestedProvider(c.project, loopRoleEngines.verifier.provider).ok ? loopRoleEngines.verifier.provider : undefined)
       : requestedEngineRaw
-    const engineCheck = validateRequestedProvider(c.project, requestedEngine)
+    const engineCheck = ownsLoopEngine
+      ? hasAdapter(loopAgents!.agents.developer.provider) ? { ok: true as const, provider: loopAgents!.agents.developer.provider } : { ok: false as const, error: 'Loop agent provider is not configured' }
+      : validateRequestedProvider(c.project, requestedEngine)
     if (!engineCheck.ok) {
       res.status(400).json({ error: engineCheck.error }); return
     }
@@ -721,7 +741,7 @@ export function createRailsRouter(): Router {
     if (rolesMode && runtimeProviderOverride) {
       res.status(400).json({ error: 'runtime_provider_mismatch', detail: 'A roles launch carries no provider override' }); return
     }
-    if (!runtimeProviderOverride && requestedEngine && !rolesMode) {
+    if (!ownsLoopEngine && !runtimeProviderOverride && requestedEngine && !rolesMode) {
       try {
         runtimeProviderOverride = validateRuntimeProviderOverride({ provider: engineCheck.provider, ...(model ? { model } : {}), ...(reasoning_effort && !localEngine ? { effort: reasoning_effort } : {}) })
       } catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
@@ -732,7 +752,7 @@ export function createRailsRouter(): Router {
     if (localEngine && runtimeProviderOverride?.effort !== undefined) {
       runtimeProviderOverride = { provider: runtimeProviderOverride.provider, ...(runtimeProviderOverride.model !== undefined ? { model: runtimeProviderOverride.model } : {}) }
     }
-    if (localEngine && req.body?.maxCostUsd !== undefined && req.body?.maxCostUsd !== null) {
+    if (!ownsLoopEngine && localEngine && req.body?.maxCostUsd !== undefined && req.body?.maxCostUsd !== null) {
       res.status(400).json({ error: 'local_engine_no_cost_cap' }); return
     }
 
@@ -745,7 +765,7 @@ export function createRailsRouter(): Router {
     // Freestyle is provider-owned. Validate its optional model against the
     // selected engine instead of a Claude-only alias list.
     if (
-      mode === 'freestyle' &&
+      !ownsLoopEngine && mode === 'freestyle' &&
       model !== undefined &&
       model !== null &&
       (typeof model !== 'string' || !isValidModelForProvider(model, engineCheck.provider as SpecProvider))
@@ -760,7 +780,7 @@ export function createRailsRouter(): Router {
     // `null` in the body explicitly forces legacy mode. Providers without
     // profile support run in legacy mode.
     let resolvedProfile: string | null | undefined
-    if (mode === 'freestyle') {
+    if (loopAgents || mode === 'freestyle') {
       // Freestyle runs no agent pipeline, so profiles do not apply.
       resolvedProfile = null
     } else if (getAdapter(engineCheck.provider).capabilities.profiles !== true) {
@@ -787,12 +807,10 @@ export function createRailsRouter(): Router {
         let loopGraph: LoopGraph
         let loopName: string
         if (isFactoryLoopId(loopId)) {
-          let capabilities: Record<string,number> | undefined
-          try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* Existing Core remains supported through the legacy factory. */ }
           // Editable built-ins: an edited row runs its Published graph (or the
           // last Published snapshot while an edit is Draft); otherwise the
           // current code default for this Core.
-          const f = resolveBuiltinLoop(c.desktopDb, loopId, capabilities)
+          const f = builtinSelection
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           if (f.source !== 'default') {
             const validation = validateLoopGraph(f.graph)
@@ -805,7 +823,7 @@ export function createRailsRouter(): Router {
           loopGraph = f.graph
           loopName = f.name
         } else {
-          const loop = getLoop(c.desktopDb, loopId)
+          const loop = librarySelection
           if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
           if (loop.status !== 'published') {
             res.status(400).json({ error: 'Loop must be published before it can run on a rail' }); return
@@ -842,7 +860,7 @@ export function createRailsRouter(): Router {
           })
           return
         }
-        if (typeof model === 'string' && model && !isValidModelForProvider(model, loopProvider as SpecProvider)) {
+        if (!ownsLoopEngine && typeof model === 'string' && model && !isValidModelForProvider(model, loopProvider as SpecProvider)) {
           res.status(400).json({ error: `model is not valid for provider "${loopProvider}"`, allowed: getModelsForProvider(loopProvider as SpecProvider) }); return
         }
         // Global Specrails Agents defaults (Settings ▸ Specrails Agents): fill
@@ -861,15 +879,16 @@ export function createRailsRouter(): Router {
           }
         }
         const verifierEngine = rolesMode ? resolveLoopRoleEngine(c.project, 'verifier', { provider: loopProvider, model: loopAdapter.defaultModel() }, loopRoleEngines) : undefined
-        const loopModel =
+        const loopModel = ownsLoopEngine ? loopAgents!.agents.developer.model ?? loopAdapter.defaultModel() :
+          loopAgents?.agents.developer.model ?? runtimeProviderOverride?.model ?? (
           typeof model === 'string' && model
             ? model
-            : (verifierEngine?.model ?? profileModel ?? globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
+            : (verifierEngine?.model ?? profileModel ?? globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel()))
         let effort: ReasoningEffort | undefined
         // Local (OpenAI-compatible) engines have no per-invocation effort knob
         // unless the connection opts in; a requested effort is DROPPED, not a
         // 400 — the engine selectors send the last-used effort blindly.
-        const effortRequested = localEngine && !loopAdapter.capabilities.supportsReasoningEffort ? undefined : (reasoning_effort ?? verifierEngine?.effort)
+        const effortRequested = localEngine && !loopAdapter.capabilities.supportsReasoningEffort ? undefined : ownsLoopEngine ? loopAgents!.agents.developer.effort : (loopAgents?.agents.developer.effort ?? runtimeProviderOverride?.effort ?? reasoning_effort ?? verifierEngine?.effort)
         if (effortRequested !== undefined && effortRequested !== null) {
           const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
           if (
@@ -883,7 +902,7 @@ export function createRailsRouter(): Router {
           }
           effort = effortRequested as ReasoningEffort
         } else if (
-          globalAgentDefaults?.pipelineEffort
+          !ownsLoopEngine && globalAgentDefaults?.pipelineEffort
           && isReasoningEffortValidForModel(loopAdapter, loopModel, globalAgentDefaults.pipelineEffort)
         ) {
           effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
@@ -905,7 +924,7 @@ export function createRailsRouter(): Router {
         if (referencesUnsupportedProviderCommand(promptsText, loopProvider)) {
           res.status(400).json({ error: `This loop uses a command unsupported by provider '${loopProvider}'` }); return
         }
-        const scope = dominantTicketScope(promptsText)
+        const scope = loopGraph.config.ticketScope ?? (loopGraph.config.journal === 'implementation' ? 'all' : dominantTicketScope(promptsText))
 
         // Parallel isolation (default-on; disable with SPECRAILS_RAIL_WORKTREES=0):
         // a per-ticket rail on a repo-mutating loop runs each ticket in its own git
@@ -1051,7 +1070,7 @@ export function createRailsRouter(): Router {
             try {
               const ids = await launchIsolatedRail({
                 runtimeProviderOverride,
-                ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, ...repositoryBases, loopId, loopName, loopGraph,
+                ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
                 ...(deciderEngine ? { deciderEngine } : {}),
                 profileName: resolvedProfile,
@@ -1185,6 +1204,7 @@ export function createRailsRouter(): Router {
               graph: loopGraph,
               projectId: c.project.id,
               repositoryId: primaryRepository.id,
+              workspacePaths: workspaceSelection?.[primaryRepository.id],
               cwd: loopExec.cwd,
               repoDir: loopExec.relocated ? loopExec.repoDir : undefined,
               railIndex,

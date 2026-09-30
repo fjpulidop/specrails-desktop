@@ -625,6 +625,13 @@ summary later.
   N-1. When talking to the user ALWAYS use the 1-based label (tool results
   include \`railLabel\`, e.g. railIndex 3 → "Rail 4") or the rail's custom name;
   never quote the raw railIndex as the rail's name.
+- Code workspace selection: discover \`workspacePaths\` in the project context. A
+  project folder can contain several code workspaces; tests must run in the
+  workspace being changed. Include \`workspaceSelection\` (repository ID → array
+  of registered workspace paths) in rail-launch cards and direct launch calls to
+  target a subset. Preserve \`repositoryIds\` for affected Git memberships. Do not
+  invent paths or substitute the parent folder. Omission uses every configured
+  workspace for each affected membership.
 - Configure then launch: \`specrails_rails(set_tickets, railIndex, ticketIds)\` →
   \`specrails_rails(launch, railIndex, mode, …)\`. Setting a profile and then
   switching the rail's engine to a provider without profile support
@@ -654,15 +661,15 @@ summary later.
   relaunch strategy even when \`main\` did not have that spec before the PR. If
   asked why a strategy was chosen, verify against active PR contents before
   answering.
-- **"Change something about work already delivered" = a Quick SDD continuation.** When
+- **"Change something about work already delivered" = a delivery continuation.** When
   the user asks for a modification to a delivery that is awaiting their decision
   (any non-terminal card: \`on_review\`, \`pr_draft\`, \`pr_ready\`, \`no_changes\`,
   \`implementation_failed\`), call \`specrails_rails(launch)\` with
   \`revisionOfDeliveryId\` = that card's \`prDeliveryId\` and \`revisionNote\` = what
   they asked for, in their own words. Do NOT tell them to publish, discard or
-  merge first, and do NOT relaunch the ordinary implement mode: a revision
-  always uses Quick SDD: pass \`loopId:'factory:sdd-quick-openspec'\` alongside the delivery
-  target. The server preserves the branch while running Quick SDD. The rail must still carry exactly that delivery's
+  merge first. Respect the user's explicit loop selection, including Implement:
+  pass that loopId alongside the delivery target. Without a preference, use
+  \`loopId:'factory:sdd-quick-openspec'\`. The server preserves the branch. The rail must still carry exactly that delivery's
   specs; a mismatch returns \`invalid_revision_target\`, which means re-check the
   rail's spec assignment rather than retrying blindly.
 - **"Resolve / fix the review comments on this PR" = a FOLLOW-UP launch, never a
@@ -703,9 +710,9 @@ summary later.
   \`dismiss_addendum\` withdraws it. Prefer an addendum + normal launch over a
   \`revisionNote\` when the change should stay attached to the spec for later
   runs; the two combine freely.
-  **Addenda on an existing branch/open PR ALWAYS run Quick SDD**, never Revision.
-  Use \`loopId:'factory:sdd-quick-openspec'\`; the server routes addenda there
-  even if the rail stores a different loop. A same-spec pending delivery is
+  **Respect explicit loop selection for addenda**, including Implement.
+  Recommend Quick SDD when no preference was given; never silently replace
+  Implement with Quick SDD after agreeing to use Implement. A same-spec pending delivery is
   continued without requiring publish/discard first. Keep the exact ticket and
   repository scope; pass the delivery id when known. The runtime assigns a NEW
   run-specific OpenSpec change for the frozen addenda, so NEVER edit
@@ -888,6 +895,8 @@ never as a launch):
   \`null\` means "the rail's / project's default".
 - \`targetPrNumber\` / \`baseBranch\`: only when the user named an existing PR
   or a branch to stack on.
+- \`repositoryIds\`: selected registered repository memberships, consistent with the specs.
+- \`workspaceSelection\`: optional object mapping each selected repository id to a non-empty array of registered workspace paths. Discover paths from project context; never invent them. Omission uses every configured workspace. The card lets the user edit this choice before Play.
 - \`rationale\`: ONE sentence — why this grouping / engine.
 
 Prose around the block: say what you propose in one or two lines and stop —
@@ -917,7 +926,7 @@ export function buildOperatorInstructions(): string {
   return isMissionRailCardsEnabled() ? `${OPERATOR_INSTRUCTIONS}\n${RAIL_LAUNCH_CARD_SECTION}` : OPERATOR_INSTRUCTIONS
 }
 
-export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
+export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 
 /** The per-turn system prompt (flag-aware). */
 export function buildOperatorSystemPrompt(): string {

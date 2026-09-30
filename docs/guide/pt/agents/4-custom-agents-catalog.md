@@ -11,28 +11,13 @@ Cada entrada do catálogo mostra para que serve o agente e o seu modelo predefin
 
 ## Adicionar um agente personalizado
 
-Roles são assets nativos do provider: Claude usa
-`.claude/agents/custom-<nome>.md`; Kimi usa
-`.kimi-code/skills/custom-<nome>/SKILL.md`.
-
-Quando o asset existe, aparece no catálogo desse provider e o seu id pode ser adicionado a um perfil do mesmo provider. `custom-docs` corresponde a `.claude/agents/custom-docs.md` em Claude ou `.kimi-code/skills/custom-docs/SKILL.md` em Kimi; ambos ficam separados.
-
 Como vivem no seu repositório, os agentes personalizados são **ativos de equipa que se podem committar**: faça commit do ficheiro e toda a equipa fica com o agente. Isto espelha a ideia central de toda a secção Agentes —
 
 > **As definições dos agentes são partilhadas (vivem no repositório e viajam com o `git`). A configuração dos modelos é por projeto (vive nos perfis).**
 
-Core protege ambos os formatos. Kimi permite criação/edição manual e execução;
-Generate, Test e AI Refine são recusados antes do spawn.
-
 ## Pôr um agente personalizado a trabalhar
 
 O fluxo típico:
-
-1. Crie o asset Claude ou Skill Kimi nativo com instruções/modelo válidos.
-2. Confirme que aparece em **Agentes → Catálogo** em Personalizados.
-3. Em **Agentes → Perfis**, adicione o agente à cadeia de um perfil (substituindo opcionalmente o seu modelo para esse perfil).
-4. Adicione uma regra de encaminhamento para que as tarefas com as tags certas cheguem até ele — ou confie na ordem da cadeia.
-5. Lance um rail com esse perfil a partir do cabeçalho do rail.
 
 ## Acompanhar o desempenho dos perfis
 

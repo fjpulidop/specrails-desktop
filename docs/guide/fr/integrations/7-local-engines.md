@@ -24,10 +24,6 @@ Indisponible sur les moteurs locaux : profils d'agent et rôles personnalisés, 
 
 > Les missions exigent une **grande fenêtre de contexte** côté serveur (64k tokens ou plus) : le prompt de l'opérateur et les schémas d'outils Specrails sont volumineux. Chat et Explore fonctionnent à 32k. Si un tour échoue avec *exceeds the available context size*, augmentez la fenêtre (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
 
-## Seulement un moteur local ?
-
-Rien à configurer. Specrails propose les moteurs que votre machine peut réellement exécuter et choisit la valeur par défaut avec une seule règle partout : un CLI installé (Claude → Codex → Gemini → Kimi), sinon le premier moteur local dont l'endpoint répond. Sur une machine n'ayant qu'un endpoint local, les rails, Add Spec, le chat, **les missions de l'agent et le Project Builder** démarrent dessus, sans toucher au sélecteur. Un moteur dont le serveur est arrêté n'est simplement pas proposé tant qu'il ne répond pas. Les missions existantes gardent le moteur avec lequel elles ont été créées ; le sélecteur permet toujours d'en changer.
-
 ## Choisir un modèle
 
 La qualité dépend du modèle, pas de Specrails. Pour les rails, utilisez un modèle de code entraîné au tool calling d'au moins 30B paramètres ; les petits modèles instruct suffisent pour le chat, Explore et les specs Quick. Essayez **Freestyle** ou une session Explore avant de confier un rail implement complet à un nouveau modèle.

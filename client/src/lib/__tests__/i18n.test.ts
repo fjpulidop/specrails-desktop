@@ -149,3 +149,15 @@ describe('getDateFnsLocale', () => {
     expect(getDateFnsLocale('xx').code).toMatch(/^en/)
   })
 })
+
+it('provides twenty distinct, resolved mission welcomes in every language', async () => {
+  for (const language of LANGUAGE_IDS) {
+    await loadLanguage(language)
+    const phrases = Object.values(i18n.getResource(language, 'agent', 'missionPlaceholders') as Record<string, string>)
+    expect(phrases).toHaveLength(20)
+    expect(new Set(phrases).size).toBe(20)
+    phrases.forEach((phrase, index) => {
+      expect(i18n.t(`missionPlaceholders.${index}`, { ns: 'agent', lng: language })).toBe(phrase)
+    })
+  }
+})

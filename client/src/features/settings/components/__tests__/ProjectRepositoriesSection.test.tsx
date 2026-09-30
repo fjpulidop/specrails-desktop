@@ -30,7 +30,7 @@ describe('ProjectRepositoriesSection', () => {
     await user.type(screen.getByRole('textbox', { name: 'Integration branch' }), 'main')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(desktop.refreshProjects).toHaveBeenCalled())
-    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories/primary-p1', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'Renamed app', integrationBranch: 'main' }) }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories/primary-p1', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'Renamed app', integrationBranch: 'main', workspacePath: null, workspacePaths: null }) }))
   })
 
   it('adds a member, refreshes the inventory and preserves IDs when only renaming a referenced secondary', async () => {
@@ -43,12 +43,12 @@ describe('ProjectRepositoriesSection', () => {
     await user.type(screen.getByRole('textbox', { name: 'Folder path' }), ' /projects/shared ')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await screen.findByText('Shared')
-    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories', expect.objectContaining({ method: 'POST', body: JSON.stringify({ path: '/projects/shared', name: 'Shared', integrationBranch: null }) }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories', expect.objectContaining({ method: 'POST', body: JSON.stringify({ path: '/projects/shared', name: 'Shared', integrationBranch: null, workspacePath: null, workspacePaths: null }) }))
     await user.click(within(screen.getByText('API').parentElement!).getByRole('button', { name: 'Edit' }))
     await user.clear(screen.getByRole('textbox', { name: 'Name' }))
     await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Backend')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories/api', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'Backend', integrationBranch: 'develop' }) })))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p1/repositories/api', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'Backend', integrationBranch: 'develop', workspacePath: null, workspacePaths: null }) })))
   })
 
   it('shows the server reference guard and retains the member until a successful detach', async () => {

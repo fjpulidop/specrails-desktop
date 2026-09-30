@@ -35,8 +35,7 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 | **Status pill** | `idle`, `running`, or `failed`. There's no separate "completed" — a rail returns to `idle` when its job finishes cleanly. |
 | **Spec list** | The IDs assigned to this rail. Drag more in, drag them out to detach. |
 | **Loop picker** | The Loop this rail runs — a built-in (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) or a custom loop. See the table below. Persisted per rail. |
-| **Profile picker** | Which provider-scoped agent profile runs (Claude and Kimi rails). Only appears once the effective provider has at least one profile. |
-| **Engine selector** | Which installed provider runs this rail — Claude, Codex, Gemini, or Kimi. Only renders when the project has more than one provider. See [Picking an engine per rail](picking-an-engine-per-rail). |
+| **Profile picker** | Which provider-scoped agent profile runs (Claude rails). Only appears once the effective provider has at least one profile. |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
 ### What a rail runs: Loops
@@ -46,23 +45,11 @@ A rail runs a **Loop** — the recipe for the work. Two loops are **built in** a
 | Built-in loop | Command | What it does |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. The everyday default. |
-| **Freestyle** | Freestyle | A capable provider implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude and Kimi support it. |
+| **Freestyle** | Freestyle | A capable provider implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude support it. |
 
 To run several specs, put related ones (up to 3) on one rail — `Implement` runs them as one aggregate job — or spread independent specs across several rails: each git-backed rail runs in parallel in its own isolated worktree.
 
-Freestyle is the odd one out: it skips the agent chain and hands the capable
-provider the raw spec to work on with native tools. It's open-ended, so
-pressing Play opens a confirmation first, and its model picker follows that
-provider's catalog. Claude uses its persistent live-session flow; Kimi uses an
-owned agentic `kimi -p` process and has no persistent stdin.
-
 The built-ins are editable, too: edit one in the Loop Builder and publish it, and every rail that picks it runs your version (use **Restore original** to go back).
-
-Beyond the built-ins, you can **build your own loops** — repeat a verify → fix
-→ verify cycle until a goal is met, chain shell commands between AI steps, and
-more. Kimi runs loops without a Loop Decider; its `-p` transport cannot enforce
-the Decider's pure-output verdict boundary. Those custom loops appear in the
-same Loop picker. That's the next big idea: [The Loop Builder](the-loop-builder).
 
 ## The job queue
 
@@ -90,14 +77,6 @@ Click any card to open the **Job Detail view**, where the live streaming log and
 
 Click **■ Stop** on the rail header. The app sends `SIGTERM` to the subprocess, waits **5 seconds** for a clean exit, then `SIGKILL`s it. Nothing is left half-spawned.
 
-## If a rail won't launch
-
-If you pick an engine whose CLI isn't installed on your machine, the launch
-**fails fast** instead of starting a broken job — nothing spawns. Install the
-missing provider CLI ([Using Codex](../integrations/using-codex),
-[Using Gemini](../integrations/using-gemini), or
-[Using Kimi](../../../kimi.md)) and launch again.
-
 ## Stopping everything
 
 If something looks wrong:
@@ -110,4 +89,3 @@ If something looks wrong:
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.
 - [The Job Detail view](the-job-detail-view) — phases, live metrics, ticket cards.
-- [Picking an engine per rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini vs Kimi.

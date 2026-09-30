@@ -320,6 +320,7 @@ export class ProjectRegistry {
     provider?: CliProvider
     providers?: CliProvider[]
     repositories?: ProjectRepositoryInput[]
+    workspacePaths?: string[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
     let previousRegistryEntry: ProjectEntry | undefined
@@ -530,6 +531,13 @@ export class ProjectRegistry {
         input = { ...input }
         delete input.path
       }
+    }
+    if (input.workspacePath !== undefined || input.workspacePaths !== undefined) {
+      const context = this._contexts.get(projectId)
+      if (!context) throw new RepositoryValidationError('Load this project before changing its workspace', 'project_unavailable', 503)
+      const references = getRepositoryExecutionReferences(context.db, repositoryId)
+      const unfinished = context.db.prepare("SELECT id FROM loop_runs WHERE status <> 'completed' LIMIT 1").get()
+      if (unfinished || references.runIds.length || references.deliveryIds.length) throw new RepositoryValidationError('Workspace is referenced by runs or pending deliveries', 'repository_in_use', 409, references)
     }
     if (input.path !== undefined) this._assertRepositoryUnreferenced(projectId, repositoryId)
     const repository = updateRepositoryInDesktopDb(this._desktopDb, projectId, repositoryId, input)
@@ -1136,7 +1144,8 @@ export class ProjectRegistry {
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
-      sourcePath: () => project.path,
+      sourcePath: () => resolveProjectRepository(project).path,
+      workspacePaths: () => { const primary = resolveProjectRepository(project); return primary.workspacePaths ?? (primary.workspacePath ? [primary.workspacePath] : undefined) },
       env: () => resolveLoopBaseEnv(
         { slug: project.slug, path: project.path },
         undefined,
@@ -1388,6 +1397,11 @@ export class ProjectRegistry {
           : Array.isArray(data.jobIds) ? data.jobIds
             : typeof data.jobId === 'string' ? [data.jobId] : []
         return { ok: true, loopRunIds: ids.filter((v): v is string => typeof v === 'string') }
+      },
+      integrateDelivery: async (delivery) => {
+        const action = delivery.decision === 'no_changes' ? 'acknowledge-no-changes' : 'merge-local'
+        const r = await internalApi.call('POST', `${railsBase}/pr-decision`, { prDeliveryId: delivery.id, expectedDecision: delivery.decision, action })
+        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
       },
       activeDeliveryForRail: (railIndex) => {
         const row = getActivePrDeliveryByRail(db, railIndex)

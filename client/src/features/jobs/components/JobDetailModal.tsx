@@ -176,11 +176,11 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
 
   useWebSocket(WS_URL, handleMessage)
 
-  // Close on Escape — but while the cancel-confirm is open, Escape dismisses
-  // the CONFIRM first (it renders in-portal above the modal), not the modal.
+  // Foreground dialogs consume Escape before it reaches this window listener.
+  // Otherwise dismiss the inline cancel confirmation first, then the log modal.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || e.defaultPrevented) return
       if (showCancelConfirm) { setShowCancelConfirm(false); return }
       onClose()
     }

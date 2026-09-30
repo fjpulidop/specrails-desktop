@@ -1,9 +1,5 @@
 # レールごとのエンジン選択
 
-Specrails desktop は **Claude Code**、**Codex CLI**、**Gemini CLI**、
-**Kimi Code** を一級の engine として扱います。compatible な組み合わせを
-install できます。
-
 ## セレクターが現れるとき
 
 **エンジンセレクター** はレールヘッダーの、モードコントロールのすぐ隣にあります。プロジェクトに **複数の** プロバイダーがインストールされているときだけ表示されます。
@@ -13,10 +9,6 @@ install できます。
 セレクターが表示される場合、あなたの選択は **レールごと、起動ごと** です — レールごとに別のエンジンを動かせますし、選んだエンジンはプロジェクト単位で記憶されます（既定はプロジェクトの主エンジン）。
 
 ## エンジンの選び方
-
-1. レールのエンジンセレクターが表示されていることを確認します（プロジェクトにプロバイダーが 2 つ以上）。
-2. **Claude**、**Codex**、**Gemini**、**Kimi** を選びます。
-3. **▶ Play** でレールを起動します。
 
 選んだエンジンが、そのレールのパイプラインの全フェーズを実行します。選んだエンジンの CLI がインストールされていない場合、起動は即座に失敗します — 何も生成されません。足りない CLI をインストールして、もう一度試してください。
 
@@ -28,34 +20,21 @@ install できます。
 |--------|--------------------|-------|
 | **Claude** | native cost、persistent interaction、strict tool policy が必要。 | Profile、Freestyle、structured transform。 |
 | **Codex** | OpenAI Codex CLI を好むとき、あるいはプロバイダー間で実装を比べたいとき。 | `codex` ≥ 0.128.0。ネイティブのコスト報告なし — アプリが料金表からコストを補います。プロファイルは適用されません。 |
-| **Gemini** | Google の Gemini CLI を使いたいとき、ネイティブのテレメトリがほしいとき、あるいは日常的なスペックを安く実行したいとき。 | `gemini` ≥ 0.11.0（`GEMINI_API_KEY` を設定）。ネイティブの OTLP テレメトリ。プロファイルは適用されません。 |
-| **Kimi** | Implement、Freestyle、Decider のない loop に agentic Kimi を使う。 | 外部 `kimi` ≥ 0.27.0。Profile/role、effort は K3 のみ。token/cost は unavailable。 |
-
-### Capability の違い
-
-Claude/Kimi は Profile と Freestyle、Codex/Gemini は legacy。Kimi は
-Loop Decider と [Kimi guide](../../../kimi.md) の pure-output transform
-を拒否します。Claude/Kimi Profile は分離されます。
 
 ## 実用的なワークフロー
 
 複数プロバイダーのプロジェクトは、**比較** や **コスト調整** をしたいときに真価を発揮します。
 
 - **実装を比較する。** 同じスペックを 2 つのレールに乗せ、一方を Claude、もう一方を Codex に設定して両方を起動し（プロジェクトをまたいで、あるいは同じプロジェクトのキューで一つずつ）、ジョブページの **比較** ボタンで結果を差分表示します。
-- **スペック単位でコスト調整する。** 重要なスペックは `max` プロファイルの Claude で、日常的なクリーンアップ系のスペックは Gemini で実行して支出を抑えます。`/analytics` をエンジンで絞り込めば、内訳が見られます。
 - **賢くデフォルトを決める。** 一番よく使うエンジンをプロジェクトの主エンジンに設定してレールがそれを既定にするようにし、特定のスペックが別のエンジンを必要とするときだけレールごとに切り替えます。
 
 ## 覚えておきたいこと
 
 - **プロバイダーの選択はプロジェクト作成後は変更できません**（v1）。インストールするプロバイダーはプロジェクトを追加するときに選びます。あとから追加・削除する設定トグルはありません。
-- **available metrics は記録されます。** Kimi は authoritative token/
-  USD cost を報告しないため空欄です。
 - **ターミナルの「Open AI CLI」ボタン** も、複数プロバイダーのプロジェクトではプロバイダーピッカーを表示します。自分の手で CLI を動かしたいときにどうぞ。
 
 ## 次に読むもの
 
 - [Codex を使う](../integrations/using-codex) — インストールとサインイン。
-- [Gemini を使う](../integrations/using-gemini) — インストール、`GEMINI_API_KEY`、テレメトリ。
-- [Kimi を使う](../../../kimi.md) — install と capability matrix。
 - [レールとジョブ](rails-and-jobs) — キューと起動の流れ。
 - [コストの追跡](../analytics/tracking-cost) — エンジンごとのコスト内訳。

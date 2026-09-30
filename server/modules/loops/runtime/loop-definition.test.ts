@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { compileLoopToDefinition } from './loop-definition'
+import { configurableImplementGraph } from './loop-implement-recipe'
+import { coreFactoryGraph } from './loop-core-factory'
 import { assertDefinitionGraph, isDefinitionGraph, isDefinitionReviewerPath, validateLoopGraph, type LoopGraph } from './loop-graph'
 
 it('validates a custom evidence reviewer against an exact role-turn instance path', () => {
@@ -51,6 +53,21 @@ function fixture(): LoopGraph {
 }
 
 describe('Core workflow authoring contract', () => {
+  it('renders launch data inside command templates without applying implementation instructions to Freestyle', () => {
+    const graph = coreFactoryGraph('freestyle', true)
+    const definition = compileLoopToDefinition(graph, { ...launch, constants: { GUARDRAILS: 'Keep tests intact' },
+      spec: { title: 'Pieza fantasma', description: 'Render {{run.changeId}} and {{cmd:verify}} literally', acceptanceCriteria: ['Ghost predicts landing'] } })
+    expect(definition.nodes.implement.params.text).toContain('Title: Pieza fantasma')
+    expect(definition.nodes.implement.params.text).toContain('Render {{{{run.changeId}} and {{{{cmd:verify}} literally')
+    expect(definition.nodes.implement.params.text).not.toMatch(/\{\{spec\./)
+    expect(definition.nodes.implement.params.text).not.toContain('openspec-apply-change')
+    expect(definition.nodes.fix.params.text).not.toContain('openspec-apply-change')
+    graph.nodes.find(node => node.id === 'fix')!.data!.params!.text = '{{cmd:test}}'
+    expect(compileLoopToDefinition(graph, { ...launch, constants: { GUARDRAILS: 'Keep tests intact' } }).nodes.fix.params.text).toContain('Keep tests intact')
+    graph.config.agents!.rolePrompts!.developer = 'Custom free agent'
+    expect(compileLoopToDefinition(graph, launch).nodes.implement.params.text).toContain('Custom free agent')
+  })
+
   it('compiles scoped assignments without AI bindings and rejects a catalog that lacks them', () => {
     const graph = fixture()
     graph.nodes[1].data = { kind: 'assign', params: { set: { failed: false }, increment: { iteration: 1 } } }
@@ -95,7 +112,7 @@ describe('Core workflow authoring contract', () => {
     expect(definition.id).toBe('factory-quick')
     expect(definition.entry).toBe('work')
     expect(definition.nodes.start).toBeUndefined()
-    expect(definition.nodes.work.params.text).toBe('Verified work: Fix {{cmd:verify}} / {{run.changeId}}')
+    expect(definition.nodes.work.params.text).toBe('Verified work: Fix {{{{cmd:verify}} / {{run.changeId}}')
     expect(definition.nodes.work.params.engine).toEqual({ provider: 'claude', model: 'chosen-model' })
     expect(definition.nodes.finish.params.requiresVerified).toBe(true)
     expect(definition.budget).toEqual({ maxCostUsd: 0.5, maxTokens: 1000, maxDurationMs: 120_000 })
@@ -180,4 +197,30 @@ it('does not transfer a rail model or effort to a different node-selected provid
   const graph = fixture()
   graph.nodes[1].data!.params = { text: 'Review', access: 'read', engine: { provider: 'local' } }
   expect(compileLoopToDefinition(graph, { ...launch, effort: 'high' }).nodes.work.params.engine).toEqual({ provider: 'local' })
+})
+
+
+it('requires applied evidence for every frozen addendum before Implement can archive', () => {
+  const graph = configurableImplementGraph()
+  const original = structuredClone(graph)
+  const definition = compileLoopToDefinition(graph, { ...launch, id: 'factory:implement', addendaIds: ['a-first', 'a-second'], briefing: 'Frozen delta' })
+  const schema = definition.nodes.reviewer.params.structuredOutput as { required: string[]; properties: { addenda: { required: string[]; properties: Record<string, { properties: { id: { const: string }; verdict: { enum: string[] } } }> } } }
+  expect(schema.required).toContain('addenda')
+  expect(schema.properties.addenda.required).toEqual(['a0', 'a1'])
+  expect(schema.properties.addenda.properties.a0.properties.id.const).toBe('a-first')
+  expect(schema.properties.addenda.properties.a1.properties.id.const).toBe('a-second')
+  expect(schema.properties.addenda.properties.a0.properties.verdict.enum).toEqual(['applied', 'partial', 'blocked'])
+  expect(definition.nodes['review-policy'].params.expr).toContain('$outputs.reviewer.structured.approved == true')
+  for (const slot of ['a0', 'a1']) {
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.verdict == "applied"`)
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.files.length > 0`)
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.tests.length > 0`)
+  }
+  expect(definition.nodes.reviewer.ends.next).toBe('addenda-review-0')
+  expect(definition.nodes['addenda-review-0'].ends).toEqual({ true: 'review-policy', false: 'fixer' })
+  expect(definition.nodes['review-policy'].ends).toEqual({ true: 'approve', false: 'fixer' })
+  expect(definition.nodes.archive.params.requiresVerified).toBe(true)
+  expect(definition.nodes.architect.params.prompt).toContain('Frozen delta')
+  expect(graph).toEqual(original)
+  expect(compileLoopToDefinition(graph, { ...launch, id: 'factory:implement' }).nodes.reviewer.params.structuredOutput).not.toHaveProperty('properties.addenda')
 })

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MissionPaneControls } from '../../context/MissionSplitViewsContext'
+import { fireEvent } from '@testing-library/react'
 import { AgentModeSurface } from '../AgentModeSurface'
 
 let activeThemeId = 'dracula'
@@ -72,4 +74,12 @@ describe('AgentModeSurface', () => {
 
     expect(screen.queryByTestId('agent-integrations-modal')).not.toBeInTheDocument()
   })
+})
+
+it('allows closing an unstarted mission pane and removes the empty heading', () => {
+  const close = vi.fn()
+  render(<MissionPaneControls onClose={close}><AgentModeSurface splitPane /></MissionPaneControls>)
+  fireEvent.click(screen.getByRole('button', { name: 'Close split view' }))
+  expect(close).toHaveBeenCalledOnce()
+  expect(screen.queryByText("What's the mission?")).not.toBeInTheDocument()
 })

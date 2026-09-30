@@ -8,9 +8,10 @@ export interface VerificationSuggestion {
   args: string[]
   /** What was detected, for the settings UI. */
   reason: string
+  cwd?: string
 }
 
-interface Repository { id: string; path: string }
+interface Repository { id: string; path: string; workspacePaths?: string[]; workspacePath?: string }
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 
 const NPM_TEST_PLACEHOLDER = /no test specified/i
@@ -90,9 +91,15 @@ function otherSuggestions(repository: Repository): VerificationSuggestion[] {
 export function suggestVerificationCommands(repositories: Repository[]): VerificationSuggestion[] {
   const out: VerificationSuggestion[] = []
   for (const repository of repositories) {
-    if (!repository.path || !fs.existsSync(repository.path)) continue
-    const node = nodeSuggestions(repository)
-    out.push(...(node.length ? node : otherSuggestions(repository)))
+    const workspaces = repository.workspacePaths ?? (repository.workspacePath ? [repository.workspacePath] : [repository.path])
+    for (const workspace of workspaces) {
+      if (!workspace || !fs.existsSync(workspace)) continue
+      const member = { ...repository, path: workspace }
+      const node = nodeSuggestions(member)
+      const checks = node.length ? node : otherSuggestions(member)
+      const cwd = path.relative(repository.path, workspace).split(path.sep).join('/')
+      out.push(...checks.map(check => cwd ? { ...check, cwd, reason: `${cwd}: ${check.reason}` } : check))
+    }
   }
   return out
 }

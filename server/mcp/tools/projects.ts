@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ProjectRow } from '../../desktop-db'
 import type { McpToolSpec } from './types'
-import { getActiveProject } from './types'
+import { apiCall, projectPath, getActiveProject } from './types'
 import { canonicalRepositoryPath, getProjectRepositories, repositoryPathKey } from '../../project-repositories'
 
 export function serializeProject(p: ProjectRow): Record<string, unknown> {
@@ -26,17 +26,36 @@ export function projectsTools(): McpToolSpec[] {
       title: 'Projects',
       description:
         'List and inspect registered Specrails projects, resolve a project by filesystem path, or unregister one. ' +
-        'Actions: list, get, resolve (by path), unregister (destructive — removes the project and its workspace).',
+        'Actions: list, get, resolve (by project/repository/workspace path), repositories (inventory), repository_add / repository_update (write, configure registered code workspacePaths), repository_remove (destructive), unregister (destructive — removes the project and its workspace).',
       hintTier: 'read',
-      tier: (args) => (args.action === 'unregister' ? 'destructive' : 'read'),
+      tier: (args) => ['unregister', 'repository_remove'].includes(String(args.action)) ? 'destructive' : ['repository_add', 'repository_update'].includes(String(args.action)) ? 'write' : 'read',
       inputSchema: {
-        action: z.enum(['list', 'get', 'resolve', 'unregister']).describe('Operation to perform'),
-        projectId: z.string().optional().describe('Project id (for get / unregister)'),
-        path: z.string().optional().describe('Filesystem path (for resolve)'),
+        action: z.enum(['list', 'get', 'resolve', 'repositories', 'repository_add', 'repository_update', 'repository_remove', 'unregister']).describe('Operation to perform'),
+        projectId: z.string().optional().describe('Project id; defaults to the active project for get and repository operations; required for unregister'),
+        path: z.string().optional().describe('Filesystem path for resolve or repository_add/update; repository root retains its Git/delivery identity'),
+        repositoryId: z.string().min(1).optional().describe('Required for repository_update/remove; discover from repositories/get'),
+        name: z.string().min(1).optional().describe('Repository display name'),
+        integrationBranch: z.string().nullable().optional().describe('Repository integration branch; null clears it'),
+        workspacePaths: z.array(z.string().min(1)).min(1).max(50).nullable().optional().describe('repository_add/update: code directories inside the repository, absolute or root-relative. null resets to repository root. Independent Git roots need separate memberships. Changes are rejected while active runs depend on this scope.'),
       },
       handler: (ctx, args) => {
         const action = args.action as string
         switch (action) {
+          case 'repositories':
+            return apiCall(ctx, 'GET', `${projectPath(ctx, args.projectId as string | undefined)}/repositories`)
+          case 'repository_add':
+          case 'repository_update':
+          case 'repository_remove': {
+            const base = `${projectPath(ctx, args.projectId as string | undefined)}/repositories`
+            const id = args.repositoryId as string | undefined
+            if (action !== 'repository_add' && !id) throw new Error(`${action} requires repositoryId.`)
+            if (action === 'repository_remove') return apiCall(ctx, 'DELETE', `${base}/${encodeURIComponent(id!)}`)
+            if (action === 'repository_add' && !args.path) throw new Error('repository_add requires path.')
+            const body: Record<string, unknown> = {}
+            for (const key of ['path', 'name', 'integrationBranch', 'workspacePaths']) if (args[key] !== undefined) body[key] = args[key]
+            if (!Object.keys(body).length) throw new Error('repository_update requires at least one field to update.')
+            return apiCall(ctx, action === 'repository_add' ? 'POST' : 'PATCH', action === 'repository_add' ? base : `${base}/${encodeURIComponent(id!)}`, body)
+          }
           case 'list':
             return ctx.registry.listProjects().map((p) => ({ ...serializeProject(p), available: !!ctx.registry.getContext(p.id) }))
           case 'get': {
@@ -52,7 +71,7 @@ export function projectsTools(): McpToolSpec[] {
             const selected = args.projectId as string | undefined
             const key = repositoryPathKey(canonicalRepositoryPath(p))
             const matches = ctx.registry.listProjects().filter(row => !selected || row.id === selected).flatMap(project =>
-              getProjectRepositories(project).filter(repository => repositoryPathKey(canonicalRepositoryPath(repository.path)) === key)
+              getProjectRepositories(project).filter(repository => [repository.path, ...(repository.workspacePaths ?? (repository.workspacePath ? [repository.workspacePath] : []))].some(root => repositoryPathKey(canonicalRepositoryPath(root)) === key))
                 .map(repository => ({ project, repository })))
             if (matches.length > 1) return { resolved: false, ambiguous: true, matches: matches.map(({ project, repository }) => ({ projectId: project.id, projectName: project.name, repositoryId: repository.id, repositoryName: repository.name })) }
             const match = matches[0]

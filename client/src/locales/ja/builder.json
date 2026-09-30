@@ -303,18 +303,20 @@
         "run_lost": "再起動後に実行中のレールが見つかりません",
         "unknown": "一時停止",
         "provider_limit": "プロバイダーの利用上限に達しました",
-        "rail_limit_reached": "すべてのレールに判断待ちの PR があります — 保留中の PR をマージまたは破棄してレールを空けてから再開してください"
+        "rail_limit_reached": "すべてのレールに判断待ちの PR があります — 保留中の PR をマージまたは破棄してレールを空けてから再開してください",
+        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
       },
       "checkpoint": "レール {{k}}/{{n}} を納品 — レール {{next}} を起動しますか？",
       "launchNext": "次のレールを起動",
       "nextLaunched": "次のレールを起動しました",
       "autoAdvance": "自動で続行",
-      "autoAdvanceHint": "前のレールが納品され次第、次のレールを起動します",
+      "autoAdvanceHint": "Integrates each spec before creating the next worktree",
       "checkpointHint": "各レールの後で停止し、次を起動する前に確認します",
       "checkpointNote": "このレールの後で停止",
       "autoOn": "自動続行オン — 次のレールは自動で起動します",
       "autoOff": "自動続行オフ — 各レールの前に確認します",
-      "autoFailed": "チェーンを更新できませんでした"
+      "autoFailed": "チェーンを更新できませんでした",
+      "integrating": "integrating this spec before launching the next"
     },
     "toast": {
       "launched": "{{milestone}} を起動 — スペック 1/{{n}} がレール上にあります。以降のスペックはそれぞれ 1 レールで自動的に続きます",

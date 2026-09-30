@@ -1,7 +1,5 @@
 # Tracking cost
 
-specrails-desktop records AI CLI invocations across Claude, Codex, Gemini, and Kimi and surfaces the available metrics on one Analytics page per project. This guide walks through what's tracked, what's unavailable, and how to read the dashboard.
-
 ## What gets tracked
 
 Six surfaces, all per-project:
@@ -15,18 +13,6 @@ Six surfaces, all per-project:
 | **`smash`** | SMASH runs that break an epic spec into sub-specs |
 | **`file-summary`** | Code-explorer AI summaries of individual files |
 
-Each invocation row carries the provider, model, status, timestamps, duration,
-and relevant ticket/conversation IDs. Token, USD-cost, and turn fields are
-nullable because not every CLI reports them; Kimi leaves those values
-unavailable rather than writing zero.
-
-The surface list is app-wide, not a promise that every provider can spawn
-every row type. Kimi records its agentic chats/Explore/rails/loops, but Quick
-Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, file summaries, construction
-story, AI auto-title, Project Builder blueprint/milestone generation, Loop
-Decider, and Agent Studio automation fail before spawn. Those rejected
-requests create no invocation row; AI auto-title uses a deterministic fallback.
-
 > Cost averages exclude `failed`/`aborted` rows, but those rows still count toward the total run count and the failure rate.
 
 ## Authoritative vs estimated cost
@@ -34,23 +20,15 @@ requests create no invocation row; AI auto-title uses a deterministic fallback.
 Whether a cost figure is exact depends on the provider's CLI, not on which provider you picked:
 
 - **Claude cost is provider-billed and authoritative** — the figure comes straight from the CLI's own usage report.
-- **Codex and Gemini do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/modules/accounting/runtime/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
-- **Kimi reports neither token counts nor a native USD-cost envelope** in its
-  stream. Specrails does not invent an estimate: cost and token cells stay
-  unavailable.
+- **Codex do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/modules/accounting/runtime/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
 
 On multi-provider projects, a **Provider breakdown** card splits spend across the project's installed engines so you can see authoritative vs estimated at a glance.
 
-> **Fail-soft on unknown models.** The rate card lists specific models (the current Codex and Gemini catalogs). If an invocation uses a model that isn't in the table, the app **does not fabricate a number** — it stores no cost (`total_cost_usd` is left empty), so that row simply shows a blank cost rather than a misleading estimate.
+> **Fail-soft on unknown models.** The rate card lists specific models (the current Codex catalogs). If an invocation uses a model that isn't in the table, the app **does not fabricate a number** — it stores no cost (`total_cost_usd` is left empty), so that row simply shows a blank cost rather than a misleading estimate.
 
 ## What's NOT tracked (intentionally)
 
-- **Sidebar chat** — the general-purpose chat panel in the right sidebar. It spawns an AI process, including `kimi -p` when Kimi is selected, but isn't pipeline work, so the app excludes it from analytics by design.
 - **Setup wizard** — the install/enrich flow when you add a project. It *does* spawn an AI CLI (a genuine model invocation), but it's an interactive one-time wizard rather than a repeatable pipeline job, so it's deliberately left uninstrumented.
-
-If you want the absolute total of what an engine has cost you, your provider's
-own console is the source of truth. This is especially important for Kimi,
-whose CLI stream provides no billable usage envelope to Desktop.
 
 ## The Analytics page
 
@@ -74,13 +52,6 @@ The big number at the top is total spend in the selected period, with:
 - and, when any rows are estimated, an "includes ~$X estimated" footnote.
 
 When the project has zero invocations in the period (e.g. you just started), the Hero shows "Tracking started YYYY-MM-DD" — the date of the first invocation ever recorded. There's no historical backfill; tracking begins at that first row.
-
-### Provider breakdown
-
-On multi-provider projects, a dedicated card splits available spend across the
-project's installed engines. It is data-driven, so Kimi appears even though its
-cost is unavailable. Estimated Codex/Gemini totals carry a `~` tilde. The card
-is hidden on single-provider projects.
 
 ### Daily stacked timeline
 
@@ -176,8 +147,6 @@ For the cross-project view, open **Analytics** from the Arc sidebar on the left.
 - [Customising the app](customizing.md) — set the budget, configure notifications.
 - [Creating specs](creating-specs.md) — every spec you create adds rows to your analytics.
 - [Using Codex](codex.md) — how cost works when you run a project on Codex (estimated, ~ tilde).
-- [Using Gemini](gemini.md) — how cost works when you run a project on Gemini (also estimated, ~ tilde).
-- [Using Kimi](kimi.md) — why Kimi duration/outcome are recorded while tokens and cost remain unavailable.
 
 ## Legacy workflow usage
 

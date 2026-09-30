@@ -8,6 +8,7 @@ import { runAgentRuntimeInvocation } from '../../agent-runtime/runtime/agent-run
 import { resetCoreAgentRuntimeApiCache } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { getFactoryLoop } from './loop-factory'
 import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from './loop-compat'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import { compileLoopToDefinition } from './loop-definition'
 
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
@@ -35,7 +36,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
-async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string, converted = false) {
+async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string, converted = false, configurable = false, customStep = false, approval = false, planningQuestion = false, addendaIds: string[] = []) {
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
@@ -51,19 +52,27 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
   const change = 'paired-change'
-  let factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1 })!
+  let factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}) })!
+  if (approval) factory.graph.nodes.find(node => node.id === 'approve')!.data!.params!.enabled = true
+  if (customStep) {
+    factory.graph.config.agents!.roles!.accessibility = { provider: 'claude', access: 'read', artifacts: 'none', prompt: 'Review accessibility against the actual requirements.' }
+    factory.graph.nodes.push({ id: 'accessibility', type: 'core', position: { x: 360, y: 800 }, data: { kind: 'role-turn', params: { roleId: 'accessibility', prompt: 'Review actual code read-only.' } } })
+    factory.graph.edges.find(edge => edge.source === 'verify' && edge.label === 'pass')!.target = 'accessibility'
+    factory.graph.edges.push({ id: 'a-next', source: 'accessibility', target: 'reviewer', label: 'next' }, { id: 'a-failed', source: 'accessibility', target: 'failed', label: 'failed' })
+  }
   if (converted) {
     const old = getFactoryLoop(`factory:${mode}`)!
     const projection = convertLegacyLoop(old.graph, { repositoryId: 'repo' })
     if (!projection.ok) throw Error(JSON.stringify(projection.issues))
     factory = { ...old, graph: projection.graph }
   }
-  const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0', SPECRAILS_FACTORY_BLOCK: blockAt ?? '',
+  const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0', SPECRAILS_FACTORY_BLOCK: blockAt ?? '', SPECRAILS_FACTORY_ADDENDA: JSON.stringify(addendaIds),
     NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` }
   let result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change, env,
+    ...(!legacy && factory.graph.config.agents ? { loopConfig: factory.graph.config.agents } : {}),
     ...(decisionModel ? { workflowRoleBindings: { 'loop-decider': { provider: 'claude', model: decisionModel, access: 'read' as const, artifacts: 'none' as const } } } : {}),
     ...(converted && factory.graph.config.legacyDeciderRole ? { workflowRoleBindings: { [LEGACY_DECIDER_ROLE]: { provider: 'claude', access: 'read' as const, artifacts: 'none' as const } } } : {}),
-    ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: config => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, roles: config.roles, repositoryCount: 1, changeId: change }) } : {}),
+    ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: config => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, spec: specs[0], roles: config.roles, ...(factory.graph.config.agents ? { loopAgents: config } : {}), repositoryCount: 1, changeId: change, addendaIds }) } : {}),
     onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
   })
   if (blockAt) {
@@ -73,8 +82,19 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
     result = await runAgentRuntimeInvocation({ contextPath, cwd: repository, env, engineVersion: 2, resume: true,
       answer: 'Return two', interruptId: result.pendingInterrupts![0].id, onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
   }
+  if (planningQuestion) {
+    expect(result).toMatchObject({ failed: false, runtimeStatus: 'paused' })
+    result = await runAgentRuntimeInvocation({ contextPath, cwd: repository, env, engineVersion: 2, resume: true,
+      answer: 'Return two', interruptId: result.pendingInterrupts![0].id, onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
+  }
+  if (approval) {
+    expect(result).toMatchObject({ failed: false, runtimeStatus: 'paused' })
+    expect(result.pendingInterrupts).toHaveLength(1)
+    result = await runAgentRuntimeInvocation({ contextPath, cwd: repository, env, engineVersion: 2, resume: true,
+      approve: [result.pendingInterrupts![0].id], onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
+  }
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
-  expect(result, JSON.stringify({ result, events: events.slice(-5) })).toMatchObject({ failed: stall })
+  expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall })
   if (!legacy && !stall) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
   expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 2\n')
   return { result, calls, events }
@@ -89,6 +109,10 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
     expect(actual.calls.map(call => call.nativeCommand.id)).toEqual(['opsx:ff', 'opsx:apply'])
   } else {
     expect(actual.calls.map(call => call.role)).toEqual(['prompt', 'prompt', 'loop-decider'])
+    expect(actual.calls[0].prompt).toContain('Title: Return two')
+    expect(actual.calls[0].prompt).toContain('code.cjs returns two')
+    expect(actual.calls[0].prompt).not.toContain('openspec-apply-change')
+    expect(actual.calls[1].prompt).not.toContain('openspec-apply-change')
     const terminal = actual.events.filter(event => event.type === 'workflow-event' && event.event.nodePath === 'verify' && event.event.type === 'step_succeeded')
     expect(terminal).toHaveLength(2)
     expect(actual.calls.at(-1)?.access).toBe('read')
@@ -129,4 +153,63 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
   // Compare with the original engine on the same factory: it must match exactly.
   const original = await execute(mode, true)
   expect(actual.calls.map(call => call.role)).toEqual(original.calls.map(call => call.role))
+}, 180_000)
+
+
+it.skipIf(!core)('executes configurable Implement with arbitrary loop-owned agents and real artifacts and verification', async () => {
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'accessibility', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+it.skipIf(!core)('routes failed verification to the configurable correction agent and repeats host gates', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_CORRECT', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'assess'])
+}, 180_000)
+
+it.skipIf(!core)('resumes candidate-bound approval in configurable Implement without replaying its agents', async () => {
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+
+it.skipIf(!core)('investigates low planning confidence before asking, then resumes the generic Implement recipe', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_CONFIDENCE', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, false, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'plan', 'plan', 'build', 'assess'])
+  expect(actual.calls[2].prompt).toContain('Return two')
+}, 180_000)
+
+
+it.skipIf(!core)('admits Implement addendum gates and rejects missing, partial or unverified delta coverage', async () => {
+  const { validateWorkflowDefinition } = await import(pathToFileURL(path.join(core!, 'dist/agent-runtime/engine/definition-validator.js')).href)
+  const { validationPieceRegistry } = await import(pathToFileURL(path.join(core!, 'dist/agent-runtime/engine/pieces/index.js')).href)
+  const { parseExpression } = await import(pathToFileURL(path.join(core!, 'dist/agent-runtime/engine/expressions.js')).href)
+  const addendaIds = Array.from({ length: 50 }, (_, index) => `addendum-${index}`)
+  const definition = compileLoopToDefinition(configurableImplementGraph(), { id: 'factory:implement', provider: 'claude', constants: {}, addendaIds })
+  const admitted = validateWorkflowDefinition(definition, validationPieceRegistry(), {}, { structural: true })
+  expect(admitted.ok, JSON.stringify(admitted.errors)).toBe(true)
+  const gates = Object.values(definition.nodes).filter(node => node.kind === 'condition' && String(node.params.expr).includes('.addenda.'))
+  expect(gates).toHaveLength(5)
+  const reports = Object.fromEntries(addendaIds.map((id, index) => [`a${index}`, { id, verdict: 'applied', files: ['src/file.ts'], tests: ['unit test passed'] }]))
+  const passes = () => gates.every(gate => parseExpression(gate.params.expr).evaluate({ $outputs: { reviewer: { structured: { addenda: reports } } } }))
+  expect(passes()).toBe(true)
+  reports.a49.verdict = 'partial'
+  expect(passes()).toBe(false)
+  reports.a49.verdict = 'blocked'
+  expect(passes()).toBe(false)
+  reports.a49.verdict = 'applied'
+  reports.a49.tests = []
+  expect(passes()).toBe(false)
+  reports.a49.tests = ['unit test passed']; reports.a49.files = []
+  expect(passes()).toBe(false)
+  delete reports.a49
+  expect(passes()).toBe(false)
+})
+
+
+it.skipIf(!core)('corrects a partial addendum before archiving through the real Implement runtime', async () => {
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, false, false, false, ['a1'])
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
 }, 180_000)

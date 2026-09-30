@@ -66,7 +66,7 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
   router.get('/:projectId/agent-runtime/verification-suggestions', (req, res) => {
     try {
       const project = ctx(req).project
-      const repositories = getProjectRepositories(project).map((repository) => ({ id: repository.id, name: repository.name, path: repository.path }))
+      const repositories = getProjectRepositories(project).map((repository) => ({ id: repository.id, name: repository.name, path: repository.path, workspacePath: repository.workspacePath, workspacePaths: repository.workspacePaths }))
       res.json({ repositories: repositories.map(({ id, name }) => ({ id, name })), suggestions: suggestVerificationCommands(repositories) })
     } catch {
       res.status(500).json({ error: 'verification_suggestions_failed', message: 'Could not inspect the project repositories' })

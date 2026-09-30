@@ -6,6 +6,10 @@ export interface RunRepositorySnapshot {
   repositoryId: string
   name: string
   sourcePath: string
+  /** Frozen code workspace, distinct from the Git delivery root. */
+  workspacePath?: string
+  workspacePaths?: string[]
+  selectedWorkspacePaths?: string[]
   gitCommonDir: string
   baseBranch: string
   /** Local acceptance target; differs from baseBranch for a stacked milestone. */

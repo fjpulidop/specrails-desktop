@@ -19,6 +19,11 @@ export type ProviderId = string
  *  block (mirrors server/providers/local-adapter.ts). */
 export const CLI_PROVIDER_IDS: readonly string[] = ['claude', 'codex', 'gemini', 'kimi']
 
+/** Public choices only; retain private adapters for existing executions. */
+export function isPublicProvider(id: string): boolean {
+  return id !== 'gemini' && id !== 'kimi'
+}
+
 /**
  * The provider an app-level surface (a fresh mission, the Builder) should start
  * on given the machine's usable providers: the fixed CLI preference order
@@ -106,6 +111,8 @@ const PROVIDER_REASONING_EFFORTS: Record<string, readonly ProviderReasoningEffor
 // Mirrors the model-specific Codex CLI capabilities in codex-adapter.ts.
 const CODEX_BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
+  // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
+  'gpt-6.1-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-terra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],

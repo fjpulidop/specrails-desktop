@@ -16,7 +16,7 @@ function fixture() {
 }
 function manifest(front: string, back: string): RunExecutionManifest {
   return { version: 1, groupId: 'group', projectId: 'project', primaryRepositoryId: 'front', artifactRepositoryId: 'back', selectedRepositoryIds: ['front', 'back'], repositories: [front, back].map((folder, i) => ({
-    repositoryId: i ? 'back' : 'front', name: i ? 'Backend' : 'Frontend', sourcePath: folder + '-original', gitCommonDir: folder + '/.git', baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: folder, branch: 'feature', worktreeId: 'tree-' + i,
+    repositoryId: i ? 'back' : 'front', name: i ? 'Backend' : 'Frontend', sourcePath: folder, gitCommonDir: folder + '/.git', baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: folder, branch: 'feature', worktreeId: 'tree-' + i,
   })) }
 }
 describe('Core execution context', () => {
@@ -110,6 +110,16 @@ describe('repository scope for a package of a larger checkout', () => {
     const isolated = prepareCoreExecution({ cwd, repoDir: worktree, env: {}, ...single(app), run: { runId: 'scoped-single', projectId: 'p' } })
     expect(JSON.parse(readFileSync(isolated.contextPath, 'utf8')).repositories[0].scope).toEqual(['apps/busuu-courses'])
   })
+  it('freezes an explicit workspace inside the project repository and briefs its exact worktree path', () => {
+    const { cwd, source, worktree, app } = monorepo()
+    const input = { cwd, manifest: { version: 1 as const, groupId: 'group', projectId: 'p', primaryRepositoryId: 'studio', artifactRepositoryId: 'studio', selectedRepositoryIds: ['studio'], repositories: [{ repositoryId: 'studio', name: 'Studio', sourcePath: source, workspacePath: app, gitCommonDir: 'unused', baseBranch: 'main', baseSha: 'b'.repeat(40), worktreePath: worktree, branch: 'fix/test', worktreeId: 'tree' }] }, env: {}, run: { runId: 'explicit-workspace' } }
+    const prepared = prepareCoreExecution(input)
+    expect(JSON.parse(readFileSync(prepared.contextPath, 'utf8')).repositories[0].scope).toEqual(['apps/busuu-courses'])
+    expect(prepared.workspaceBriefing).toContain(join(worktree, 'apps', 'busuu-courses'))
+    expect(prepared.workspaceBriefing).toContain('set its cwd explicitly')
+    expect(() => prepareCoreExecution({ ...input, manifest: { ...input.manifest, repositories: [{ ...input.manifest.repositories[0], workspacePath: source }] } })).toThrow('context changed')
+  })
+
   it('adds no scope when the registered directory is the checkout root or is what Core already receives', () => {
     const { cwd, source, app, worktree } = monorepo()
     const shared = prepareCoreExecution({ cwd, repoDir: app, env: {}, ...single(app), run: { runId: 'shared-cwd', projectId: 'p' } })
@@ -225,4 +235,38 @@ describe('Core implementation completion gate', () => {
     }
     expect(checkCoreCompletion('/context.json', cwd, process.env, 'run').valid).toBe(false)
   })
+})
+
+
+it('uses the explicit code workspace even for a non-Git project folder', () => {
+  const { cwd, front } = fixture()
+  const workspace = join(front, 'skills-studio')
+  mkdirSync(workspace)
+  const prepared = prepareCoreExecution({ cwd, repoDir: front, sourcePath: workspace, env: {}, run: { runId: 'folder-workspace' } })
+  expect(JSON.parse(readFileSync(prepared.contextPath, 'utf8')).repositories[0].scope).toEqual(['skills-studio'])
+})
+
+
+it('freezes several workspaces of the same Git checkout without duplicate repository or delivery identities', () => {
+  const { root, cwd } = fixture()
+  const source = join(root, 'skills'), worktree = join(root, 'isolated-skills')
+  for (const directory of [source, worktree]) {
+    mkdirSync(join(directory, '.git'), { recursive: true })
+    for (const workspace of ['skills-studio', 'skills-service']) mkdirSync(join(directory, workspace))
+  }
+  const prepared = prepareCoreExecution({ cwd, repoDir: worktree, sourcePath: source, workspacePaths: ['skills-studio', 'skills-service'].map(dir => join(source, dir)), env: {}, run: { runId: 'multi-workspace', projectId: 'skills' } })
+  const repositories = JSON.parse(readFileSync(prepared.contextPath, 'utf8')).repositories
+  expect(repositories).toHaveLength(1)
+  expect(repositories[0]).toMatchObject({ id: 'primary-skills', path: worktree, scope: ['skills-studio', 'skills-service'] })
+  expect(prepared.workspaceBriefing).toContain(join(worktree, 'skills-studio'))
+  expect(prepared.workspaceBriefing).toContain(join(worktree, 'skills-service'))
+})
+
+it('freezes only the selected workspace and retains the registered scope for host check filtering', () => {
+  const { cwd, front } = fixture()
+  const paths = ['studio', 'service'].map(name => { const path = join(front, name); mkdirSync(path); return path })
+  const input = { cwd, repoDir: front, workspacePaths: paths, selectedWorkspacePaths: [paths[0]!], env: {}, run: { runId: 'selection' } }
+  const prepared = prepareCoreExecution(input)
+  expect(JSON.parse(readFileSync(prepared.contextPath, 'utf8')).repositories[0]).toMatchObject({ scope: ['studio'], registeredScope: ['studio', 'service'] })
+  expect(() => prepareCoreExecution({ ...input, selectedWorkspacePaths: [paths[1]!] })).toThrow('context changed')
 })

@@ -1,3 +1,4 @@
+import { loopAgentRoles, nodeAgentRoles } from '../core-authoring'
 import { describe, expect, it } from 'vitest'
 import { coreNodeData, effectiveOutcomes, parameterDefault, reviewerNodePaths } from '../core-authoring'
 import type { LoopGraph, WorkflowPieceDescriptor } from '../loops-api'
@@ -33,4 +34,17 @@ describe('Core authoring catalog', () => {
     })
     expect(parameterDefault({ type: 'object', properties: { timeoutMs: { type: 'integer' } } })).toEqual({})
   })
+})
+
+it('discovers roles in referenced nested bodies without including unused definitions or recursing forever', () => {
+  const node = (id: string, kind: string, params: Record<string, unknown>) => ({ id, type: 'core' as const, position: { x: 0, y: 0 }, data: { kind, params } })
+  const config = { maxIterations: 1, timeoutMinutes: 0 }
+  const graph: LoopGraph = { config, edges: [], nodes: [node('nested', 'map', { body: 'used' })], components: {
+    used: { config, edges: [], nodes: [node('audit', 'role-turn', { roleId: 'auditor' }), node('inspect', 'prompt', { access: 'read' }), node('cycle', 'component', { ref: 'used' })] },
+    unused: { config, edges: [], nodes: [node('old', 'implementation', {})] },
+  } }
+  expect(loopAgentRoles(graph)).toEqual(['auditor', 'reviewer'])
+  expect(nodeAgentRoles('check', 'implementation-step', { phase: 'verify' })).toEqual([])
+  expect(nodeAgentRoles('write', 'implementation-step', { phase: 'developer' })).toEqual(['developer'])
+  expect(nodeAgentRoles('legacy', 'implementation', {})).toEqual(['architect', 'developer', 'reviewer', 'fixer'])
 })

@@ -320,3 +320,8 @@ describe('preferredProvider', () => {
     expect(preferredProvider([])).toBe('claude')
   })
 })
+
+it('offers all Codex GPT-6.1 Sol efforts and uses medium as the initial selection', () => {
+  expect(reasoningEffortsForProvider('codex', 'gpt-6.1-sol')).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+  expect(defaultReasoningEffortForProvider('codex', 'gpt-6.1-sol')).toBe('medium')
+})

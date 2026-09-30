@@ -20,6 +20,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/MissionWindowAction.tsx](components/MissionWindowAction.tsx)
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)
+- [components/MissionConversationMenu.tsx](components/MissionConversationMenu.tsx)
+- [context/MissionSplitViewsContext.tsx](context/MissionSplitViewsContext.tsx)
 - [components/agent-run-failure.ts](components/agent-run-failure.ts)
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)
@@ -56,3 +58,50 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/missions`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Split view and compact composer
+
+Right-click a sidebar mission (or press Shift+F10 on its row) and choose
+**Split view** to add it beside the current conversation. Existing panes are focused instead of duplicated. Layout belongs to the current window and survives
+a Mission/Board mode switch within that window.
+
+At sufficient width the layout uses at most two columns: the first two panes are
+side by side, subsequent panes divide those columns into rows. Narrow areas stack
+panes vertically. Closing a pane removes only that view; remaining panes keep
+their mounted transcripts and composers, and a single remaining pane fills the
+space. The original empty mission can also be closed while splits are open.
+Closing all additional panes restores the original mission. Closing a view never
+deletes its conversation or stops the server turn.
+
+Additional panes reuse AgentChatProvider in fixed-conversation mode with unique
+WebSocket subscriptions, independent workspace state and scoped composer animation
+IDs. They do not change the global active project or create floating chat panels.
+Native handoff ownership still blocks editing missions assigned to other windows
+and pending transfers. Detach/attach actions remain owned by the primary mission.
+
+The composer uses one flat, rounded surface and a bottom control row. Autonomy
+follows **+**, process history is an icon, and one model/effort trigger opens the
+effort slider, model list and provider list. Custom aliases and capability-driven
+effort options remain supported. Text and controls share the same font size;
+narrow composers replace selector labels with icons while keeping tooltips and
+accessible labels. The thinking halo is attached to this surface and follows its
+1.5rem radius rather than an outer card or another pane's animation.
+
+Mission welcomes use twenty translated phrases per language, selected randomly
+for a composer’s conversation and kept stable while typing. Aurora Light,
+Obsidian Dark and Specrails give this surface additional contrast without adding
+an inner border. Bottom controls share a centered 32px height.
+
+Detached mission windows show the conversation without the right workspace
+sidebar or its pin/resize controls. The conversation area has no extra top
+toolbar; Split view is accessed from the sidebar conversation context menu.
+
+The composer project dropdown is rendered outside pane clipping boundaries. It
+opens above the bottom controls when space permits, otherwise uses the roomier
+side, and stays within the viewport while resizing or scrolling.
+
+The primary split pane is a flex column with a constrained height, even when it
+is the only visible pane. Message lists shrink within that height and scroll
+independently, keeping the composer visible for long conversations.
+
+The conversation Split view action uses a multiple-panel icon and is suppressed for conversations already visible in the primary or a split pane, including keyboard context-menu requests.

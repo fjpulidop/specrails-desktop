@@ -6,6 +6,9 @@ mod browser;
 #[path = "../src/invoke_guard.rs"]
 mod invoke_guard;
 #[allow(dead_code)]
+#[path = "../src/loop_windows.rs"]
+mod loop_windows;
+#[allow(dead_code)]
 #[path = "../src/mission_windows.rs"]
 mod mission_windows;
 use std::{io::{Read, Write}, net::TcpListener, time::Duration};

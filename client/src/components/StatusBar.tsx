@@ -1,3 +1,5 @@
+import { KeepAwakeControl } from './KeepAwakeControl'
+import { SubscriptionUsageFooter } from '../features/subscription-usage/components/SubscriptionUsageFooter'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -84,7 +86,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
   const showConnection = !minimal || connectionStatus !== 'connected' || isSyncing
 
   return (
-    <footer className="h-7 flex items-center justify-between px-4 border-t border-border/30 bg-background/80 backdrop-blur-sm text-[10px] text-muted-foreground">
+    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background/80 backdrop-blur-sm text-[10px] text-muted-foreground">
       {/* Connection status */}
       <div className={cn('flex items-center gap-1.5 transition-opacity duration-300', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
         <span
@@ -145,6 +147,8 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
             </span>
           )
         })()}
+        <KeepAwakeControl />
+        <SubscriptionUsageFooter />
         {rightSlot}
       </div>
     </footer>

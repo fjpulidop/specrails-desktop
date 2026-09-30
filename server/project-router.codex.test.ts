@@ -1,7 +1,7 @@
 /**
  * Focused tests for codex provider model propagation in project-router routes.
  * These tests verify that spec-gen and ticket AI edit never hardcode 'o4-mini'
- * but always use 'gpt-5.5' (codex default).
+ * but always use 'gpt-6.1-sol' (codex default).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
@@ -134,7 +134,7 @@ describe('codex model propagation in project-router', () => {
   })
 
   describe('POST /tickets/generate-spec with provider=codex', () => {
-    it('uses gpt-5.5, not o4-mini', async () => {
+    it('uses the configured Codex default model', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
@@ -159,14 +159,14 @@ describe('codex model propagation in project-router', () => {
       const spawnArgs = spawnCalls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
       const modelIdx = spawnArgs.indexOf('--model')
-      expect(spawnArgs[modelIdx + 1]).toBe('gpt-5.5')
+      expect(spawnArgs[modelIdx + 1]).toBe('gpt-6.1-sol')
       // Explicitly verify o4-mini is NOT used
       expect(spawnArgs).not.toContain('o4-mini')
     })
   })
 
   describe('POST /tickets/:id/ai-edit with provider=codex', () => {
-    it('uses gpt-5.5, not o4-mini', async () => {
+    it('uses the configured Codex default model', async () => {
       const { writeFileSync, mkdirSync } = await import('fs')
       const { join } = await import('path')
 
@@ -201,7 +201,7 @@ describe('codex model propagation in project-router', () => {
       const spawnArgs = spawnCalls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
       const modelIdx = spawnArgs.indexOf('--model')
-      expect(spawnArgs[modelIdx + 1]).toBe('gpt-5.5')
+      expect(spawnArgs[modelIdx + 1]).toBe('gpt-6.1-sol')
       expect(spawnArgs).not.toContain('o4-mini')
 
       // Cleanup

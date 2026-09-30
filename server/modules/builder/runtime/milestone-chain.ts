@@ -3,14 +3,11 @@
 // "Launch Milestone N": order the milestone's todo specs by their declared
 // dependencies (prerequisites, then execution_order), put ONE spec on each
 // rail (mode `implement`), launch the first through the ORDINARY rails launch
-// route, and — when that spec's delivery settles — launch the next one STACKED
-// on the delivered branch, so a greenfield walking skeleton accumulates without
-// waiting for a merge. Launches are always sequential (the Parallel option was
-// removed); auto-continue is on by default and a failure always pauses. The plan lives in SQLite (survives window close, app
-// restart, machine sleep), advances from the delivery-settle chokepoint (the
-// `rail.pr_state` broadcast tapped in the project's bound broadcast — the
-// engine's `onLoopRunFinished` fires BEFORE the delivery row leaves
-// `building`, so it is only a fallback for delivery-less shared-cwd runs),
+// route, and integrate each completed delivery through the guarded local decision
+// path BEFORE allocating the next worktree from the integration branch. Older
+// adapters without integration retain their historical stacking behavior.
+// Launches are sequential; auto-continue is on by default. The plan lives in
+// SQLite and retains the current delivery through integration and recovery.
 // pauses with a typed reason on any failure (never skips ahead), and is
 // visible/controllable (resume / cancel) from every surface.
 
@@ -111,6 +108,8 @@ export interface MilestoneChainIO {
   readTickets(): ProgressTicket[]
   readBlueprint(): Blueprint | null
   integrationBranch(): Promise<string | null>
+  /** Integrate this verified delivery through the normal guarded decision path. */
+  integrateDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true } | ChainIoFailure>
   /** Loop-run row state for startup recovery: null = row missing. */
   runState(runId: string): { settled: boolean; outcome: string | null } | null
   broadcast(msg: WsMessage): void
@@ -130,6 +129,7 @@ type LaunchedChunk = { ok: true; entry: MilestoneChainLaunched } | ChainIoFailur
 const SUCCESS_DECISIONS: ReadonlySet<string> = new Set(['on_review', 'no_changes', 'pr_draft', 'pr_ready', 'completed', 'merged'])
 
 export class MilestoneChainManager {
+  private readonly integrating = new Set<string>()
   constructor(
     private readonly db: DbInstance,
     private readonly projectId: string,
@@ -262,7 +262,7 @@ export class MilestoneChainManager {
 
   /**
    * Launch a milestone. Always sequential: one spec per rail, each stacked on
-   * the previous delivered branch. `autoAdvance` defaults to ON; turning it off
+   * the accumulated integration branch when integration is bound. `autoAdvance` defaults to ON; turning it off
    * parks the chain at a checkpoint after every delivered rail.
    */
   async start(n: number, opts: { autoAdvance?: boolean } = {}): Promise<ChainStartResult> {
@@ -345,7 +345,7 @@ export class MilestoneChainManager {
       return
     }
     const earlierDeliveries = parseLaunched(row).filter((entry) => entry.chunk <= chunkIndex && entry.deliveryId).map((entry) => entry.deliveryId!)
-    const multiRepositoryHistory = earlierDeliveries.some((id) => this.io.getDelivery(id)?.executionManifest)
+    const multiRepositoryHistory = !this.io.integrateDelivery && earlierDeliveries.some((id) => this.io.getDelivery(id)?.executionManifest)
     if (!multiRepositoryHistory && head && !(await this.branchExistsSafe(head))) {
       this.pause(row, 'head_missing', { headBranch: head })
       return
@@ -398,11 +398,48 @@ export class MilestoneChainManager {
     return 'chunk_failed'
   }
 
+  private completeIntegrated(row: MilestoneChainRow): void {
+    if (!row.current_delivery_id || !isActiveChainStatus(row.status)) return
+    updateChain(this.db, row.id, row.status, { status: 'waiting', currentDeliveryId: null, currentRunIds: [], headBranch: row.integration_branch, pauseReason: 'integration_complete' }, this.now())
+    this.afterChunkSuccess(row.id, row.integration_branch)
+  }
+
+  /** Keep the delivery attached until its guarded integration is durably confirmed. */
+  private async integrateChunk(chainId: string): Promise<void> {
+    if (!this.io.integrateDelivery || this.integrating.has(chainId)) return
+    const row = getChain(this.db, chainId)
+    if (!row?.current_delivery_id || !isActiveChainStatus(row.status)) return
+    const snap = this.io.getDelivery(row.current_delivery_id)
+    if (!snap) { this.pause(row, 'integration_failed:delivery_missing'); return }
+    if (snap.implementationOutcome === 'partially_succeeded' || snap.implementationOutcome === 'failed') { this.pauseFailedChunk(row, 'chunk_failed'); return }
+    if (snap.decision === 'merged' || snap.decision === 'completed') { this.completeIntegrated(row); return }
+    this.integrating.add(chainId)
+    updateChain(this.db, row.id, row.status, { status: 'waiting', pauseReason: 'integration_pending' }, this.now())
+    const pending = getChain(this.db, chainId)!
+    this.emit(pending)
+    try {
+      const result = await this.io.integrateDelivery(snap)
+      const current = getChain(this.db, chainId)
+      if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
+      const settled = this.io.getDelivery(snap.id)
+      if (settled?.decision === 'merged' || settled?.decision === 'completed') this.completeIntegrated(current)
+      else this.pause(current, 'integration_failed:' + (result.ok ? 'not_confirmed' : result.error))
+    } catch {
+      const current = getChain(this.db, chainId)
+      if (current && isActiveChainStatus(current.status) && current.current_delivery_id === snap.id) this.pause(current, 'integration_failed:unavailable')
+    } finally { this.integrating.delete(chainId) }
+  }
+
   /** The delivery-settle chokepoint: a `rail.pr_state` for the in-flight chunk. */
   private handleDeliveryState(snap: PrDeliverySnapshot): void {
     for (const row of listActiveChains(this.db)) {
       if (row.current_delivery_id !== snap.id) continue
       if (snap.decision === 'building') continue
+      if (this.io.integrateDelivery && SUCCESS_DECISIONS.has(snap.decision)) {
+        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === 'integration_pending') void this.integrateChunk(row.id)
+        else if (row.pause_reason?.startsWith('integration_') && ['merged', 'completed'].includes(snap.decision)) this.completeIntegrated(row)
+        continue
+      }
       if (SUCCESS_DECISIONS.has(snap.decision)) {
         const delivered = snap.executionManifest ? null : snap.decision === 'no_changes'
           ? row.head_branch
@@ -464,6 +501,10 @@ export class MilestoneChainManager {
     const row = getChain(this.db, id)
     if (!row) return { ok: false, status: 404, error: 'chain_not_found' }
     if (row.status !== 'paused' && row.status !== 'awaiting_approval') return { ok: false, status: 409, error: 'chain_not_paused', detail: `chain is ${row.status}` }
+    if (this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
+      await this.integrateChunk(id)
+      return { ok: true, status: 202, chain: toChainSnapshot(getChain(this.db, id)!) }
+    }
     if (row.head_branch && !(await this.branchExistsSafe(row.head_branch))) {
       updateChain(this.db, row.id, row.status, { status: 'paused', pauseReason: 'head_missing' }, this.now())
       const fresh = getChain(this.db, row.id)!
@@ -508,6 +549,11 @@ export class MilestoneChainManager {
    */
   async recoverOnStartup(): Promise<void> {
     for (const row of listActiveChains(this.db)) {
+      if (this.io.integrateDelivery && row.status === 'waiting' && row.pause_reason?.startsWith('integration_')) {
+        if (row.current_delivery_id) await this.integrateChunk(row.id)
+        else if (row.pause_reason === 'integration_complete') this.afterChunkSuccess(row.id, row.integration_branch)
+        continue
+      }
       if (row.status !== 'running') continue
       if (row.current_delivery_id) {
         const snap = this.io.getDelivery(row.current_delivery_id)

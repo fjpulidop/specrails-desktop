@@ -2,15 +2,11 @@
 
 Welcome. These guides are written for **you, the user**: how to get specrails-desktop running, how to use each feature, and what to do when something looks off.
 
-Specrails works with four AI CLIs — **Claude Code**, **OpenAI Codex**,
-**Google Gemini**, and **Kimi Code**. Install any compatible combination per
-project and choose which engine runs each task.
-
 If you're contributing to the app itself or building on its API, head over to [`internals/`](internals/) for the technical deep dive.
 
 ## Exclusively for agents
 
-When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md). It covers Claude, Codex, Kimi and Gemini, preserves existing servers and requires a real read-only verification.
+When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md). It covers Claude and Codex, preserves existing servers and requires a real read-only verification.
 
 ## Start here
 
@@ -27,8 +23,6 @@ When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md).
 | [Running pipelines](running-pipelines.md) | …you want to launch the AI pipeline against a spec, manage rails, pick agent profiles, or install plugins |
 | [Programmatic agent runtime](internals/programmatic-agent-runtime.md) | …you want separate phases, a provider per role, a local model, or explicit workflow recovery |
 | [Using Codex](codex.md) | …you added a project with OpenAI's Codex CLI instead of (or alongside) Claude |
-| [Using Gemini](gemini.md) | …you added a project with Google's Gemini CLI instead of (or alongside) Claude, Codex, or Kimi |
-| [Using Kimi](kimi.md) | …you want Kimi Code setup, models/effort, session behavior, MCP, and native limitations |
 | [Tracking cost](tracking-cost.md) | …you want to see what AI is costing you and which specs are the most expensive |
 | [Customising the app](customizing.md) | …you want to change theme, configure settings, set a budget, or turn on telemetry |
 | [Terminal panel](terminal.md) | …you want to use the built-in terminal: shortcuts, shell integration, drag-and-drop |
@@ -45,8 +39,6 @@ When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md).
 - **"How do I install it?"** → [Getting started](getting-started.md#install)
 - **"How do I add a project?"** → [Getting started](getting-started.md#add-a-project)
 - **"Quick vs Explore mode?"** → [Creating specs › Creating a spec](creating-specs.md#creating-a-spec)
-- **"How do I use a different provider?"** → [Using Codex](codex.md) ·
-  [Using Gemini](gemini.md) · [Using Kimi](kimi.md)
 - **"How do I compare two specs?"** → [Creating specs › Compare two specs side by side](creating-specs.md#compare-two-specs-side-by-side)
 - **"What's a draft?"** → [Creating specs › Drafts](creating-specs.md#drafts)
 - **"What's SMASH?"** → [Creating specs › SMASH a big spec](creating-specs.md#smash-a-big-spec)

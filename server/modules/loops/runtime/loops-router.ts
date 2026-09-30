@@ -1,3 +1,5 @@
+import { defaultLoopAgents } from './loop-agents'
+import { validateLoopRuntimeSettings } from '../../agent-runtime/runtime/agent-runtime-settings'
 /**
  * Loops REST surface — registered onto the GLOBAL desktop router (`/api`), so
  * the routes live at `/api/loops*` (cross-project; loops are a global library).
@@ -87,6 +89,12 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     }
     return true
   }
+
+  router.get('/loop-agent-defaults', async (_req, res) => {
+    if (!guard(res)) return
+    const runtime = await loadCoreAgentRuntime().catch(() => null)
+    res.json({ agents: defaultLoopAgents(), guardrails: { supported: runtime?.api?.capabilities?.configurableGuardrails === 1, catalog: runtime?.api?.guardrails ?? [] } })
+  })
 
   // ── Templates ──────────────────────────────────────────────────────────────
   router.get('/loop-templates', async (_req: Request, res: Response) => {
@@ -402,6 +410,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
         const runtime = await loadCoreAgentRuntime()
         if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) {
           res.status(409).json({ error: 'engine_unsupported', message: 'Update Core to publish executable workflows.' }); return
+        }
+        if (current.graph.config.agents) {
+          try { validateLoopRuntimeSettings(current.graph.config.agents) }
+          catch (error) { res.status(422).json({ error: 'invalid_loop_agents', message: error instanceof Error ? error.message : 'Invalid loop agent settings' }); return }
         }
         let draft
         try { draft = compileLoopToDefinition(current.graph, { id: current.id, title: current.name, constants: loadConstantMap(db), provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Publication preview' } }) }

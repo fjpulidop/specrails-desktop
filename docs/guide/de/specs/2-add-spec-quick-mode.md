@@ -2,10 +2,6 @@
 
 Der Quick-Modus ist für die Momente gedacht, in denen du bereits weißt, was du willst. Du tippst deine Idee ein, die KI schreibt die vollständige Spec, und sie landet als **To-do** auf deinem Board. Kein Hin und Her – einfach beschreiben und los.
 
-> **Kimi ist für Quick Spec nicht verfügbar.** `kimi -p` kann die
-> Pure-Output-Grenze dieses Formulars nicht erzwingen. Die Anfrage wird vor
-> dem Spawn abgelehnt; nutze Explore, Raw oder Quick Launcher (`/opsx:ff`).
-
 ## Eine Spec im Quick-Modus erstellen
 
 So erstellst du schnell eine Spec:
@@ -22,9 +18,6 @@ Das ist der ganze Ablauf. Alles Weitere unten ist optionale Feinjustierung.
 ## Was du anpassen kannst
 
 **Modell** – standardmäßig wählt die KI ein sinnvolles Modell. Du kannst es pro Spec über die Modellauswahl überschreiben, wenn du ein schnelleres oder leistungsfähigeres möchtest.
-
-**Engine** – die Auswahl zeigt nur **kompatible** Provider; Kimi ist bei Quick
-Spec ausgeschlossen.
 
 **Kontext** – der Quick-Modus läuft meist als einzelner Durchgang, weil er deine Codebasis nicht lesen muss, um aus deiner Beschreibung eine Spec zu schreiben. Aber ein Kontext-Schieberegler erlaubt dir, ihm mehr an die Hand zu geben:
 

@@ -35,16 +35,6 @@ Profile selection happens right where you launch — in the **rail header**, via
 
 That's the whole flow: choose a profile, launch, done. Concurrent rails in the same batch can each carry their own profile, so a quick fix and a heavy feature can run side by side with different setups.
 
-## When the Agents section is quiet
-
-Profiles are provider-scoped. Claude and Kimi support role/profile execution;
-Codex and Gemini rails use legacy mode. A mixed project keeps independent
-Claude and Kimi profile files/models, so identically named profiles cannot
-silently cross providers. Kimi also supports manual `custom-*` role
-creation/editing/execution, while Agent Studio generation, smoke test, and AI
-Refine fail closed. Profiles require a recent enough `specrails-core`; Kimi's
-framework target requires Core 4.12.0 or newer.
-
 ## Where to go next
 
 - [Customizing models per agent](customizing-models-per-agent) — build `fast` and `max` profiles.

@@ -26,13 +26,8 @@
 
 - **仪表盘**——spec 看板和 rails（你刚才待的地方）。
 - **任务**——这个项目的每一次流水线运行，无论过去还是当下，都带有状态、耗时，并能深入查看任意一次运行的详情和日志。
-- **分析**——按天、活动、模型和工单拆分的调用。Claude 报告账单成本，Codex/Gemini 使用估算值；Kimi 会把无法获得的 token/USD 字段留空。
-- **Agent**——Claude 与 Kimi 各自独立的 Profile 和 Role 目录。Kimi Role 可手动创建/编辑；Generate、Test 和 AI Refine 不可用。
-- **代码**——只读文件浏览器，以及显示 AI 动过哪些文件的标签。通俗 AI 摘要只对兼容 provider 显示，Kimi 不支持该转换。
 - **集成**——可选的附加组件，比如把你的 spec 连接到 **Jira** 看板，或为 AI 启用额外的工具。
 - **设置**——项目级选项（遥测、预算、提供商配置等等）。
-
-> 区块和操作会遵循当前 provider 的 capability。例如 Profile 可用于 Claude/Kimi，但 Kimi 的 Agent Studio AI 操作会 fail closed。
 
 ## 状态栏
 

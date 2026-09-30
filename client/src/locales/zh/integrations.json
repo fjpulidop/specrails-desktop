@@ -84,7 +84,8 @@
       "title": "插件",
       "subtitle": "在一个位置管理全局工具和项目集成。",
       "readyCount_one": "{{count}} 个就绪",
-      "readyCount_other": "{{count}} 个就绪"
+      "readyCount_other": "{{count}} 个就绪",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "搜索插件"

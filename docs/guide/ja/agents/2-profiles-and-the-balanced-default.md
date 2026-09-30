@@ -35,15 +35,6 @@
 
 これが流れのすべてです: プロファイルを選び、起動し、おしまい。同じバッチ内で並行するレールは、それぞれ自分のプロファイルを持てるので、ちょっとした修正と重めの機能を、別々の設定で並べて走らせることができます。
 
-## Agents セクションが静かなとき
-
-Profile は provider ごとに分離されます。Claude と Kimi は profile/
-role に対応し、Codex と Gemini は legacy mode で実行します。混在する
-project でも同じ名前が Claude/Kimi 間で交差することはありません。
-Kimi は手動 role に対応しますが、Agent Studio の generation、smoke
-test、AI Refine は spawn 前に拒否されます。Kimi には
-`specrails-core` 4.12.0 以降が必要です。
-
 ## 次に読むなら
 
 - [エージェントごとのモデルのカスタマイズ](customizing-models-per-agent) — `fast` と `max` のプロファイルを作る。

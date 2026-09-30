@@ -35,14 +35,6 @@ La selección de perfil ocurre justo donde lanzas — en la **cabecera del rail*
 
 Ese es todo el flujo: elige un perfil, lanza, listo. Los rails concurrentes de un mismo lote pueden llevar cada uno su propio perfil, así que un arreglo rápido y una feature pesada pueden correr en paralelo con configuraciones distintas.
 
-## Cuando la sección Agentes está en silencio
-
-Los perfiles están separados por proveedor. Claude y Kimi admiten
-perfiles/roles; Codex y Gemini ejecutan los rails en modo legacy. En proyectos
-mixtos, nombres iguales no se cruzan entre Claude y Kimi. Kimi permite roles
-manuales, pero generación, smoke test y AI Refine de Agent Studio fallan
-antes de iniciar. Kimi requiere `specrails-core` 4.12.0 o posterior.
-
 ## A dónde ir después
 
 - [Personalizar los modelos por agente](customizing-models-per-agent) — crea perfiles `fast` y `max`.

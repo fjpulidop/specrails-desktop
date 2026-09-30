@@ -1381,6 +1381,10 @@
         "../../../db",
         "node:crypto"
       ],
+      "runtime/loop-agents.ts": [
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "./loop-agent-defaults.json"
+      ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
         "./loop-constants"
@@ -1392,7 +1396,9 @@
         "../../../db"
       ],
       "runtime/loop-core-factory.ts": [
-        "./loop-graph"
+        "./loop-agents",
+        "./loop-graph",
+        "./loop-implement-recipe"
       ],
       "runtime/loop-decider.ts": [],
       "runtime/loop-definition-controls.ts": [
@@ -1468,7 +1474,13 @@
         "./loop-graph",
         "./loop-templates"
       ],
-      "runtime/loop-graph.ts": [],
+      "runtime/loop-graph.ts": [
+        "./loop-agents"
+      ],
+      "runtime/loop-implement-recipe.ts": [
+        "./loop-agents",
+        "./loop-graph"
+      ],
       "runtime/loop-migration.ts": [
         "./loop-compat",
         "./loop-graph",
@@ -1539,6 +1551,8 @@
         "../../execution/runtime/stuck-run-detector"
       ],
       "runtime/loop-templates.ts": [
+        "./loop-agents",
+        "./loop-core-factory",
         "./loop-graph"
       ],
       "runtime/loops-router.ts": [
@@ -1546,7 +1560,9 @@
         "../../../feature-flags",
         "../../../ids",
         "../../agent-runtime/runtime/agent-runtime-loader",
+        "../../agent-runtime/runtime/agent-runtime-settings",
         "./builtin-loops",
+        "./loop-agents",
         "./loop-command-catalog",
         "./loop-compat",
         "./loop-constants",
@@ -1831,6 +1847,71 @@
         "chokidar",
         "fs",
         "path"
+      ]
+    }
+  },
+  "subscription-usage": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "runtime/composition.ts",
+      "runtime/usage-service.ts"
+    ],
+    "dependencies": {
+      "adapters/claude.ts": [
+        "../domain",
+        "../ports",
+        "./errors",
+        "./local-auth",
+        "node:child_process",
+        "node:fs/promises",
+        "node:os",
+        "node:path"
+      ],
+      "adapters/codex.ts": [
+        "../../../util/win-spawn",
+        "../domain",
+        "../ports",
+        "./errors",
+        "./local-auth",
+        "node:child_process",
+        "node:os",
+        "node:path",
+        "node:string_decoder"
+      ],
+      "adapters/errors.ts": [],
+      "adapters/http.ts": [
+        "../domain",
+        "../runtime/usage-service",
+        "express"
+      ],
+      "adapters/local-auth.ts": [
+        "./errors",
+        "node:crypto",
+        "node:fs/promises"
+      ],
+      "application.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ],
+      "runtime/composition.ts": [
+        "../../../provider-detection",
+        "../adapters/claude",
+        "../adapters/codex",
+        "./usage-service"
+      ],
+      "runtime/usage-service.ts": [
+        "../adapters/errors",
+        "../application",
+        "../domain",
+        "../ports",
+        "node:crypto"
       ]
     }
   },

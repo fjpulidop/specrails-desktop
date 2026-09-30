@@ -43,5 +43,6 @@ Invalid YAML must be corrected before structured edits can be applied.
 
 File identity remains `custom-<role>` across providers; built-in Core roles cannot
 be shadowed. The server validates the same execution descriptor for manual saves
-and AI refinement application, including force-apply. Project runtime role
-overrides take precedence when the launch configuration is frozen.
+and AI refinement application, including force-apply. Legacy graphs retain project runtime role overrides when launch configuration
+is frozen. Loop-owned workflows instead use their published definitions and
+engines; importing a historical project configuration into a loop is explicit.

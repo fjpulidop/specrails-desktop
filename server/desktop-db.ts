@@ -689,6 +689,12 @@ function applyDesktopMigrations(db: DbInstance): void {
         UPDATE loops SET published_graph = graph WHERE status = 'published' AND published_graph IS NULL;
       `)
     },
+    // 32: explicit code workspace; old memberships continue to use their root.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(project_repositories)').all() as { name: string }[]).map(column => column.name)
+      if (!columns.includes('workspace_path')) db.exec('ALTER TABLE project_repositories ADD COLUMN workspace_path TEXT')
+      if (!columns.includes('workspace_paths')) db.exec('ALTER TABLE project_repositories ADD COLUMN workspace_paths TEXT')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)
@@ -752,6 +758,7 @@ export function addProject(
     provider?: CliProvider
     providers?: CliProvider[]
     repositories?: ProjectRepositoryInput[]
+    workspacePaths?: string[]
   }
 ): ProjectRow {
   const dbPath = getProjectDbPath(project.slug)
@@ -763,29 +770,31 @@ export function addProject(
   const provider = project.provider ?? providers[0]
   // Low-level callers may register unavailable legacy roots. HTTP validates all
   // roots first; membership and project rows are still committed atomically here.
-  const roots = [inspectRepositoryPath({ path: project.path, name: project.name }, false), ...(project.repositories ?? []).map((input) => inspectRepositoryPath(input))]
+  const roots = [inspectRepositoryPath({ path: project.path, name: project.name, workspacePaths: project.workspacePaths }, project.workspacePaths !== undefined), ...(project.repositories ?? []).map((input) => inspectRepositoryPath(input))]
   assertDistinctRepositories(roots)
   db.transaction(() => {
     db.prepare(`
       INSERT INTO projects (id, slug, name, path, db_path, provider, providers)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(project.id, project.slug, project.name, project.path, dbPath, provider, JSON.stringify(providers))
-    const insert = db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, is_primary, kind, integration_branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    roots.forEach((root, index) => insert.run(index === 0 ? `primary-${project.id}` : randomUUID(), project.id, root.name ?? path.basename(root.path), index === 0 ? project.path : root.path, root.canonicalKey, root.gitIdentity, index === 0 ? 1 : 0, root.kind, root.integrationBranch ?? null))
+    const insert = db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, is_primary, kind, integration_branch, workspace_path, workspace_paths) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    roots.forEach((root, index) => insert.run(index === 0 ? `primary-${project.id}` : randomUUID(), project.id, root.name ?? path.basename(root.path), index === 0 ? project.path : root.path, root.canonicalKey, root.gitIdentity, index === 0 ? 1 : 0, root.kind, root.integrationBranch ?? null, root.workspacePath ?? null, root.workspacePaths ? JSON.stringify(root.workspacePaths) : null))
   })()
   return getProject(db, project.id) as ProjectRow
 }
 
 interface ProjectRepositoryRaw {
   id: string; project_id: string; name: string; path: string; is_primary: number
-  kind: 'git' | 'folder'; integration_branch: string | null; added_at: string
+  kind: 'git' | 'folder'; integration_branch: string | null; added_at: string; workspace_path: string | null; workspace_paths: string | null
 }
 
 export function listProjectRepositories(db: DbInstance, projectId: string): ProjectRepository[] {
   return (db.prepare('SELECT * FROM project_repositories WHERE project_id = ? ORDER BY is_primary DESC, added_at, rowid').all(projectId) as ProjectRepositoryRaw[]).map((row) => ({
     id: row.id, projectId: row.project_id, name: row.name, path: row.path,
     isPrimary: row.is_primary === 1, kind: row.kind, integrationBranch: row.integration_branch,
-    addedAt: row.added_at, available: repositoryAvailable(row.path),
+    addedAt: row.added_at, available: repositoryAvailable(row.path) && (row.workspace_paths ? (JSON.parse(row.workspace_paths) as string[]).every(repositoryAvailable) : repositoryAvailable(row.workspace_path ?? row.path)),
+    ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
+    ...(row.workspace_paths ? { workspacePaths: JSON.parse(row.workspace_paths) as string[] } : {}),
   }))
 }
 
@@ -795,8 +804,8 @@ export function addProjectRepository(db: DbInstance, projectId: string, input: P
   const existing = listProjectRepositories(db, projectId).map((repo) => inspectRepositoryPath(repo, false))
   assertDistinctRepositories([...existing, root])
   const id = randomUUID()
-  db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, kind, integration_branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(id, projectId, root.name ?? path.basename(root.path), root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null)
+  db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, kind, integration_branch, workspace_path, workspace_paths) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, projectId, root.name ?? path.basename(root.path), root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null, root.workspacePath ?? null, root.workspacePaths ? JSON.stringify(root.workspacePaths) : null)
   return listProjectRepositories(db, projectId).find((repo) => repo.id === id)!
 }
 
@@ -805,15 +814,18 @@ export function updateProjectRepository(db: DbInstance, projectId: string, repos
   const current = repositories.find((repo) => repo.id === repositoryId)
   if (!current) throw new RepositoryValidationError('Repository does not belong to this project', 'repository_not_found', 404)
   if (current.isPrimary && input.path !== undefined) throw new RepositoryValidationError('The primary project path cannot be relocated here', 'primary_repository_protected', 409)
-  const next = { ...current, ...input }
-  const root = inspectRepositoryPath(next, input.path !== undefined)
+  const next = { ...current, ...input,
+    ...(input.workspacePaths !== undefined && input.workspacePath === undefined ? { workspacePath: null } : {}),
+    ...(input.workspacePath !== undefined && input.workspacePaths === undefined ? { workspacePaths: null } : {}),
+  }
+  const root = inspectRepositoryPath(next, input.path !== undefined || input.workspacePath !== undefined || input.workspacePaths !== undefined)
   if (input.path === undefined && !repositoryAvailable(current.path)) {
     root.kind = current.kind
     root.gitIdentity = (db.prepare('SELECT git_identity FROM project_repositories WHERE id = ?').get(repositoryId) as { git_identity: string | null }).git_identity
   }
   assertDistinctRepositories([...repositories.filter((repo) => repo.id !== repositoryId).map((repo) => inspectRepositoryPath(repo, false)), root])
-  db.prepare('UPDATE project_repositories SET name = ?, path = ?, canonical_key = ?, git_identity = ?, kind = ?, integration_branch = ? WHERE project_id = ? AND id = ?')
-    .run(root.name ?? current.name, input.path === undefined ? current.path : root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null, projectId, repositoryId)
+  db.prepare('UPDATE project_repositories SET name = ?, path = ?, canonical_key = ?, git_identity = ?, kind = ?, integration_branch = ?, workspace_path = ?, workspace_paths = ? WHERE project_id = ? AND id = ?')
+    .run(root.name ?? current.name, input.path === undefined ? current.path : root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null, root.workspacePath ?? null, root.workspacePaths ? JSON.stringify(root.workspacePaths) : null, projectId, repositoryId)
   return listProjectRepositories(db, projectId).find((repo) => repo.id === repositoryId)!
 }
 

@@ -1,6 +1,7 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
-import { ROLES_ENGINE, isLocalEngineId, isRolesEngine, providerLabel } from '../../providers/lib/provider-capabilities'
+import { isLocalEngineId, isRolesEngine, providerLabel } from '../../providers/lib/provider-capabilities'
 
 interface Props {
   /** Selected engine. null/undefined = project primary; `roles` = the hybrid
@@ -17,13 +18,13 @@ interface Props {
  */
 export function RailEngineSelector({ value, providers, onChange }: Props) {
   const { t } = useTranslation('agents')
-  if (!providers || providers.length <= 1) return null
-  const current = value ?? providers[0]
-  const rolesSelected = isRolesEngine(current)
+  providers = providers.filter(isPublicProvider)
+  if (providers.length <= 1) return null
+  const current = isRolesEngine(value) ? providers[0] : value ?? providers[0]
   return (
     <div
       className="inline-flex items-center"
-      title={rolesSelected ? t('railSelectors.rolesEngineTitle') : t('railSelectors.engineTitle')}
+      title={t('railSelectors.engineTitle')}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -40,14 +41,6 @@ export function RailEngineSelector({ value, providers, onChange }: Props) {
             {isLocalEngineId(p) ? `${providerLabel(p)} · ${t('railSelectors.localEngine')}` : providerLabel(p)}
           </option>
         ))}
-        {/* Hybrid per-role engines: architect/developer/reviewer from the
-            runtime config, verifier/decider from the loop roles. Set apart
-            from the provider list with its own group. */}
-        <optgroup label="──" title={t('railSelectors.rolesEngineTitle')}>
-          <option value={ROLES_ENGINE} title={t('railSelectors.rolesEngineTitle')}>
-            {t('railSelectors.rolesEngine')}
-          </option>
-        </optgroup>
       </select>
     </div>
   )

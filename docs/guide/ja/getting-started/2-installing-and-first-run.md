@@ -22,8 +22,6 @@ specrails が同梱できない唯一のものが、**AI プロバイダーの C
 
 - **Claude Code**
 - **Codex CLI**
-- **Gemini CLI**
-- **Kimi Code**
 
 使う予定のものをインストールし、ターミナルから一度サインインしておけば準備完了です。どのプロバイダーが入っているかは specrails が自動で検出します。
 

@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useMemo, useId, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useId, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { Home, Folder, ChevronDown, Check, Search } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -23,6 +24,8 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
   const [highlighted, setHighlighted] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ left: 8, top: 8, maxHeight: 360 })
   const listboxId = useId()
 
   const closeDropdown = useCallback((restoreFocus = false) => {
@@ -35,7 +38,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) closeDropdown()
+      if (!ref.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) closeDropdown()
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -48,6 +51,35 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
   }, [projects, query])
 
   const optionCount = filtered.length + 1
+
+  // Escape composer/pane overflow and anchor to the visible trigger. Prefer
+  // above for bottom controls, and use the roomier side in short split panes.
+  useLayoutEffect(() => {
+    if (!open) return
+    const place = () => {
+      const trigger = triggerRef.current
+      const popup = popupRef.current
+      if (!trigger || !popup) return
+      const rect = trigger.getBoundingClientRect()
+      const above = Math.max(0, rect.top - 16)
+      const below = Math.max(0, window.innerHeight - rect.bottom - 16)
+      const placeAbove = above >= Math.min(popup.scrollHeight, 360) || above >= below
+      const maxHeight = Math.max(48, placeAbove ? above : below)
+      const height = Math.min(popup.scrollHeight, maxHeight)
+      setPosition({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.min(256, window.innerWidth - 16) - 8)),
+        top: placeAbove ? Math.max(8, rect.top - height - 8) : rect.bottom + 8,
+        maxHeight,
+      })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, filtered.length])
 
   useEffect(() => {
     // A typed query should put Enter on the first actual match, not Home.
@@ -104,6 +136,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
         ref={triggerRef}
         type="button"
         onClick={() => (open ? closeDropdown() : openDropdown())}
+        aria-label={current ? current.name : t('project.home')}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
@@ -114,14 +147,17 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
         <ChevronDown className="h-3.5 w-3.5 text-foreground/50" />
       </button>
 
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {open && (
           <motion.div
+            ref={popupRef}
+            style={position}
+            data-agent-interactive
             initial={{ opacity: 0, y: -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
-            className={`absolute left-0 top-full z-10 mt-1 w-64 ${AGENT_SELECTOR_POPOVER_CLASS}`}
+            className={`fixed z-[100] flex w-64 max-w-[calc(100vw-16px)] flex-col ${AGENT_SELECTOR_POPOVER_CLASS}`}
           >
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
               <Search className="h-3.5 w-3.5 text-foreground/40" />
@@ -143,7 +179,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
               id={listboxId}
               role="listbox"
               aria-label={t('project.allProjects')}
-              className="max-h-72 overflow-y-auto py-1"
+              className="min-h-0 max-h-72 overflow-y-auto py-1"
             >
               <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-foreground/40">{t('project.recents')}</div>
               <Row
@@ -172,7 +208,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   )
 }

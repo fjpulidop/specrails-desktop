@@ -1,7 +1,15 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '../test-utils'
+import { render, screen, waitFor, act, fireEvent } from '../test-utils'
 import App from '../App'
+
+vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
+
+vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div data-testid="plugins-window-surface" /> }))
+
+vi.mock('../features/loops/pages/LoopsPage', () => ({ default: () => <div data-testid="loops-library" /> }))
+
+vi.mock('../features/projects/components/OnboardingWizard', () => ({ OnboardingWizard: () => null, hasSeenOnboarding: () => true }))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -87,4 +95,39 @@ describe('App — desktop bootstrap', () => {
     const desktopStateCalls = fetchMock.mock.calls.filter(([url]) => typeof url === 'string' && url.includes('/api/state'))
     expect(desktopStateCalls).toHaveLength(0)
   })
+})
+
+
+it('boots the independent loop surface without mounting the main mission workspace', async () => {
+  window.history.replaceState({}, '', '/?loopsWindow=1')
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('loop-window-surface')).toBeInTheDocument()
+    expect(screen.queryByTestId('setup-wizard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+  } finally { window.history.replaceState({}, '', '/') }
+})
+
+
+it('boots Plugins in an independent window without the main mission workspace', async () => {
+  window.history.replaceState({}, '', '/?pluginsWindow=1')
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('plugins-window-surface')).toBeInTheDocument()
+    expect(screen.queryByTestId('setup-wizard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+  } finally { window.history.replaceState({}, '', '/') }
+})
+
+
+it.each([['Loops', 'loops-modal'], ['Plugins', 'plugins-modal']])('opens %s inside a mission modal by default', async (label, modal) => {
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+  localStorage.setItem('specrails-desktop:uiMode', 'agent')
+  const popup = vi.spyOn(window, 'open').mockReturnValue(null)
+  try {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: label }))
+    expect(await screen.findByTestId(modal)).toBeInTheDocument()
+    expect(popup).not.toHaveBeenCalled()
+  } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
 })

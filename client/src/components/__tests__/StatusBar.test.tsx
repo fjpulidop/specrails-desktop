@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../test-utils'
 import { StatusBar } from '../StatusBar'
 
+vi.mock('../../features/subscription-usage/components/SubscriptionUsageFooter', () => ({ SubscriptionUsageFooter: () => <span>Usage</span> }))
+
 vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',
 }))

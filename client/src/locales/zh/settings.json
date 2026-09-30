@@ -72,7 +72,8 @@
       "advanced": "高级",
       "webhooks": "Webhooks",
       "about": "关于",
-      "effects": "效果"
+      "effects": "效果",
+      "subscriptionUsage": "订阅用量"
     },
     "title": "Desktop 设置",
     "description": "管理已注册的项目并查看 Desktop 信息。",
@@ -267,7 +268,7 @@
       "budget": "预算",
       "telemetry": "遥测",
       "terminal": "终端",
-      "agentRuntime": "代理运行引擎"
+      "agentRuntime": "验证命令"
     }
   },
   "integrationBranch": {

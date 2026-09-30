@@ -24,10 +24,6 @@ Auf lokalen Engines nicht verfügbar: Agentenprofile und eigene Rollen, SMASH-/C
 
 > Missionen brauchen ein **großes Kontextfenster** auf dem Server (64k Tokens oder mehr): Operator-Prompt plus Specrails-Tool-Schemas sind umfangreich. Chat und Explore kommen mit 32k aus. Schlägt ein Turn mit *exceeds the available context size* fehl, vergrößere das Fenster (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
 
-## Nur eine lokale Engine installiert?
-
-Nichts zu konfigurieren. Specrails bietet die Engines an, die deine Maschine tatsächlich ausführen kann, und wählt den Standard überall nach derselben Regel: eine installierte CLI (Claude → Codex → Gemini → Kimi), sonst die erste lokale Engine, deren Endpoint antwortet. Auf einer Maschine mit nur einem lokalen Endpoint starten Rails, Add Spec, Chat, **Agent-Missionen und der Project Builder** darauf — kein Selektor nötig. Eine Engine, deren Server nicht läuft, wird schlicht nicht angeboten, bis sie wieder antwortet. Bestehende Missionen behalten die Engine, mit der sie erstellt wurden; der Selektor erlaubt weiterhin den Wechsel.
-
 ## Modell wählen
 
 Die Qualität hängt vom Modell ab, nicht von Specrails. Nutze für Rails ein auf Tool-Calling trainiertes Coder-Modell mit mindestens 30B Parametern; kleinere Instruct-Modelle reichen für Chat, Explore und Quick-Specs. Probiere **Freestyle** oder eine Explore-Sitzung, bevor du einem neuen Modell einen kompletten Implement-Rail anvertraust.

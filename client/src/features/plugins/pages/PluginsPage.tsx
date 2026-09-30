@@ -1,9 +1,12 @@
+import { toast } from 'sonner'
+import { isPluginWindowRoute, openPluginWindow } from '../lib/plugin-windows'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
   Download,
+  ExternalLink,
   FolderKanban,
   Globe2,
   Loader2,
@@ -244,7 +247,7 @@ function formatTokenCount(value: number, locale: string, tokenLabel: string): st
   return `${formatCompactNumber(value, locale)} ${tokenLabel}`
 }
 
-export default function PluginsPage() {
+export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () => void } = {}) {
   const { t } = useTranslation('integrations')
   const { projects } = useDesktop()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
@@ -434,6 +437,9 @@ export default function PluginsPage() {
               {t('plugins.page.subtitle')}
             </p>
           </div>
+          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted">
+            <ExternalLink className="h-3.5 w-3.5" />{t('plugins.page.openWindow')}
+          </button>}
           <div className="mr-12 flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
             <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: installedCount })}</span>
@@ -1197,7 +1203,7 @@ function ProjectPluginWizard({
                     <div className="truncate text-[10px]">
                       {disabled
                         ? t('plugins.projectWizard.requiresSupportedProvider', {
-                            defaultValue: 'Requires Claude, Codex, or Kimi',
+                            defaultValue: 'Requires Claude or Codex',
                           })
                         : project.path}
                     </div>

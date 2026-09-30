@@ -13,7 +13,7 @@ export function reviewerNodePaths(graph: LoopGraph): string[] {
       if (++visited > 10_000) return
       if (node.type !== 'core') continue
       const current = prefix + node.id, kind = node.data?.kind, params = asObject(node.data?.params)
-      if (kind === 'role-turn') paths.push(current)
+      if (kind === 'role-turn' || kind === 'implementation-step' && params.phase === 'reviewer') paths.push(current)
       const ref = kind === 'component' ? params.ref : kind === 'map' ? params.body : undefined
       if (typeof ref === 'string' && !ancestors.includes(ref) && graph.components?.[ref]) visit(graph.components[ref], current + '/', [...ancestors, ref])
     }
@@ -94,10 +94,37 @@ export function effectiveOutcomes(
 }
 
 export const pieceGroup = (kind: CoreNodeKind): 'ai' | 'verification' | 'openspec' | 'control' =>
-  ['prompt', 'role-turn', 'decider', 'implementation'].includes(kind)
+  ['prompt', 'role-turn', 'decider', 'implementation', 'implementation-step'].includes(kind)
     ? 'ai'
     : ['verify', 'shell'].includes(kind)
       ? 'verification'
-      : kind.startsWith('openspec-')
+      : kind === 'artifact-contract' || kind.startsWith('openspec-')
         ? 'openspec'
         : 'control'
+
+/** Keep prompt assignment aligned with the server definition compiler. */
+export function nodeAgentRoles(id: string, kind: unknown, params: Record<string, unknown>): string[] {
+  if (kind === 'implementation') return ['architect', 'developer', 'reviewer', 'fixer']
+  if (kind === 'implementation-step') return ['architect', 'developer', 'reviewer', 'fixer'].includes(String(params.phase)) ? [String(params.phase)] : []
+  if (kind === 'prompt') return [id === 'fix' ? 'fixer' : id === 'prepare' ? 'architect' : params.access === 'read' ? 'reviewer' : 'developer']
+  if (kind === 'role-turn' || kind === 'decider') return typeof params.roleId === 'string' ? [params.roleId] : []
+  return []
+}
+
+/** Only referenced component bodies contribute roles to the active recipe. */
+export function loopAgentRoles(graph: LoopGraph): string[] {
+  const roles = new Set<string>(), visited = new Set<string>()
+  function visit(body: LoopGraph) {
+    for (const node of body.nodes) {
+      if (node.type !== 'core') continue
+      const params = asObject(node.data?.params), kind = node.data?.kind
+      nodeAgentRoles(node.id, kind, params).forEach(role => roles.add(role))
+      const ref = kind === 'component' ? params.ref : kind === 'map' ? params.body : undefined
+      if (typeof ref === 'string' && !visited.has(ref) && graph.components?.[ref]) {
+        visited.add(ref); visit(graph.components[ref])
+      }
+    }
+  }
+  visit(graph)
+  return [...roles]
+}

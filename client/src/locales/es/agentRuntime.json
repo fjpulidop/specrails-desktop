@@ -310,7 +310,8 @@
       "frozen-runtime-config": "Configuración guardada",
       "project-role": "Rol del proyecto",
       "default": "Por defecto",
-      "explicit-launch-override": "Proveedor elegido para el lanzamiento"
+      "explicit-launch-override": "Proveedor elegido para el lanzamiento",
+      "loop-role": "Rol del loop"
     },
     "reuseDisabled": "Reutilización desactivada para esta comprobación.",
     "reuseConfirmed": "Reutilizado tras comprobar entradas y herramientas idénticas.",
@@ -569,5 +570,27 @@
       "unknown_terminal_time": "Se desconoce la fecha de finalización",
       "within_retention": "Dentro del plazo de conservación"
     }
+  },
+  "loopAgents": {
+    "title": "Agentes del loop",
+    "hint": "Estas definiciones se comparten entre todos los proyectos que usan este loop. Duplica el loop para personalizar otro flujo.",
+    "legacy": "Este loop guardado todavía usa los agentes históricos del proyecto. Impórtalos o activa los agentes del loop para cambiar su configuración.",
+    "enable": "Usar agentes del loop",
+    "import": "Importar agentes del proyecto actual",
+    "restoreDefinition": "Restaurar definición predeterminada",
+    "default": "Predeterminado del proveedor",
+    "effort": "Esfuerzo de razonamiento",
+    "escalationModel": "Modelo de escalado",
+    "escalationEffort": "Esfuerzo de escalado",
+    "policy": "Política del workflow",
+    "maxAttempts": "Máximo de intentos de corrección",
+    "maxTokens": "Presupuesto de tokens",
+    "maxCostUsd": "Presupuesto de coste (USD)",
+    "timeoutMs": "Tiempo límite (ms)",
+    "projectHint": "Configura aquí las comprobaciones del repositorio. Las definiciones, modelos y políticas de los agentes se configuran en el editor de loops. Puedes importar los agentes históricos del proyecto a un loop duplicado.",
+    "showUnused": "Mostrar también agentes no usados en este loop",
+    "stepTitle": "Agente y opciones del paso",
+    "stepHint": "Edita la definición y el motor del agente de este paso. Los pasos del mismo loop que usan este rol comparten estos ajustes.",
+    "inheritProvider": "Heredar proveedor de la misión"
   }
 }

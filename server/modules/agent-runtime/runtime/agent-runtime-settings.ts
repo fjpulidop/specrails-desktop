@@ -140,6 +140,39 @@ export const REVIEW_THRESHOLD_FLOORS: { minScore: number; aspects: Record<Review
   aspects: { type_correctness: 60, pattern_adherence: 60, test_coverage: 60, security: 75, architectural_alignment: 60 },
 }
 export interface RuntimeConfigProject { path: string; slug?: string; provider?: string }
+export type LoopRuntimeSettings = Omit<RuntimeConfig, 'enabled' | 'providers' | 'verification'>
+
+/** Validate a portable recipe without accepting host-owned fields or project fallbacks. */
+export function validateLoopRuntimeSettings(input: unknown, providers = loadRuntimeProviders()): LoopRuntimeSettings {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => ![
+    'schemaVersion', 'agents', 'fixer', 'roles', 'rolePrompts', 'limits', 'review', 'architect', 'approvalBeforeArchive', 'efficiency', 'guardrails',
+  ].includes(key))) throw new AgentRuntimeConfigError('Invalid loop agent configuration')
+  // "inherit" is a recipe-only assignment, resolved before Core sees it.
+  const portableProviders = [...providers, { id: 'inherit', kind: 'cli' as const, cli: 'claude' as const }]
+  const config = validateAgentRuntimeConfig({ ...input, enabled: true, providers: portableProviders, verification: [] })
+  if (['architect', 'developer', 'reviewer', 'fixer'].some(role => !config.rolePrompts?.[role]?.trim())) throw new AgentRuntimeConfigError('Loop agents require an explicit definition for architect, developer, reviewer and fixer')
+  const { enabled: _enabled, providers: _providers, verification: _checks, ...settings } = config
+  return settings
+}
+
+/** Read only repository checks from the old project file. Role migration is explicit. */
+export function loadLoopRuntimeConfig(file: string, input: LoopRuntimeSettings, selection: RuntimeProviderOverride = { provider: 'claude' }): RuntimeConfig {
+  let verification: unknown = []
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new AgentRuntimeConfigError('Saved runtime configuration must be an object')
+    verification = saved.verification ?? []
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  const providers = loadRuntimeProviders()
+  const settings = validateLoopRuntimeSettings(input, providers)
+  const inherit = <T extends RuntimeConfig['agents']['architect']>(agent: T): T => agent.provider !== 'inherit' ? agent : {
+    ...agent, provider: selection.provider, model: agent.model ?? selection.model, effort: agent.effort ?? selection.effort,
+  }
+  for (const role of ROLES) settings.agents[role] = inherit(settings.agents[role])
+  if (settings.fixer) settings.fixer = inherit(settings.fixer)
+  for (const [role, agent] of Object.entries(settings.roles ?? {})) settings.roles![role] = inherit(agent)
+  return validateAgentRuntimeConfig({ ...settings, providers, enabled: true, verification })
+}
 const CLI_PROVIDERS: RuntimeCli[] = ['claude', 'codex', 'gemini', 'kimi']
 const ROLES: RuntimeRole[] = ['architect', 'developer', 'reviewer']
 const schemaValidator = new Ajv({ allErrors: true }).compile<RuntimeConfig>(runtimeSchema)

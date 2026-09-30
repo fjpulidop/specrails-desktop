@@ -310,7 +310,8 @@
       "frozen-runtime-config": "已保存配置",
       "project-role": "项目角色",
       "default": "默认",
-      "explicit-launch-override": "本次运行选择的提供商"
+      "explicit-launch-override": "本次运行选择的提供商",
+      "loop-role": "循环角色"
     },
     "reuseDisabled": "此检查已禁用复用。",
     "reuseConfirmed": "确认输入和工具链一致后复用。",
@@ -569,5 +570,27 @@
       "unknown_terminal_time": "完成时间未知",
       "within_retention": "仍在保留期限内"
     }
+  },
+  "loopAgents": {
+    "title": "Loop agents",
+    "hint": "These definitions are shared by every project using this loop. Duplicate the loop to customize a separate workflow.",
+    "legacy": "This saved loop still uses historical project agents. Import them or enable loop agents before changing its configuration.",
+    "enable": "Use loop agents",
+    "import": "Import current project agents",
+    "restoreDefinition": "Restore default definition",
+    "default": "Provider default",
+    "effort": "Reasoning effort",
+    "escalationModel": "Escalation model",
+    "escalationEffort": "Escalation effort",
+    "policy": "Workflow policy",
+    "maxAttempts": "Maximum correction attempts",
+    "maxTokens": "Token budget",
+    "maxCostUsd": "Cost budget (USD)",
+    "timeoutMs": "Run timeout (ms)",
+    "projectHint": "Configure repository checks here. Agent definitions, models and workflow policy are configured in the loop editor. Historical project agents can be imported into a duplicated loop.",
+    "showUnused": "Also show agents not used in this loop",
+    "stepTitle": "Step agent and options",
+    "stepHint": "Edit this step’s agent definition and engine. Steps using the same role in this loop share these settings.",
+    "inheritProvider": "继承任务的提供商"
   }
 }

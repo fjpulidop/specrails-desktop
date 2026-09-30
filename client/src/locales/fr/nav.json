@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Analytics",
-    "companion": "Connecter un mobile",
+    "companion": "Companion",
     "settings": "Paramètres",
     "plugins": "Plugins",
     "review": "Revue"
@@ -115,5 +115,13 @@
     "pinAria": "Épingler la section (restera dépliée)",
     "unpinTooltip": "Désépingler (repliée par défaut)",
     "pinTooltip": "Épingler ouverte (rester dépliée)"
+  },
+  "keepAwake": {
+    "label": "Garder l’ordinateur éveillé",
+    "on": "Activé",
+    "off": "Désactivé",
+    "active": "Empêche la veille automatique. L’écran peut s’éteindre.",
+    "inactive": "Veille normale autorisée.",
+    "failed": "Impossible de modifier la veille."
   }
 }

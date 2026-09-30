@@ -84,7 +84,8 @@
       "title": "Plugins",
       "subtitle": "Globale Tools und Projektintegrationen, zentral verwaltet.",
       "readyCount_one": "{{count}} bereit",
-      "readyCount_other": "{{count}} bereit"
+      "readyCount_other": "{{count}} bereit",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "Plugins suchen"

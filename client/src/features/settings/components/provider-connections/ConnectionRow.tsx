@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useTranslation } from 'react-i18next'
 import { Server, TerminalSquare } from 'lucide-react'
 import { RUNTIME_CLI_PROVIDERS, runtimeProviderDisplayName, type RuntimeProvider } from '../../lib/agent-runtime'
@@ -32,7 +33,7 @@ export function ConnectionRow({ provider, onChange, onRemove }: Props) {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-xs">{t('providers.id')}<Input value={provider.id} onChange={(e) => onChange({ ...provider, id: e.target.value })} /></label>
           {provider.kind === 'cli'
-            ? <label className="space-y-1 text-xs">{t('providers.command')}<select className={selectClass} value={provider.cli} onChange={(e) => onChange({ ...provider, cli: e.target.value as typeof provider.cli })}>{RUNTIME_CLI_PROVIDERS.map((cli) => <option key={cli} value={cli}>{t(`cliNames.${cli}`)}</option>)}</select></label>
+            ? <label className="space-y-1 text-xs">{t('providers.command')}<select className={selectClass} value={provider.cli} onChange={(e) => onChange({ ...provider, cli: e.target.value as typeof provider.cli })}>{RUNTIME_CLI_PROVIDERS.filter(isPublicProvider).map((cli) => <option key={cli} value={cli}>{t(`cliNames.${cli}`)}</option>)}</select></label>
             : <>
               <label className="space-y-1 text-xs">{t('providers.baseUrl')}<Input type="url" value={provider.baseUrl} onChange={(e) => onChange({ ...provider, baseUrl: e.target.value })} /></label>
               <label className="space-y-1 text-xs">{t('providers.apiKeyEnv')}<Input value={provider.apiKeyEnv ?? ''} onChange={(e) => onChange({ ...provider, apiKeyEnv: e.target.value || undefined })} /></label>

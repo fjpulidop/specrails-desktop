@@ -36,6 +36,26 @@ async function expand(user: ReturnType<typeof userEvent.setup>, card: HTMLElemen
 beforeEach(() => { flags.enabled = true; resetDynamicModelCatalogs() })
 
 describe('ProviderConnectionsCard', () => {
+  it('preserves hidden CLI configurations when saving a visible local engine', async () => {
+    const user = userEvent.setup()
+    const providers = [CLAUDE, CODEX, GEMINI, KIMI, LOCAL]
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(json(true, { providers, status: {} }))
+      .mockResolvedValueOnce(json(true, { providers, status: {} }))
+    render(<ProviderConnectionsCard />)
+    const local = await screen.findByTestId('connection-row-local')
+    expect(screen.queryByTestId('connection-row-gemini')).toBeNull()
+    expect(screen.queryByTestId('connection-row-kimi')).toBeNull()
+    await expand(user, local)
+    await user.type(within(local).getByLabelText('API key environment variable (optional)'), '_UPDATED')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2))
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[1][1]!.body as string)
+    expect(body.providers).toEqual([
+      CLAUDE, CODEX, GEMINI, KIMI, { ...LOCAL, apiKeyEnv: 'LOCAL_OLLAMA_API_KEY_UPDATED' },
+    ])
+  })
+
   it('renders the AI providers header, a compact read-only CLI row and a collapsed local engine card', async () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockResolvedValueOnce(json(true, LIST))
@@ -228,16 +248,6 @@ describe('ProviderConnectionsCard', () => {
     expect(within(codex).getByText('Not detected on this machine')).toBeInTheDocument()
     expect(within(codex).queryByTestId('connection-status-pill')).toBeNull()
     expect(codex.className).toContain('opacity-55')
-    // gemini + kimi are missing → the quiet Add CLI provider menu lists exactly those.
-    await user.click(screen.getByRole('button', { name: 'Add CLI provider' }))
-    const menu = screen.getByRole('menu', { name: 'Add CLI provider' })
-    expect(within(menu).getAllByRole('menuitem').map((el) => el.textContent)).toEqual(['Gemini', 'Kimi'])
-    await user.click(within(menu).getByRole('menuitem', { name: 'Gemini' }))
-    expect(screen.getByTestId('connection-row-gemini')).toBeInTheDocument()
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Add CLI provider' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Kimi' }))
-    // All four present → the action disappears.
     expect(screen.queryByRole('button', { name: 'Add CLI provider' })).toBeNull()
   })
 
@@ -245,9 +255,11 @@ describe('ProviderConnectionsCard', () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockResolvedValueOnce(json(true, { providers: [CLAUDE, CODEX, GEMINI, KIMI], status: {} }))
     render(<ProviderConnectionsCard />)
-    await screen.findByTestId('connection-row-kimi')
+    await screen.findByTestId('connection-row-claude')
+    expect(screen.queryByTestId('connection-row-kimi')).toBeNull()
+    expect(screen.queryByTestId('connection-row-gemini')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Add CLI provider' })).toBeNull()
-    const trigger = within(screen.getByTestId('connection-row-kimi')).getByRole('button', { name: 'More actions' })
+    const trigger = within(screen.getByTestId('connection-row-claude')).getByRole('button', { name: 'More actions' })
     await user.click(trigger)
     expect(screen.getByRole('menu')).toBeInTheDocument()
     await user.keyboard('{ArrowDown}')
@@ -257,17 +269,11 @@ describe('ProviderConnectionsCard', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('renders children under a collapsible "Provider defaults" block, open by default', async () => {
-    const user = userEvent.setup()
+  it('omits provider defaults from the connections section', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce(json(true, { providers: [], status: {} }))
-    render(<ProviderConnectionsCard><p>role prompts here</p></ProviderConnectionsCard>)
+    render(<ProviderConnectionsCard />)
     await screen.findByTestId('provider-connections-card')
-    const toggle = screen.getByRole('button', { name: /Provider defaults/ })
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('role prompts here')).toBeInTheDocument()
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('role prompts here')).toBeNull()
+    expect(screen.queryByTestId('provider-defaults')).toBeNull()
   })
 
   it('formats the context window chip', () => {

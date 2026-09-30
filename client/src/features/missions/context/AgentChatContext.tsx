@@ -1,8 +1,10 @@
+import { MissionSplitViewsProvider } from './MissionSplitViewsContext'
 import { useMissionWindows } from './MissionWindowsContext'
 import { isMissionWindowRoute } from '../lib/mission-windows'
 import {
   createContext,
   useContext,
+  useId,
   useCallback,
   useEffect,
   useMemo,
@@ -477,7 +479,9 @@ function mergeTranscriptRows(current: AgentMessage[], incoming: AgentMessage[]):
   return rows
 }
 
-export function AgentChatProvider({ children }: { children: ReactNode }) {
+export function AgentChatProvider({ children, fixedConversationId }: { children: ReactNode; fixedConversationId?: string }) {
+  const instanceId = useId()
+  const handlerId = fixedConversationId ? `agent-chat-pane:${instanceId}` : 'agent-chat'
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
   const { setActiveProjectId, activeProjectId } = useDesktop()
@@ -705,6 +709,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     const handler = (raw: unknown): void => {
       const msg = raw as WsAgentMsg
       if (!msg) return
+      if (fixedConversationId && msg.conversationId && msg.conversationId !== fixedConversationId) return
       if (msg.type === 'desktop.project_recovered') {
         setProjectRecoveryRevision((revision) => revision + 1)
         return
@@ -829,7 +834,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
         }))
         const err = msg.error || 'The agent turn failed.'
-        toast.error(err)
+        if (!fixedConversationId) toast.error(err)
         // Also surface it inline so it's visible in the conversation.
         if (isActive) {
           setMessages((m) => [
@@ -953,9 +958,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    registerHandler('agent-chat', handler)
-    return () => unregisterHandler('agent-chat')
-  }, [registerHandler, unregisterHandler, patchLive, markUnread, refreshConversations])
+    registerHandler(handlerId, handler)
+    return () => unregisterHandler(handlerId)
+  }, [registerHandler, unregisterHandler, patchLive, markUnread, refreshConversations, handlerId, fixedConversationId])
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
@@ -1109,7 +1114,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
-    if (secondaryWindow) throw new Error('This window is reserved for its mission.')
+    if (secondaryWindow || fixedConversationId) throw new Error('This view is reserved for its mission.')
     const list = await listAgentConversations()
     setConversations(list)
     setFavoriteConversationIds((prev) => {
@@ -1127,7 +1132,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setActive(created)
     setMessages([])
     return created
-  }, [active, loadConversation])
+  }, [active, loadConversation, secondaryWindow, fixedConversationId])
 
   const open = useCallback(() => {
     setVisibility('open')
@@ -1154,12 +1159,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const builderSession = useBuilderSession(builderActive, { onFinished: exitBuilderMode })
   builderSessionRef.current = builderSession
   const enterBuilderMode = useCallback(() => {
-    if (secondaryWindow) return
+    if (secondaryWindow || fixedConversationId) return
     setBuilderActive(true)
     // Board mode: the builder lives in the floating panel — summon it. Agent
     // Mode suppresses the panel; the mission surface takes the builder skin.
     if (uiMode !== 'agent') open()
-  }, [uiMode, open])
+  }, [uiMode, open, secondaryWindow, fixedConversationId])
   const toggle = useCallback(() => {
     setVisibility((v) => (v === 'open' ? 'minimized' : 'open'))
     if (visibility !== 'open') {
@@ -1433,7 +1438,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     else setDraftEffort(effort)
   }, [active, patchActive])
   const setPinnedProject = useCallback(async (projectId: string | null) => {
-    if (secondaryWindow || !editable(active?.id)) return
+    if (secondaryWindow || fixedConversationId || !editable(active?.id)) return
     // On the EMPTY compose screen there's no conversation yet — record the pick
     // as a draft pin; otherwise patch the live conversation.
     if (active) await patchActive({ pinnedProjectId: projectId })
@@ -1443,7 +1448,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // already holds — sidebar clicks seed the draft pin). Home (null) leaves
     // the sidebar untouched; the Kanban floating panel is unaffected.
     if (!active && projectId && uiMode === 'agent') setActiveProjectId(projectId)
-  }, [active, patchActive, uiMode, setActiveProjectId])
+  }, [active, patchActive, uiMode, setActiveProjectId, secondaryWindow, fixedConversationId])
 
   // Backward binding: the sidebar's active project moves an UNSTARTED mission.
   // `setPinnedProject` above owns the forward direction (mission selector moves
@@ -1462,7 +1467,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     const previous = lastBoundProjectIdRef.current
     lastBoundProjectIdRef.current = activeProjectId
     if (previous === undefined || previous === activeProjectId) return
-    if (secondaryWindow || uiMode !== 'agent' || !activeProjectId) return
+    if (secondaryWindow || fixedConversationId || uiMode !== 'agent' || !activeProjectId) return
     if (!active) {
       setDraftPinnedProjectId(activeProjectId)
       return
@@ -1470,10 +1475,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     if (messagesRef.current.length > 0) return
     if (active.pinned_project_id === activeProjectId) return
     void patchActive({ pinnedProjectId: activeProjectId })
-  }, [activeProjectId, uiMode, active, patchActive])
+  }, [activeProjectId, uiMode, active, patchActive, secondaryWindow, fixedConversationId])
 
   const startNewConversation = useCallback((projectId?: string | null) => {
-    if (secondaryWindow) return
+    if (secondaryWindow || fixedConversationId) return
     // An explicit mission action while the Builder skin is up is a clear
     // intent to leave it — exit (abort + reset) so the normal compose screen
     // is actually visible, not hidden behind the builder branch.
@@ -1486,10 +1491,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setDraftModel(null)
     setDraftTierLevel(readLastTierLevel()) // sticky tier across missions
     setDraftEffort(null)
-  }, [exitBuilderMode])
+  }, [exitBuilderMode, secondaryWindow, fixedConversationId])
 
   const newConversation = useCallback(async (projectId?: string | null) => {
-    if (secondaryWindow) return
+    if (secondaryWindow || fixedConversationId) return
     exitBuilderMode() // same intent-to-leave as startNewConversation
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
@@ -1498,16 +1503,17 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setConversations((c) => [created, ...c.filter((row) => row.id !== created.id)])
     setActive(created)
     setMessages([])
-  }, [active, exitBuilderMode])
+  }, [active, exitBuilderMode, secondaryWindow, fixedConversationId])
 
   const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => {
-    if (secondaryWindow && !options?.windowRestore && windowsRef.current.current?.conversationId !== id) return
-    if (!secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
+    if (fixedConversationId && id !== fixedConversationId) return
+    if (secondaryWindow && !fixedConversationId && !options?.windowRestore && windowsRef.current.current?.conversationId !== id) return
+    if (!fixedConversationId && !secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
     if (options?.signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
     exitBuilderMode()
     await loadConversation(id, options?.signal)
     if (options?.windowRestore && uiMode !== 'agent') setVisibility('open')
-  }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode])
+  }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode, fixedConversationId])
 
   const deleteConversation = useCallback(async (id: string) => {
     if (!editable(id)) return
@@ -1602,11 +1608,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // In Agent Mode the conversation UI is the full-screen surface, so the
   // floating panel + bubble are suppressed. (`uiMode` is read at the top of the
   // provider — it also gates the sidebar-highlight sync in setPinnedProject.)
-  const floatingAllowed = FEATURE_AGENT_CHAT && uiMode !== 'agent'
+  const floatingAllowed = !fixedConversationId && FEATURE_AGENT_CHAT && uiMode !== 'agent'
 
   return (
     <AgentChatContext.Provider value={value}>
-      {children}
+      {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
       {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
       {/* Persistent bottom-center bubble: the single entry point when the panel
           is not open (summon from hidden AND restore from minimized). */}

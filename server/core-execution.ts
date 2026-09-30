@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
 import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
@@ -12,6 +12,7 @@ export interface CoreRunInput {
   /** Legacy single-repository admission uses the same stable membership ID as the project API. */
   projectId?: string
   repositoryId?: string
+  workspacePaths?: string[]
   spec?: LoopSpec
   verificationStep?: boolean
   /** The host graph selected implementation; do not infer orchestration from generated model text. */
@@ -31,7 +32,7 @@ interface CoreContext {
   backlogPath: string
   artifactRoot: string
   artifactRepositoryId: string
-  repositories: Array<{ id: string; name: string; path: string; baseSha?: string; scope?: string[] }>
+  repositories: Array<{ id: string; name: string; path: string; baseSha?: string; scope?: string[]; registeredScope?: string[] }>
   ownership: { git: 'host' | 'core'; backlog: 'host'; worktrees: 'host' }
   specs: Array<{ id: string | number; title: string; description: string; repositoryIds?: string[]; acceptanceCriteria?: string[] }>
 }
@@ -68,10 +69,13 @@ export function checkoutSubdirectory(directory: string): string {
  */
 function registeredScope(checkout: string, sourcePath: string | undefined): string[] | undefined {
   if (!sourcePath) return undefined
-  const prefix = checkoutSubdirectory(sourcePath)
-  // Core already receives the registered directory itself when it is not a checkout root.
-  if (!prefix || checkoutSubdirectory(checkout) !== '') return undefined
-  try { return statSync(join(checkout, ...prefix.split('/'))).isDirectory() ? [prefix] : undefined } catch { return undefined }
+  realpathSync(sourcePath)
+  const local = relative(checkout, sourcePath).split(sep).join('/')
+  const contained = local && local !== '..' && !local.startsWith('../') && !isAbsolute(local)
+  const prefix = checkoutSubdirectory(checkout) ? (contained ? local : '') : checkoutSubdirectory(sourcePath) || (contained ? local : '')
+  if (!prefix) return undefined
+  if (!statSync(join(checkout, ...prefix.split('/'))).isDirectory()) throw new Error('Selected code workspace is unavailable in the execution checkout')
+  return [prefix]
 }
 
 function withoutScope(context: CoreContext): CoreContext {
@@ -85,18 +89,24 @@ export function prepareCoreExecution(input: {
   run: CoreRunInput; cwd: string; repoDir?: string; manifest?: RunExecutionManifest; env: NodeJS.ProcessEnv
   /** The registered directory a manifest-less run stands for (the project path); a checkout subdirectory becomes the Core scope. */
   sourcePath?: string
-}): { env: NodeJS.ProcessEnv; promptPrefix: string; contextPath: string } {
+  workspacePaths?: string[]
+  selectedWorkspacePaths?: string[]
+}): { env: NodeJS.ProcessEnv; promptPrefix: string; contextPath: string; workspaceBriefing: string } {
   const { run, manifest } = input
   if (!SAFE_ID.test(run.runId)) throw new Error('Invalid Core execution run id')
   const cwd = realpathSync(input.cwd)
   assertWorkspaceCoreReady(cwd)
-  const scoped = <T extends { path: string }>(repository: T, sourcePath: string | undefined): T & { scope?: string[] } => {
-    const scope = registeredScope(repository.path, sourcePath)
-    return scope ? { ...repository, scope } : repository
+  const scoped = <T extends { path: string }>(repository: T, sourcePath: string | undefined, workspacePaths?: string[], selectedWorkspacePaths?: string[]): T & { scope?: string[]; registeredScope?: string[] } => {
+    const scope = workspacePaths?.length ? [...new Set(workspacePaths.flatMap(workspace => registeredScope(repository.path, workspace) ?? []))] : registeredScope(repository.path, sourcePath)
+    if (selectedWorkspacePaths) {
+      const selectedScope = [...new Set(selectedWorkspacePaths.flatMap(workspace => registeredScope(repository.path, workspace) ?? []))]
+      return { ...repository, ...(selectedScope.length ? { scope: selectedScope } : {}), ...(scope?.length ? { registeredScope: scope } : {}) }
+    }
+    return scope?.length ? { ...repository, scope } : repository
   }
   const repositories = manifest
-    ? manifest.repositories.map(repo => scoped({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }, repo.sourcePath))
-    : [scoped({ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }, input.sourcePath)]
+    ? manifest.repositories.map(repo => scoped({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }, repo.workspacePath ?? repo.sourcePath, repo.workspacePaths, repo.selectedWorkspacePaths))
+    : [scoped({ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }, input.sourcePath, input.workspacePaths, input.selectedWorkspacePaths)]
   if (!repositories.length || repositories.some(repo => !SAFE_ID.test(repo.id))) throw new Error('Invalid Core repository scope')
   const artifactRepositoryId = manifest?.artifactRepositoryId ?? repositories[0]!.id
   const artifactRepo = repositories.find(repo => repo.id === artifactRepositoryId)
@@ -137,7 +147,13 @@ export function prepareCoreExecution(input: {
   }
   const env = { ...input.env, SPECRAILS_EXECUTION_CONTEXT: contextPath }
   const promptPrefix = run.verificationStep ? coreVerificationContext(contextPath, cwd, env, run.runId) : ''
-  return { env, contextPath, promptPrefix }
+  const frozen = JSON.parse(readFileSync(contextPath, 'utf8')) as CoreContext
+  const workspaceBriefing = [
+    'Code workspaces frozen for this run (the project folder and the internal agent workspace are not test targets):',
+    ...frozen.repositories.map(repo => JSON.stringify({ repositoryId: repo.id, name: repo.name, checkout: repo.path, workspaces: (repo.scope ?? ['.']).map(scope => resolve(repo.path, scope)) })),
+    'Run tests, builds and other checks in these code workspace directories. For a manual shell command, set its cwd explicitly or cd to the exact workspace first. Do not use the parent project directory or another workspace as a fallback. For multiple workspaces, verify each selected workspace separately. If a workspace or its test command is unavailable, report the blocker.',
+  ].join('\n')
+  return { env, contextPath, promptPrefix: [workspaceBriefing, promptPrefix].filter(Boolean).join('\n\n'), workspaceBriefing }
 }
 
 /** Ask the installed Core runtime to validate its own receipts. Desktop never

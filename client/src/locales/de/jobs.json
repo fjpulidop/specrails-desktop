@@ -281,6 +281,8 @@
     "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen.",
     "paused": "Pausiert",
     "runtimeGraph": "Ausführungsgraph",
+    "graphFullscreen": "Vollbild",
+    "graphExitFullscreen": "Vollbild verlassen",
     "graphBack": "Zurück",
     "graphOpenComponent": "Komponente öffnen",
     "graphNoAttempts": "Keine aufgezeichneten Versuche",

@@ -49,7 +49,7 @@ describe('ProfilesTab Kimi mutations', () => {
           providers: ['claude', 'kimi'],
           catalogs: {
             claude: {
-              models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
+              models: [{ value: 'sonnet', label: 'Sonnet 5.5' }],
               defaultModel: 'sonnet',
               baselineAgents: ['sr-architect', 'sr-developer', 'sr-reviewer'],
             },

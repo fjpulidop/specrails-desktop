@@ -177,6 +177,7 @@ export function createLoopExecutors(
     profilePathFor?: (provider: string, profileName?: string | null) => string | null
     /** The registered directory a manifest-less run stands for (the project path). When it is a
      *  package inside a larger git checkout, an isolated worktree run passes it to Core as scope. */
+    workspacePaths?: () => string[] | undefined
     sourcePath?: () => string | undefined
   } = {},
 ): LoopExecutors {
@@ -212,9 +213,16 @@ export function createLoopExecutors(
       const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
-    async assertDefinitionSupport() {
+    async assertDefinitionSupport(graph) {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+      if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'artifact-contract'))) {
+        if (runtime.api?.capabilities?.workflowAgentSteps !== 1) throw new Error('engine_unsupported: Update Core to run configurable workflow agent steps')
+      }
+      if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'implementation-step'))) {
+        if (runtime.api?.capabilities?.implementationSteps !== 1) throw new Error('engine_unsupported: Update Core to run independent implementation steps')
+        if (!graph.config.agents) throw new Error('Independent implementation steps require loop-owned agents')
+      }
     },
     async assertLegacyEngineSupport() {
       // Legacy traversal predates Core: only a Core that positively lacks engine 1 blocks it.
@@ -231,17 +239,21 @@ export function createLoopExecutors(
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       const seeded = seedChangeId({ ...request, runId })
-      const briefing = [request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
+      const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
+        ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
+        : undefined
+      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
-      const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.() })
+      const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths })
       const result = await runAgentRuntimeInvocation({
         contextPath: core.contextPath, cwd: request.cwd, env: core.env,
         configPath: runtimeConfigPath(request.cwd), engineVersion: 2,
+        loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
         resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
-        defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride,
-        ...(request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
+        defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride ?? (request.graph.config.agents ? { provider: request.provider, model: request.model, effort: request.effort } : undefined),
+        ...(!request.graph.config.agents && request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
           [request.graph.config.legacyDeciderRole]: {
             ...(request.deciderEngine ?? { provider: request.provider, model: request.model, effort: request.effort }),
             access: 'read' as const, artifacts: 'none' as const,
@@ -249,9 +261,10 @@ export function createLoopExecutors(
         } } : {}),
         ...(!input.resume ? { prepareDefinition: (config) => compileLoopToDefinition(request.graph, {
           id: request.loopId, title: request.loopName, spec: request.spec,
+          ...(request.graph.config.agents ? { loopAgents: config } : {}),
           constants: request.constants ?? {}, provider: request.provider, model: request.model, effort: request.effort,
           roles: { architect: { access: 'read' }, developer: { access: 'write' }, reviewer: { access: 'read' }, ...config.roles }, repositoryCount: request.executionManifest?.repositories.length ?? 1,
-          changeId: seeded?.id, briefing,
+          changeId: seeded?.id, briefing: [briefing, core.workspaceBriefing].filter(Boolean).join('\n\n'), addendaIds: request.addenda?.ids,
         }) } : {}),
         onPrepared: input.onPrepared, onLine: input.onLine, onRuntimeEvent: input.onRuntimeEvent, onSpawn: input.onSpawn, timeoutMs: input.timeoutMs,
       })
@@ -313,7 +326,7 @@ export function createLoopExecutors(
       const existingContext = coreRun ? runtimeContextPath(cwd, coreRun.runId, baseEnv) : undefined
       const programmatic = coreRun && existingContext && (coreRun.implementation || (coreRun.verificationStep && existsRuntimeRequest(existingContext)))
       const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
-      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() }) : undefined
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: coreRun?.workspacePaths }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       if (coreRun?.implementation && core) {
         completionContexts.set(coreRun.runId, { cwd, contextPath: core.contextPath, env: stepEnv, runId: coreRun.runId })
@@ -528,7 +541,7 @@ export function createLoopExecutors(
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
       const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
-      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() }) : undefined
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: coreRun?.workspacePaths }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
@@ -572,7 +585,7 @@ export function createLoopExecutors(
       const baseEnv = resolveEnv()
       const programmatic = existsRuntimeRequest(runtimeContextPath(cwd, coreRun.runId, baseEnv))
       const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
-      const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() })
+      const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: coreRun?.workspacePaths })
       if (existsRuntimeRequest(core.contextPath)) return checkCoreCompletion(core.contextPath, cwd, { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, coreRun.runId)
       const env = buildProviderEnv(getAdapter(provider), { prompt: '', model, reasoning_effort: effort }, core.env)
       return checkCoreCompletion(core.contextPath, cwd, env, coreRun.runId)

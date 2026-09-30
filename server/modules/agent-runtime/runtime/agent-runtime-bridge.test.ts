@@ -1,3 +1,4 @@
+import { defaultLoopAgents } from '../../loops/runtime/loop-agents'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
@@ -32,10 +33,20 @@ describe('host checks of a package inside a larger checkout', () => {
       { repositoryId: 'courses', command: 'yarn', args: ['test'] },
       { repositoryId: 'courses', command: 'yarn', args: ['lint'], cwd: 'src' },
       { repositoryId: 'courses', command: 'yarn', args: ['e2e'], cwd: 'apps/busuu-courses/playwright' },
-      { repositoryId: 'courses', command: 'yarn', args: ['root'], cwd: '..' },
       { repositoryId: 'api', command: 'npm', args: ['test'] },
-    ], repositories).map(check => check.cwd)).toEqual(['apps/busuu-courses', 'apps/busuu-courses/src', 'apps/busuu-courses/playwright', 'apps', undefined])
+    ], repositories).map(check => check.cwd)).toEqual(['apps/busuu-courses', 'apps/busuu-courses/src', 'apps/busuu-courses/playwright', undefined])
     expect(scopedHostChecks([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])).toEqual([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])
+  })
+
+  it('rejects parent and sibling workspaces and absolute paths to the live checkout', () => {
+    const repositories = [{ id: 'studio', path: root, scope: ['skills-studio'] }]
+    for (const cwd of ['..', '../skills-service', 'skills-studio/../skills-service', join(root, 'skills-service')]) {
+      expect(() => scopedHostChecks([{ repositoryId: 'studio', cwd }], repositories)).toThrow('escapes')
+    }
+    expect(scopedHostChecks([{ repositoryId: 'studio', cwd: join(root, 'skills-studio', 'tests') }], repositories)[0].cwd).toBe('skills-studio/tests')
+    const shared = [{ id: 'studio', scope: ['skills-studio', 'skills-service'] }]
+    expect(scopedHostChecks([{ repositoryId: 'studio', key: 'tests' }], shared)).toEqual([{ repositoryId: 'studio', key: 'tests-workspace-0', cwd: 'skills-studio' }, { repositoryId: 'studio', key: 'tests-workspace-1', cwd: 'skills-service' }])
+    expect(() => scopedHostChecks([{ repositoryId: 'studio', cwd: '.' }], shared)).toThrow('explicit workspace')
   })
 
   it('freezes the scoped cwd into the configuration Core receives', async () => {
@@ -208,6 +219,38 @@ describe('programmatic selection', () => {
 describe('Core definition process bridge', () => {
   const definition = () => ({schemaVersion:1,id:'authored',entry:'finish',nodes:{finish:{kind:'end',params:{outcome:'success'},ends:{}}}})
   const v2 = (status='succeeded',more:object={}) => final(status,{engineVersion:2,completion:{ok:true,verified:false,reasons:[]},usage:{durationMs:1234},...more})
+  it('freezes loop agents independently of project/global prompts and resumes the original snapshot', async () => {
+    fixture.v2 = true
+    script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    saveRuntimeRolePrompts({ architect: 'Unrelated global instructions' })
+    const recipe = defaultLoopAgents()
+    recipe.agents.developer = { provider: 'codex', model: 'loop-model' }
+    recipe.rolePrompts!.architect = 'The loop owns this definition'
+    const originalProject = readFileSync(options().configPath, 'utf8')
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, loopConfig: recipe, providerOverride: { provider: 'kimi', model: 'mission-model', effort: 'high' } })
+    const filename = join(root, 'state', 'desktop-runtime-config.json')
+    const frozen = readFileSync(filename, 'utf8'), config = JSON.parse(frozen)
+    expect(config.agents.developer).toEqual(recipe.agents.developer)
+    expect(config.agents.architect).toMatchObject({ provider: 'kimi', model: 'mission-model', effort: 'high' })
+    expect(config.agents.reviewer.provider).toBe('kimi')
+    expect(config.fixer.provider).toBe('kimi')
+    expect(config.roles['loop-decider'].provider).toBe('kimi')
+    expect(config.rolePrompts.architect).toBe('The loop owns this definition')
+    expect(config.verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'] }])
+    expect(readFileSync(options().configPath, 'utf8')).toBe(originalProject)
+    expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-selection.json'), 'utf8')).origins.developer).toBe('loop-role')
+    recipe.rolePrompts!.architect = 'A later edit'
+    writeFileSync(options().configPath, 'invalid later project settings')
+    expect((await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, resume: true })).failed).toBe(false)
+    expect(readFileSync(filename, 'utf8')).toBe(frozen)
+    await expect(runAgentRuntimeInvocation({ ...options(), resume: true, loopConfig: recipe })).rejects.toThrow('frozen')
+  })
+  it('does not manufacture a missing decision agent for a loop-owned recipe', async () => {
+    fixture.v2 = true
+    const recipe = defaultLoopAgents()
+    delete recipe.roles
+    await expect(runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: () => ({ ...definition(), roles: ['loop-decider'] }), loopConfig: recipe })).rejects.toThrow('loop must define its loop-decider')
+  })
   it('freezes an explicit workflow decision engine and refuses to replace it during resume', async () => {
     fixture.v2 = true
     script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
@@ -287,4 +330,9 @@ describe('Core definition process bridge', () => {
     script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
     expect(await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true,onRuntimeEvent:()=>{throw new Error('database unavailable')}})).toMatchObject({runtimeStatus:'failed',errorText:'database unavailable'})
   })
+})
+
+it('excludes host checks configured for unselected registered workspaces', () => {
+  const repositories = [{ id: 'skills', scope: ['studio'], registeredScope: ['studio', 'service'] }]
+  expect(scopedHostChecks([{ repositoryId: 'skills', cwd: 'studio', key: 'studio-tests' }, { repositoryId: 'skills', cwd: 'service', key: 'service-tests' }], repositories)).toEqual([{ repositoryId: 'skills', cwd: 'studio', key: 'studio-tests' }])
 })

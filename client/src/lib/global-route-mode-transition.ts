@@ -22,8 +22,7 @@ export function reviewDeliveryIdForPath(pathname: string): string | null {
 }
 
 /** `/loops/:id/edit` → the loop id, else null. In Mission mode the builder has
- *  no route home, so the modalize transition carries the id and the loops
- *  dialog swaps its body to the embedded builder instead of the library. */
+ *  no route home, so the modal transition carries the id into the embedded loop editor. */
 export function loopBuilderIdForPath(pathname: string): string | null {
   const match = /^\/loops\/([^/]+)\/edit\/?$/.exec(pathname)
   return match ? decodeURIComponent(match[1]) : null
@@ -51,7 +50,7 @@ export function getGlobalRouteModeTransition({
     }
     const loopBuilderId = surface === 'loops' ? loopBuilderIdForPath(pathname) : null
     return loopBuilderId
-      ? { kind: 'modalize', surface, backgroundPath: '/', loopBuilderId }
+      ? { kind: 'modalize', surface: 'loops', backgroundPath: '/', loopBuilderId }
       : { kind: 'modalize', surface, backgroundPath: '/' }
   }
 

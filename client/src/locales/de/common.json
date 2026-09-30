@@ -125,7 +125,11 @@
     "shellDefault": "Ausführungsrepository (Ausführungen mit einem Repository)",
     "shellHint": "Erforderlich, wenn eine Ausführung mehrere Repositorys betrifft.",
     "select": "Repository",
-    "all": "Alle Repositorys"
+    "all": "Alle Repositorys",
+    "workspacePath": "Code-Arbeitsverzeichnisse",
+    "workspaceHint": "Optional. Ein Verzeichnis pro Zeile, absolut oder relativ zum Repository. Leer verwendet den Repository-Ordner. Implement, Quick SDD und Freestyle prüfen jedes angegebene Verzeichnis.",
+    "launchWorkspaces": "Arbeitsverzeichnisse für diesen Lauf",
+    "launchWorkspaceHint": "Codeänderungen und Tests sind auf diese Ordner begrenzt. Wähle mindestens ein Verzeichnis für jedes betroffene Repository."
   },
   "repositoryDelivery": {
     "building": "Implementierung läuft",

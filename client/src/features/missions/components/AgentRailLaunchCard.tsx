@@ -20,6 +20,8 @@ import {
   Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles,
   AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText,
 } from 'lucide-react'
+import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
+import type { ProjectRepository } from '../../projects/lib/project-repositories'
 import { cn } from '../../../lib/utils'
 import { API_ORIGIN } from '../../../lib/origin'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
@@ -30,7 +32,7 @@ import { useProviderDetection } from '../../providers/hooks/useProviderDetection
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
 import {
   reasoningEffortsForProvider, providerSupportsFreestyle,
-  providerSupportsProfiles, providerLabel, isRolesEngine, ROLES_ENGINE,
+  providerSupportsProfiles, providerLabel, isRolesEngine,
 } from '../../providers/lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../rails/lib/rail-loops'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
@@ -72,6 +74,8 @@ export interface RailLaunchConfig {
   newRail: boolean
   railName: string
   ticketIds: number[]
+  repositoryIds?: string[]
+  workspaceSelection?: Record<string, string[]>
   loopId: string
   aiEngine: string | null
   model: string | null
@@ -135,6 +139,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [tickets, setTickets] = useState<LocalTicket[] | null>(null)
   const [profiles, setProfiles] = useState<ProfileListEntry[]>([])
   const [customLoops, setCustomLoops] = useState<LoopDefinition[]>([])
+  const [repositories, setRepositories] = useState<ProjectRepository[]>([])
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
@@ -154,6 +159,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         .then((ls) => { if (!cancelled) setCustomLoops(ls.filter((l) => l.status === 'published' && loopNeedsTicket(l.graph))) })
         .catch(() => { /* custom loops are optional */ })
     }
+    fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/repositories`).then(response => response.ok ? response.json() as Promise<{ repositories?: ProjectRepository[] }> : {} as { repositories?: ProjectRepository[] }).then(data => { if (!cancelled) setRepositories(Array.isArray(data.repositories) ? data.repositories : []) }).catch(() => {})
     return () => { cancelled = true }
   }, [projectId, intent])
 
@@ -163,6 +169,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     newRail: !!proposal.newRail,
     railName: proposal.newRail?.name ?? proposal.railName ?? '',
     ticketIds: proposal.ticketIds,
+    repositoryIds: proposal.repositoryIds,
+    workspaceSelection: proposal.workspaceSelection,
     loopId: proposal.loopId ?? effectiveLoopId(null, proposal.mode),
     aiEngine: proposal.aiEngine,
     model: proposal.model,
@@ -330,6 +338,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         loopId: effectiveLoop,
         originConversationId: conversationId,
         originSurface: 'agent-chat',
+        ...(config.repositoryIds ? { repositoryIds: config.repositoryIds } : {}),
+        ...(config.workspaceSelection ? { workspaceSelection: config.workspaceSelection } : {}),
         ...(engineForRail ? { aiEngine: engineForRail } : {}),
         ...(!rolesEngine && effectiveModel ? { model: effectiveModel } : {}),
         ...(!rolesEngine && effectiveEffort ? { reasoning_effort: effectiveEffort } : {}),
@@ -440,8 +450,6 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   ]
   const engineOptions: AgentToolbarOption[] = [
     ...detectedProviders.map((id) => ({ value: id, label: detection.providers[id]?.displayName ?? providerLabel(id) })),
-    // Same offer as the rail header: Roles whenever there is a choice of engines.
-    ...(detectedProviders.length > 1 ? [{ value: ROLES_ENGINE, label: t('agents:railSelectors.rolesEngine'), icon: Layers }] : []),
   ]
   const modelOptions: AgentToolbarOption[] = models.map((m) => ({ value: m.value, label: m.label ?? m.value }))
   const effortOptions: AgentToolbarOption[] = [{ value: NO_EFFORT, label: t('railCard.effortDefault') }, ...efforts.map((e) => ({ value: e, label: t(`effort.${e}`, { defaultValue: e }) }))]
@@ -556,6 +564,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             />
           )}
         </div>
+        <RepositoryScopeSelector workspaceOnly repositories={repositories} value={config.repositoryIds ?? [...new Set((tickets ?? []).filter(ticket => config.ticketIds.includes(ticket.id)).flatMap(ticket => ticket.repositoryIds ?? repositories.filter(member => member.isPrimary).map(member => member.id)))]} onChange={() => {}} workspaceSelection={config.workspaceSelection} onWorkspaceChange={workspaceSelection => patch({ workspaceSelection })} disabled={!!busy} />
         {droppedTickets.length > 0 && <Note tone="muted" text={t('railCard.notes.specsDropped', { ids: droppedTickets.map((id) => `#${id}`).join(', ') })} />}
         {openAddendaTotal > 0 && (
           <div data-testid="rail-card-addenda" className="flex items-start gap-1.5 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-1.5 text-[11px] text-foreground/75">
@@ -569,7 +578,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
 
         {/* Loop · engine · model · effort · profile */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
-          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy || hasAddenda} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
+          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
           {engineOptions.length > 1 && (
             <AgentToolbarSelector label={t('railCard.fields.engine')} icon={Cpu} value={effectiveEngine ?? ''} options={engineOptions} disabled={!!busy} testId="rail-card-engine" onSelect={(v) => patch({ aiEngine: v, model: null, reasoningEffort: null, profileName: null })} />
           )}

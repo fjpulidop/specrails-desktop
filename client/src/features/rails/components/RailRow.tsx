@@ -1,13 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
+import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { AgentRuntimeRuns } from '../../settings/components/AgentRuntimeRuns'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
-import { effectiveLoopId } from '../lib/rail-loops'
+import { deriveRailMode, effectiveLoopId } from '../lib/rail-loops'
 import { SpecCard } from '../../specs/components/SpecCard'
 import { RailProfileSelector } from '../../agents/components/RailProfileSelector'
 import { RailEngineSelector } from '../../agents/components/RailEngineSelector'
@@ -95,6 +97,8 @@ interface RailRowProps {
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
   onTargetPrChange?: (value: RailTargetPr | null) => void
+  workspaceSelection?: Record<string, string[]>
+  onWorkspaceSelectionChange?: (selection: Record<string, string[]>) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onDelete: () => void
@@ -110,11 +114,15 @@ export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
+  const repositories = projectRepositories(projects.find(project => project.id === activeProjectId))
+  const primary = repositories.find(member => member.isPrimary)
+  const repositoryIds = [...new Set(tickets.flatMap(ticket => ticket.repositoryIds ?? (primary ? [primary.id] : [])))]
+  const workspacePicker = onWorkspaceSelectionChange ? <RepositoryScopeSelector workspaceOnly value={repositoryIds} repositories={repositories} onChange={() => {}} workspaceSelection={workspaceSelection} onWorkspaceChange={onWorkspaceSelectionChange} disabled={status === 'running'} /> : null
   // Server rail index for identity-keyed endpoints (pr-candidates). Null for
   // exotic/test ids — the target-PR selector simply doesn't render then.
   const serverRailIdx = railIndexFromId(id)
@@ -122,7 +130,7 @@ export function RailRow({
   // profile/model/effort pickers give way to a chip (each role is configured
   // in Settings ▸ Specrails Agents) and capability checks use the primary.
   const hasAddenda = tickets.some((ticket) => ticket.addenda?.some((a) => a.status === 'open'))
-  const effectiveMode = hasAddenda ? 'loop' : mode
+  const effectiveMode = deriveRailMode(effectiveLoopId(selectedLoopId, mode, hasAddenda))
   const rolesEngine = isRolesEngine(aiEngine)
   const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
   const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
@@ -489,7 +497,6 @@ export function RailRow({
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
-              disabled={hasAddenda}
               value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
               onChange={onLoopChange}
               freestyleAvailable={freestyleAvailable}
@@ -529,6 +536,7 @@ export function RailRow({
           </div>
         )}
 
+        {workspacePicker}
         {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
@@ -696,6 +704,7 @@ export function RailRow({
             </div>
           )}
 
+          {workspacePicker}
           {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
@@ -722,7 +731,6 @@ export function RailRow({
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
-                  disabled={hasAddenda}
                   value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
                   onChange={onLoopChange}
                   freestyleAvailable={freestyleAvailable}

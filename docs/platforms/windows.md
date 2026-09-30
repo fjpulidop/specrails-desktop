@@ -55,13 +55,6 @@ The desktop app ships its own **Node** and **Git** runtimes inside the bundle, s
 
 When the bundle is present, the Tauri host sets `SPECRAILS_IS_DESKTOP=1` and `SPECRAILS_BUNDLED_RUNTIMES_PATH`, and the embedded server prepends the bundled `node`/`git` directories to the front of `PATH` so a system install can never shadow them. If a build ships **without** the runtimes (or a partial extraction occurs), the app does not dead-end — it falls back to discovering `node`/`git` on your system `PATH` (probed with Windows `where.exe`) instead of reporting a corrupted bundle.
 
-The **provider CLIs** — **Claude Code**, **Codex**, **Gemini**, and **Kimi
-Code** — are **never bundled**. All four are probed through the system `PATH`
-with `where.exe`; install at least one. Kimi 0.27+ requires Git for
-Windows/Git Bash and the npm distribution requires Node 22.19+, both
-user-managed. See [Kimi](../kimi.md), [Codex](../codex.md), and
-[Gemini](../gemini.md).
-
 ## Updates
 
 The desktop app self-updates via the Tauri updater plugin. It checks a GitHub Releases `latest.json` endpoint and, on Windows, applies updates with `installMode: "passive"` — the update runs with a minimal progress UI and the app relaunches into the new version.
@@ -94,7 +87,6 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 
 - [macOS platform guide](./macos.md) — the equivalent guide for Apple Silicon.
 - [Getting started](../getting-started.md) — first run, adding a project, the dashboard tour.
-- [Codex provider setup](../codex.md), [Gemini provider setup](../gemini.md), and [Kimi provider setup](../kimi.md) — installing and configuring the provider CLIs.
 - [CLI reference](../cli.md) — driving Specrails from the command line.
 
 ## Verification

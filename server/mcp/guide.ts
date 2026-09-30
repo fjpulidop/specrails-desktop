@@ -26,6 +26,7 @@ Codex, Gemini, Kimi Code) to implement specs.
   \`specrails_projects(get)\` includes the repo's absolute path and availability.
   A registered project with an unavailable database still exists; never create
   a duplicate or interpret unavailable data as an empty backlog.
+- **Code workspace**: a configured code directory inside a repository. A project can have one or many. Discover \`workspacePaths\` with \`specrails_projects(get/repositories)\`; configure them with \`repository_add/repository_update\` (write permission), or register them through \`specrails_setup(add_project)\`. Independent Git roots are separate repository memberships. Launch rails or standalone loops with \`workspaceSelection\` mapping repository IDs to registered paths; omission selects all configured workspaces. Tests run within the selected directories, never implicitly in the project parent.
 - **Repository**: a stable membership within a project, addressed by \`repositoryId\`.
   Discover the inventory in \`specrails_projects(get)\` or \`specrails_context(overview)\`.
   A member is a Git repository or a non-Git context folder. File paths are relative

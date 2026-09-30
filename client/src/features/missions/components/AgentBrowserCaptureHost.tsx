@@ -21,10 +21,11 @@ export function AgentBrowserCaptureHost() {
   const windows = useMissionWindows()
   const external = !windows.current && windows.transfers.some(item => item.conversationId === active?.id && item.state === 'detached')
   const { activeProjectId } = useDesktop()
-  if (!browserOpen || !activeProjectId || external) return null
+  const projectId = active?.pinned_project_id ?? activeProjectId
+  if (!browserOpen || !projectId || external) return null
   return (
     <Suspense fallback={null}>
-      <AgentBrowserCapture projectId={activeProjectId} conversationId={active?.id ?? null} />
+      <AgentBrowserCapture projectId={projectId} conversationId={active?.id ?? null} />
     </Suspense>
   )
 }

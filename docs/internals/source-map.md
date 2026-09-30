@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 982 source/build files. Nearby tests are linked where names
+Includes 1012 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -33,6 +33,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
+- [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
@@ -377,9 +378,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CoreParameterForm.tsx](../../client/src/features/loops/components/CoreParameterForm.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreParameterForm.test.tsx)
 - [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreWorkflowInspector.test.tsx)
 - [LegacyConversionModal.tsx](../../client/src/features/loops/components/LegacyConversionModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LegacyConversionModal.test.tsx)
+- [LoopAgentsEditor.tsx](../../client/src/features/loops/components/LoopAgentsEditor.tsx) · [test](../../client/src/features/loops/components/LoopAgentsEditor.test.tsx)
 - [LoopMigrationPanel.tsx](../../client/src/features/loops/components/LoopMigrationPanel.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopMigrationPanel.test.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
+- [LoopWindowSurface.tsx](../../client/src/features/loops/components/LoopWindowSurface.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopWindowSurface.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
 
 ## client/src/features/loops/components/loop-log
@@ -412,6 +415,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-template-filter.ts](../../client/src/features/loops/lib/loop-template-filter.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-template-filter.test.ts)
 - [loop-ticket-need.ts](../../client/src/features/loops/lib/loop-ticket-need.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-ticket-need.test.ts)
 - [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
+- [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
 
 ## client/src/features/loops/pages
@@ -450,11 +454,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentRailLaunchCard.tsx](../../client/src/features/missions/components/AgentRailLaunchCard.tsx)
 - [AgentRefChip.tsx](../../client/src/features/missions/components/AgentRefChip.tsx)
 - [AgentRunFailureMarker.tsx](../../client/src/features/missions/components/AgentRunFailureMarker.tsx)
+- [AgentRuntimeSelector.tsx](../../client/src/features/missions/components/AgentRuntimeSelector.tsx)
 - [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
 - [AgentThinkingHalo.tsx](../../client/src/features/missions/components/AgentThinkingHalo.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentThinkingHalo.test.tsx)
 - [AgentTierChip.tsx](../../client/src/features/missions/components/AgentTierChip.tsx)
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
 - [AgentWorkspaceSidebar.tsx](../../client/src/features/missions/components/AgentWorkspaceSidebar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx)
+- [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
+- [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
 - [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)
 - [MissionWindowSurface.tsx](../../client/src/features/missions/components/MissionWindowSurface.tsx)
@@ -477,6 +484,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentChatContext.tsx](../../client/src/features/missions/context/AgentChatContext.tsx) · [test](../../client/src/features/missions/context/AgentChatContext.test.tsx)
 - [AgentWorkspaceContext.tsx](../../client/src/features/missions/context/AgentWorkspaceContext.tsx) · [test](../../client/src/features/missions/context/__tests__/AgentWorkspaceContext.test.tsx)
 - [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
+- [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
 
 ## client/src/features/missions/hooks
@@ -490,9 +498,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
+- [mission-split-layout.ts](../../client/src/features/missions/lib/mission-split-layout.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-layout.test.ts)
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
+
+## client/src/features/plugins/lib
+
+- [plugin-windows.ts](../../client/src/features/plugins/lib/plugin-windows.ts) · [test](../../client/src/features/plugins/lib/__tests__/plugin-windows.test.ts)
 
 ## client/src/features/plugins/pages
 
@@ -571,11 +584,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
-- [LoopRolesSection.tsx](../../client/src/features/settings/components/LoopRolesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LoopRolesSection.test.tsx)
 - [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
 - [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
 - [PairWebCompanionModal.tsx](../../client/src/features/settings/components/PairWebCompanionModal.tsx)
-- [PipelineStepper.tsx](../../client/src/features/settings/components/PipelineStepper.tsx) · [test](../../client/src/features/settings/components/__tests__/PipelineStepper.test.tsx)
 - [ProjectRepositoriesSection.tsx](../../client/src/features/settings/components/ProjectRepositoriesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectRepositoriesSection.test.tsx)
 - [ProjectSettingsDialog.tsx](../../client/src/features/settings/components/ProjectSettingsDialog.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectSettingsDialog.test.tsx)
 - [ProjectSettingsSections.tsx](../../client/src/features/settings/components/ProjectSettingsSections.tsx)
@@ -703,6 +714,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/specs/types
 
 - [spec-sort.ts](../../client/src/features/specs/types/spec-sort.ts)
+
+## client/src/features/subscription-usage/components
+
+- [SubscriptionUsageFooter.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageFooter.tsx)
+- [SubscriptionUsagePanel.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsagePanel.tsx)
+- [SubscriptionUsageSection.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageSection.tsx)
+- [UsageProviderIcon.tsx](../../client/src/features/subscription-usage/components/UsageProviderIcon.tsx)
+
+## client/src/features/subscription-usage/lib
+
+- [store.ts](../../client/src/features/subscription-usage/lib/store.ts)
+- [types.ts](../../client/src/features/subscription-usage/lib/types.ts)
+- [useSubscriptionUsage.ts](../../client/src/features/subscription-usage/lib/useSubscriptionUsage.ts)
 
 ## client/src/features/terminals/components/terminal
 
@@ -1242,6 +1266,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [builtin-loops.ts](../../server/modules/loops/runtime/builtin-loops.ts) · [test](../../server/modules/loops/runtime/builtin-loops.test.ts)
 - [definition-cancellation.ts](../../server/modules/loops/runtime/definition-cancellation.ts) · [test](../../server/modules/loops/runtime/definition-cancellation.test.ts)
 - [legacy-launch-telemetry.ts](../../server/modules/loops/runtime/legacy-launch-telemetry.ts) · [test](../../server/modules/loops/runtime/legacy-launch-telemetry.test.ts)
+- [loop-agents.ts](../../server/modules/loops/runtime/loop-agents.ts) · [test](../../server/modules/loops/runtime/loop-agents.test.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-compat.ts](../../server/modules/loops/runtime/loop-compat.ts) · [test](../../server/modules/loops/runtime/loop-compat.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
@@ -1256,6 +1281,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-executors.ts](../../server/modules/loops/runtime/loop-executors.ts) · [test](../../server/modules/loops/runtime/loop-executors.test.ts)
 - [loop-factory.ts](../../server/modules/loops/runtime/loop-factory.ts) · [test](../../server/modules/loops/runtime/loop-factory.test.ts)
 - [loop-graph.ts](../../server/modules/loops/runtime/loop-graph.ts) · [test](../../server/modules/loops/runtime/loop-graph.test.ts)
+- [loop-implement-recipe.ts](../../server/modules/loops/runtime/loop-implement-recipe.ts) · [test](../../server/modules/loops/runtime/loop-implement-recipe.test.ts)
 - [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)
 - [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
 - [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
@@ -1308,6 +1334,26 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
 - [ticket-watcher.ts](../../server/modules/specs/runtime/ticket-watcher.ts) · [test](../../server/modules/specs/runtime/ticket-watcher.test.ts)
+
+## server/modules/subscription-usage
+
+- [application.ts](../../server/modules/subscription-usage/application.ts)
+- [domain.ts](../../server/modules/subscription-usage/domain.ts) · [test](../../server/modules/subscription-usage/domain.test.ts)
+- [index.ts](../../server/modules/subscription-usage/index.ts)
+- [ports.ts](../../server/modules/subscription-usage/ports.ts)
+
+## server/modules/subscription-usage/adapters
+
+- [claude.ts](../../server/modules/subscription-usage/adapters/claude.ts) · [test](../../server/modules/subscription-usage/adapters/claude.test.ts)
+- [codex.ts](../../server/modules/subscription-usage/adapters/codex.ts) · [test](../../server/modules/subscription-usage/adapters/codex.test.ts)
+- [errors.ts](../../server/modules/subscription-usage/adapters/errors.ts)
+- [http.ts](../../server/modules/subscription-usage/adapters/http.ts) · [test](../../server/modules/subscription-usage/adapters/http.test.ts)
+- [local-auth.ts](../../server/modules/subscription-usage/adapters/local-auth.ts)
+
+## server/modules/subscription-usage/runtime
+
+- [composition.ts](../../server/modules/subscription-usage/runtime/composition.ts)
+- [usage-service.ts](../../server/modules/subscription-usage/runtime/usage-service.ts) · [test](../../server/modules/subscription-usage/runtime/usage-service.test.ts)
 
 ## server/modules/terminals/runtime
 
@@ -1396,7 +1442,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser_popup.rs](../../src-tauri/src/browser_popup.rs)
 - [browser_popup_windows.rs](../../src-tauri/src/browser_popup_windows.rs)
 - [desktop_actions.rs](../../src-tauri/src/desktop_actions.rs)
+- [desktop_status.rs](../../src-tauri/src/desktop_status.rs)
 - [invoke_guard.rs](../../src-tauri/src/invoke_guard.rs)
 - [lib.rs](../../src-tauri/src/lib.rs)
+- [loop_windows.rs](../../src-tauri/src/loop_windows.rs)
 - [main.rs](../../src-tauri/src/main.rs)
 - [mission_windows.rs](../../src-tauri/src/mission_windows.rs)

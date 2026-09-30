@@ -1,3 +1,7 @@
+import type { AgentRuntimeConfig } from '../../settings/lib/agent-runtime'
+
+export type LoopAgentConfig = Omit<AgentRuntimeConfig, 'providers' | 'verification' | 'enabled'>
+
 /**
  * Loops API client — talks to the GLOBAL (cross-project) loops endpoints at
  * `/api/loops*`. Unlike per-project resources, this does NOT use `getApiBase()`
@@ -8,7 +12,7 @@ export type LoopStatus = 'draft' | 'published'
 export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
 export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'assign' | 'verify' | 'shell'
   | 'openspec-validate' | 'openspec-archive' | 'approval' | 'question' | 'gate' | 'map' | 'join'
-  | 'component' | 'implementation' | 'end'
+  | 'artifact-contract' | 'component' | 'implementation' | 'implementation-step' | 'end'
 export type LoopJoin = 'AND' | 'OR'
 /** Which Decider verdict routes down an edge: 'continue' = loop, 'stop' = exit. */
 export type LoopBranch = 'continue' | 'stop'
@@ -33,8 +37,8 @@ export interface LoopEdge {
 export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
-  config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
-    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string; legacyDeciderRole?: string;
+  config: { agents?: LoopAgentConfig; maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
+    journal?: 'ledger-only' | 'implementation'; ticketScope?: 'all' | 'per-ticket'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string; legacyDeciderRole?: string;
     policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number };
     layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
   inputs?: string[]

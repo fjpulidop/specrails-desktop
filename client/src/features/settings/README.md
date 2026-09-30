@@ -11,8 +11,11 @@ load every UI component. Changes to this surface require updating the boundary m
 
 - [components/AgentRuntimeMetrics.tsx](components/AgentRuntimeMetrics.tsx)
 - [components/AgentRuntimeRuns.tsx](components/AgentRuntimeRuns.tsx)
+- [components/CustomRuntimeRoles.tsx](components/CustomRuntimeRoles.tsx)
 - [components/ProjectSettingsDialog.tsx](components/ProjectSettingsDialog.tsx)
+- [components/RuntimeEfficiencyControls.tsx](components/RuntimeEfficiencyControls.tsx)
 - [components/RuntimeExecutionEvidence.tsx](components/RuntimeExecutionEvidence.tsx)
+- [components/RuntimeGuardrails.tsx](components/RuntimeGuardrails.tsx)
 - [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx): exact-attempt recovery selection shared by saved executions and job details.
 - [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx): shared durable steering inbox for saved runs and job details.
 - [components/pickers/LanguagePickerGrid.tsx](components/pickers/LanguagePickerGrid.tsx)
@@ -38,6 +41,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [loops](../loops/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
+- [subscription-usage](../subscription-usage/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
@@ -46,3 +50,13 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/settings`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Repository verification
+
+Project runtime settings edit repository verification commands. Agent definitions,
+engine selection and workflow policy belong to the loop builder. Saving checks
+preserves historical configuration for legacy graphs; frozen executions retain
+their admission snapshot. The focused runtime forms exported above are also used
+by the loop editor.
+
+Subscription usage is available in the global settings modal and shares the machine-scoped store with the footer menu.

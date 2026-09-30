@@ -72,7 +72,8 @@
       "advanced": "Avançado",
       "webhooks": "Webhooks",
       "about": "Sobre",
-      "effects": "Efeitos"
+      "effects": "Efeitos",
+      "subscriptionUsage": "Uso de assinaturas"
     },
     "title": "Definições do Desktop",
     "description": "Faça a gestão dos projetos registados e consulte informações do Desktop.",
@@ -267,7 +268,7 @@
       "budget": "Orçamento",
       "telemetry": "Telemetria",
       "terminal": "Terminal",
-      "agentRuntime": "Motor de agentes"
+      "agentRuntime": "Comandos de verificação"
     }
   },
   "integrationBranch": {

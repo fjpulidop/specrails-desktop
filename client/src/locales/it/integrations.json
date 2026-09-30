@@ -84,7 +84,8 @@
       "title": "Plugin",
       "subtitle": "Strumenti globali e integrazioni di progetto, gestiti da un unico posto.",
       "readyCount_one": "{{count}} pronto",
-      "readyCount_other": "{{count}} pronti"
+      "readyCount_other": "{{count}} pronti",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "Cerca plugin"

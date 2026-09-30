@@ -310,7 +310,8 @@
       "frozen-runtime-config": "Configurazione salvata",
       "project-role": "Ruolo del progetto",
       "default": "Predefinito",
-      "explicit-launch-override": "Provider scelto per questo avvio"
+      "explicit-launch-override": "Provider scelto per questo avvio",
+      "loop-role": "Ruolo del loop"
     },
     "reuseDisabled": "Riutilizzo disabilitato per questo controllo.",
     "reuseConfirmed": "Riutilizzato dopo la conferma di input e strumenti identici.",
@@ -569,5 +570,27 @@
       "unknown_terminal_time": "Data di completamento sconosciuta",
       "within_retention": "Periodo di conservazione non scaduto"
     }
+  },
+  "loopAgents": {
+    "title": "Loop agents",
+    "hint": "These definitions are shared by every project using this loop. Duplicate the loop to customize a separate workflow.",
+    "legacy": "This saved loop still uses historical project agents. Import them or enable loop agents before changing its configuration.",
+    "enable": "Use loop agents",
+    "import": "Import current project agents",
+    "restoreDefinition": "Restore default definition",
+    "default": "Provider default",
+    "effort": "Reasoning effort",
+    "escalationModel": "Escalation model",
+    "escalationEffort": "Escalation effort",
+    "policy": "Workflow policy",
+    "maxAttempts": "Maximum correction attempts",
+    "maxTokens": "Token budget",
+    "maxCostUsd": "Cost budget (USD)",
+    "timeoutMs": "Run timeout (ms)",
+    "projectHint": "Configure repository checks here. Agent definitions, models and workflow policy are configured in the loop editor. Historical project agents can be imported into a duplicated loop.",
+    "showUnused": "Also show agents not used in this loop",
+    "stepTitle": "Step agent and options",
+    "stepHint": "Edit this step’s agent definition and engine. Steps using the same role in this loop share these settings.",
+    "inheritProvider": "Eredita il provider della missione"
   }
 }

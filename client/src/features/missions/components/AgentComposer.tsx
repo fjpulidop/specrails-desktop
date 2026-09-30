@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, X, Check, Pencil, Bot, Gauge, Terminal } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Check, Pencil, Terminal } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../background/context/BackgroundProcessesContext'
@@ -46,8 +46,8 @@ import {
 import type { BackgroundProcess, JobSummary, LocalTicket } from '../../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
-import { AgentModelSelector } from './AgentModelSelector'
-import { AgentToolbarSelector } from './AgentToolbarSelector'
+import { AgentThinkingHalo } from './AgentThinkingHalo'
+import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
@@ -57,7 +57,7 @@ import { BackgroundProcessLogsModal } from '../../background/components/Backgrou
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
 import { backgroundProcessKey } from '../../background/lib/background-processes-api'
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
-import { reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
+import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
 function replaceInlineRange(
   text: string,
@@ -124,6 +124,8 @@ export function AgentComposer({
   const { projects, activeProjectId } = useDesktop()
   const backgroundProjectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
+  // Keep the welcome stable while typing; choose again for another mission.
+  const welcomeIndex = useMemo(() => Math.floor(Math.random() * 20), [draftKey])
   const missionWindows = useMissionWindows()
   const recoveredKey = useRef<string | null>(null)
   if (recoveredKey.current !== draftKey) {
@@ -198,7 +200,7 @@ export function AgentComposer({
   const provider = active?.provider ?? draftProvider
   const { availableIds: discoveredProviders, labels: providerLabels } = useAvailableProviders()
   const selectableProviders = useMemo(
-    () => [provider, ...discoveredProviders].filter((id, index, all) => all.indexOf(id) === index),
+    () => [provider, ...discoveredProviders].filter((id, index, all) => isPublicProvider(id) && all.indexOf(id) === index),
     [provider, discoveredProviders],
   )
   // A local engine shows its connection label, never the raw connection id;
@@ -686,58 +688,7 @@ export function AgentComposer({
   }
 
   return (
-    <div className="shrink-0">
-      {/* flex-wrap: with a workspace pane (Jobs/Code) narrowing the center
-          column, the tier chip must wrap under the selectors instead of
-          overflowing the composer card. */}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        {/* The project pin is chosen while composing a NEW conversation (EMPTY
-            state); once a conversation exists the pin is fixed here. The Kanban
-            floating panel hides this copy — its header carries the selector. */}
-        {active === null && !hideProjectSelector && (
-          <AgentProjectSelector
-            pinnedProjectId={draftPinnedProjectId}
-            onSelect={(id) => void setPinnedProject(id)}
-          />
-        )}
-        <AgentToolbarSelector
-          label={t('provider.label')}
-          value={provider}
-          options={selectableProviders.map((p) => ({
-            value: p,
-            label: providerOptionLabel(p),
-          }))}
-          icon={Bot}
-          onSelect={(nextProvider) => {
-            void setProvider(nextProvider).catch(() => toast.error(t('error.generic')))
-          }}
-          testId="agent-provider-selector"
-        />
-        <AgentModelSelector
-          models={models}
-          model={active ? active.model : draftModel}
-          status={providerCatalog.status}
-          customModelAliases={customModelAliases}
-          onSelect={(m) => {
-            void setModel(m).catch(() => toast.error(t('error.generic')))
-          }}
-        />
-        {efforts.length > 0 && (
-          <AgentToolbarSelector
-            label={t('effort.label')}
-            value={effort}
-            options={efforts.map((level) => ({ value: level, label: t(`effort.${level}`) }))}
-            icon={Gauge}
-            onSelect={(nextEffort) => {
-              void setEffort(nextEffort).catch(() => toast.error(t('error.generic')))
-            }}
-            testId="agent-effort-selector"
-          />
-        )}
-        <div className="ml-auto">
-          <AgentTierChip level={active?.tier_level ?? draftTierLevel} onCycle={() => void cycleTier()} />
-        </div>
-      </div>
+    <div className="@container shrink-0">
       {inQueueEdit && editingItem && (
         <div
           data-testid="queue-edit-chip"
@@ -776,9 +727,9 @@ export function AgentComposer({
           ))}
         </div>
       )}
-      {(backgroundProcesses.length > 0 || activeId && backgroundProjectId) && (
+      {(compactProcesses.length > 0) && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-          {activeId && backgroundProjectId && <button type="button" onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} aria-label={t('backgroundProcess.history.open')} className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><Terminal className="h-3 w-3" aria-hidden />{t('backgroundProcess.history.button')}{backgroundProcessHistory.length > 0 && <span className="font-mono text-[10px]">{backgroundProcessHistory.length}</span>}</button>}
+
           {compactProcesses.map((process, index) => (
             <BackgroundProcessChip
               key={backgroundProcessKey(process)}
@@ -791,8 +742,10 @@ export function AgentComposer({
         </div>
       )}
       <div
-        className={`relative flex items-end gap-2 rounded-xl border bg-background/60 px-3 py-2 ${
-          inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/60'
+        data-testid="agent-composer-box"
+        data-mission-composer
+        className={`relative flex flex-col gap-2 rounded-3xl border bg-card px-3 py-3 ${
+          inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/30'
         }`}
         onDragOver={(e) => { if (canAttach) { e.preventDefault() } }}
         onDrop={(e) => {
@@ -802,6 +755,7 @@ export function AgentComposer({
           if (files.length) void uploadFiles(files)
         }}
       >
+        <AgentThinkingHalo active={isStreaming} radius="1.5rem" inset={-1} />
         {paletteOpen && (
           <AgentContextPalette
             items={visiblePaletteItems}
@@ -827,26 +781,7 @@ export function AgentComposer({
             />
           </>
         )}
-        {!inQueueEdit && <AgentPlusMenu
-          open={plusOpen}
-          canAttach={canAttach}
-          uploading={uploading}
-          onToggle={() => {
-            setPlusOpen((open) => !open)
-            setPaletteTrigger(null)
-          }}
-          onClose={() => setPlusOpen(false)}
-          onOpenMode={openPaletteMode}
-          onAttachFile={() => {
-            setPlusOpen(false)
-            fileInputRef.current?.click()
-          }}
-          canBrowserCapture={isBrowserCaptureEnabled() && !!(pinnedProjectId ?? activeProjectId)}
-          onOpenBrowser={() => {
-            setPlusOpen(false)
-            openBrowser()
-          }}
-        />}
+
         <div className="min-w-0 flex-1">
           <AgentComposerEditor
             key={draftKey}
@@ -878,17 +813,54 @@ export function AgentComposer({
               if (files.length) { e.preventDefault(); void uploadFiles(files) }
             }}
             disabled={blocked}
-            placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
+            placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
-            className={`min-h-[3.25rem] max-h-64 min-w-0 w-full resize-y overflow-y-auto bg-transparent text-sm outline-none ${
+            className={`min-h-[2.5rem] max-h-64 min-w-0 w-full resize-none overflow-y-auto bg-transparent text-sm outline-none ${
               inHistory ? 'italic text-foreground/50' : 'text-foreground'
             }`}
           />
         </div>
+        <div className="flex w-full items-center gap-1" data-testid="agent-composer-controls">
+        {!inQueueEdit && <AgentPlusMenu
+          open={plusOpen}
+          canAttach={canAttach}
+          uploading={uploading}
+          onToggle={() => {
+            setPlusOpen((open) => !open)
+            setPaletteTrigger(null)
+          }}
+          onClose={() => setPlusOpen(false)}
+          onOpenMode={openPaletteMode}
+          onAttachFile={() => {
+            setPlusOpen(false)
+            fileInputRef.current?.click()
+          }}
+          canBrowserCapture={isBrowserCaptureEnabled() && !!(pinnedProjectId ?? activeProjectId)}
+          onOpenBrowser={() => {
+            setPlusOpen(false)
+            openBrowser()
+          }}
+        />}
+          <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={() => void cycleTier()} />
+          {activeId && backgroundProjectId && <button type="button" onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} aria-label={t('backgroundProcess.history.open')} title={t('backgroundProcess.history.open')} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md p-1.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><Terminal className="h-4 w-4" aria-hidden /></button>}        {active === null && !hideProjectSelector && (
+          <div className="flex min-w-0 items-center overflow-hidden [&_button]:h-8 [&_button]:text-sm [&_button_span]:max-w-20 @max-[640px]:[&_button_span]:hidden"><AgentProjectSelector
+            pinnedProjectId={draftPinnedProjectId}
+            onSelect={(id) => void setPinnedProject(id)}
+          /></div>
+        )}
+
+          <div className="ml-auto flex min-w-0 max-w-[60%] items-center gap-1">
+            <AgentRuntimeSelector provider={provider} providers={selectableProviders.map(value => ({ value, label: providerOptionLabel(value) }))}
+              models={models} model={effectiveModel} efforts={efforts} effort={effort}
+              defaultEffort={defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''}
+              status={providerCatalog.status} customModelAliases={customModelAliases}
+              onProvider={value => { void setProvider(value).catch(() => toast.error(t('error.generic'))) }}
+              onModel={value => { void setModel(value).catch(() => toast.error(t('error.generic'))) }}
+              onEffort={value => { void setEffort(value).catch(() => toast.error(t('error.generic'))) }} />
         {/* Stop remains separate from Send/Save so typing never hides it. */}
         {isStreaming && (
           <button type="button" onClick={() => void abort()} aria-label={t('stop')} title={t('stop')}
-            className="rounded-lg bg-destructive p-1.5 text-white transition-colors hover:opacity-90">
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-destructive p-1.5 text-white transition-colors hover:opacity-90">
             <Square className="h-4 w-4" fill="currentColor" />
           </button>
         )}
@@ -899,7 +871,7 @@ export function AgentComposer({
             disabled={blocked || !input.trim()}
             aria-label={t('queueEdit.save')}
             title={t('queueEdit.save')}
-            className="rounded-lg bg-accent-highlight p-1.5 text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             <Check className="h-4 w-4" />
           </button>
@@ -910,7 +882,7 @@ export function AgentComposer({
             disabled={blocked || !hasDraft || submitting}
             aria-label={t('queue.send')}
             title={t('queue.sendHint')}
-            className="relative rounded-lg bg-accent-info p-1.5 text-white transition-colors hover:opacity-90"
+            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-info p-1.5 text-white transition-colors hover:opacity-90"
           >
             <SendHorizontal className="h-4 w-4" />
           </button>
@@ -920,11 +892,13 @@ export function AgentComposer({
             onClick={submit}
             disabled={blocked || !hasDraft || submitting}
             aria-label={t('send')}
-            className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+            className="inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
           >
             <SendHorizontal className="h-4 w-4" />
           </button>
         )}
+          </div>
+        </div>
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project or outside a git repo. */}

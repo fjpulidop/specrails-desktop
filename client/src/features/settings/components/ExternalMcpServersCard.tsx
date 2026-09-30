@@ -43,9 +43,9 @@ interface ExternalMcpPayload {
   settings: ExternalMcpSettings
 }
 
-/** Activation-matrix columns — the four registered providers. */
-const PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
-const DISCOVERY_PROVIDERS = ['claude', 'gemini', 'kimi'] as const
+/** Activation-matrix columns for publicly offered providers. */
+const PROVIDERS = ['claude', 'codex'] as const
+const DISCOVERY_PROVIDERS = ['claude'] as const
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 
 interface Row {

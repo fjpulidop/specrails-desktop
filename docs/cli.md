@@ -8,8 +8,6 @@ The `specrails-desktop` CLI does three things:
 
 Everything here is grouped by what you're trying to do, not by alphabetical order of flags.
 
-## Manage the app
-
 ### Start it
 
 ```bash
@@ -48,8 +46,6 @@ specrails-desktop --jobs                # see the note below
 `--status` prints a compact status line that includes the app version. The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
 
 > **Note on `--jobs`:** there is no app-level `/api/jobs` route, so the server returns 404 and `--jobs` prints `jobs history requires manager with SQLite persistence (#57)` and exits non-zero against a running server. Job history lives **per project** — view it on the project's **Jobs** page (right sidebar) in the dashboard instead.
-
-## Manage projects
 
 ### List
 
@@ -160,14 +156,6 @@ specrails-desktop --project ~/repos/api-srv implement "#5" "#6"
 
 `--project` accepts a project **name** or a **path** (absolute, or relative starting with `.` / `..`). Use it when you want to launch work in a project from outside its directory (e.g. from a CI runner or your home directory). Both `--project` and `--port` may appear **anywhere** in the command, not just at the front.
 
-## Providers
-
-The app supports four AI providers — **Claude, Codex, Gemini, and Kimi** — and all four are registered by default. Each project is configured with one or more of them when you add it.
-
-The CLI itself has **no provider flag**: a CLI-routed job always launches the project's **primary provider** (the first one you selected when you added the project). To pick a different engine for a single spec or rail on a multi-provider project, use the **dashboard** — the Add Spec engine selector or the rail-header engine selector. Provider guides: [Codex](codex.md), [Gemini](gemini.md), and [Kimi](kimi.md).
-
-> **Ops note:** to constrain which providers the dashboard offers, set `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` in the server's environment (only the exact string `0` disables a provider; unset, `1`, or `true` all leave it enabled). This affects the dashboard's provider picker, not the CLI, which has no engine flag.
-
 ## OpenSpec workflow
 
 Bundled `opsx:*` commands for structured change management of the app itself. Run them from the project directory:
@@ -205,7 +193,6 @@ If you invoke a command that routes work (`implement`, a raw prompt, …) while 
 
 This fallback has two important limitations:
 
-- **It always spawns `claude`** — even on a project whose primary provider is Codex, Gemini, or Kimi. The offline path does not honour the project's configured provider, so an offline run can behave differently from the same command run through the app.
 - **Nothing is recorded.** There's no queue, no job in the Dashboard, and nothing written to Analytics.
 
 Start the app first (`specrails-desktop start`) if you want the job to use the right provider and show up in the dashboard.

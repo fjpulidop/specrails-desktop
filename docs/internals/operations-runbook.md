@@ -229,3 +229,23 @@ and runner-minute changes must be measured from subsequent runs.
 
 
 CI partitioning and reuse of verified frontend assets are described in [CI performance](ci-performance.md).
+
+
+### Loop editor windows
+
+Mission mode opens the loop manager in a modal with **Open in window**. Board mode
+retains the embedded editor and provides **Open in window** in the library and
+builder toolbars. The builder saves its draft before opening the window; publish
+remains explicit. Each window retains its own project selection and editor state.
+In browser development the same surface opens as a popup (allow popups for the
+local development origin). Native changes require restarting `npm run dev:desktop`
+to rebuild the Tauri command. The `native-mission-window-smoke` fixture also checks
+loop target routing, duplicate focus, independent minimization and close cleanup.
+
+
+Plugins follows the same behavior: a modal with **Open in window** in Mission mode,
+and an embedded page with **Open in window** in Board mode. A successful window
+opening dismisses the Mission modal; a failure leaves it open. Reopening focuses
+the existing manager, preserving open forms. Restart `npm run dev:desktop` after
+updating the native `plugin_window_open` command. Browser development requires
+popups for the local origin. The native window smoke fixture covers Plugins too.

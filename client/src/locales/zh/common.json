@@ -125,7 +125,11 @@
     "shellDefault": "运行仓库（仅涉及一个仓库的运行）",
     "shellHint": "运行涉及多个仓库时为必填项。",
     "select": "仓库",
-    "all": "所有仓库"
+    "all": "所有仓库",
+    "workspacePath": "代码工作目录",
+    "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement、Quick SDD 和 Freestyle 会验证每个列出的目录。",
+    "launchWorkspaces": "本次运行的工作目录",
+    "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。"
   },
   "repositoryDelivery": {
     "building": "实现中",

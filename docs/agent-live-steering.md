@@ -10,8 +10,6 @@ Enviar y Detener permanecen disponibles por separado. Una vez solicitada la entr
 
 Con **Claude y Codex**, las indicaciones entran por el canal nativo del proveedor durante la ejecución. No hace falta esperar a una llamada al MCP de Specrails. Claude las incorpora al contexto después de su lote de herramientas en curso; Codex acepta la actualización del turno activo mediante `turn/steer`. No se mata una herramienta para introducir el mensaje. La conversación mantiene el orden: respuesta anterior, nueva indicación y continuación del agente.
 
-Con **Gemini y Kimi**, los transportes actuales siguen entregando las indicaciones en el siguiente punto seguro de las herramientas de Specrails. Si una acción ya está ejecutándose, se conserva su resultado. Las acciones todavía no iniciadas se suspenden para que el agente lea la corrección y revise su plan. Si no aparece otro punto de entrega, Specrails continúa con el mensaje pendiente al terminar la invocación.
-
 Si el agente está esperando novedades de un rail o job mediante `specrails_watch`, tu mensaje termina inmediatamente esa espera para darle paso. El rail o job observado sigue ejecutándose; no se cancela como efecto de enviar el mensaje.
 
 ## Estados y recuperación
@@ -30,8 +28,6 @@ Los estados de envío se muestran como iconos, con su explicación al pasar el r
 ## Alcance
 
 Enviar durante una ejecución no garantiza que el modelo cambie una acción que ya ha comenzado ni que interrumpa su razonamiento inmediatamente. El eco de usuario con UUID en Claude y la respuesta de `turn/steer` en Codex confirman recepción; por sí solos no demuestran lectura. En ambos, el verde requiere que el agente confirme esos mensajes con `specrails_mission(action:'acknowledge_inputs', inputIds:[queueId, ...])`. Una salida posterior del modelo no marca automáticamente leída una corrección nativa. En la vía MCP, confirmar la revisión entregada con `acknowledge_updates` registra la lectura. El mensaje inicial incluye un identificador de entrada y también requiere un acuse explícito de lectura. Los avisos sintéticos del proveedor no ponen checks verdes. Si el turno ya terminó antes del envío, el mensaje continúa por la vía normal. Una escritura sin confirmación nunca se reintenta automáticamente.
-
-Claude usa un proceso `stream-json` con entrada abierta; una indicación que llega después de su última frontera interna puede ejecutarse como siguiente turno nativo del mismo proceso. Gemini ACP actualmente cancela el prompt anterior al enviar otro, y Kimi requiere un transporte Server API diferente: no se usan esas rutas como sustituto de la entrega actual.
 
 Una indicación a la misión no cambia por sí sola un job de los rails que ya se haya lanzado. El agente debe revisar su estado y realizar las acciones de gestión apropiadas con los permisos existentes. El proveedor, el proyecto fijado y los permisos del proceso activo tampoco cambian mediante una indicación.
 
@@ -53,8 +49,6 @@ Cada invocación, incluido un reintento por sesión caducada, recibe una capabil
 
 - [Claude CLI: stream-json y replay-user-messages](https://code.claude.com/docs/en/cli-reference), contrastado con el bucle nativo de Claude Code 2.1.261.
 - [Codex app-server](https://learn.chatgpt.com/docs/app-server), contrastado con el esquema generado por Codex 0.153.4.
-- [Gemini model steering](https://geminicli.com/docs/cli/model-steering/) y ACP instalado 0.49.0: la capacidad interactiva no equivale a entrada sin interrupción en su transporte ACP.
-- [Kimi Server API](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/server-api.html): transporte distinto del modo print utilizado actualmente.
 
 ## Definition engine runs
 

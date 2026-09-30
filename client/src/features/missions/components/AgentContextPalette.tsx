@@ -233,14 +233,14 @@ export function AgentPlusMenu({
   }, [open, onClose])
 
   return (
-    <div ref={rootRef} className="relative mb-1">
+    <div ref={rootRef} className="relative flex shrink-0 items-center">
       <button
         type="button"
         onClick={onToggle}
         aria-label={t('palette.addContextAction')}
         title={t('palette.addContextAction')}
         data-agent-interactive
-        className="rounded-md p-1 text-foreground/50 hover:bg-surface hover:text-foreground disabled:opacity-50"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md p-1 text-foreground/50 hover:bg-surface hover:text-foreground disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />
       </button>

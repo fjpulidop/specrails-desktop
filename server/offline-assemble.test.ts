@@ -125,7 +125,7 @@ describe('assembleProjectOffline', () => {
     expect(Object.fromEntries([...configs].map(([provider, config]) => [provider, config.model]))).toEqual({
       claude: 'sonnet',
       kimi: 'k3',
-      codex: 'gpt-5.5',
+      codex: 'gpt-6.1-sol',
       gemini: 'gemini-3.5-flash',
     })
   })

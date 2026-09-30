@@ -24,6 +24,7 @@ export interface RailState {
   id: string
   label: string
   ticketIds: number[]
+  workspaceSelection?: Record<string, string[]>
   mode: RailMode
   status: RailStatus
   activeJobId?: string
@@ -111,6 +112,7 @@ interface RailsBoardProps {
   onLoopChange?: (railId: string, loopId: string) => void
   onEffortChange?: (railId: string, effort: ReasoningEffort) => void
   onTargetPrChange?: (railId: string, value: import('./RailTargetPrSelector').RailTargetPr | null) => void
+  onWorkspaceSelectionChange?: (railId: string, selection: Record<string, string[]>) => void
   onToggle: (railId: string) => void
   onTicketClick: (ticket: LocalTicket) => void
   onAddRail: () => void
@@ -144,7 +146,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -262,6 +264,8 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     selectedLoopId={rail.selectedLoopId ?? null}
                     reasoningEffort={rail.reasoningEffort ?? null}
                     targetPr={rail.targetPr ?? null}
+                    workspaceSelection={rail.workspaceSelection}
+                    onWorkspaceSelectionChange={onWorkspaceSelectionChange ? selection => onWorkspaceSelectionChange(rail.id, selection) : undefined}
                     jiggleMode={jiggleMode}
                     density={density}
                     dragHandleListeners={listeners}

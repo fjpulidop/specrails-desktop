@@ -19,8 +19,9 @@ type CatalogState =
  * for — those render with the id as title); the switches live in the SAME
  * runtime config the section's Save persists, storing only `false` entries.
  */
-export function RuntimeGuardrails({ projectId, guardrails, onChange }: {
-  projectId: string
+export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange }: {
+  projectId?: string
+  catalogUrl?: string
   guardrails: Record<string, boolean> | undefined
   onChange: (next: Record<string, boolean> | undefined) => void
 }) {
@@ -31,14 +32,15 @@ export function RuntimeGuardrails({ projectId, guardrails, onChange }: {
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
-    fetch(`${repositoryApiBase(projectId)}/agent-runtime/guardrails`, { cache: 'no-store' }).then(async (response) => {
+    fetch(catalogUrl ?? `${repositoryApiBase(projectId!)}/agent-runtime/guardrails`, { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error('guardrails')
-      const data = await response.json() as unknown
+      const responseData = await response.json()
+      const data: unknown = catalogUrl ? responseData.guardrails : responseData
       if (!isGuardrailsCatalogResponse(data)) throw new Error('guardrails')
       if (!cancelled) setState({ status: 'ready', supported: data.supported, catalog: data.catalog })
     }).catch(() => { if (!cancelled) setState({ status: 'unsupported' }) })
     return () => { cancelled = true }
-  }, [projectId])
+  }, [projectId, catalogUrl])
 
   const catalog = state.status === 'ready' ? state.catalog : []
   const supported = state.status === 'ready' && state.supported

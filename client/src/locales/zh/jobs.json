@@ -281,6 +281,8 @@
     "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。",
     "paused": "已暂停",
     "runtimeGraph": "执行图",
+    "graphFullscreen": "全屏",
+    "graphExitFullscreen": "退出全屏",
     "graphBack": "返回",
     "graphOpenComponent": "打开组件",
     "graphNoAttempts": "没有已记录的尝试",

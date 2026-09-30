@@ -8,6 +8,10 @@ import manifest from './boundaries.json'
 // These core contracts are deliberately independent of the generated inventory:
 // regenerating runtime dependencies cannot authorize infrastructure in a core.
 const coreDependencies: Record<string, string[]> = {
+  'subscription-usage/domain.ts': [],
+  'subscription-usage/ports.ts': ['./domain'],
+  'subscription-usage/application.ts': ['./domain'],
+  'subscription-usage/index.ts': ['./domain', './ports'],
   'project-settings/domain.ts': ['../../shared/git-branch-name'],
   'project-settings/ports.ts': ['./domain'],
   'project-settings/application.ts': ['./domain', './ports'],

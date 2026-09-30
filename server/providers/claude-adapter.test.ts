@@ -95,7 +95,7 @@ describe('claudeAdapter._resolveClaudeSpawnModel', () => {
     expect(_resolveClaudeSpawnModel('claude-opus-5')).toBe('claude-opus-5-5')
   })
   it('leaves unpinned aliases untouched', () => {
-    expect(_resolveClaudeSpawnModel('sonnet')).toBe('sonnet')
+    expect(_resolveClaudeSpawnModel('sonnet')).toBe('claude-sonnet-5-5')
     expect(_resolveClaudeSpawnModel('haiku')).toBe('haiku')
     expect(_resolveClaudeSpawnModel('fable')).toBe('fable')
   })
@@ -115,14 +115,15 @@ describe('claude spawn args carry the resolved model', () => {
     }
   })
 
-  it('sonnet still spawns the bare alias', () => {
+  it('sonnet spawns Sonnet 5.5', () => {
     const args = claudeAdapter.buildArgs('chat-turn', { prompt: 'hi', model: 'sonnet' } as never)
-    expect(args[args.indexOf('--model') + 1]).toBe('sonnet')
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-sonnet-5-5')
   })
 })
 
 describe('claudeAdapter._normaliseClaudeModel', () => {
   it('normalises pinned sonnet ids to "sonnet"', () => {
+    expect(_normaliseClaudeModel('claude-sonnet-5-5')).toBe('sonnet')
     expect(_normaliseClaudeModel('claude-sonnet-4-6')).toBe('sonnet')
     expect(_normaliseClaudeModel('claude-sonnet-4-5')).toBe('sonnet')
   })
@@ -152,7 +153,7 @@ describe('claudeAdapter.buildArgs', () => {
       model: 'sonnet',
     })
     expect(args).toEqual([
-      '--model', 'sonnet',
+      '--model', 'claude-sonnet-5-5',
       '--dangerously-skip-permissions',
       '--tools', 'default',
       ...getOpenSpecRuntimePluginArgs(),
@@ -239,12 +240,12 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5-5')
   })
 
-  it('chat-turn normalises an unpinned alias family without expanding it', () => {
+  it('chat-turn upgrades the Sonnet catalog family to Sonnet 5.5', () => {
     const args = claudeAdapter.buildArgs('chat-turn', {
       prompt: 'x',
       model: 'claude-sonnet-4-6',
     })
-    expect(args[args.indexOf('--model') + 1]).toBe('sonnet')
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-sonnet-5-5')
   })
 
   it('chat-resume requires sessionId and emits --resume', () => {

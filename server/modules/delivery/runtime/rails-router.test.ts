@@ -1,3 +1,4 @@
+import { coreFactoryGraph } from '../../loops/runtime/loop-core-factory'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
@@ -12,7 +13,7 @@ import { createRailsRouter, prDeliveryRevisionAllowed } from './rails-router'
 import { PrContinuationIsolationError } from './rail-isolated-launch'
 import { getRail, setRailTickets } from './rails-store'
 import { createLoop, getLoop, publishLoop, updateLoop } from '../../loops/runtime/loops-store'
-import { ensureBuiltinLoops } from '../../loops/runtime/builtin-loops'
+import { ensureBuiltinLoops, probeCoreCapabilities } from '../../loops/runtime/builtin-loops'
 import { getFactoryLoop } from '../../loops/runtime/loop-factory'
 import { createLoopRun } from '../../loops/runtime/loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
@@ -42,6 +43,7 @@ const {
   mockCheckoutProjectReviewBranch: vi.fn(),
   mockReleaseRailWorktrees: vi.fn(),
 }))
+vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: {} } }) }))
 vi.mock('./pr-publisher', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   defaultExec: { run: mockExecRun },
@@ -773,7 +775,7 @@ describe('rails-router loop mode', () => {
       await ensureBuiltinLoops(desktopDb, env)
       const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
       await request(launchApp(run)).post('/rails/0/launch').send({ loopId: 'factory:implement' })
-      expect((run.mock.calls[0][0] as { graph: LoopGraph }).graph).toEqual(getFactoryLoop('factory:implement')!.graph)
+      expect((run.mock.calls[0][0] as { graph: LoopGraph }).graph).toEqual(getFactoryLoop('factory:implement', (await probeCoreCapabilities()).capabilities)!.graph)
     })
 
     it('checks engine support for an edited built-in before allocating runs', async () => {
@@ -999,6 +1001,31 @@ describe('rails-router loop mode', () => {
       { id: 1, title: 'T', description: 'D' },
       { id: 2, title: 'T', description: 'D' },
     ])
+  })
+
+  it('inherits the mission engine for loop agents without an explicit provider', async () => {
+    const graph = coreFactoryGraph('implement', true)
+    createLoop(desktopDb, { id: 'inherited-agents', name: 'Inherited agents', graph })
+    publishLoop(desktopDb, 'inherited-agents')
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, { desktopDb, providers: ['claude', 'codex'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const selection = { provider: 'codex', model: 'gpt-6.1-sol', effort: 'medium' }
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'inherited-agents', runtimeProviderOverride: selection })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(run.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6.1-sol', effort: 'medium', runtimeProviderOverride: selection, graph })
+  })
+
+  it('launches loop-owned agents independently of project providers and stale rail presets', async () => {
+    const graph = coreFactoryGraph('implement', true)
+    graph.config.agents!.agents.developer = { provider: 'codex', model: 'gpt-5.4' }
+    createLoop(desktopDb, { id: 'shared-agents', name: 'Shared agents', graph })
+    publishLoop(desktopDb, 'shared-agents')
+    const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const app = appWith(db, { desktopDb, providers: ['claude'], loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'shared-agents', aiEngine: 'stale-provider', model: 'stale-model', profileName: 'stale-profile', runtimeProviderOverride: { provider: 'claude', model: 'haiku' } })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(run.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.4', graph })
+    expect(run.mock.calls[0][0].runtimeProviderOverride).toBeUndefined()
   })
 
   it('falls back to the QueueManager mode when Loops are disabled', async () => {
@@ -1721,16 +1748,19 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_updated', projectId: 'p1' }))
   })
 
-  it.each(['factory:implement', 'factory:sdd-quick-openspec', 'factory:freestyle'])('continues a same-spec pending delivery with addenda using Quick SDD (%s)', async (loopId) => {
+  it.each([
+    { loopId: 'factory:implement' }, { loopId: 'factory:sdd-quick-openspec' },
+    { loopId: 'factory:freestyle' }, { mode: 'implement' }, {},
+  ])('continues a same-spec pending delivery with addenda using the selected workflow (%j)', async (selection) => {
     seedAddenda()
     const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
     transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true }] })
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['next-run'])
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
-      .post('/rails/0/launch').send({ loopId })
+      .post('/rails/0/launch').send(selection)
     expect(res.status, JSON.stringify(res.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: selection.loopId ?? (selection.mode === 'implement' ? 'factory:implement' : 'factory:sdd-quick-openspec'), revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
     // A local review has no published PR yet: never pass a null PR target.
     expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
   })
@@ -2668,16 +2698,14 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     expect(res.status).toBe(202)
     const call = mockLaunchIsolated.mock.calls[0][0] as { loopId: string; loopGraph: { nodes: Array<{ type: string; data?: { prompt?: string } }> } }
     expect(call.loopId).toBe('factory:sdd-quick-openspec')
-    const prompts = call.loopGraph.nodes.filter((n) => n.type === 'ai-step').map((n) => n.data?.prompt ?? '').join('\n')
-    expect(prompts).toContain('{{cmd:opsx:apply}}')
-    expect(prompts).not.toContain('{{cmd:implement}}')
+    expect(call.loopGraph).toEqual(getFactoryLoop('factory:sdd-quick-openspec', (await probeCoreCapabilities()).capabilities)!.graph)
   })
 
-  it('routes delivery change requests to Quick SDD even with a stale custom selection', async () => {
+  it('honors explicit Implement for delivery change requests', async () => {
     const id = mkOnReviewRail()
-    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'not-a-factory-loop' })
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'factory:implement' })
     expect(res.status).toBe(202)
-    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
+    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:implement')
   })
 
   it('still 409s an ordinary launch while the delivery is undecided', async () => {

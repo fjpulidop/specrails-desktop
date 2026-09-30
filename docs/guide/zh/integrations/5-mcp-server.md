@@ -1,6 +1,6 @@
 # 从任意 AI 操控 Specrails（MCP 服务器）
 
-> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude, Codex, Kimi and Gemini. It includes verified bridge discovery, registration and read-only checks.
+> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
 
 Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](https://modelcontextprotocol.io) 的 AI 助手——Claude Desktop、Claude Code、Cursor、Cline，或者你自己的 agent。打开这个功能，把你的助手指向 Specrails，你就能靠聊天来驱动整个应用：*「列出我的项目」「在 API 项目里为社交登录创建一份规格」「启动 rail 0，跑完了告诉我」「我这周花了多少钱？」*。你的助手会在幕后调用 Specrails 的工具，而不用你点来点去。
 
@@ -32,19 +32,6 @@ Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](http
 ```
 
 支持远程 HTTP MCP 服务器的客户端，则可以直接指向 `http://127.0.0.1:4200/api/mcp`，并配上面板里的令牌。
-
-### 从终端连接: Claude Code、Gemini CLI、Codex CLI
-
-先在 **设置 ▸ MCP ▸ 复制令牌** 复制令牌, 然后:
-
-```bash
-# Claude Code
-claude mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <你的令牌>"
-
-# Gemini CLI
-gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <你的令牌>"
 
 # Codex CLI (stdio — 注册 设置 ▸ MCP 中显示的 bridge 命令)
 codex mcp add specrails -- <设置 ▸ MCP 中的 bridge 命令>

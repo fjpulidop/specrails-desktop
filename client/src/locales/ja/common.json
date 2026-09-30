@@ -125,7 +125,11 @@
     "shellDefault": "実行対象のリポジトリ（単一リポジトリでの実行）",
     "shellHint": "複数のリポジトリを対象に実行する場合は必須です。",
     "select": "リポジトリ",
-    "all": "すべてのリポジトリ"
+    "all": "すべてのリポジトリ",
+    "workspacePath": "コード作業ディレクトリ",
+    "workspaceHint": "任意。1行に1ディレクトリ。絶対パスまたはリポジトリからの相対パスを指定します。空欄はリポジトリのフォルダーを使用します。Implement、Quick SDD、Freestyle は各ディレクトリを検証します。",
+    "launchWorkspaces": "今回の実行用ディレクトリ",
+    "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。"
   },
   "repositoryDelivery": {
     "building": "実装中",

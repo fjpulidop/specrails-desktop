@@ -20,17 +20,6 @@ L'intestazione ha un **selettore di progetto** (come quello di Cursor). Scegli u
 
 Scegliere un progetto qui **non** sposta la tua dashboard: l'obiettivo dell'agente e ciò che stai guardando sono indipendenti.
 
-## Provider e modello
-
-Proprio sopra la casella del messaggio scegli il **provider** (Claude, Codex,
-Gemini o Kimi) e il suo **modello**. Cambiare provider avvia una sessione
-separata.
-
-Con Kimi i livelli limitano gli strumenti MCP Specrails, ma non trasformano
-`kimi -p` in una sandbox: gli strumenti nativi sono approvati
-automaticamente. Le azioni pure-output non sicure sono rifiutate prima dello
-spawn; vedi la [matrice Kimi](../../../kimi.md).
-
 ## Livelli di permesso — le redini le tieni tu
 
 L'agente può toccare tutta l'app, quindi decidi tu quanta libertà ha tramite un **livello** che cambi dal vivo premendo **Shift+Tab** (lo stesso ciclo usato da Claude Code). Ogni livello include tutto ciò che sta sotto:

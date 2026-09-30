@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'rails-origin-test-token-no-filesystem-access' }))
+// Pin legacy launch tests independently of whichever Core is installed locally.
+const coreCapabilities = vi.hoisted(() => ({ value: {} as Record<string, number> }))
+vi.mock('../../modules/agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: coreCapabilities.value } }) }))
 import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'
@@ -72,6 +75,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
   beforeEach(async () => {
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
     isoStatus.value = 'ok'
+    coreCapabilities.value = {}
     db = initDb(':memory:')
     desktopDb = initDesktopDb(':memory:')
     _resetAgentCapabilitiesForTest()
@@ -312,6 +316,16 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     })
   }
 
+  it('inherits conversation and explicit launch engines in modern builtins', async () => {
+    coreCapabilities.value = { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1 }
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
+    const result = await captured!({ action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'codex', model: 'gpt-6-astra' }, launchExtra(conv.id))
+    expect(result.isError).toBeFalsy()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6-astra' }, graph: { config: { agents: { agents: { developer: { provider: 'inherit' } } } } } })
+    expect(getActivePrDeliveryByRail(db, 0)!.origin_conversation_id).toBe(conv.id)
+    await settle()
+  })
+
   it('a launch from a CODEX conversation defaults the engine to codex through the real router', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
@@ -365,11 +379,11 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
   it('an explicit model does not inherit an incompatible effort from the mission model', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra', reasoningEffort: 'ultra' })
     const r = await captured!(
-      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', model: 'gpt-5.5' },
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', model: 'gpt-5.6-luna' },
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.5' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.6-luna' })
     expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
     await settle()
   })

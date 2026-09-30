@@ -14,7 +14,7 @@ const TICKET_CMD = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
   for (const node of graph.nodes) {
-    if (node.type === 'core' && node.data?.kind === 'implementation') return true
+    if (node.type === 'core' && ['implementation', 'implementation-step'].includes(String(node.data?.kind))) return true
     const text = [node.data?.prompt, node.data?.command, node.data?.goal, node.type === 'core' ? JSON.stringify(node.data?.params ?? {}) : '']
       .filter((v) => typeof v === 'string')
       .join('\n')

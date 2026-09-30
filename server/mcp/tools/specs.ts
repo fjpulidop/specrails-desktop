@@ -324,7 +324,7 @@ export function specsTools(): McpToolSpec[] {
             }) as Record<string, unknown>
             return {
               ...r,
-              hint: 'The addendum is open: launch with factory:sdd-quick-openspec. Rail launches route open addenda to Quick SDD, continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
+              hint: 'The addendum is open: respect the user\'s explicit loop selection, including factory:implement; otherwise recommend factory:sdd-quick-openspec. Rail launches continue a same-spec pending delivery, and brief every AI step with the full delta and a fresh OpenSpec target. Do not use Revision or edit openspecChangeName. Do not edit the spec description to repeat it.',
             }
           }
           case 'update_addendum': {

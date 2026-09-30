@@ -1,3 +1,6 @@
+import { ExternalLink } from 'lucide-react'
+import { isLoopWindowRoute, openLoopWindow } from '../lib/loop-windows'
+import { LoopAgentsEditor } from '../components/LoopAgentsEditor'
 import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +30,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { getApiBase } from '../../../lib/api'
 import { type ParameterChoices } from '../components/CoreParameterForm'
 import { CoreWorkflowInspector, CoreNodeInspector } from '../components/CoreWorkflowInspector'
-import { coreNodeData, effectiveOutcomes, pieceGroup } from '../lib/core-authoring'
+import { coreNodeData, effectiveOutcomes, pieceGroup, nodeAgentRoles } from '../lib/core-authoring'
 import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip'
@@ -140,11 +143,11 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
   )
 }
 
-function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
+function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
   const { id: routeId } = useParams<{ id: string }>()
-  // Embedded mode (Mission-mode loops dialog): the id and the exit action come
+  // Independent loop window: the id and the exit action come
   // in as props instead of the route — the builder is not mounted under
   // /loops/:id/edit there.
   const id = loopId ?? routeId
@@ -166,12 +169,12 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   useEffect(() => {
     const controller = new AbortController(); setChoices({})
     const read = (url: string) => fetch(url, { signal: controller.signal }).then(response => response.ok ? response.json() : null).catch(() => null)
-    void Promise.all([activeProjectId ? read(`${getApiBase()}/agent-runtime/config`) : Promise.resolve(null), read('/api/runtime-providers')]).then(([value, connections]) => {
+    void Promise.all([activeProjectId && document && !document.config.agents ? read(`${getApiBase()}/agent-runtime/config`) : Promise.resolve(null), read('/api/runtime-providers')]).then(([value, connections]) => {
       if (controller.signal.aborted) return
       setChoices({ providers: (value?.config?.providers ?? connections?.providers ?? []).map((provider: { id: string }) => provider.id), roles: [...new Set([...Object.keys(value?.config?.agents ?? {}), ...Object.keys(value?.config?.roles ?? {}), ...Object.keys(value?.workflowRoleDefaults ?? {})])], models: Object.fromEntries(Object.entries(connections?.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])) })
     })
     return () => controller.abort()
-  }, [activeProjectId])
+  }, [activeProjectId, Boolean(document), Boolean(document?.config.agents)])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<LoopNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -184,6 +187,8 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   // Optional cost cap (USD). null = no cap. Stored on graph.config.maxCostUsd.
   const [maxCostUsd, setMaxCostUsd] = useState<number | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [showLoopSettings, setShowLoopSettings] = useState(false)
+  useEffect(() => setShowLoopSettings(false), [id])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showProblems, setShowProblems] = useState(false)
@@ -355,7 +360,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     (kind: LoopNodeType) => {
       const node = makeNode(kind, { x: 120 + Math.random() * 120, y: 80 + Math.random() * 240 })
       setNodes((nds) => [...nds, node])
-      setSelectedId(node.id)
+      setShowLoopSettings(false); setSelectedId(node.id)
     },
     [setNodes]
   )
@@ -395,9 +400,16 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   }, [snapshot, setNodes, setEdges, fitView])
   const addPiece = useCallback((piece: WorkflowPieceDescriptor, position?: { x: number; y: number }) => {
     const node: Node<LoopNodeData> = { id: newNodeId(), type: 'loop', position: position ?? { x: 160 + nodes.length * 20, y: 100 + nodes.length * 30 }, data: coreNodeData(piece) }
+    if (piece.kind === 'role-turn' && document) {
+      const provider = choices.providers?.[0] ?? 'claude'
+      const roleId = ('agent-' + node.id.replace(/[^a-z0-9-]/g, '-')).slice(0, 64)
+      const agents = document.config.agents ?? { schemaVersion: 1 as const, agents: { architect: { provider }, developer: { provider }, reviewer: { provider } } }
+      node.data.params = { roleId, prompt: t('builder.core.agentTaskDefault') }
+      setDocument({ ...document, config: { ...document.config, agents: { ...agents, roles: { ...agents.roles, [roleId]: { provider, access: 'write', artifacts: 'none', prompt: '' } } } } })
+    }
     if (piece.kind === 'prompt' && choices.providers?.length) node.data.params!.engine = { provider: choices.providers[0] }
-    setNodes(previous => [...previous, node]); setSelectedId(node.id)
-  }, [nodes.length, setNodes, choices.providers])
+    setNodes(previous => [...previous, node]); setShowLoopSettings(false); setSelectedId(node.id)
+  }, [nodes.length, setNodes, choices.providers, document, t])
 
   // Dry-run: resolve the CURRENT (unsaved) graph's tokens and show what would run.
   const runPreview = useCallback(async () => {
@@ -517,6 +529,9 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
               />
             </label>
           </TooltipProvider>
+          {coreMode && <button type="button" aria-pressed={showLoopSettings} onClick={() => setShowLoopSettings(value => !value)} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground">
+            {t('builder.loopSettings')}
+          </button>}
           {builtin && (
             <button type="button" onClick={() => setConfirmRestore(true)} disabled={saving} data-testid="builder-restore-builtin" className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
               <RotateCcw className="w-3 h-3" /> {t('actions.restoreBuiltin')}
@@ -525,6 +540,13 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
           <button type="button" onClick={() => void runPreview()} disabled={previewing} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
             <Eye className="w-3 h-3" /> {t('builder.preview.label')}
           </button>
+          {!isLoopWindowRoute() && <button type="button" disabled={saving} onClick={() => void save().then(async ok => {
+            if (!ok || !id) return
+            try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else exitBuilder() }
+            catch (error) { toast.error(String(error)) }
+          })} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted disabled:opacity-50">
+            <ExternalLink className="w-3 h-3" />{t('window.open')}
+          </button>}
           <button type="button" onClick={() => void save().then((ok) => ok && toast.success(t('builder.saved')))} disabled={saving} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
             <Save className="w-3 h-3" /> {t('builder.save')}
           </button>
@@ -559,7 +581,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
           {coreMode && catalogUnavailable && <p role="status" className="text-xs text-muted-foreground px-1">{t('builder.core.unavailable')}</p>}
           {coreMode && catalog.length > 0 && (['ai', 'verification', 'openspec', 'control'] as const).map(group => <div key={group} className="pt-2">
             <p className="text-[10px] uppercase text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
-            {catalog.filter(piece => pieceGroup(piece.kind) === group).map(piece => <button key={piece.kind} type="button" draggable onDragStart={event => { event.dataTransfer.setData('application/specrails-core-piece', piece.kind); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => addPiece(piece)} className="flex items-center gap-2 w-full min-h-8 px-2 rounded text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-accent-primary"><Plus className="h-3 w-3 flex-shrink-0" />{t(`builder.core.pieces.${piece.kind}`)}</button>)}
+            {catalog.filter(piece => !['implementation', 'implementation-step'].includes(piece.kind) && pieceGroup(piece.kind) === group).map(piece => <button key={piece.kind} type="button" draggable onDragStart={event => { event.dataTransfer.setData('application/specrails-core-piece', piece.kind); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => addPiece(piece)} className="flex items-center gap-2 w-full min-h-8 px-2 rounded text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-accent-primary"><Plus className="h-3 w-3 flex-shrink-0" />{t(`builder.core.pieces.${piece.kind}`)}</button>)}
           </div>)}
           {(coreMode ? ['start'] as LoopNodeType[] : NODE_KINDS).map((kind) => {
             const Icon = NODE_ICON[kind]
@@ -585,8 +607,8 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               isValidConnection={isValidConnection}
-              onNodeClick={(_, n) => setSelectedId(n.id)}
-              onPaneClick={() => setSelectedId(null)}
+              onNodeClick={(_, n) => { setShowLoopSettings(false); setSelectedId(n.id) }}
+              onPaneClick={() => { setShowLoopSettings(false); setSelectedId(null) }}
               nodeTypes={nodeTypes}
               colorMode={theme.scheme === 'dark' ? 'dark' : 'light'}
               fitView
@@ -660,7 +682,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
                             <button
                               type="button"
                               disabled={!issue.nodeId}
-                              onClick={() => issue.nodeId && setSelectedId(issue.nodeId)}
+                              onClick={() => { if (issue.nodeId) { setShowLoopSettings(false); setSelectedId(issue.nodeId) } }}
                               className="flex items-start gap-1.5 w-full text-left px-2.5 py-1 hover:bg-muted disabled:cursor-default"
                             >
                               <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', issue.severity === 'error' ? 'bg-destructive' : 'bg-accent-warning')} />
@@ -679,11 +701,10 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
 
         {/* Inspector */}
         <div className="w-80 border-l border-border p-3 flex-shrink-0 overflow-y-auto space-y-4">
-          {coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={setDocument} onOpenCanvas={openCanvas} />}
-          {!selected ? (
+          {!showLoopSettings && (!selected ? (
             <p className="text-xs text-muted-foreground">{t('builder.inspector.selectNode')}</p>
           ) : selected.data.kind === 'core' ? (
-            <CoreNodeInspector nodeId={selected.id} data={selected.data} piece={catalog.find(piece => piece.kind === selected.data.coreKind)} choices={{ ...choices, components: Object.keys(document?.components ?? {}) }} schema={definitionSchema} onChange={updateSelectedData} onDelete={deleteSelected} onOpenCanvas={openCanvas} />
+            <CoreNodeInspector nodeId={selected.id} data={selected.data} piece={catalog.find(piece => piece.kind === selected.data.coreKind)} choices={{ ...choices, roles: document?.config.agents ? [...Object.keys(document.config.agents.agents), ...Object.keys(document.config.agents.roles ?? {})] : choices.roles, components: Object.keys(document?.components ?? {}) }} schema={definitionSchema} onChange={updateSelectedData} onDelete={deleteSelected} onOpenCanvas={openCanvas} />
           ) : (
             <NodeInspector
               data={selected.data}
@@ -692,7 +713,10 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
               constants={constants}
               onManageConstants={() => setShowConstants(true)}
             />
-          )}
+          ))}
+          {!showLoopSettings && coreMode && document && selected && (nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {}).length > 0 || selected.data.coreKind === 'implementation-step' && selected.data.params?.phase === 'archive') && <LoopAgentsEditor mode={selected.data.coreKind === 'implementation' ? 'all' : 'step'} key={`${id}:${selected.id}`} graph={snapshot()} value={document.config.agents} selectedRole={String(selected.data.params?.phase ?? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] ?? '')} onChange={agents => setDocument({ ...document, config: { ...document.config, agents } })} />}
+          {showLoopSettings && coreMode && document && <LoopAgentsEditor mode="workflow" key={id} graph={snapshot()} value={document.config.agents} selectedRole={selected ? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] : undefined} onChange={agents => setDocument({ ...document, config: { ...document.config, agents } })} />}
+          {showLoopSettings && coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={setDocument} onOpenCanvas={openCanvas} />}
         </div>
       </div>
 
@@ -1062,12 +1086,13 @@ export interface LoopBuilderPageProps {
   loopId?: string
   /** Embedded mode: back/publish exit hook instead of navigate('/loops'). */
   onExit?: () => void
+  onWindowOpened?: () => void
 }
 
-export default function LoopBuilderPage({ loopId, onExit }: LoopBuilderPageProps = {}) {
+export default function LoopBuilderPage({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps = {}) {
   return (
     <ReactFlowProvider>
-      <BuilderInner loopId={loopId} onExit={onExit} />
+      <BuilderInner loopId={loopId} onExit={onExit} onWindowOpened={onWindowOpened} />
     </ReactFlowProvider>
   )
 }

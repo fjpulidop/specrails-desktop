@@ -26,13 +26,8 @@ Die rechte Seitenleiste ist deine Schaltzentrale für das aktuelle Projekt. Fahr
 
 - **Dashboard** – das Specs-Board und die Rails (wo du gerade warst).
 - **Jobs** – jeder Pipeline-Lauf dieses Projekts, vergangen und aktuell, mit Status, Dauer und der Möglichkeit, in die Details und Logs jedes Laufs einzutauchen.
-- **Analytics** – Aufrufe nach Tag, Aktivität, Modell und Ticket. Claude meldet abgerechnete Kosten, Codex/Gemini Schätzwerte; Kimi lässt nicht verfügbare Token-/USD-Felder leer.
-- **Agenten** – provider-spezifische Profile und Rollenkataloge für Claude und Kimi. Kimi-Rollen lassen sich manuell erstellen und bearbeiten; Generate, Test und AI Refine sind nicht verfügbar.
-- **Code** – ein schreibgeschützter Datei-Browser mit Chips für von der KI berührte Dateien. KI-Zusammenfassungen in einfacher Sprache erscheinen nur bei kompatiblen Providern und sind mit Kimi nicht verfügbar.
 - **Integrationen** – optionale Erweiterungen, etwa das Verbinden deiner Specs mit einem **Jira**-Board oder das Aktivieren zusätzlicher Werkzeuge für die KI.
 - **Einstellungen** – projektspezifische Optionen (Telemetrie, Budgets, Provider-Konfiguration und mehr).
-
-> Abschnitte und Aktionen richten sich nach den Fähigkeiten des effektiven Providers. Profile funktionieren etwa mit Claude und Kimi; Agent Studios KI-Aktionen werden mit Kimi dagegen sicher abgelehnt.
 
 ## Die Statusleiste
 

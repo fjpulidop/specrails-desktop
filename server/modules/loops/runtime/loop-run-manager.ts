@@ -217,7 +217,7 @@ export interface InteractiveAiStepPlan {
 }
 
 export interface LoopExecutors {
-  assertDefinitionSupport?(): Promise<void>
+  assertDefinitionSupport?(graph?: LoopRunRequest['graph']): Promise<void>
   /** Rejects a legacy traversal when the active Core has no engine 1 (Core 7). */
   assertLegacyEngineSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
@@ -297,6 +297,7 @@ export interface LoopRunRequest {
   railIndex?: number | null
   /** Registered identity for a legacy single-repository run without a manifest. */
   repositoryId?: string
+  workspacePaths?: string[]
   ticketId?: number | null
   spec?: LoopSpec
   /** Launch-captured terminal destination. Persisted before any provider spawn
@@ -943,7 +944,7 @@ export class LoopRunManager {
   async assertEngineSupport(graph: LoopRunRequest['graph']): Promise<void> {
     if (isDefinitionGraph(graph)) {
       if (!this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
-      await this.executors.assertDefinitionSupport?.()
+      await this.executors.assertDefinitionSupport?.(graph)
     } else await this.executors.assertLegacyEngineSupport?.()
   }
   private definitionForkOwnsRun(runId: string): boolean {
@@ -1852,7 +1853,7 @@ export class LoopRunManager {
               const effectiveTimeoutMs = Number.isFinite(remainingMs)
                 ? Math.max(1, Math.min(aiStepTimeoutMs === 0 ? Infinity : (aiStepTimeoutMs ?? 15 * 60_000), remainingMs))
                 : aiStepTimeoutMs
-              const coreRun: CoreRunInput = { runId, implementation: requiresCoreCompletion, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, verificationStep: node.data?.requireVerificationPass === true || /\{\{\s*cmd:(?:verify|revision-verify|opsx:verify)\s*\}\}/.test(rawTemplate) }
+              const coreRun: CoreRunInput = { runId, implementation: requiresCoreCompletion, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, workspacePaths: req.workspacePaths, verificationStep: node.data?.requireVerificationPass === true || /\{\{\s*cmd:(?:verify|revision-verify|opsx:verify)\s*\}\}/.test(rawTemplate) }
               const interactivePlan = this.executors.planInteractiveAiStep?.({
                 coreRun,
                 provider: nodeProvider,
@@ -1979,7 +1980,7 @@ export class LoopRunManager {
               && requiresCoreCompletion
               && this.executors.validateCoreCompletion) {
               const completion = this.executors.validateCoreCompletion({
-                coreRun: { runId, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId },
+                coreRun: { runId, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, workspacePaths: req.workspacePaths },
                 provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName,
                 cwd: req.cwd, repoDir: req.repoDir, executionManifest: req.executionManifest,
               })

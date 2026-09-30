@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import { createLoopExecutors } from './loop-executors'
 import type { LoopRunRequest } from './loop-run-manager'
 import { runAgentRuntimeInvocation, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
@@ -32,4 +33,28 @@ it('resumes using frozen runtime state without replacing the original role choic
   expect(call).toMatchObject({ resume: true, cwd: '/original' })
   expect(call).not.toHaveProperty('workflowRoleBindings')
   expect(call).not.toHaveProperty('prepareDefinition')
+})
+
+
+it('freezes a fresh delta target and briefs every Implement role without mutating the spec', async () => {
+  const input = request()
+  input.loopId = 'factory:implement'
+  input.graph = configurableImplementGraph()
+  input.spec = { title: 'Already delivered', description: 'Original requirements', openspecChangeName: 'original-change' }
+  input.addenda = { ids: ['a1'], briefing: '[a1] Add idempotency' }
+  input.constants = { REVISION_REQUEST: 'Keep the current PR branch' }
+  const original = structuredClone(input)
+  await createLoopExecutors({ env: {} }).runDefinition!({ ...callbacks, request: input, runId: 'delta-run' })
+  const call = vi.mocked(runAgentRuntimeInvocation).mock.calls[0][0]
+  expect(call.change).toMatch(/^spec-addenda-/)
+  expect(call.change).not.toBe('original-change')
+  const definition = call.prepareDefinition!(input.graph.config.agents!)
+  for (const role of ['architect', 'developer', 'reviewer', 'fixer']) {
+    expect(definition.nodes[role].params.prompt).toContain('For delivered work, plan and implement ONLY')
+    expect(definition.nodes[role].params.prompt).toContain('For work not yet implemented, implement the full spec')
+    expect(definition.nodes[role].params.prompt).toContain('[a1] Add idempotency')
+    expect(definition.nodes[role].params.prompt).toContain('Keep the current PR branch')
+    expect(definition.nodes[role].params.prompt).toContain(`openspec/changes/${call.change}/`)
+  }
+  expect(input).toEqual(original)
 })

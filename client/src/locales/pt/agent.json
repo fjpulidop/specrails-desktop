@@ -2,7 +2,7 @@
   "title": "Controle de missões",
   "subtitle": "Opere o Specrails conversando",
   "trigger": "Controle de missões",
-  "composerPlaceholder": "Peça ao agente o que quiser…",
+  "composerPlaceholder": "Qual é a missão?",
   "send": "Enviar",
   "stop": "Parar",
   "copy": "Copiar",
@@ -193,7 +193,7 @@
   },
   "noProvider": {
     "title": "Nenhum provedor de IA instalado",
-    "body": "O agente precisa de Claude, Codex, Gemini ou Kimi na sua máquina. Instale um e reabra o agente para começar a conversar.",
+    "body": "O agente precisa de Claude ou Codex na sua máquina. Instale um e reabra o agente para começar a conversar.",
     "placeholder": "Instale um provedor de IA para usar o agente…"
   },
   "degraded": {
@@ -705,5 +705,40 @@
     "briefing": {
       "title": "Relatório automático da falha"
     }
+  },
+  "split": {
+    "open": "Vista dividida",
+    "menu": "Ações da conversa",
+    "add": "Adicionar conversa em vista dividida",
+    "close": "Fechar vista dividida",
+    "loadFailed": "Não foi possível carregar esta conversa.",
+    "retry": "Tentar novamente"
+  },
+  "runtimeSelector": {
+    "label": "Modelo e esforço",
+    "resetEffort": "Repor esforço",
+    "back": "Voltar"
+  },
+  "missionPlaceholders": {
+    "0": "Qual é a missão?",
+    "1": "Com que missão começamos?",
+    "2": "Qual é a nossa missão hoje?",
+    "3": "Qual é a nossa próxima missão?",
+    "4": "O que queres alcançar nesta missão?",
+    "5": "Que missão vamos iniciar?",
+    "6": "Por onde começamos esta missão?",
+    "7": "Qual é o objetivo desta missão?",
+    "8": "O que construímos nesta missão?",
+    "9": "O que melhoramos com esta missão?",
+    "10": "Que desafio enfrentamos nesta missão?",
+    "11": "Qual é o primeiro passo da missão?",
+    "12": "Conta-me a missão que tens em mente…",
+    "13": "Descreve a tua próxima missão…",
+    "14": "Vamos dar forma à tua próxima missão…",
+    "15": "O que deve realizar esta missão?",
+    "16": "Que missão gostarias de concluir?",
+    "17": "O que vamos resolver nesta missão?",
+    "18": "O que faria desta missão um sucesso?",
+    "19": "Tudo pronto para uma nova missão. Começamos?"
   }
 }

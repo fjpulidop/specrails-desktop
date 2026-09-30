@@ -2,7 +2,7 @@
   "title": "Contrôle des missions",
   "subtitle": "Pilotez Specrails en discutant",
   "trigger": "Contrôle des missions",
-  "composerPlaceholder": "Demandez à l'agent ce que vous voulez…",
+  "composerPlaceholder": "Quelle est la mission ?",
   "send": "Envoyer",
   "stop": "Arrêter",
   "copy": "Copier",
@@ -193,7 +193,7 @@
   },
   "noProvider": {
     "title": "Aucun fournisseur d'IA installé",
-    "body": "L'agent a besoin de Claude, Codex, Gemini ou Kimi sur votre machine. Installez-en un, puis rouvrez l'agent pour discuter.",
+    "body": "L'agent a besoin de Claude ou Codex sur votre machine. Installez-en un, puis rouvrez l'agent pour discuter.",
     "placeholder": "Installez un fournisseur d'IA pour utiliser l'agent…"
   },
   "degraded": {
@@ -705,5 +705,40 @@
     "briefing": {
       "title": "Compte rendu automatique de l’échec"
     }
+  },
+  "split": {
+    "open": "Vue partagée",
+    "menu": "Actions de conversation",
+    "add": "Ajouter une conversation en vue partagée",
+    "close": "Fermer la vue partagée",
+    "loadFailed": "Impossible de charger cette conversation.",
+    "retry": "Réessayer"
+  },
+  "runtimeSelector": {
+    "label": "Modèle et effort",
+    "resetEffort": "Réinitialiser l’effort",
+    "back": "Retour"
+  },
+  "missionPlaceholders": {
+    "0": "Quelle est la mission ?",
+    "1": "Par quelle mission commençons-nous ?",
+    "2": "Quelle est notre mission aujourd’hui ?",
+    "3": "Quelle est notre prochaine mission ?",
+    "4": "Que veux-tu accomplir avec cette mission ?",
+    "5": "Quelle mission lançons-nous ?",
+    "6": "Par où commencer cette mission ?",
+    "7": "Quel est l’objectif de cette mission ?",
+    "8": "Que construisons-nous dans cette mission ?",
+    "9": "Qu’améliorons-nous avec cette mission ?",
+    "10": "Quel défi relevons-nous dans cette mission ?",
+    "11": "Quelle est la première étape de cette mission ?",
+    "12": "Parle-moi de la mission que tu as en tête…",
+    "13": "Décris ta prochaine mission…",
+    "14": "Donnons forme à ta prochaine mission…",
+    "15": "Que doit accomplir cette mission ?",
+    "16": "Quelle mission aimerais-tu terminer ?",
+    "17": "Que résolvons-nous dans cette mission ?",
+    "18": "Qu’est-ce qui ferait de cette mission un succès ?",
+    "19": "Tout est prêt pour une nouvelle mission. On commence ?"
   }
 }

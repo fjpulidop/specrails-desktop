@@ -1,8 +1,9 @@
+import { useMissionPaneClose } from '../context/MissionSplitViewsContext'
 import { MissionWindowAction } from './MissionWindowAction'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart, Download } from 'lucide-react'
+import { MoreVertical, Pencil, Copy, Check, ChevronRight, Trash2, Heart, Download, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -75,6 +76,7 @@ export function safeTranscriptFilename(title: string | null | undefined, id: str
  * match `AgentMissionSelector` (no Radix dep); closes on outside-click / Esc.
  */
 export function AgentConversationHeader() {
+  const closePane = useMissionPaneClose()
   const { t } = useTranslation('agent')
   const { active, messages, renameConversation, deleteConversation, startNewConversation, favoriteConversationIds, toggleFavoriteConversation } = useAgentChat()
   const { projects } = useDesktop()
@@ -183,11 +185,12 @@ export function AgentConversationHeader() {
       // deleteConversation clears the active thread when it's the one deleted,
       // so the Agent-Mode surface falls back to the "+ New Mission" screen.
       await deleteConversation(active.id)
+      if (closePane) { closePane(); return }
       startNewConversation(active.pinned_project_id)
     } catch {
       toast.error(t('header.deleteFailed'))
     }
-  }, [active, deleteConversation, startNewConversation, t])
+  }, [active, closePane, deleteConversation, startNewConversation, t])
 
   const toggleFavorite = useCallback(() => {
     if (!active) return
@@ -254,6 +257,7 @@ export function AgentConversationHeader() {
       </div>
 
       <MissionWindowAction />
+      {closePane && <button type="button" onClick={closePane} title={t('split.close')} aria-label={t('split.close')} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>}
       {/* ⋮ overflow menu */}
       <button
         type="button"

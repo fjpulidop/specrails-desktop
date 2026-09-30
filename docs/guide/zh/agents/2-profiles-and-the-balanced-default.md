@@ -35,13 +35,6 @@ Profile 的选择就发生在你启动的地方——**rail 头部**，通过 Pr
 
 整个流程就这么简单：选一个 Profile、启动、搞定。同一批次中并发运行的 rail 各自带着自己的 Profile，所以一个快速修复和一个重量级功能可以并排运行、采用各不相同的配置。
 
-## 当 Agents 区悄无声息时
-
-Profile 按 provider 隔离。Claude 和 Kimi 支持 profile/role；Codex 和
-Gemini 使用 legacy mode。混合项目中相同名称也不会在 Claude/Kimi 之间
-串用。Kimi 支持手动 role，但 Agent Studio 的 generation、smoke test
-和 AI Refine 会在 spawn 前拒绝。Kimi 需要 `specrails-core` 4.12.0+。
-
 ## 接下来去哪儿
 
 - [按 Agent 自定义模型](customizing-models-per-agent)——打造 `fast` 和 `max` Profile。

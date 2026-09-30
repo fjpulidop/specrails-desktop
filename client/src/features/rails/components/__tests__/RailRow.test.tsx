@@ -207,7 +207,7 @@ describe('RailRow', () => {
       const chip = screen.getByTestId('rail-roles-chip')
       expect(chip).toHaveTextContent('Per-role engines')
       expect(chip).toHaveAttribute('title', expect.stringContaining('verifier and decider'))
-      expect((screen.getByTestId('rail-engine-selector') as HTMLSelectElement).value).toBe('roles')
+      expect((screen.getByTestId('rail-engine-selector') as HTMLSelectElement).value).toBe('claude')
       expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
       expect(screen.queryByTestId('rail-effort-selector')).not.toBeInTheDocument()
       expect(screen.queryByTestId('rail-profile-selector')).not.toBeInTheDocument()

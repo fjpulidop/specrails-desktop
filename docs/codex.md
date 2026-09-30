@@ -1,11 +1,5 @@
 # Using Specrails with the Codex CLI
 
-Specrails supports **four AI providers** — Claude, Codex, Gemini, and Kimi.
-This guide covers OpenAI's
-[Codex CLI](https://developers.openai.com/codex). For the others, see
-[Claude Code](https://claude.com/claude-code) and the
-[Gemini guide](gemini.md) or [Kimi guide](kimi.md).
-
 > **Just want to get going?** Install the `codex` CLI, log in, then in
 > the app click **Add Project → check Codex → Submit**. The rest of the
 > app (specs, rails, chat, analytics) works the same as it does for
@@ -14,7 +8,7 @@ This guide covers OpenAI's
 You pick any subset of the four providers when you add a project — and
 you can mix them in a single project too (see [Running more than one
 provider in one project](#running-more-than-one-provider-in-one-project)
-below). All four are registered by default.
+below). Both are registered by default.
 
 > The codex path is enabled by default. To temporarily disable it
 > (e.g. as an emergency rollback), set `SPECRAILS_CODEX_BETA=0` in the
@@ -38,28 +32,6 @@ binary isn't on `PATH`; it shows install commands if you click "More info".
 
 ## Adding a codex project
 
-1. Open the app UI and click **Add Project**.
-2. Pick the project's path.
-3. In the **AI providers** row, check **Codex** (you can check
-   **Claude**, **Gemini**, and/or **Kimi** too — see [Running more than one
-   provider in one project](#running-more-than-one-provider-in-one-project)).
-   The first provider you select becomes the project default.
-4. Submit. The app writes `.specrails/install-config.yaml` (with
-   `provider: codex` and `tier: quick` as YAML keys) and spawns
-   `npx --yes --prefer-online specrails-core@^5.1.0 init --yes --from-config <file>`
-   — the provider and tier live in the YAML, not as CLI flags. (The app
-   pins `specrails-core@^5.1.0`; that floor is the version that ships the
-   current provider targets, including Kimi and the Codex skill set.) The install
-   produces:
-   - `.codex/config.toml` — model, reasoning effort, sandbox mode, and
-     approval policy (all top-level keys per the codex 0.128.0+ schema).
-   - `.codex/skills/sr-*/SKILL.md` — general specrails skills
-     (implement, why, compat-check, …).
-   - `.codex/skills/rails/sr-*/SKILL.md` — the pipeline rails.
-   - `AGENTS.md` — top-level instructions file with a sentinel-protected
-     managed block. Anything outside the sentinels is preserved on
-     updates.
-
    The exact rail and lifecycle skill set is produced by
    `specrails-core`, not the app, so the precise file list can vary by
    core version.
@@ -72,14 +44,6 @@ the choice later.
 
 ## Running more than one provider in one project
 
-A single project can install **any combination** of Claude, Codex, Gemini, and
-Kimi. In the **Add Project** dialog the **AI providers** control is a
-multi-select — check the ones you want and the app runs each provider's
-install sequentially. The first provider you select is the
-**primary/default**; the helper text spells this out: *"The engines will
-be set up. The first is the project default. Cannot be changed after
-creation."*
-
 Once more than one is installed:
 
 - **Per-invocation engine pickers** let you choose which engine runs each
@@ -90,11 +54,6 @@ Once more than one is installed:
   to choose.
 - The **selected engine is remembered per project** (it defaults to the
   primary), so you don't have to re-pick on every spawn.
-- **Provider-scoped capabilities.** Claude and Kimi expose independent
-  profile catalogs; Codex and Gemini run rails in legacy/no-profile mode.
-  Integration entries and health are resolved for the effective provider:
-  Serena supports Claude, Codex, and Kimi through each provider's native MCP
-  registration, while Jira is provider-agnostic.
 
 When only one provider is installed the app behaves byte-identically to
 a single-provider project — no engine pickers, no provider persisted on
@@ -113,23 +72,13 @@ These models do not offer `minimal`. Mission-originated launches inherit the
 mission's model and effort when the engine matches; an explicit launch model
 still takes precedence.
 
-The table below includes all four registered providers. See the
-[Kimi guide](kimi.md) for its full safety matrix.
-
-| Surface | Claude | Codex | Gemini | Kimi |
 |---|---|---|---|---|
-| **CLI** | `claude` | `codex` | `gemini` | `kimi` |
 | **Min CLI version** | none pinned | `0.128.0` | `0.11.0` | `0.27.0` |
-| **Project dir** | `.claude/` | `.codex/` | `.gemini/` | `.kimi-code/` |
-| **Instructions file** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
-| **Default model** | `sonnet` | `gpt-5.5` (catalog also lists `gpt-6-astra` — the `max` preset model, no rate card yet so its cost shows as unavailable — and the GPT-5.6 family `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`) | `gemini-3.5-flash` | `k3` |
 | **Reasoning efforts** | `low`–`xhigh` | model-dependent | none | `low`/`high`/`max`, K3 only |
-| **Agent format** | `.claude/agents/<id>.md` | `.codex/skills/<id>/SKILL.md` | `.gemini/` target | `.kimi-code/skills/<id>/SKILL.md` |
 | **Agent profiles** | ✅ | legacy | legacy | ✅ provider-scoped |
 | **Implement** | ✅ | ✅ | ✅ | ✅ |
 | **Freestyle** | ✅ | ❌ | ❌ | ✅ |
 | **Pure-output transforms** | capability-dependent | capability-dependent | capability-dependent | ❌ fail closed |
-| **MCP registration** | `.mcp.json` | isolated `CODEX_HOME` | `.gemini/settings.json` | `.kimi-code/mcp.json` |
 | **Session resume** | `--resume` | `exec resume` | `--resume` | bound `--session=<id>` after resume hint |
 | **Native cost report** | exact | estimated | estimated | unavailable |
 | **Telemetry** | native | synthesized | native | unavailable |
@@ -141,9 +90,6 @@ A few Codex-specific behaviours worth calling out:
   a rail can read and write anywhere in the project. This is intentional —
   rails need to apply edits across the repo — but it's worth knowing if
   you're surprised by a rail touching files outside the working tree.
-- **Freestyle rails require a capable provider.** Launching a Freestyle rail
-  (`mode: freestyle`) on Codex or Gemini is rejected before spawn. Pick Claude
-  or Kimi for that autonomous rail mode.
 
 ## Estimated cost
 
@@ -163,7 +109,7 @@ The Analytics page surfaces this in two places:
 - **A "By provider" card** between the Hero and the Timeline splits
   cost per provider into authoritative vs estimated whenever the project
   has invoked more than one. Claude rows are authoritative (the CLI
-  reports cost); Codex and Gemini rows are estimated from token counts
+  reports cost); Codex rows are estimated from token counts
   and the local rate-card.
 
 The pricing table is reviewed quarterly. The reference date sits on
@@ -171,13 +117,6 @@ each entry as `lastReviewedAt`. If OpenAI raises prices mid-quarter,
 ship an out-of-band update to `server/modules/accounting/runtime/pricing.ts`.
 
 ## Plugins and MCP on codex projects
-
-The **Integrations** section stays visible on Codex projects. Serena is
-provider-aware and registers its server with `codex mcp add` in Specrails'
-isolated per-project `CODEX_HOME`; Claude uses `.mcp.json`, and Kimi uses
-`.kimi-code/mcp.json`. Install state and health are scoped to the selected
-provider, so one provider's entry never masquerades as another's. Jira remains
-provider-agnostic.
 
 For MCP servers outside the managed plugin catalog, use Codex's native
 configuration flow. Codex chat and Explore turns inherit the appropriate Codex
@@ -228,9 +167,6 @@ SPECRAILS_CODEX_BETA=0 npm run dev
 For the packaged desktop app, set the variable in the environment the app
 process inherits (the `npm run dev` form is for source runs only).
 
-(Gemini has the same kill switch, `SPECRAILS_GEMINI_BETA=0`, but **no**
-legacy `SPECRAILS_HUB_*` fallback name.)
-
 `GET /api/available-providers` will report `codex: false` and
 `POST /api/projects` will refuse new codex projects. Existing
 codex projects keep functioning — the env var only gates creating
@@ -249,17 +185,8 @@ The codex integration lives in:
 - `server/plugins/codex-mcp.ts` — `codex mcp add/remove/list` wrapper
   with per-project `CODEX_HOME`.
 
-The contract every provider implements is at
-`server/providers/types.ts`. Adding a provider is essentially one new
-adapter file + one `register(...)` entry in `server/providers/index.ts`
-(the rest of the codebase is registry-driven and provider-id-agnostic).
-`server/providers/gemini-adapter.ts` is the freshest worked example —
-see [Adding a provider](internals/adding-a-provider.md).
-
 ## See also
 
-- [Using Gemini](gemini.md) — the Gemini CLI provider (the other
-  provider with estimated cost).
 - [Adding a provider](internals/adding-a-provider.md) — the developer
   guide to wiring an AI CLI adapter.
 - [Tracking cost](tracking-cost.md) — how the Analytics page surfaces

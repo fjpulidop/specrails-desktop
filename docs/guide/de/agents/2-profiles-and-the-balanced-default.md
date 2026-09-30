@@ -35,14 +35,6 @@ Die Profilwahl passiert genau dort, wo du startest – im **Rail-Header**, über
 
 Das ist der ganze Ablauf: Profil wählen, starten, fertig. Gleichzeitig laufende Rails im selben Batch können jeweils ihr eigenes Profil tragen, sodass ein schneller Fix und ein umfangreiches Feature mit unterschiedlichen Setups nebeneinander laufen können.
 
-## Wenn der Agents-Bereich still ist
-
-Profile sind provider-spezifisch. Claude und Kimi unterstützen Profile/Rollen;
-Codex und Gemini laufen im Legacy-Modus. Gleiche Namen können in gemischten
-Projekten nicht zwischen Claude und Kimi übergreifen. Kimi erlaubt manuelle
-Rollen, aber Agent-Studio-Generierung, Smoke-Test und AI Refine werden vor dem
-Spawn abgelehnt. Kimi benötigt `specrails-core` 4.12.0 oder neuer.
-
 ## Wie es weitergeht
 
 - [Modelle pro Agent anpassen](customizing-models-per-agent) – `fast`- und `max`-Profile bauen.

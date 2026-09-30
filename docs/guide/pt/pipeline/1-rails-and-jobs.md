@@ -35,8 +35,6 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 | **Pílula de status** | `idle`, `running` ou `failed`. Não há um "completed" separado — um rail volta para `idle` quando seu job termina sem erros. |
 | **Lista de specs** | Os IDs atribuídos a este rail. Arraste mais para dentro, arraste para fora para desanexar. |
 | **Seletor de Loop** | O Loop que este rail roda — um embutido (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) ou um loop personalizado. Veja a tabela abaixo. Persistido por rail. |
-| **Seletor de perfil** | Qual perfil do provider corre (rails Claude e Kimi). |
-| **Seletor de motor** | Qual provider corre o rail — Claude, Codex, Gemini ou Kimi. |
 | **▶ Play / ■ Stop** | Iniciar ou cancelar. |
 
 ### O que um rail roda: Loops
@@ -46,13 +44,8 @@ Um rail roda um **Loop** — a receita do trabalho. Dois loops são **embutidos*
 | Loop embutido | Comando | O que faz |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Um job cobrindo todas as specs do rail. Roda o pipeline completo Architect → Developer → Reviewer → Ship. O padrão do dia a dia. |
-| **Freestyle** | Freestyle | Claude ou Kimi implementa cada spec de forma autónoma, **ignorando** o pipeline. |
 
 Para rodar várias specs, coloque as relacionadas (até 3) num único rail — o `Implement` executa-as como um só job agregado — ou distribua specs independentes por vários rails: cada rail com git roda em paralelo na sua própria worktree isolada.
-
-Freestyle usa ferramentas e modelos nativos do provider. Claude tem transport
-interativo persistente; Kimi usa um processo agentic `kimi -p` sem stdin
-persistente.
 
 Os embutidos também são editáveis: edite um no Loop Builder e publique-o, e todos os rails que o escolhem rodam a sua versão (use **Restaurar original** para voltar atrás).
 
@@ -84,11 +77,6 @@ Clique em qualquer cartão para abrir a **vista de detalhe do Job**, onde ficam 
 
 Clique em **■ Stop** no cabeçalho do rail. A app envia `SIGTERM` ao subprocesso, espera **5 segundos** por uma saída limpa e então faz `SIGKILL`. Nada fica spawnado pela metade.
 
-## Se um rail não lançar
-
-Se faltar o CLI escolhido, o lançamento falha antes do spawn. Para Kimi,
-instale/autentique `kimi` 0.27+; Desktop não inicia um server.
-
 ## Parando tudo
 
 Se algo parecer errado:
@@ -101,4 +89,3 @@ Se algo parecer errado:
 
 - [O Loop Builder](the-loop-builder) — o que um rail roda, e como construir seus próprios loops.
 - [A vista de detalhe do job](the-job-detail-view) — fases, métricas ao vivo, cartões de ticket.
-- [Escolhendo um motor por rail](picking-an-engine-per-rail) — Claude, Codex, Gemini ou Kimi.

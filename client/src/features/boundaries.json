@@ -188,10 +188,12 @@
   "loops": {
     "publicEntries": [
       "components/LoopPreviewModal.tsx",
+      "components/LoopWindowSurface.tsx",
       "components/loop-log/LoopStepExplorer.tsx",
       "components/loop-log/NarratedProgress.tsx",
       "lib/loop-run-models.ts",
       "lib/loop-ticket-need.ts",
+      "lib/loop-windows.ts",
       "lib/loops-api.ts",
       "pages/LoopBuilderPage.tsx",
       "pages/LoopsPage.tsx"
@@ -215,6 +217,7 @@
       "components/AgentPrPinnedDock.tsx",
       "components/AgentToolbarSelector.tsx",
       "components/AgentWorkspaceSidebar.tsx",
+      "components/MissionConversationMenu.tsx",
       "components/MissionWindowAction.tsx",
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",
@@ -222,6 +225,7 @@
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",
+      "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
       "hooks/useAgentRefActions.ts",
       "lib/agent-api.ts",
@@ -249,6 +253,7 @@
   },
   "plugins": {
     "publicEntries": [
+      "lib/plugin-windows.ts",
       "pages/PluginsPage.tsx"
     ],
     "dependencies": [
@@ -268,6 +273,7 @@
     ],
     "dependencies": [
       "integrations",
+      "providers",
       "settings"
     ]
   },
@@ -306,6 +312,7 @@
       "delivery",
       "loops",
       "missions",
+      "projects",
       "providers",
       "settings",
       "specs"
@@ -315,8 +322,11 @@
     "publicEntries": [
       "components/AgentRuntimeMetrics.tsx",
       "components/AgentRuntimeRuns.tsx",
+      "components/CustomRuntimeRoles.tsx",
       "components/ProjectSettingsDialog.tsx",
+      "components/RuntimeEfficiencyControls.tsx",
       "components/RuntimeExecutionEvidence.tsx",
+      "components/RuntimeGuardrails.tsx",
       "components/RuntimeRecovery.tsx",
       "components/RuntimeSteering.tsx",
       "components/pickers/LanguagePickerGrid.tsx",
@@ -340,7 +350,8 @@
       "jobs",
       "loops",
       "projects",
-      "providers"
+      "providers",
+      "subscription-usage"
     ]
   },
   "specs": {
@@ -373,6 +384,15 @@
       "projects",
       "providers",
       "rails"
+    ]
+  },
+  "subscription-usage": {
+    "publicEntries": [
+      "components/SubscriptionUsageFooter.tsx",
+      "components/SubscriptionUsagePanel.tsx"
+    ],
+    "dependencies": [
+      "builder"
     ]
   },
   "terminals": {

@@ -281,6 +281,8 @@
     "providerLimitHint": "プロバイダーが利用上限の通知を返したため、アプリはループを続けずに実行を停止しました。",
     "paused": "一時停止中",
     "runtimeGraph": "実行グラフ",
+    "graphFullscreen": "全画面表示",
+    "graphExitFullscreen": "全画面表示を終了",
     "graphBack": "戻る",
     "graphOpenComponent": "コンポーネントを開く",
     "graphNoAttempts": "記録された試行はありません",

@@ -43,3 +43,10 @@ describe('suggestVerificationCommands', () => {
     ])
   })
 })
+
+
+it('detects checks in every configured code workspace and never proposes the parent test script', () => {
+  const parent = repo('skills', { 'package.json': JSON.stringify({ scripts: { test: 'echo wrong-parent' } }), 'skills-studio/package.json': JSON.stringify({ scripts: { test: 'studio-tests' } }), 'skills-service/package.json': JSON.stringify({ scripts: { typecheck: 'tsc' } }) })
+  const checks = suggestVerificationCommands([{ ...parent, workspacePaths: ['skills-studio', 'skills-service'].map(dir => path.join(parent.path, dir)) }])
+  expect(checks.map(check => [check.cwd, ...check.args])).toEqual([['skills-studio', 'test'], ['skills-service', 'run', 'typecheck']])
+})

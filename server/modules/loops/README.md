@@ -41,14 +41,17 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/loops` and any affected consumers.
 
-Quick SDD owns delivery changes and addenda. It seeds a distinct delta target,
+Quick SDD is the default for delivery changes and addenda; explicit workflows
+(including Implement) take precedence. Each addendum launch seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.
 The retired `factory:revision` id is a compatibility alias, absent from the gallery.
 
 When the selected Core advertises both `engineV2: 1` and `workflowDefinitions: 1`,
 the same factory IDs resolve through `loop-core-factory.ts` to editable Core
-definitions. Implement uses the native implementation subgraph; Batch maps frozen
-tickets to isolated implementations and verifies the whole candidate after join.
+definitions. With `implementationSteps: 1`, Implement expands into independent
+architect/developer/fixer/verify/reviewer/archive operations and all three recipes
+carry loop-owned agents. Older Core packages retain the native implementation
+wrapper. See [Desktop workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 Quick SDD and Freestyle prompts explicitly pause on `LOOP_BLOCKED` questions;
 resume forwards the answer without replaying completed phases.
 Quick SDD uses two native skill prompts plus real validation, archive and host
@@ -218,3 +221,40 @@ refuses a fresh legacy traversal with `legacy_engine_unavailable` before anythin
 is persisted. The rails launch route answers 409 before allocating worktrees.
 Resumes keep their retained package and are never re-checked. A missing Core does
 not block legacy traversal.
+
+New agent steps use loop-defined roles and editable task/schema/permissions rather
+than Core phases. Implement and Ship recipes are capability-gated by
+`workflowAgentSteps: 1`. See [the workflow guide](../../../docs/internals/desktop-owned-workflows.md) for generic gates, compatibility and recovery.
+
+Loop recipes use `inherit` for default agent engines. The runtime binds that
+assignment to the mission/rail launch before freezing the run; explicit loop
+provider selections remain independent of the launch provider.
+
+Implement receives a fresh frozen OpenSpec delta target for addenda and delivery
+changes. On delivered work, its planner preserves the existing implementation
+and plans only the delta. Its reviewer must report every frozen addendum with
+files and tests; partial or missing evidence cannot pass the acceptance policy.
+
+## Projects and code workspace verification
+
+A project owns the shared backlog and settings. Its repository memberships own Git
+delivery; `workspacePaths` names one or more code directories within each checkout.
+Omission uses the registered folder. Code workspaces are distinct from the internal
+agent/artifact workspace under `~/.specrails`.
+
+Project registration and settings accept one directory per line. Rails and mission
+implementation cards can narrow this with `workspaceSelection`, a map from selected
+repository IDs to registered code workspace paths. The operator sees registered
+paths in project context and may set the same field in `rail-launch` proposals or
+`specrails_rails(action: launch)` calls. The server rejects unknown, duplicate, empty
+or foreign selections before allocating execution resources.
+
+Implement, Quick SDD and Freestyle freeze the selected workspace scopes, map them
+into the isolated worktree and brief agents with exact absolute paths. Configured
+checks without `cwd` expand once per selected workspace. Explicit checks for an
+unselected registered workspace are excluded; other explicit paths must stay inside
+one selected workspace. Multiple workspaces cannot use an ambiguous relative `cwd`.
+The log prints actual directories, commands and arguments. Several workspaces in one
+Git repository share its branch, worktree and delivery. Independent nested Git
+checkouts use separate memberships. Workspace configuration changes are blocked
+while unfinished runs or deliveries still reference the project.

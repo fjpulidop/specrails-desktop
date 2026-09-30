@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import path from 'node:path'
+import { canonicalRepositoryPath, repositoryPathKey, getProjectRepositories } from '../../project-repositories'
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
 import { SPECRAILS_GUIDE } from '../guide'
 import type { McpToolContext, McpToolSpec } from './types'
@@ -169,9 +169,11 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
       },
       handler: (ctx, args) => {
         if (args.path !== undefined && args.projectId !== undefined) throw new Error('Provide either path or projectId, not both.')
-        const project = args.path
-          ? ctx.registry.listProjects().find(p => path.resolve(p.path) === path.resolve(String(args.path)))
-          : typeof args.projectId === 'string' ? ctx.registry.getProjectRow(args.projectId) : undefined
+        const key = args.path ? repositoryPathKey(canonicalRepositoryPath(String(args.path))) : undefined
+        const matches = key ? ctx.registry.listProjects().filter(project => getProjectRepositories(project).some(repository =>
+          [repository.path, ...(repository.workspacePaths ?? (repository.workspacePath ? [repository.workspacePath] : []))].some(root => repositoryPathKey(canonicalRepositoryPath(root)) === key))) : []
+        if (matches.length > 1) throw new Error('Ambiguous project path; provide an explicit projectId.')
+        const project = key ? matches[0] : typeof args.projectId === 'string' ? ctx.registry.getProjectRow(args.projectId) : undefined
         if (args.path && !project) throw new Error(`No project registered at path "${args.path}".`)
         if (args.projectId && !project) throw new Error(`Unknown projectId "${args.projectId}".`)
         if (!project && args.projectId !== null) throw new Error('Provide a projectId, a path, or null.')

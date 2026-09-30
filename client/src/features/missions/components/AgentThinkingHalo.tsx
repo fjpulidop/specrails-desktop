@@ -2,7 +2,7 @@ import { BuilderHalo } from '../../builder/components/project-builder/BuilderHal
 import { useEffectsPrefs } from '../../settings/lib/effects-prefs'
 
 // The Builder's orbiting halo, borrowed for the agent composer CARD (the
-// outer glass card — selectors, box and git bar — not the inner textarea)
+// single flat input surface, including its bottom controls)
 // while a turn is thinking / writing: fades in when the turn starts, fades
 // out (slower) when the reply settles. Gated by Settings ▸ Effects; the ring
 // itself already honours prefers-reduced-motion (static glow, no spin).
@@ -14,7 +14,7 @@ interface AgentThinkingHaloProps {
   inset?: number
 }
 
-export function AgentThinkingHalo({ active, radius = '0.75rem', inset = -3 }: AgentThinkingHaloProps) {
+export function AgentThinkingHalo({ active, radius = '1.5rem', inset = -1 }: AgentThinkingHaloProps) {
   const { agentThinkingHalo } = useEffectsPrefs()
   if (!agentThinkingHalo) return null
   return (

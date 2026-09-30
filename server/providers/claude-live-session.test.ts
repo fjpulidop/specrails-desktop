@@ -99,7 +99,7 @@ describe('Claude native live input transport', () => {
     expect(f.spawn).toHaveBeenCalledOnce()
     const [binary, args, options] = f.spawn.mock.calls[0] as unknown as [string, string[], Record<string, unknown>]
     expect(binary).toBe('claude')
-    expect(args).toEqual(expect.arrayContaining(['--model', 'sonnet', '--effort', 'high', '--dangerously-skip-permissions', '--mcp-config', '/tmp/mcp.json', '--input-format', 'stream-json', '--replay-user-messages']))
+    expect(args).toEqual(expect.arrayContaining(['--model', 'claude-sonnet-5-5', '--effort', 'high', '--dangerously-skip-permissions', '--mcp-config', '/tmp/mcp.json', '--input-format', 'stream-json', '--replay-user-messages']))
     expect(args).not.toContain('Initial request.')
     expect(options).toMatchObject({ cwd: '/tmp/specrails-claude-live-test', env: { SPECRAILS_TEST: 'present' }, stdio: ['pipe', 'pipe', 'pipe'] })
     expect(f.frames()).toMatchObject([{ type: 'user', uuid: expect.any(String), priority: 'next', message: { role: 'user', content: 'Initial request.' } }])

@@ -20,15 +20,6 @@ Agent Chat 通过内嵌的 **Specrails MCP 服务器**来驱动应用，因此�
 
 在这里选择项目**不会**移动你的仪表盘——智能体的目标和你正在看的内容是彼此独立的。
 
-## 提供方与模型
-
-在消息框上方可选择**提供方**（Claude、Codex、Gemini 或 Kimi）及其
-**模型**。切换提供方会开始独立 session。
-
-对于 Kimi，level 会限制 Specrails MCP 工具，但不会把 `kimi -p` 变成
-sandbox：Kimi native 工具会自动批准。不安全的 pure-output action 会在
-spawn 前拒绝；详见 [Kimi matrix](../../../kimi.md)。
-
 ## 权限级别——缰绳在你手里
 
 智能体可以触及整个应用，因此由你来决定给它多大的自由，方法是按 **Shift+Tab** 实时切换的一个**级别**（与 Claude Code 使用的是同一套循环）。每个级别都包含其下方的一切：

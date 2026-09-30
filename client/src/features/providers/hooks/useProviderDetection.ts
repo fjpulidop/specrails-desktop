@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../lib/provider-capabilities'
 import { useContext, useEffect, useState } from 'react'
 import { API_ORIGIN } from '../../../lib/origin'
 import { registerDynamicModelCatalog } from '../../loops/lib/loop-run-models'
@@ -59,8 +60,8 @@ export function useProviderDetection(): ProviderDetectionState {
         if (!alive || !data) return
         publishLocalCatalogs(data.providers ?? {})
         setState({
-          detected: Array.isArray(data.detected) ? data.detected : [],
-          providers: data.providers ?? {},
+          detected: Array.isArray(data.detected) ? data.detected.filter(isPublicProvider) : [],
+          providers: Object.fromEntries(Object.entries(data.providers ?? {}).filter(([id]) => isPublicProvider(id))),
           loading: false,
         })
       })
@@ -81,8 +82,8 @@ export function useProviderDetection(): ProviderDetectionState {
       // same signal, so every selector agrees on what the machine can run.
       window.dispatchEvent(new Event('specrails:providers-detected-changed'))
       setState({
-        detected: Array.isArray(msg.detected) ? msg.detected : [],
-        providers: msg.providers ?? {},
+        detected: Array.isArray(msg.detected) ? msg.detected.filter(isPublicProvider) : [],
+        providers: Object.fromEntries(Object.entries(msg.providers ?? {}).filter(([id]) => isPublicProvider(id))),
         loading: false,
       })
     }

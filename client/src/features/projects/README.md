@@ -20,6 +20,7 @@ load every UI component. Changes to this surface require updating the boundary m
 ## Feature dependencies
 
 - [integrations](../integrations/README.md)
+- [providers](../providers/README.md)
 - [settings](../settings/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is

@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Analíticas",
-    "companion": "Conectar móvil",
+    "companion": "Companion",
     "settings": "Ajustes",
     "plugins": "Plugins",
     "review": "Revisión"
@@ -115,5 +115,13 @@
     "pinAria": "Anclar sección (permanecerá expandida)",
     "unpinTooltip": "Desanclar (contraída por defecto)",
     "pinTooltip": "Anclar abierta (permanece expandida)"
+  },
+  "keepAwake": {
+    "label": "Mantener el ordenador despierto",
+    "on": "Activado",
+    "off": "Desactivado",
+    "active": "Evita el reposo automático. La pantalla puede apagarse.",
+    "inactive": "Reposo normal permitido.",
+    "failed": "No se pudo cambiar el estado de reposo."
   }
 }

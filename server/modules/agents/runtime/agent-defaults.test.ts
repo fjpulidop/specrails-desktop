@@ -86,10 +86,10 @@ describe('applyAgentDefaultsPatch', () => {
 
   it('replaces per provider wholesale but preserves other providers', () => {
     applyAgentDefaultsPatch(db, { providers: { claude: { custom: true, pipelineModel: 'opus' } } })
-    applyAgentDefaultsPatch(db, { providers: { codex: { custom: true, pipelineModel: 'gpt-5.5' } } })
+    applyAgentDefaultsPatch(db, { providers: { codex: { custom: true, pipelineModel: 'gpt-6.1-sol' } } })
     const next = applyAgentDefaultsPatch(db, { providers: { claude: { custom: true, pipelineEffort: 'low' } } })
     expect(next.providers.claude).toEqual({ custom: true, pipelineEffort: 'low' })
-    expect(next.providers.codex).toEqual({ custom: true, pipelineModel: 'gpt-5.5' })
+    expect(next.providers.codex).toEqual({ custom: true, pipelineModel: 'gpt-6.1-sol' })
   })
 
   it.each([

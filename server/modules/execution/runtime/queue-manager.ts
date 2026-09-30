@@ -405,7 +405,7 @@ export class QueueManager {
       getCostAlertThreshold?: () => number | null
       getDesktopDailyBudget?: () => { budget: number | null; totalSpend: number }
       provider?: ProviderId
-      /** Effective model for codex spawns. If omitted, falls back to 'gpt-5.5'. */
+      /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.1-sol'. */
       resolvedModel?: string
       /** Global Specrails Agents defaults layer (app Settings ▸ Specrails
        *  Agents). Resolved AT SPAWN TIME so a settings change applies to the

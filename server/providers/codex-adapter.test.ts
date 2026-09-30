@@ -54,21 +54,21 @@ describe('codexAdapter — identity', () => {
     ])
   })
 
-  it('reports a model catalog with gpt-5.5 default', () => {
+  it('reports a model catalog with gpt-6.1-sol default', () => {
     const cat = codexAdapter.modelCatalog()
     expect(cat.length).toBeGreaterThan(0)
     const defaults = cat.filter((m) => m.default === true)
     expect(defaults).toHaveLength(1)
-    expect(defaults[0].value).toBe('gpt-5.5')
-    expect(codexAdapter.defaultModel()).toBe('gpt-5.5')
+    expect(defaults[0].value).toBe('gpt-6.1-sol')
+    expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
   })
 
-  it('catalogs gpt-6-astra first, then the GPT-5.6 family (sol/terra/luna), ahead of gpt-5.5', () => {
+  it('catalogs gpt-6.1-sol first, followed by Astra and the GPT-5.6 family (sol/terra/luna)', () => {
     const values = codexAdapter.modelCatalog().map((m) => m.value)
-    expect(values.slice(0, 4)).toEqual(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
-    expect(values).toContain('gpt-5.5')
-    // Adding a model never moves the default.
-    expect(codexAdapter.defaultModel()).toBe('gpt-5.5')
+    expect(values.slice(0, 5)).toEqual(['gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values).not.toEqual(expect.arrayContaining(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']))
+    // The newest Sol model is the default.
+    expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
     expect(codexAdapter.modelCatalog().find((m) => m.value === 'gpt-6-astra')).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
   })
 

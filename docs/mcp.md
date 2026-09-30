@@ -100,13 +100,6 @@ run returns immediately even if its completion event preceded the call. Use
 `kind: "loop_run"` with a loop-run id. Timeouts do not establish success or
 failure; inspect `specrails_jobs(get)` or `specrails_loops(run_get)` for evidence.
 
-Provider membership does not bypass capability checks. With Kimi, agentic
-chat/Explore/Quick Launcher/rails/loops without Decider/profiles are
-available, while Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH,
-Project Builder generation, Loop Decider, Code Explorer AI transforms, and
-Agent Studio automation are rejected before spawn. Destructive gates run
-before any mutation.
-
 ## Runtime runs and rail availability (mission-rail-cards)
 
 `specrails_jobs` exposes the programmatic runtime of a job (the same state the
@@ -193,7 +186,7 @@ Use **Copy client config** as a starting point. Some versions return only
 `specrails-mcp`, which may not be on PATH. Follow the linked agent runbook for path discovery and client-specific
 registration; no token belongs in the stdio configuration.
 
-### For agents only — Claude, Codex, Kimi and Gemini
+### For agents only — Claude and Codex
 
 Follow the [agent connection runbook](agents/mcp.md)
 for executable discovery, client-specific registration, real read-only verification
@@ -279,15 +272,6 @@ only with the scoped MCP token:
 These boundaries are intentional and may be revisited in a later version.
 
 ## External MCP servers for the mission agent
-
-The inverse direction — the mission agent (Desktop agent chat) consuming *your*
-MCP servers — is configured in **Settings ▸ MCP ▸ External MCP servers**. The
-app discovers servers registered in your provider CLIs (`~/.claude.json`,
-`~/.gemini/settings.json`, `~/.kimi-code/mcp.json`; codex `config.toml` servers
-already load natively in missions) and lets you enable each one per provider,
-or add a custom stdio server manually. Nothing activates without your explicit
-per-provider tick, and discovered transports resolve live from your CLI config
-at every mission turn — edits there flow through automatically.
 
 **Security note:** mission turns run without per-tool approval prompts, and
 external tools are outside the Specrails permission tiers (those govern only

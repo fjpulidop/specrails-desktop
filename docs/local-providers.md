@@ -1,12 +1,5 @@
 # Local AI engines (OpenAI-compatible endpoints)
 
-Specrails Desktop can run on models you host yourself — Ollama, llama.cpp,
-LM Studio, vLLM, LocalAI, or any server that speaks the OpenAI
-`/v1/chat/completions` API. A configured endpoint is a **first-class AI
-engine**: it appears in every engine selector (rail header, Add Spec Quick /
-Explore, sidebar chat, agent missions) exactly like Claude, Codex, Gemini or
-Kimi, and rails run their Architect → Developer → Reviewer pipeline on it.
-
 ## Add a connection
 
 1. Open **Settings ▸ Specrails Agents ▸ Provider connections**.
@@ -52,11 +45,6 @@ without any of this.
 | Project Builder (day-0 blueprint chat) | the local agent runner in pure-output mode (no tools); expect a capable model — the blueprint contract is strict |
 
 ### Local-only machines
-
-Nothing has to be selected by hand. Provider availability is a machine
-property: every surface offers the engines the app can actually run, and the
-default follows the same rule everywhere — a detected CLI in the fixed order
-(Claude → Codex → Gemini → Kimi), else the first reachable local engine.
 
 - Project surfaces (rails, Add Spec, sidebar chat) already derive the
   project's primary from the detected set, so with one local engine the
@@ -200,7 +188,6 @@ hides the test / models UI of the connection card.
 turn spawned Node against a missing file while the engine still appeared in the
 selectors. Update the app; nothing to configure.
 
-
 - **Engine missing from selectors** — the last probe failed. Test the
   connection; probes run every 60 s and are bounded at 3 s.
 - **`401` / "not authorized" pill** — the key env var is unset in the app
@@ -219,3 +206,11 @@ selectors. Update the app; nothing to configure.
   results and retries once; a second failure surfaces the server message. Use
   a larger context window or a smaller spec.
 - **Cost shows `—`** — expected without rates. Configure rates for an estimate.
+
+## Subscription allowance
+
+The left sidebar shows read-only Claude and Codex account usage separately from job cost accounting. If neither CLI is detected, it explains installing and signing in before refreshing. See [local subscription usage](subscription-usage.md).
+
+## Keep computer awake
+
+The native footer has an Off/On coffee control, disabled by default on every application launch. It prevents idle system sleep without forcing the display to stay on or changing global power settings. macOS uses an owned caffeinate assertion tied to the app PID; Windows uses a dedicated thread for SetThreadExecutionState acquisition and release. Turning it off or exiting releases the assertion. Browser-only sessions and unsupported platforms omit the control. No memory indicator is collected or shown. Automatic activation based on running jobs is not part of this control.

@@ -84,7 +84,8 @@
       "title": "Plugins",
       "subtitle": "Outils globaux et intégrations de projet, gérés au même endroit.",
       "readyCount_one": "{{count}} prêt",
-      "readyCount_other": "{{count}} prêts"
+      "readyCount_other": "{{count}} prêts",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "Rechercher des plugins"

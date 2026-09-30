@@ -106,6 +106,7 @@ export function loopsTools(): McpToolSpec[] {
           .describe('Project id (run / run_get only — defaults to the active project; ignored by every other action)'),
         loopId: z.string().optional().describe('Loop id (for get / update / publish / unpublish / duplicate / restore_builtin / delete / run — must be Published for run). Built-ins use their factory id, e.g. factory:implement'),
         repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('run only: repository memberships to include in one coordinated standalone execution; omission retains primary-only behavior.'),
+        workspaceSelection: z.record(z.string(), z.array(z.string().min(1)).min(1).max(50)).optional().describe('run only: selected registered code workspace paths per selected repository ID. Omission uses all configured workspaces.'),
         loopRunId: z.string().optional().describe('Loop run id (for run_get — returned by run)'),
         constantId: z.string().optional().describe('Constant id (for constant_update / constant_delete)'),
         templateId: z.string().optional().describe('Template id (for from_template)'),
@@ -256,6 +257,7 @@ export function loopsTools(): McpToolSpec[] {
             const r = await apiCall(ctx, 'POST', `${base}/loop-runs`, {
               loopId,
               ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
+              ...(args.workspaceSelection === undefined ? {} : { workspaceSelection: args.workspaceSelection }),
               ...(provider !== undefined ? { provider } : {}),
               ...(model !== undefined ? { model } : {}),
               ...(effort !== undefined ? { reasoning_effort: effort } : {}),

@@ -24,10 +24,6 @@ Not available on local engines: agent profiles and custom roles, SMASH / Contrac
 
 > Missions need a **large context window** on the server (64k tokens or more): the operator prompt plus the Specrails tool schemas are big. Chat and Explore are fine at 32k. If a turn fails with *exceeds the available context size*, raise the window (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
 
-## Only a local engine installed?
-
-Nothing to configure. Specrails offers the engines your machine can actually run and picks the default with one rule everywhere: an installed CLI (Claude → Codex → Gemini → Kimi), otherwise the first local engine whose endpoint answers. On a machine with just a local endpoint, rails, Add Spec, chat, **agent missions and the Project Builder** all start on it — no selector to touch. An engine whose server is down is simply not offered until it answers again. Existing missions keep the engine they were created on; the selector still lets you switch.
-
 ## Choosing a model
 
 Quality depends on the model, not on Specrails. For rails use a tool-calling-tuned coder model of 30B parameters or more; smaller instruct models are fine for chat, Explore and Quick specs. Try **Freestyle** or an Explore session before trusting a full implement rail to a new model.

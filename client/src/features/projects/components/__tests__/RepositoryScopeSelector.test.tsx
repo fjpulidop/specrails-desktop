@@ -63,3 +63,21 @@ describe('RepositoryScopeSelector', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 })
+
+
+it('shows the explicit code workspace instead of implying checks use the project root', () => {
+  const workspace = { ...primary, workspacePath: '/app/skills-studio' }
+  render(<RepositoryScopeSelector value={[workspace.id]} repositories={[workspace, api]} onChange={vi.fn()} />)
+  expect(screen.getByText('/app/skills-studio').closest('label')).toHaveAttribute('title', '/app/skills-studio')
+})
+
+it('lets a rail narrow the registered workspaces and prevents an empty launch scope', async () => {
+  const onWorkspaceChange = vi.fn()
+  const member = { ...primary, workspacePaths: ['/app/studio', '/app/service'] }
+  const props = { value: [primary.id], repositories: [member], onChange: vi.fn(), workspaceOnly: true, onWorkspaceChange }
+  const { rerender } = render(<RepositoryScopeSelector {...props} />)
+  await userEvent.click(screen.getByRole('checkbox', { name: '/app/service' }))
+  expect(onWorkspaceChange).toHaveBeenCalledWith({ 'primary-p': ['/app/studio'] })
+  rerender(<RepositoryScopeSelector {...props} workspaceSelection={{ 'primary-p': ['/app/studio'] }} />)
+  expect(screen.getByRole('checkbox', { name: '/app/studio' })).toBeDisabled()
+})

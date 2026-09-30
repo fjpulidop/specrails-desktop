@@ -1,6 +1,6 @@
 # For agents only: connect to Specrails MCP
 
-Use this runbook when a person asks Claude, Codex, Kimi or Gemini to connect to Specrails. Complete discovery, registration and a read-only verification for the requested client. Do not configure all four clients unless asked. If the tools are already loaded, test the existing connection before changing anything.
+Use this runbook when a person asks Claude or Codex to connect to Specrails. Complete discovery, registration and a read-only verification for the requested client. Do not configure both clients unless asked. If the tools are already loaded, test the existing connection before changing anything.
 
 This is an external agent connecting to Specrails Desktop. It is separate from choosing an AI provider inside Specrails. Connection authorization does not authorize starting missions, creating specs or changing permission tiers. If local files or the client configuration are inaccessible, complete the available checks and report the exact remaining step.
 
@@ -42,8 +42,6 @@ Check the installed client's version and help before editing. Prefer user scope 
 |---|---|---|
 | Claude Code | `claude mcp add --scope user --transport stdio specrails --` followed by the verified executable and arguments. User and local entries live in `~/.claude.json`; project entries use `.mcp.json`. The default CLI scope is local, so select scope explicitly. | `claude mcp get specrails`; `/mcp` in the client. Project approvals can block loading. |
 | Codex CLI / desktop | `codex mcp add specrails --` followed by the verified executable and arguments. TOML user configuration, normally `~/.codex/config.toml`, is shared by local Codex clients using that home. | `codex mcp get specrails`; inspect the actual conversation tool catalog. |
-| Gemini CLI | `gemini mcp add --scope user --transport stdio specrails` followed by the verified executable and arguments. Uses `mcpServers` in `~/.gemini/settings.json`; project scope uses `.gemini/settings.json` and is the CLI default. | `gemini mcp list`; `/mcp` in the client. Check allowed/excluded servers and tools. Do not add `--trust` merely to connect. |
-| Kimi Code | Merge the stdio entry into `~/.kimi-code/mcp.json` (or the configured `KIMI_CODE_HOME`), or project `.kimi-code/mcp.json`. Project entries override user entries. Kimi Code 0.27.0 does **not** expose `kimi mcp add`; do not confuse it with the older Python Kimi CLI. | `/mcp` shows connection status; `/mcp-config` edits entries interactively. A newly added file entry requires a new session. |
 
 The following commands are **alternatives**, not a script to install all clients. These macOS examples require the same two file checks shown above and no conflicting existing entry:
 
@@ -53,15 +51,6 @@ claude mcp add --scope user --transport stdio specrails -- \
   /Applications/Specrails.app/Contents/Resources/runtimes/node/bin/node \
   /Applications/Specrails.app/Contents/Resources/binaries/specrails-mcp.js
 ```
-
-```bash
-# Gemini CLI only
-gemini mcp add --scope user --transport stdio specrails \
-  /Applications/Specrails.app/Contents/Resources/runtimes/node/bin/node \
-  /Applications/Specrails.app/Contents/Resources/binaries/specrails-mcp.js
-```
-
-For Kimi Code, merge this macOS example into the chosen `mcp.json`, retaining the existing root object and other servers. Use the verified paths for other installations:
 
 ```json
 {
@@ -75,8 +64,6 @@ For Kimi Code, merge this macOS example into the chosen `mcp.json`, retaining th
 ```
 
 Claude Desktop is a separate client from Claude Code. If that is the requested host, merge this same `mcpServers` structure in its local MCP configuration through its settings; registering Claude Code alone is not proof that Claude Desktop is configured.
-
-Sources: [Claude Code MCP](https://code.claude.com/docs/en/mcp), [Gemini CLI MCP](https://geminicli.com/docs/tools/mcp-server/), [Kimi Code MCP](https://moonshotai.github.io/kimi-code/en/customization/mcp). Command shapes were also checked against installed help for Claude Code 2.1.265, Gemini CLI 0.49.0 and Kimi Code 0.27.0. Client configuration and live connection are separate checks.
 
 ## Verify all three stages
 

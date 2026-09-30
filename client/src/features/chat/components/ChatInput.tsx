@@ -11,16 +11,17 @@ import { CustomModelAliasInput } from '../../providers/components/CustomModelAli
 
 const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Opus' },
-  { value: 'sonnet', label: 'Sonnet' },
-  { value: 'fable', label: 'Fable' },
+  { value: 'sonnet', label: 'Sonnet 5.5' },
+  { value: 'fable', label: 'Fable 5.1' },
   { value: 'haiku', label: 'Haiku' },
 ]
 
 const CODEX_MODEL_OPTIONS = [
-  { value: 'gpt-5.5', label: 'GPT-5.5' },
-  { value: 'gpt-5.4', label: 'GPT-5.4' },
-  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
 ]
 
 const GEMINI_MODEL_OPTIONS = [

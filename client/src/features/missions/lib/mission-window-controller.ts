@@ -68,6 +68,14 @@ export class MissionWindowController {
     return !this.state.transfers.some(t => t.conversationId === id)
   }
 
+  /** Additional panes may edit unclaimed missions; native handoff ownership
+   * and pending transfers still take precedence over a local split layout. */
+  isEditableInSplit = (id: string): boolean => {
+    if (!this.secondary || this.state.current?.conversationId === id) return this.isEditable(id)
+    return this.state.initialized && this.state.available && this.ownershipKnown &&
+      !this.isPending(id) && !this.state.transfers.some(t => t.conversationId === id)
+  }
+
   registerHandlers = (handlers: MissionWindowHandlers): (() => void) => {
     this.handlers = handlers
     this.failedRestores.clear()

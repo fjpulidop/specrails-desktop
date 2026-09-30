@@ -110,6 +110,14 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.getByText('Add at least one spec to launch.')).toBeInTheDocument()
   })
 
+  it('preserves agent-selected workspace paths in the launch and frozen intent', async () => {
+    renderCard({ repositoryIds: ['primary-p1'], workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/rails/1/launch'))!)).toMatchObject({ repositoryIds: ['primary-p1'], workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+  })
+
   it('Play: edits win, launches with the mission origin, then freezes as launched', async () => {
     renderCard()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
@@ -147,10 +155,10 @@ describe('AgentRailLaunchCard', () => {
     await waitFor(() => expect(screen.queryByTestId('job-detail-modal')).toBeNull())
   })
 
-  it('offers the hybrid Roles engine like the rail header: no model/effort, launch carries aiEngine=roles only', async () => {
+  it('retains historical Roles launches without offering Roles in the selector', async () => {
     renderCard({ aiEngine: 'roles', model: 'opus', reasoningEffort: 'high' })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
-    expect(screen.getByTestId('rail-card-engine')).toHaveTextContent('Roles')
+    expect(screen.getByTestId('rail-card-engine')).not.toHaveTextContent('Roles')
     expect(screen.queryByTestId('rail-card-model')).toBeNull()
     expect(screen.queryByTestId('rail-card-effort')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
@@ -207,11 +215,11 @@ describe('AgentRailLaunchCard', () => {
     expect(note).toHaveTextContent('2 open addenda ride into this launch:')
     expect(screen.getByTestId('rail-card-rail')).toHaveTextContent('Rail 2')
     expect(screen.queryByText(/Use Rail 1/)).not.toBeInTheDocument()
-    expect(screen.getByTestId('rail-card-loop')).toHaveTextContent('SDD Quick')
-    expect(screen.getByTestId('rail-card-loop')).toBeDisabled()
+    expect(screen.getByTestId('rail-card-loop')).toHaveTextContent('Implement')
+    expect(screen.getByTestId('rail-card-loop')).toBeEnabled()
     fireEvent.click(screen.getByTestId('rail-card-play'))
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/rails/1/launch'))).toBe(true))
-    expect(body(calls.find((c) => c.url.endsWith('/rails/1/launch'))!)).toMatchObject({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
+    expect(body(calls.find((c) => c.url.endsWith('/rails/1/launch'))!)).toMatchObject({ mode: 'implement', loopId: 'factory:implement' })
     expect(note).toHaveTextContent('#12 Use idempotency keys')
     expect(note).toHaveTextContent('#14 Classify 502 as unknown')
     expect(note).not.toHaveTextContent('Old')

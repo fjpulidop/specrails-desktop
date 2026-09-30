@@ -32,6 +32,13 @@ describe('project discovery and session defaults', () => {
     expect(ctx.registry.removeProject).toHaveBeenCalledWith('p2')
   })
 
+  it('resolves a configured workspace path to its project and repository identity', async () => {
+    const row = { ...projects[0], repositories: [{ id: 'primary-p1', projectId: 'p1', path: '/tmp/one', name: 'One', isPrimary: true, kind: 'folder', integrationBranch: null, addedAt: '', workspacePaths: ['/tmp/one/studio'] }] }
+    const scoped = { ...ctx, registry: { ...ctx.registry, listProjects: () => [row] } } as unknown as McpToolContext
+    expect(await tool('projects').handler(scoped, { action: 'resolve', path: '/tmp/one/studio' })).toMatchObject({ id: 'p1', repositoryId: 'primary-p1' })
+    expect(await tool('select_project').handler(scoped, { path: '/tmp/one/studio' })).toMatchObject({ active: 'p1' })
+  })
+
   it('selects a registered unavailable project without affecting another session', async () => {
     const other = { ...ctx, sessionState: { activeProjectId: null } }
     expect(await tool('select_project').handler(ctx, { path: '/tmp/two/' })).toMatchObject({ active: 'p2', available: false })

@@ -4,7 +4,6 @@ This guide walks you from "I just heard about specrails-desktop" to "I just ship
 
 ## What you'll need
 
-- **An AI CLI signed in** — [Claude Code](https://claude.com/claude-code), the [Codex CLI](codex.md) (`codex` ≥ 0.128.0), the [Gemini CLI](gemini.md) (`gemini` ≥ 0.11.0), or [Kimi Code](kimi.md) (`kimi` ≥ 0.27.0). You can install any compatible combination.
 - A project you want to work on (any Git repository works)
 
 If you install with **npm** (Option 2 below) you'll also need **Node.js 20+** and **`git`** on your PATH. The **desktop app** bundles its own Node and Git runtimes, so you don't need those installed separately.
@@ -41,20 +40,12 @@ There are two ways. Pick whichever feels natural.
 
 **From the dashboard:**
 
-1. Click **+** in the left sidebar.
-2. Enter the absolute path to your project (e.g. `/Users/you/repos/my-app`).
-3. Pick your **AI providers**. Check **Claude**, **Codex**, **Gemini**, **Kimi**, or any combination — the first checked provider becomes the project default. The provider set is fixed once the project is created.
-4. The prerequisites panel verifies `node`, `npm`, `npx`, `git`. If anything's missing, the panel surfaces OS-aware install commands you can copy.
-5. Click **Add**.
-
 **From the CLI:**
 
 ```bash
 specrails-desktop add /path/to/your/project
 specrails-desktop list   # verify
 ```
-
-> Heads-up: if you run a spec from the CLI while no app server is running, the offline fallback always invokes `claude` — regardless of the project's primary provider — and records nothing to Analytics. Start the app (or `specrails-desktop start`) to use Codex, Gemini, or Kimi and to capture analytics.
 
 ### If the project doesn't have specrails-core yet
 
@@ -73,13 +64,6 @@ A "spec" is a description of work you want done. specrails-desktop gives you two
 ### Quick mode — one-shot generation
 
 When you already know what you want:
-
-1. On the Dashboard, click **+ Add Spec → Quick**. Quick Spec is offered
-   only for providers with the required pure-output safety boundary; Kimi uses
-   Explore or the agentic Quick Launcher instead.
-2. Type a one-line title (e.g. *"Add a webhook retry with exponential backoff"*).
-3. (Optional) toggle **Enrich with Contract Layer** to get a structured block of names, data shapes, invariants, and a file touch list appended to the description. This structured action is Claude-only; providers without an enforceable no-tools boundary, including Kimi, do not offer it.
-4. Hit Enter.
 
 A compatible AI CLI generates the full spec in one turn. A small toast at the
 bottom right shows the project, the spec title, and live elapsed time
@@ -109,8 +93,6 @@ The right pane of the Dashboard is your **Rails** — execution lanes:
 
 The rail flips to running. The Jobs page (right sidebar) streams the AI's output live. When the slash command defines them, you'll see the pipeline phases progress: Architect → Developer → Reviewer → Ship.
 
-Duration, outcome, and available usage/cost are tracked per turn and surface in. Kimi's stream does not report tokens or native USD cost, so those fields remain unavailable rather than appearing as zero:
-
 - **Jobs page** — each job has a status panel with live counters and a `JobTicketHeader` chip for every ticket the job touched (click to open).
 - **Analytics page** — burn rate, top tickets, daily timeline (see [Tracking cost](tracking-cost.md)).
 - **The spec's detail modal** — a one-line spending summary linking back to Analytics filtered by that ticket.
@@ -121,8 +103,6 @@ Duration, outcome, and available usage/cost are tracked per turn and surface in.
 - **[Running pipelines](running-pipelines.md)** — agent profiles, plugins (Serena), telemetry export.
 - **[Tracking cost](tracking-cost.md)** — analytics deep dive and CSV exports.
 - **[Codex](codex.md)** — using the Codex CLI as a provider, alongside or instead of Claude.
-- **[Gemini](gemini.md)** — using the Gemini CLI as a provider, alongside or instead of Claude.
-- **[Kimi](kimi.md)** — using Kimi Code, including its CLI-only execution and truthful usage limitations.
 - **[Terminal panel](terminal.md)** — the built-in per-project terminal (toggle with `Cmd/Ctrl+J`).
 - **[Customising the app](customizing.md)** — themes, terminal settings, kill switches.
 - **[CLI reference](cli.md)** — drive specrails-desktop from the terminal.
@@ -137,8 +117,6 @@ specrails-desktop stop                # stops the running server cleanly
 lsof -i :4200    # macOS / Linux
 ```
 
-**Your AI CLI (`claude`, `codex`, `gemini`, or `kimi`) isn't found inside the app**
-
 On macOS, this usually means the app was launched from Finder/Dock and didn't pick up Homebrew/Volta paths. The app resolves PATH at startup automatically, but if it still fails, see [platforms/macos.md](platforms/macos.md).
 
 **The setup wizard fails on `npx specrails-core init`**
@@ -147,7 +125,6 @@ Most likely Node is missing from the shell environment that launched the app, or
 
 - **Claude** — sign in to the `claude` CLI or set `ANTHROPIC_API_KEY`.
 - **Codex** — sign in to the `codex` CLI.
-- **Gemini** — make sure `gemini` is on your PATH and `GEMINI_API_KEY` is set (headless spawns can't use the interactive "Login with Google" flow).
 
 Click **Copy diagnostics** in the install-instructions modal — that prints the resolved PATH, where the app found each tool, and login-shell status. Paste it into a bug report if you can't figure it out.
 

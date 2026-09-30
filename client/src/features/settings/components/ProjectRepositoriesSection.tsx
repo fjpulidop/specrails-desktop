@@ -20,6 +20,7 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
   const [adding, setAdding] = useState(false)
   const [path, setPath] = useState('')
   const [name, setName] = useState('')
+  const [workspacePath, setWorkspacePath] = useState('')
   const [branch, setBranch] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +35,7 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
     setAdding(!repository)
     setPath(repository?.path ?? '')
     setName(repository?.name ?? '')
+    setWorkspacePath(repository?.workspacePaths?.join('\n') ?? repository?.workspacePath ?? '')
     setBranch(repository?.integrationBranch ?? '')
   }
 
@@ -46,7 +48,7 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
         method, headers: { 'Content-Type': 'application/json' },
         ...(method === 'DELETE' ? {} : { body: JSON.stringify({
           ...(!editing || (!editing.isPrimary && path.trim() !== editing.path) ? { path: path.trim() } : {}),
-          ...(name.trim() ? { name: name.trim() } : {}), integrationBranch: branch.trim() || null,
+          ...(name.trim() ? { name: name.trim() } : {}), integrationBranch: branch.trim() || null, workspacePath: null, workspacePaths: workspacePath.trim() ? workspacePath.split('\n').map(item => item.trim()).filter(Boolean) : null,
         }) }),
       })
       if (!response.ok) {
@@ -89,6 +91,8 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
             </div>
           </div>
           <p className="break-all text-xs text-muted-foreground">{repository.path}</p>
+          {repository.workspacePaths?.map(workspace => <p key={workspace} className="break-all text-xs text-muted-foreground">{t('repositories.workspacePath')}: {workspace}</p>)}
+          {!repository.workspacePaths && repository.workspacePath && <p className="break-all text-xs text-muted-foreground">{t('repositories.workspacePath')}: {repository.workspacePath}</p>}
           {repository.integrationBranch && <p className="mt-1 text-xs text-muted-foreground">{t('repositories.integrationBranch')}: {repository.integrationBranch}</p>}
         </div>)}
       </div>
@@ -109,6 +113,10 @@ function RepositorySettings({ project, refreshProjects }: { project: DesktopProj
               } catch { /* Manual path remains editable. */ }
             }}><FolderOpen className="h-4 w-4" /></Button>}
           </div>
+        </label>
+        <label className="block space-y-1 text-xs">{t('repositories.workspacePath')}
+          <textarea className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={workspacePath} disabled={busy} placeholder={editing?.path ?? path} onChange={(event) => setWorkspacePath(event.target.value)} />
+          <span className="block text-muted-foreground">{t('repositories.workspaceHint')}</span>
         </label>
         <label className="block space-y-1 text-xs">{t('repositories.integrationBranch')}
           <Input value={branch} disabled={busy} placeholder={t('repositories.branchDefault')} onChange={(event) => setBranch(event.target.value)} />

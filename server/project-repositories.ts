@@ -8,6 +8,9 @@ export interface ProjectRepository {
   projectId: string
   name: string
   path: string
+  /** Code workspace within this membership; omitted means its root. */
+  workspacePath?: string
+  workspacePaths?: string[]
   isPrimary: boolean
   kind: 'git' | 'folder'
   integrationBranch: string | null
@@ -26,6 +29,8 @@ export interface RepositoryProject {
 
 export interface ProjectRepositoryInput {
   path: string
+  workspacePath?: string | null
+  workspacePaths?: string[] | null
   name?: string
   integrationBranch?: string | null
 }
@@ -115,6 +120,26 @@ export function inspectRepositoryPath(input: ProjectRepositoryInput, requireAvai
   }
   const canonical = canonicalRepositoryPath(input.path)
   if (requireAvailable && !repositoryAvailable(canonical)) throw new RepositoryValidationError(`Repository directory is unavailable: ${canonical}`, 'repository_unavailable')
+  if (input.workspacePath != null && input.workspacePaths != null) throw new RepositoryValidationError('Use workspacePaths or workspacePath, not both', 'invalid_workspace_path')
+  let workspacePaths: string[] | undefined
+  if (input.workspacePaths !== undefined && input.workspacePaths !== null) {
+    if (!Array.isArray(input.workspacePaths) || !input.workspacePaths.length || input.workspacePaths.some(item => typeof item !== 'string' || !item.trim())) throw new RepositoryValidationError('workspacePaths must be a nonempty array of workspace directories')
+    workspacePaths = input.workspacePaths.map(item => inspectRepositoryPath({ path: canonical, workspacePath: item }, requireAvailable).workspacePath!)
+    if (new Set(workspacePaths.map(repositoryPathKey)).size !== workspacePaths.length || workspacePaths.some((root, index) => workspacePaths!.some((other, otherIndex) => index !== otherIndex && isRepositoryPathWithin(root, other)))) throw new RepositoryValidationError('Code workspaces must have distinct non-overlapping directories', 'invalid_workspace_path')
+  }
+  let workspacePath: string | undefined
+  if (input.workspacePath !== undefined && input.workspacePath !== null) {
+    if (typeof input.workspacePath !== 'string' || !input.workspacePath.trim()) throw new RepositoryValidationError('Workspace path must not be empty')
+    workspacePath = canonicalRepositoryPath(path.resolve(canonical, input.workspacePath))
+    if (!isRepositoryPathWithin(canonical, workspacePath)) throw new RepositoryValidationError('Workspace must be inside its registered repository', 'invalid_workspace_path')
+    if (requireAvailable && !repositoryAvailable(workspacePath)) throw new RepositoryValidationError(`Workspace directory is unavailable: ${workspacePath}`, 'workspace_unavailable')
+    // A nested independent Git checkout needs its own membership and delivery.
+    if (workspacePath !== canonical) {
+      for (let current = workspacePath; current !== canonical; current = path.dirname(current)) {
+        if (fs.existsSync(path.join(current, '.git'))) throw new RepositoryValidationError('A nested Git repository must be registered as a separate workspace', 'invalid_workspace_path')
+      }
+    }
+  }
   let gitIdentity: string | null = null
   if (repositoryAvailable(canonical)) {
     try {
@@ -122,7 +147,7 @@ export function inspectRepositoryPath(input: ProjectRepositoryInput, requireAvai
       gitIdentity = repositoryPathKey(canonicalRepositoryPath(path.resolve(canonical, commonDir)))
     } catch { /* Non-Git context folders are supported. */ }
   }
-  return { ...input, path: canonical, name: input.name?.trim(), integrationBranch: input.integrationBranch?.trim() || null, canonicalKey: repositoryPathKey(canonical), gitIdentity, kind: gitIdentity ? 'git' : 'folder' }
+  return { ...input, workspacePath, workspacePaths, path: canonical, name: input.name?.trim(), integrationBranch: input.integrationBranch?.trim() || null, canonicalKey: repositoryPathKey(canonical), gitIdentity, kind: gitIdentity ? 'git' : 'folder' }
 }
 
 export function assertDistinctRepositories(repositories: InspectedRepositoryInput[]): void {
@@ -130,7 +155,8 @@ export function assertDistinctRepositories(repositories: InspectedRepositoryInpu
     for (let j = 0; j < i; j++) {
       const a = repositories[i], b = repositories[j]
       const overlapping = isRepositoryPathWithin(a.canonicalKey, b.canonicalKey) || isRepositoryPathWithin(b.canonicalKey, a.canonicalKey)
-      if (overlapping || (a.gitIdentity !== null && a.gitIdentity === b.gitIdentity)) {
+      const container = (a.kind === 'folder' && b.kind === 'git' && isRepositoryPathWithin(a.canonicalKey, b.canonicalKey)) || (b.kind === 'folder' && a.kind === 'git' && isRepositoryPathWithin(b.canonicalKey, a.canonicalKey))
+      if ((overlapping && !container) || (a.gitIdentity !== null && a.gitIdentity === b.gitIdentity)) {
         throw new RepositoryValidationError('Repositories in one project must have distinct, non-overlapping roots and Git identities', 'duplicate_repository', 409)
       }
     }
@@ -153,4 +179,21 @@ export function resolveRepositoryProject<T extends RepositoryProject>(projects: 
     throw new RepositoryValidationError('This path belongs to several projects; provide projectId', 'ambiguous_project_path', 409, { projectIds: selected.map((project) => project.id) })
   }
   return selected.sort((a, b) => b.path.length - a.path.length)[0]
+}
+
+
+/** A launch may narrow registered code workspaces, never invent new targets. */
+export function validateWorkspaceSelection(project: RepositoryProject, value: unknown, repositoryIds: readonly string[]): Record<string, string[]> | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.keys(value).length) throw new RepositoryValidationError('workspaceSelection must map repository IDs to nonempty workspace path arrays', 'invalid_workspace_selection')
+  const entries = Object.entries(value).map(([id, paths]) => {
+    if (!repositoryIds.includes(id)) throw new RepositoryValidationError('Workspace selection refers to an unselected repository', 'invalid_workspace_selection')
+    const repository = resolveProjectRepository(project, id)
+    if (!Array.isArray(paths) || !paths.length || paths.some(item => typeof item !== 'string' || !item.trim())) throw new RepositoryValidationError('Select at least one code workspace per repository', 'invalid_workspace_selection')
+    const allowed = repository.workspacePaths ?? (repository.workspacePath ? [repository.workspacePath] : [repository.path])
+    const selected = paths.map(item => canonicalRepositoryPath(path.resolve(repository.path, item)))
+    if (new Set(selected.map(repositoryPathKey)).size !== selected.length || selected.some(item => !allowed.some(root => repositoryPathKey(root) === repositoryPathKey(item)))) throw new RepositoryValidationError('Select only registered code workspace paths', 'invalid_workspace_selection')
+    return [id, selected] as const
+  })
+  return Object.fromEntries(entries)
 }

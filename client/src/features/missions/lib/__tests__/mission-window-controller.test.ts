@@ -91,6 +91,8 @@ describe('mission window acknowledged ownership', () => {
     await waitFor(() => expect(controller.isEditable('c1')).toBe(true))
     expect(restore).toHaveBeenCalledTimes(1)
     expect(controller.isEditable('another-mission')).toBe(false)
+    expect(controller.isEditableInSplit('another-mission')).toBe(true)
+    expect(controller.isEditableInSplit('c1')).toBe(true)
   })
 
   it('reintegrates with current refs/attachments only after main restore commits', async () => {

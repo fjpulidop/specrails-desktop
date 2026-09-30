@@ -1,7 +1,10 @@
+import { configurableImplementGraph } from './loop-implement-recipe'
+import { defaultLoopAgents } from './loop-agents'
 import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 
 /** App-owned definition graphs. Core supplies schemas, execution and canonical versions. */
-export function coreFactoryGraph(mode: 'implement' | 'freestyle' | 'quick-sdd'): LoopGraph {
+export function coreFactoryGraph(mode: 'implement' | 'freestyle' | 'quick-sdd', independent = false, configurable = false): LoopGraph {
+  if (mode === 'implement' && configurable) return configurableImplementGraph()
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }]
   const edges: LoopGraph['edges'] = []
   const config: LoopGraph['config'] = { maxIterations: 12, maxTransitions: 120, timeoutMinutes: 0, aiStepTimeoutMinutes: 0,
@@ -13,9 +16,17 @@ export function coreFactoryGraph(mode: 'implement' | 'freestyle' | 'quick-sdd'):
   const next = (id: string) => ({ next: id, failed: 'failed' })
   const promptNext = (id: string) => ({ ...next(id), blocked: 'failed' })
   const verify = (id: string, passed = 'done', failed = 'failed') => node(id, 'verify', { commands: 'configured' }, { pass: passed, fail: failed, failed: 'failed' })
+  if (independent) config.agents = defaultLoopAgents(mode === 'freestyle' ? 'free' : 'implementation')
   let entry: string
   if (mode === 'implement') {
-    entry = 'implement'; node(entry, 'implementation', {}, { next: 'done', rejected: 'failed', failed: 'failed' })
+    if (independent) {
+      entry = 'architect'
+      for (const [phase, next] of Object.entries({ architect: 'developer', developer: 'verify', fixer: 'verify', verify: 'reviewer', reviewer: 'archive', archive: 'done' })) {
+        node(phase, 'implementation-step', { phase }, { next, incomplete: 'developer', rejected: 'fixer', replan: 'architect', reverify: 'verify', rereview: 'reviewer', failed: 'failed' })
+        nodes.at(-1)!.data!.label = phase.charAt(0).toUpperCase() + phase.slice(1)
+        nodes.at(-1)!.position = phase === 'fixer' ? { x: 360, y: 360 } : { x: 0, y: (['architect', 'developer', 'verify', 'reviewer', 'archive'].indexOf(phase) + 1) * 140 }
+      }
+    } else { entry = 'implement'; node(entry, 'implementation', {}, { next: 'done', rejected: 'failed', failed: 'failed' }) }
   } else if (mode === 'quick-sdd') {
     entry = 'prepare'
     node('prepare', 'prompt', { nativeCommand: { id: 'opsx:ff', args: '{{run.changeId}}' }, access: 'write', sentinel: 'blocked' }, promptNext('validate'))

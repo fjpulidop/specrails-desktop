@@ -1,6 +1,6 @@
 # 任意の AI から Specrails を操作する（MCP サーバー）
 
-> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude, Codex, Kimi and Gemini. It includes verified bridge discovery, registration and read-only checks.
+> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
 
 Specrails は、[Model Context Protocol](https://modelcontextprotocol.io) を話す任意の AI アシスタント（Claude Desktop、Claude Code、Cursor、Cline、あるいは自作のエージェント）に対して、**自分自身**を公開できます。これをオンにしてアシスタントを Specrails に向ければ、チャットするだけでアプリ全体を操作できます。たとえば *「プロジェクト一覧を見せて」「API プロジェクトにソーシャルログインのスペックを作って」「レール 0 を起動して、終わったら教えて」「今週はいくら使った？」* といった具合です。あなたがあちこちクリックする代わりに、アシスタントが裏側で Specrails のツールを呼び出します。
 
@@ -32,19 +32,6 @@ Claude Desktop や Cursor のようなクライアントでは、設定は次の
 ```
 
 リモートの HTTP MCP サーバーに対応しているクライアントなら、代わりにパネルのトークンを使って `http://127.0.0.1:4200/api/mcp` を直接指すこともできます。
-
-### ターミナルから: Claude Code、Gemini CLI、Codex CLI
-
-**設定 ▸ MCP ▸ トークンをコピー** からトークンをコピーして、次を実行します:
-
-```bash
-# Claude Code
-claude mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <あなたのトークン>"
-
-# Gemini CLI
-gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <あなたのトークン>"
 
 # Codex CLI (stdio — 設定 ▸ MCP に表示されるブリッジコマンドを登録)
 codex mcp add specrails -- <設定 ▸ MCP のブリッジコマンド>
