@@ -125,7 +125,11 @@
     "shellDefault": "Repository di esecuzione (esecuzioni con un solo repository)",
     "shellHint": "Obbligatorio quando un’esecuzione interessa più repository.",
     "select": "Repository",
-    "all": "Tutti i repository"
+    "all": "Tutti i repository",
+    "workspacePath": "Cartelle di codice",
+    "workspaceHint": "Facoltativo. Una cartella per riga, assoluta o relativa al repository. Vuoto usa la cartella del repository. Implement, Quick SDD e Freestyle verificano ogni cartella indicata.",
+    "launchWorkspaces": "Cartelle per questa esecuzione",
+    "launchWorkspaceHint": "Modifiche e test sono limitati a queste cartelle. Seleziona almeno una cartella per ogni repository interessato."
   },
   "repositoryDelivery": {
     "building": "Implementazione in corso",

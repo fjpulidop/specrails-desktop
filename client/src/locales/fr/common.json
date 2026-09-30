@@ -125,7 +125,11 @@
     "shellDefault": "Dépôt d’exécution (exécutions avec un seul dépôt)",
     "shellHint": "Obligatoire lorsqu’une exécution concerne plusieurs dépôts.",
     "select": "Dépôt",
-    "all": "Tous les dépôts"
+    "all": "Tous les dépôts",
+    "workspacePath": "Dossiers de code",
+    "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement, Quick SDD et Freestyle vérifient chaque dossier indiqué.",
+    "launchWorkspaces": "Dossiers pour cette exécution",
+    "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné."
   },
   "repositoryDelivery": {
     "building": "Implémentation en cours",
