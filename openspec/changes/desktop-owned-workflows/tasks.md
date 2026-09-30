@@ -81,6 +81,8 @@ no longer advertise the hidden providers.
 The affected UI suites pass (206 provider/settings tests and 270 mission,
 builder, onboarding and MCP tests). Typechecks, architecture/source audits,
 95 script checks, production build and installed Desktop package checks pass.
-Full client and server coverage are being rerun after updating stale UI and
-recovery expectations; thresholds and timeouts remain unchanged. Final PR
-validation records the completed runs.
+Full client coverage passes: 403 suites and 4,737 tests. Full server coverage
+passes: 416 suites, 9,149 tests, 58 skipped. Thresholds and timeouts remain
+unchanged. Production build and the installed-package check also pass against
+the final public catalog changes. Companion PRs: Desktop #718, Core #398 and
+Web #223 (264 web tests and 6 documentation synchronization tests pass).
