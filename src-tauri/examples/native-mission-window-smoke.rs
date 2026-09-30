@@ -56,7 +56,7 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     assert!(editor.is_visible().map_err(|e| e.to_string())? && !editor.is_minimized().map_err(|e| e.to_string())?);
     main.unminimize().map_err(|e| e.to_string())?;
     editor.close().map_err(|e|e.to_string())?;
-    await_window_state("loop editor must actually close", || Ok(app.get_webview_window(editor.label()).is_none())).await?;
+    await_window_state("loop editor must actually close", || Ok(app.get_webview_window(editor.label()).is_none() && !loop_windows::permits_command(editor.label(), "desktop_save_text"))).await?;
     assert!(!loop_windows::permits_command(editor.label(), "desktop_save_text"));
     println!("PASS independent loop editor target, reuse, isolation, close and privilege cleanup");
     loop_windows::plugin_window_open(app.clone(), main_view.clone())?;
@@ -66,7 +66,7 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     assert_eq!(app.webview_windows().values().filter(|window| window.label().starts_with("plugins-")).count(),1,"reopening Plugins must preserve its forms");
     assert!(!loop_windows::permits_command(plugins.label(), "restart_app"));
     plugins.close().map_err(|e|e.to_string())?;
-    await_window_state("Plugins manager must actually close", || Ok(app.get_webview_window(plugins.label()).is_none())).await?;
+    await_window_state("Plugins manager must actually close", || Ok(app.get_webview_window(plugins.label()).is_none() && !loop_windows::permits_command(plugins.label(), "desktop_save_text"))).await?;
     assert!(!loop_windows::permits_command(plugins.label(), "desktop_save_text"));
     println!("PASS independent Plugins target, reuse, close and privilege cleanup");
     let first=mission_windows::detach(&app,Some("project-a".into()),"conversation-a".into(),snapshot("conversation-a",Some("project-a"),"draft A #1")).await?;
