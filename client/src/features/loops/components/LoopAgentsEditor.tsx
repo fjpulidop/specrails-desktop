@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../components/ui/button'
@@ -78,8 +79,8 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
     return <div className="space-y-2">
       <label className="block text-xs">{t('agents.provider')}<select className={field} value={agent.provider} onChange={event => update({ provider: event.target.value, maxTurns: agent.maxTurns })}>
         <option value="inherit">{t('loopAgents.inheritProvider')}</option>
-        {!provider && agent.provider !== 'inherit' && <option value={agent.provider}>{agent.provider}</option>}
-        {providers.map(item => <option key={item.id} value={item.id}>{item.kind === 'openai-compatible' ? item.label ?? item.id : item.id}</option>)}
+        {!provider && agent.provider !== 'inherit' && isPublicProvider(agent.provider) && <option value={agent.provider}>{agent.provider}</option>}
+        {providers.filter(item => isPublicProvider(item.kind === 'cli' ? item.cli : item.id)).map(item => <option key={item.id} value={item.id}>{item.kind === 'openai-compatible' ? item.label ?? item.id : item.id}</option>)}
       </select></label>
       <label className="block text-xs">{t('agents.model')}<Input value={agent.model ?? ''} list={`loop-models-${role}`} onChange={event => update({ ...agent, model: event.target.value || undefined })} /><datalist id={`loop-models-${role}`}>{choices.map(model => <option key={model} value={model} />)}</datalist></label>
       <label className="block text-xs">{t('loopAgents.effort')}<Input value={agent.effort ?? ''} onChange={event => update({ ...agent, effort: event.target.value || undefined })} /></label>

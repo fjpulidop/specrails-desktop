@@ -193,7 +193,7 @@
   },
   "noProvider": {
     "title": "No hay ningún proveedor de IA instalado",
-    "body": "El agente necesita Claude, Codex, Gemini o Kimi en tu máquina. Instala uno y vuelve a abrir el agente para empezar a chatear.",
+    "body": "El agente necesita Claude o Codex en tu máquina. Instala uno y vuelve a abrir el agente para empezar a chatear.",
     "placeholder": "Instala un proveedor de IA para usar el agente…"
   },
   "degraded": {

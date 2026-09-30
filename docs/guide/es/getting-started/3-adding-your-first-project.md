@@ -20,10 +20,6 @@ Una etiqueta amigable que se muestra en la barra lateral. Si lo dejas en blanco,
 
 Ese es todo el formulario — haz clic en **Añadir** y listo.
 
-## Los proveedores de IA se detectan automáticamente
-
-Ya no eliges proveedores. Specrails detecta cada CLI de IA instalado en tu máquina — **Claude**, **Codex**, **Gemini**, **Kimi** — y todos los proyectos pueden usarlos todos, siempre. Si instalas un proveedor nuevo más adelante, aparece en todas partes por sí solo la próxima vez que vuelvas a la app; sin re-configuración, sin ajustes por proyecto. Si un proveedor está instalado pero sin sesión iniciada, su selector muestra una insignia sutil *Sin iniciar sesión*.
-
 ## La configuración ocurre en silencio
 
 No hay asistente de configuración. En el momento en que haces clic en **Añadir**, el proyecto queda registrado y aparece en tu barra lateral — puedes abrirlo de inmediato. En segundo plano, specrails ensambla el workspace del proyecto (unos segundos, totalmente offline): un pequeño punto parpadeante en la fila del proyecto indica que está trabajando, y desaparece cuando todo está listo. Si algo falla para un proveedor, el proyecto sigue funcionando con los demás — aparece un punto ámbar y, al hacer clic, se reintenta.

@@ -21,7 +21,7 @@ All four tiers are granted out of the box, so a connected assistant can drive th
 
 ## For agents only: connect your client
 
-When a person asks an agent to connect, read the [dedicated MCP connection runbook](../../../agents/mcp.md). It covers Claude Code, Codex CLI and desktop, Kimi Code and Gemini CLI: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
+When a person asks an agent to connect, read the [dedicated MCP connection runbook](../../../agents/mcp.md). It covers Claude Code and Codex CLI and desktop: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
 
 Keep Specrails running and open **Settings ▸ MCP ▸ Copy client config**. Some versions return only `specrails-mcp`, which may not be on PATH; the runbook explains how to locate the actual executable and script. The bridge reads the token locally, so no token belongs in client configuration. Registration alone is not proof of connection: complete `initialize`, `tools/list`, and a read-only `specrails_projects` call with `{"action":"list"}`.
 

@@ -1,4 +1,3 @@
-import { RuntimeRolePrompts } from '../components/RuntimeRolePrompts'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
@@ -377,7 +376,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('specrailsAgents')}>
-            <ProviderConnectionsCard><RuntimeRolePrompts /></ProviderConnectionsCard>
+            <ProviderConnectionsCard />
             </div>
 
             <div className={paneCls('code')}>

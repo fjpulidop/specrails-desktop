@@ -19,6 +19,11 @@ export type ProviderId = string
  *  block (mirrors server/providers/local-adapter.ts). */
 export const CLI_PROVIDER_IDS: readonly string[] = ['claude', 'codex', 'gemini', 'kimi']
 
+/** Public choices only; retain private adapters for existing executions. */
+export function isPublicProvider(id: string): boolean {
+  return id !== 'gemini' && id !== 'kimi'
+}
+
 /**
  * The provider an app-level surface (a fresh mission, the Builder) should start
  * on given the machine's usable providers: the fixed CLI preference order

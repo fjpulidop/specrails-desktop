@@ -35,8 +35,6 @@ SpecsBoard（左）            レール（右）
 | **ステータスピル** | `idle`、`running`、`failed` のいずれか。「completed」という別ステータスはありません — ジョブがきれいに完了すると、レールは `idle` に戻ります。 |
 | **スペック一覧** | このレールに割り当てられた ID。さらにドラッグして追加したり、ドラッグして外したりできます。 |
 | **Loop ピッカー** | このレールが実行する Loop — 組み込み（`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`）かカスタム Loop。下の表を参照してください。レールごとに保持されます。 |
-| **プロファイルピッカー** | 実行する provider profile（Claude/Kimi rail）。 |
-| **エンジンセレクター** | rail を実行する provider — Claude、Codex、Gemini、Kimi。 |
 | **▶ Play / ■ Stop** | 開始またはキャンセル。 |
 
 ### レールが実行するもの: Loop
@@ -46,13 +44,8 @@ SpecsBoard（左）            レール（右）
 | 組み込み Loop | コマンド | 役割 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | レール上のすべてのスペックをまとめた 1 つのジョブ。Architect → Developer → Reviewer → Ship のフルパイプラインを実行します。日常的に使うデフォルトです。 |
-| **Freestyle** | Freestyle | Claude または Kimi が pipeline を**バイパス**して自律的に実装します。 |
 
 複数のスペックを実行するには、関連するもの（最大 3 件）を 1 本のレールに載せる（`Implement` がまとめて 1 つのジョブとして実行します）か、独立したスペックを複数のレールに分けます。git 管理のレールはそれぞれ専用の分離された worktree で並行して動きます。
-
-Freestyle は provider の native tool/model を使います。Claude は
-persistent interactive transport、Kimi は persistent stdin のない agentic
-`kimi -p` process を使います。
 
 組み込み Loop も編集できます。Loop Builder で編集して公開すると、それを選んでいるすべてのレールがあなたのバージョンを実行します（戻すには **元に戻す** を使います）。
 
@@ -84,11 +77,6 @@ git のないプロジェクトでは worktree 隔離も PR 継続も使えま�
 
 レールヘッダーの **■ Stop** をクリックします。アプリはサブプロセスに `SIGTERM` を送り、**5 秒間** クリーンな終了を待ってから `SIGKILL` します。中途半端に生成されたものが残ることはありません。
 
-## レールが起動しないとき
-
-選択した CLI がなければ spawn 前に失敗します。Kimi は `kimi`
-0.27+ を install/login してください。Desktop は server を起動しません。
-
 ## すべてを止める
 
 何かおかしいと感じたら、
@@ -101,4 +89,3 @@ git のないプロジェクトでは worktree 隔離も PR 継続も使えま�
 
 - [Loop Builder](the-loop-builder) — レールが実行するもの、そして自分だけの Loop を作る方法。
 - [ジョブ詳細ビュー](the-job-detail-view) — フェーズ、ライブメトリクス、チケットカード。
-- [レールごとのエンジン選択](picking-an-engine-per-rail) — Claude / Codex / Gemini / Kimi。

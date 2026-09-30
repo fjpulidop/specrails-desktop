@@ -40,6 +40,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
 - [projects](../projects/README.md)
+- [providers](../providers/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain

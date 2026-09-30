@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../lib/provider-capabilities'
 import { useTranslation } from 'react-i18next'
 import {
   Select,
@@ -35,6 +36,7 @@ export function AiEngineSelector({
 }: AiEngineSelectorProps) {
   const { t } = useTranslation('addspec')
   const detection = useProviderDetection()
+  providers = providers.filter(isPublicProvider)
   if (!providers || providers.length <= 1) return null
   return (
     <Select

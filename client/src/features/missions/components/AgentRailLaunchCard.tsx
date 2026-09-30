@@ -30,7 +30,7 @@ import { useProviderDetection } from '../../providers/hooks/useProviderDetection
 import { modelsForProvider, defaultModelForProvider } from '../../loops/lib/loop-run-models'
 import {
   reasoningEffortsForProvider, providerSupportsFreestyle,
-  providerSupportsProfiles, providerLabel, isRolesEngine, ROLES_ENGINE,
+  providerSupportsProfiles, providerLabel, isRolesEngine,
 } from '../../providers/lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../rails/lib/rail-loops'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
@@ -440,8 +440,6 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   ]
   const engineOptions: AgentToolbarOption[] = [
     ...detectedProviders.map((id) => ({ value: id, label: detection.providers[id]?.displayName ?? providerLabel(id) })),
-    // Same offer as the rail header: Roles whenever there is a choice of engines.
-    ...(detectedProviders.length > 1 ? [{ value: ROLES_ENGINE, label: t('agents:railSelectors.rolesEngine'), icon: Layers }] : []),
   ]
   const modelOptions: AgentToolbarOption[] = models.map((m) => ({ value: m.value, label: m.label ?? m.value }))
   const effortOptions: AgentToolbarOption[] = [{ value: NO_EFFORT, label: t('railCard.effortDefault') }, ...efforts.map((e) => ({ value: e, label: t(`effort.${e}`, { defaultValue: e }) }))]

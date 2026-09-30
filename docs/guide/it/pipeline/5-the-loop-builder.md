@@ -26,7 +26,7 @@ Un **loop** è la *ricetta* del lavoro; un **rail** è la *corsia* che lo esegue
 
 - I loop vivono nella sezione **Loops** (sidebar sinistra, accanto ai tuoi progetti) — sono **globali**, condivisi tra tutti i progetti.
 - Un rail **sceglie un loop** nel suo header (il selettore Loop) e lo esegue quando premi Play.
-- Il **rail** sceglie provider, modello ed effort compatibile. Un loop compatibile gira su Claude, Codex, Gemini o Kimi.
+- Il **rail** sceglie provider, modello ed effort compatibile. Un loop compatibile gira su Claude o Codex.
 
 Quindi: costruisci un loop una volta, poi scegli quel loop su qualsiasi rail in qualsiasi progetto.
 
@@ -50,10 +50,6 @@ Un loop è un grafo di **nodi** collegati da **archi** (le frecce). Ogni nodo è
 
 Gli archi collegano gli step in ordine. Il **Loop Decider** ha due uscite etichettate — **continue** e **stop** — così colleghi "non ancora finito" di nuovo nel lavoro e "fatto" verso un End.
 
-> **Kimi esegue loop con step AI/shell, ma non con Loop Decider.** Il verdetto
-> è pure-output e `kimi -p` non può imporre il confine no-tools; il run è
-> rifiutato prima del primo step.
-
 ### Scrivere il testo di uno step
 
 Dentro qualsiasi AI Step o Decider puoi fare riferimento a:
@@ -70,7 +66,6 @@ Un loop che non si ferma mai brucerebbe soldi per sempre, quindi ogni esecuzione
 |-------|--------------|
 | **Max iterations** | Tetto massimo di quante volte il Decider può tornare indietro, indipendentemente dal suo verdetto. |
 | **Timeout (min)** | Limite di tempo reale per l'intera esecuzione. |
-| **Max cost ($)** | *Opzionale.* Claude riporta il costo; Codex/Gemini usano stime. Kimi non riporta costo USD autorevole. |
 
 ## Costruire con sicurezza
 

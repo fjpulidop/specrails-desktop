@@ -58,9 +58,11 @@ describe('ExternalMcpServersCard', () => {
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-row-d:claude:jira')
     expect(screen.getByText('jira')).toBeInTheDocument()
-    // Four matrix checkboxes per row.
+    // Only the public provider columns are offered.
     expect(screen.getByLabelText('jira · claude')).toBeInTheDocument()
-    expect(screen.getByLabelText('jira · kimi')).toBeInTheDocument()
+    expect(screen.getByLabelText('jira · codex')).toBeInTheDocument()
+    expect(screen.queryByLabelText('jira · kimi')).toBeNull()
+    expect(screen.queryByLabelText('jira · gemini')).toBeNull()
     // Codex-native row is display-only (no provider toggles inside it).
     const codexRow = screen.getByTestId('external-mcp-codex-native-tool')
     expect(codexRow.querySelectorAll('button, input')).toHaveLength(0)
@@ -80,7 +82,7 @@ describe('ExternalMcpServersCard', () => {
     }) as never
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-row-d:claude:jira')
-    fireEvent.click(screen.getByLabelText('jira · kimi'))
+    fireEvent.click(screen.getByLabelText('jira · codex'))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].body).toEqual({
       servers: {
@@ -88,7 +90,7 @@ describe('ExternalMcpServersCard', () => {
           source: 'discovered',
           sourceProvider: 'claude',
           name: 'jira',
-          providers: { kimi: true },
+          providers: { codex: true },
         },
       },
     })
@@ -108,10 +110,10 @@ describe('ExternalMcpServersCard', () => {
     }) as never
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-row-c:mi-tool')
-    fireEvent.click(screen.getByLabelText('mi-tool · gemini'))
+    fireEvent.click(screen.getByLabelText('mi-tool · codex'))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
-    // Reverted: gemini stays unticked for the custom entry.
-    expect(screen.getByLabelText('mi-tool · gemini')).toHaveAttribute('aria-checked', 'false')
+    // Reverted: codex stays unticked for the custom entry.
+    expect(screen.getByLabelText('mi-tool · codex')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('adds a custom server through the form', async () => {

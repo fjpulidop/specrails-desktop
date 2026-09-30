@@ -65,7 +65,8 @@ describe('implementation recovery from a setup-only first step', () => {
     expect(prompts).toHaveLength(4)
     expect(executors.runDecider).toHaveBeenCalledTimes(2)
     expect(prompts[2]).toContain('implement the missing pieces whether verification reported `VERIFICATION: FAIL` or `VERIFICATION: PASS`')
-    expect(prompts[2]).toContain('Resume from the last completed phase')
+    expect(prompts[2]).toContain('Resume from completed work and preserve correct code already on disk')
+    expect(prompts[2]).toContain('In a free-form workflow, implement the frozen spec directly; do not require or fabricate an OpenSpec change')
     expect(prompts[2]).toContain('specialty filtering is absent; resume architect, developer, and reviewer work')
     for (const prompt of prompts.slice(1)) {
       const scope = frozenScope(prompt)

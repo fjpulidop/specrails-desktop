@@ -43,9 +43,6 @@ You only need this once per build. It does not apply to the notarized installers
 When you add a project, the app checks for the tools it needs and surfaces them in a **prerequisites panel** (in the `Add Project` dialog and the setup wizard). It checks:
 
 - **Bundled tools** — `node`, `npm`, `npx`, `git`.
-- **Provider CLIs** — **Claude Code**, **Codex**, **Gemini CLI**, and **Kimi
-  Code**. All four are probed via the system `PATH` and never bundled. At
-  least one must be installed and working before Add Project is enabled.
 
 You don't need all four providers. Install whichever you prefer:
 
@@ -53,16 +50,6 @@ You don't need all four providers. Install whichever you prefer:
 |---|---|---|---|
 | **Claude Code** | from [claude.com/download](https://claude.com/download) | none pinned | `claude login` |
 | **Codex** | `brew install codex` | `0.128.0` | `codex login` |
-| **Gemini CLI** | `npm i -g @google/gemini-cli` | `0.11.0` | set `GEMINI_API_KEY` (a paid key from Google AI Studio) |
-| **Kimi Code** | official installer or `@moonshot-ai/kimi-code` | `0.27.0` | `kimi login` |
-
-After installing a provider CLI, quit and relaunch Specrails so the new `PATH`
-is picked up. See [Kimi](../kimi.md), [Codex](../codex.md), or
-[Gemini](../gemini.md).
-
-When everything is in order, the panel collapses to **All required tools
-detected**. Detailed rows include each installed Claude/Codex/Gemini/Kimi CLI
-only when something is missing, too old, or broken.
 
 ## PATH resolution
 
@@ -107,28 +94,6 @@ This points you at the actual fix (remove the stale link) instead of sending you
 
 `GET /api/setup-prerequisites?diagnostic=1` returns the standard payload plus a `diagnostic` block. The example below is a **non-desktop / server run** (e.g. `npm run dev:server`), where `PATH` is reconstructed via the fast path + inherited entries:
 
-```jsonc
-{
-  "diagnostic": {
-    "pathSegments": ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/bin"],
-    "pathSources": ["fast-path", "fast-path", "fast-path", "fast-path", "inherited", "inherited"],
-    "loginShellStatus": "ok",       // "ok" | "skipped" | "timeout" | "error"
-    "whichResults": {               // also includes provider CLIs (and "uv" when applicable)
-      "node": "/opt/homebrew/bin/node",
-      "npm": "/opt/homebrew/bin/npm",
-      "npx": "/opt/homebrew/bin/npx",
-      "git": "/usr/bin/git",
-      "claude": "/opt/homebrew/bin/claude",
-      "codex": null,
-      "gemini": null,
-      "kimi": null
-    },
-    "nodeEnv": "production",
-    "platform": "darwin"
-  }
-}
-```
-
 In the **shipped desktop app** the first segments come from the bundled runtimes instead, so the leading `pathSources` entries read `"bundled"` and `loginShellStatus` is `"skipped"`:
 
 ```jsonc
@@ -136,8 +101,6 @@ In the **shipped desktop app** the first segments come from the bundled runtimes
 "pathSources": ["bundled", "bundled", "..."],
 "loginShellStatus": "skipped"
 ```
-
-`whichResults` is keyed by command name for **every** prerequisite the panel checks, so it includes `claude`/`codex`/`gemini`/`kimi` (and `uv` when probed) on top of the four bundled tools. A `null` value means that command was not found on `PATH` — in the example above, only Claude Code is installed.
 
 The install-instructions modal exposes a **Copy diagnostics** button that fetches this endpoint and copies the JSON to the clipboard for bug reports. The base endpoint (no `?diagnostic=1`) omits the `diagnostic` field, keeping the regular UI poll small.
 
@@ -152,8 +115,5 @@ After installing or reinstalling Node (or a provider CLI):
 
 ## Known limitations
 
-- **Provider requirement**: at least one provider CLI — Claude Code, Codex,
-  Gemini, or Kimi — must be installed and on `PATH`; otherwise Add Project
-  stays disabled.
 - **Port 4200** must be free on launch. The app binds `127.0.0.1:4200` for its API + WebSocket; if another process holds the port, the server cannot start.
 - **Terminal panel**: the bottom terminal panel spawns `$SHELL -l -i`, so your `.zshrc` / `.bashrc` loads as it would in a normal login shell. Per-session shell selection is not yet exposed in the UI — set `SHELL` to override the default.

@@ -20,17 +20,6 @@ Die Kopfzeile hat einen **Projekt-Selektor** (wie bei Cursor). Wähle ein Projek
 
 Ein Projekt hier auszuwählen **verschiebt** dein Dashboard **nicht** — das Ziel des Agenten und das, was du gerade ansiehst, sind unabhängig voneinander.
 
-## Anbieter und Modell
-
-Direkt über dem Nachrichtenfeld wählst du den **Anbieter** (Claude, Codex,
-Gemini oder Kimi) und dessen **Modell**. Ein Anbieterwechsel startet eine
-getrennte Sitzung.
-
-Bei Kimi begrenzen die Stufen Specrails-MCP-Tools, machen `kimi -p` aber nicht
-zum Sandbox-Prozess: native Kimi-Tools werden automatisch genehmigt. Unsichere
-Pure-Output-Aktionen werden vor dem Spawn abgelehnt; siehe
-[Kimi-Matrix](../../../kimi.md).
-
 ## Berechtigungsstufen — du hältst die Leine
 
 Der Agent kann die ganze App anfassen, also entscheidest du, wie viel Freiheit er hat — über eine **Stufe**, die du live mit **Shift+Tab** änderst (derselbe Zyklus wie in Claude Code). Jede Stufe schließt alles darunter mit ein:

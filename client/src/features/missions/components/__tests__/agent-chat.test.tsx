@@ -572,17 +572,14 @@ describe('AgentChatProvider', () => {
     await waitFor(() => expect(trigger).toHaveTextContent('High'))
   })
 
-  it('accepts an exact custom Kimi alias and hides K3-only effort immediately', async () => {
+  it('does not offer hidden providers in a new mission', async () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
     await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet'))
-    await chooseProvider(user, 'Kimi')
-    const modelInput = await screen.findByRole('combobox', { name: 'Model' })
-    fireEvent.change(modelInput, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
-    fireEvent.blur(modelInput)
-    await waitFor(() => expect(modelInput).toHaveValue('Moonshot-Team/Private_Coder:v2'))
-    expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Moonshot-Team/Private_Coder:v2')
-    expect(screen.queryByRole('slider', { name: 'Effort' })).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('agent-runtime-selector'))
+    await user.click(screen.getByRole('button', { name: /Claude Sonnet/ }))
+    expect(screen.queryByRole('button', { name: 'Kimi' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Gemini' })).toBeNull()
   })
 
   it('surfaces provider selection persistence failures instead of failing silently', async () => {

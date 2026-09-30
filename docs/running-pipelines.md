@@ -21,11 +21,6 @@ SpecsBoard (left)            Rails (right)
 
 A **rail** is an execution lane. Drag a spec card from the SpecsBoard onto a rail and press **▶ Play** to launch the pipeline. Rails let you organise and queue work into named lanes.
 
-Rails default to the project's primary provider. If several are installed, a
-per-rail engine selector can launch on **Claude**, **Codex**, **Gemini**, or
-**Kimi** — see [Using Kimi](kimi.md). Implement runs on every
-registered provider; Freestyle is offered by Claude and Kimi.
-
 > **One job at a time per project.** Each project has a single queue, so within a project only one rail job runs at a time; the rest queue behind it. Real parallelism is **across projects** — open two projects and their rails run independently. See [Running multiple rails](#running-multiple-rails).
 
 ## Rails
@@ -36,8 +31,6 @@ Each rail has a header with:
 - **Spec list** — the IDs of the specs assigned to this rail. Drag in more, drag out to detach. You can also use the **Move to rail** popover from a spec card; it shows a status dot per rail so you don't push work onto a busy lane.
 - **Loop picker** — the **Loop** this rail runs: a built-in (`Implement`, `SDD Quick (OpenSpec)`, or `Freestyle`) or one of your published custom loops. See [Loops](#loops).
 - **Profile picker** — which agent profile this rail uses. This only appears once the project has **at least one** profile (create them on the Agents page). When present, `No profile` runs the rail in legacy mode.
-- **Engine selector** — pick which installed provider (Claude, Codex, Gemini,
-  or Kimi) runs this rail. It renders only for multi-provider projects.
 - **Play / Stop button** — start or cancel.
 
 ### Loops
@@ -67,11 +60,6 @@ Beyond the built-ins, the **Loops** section (left sidebar, above the project lis
 
 Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Publish** makes a loop selectable on any rail. Built-ins are editable loops too: edit one in place and publish it to change that built-in for every rail, agent-chat launch and Companion launch that uses it (rails keep the last published version while your edit is a Draft); **Restore original** resets it and **Duplicate** copies it into a separate loop. Built-ins cannot be deleted.
 
-On the legacy traversal, Kimi runs built-in and custom loops whose graph contains AI/shell steps but no
-**Loop Decider**. A Decider's constrained `continue`/`stop` verdict is a
-pure-output action; Kimi 0.27 `-p` cannot enforce the required no-tools
-boundary, so Kimi + Decider is rejected before the loop starts.
-
 > Loop runs stream live in the Jobs view, grouped by scoped attempts. Core runs also expose their nested graph. Project role settings apply unless a deliberate launch override selects an engine for the run. Legacy profile routing and orchestrator settings remain available for older workflows.
 
 ### Pipeline phases
@@ -96,9 +84,6 @@ continue through the ordinary verification path.
 Architect ──► Developer ──► Reviewer ──► Ship
 ```
 
-Each phase is a specialised role invoked by the rail's engine (Claude, Codex,
-Gemini, or Kimi) in an isolated project worktree:
-
 | Phase | Agent | What it does |
 |-------|-------|--------------|
 | Architect | `sr-architect` | Plans the implementation |
@@ -119,17 +104,8 @@ autonomously with native tools.
 
 - **One job per spec.** If the rail has three specs, `Freestyle` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
-- **Model picker.** A per-rail control uses the selected provider's model
-  catalog. Kimi offers `k3`, `kimi-for-coding`, and
-  `kimi-for-coding-highspeed`; low/high/max effort appears only for K3.
-- **Capability-gated.** Claude and Kimi advertise Freestyle. Codex and Gemini
+- **Capability-gated.** Claude advertise Freestyle. Codex
   do not. Agent profiles do not apply to Freestyle rails.
-- **Transport-aware interaction.** Claude's persistent-stdin Freestyle run is
-  a live session and waits for **Finalize**. Kimi Freestyle is agentic too,
-  but `kimi -p` has no persistent stdin transport; it follows the owned
-  one-process lifecycle and later conversations resume through a new process
-  only after Kimi has emitted a session hint. Can be disabled server-side via
-  `SPECRAILS_INTERACTIVE_JOBS=false`.
 
 You can customise the Freestyle pre-prompt per project on the [Settings page](customizing.md#freestyle-pre-prompt).
 
@@ -166,19 +142,9 @@ Two panels sit above the streaming log:
 
 Below: the full streaming log with auto-scroll, search, and copy.
 
-**Talk to the running job.** Every Claude job (and every Claude AI step in a loop run) is an interactive session by default: a chat composer sits at the bottom of the Job Detail page — and of the job modal in mission mode — so you can ask the running agent a question or steer it mid-run. Messages sent while the model is streaming queue up and run next; the job keeps following its plan. The composer shows a live `N turns · $X` line summed from each completed turn's real usage (still no estimates). Most jobs finish on their own the moment a turn completes with nothing queued — a subtle **Wrap up now** ends them early; Freestyle jobs instead wait for your explicit **Finalize**. During a loop run your messages reach the currently running AI step (between steps the composer shows a short waiting state, and **Settle this step** advances the loop). Codex, Gemini, and Kimi rail processes do not expose Claude's persistent-stdin transport; Kimi chat surfaces resume a recorded session by spawning a new `kimi -p` process. Server kill switch: `SPECRAILS_INTERACTIVE_JOBS=false`.
-
 ### Cancelling a job
 
 Click **Stop** on the rail header. The app sends `SIGTERM` to the subprocess, waits **5 s**, then `SIGKILL`.
-
-### If a rail won't launch
-
-If you pick an engine whose CLI isn't installed on your machine, the launch
-fails fast instead of starting a broken job. Install the missing provider CLI
-— see [Using Codex](codex.md), [Using Gemini](gemini.md), or
-[Using Kimi](kimi.md) — then launch again. Kimi requires the external
-authenticated `kimi` 0.27+ executable; Desktop never starts a server for it.
 
 ### Diagnostic export
 
@@ -219,9 +185,6 @@ Pick the profile from the **rail header's profile dropdown**. It's preselected t
 
 The **`No profile`** option always exists — use it to run a rail exactly as it did pre-4.1.0. (The dropdown itself only appears once the project has at least one profile.)
 
-> **Profiles apply to providers that advertise role/profile execution.** Claude
-> and Kimi support them. Codex and Gemini currently run in legacy mode.
-
 ### Custom agents (Agent Studio)
 
 From the Agents Catalog tab, the toolbar offers three creation entry points:
@@ -256,8 +219,6 @@ Per-project bundled integrations. Click **Integrations** in the project's right 
 
 Each plugin tile has:
 
-- **AI provider** — for multi-provider projects, selects the independent
-  Claude, Codex, or Kimi installation to inspect or change.
 - **Status** — `not installed`, `installed`, `orphan` (state file mentions it but `.mcp.json` doesn't), or `degraded` (verify failed).
 - **Preview install** — shows which `mcpServers` entries and agent fragments will land where, so you can sanity-check before clicking.
 - **Install** — applies the changes. Progress streams over the WebSocket (`plugin.install_progress` event).
@@ -281,11 +242,6 @@ Degraded plugins are **non-blocking** — the rail spawns anyway, but a `plugin.
 The app never wholesale rewrites these files:
 
 - `<project>/.mcp.json` — surgical merge per plugin.
-- `<project>/.kimi-code/mcp.json` — Kimi-native surgical MCP merge.
-- `<project>/CLAUDE.md`, `<project>/AGENTS.md`,
-  `<project>/GEMINI.md`, or `<project>/.kimi-code/AGENTS.md` —
-  provider-native managed instruction blocks. Provider-relative paths remain
-  independent unless two adapters explicitly declare the same path.
 - `<project>/.specrails/plugins/state.json` — install registry.
 - `<project>/.specrails/plugins/snapshots/<jobId>.json` — per-job snapshots.
 - `<project>/.claude/agents/custom-<plugin>.md` — optional fragment per plugin.
@@ -315,5 +271,4 @@ If something looks wrong:
 - [Tracking cost](tracking-cost.md) — see what each rail run is costing you.
 - [Customising the app](customizing.md) — daily budget, per-job alerts, telemetry.
 - [Using Codex](codex.md) — run rails on the Codex CLI.
-- [Using Gemini](gemini.md) — run rails on the Gemini CLI.
 - [Agent profile internals](internals/profiles.md) — for power users.

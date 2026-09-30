@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -70,7 +71,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
         const avail: Record<string, boolean> = {}
         for (const [k, v] of Object.entries(data)) {
           if (k === 'tiers' || k === 'providerIssues' || k === 'launchDescriptors') continue
-          if (typeof v === 'boolean') avail[k] = v
+          if (typeof v === 'boolean' && isPublicProvider(k)) avail[k] = v
         }
         setAvailableProviders(avail)
       })

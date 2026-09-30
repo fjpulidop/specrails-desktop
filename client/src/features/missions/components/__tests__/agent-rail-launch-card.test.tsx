@@ -147,10 +147,10 @@ describe('AgentRailLaunchCard', () => {
     await waitFor(() => expect(screen.queryByTestId('job-detail-modal')).toBeNull())
   })
 
-  it('offers the hybrid Roles engine like the rail header: no model/effort, launch carries aiEngine=roles only', async () => {
+  it('retains historical Roles launches without offering Roles in the selector', async () => {
     renderCard({ aiEngine: 'roles', model: 'opus', reasoningEffort: 'high' })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
-    expect(screen.getByTestId('rail-card-engine')).toHaveTextContent('Roles')
+    expect(screen.getByTestId('rail-card-engine')).not.toHaveTextContent('Roles')
     expect(screen.queryByTestId('rail-card-model')).toBeNull()
     expect(screen.queryByTestId('rail-card-effort')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })

@@ -20,17 +20,6 @@ L'en-tête comporte un **sélecteur de projet** (comme celui de Cursor). Choisis
 
 Choisir un projet ici **ne déplace pas** votre tableau de bord : la cible de l'agent et ce que vous regardez sont indépendants.
 
-## Fournisseur et modèle
-
-Juste au-dessus de la zone de message, vous choisissez le **fournisseur**
-(Claude, Codex, Gemini ou Kimi) et son **modèle**. Changer de fournisseur
-démarre une session séparée.
-
-Avec Kimi, les niveaux limitent les outils MCP Specrails mais ne transforment
-pas `kimi -p` en sandbox : ses outils natifs sont approuvés automatiquement.
-Les actions pure-output non sûres sont refusées avant démarrage ; voir la
-[matrice Kimi](../../../kimi.md).
-
 ## Niveaux d'autorisation — c'est vous qui tenez la laisse
 
 L'agent peut toucher à toute l'application, c'est donc à vous de décider quelle liberté vous lui accordez, via un **niveau** que vous changez en direct en appuyant sur **Shift+Tab** (le même cycle que celui de Claude Code). Chaque niveau inclut tout ce qui se trouve en dessous :

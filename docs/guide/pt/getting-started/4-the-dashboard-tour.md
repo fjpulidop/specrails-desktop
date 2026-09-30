@@ -26,13 +26,8 @@ A barra lateral direita é o seu painel de comutação para o projeto atual. Pas
 
 - **Dashboard** — o quadro de specs e os rails (onde estava agora mesmo).
 - **Jobs** — todas as execuções do pipeline deste projeto, passadas e presentes, com estado, duração e a possibilidade de aprofundar o detalhe e os logs de qualquer execução.
-- **Analytics** — invocações por dia, atividade, modelo e ticket. Claude comunica custo faturado, Codex/Gemini usam estimativas e Kimi deixa vazios os campos de tokens/custo USD indisponíveis.
-- **Agentes** — perfis e catálogos de roles por provider para Claude e Kimi. Com Kimi, os roles são criados/editados manualmente; Generate, Test e AI Refine não estão disponíveis.
-- **Code** — um explorador de ficheiros só de leitura com etiquetas dos ficheiros tocados pela IA. Os resumos em linguagem simples só aparecem com providers compatíveis e não estão disponíveis com Kimi.
 - **Integrações** — extras opcionais, como ligar as suas specs a um quadro do **Jira** ou ativar ferramentas adicionais para a IA.
 - **Definições** — opções por projeto (telemetria, orçamentos, configuração de fornecedores e muito mais).
-
-> Secções e ações seguem as capacidades do provider efetivo. Por exemplo, os perfis funcionam com Claude e Kimi, mas as ações de IA do Agent Studio falham de forma fechada com Kimi.
 
 ## A barra de estado
 

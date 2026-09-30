@@ -35,8 +35,6 @@ Voilà. Le rail démarre un processus AI CLI dans le bon contexte d'exécution e
 | **Pastille de statut** | `idle`, `running`, ou `failed`. Il n'y a pas de « completed » séparé — un rail revient à `idle` quand son job se termine proprement. |
 | **Liste de specs** | Les IDs assignés à ce rail. Glissez-en d'autres, retirez-les pour les détacher. |
 | **Sélecteur de Loop** | Le Loop que ce rail exécute — un intégré (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) ou un loop personnalisé. Voir le tableau ci-dessous. Persisté par rail. |
-| **Sélecteur de profil** | Quel profil fournisseur s'exécute (rails Claude et Kimi). |
-| **Sélecteur de moteur** | Quel provider exécute ce rail — Claude, Codex, Gemini ou Kimi. |
 | **▶ Play / ■ Stop** | Démarrer ou annuler. |
 
 ### Ce qu'un rail exécute : les Loops
@@ -46,13 +44,8 @@ Un rail exécute un **Loop** — la recette du travail. Deux loops sont **intég
 | Loop intégré | Commande | Ce qu'il fait |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Un seul job couvrant tous les specs du rail. Exécute tout le pipeline Architect → Developer → Reviewer → Ship. Le choix par défaut au quotidien. |
-| **Freestyle** | Freestyle | Claude ou Kimi implémente chaque spec de manière autonome, en **contournant** le pipeline. |
 
 Pour exécuter plusieurs specs, placez les specs liées (jusqu'à 3) sur un même rail — `Implement` les exécute en un seul job commun — ou répartissez les specs indépendantes sur plusieurs rails : chaque rail adossé à git s'exécute en parallèle dans son propre worktree isolé.
-
-Freestyle utilise les outils et modèles natifs du fournisseur. Claude possède
-un transport interactif persistant ; Kimi utilise un processus agentic
-`kimi -p` sans stdin persistant.
 
 Les loops intégrés sont aussi modifiables : éditez-en un dans le Loop Builder et publiez-le, et chaque rail qui le choisit exécute votre version (utilisez **Restaurer l'original** pour revenir en arrière).
 
@@ -84,11 +77,6 @@ Cliquez sur n'importe quelle carte pour ouvrir la **vue détaillée du job**, o�
 
 Cliquez sur **■ Stop** dans l'en-tête du rail. L'app envoie `SIGTERM` au sous-processus, attend **5 secondes** une sortie propre, puis le `SIGKILL`. Rien ne reste à moitié démarré.
 
-## Si un rail ne se lance pas
-
-Si la CLI choisie manque, le lancement échoue avant démarrage. Pour Kimi,
-installez/authentifiez `kimi` 0.27+ ; Desktop ne démarre aucun serveur.
-
 ## Tout arrêter
 
 Si quelque chose semble anormal :
@@ -101,4 +89,3 @@ Si quelque chose semble anormal :
 
 - [Le Loop Builder](the-loop-builder) — ce qu'un rail exécute, et comment construire vos propres loops.
 - [La vue détaillée du job](the-job-detail-view) — phases, métriques en direct, cartes de ticket.
-- [Choisir un moteur par rail](picking-an-engine-per-rail) — Claude, Codex, Gemini ou Kimi.

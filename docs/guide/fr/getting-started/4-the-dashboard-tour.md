@@ -26,13 +26,8 @@ La barre latérale droite est votre tableau d'aiguillage pour le projet courant.
 
 - **Tableau de bord** — le tableau des specs et les rails (là d'où vous venez).
 - **Jobs** — chaque exécution de pipeline pour ce projet, passée et présente, avec son statut, sa durée et la possibilité de plonger dans le détail et les logs de n'importe quelle exécution.
-- **Analytics** — les invocations par jour, activité, modèle et ticket. Claude fournit le coût facturé, Codex/Gemini des estimations, et Kimi laisse vides les champs tokens/coût USD indisponibles.
-- **Agents** — profils et catalogues de rôles propres au fournisseur pour Claude et Kimi. Avec Kimi, les rôles se créent et se modifient manuellement ; Generate, Test et AI Refine sont indisponibles.
-- **Code** — un explorateur de fichiers en lecture seule et des badges indiquant quels fichiers l'IA a touchés. Les résumés IA en langage clair n'apparaissent qu'avec un fournisseur compatible ; ils sont indisponibles avec Kimi.
 - **Intégrations** — des extensions facultatives, comme connecter vos specs à un tableau **Jira** ou activer des outils supplémentaires pour l'IA.
 - **Paramètres** — les options par projet (télémétrie, budgets, configuration des fournisseurs, et plus encore).
-
-> Les sections et actions suivent les capacités du fournisseur effectif. Les profils fonctionnent par exemple avec Claude et Kimi, mais les actions IA d'Agent Studio échouent de façon fermée avec Kimi.
 
 ## La barre de statut
 

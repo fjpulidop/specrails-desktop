@@ -67,17 +67,20 @@ not claimed for this scope correction.
 
 ## PR verification (2026-09-30)
 
-The paired Core contract and factory/compatibility/recovery suites pass against
-Core commit `b3a774b511124e5da437d95698e64f82d9d318d2` (46 tests). Client
-coverage passes with unchanged thresholds (403 suites, 4,736 tests). The final
-rails and repository routing suites pass (228 tests), including inherited
-mission provider/model/effort and explicit loop overrides. Typechecks,
-architecture/source audits, 95 script checks, production builds and the
-installed Desktop package check pass. Native checks pass: 47 unit tests,
-all example builds, and the isolated mission window smoke.
+Core's full serial coverage passes (106 suites, 1,333 tests, one skipped), as
+does its installed-package check. The paired Core contract and all 46
+factory/compatibility/recovery tests pass. Native verification passes: 47 unit
+tests, all example builds, and the isolated mission window smoke.
 
-Full server and Core coverage are being rerun after fixing locale storage and
-rail admission inheritance found during PR verification. Core's concurrent
-coverage attempt hit host-flow timeouts; the serial rerun keeps existing
-thresholds and timeouts. Do not treat the earlier coverage counts as final
-coverage evidence for this revision.
+Public provider choices are restricted to Claude, Codex and configured local
+engines. Hidden CLI connections remain in persistence; a regression test checks
+that saving a visible engine preserves them. The obsolete Roles choice and
+provider-defaults settings section are removed. Public guides and website copy
+no longer advertise the hidden providers.
+
+The affected UI suites pass (206 provider/settings tests and 270 mission,
+builder, onboarding and MCP tests). Typechecks, architecture/source audits,
+95 script checks, production build and installed Desktop package checks pass.
+Full client and server coverage are being rerun after updating stale UI and
+recovery expectations; thresholds and timeouts remain unchanged. Final PR
+validation records the completed runs.

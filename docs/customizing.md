@@ -67,7 +67,7 @@ A custom instruction appended to every **Implement** rail job, after the ticket 
 
 ### Freestyle pre-prompt
 
-The instruction sent to the selected provider for **Freestyle** rails. Freestyle skips the OpenSpec pipeline — it hands that provider this pre-prompt plus the spec text and lets it implement autonomously. Claude and Kimi currently advertise Freestyle support. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
+The instruction sent to the selected provider for **Freestyle** rails. Freestyle skips the OpenSpec pipeline — it hands that provider this pre-prompt plus the spec text and lets it implement autonomously. Claude currently advertise Freestyle support. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
 
 ### Telemetry
 
@@ -128,21 +128,9 @@ On first run the app generates a token and persists it to `~/.specrails/desktop.
 
 The app binds to `127.0.0.1` only, so it's never exposed to your network. To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and start it again — a fresh token is generated on the next boot.
 
-## Providers
-
-The app works with **four AI providers — Claude, Codex, Gemini, and Kimi — all enabled by default.** When you add a project you pick which provider(s) to install (you can install any subset; the first one becomes the project's default). The engine pickers on Add Spec, the rail header, and the terminal's "Open AI CLI" button appear automatically whenever more than one provider is installed.
-
-You normally don't configure anything here — providers are selected per project in the UI. Codex and Gemini have the emergency rollback env vars below; Kimi availability follows executable/version detection and Core compatibility. See [codex.md](codex.md), [gemini.md](gemini.md), and [kimi.md](kimi.md) for setup, authentication, and limitations.
-
 ## Environment variables
 
 Most settings live in the UI. A few app-level switches are env-only because they're guardrails ops people want to flip without opening the dashboard.
-
-> **How values are read** (the rules differ by flag type):
-> - **Section gates** (`SPECRAILS_*_SECTION`, `SPECRAILS_TERMINAL_PANEL`, `SPECRAILS_CODE_EXPLORER`, …) are ON unless set to the **exact string `false`**.
-> - **Provider rollbacks** (`SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`) disable on the **exact string `0`** only — `false`/`off` do *not* disable them.
-> - **Kill switches** (`SPECRAILS_SMASH`, `SPECRAILS_EXPLORE_CONTRACT_REFINE`) accept `0` / `false` / `off`.
-> - **Opt-in hatches** (`SPECRAILS_EXPLORE_LEGACY_CWD`, `SPECRAILS_ALLOW_LOCAL_WEBHOOKS`) enable on the **exact string `1`**.
 
 ### Server-side (read at app startup or by spawned children)
 
@@ -158,11 +146,9 @@ Most settings live in the UI. A few app-level switches are env-only because they
 | `SPECRAILS_INTERACTIVE_JOBS=false` | Disable interactive jobs everywhere (every Claude job — and every Claude loop step — is interactive by default): jobs fall back to the legacy one-shot spawn and the per-job message/finalize routes return 403 |
 | `SPECRAILS_BROWSER_CAPTURE=false` | Disable Add-Spec-from-browser capture |
 | `SPECRAILS_CODEX_BETA=0` | Emergency rollback — disable the Codex provider (only the exact string `0`; the legacy `SPECRAILS_HUB_CODEX_BETA` is read as a fallback **only when `SPECRAILS_CODEX_BETA` is unset**) |
-| `SPECRAILS_GEMINI_BETA=0` | Emergency rollback — disable the Gemini provider (default unset = enabled; only the exact string `0` disables; **no legacy fallback name**) |
 | `SPECRAILS_SMASH=0` | Kill switch for SMASH spec decomposition (`0` / `false` / `off`; endpoints return 409) |
 | `SPECRAILS_EXPLORE_CONTRACT_REFINE=0` | App-wide kill switch for Contract Refine (auto-fire + retry endpoint; accepts `0` / `false` / `off`) |
 | `SPECRAILS_EXPLORE_LEGACY_CWD=1` | Force every Explore spawn to use the project root instead of the app-managed `explore-cwd/` or a relocated workspace |
-| `SPECRAILS_FILE_SUMMARY_MODEL` | Override the model used for Code-section file summaries. Per-provider overrides take precedence: `SPECRAILS_FILE_SUMMARY_MODEL_CLAUDE` (Claude) and `SPECRAILS_FILE_SUMMARY_MODEL_CODEX` (Codex); the generic var is the fallback. Kimi file summaries and construction-story AI are capability-gated off, so this variable never enables them for Kimi. |
 | `SPECRAILS_ALLOW_LOCAL_WEBHOOKS=1` | Allow outbound webhooks to target loopback / private-network addresses |
 
 ### Client-side (Vite — set at build time)

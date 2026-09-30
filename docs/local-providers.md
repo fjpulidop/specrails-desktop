@@ -1,12 +1,5 @@
 # Local AI engines (OpenAI-compatible endpoints)
 
-Specrails Desktop can run on models you host yourself — Ollama, llama.cpp,
-LM Studio, vLLM, LocalAI, or any server that speaks the OpenAI
-`/v1/chat/completions` API. A configured endpoint is a **first-class AI
-engine**: it appears in every engine selector (rail header, Add Spec Quick /
-Explore, sidebar chat, agent missions) exactly like Claude, Codex, Gemini or
-Kimi, and rails run their Architect → Developer → Reviewer pipeline on it.
-
 ## Add a connection
 
 1. Open **Settings ▸ Specrails Agents ▸ Provider connections**.
@@ -52,11 +45,6 @@ without any of this.
 | Project Builder (day-0 blueprint chat) | the local agent runner in pure-output mode (no tools); expect a capable model — the blueprint contract is strict |
 
 ### Local-only machines
-
-Nothing has to be selected by hand. Provider availability is a machine
-property: every surface offers the engines the app can actually run, and the
-default follows the same rule everywhere — a detected CLI in the fixed order
-(Claude → Codex → Gemini → Kimi), else the first reachable local engine.
 
 - Project surfaces (rails, Add Spec, sidebar chat) already derive the
   project's primary from the detected set, so with one local engine the
@@ -199,7 +187,6 @@ hides the test / models UI of the connection card.
 2.49.2: the packaged app could not locate its bundled runner script, so every
 turn spawned Node against a missing file while the engine still appeared in the
 selectors. Update the app; nothing to configure.
-
 
 - **Engine missing from selectors** — the last probe failed. Test the
   connection; probes run every 60 s and are bounded at 3 s.

@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
@@ -98,7 +99,7 @@ export function AgentRuntimeSelector(props: Props) {
           {t(view === 'providers' ? 'provider.label' : 'model.label')}
         </div>
         <div className="max-h-[min(18rem,50vh)] overflow-auto">
-          {view === 'providers' ? props.providers.map(provider => <button key={provider.value} type="button" className={rowClass}
+          {view === 'providers' ? props.providers.filter(provider => isPublicProvider(provider.value)).map(provider => <button key={provider.value} type="button" className={rowClass}
             aria-pressed={provider.value === props.provider} onClick={() => { props.onProvider(provider.value); setView('models') }}>
             {provider.label}{provider.value === props.provider && <Check className="h-4 w-4 text-accent-primary" />}
           </button>) : props.status !== 'ready' ? <p role="status" className="px-3 py-2 text-xs text-muted-foreground">{t(props.status === 'loading' ? 'model.loading' : 'model.unavailable')}</p>

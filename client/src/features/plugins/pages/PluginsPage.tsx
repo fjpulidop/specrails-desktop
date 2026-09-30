@@ -1203,7 +1203,7 @@ function ProjectPluginWizard({
                     <div className="truncate text-[10px]">
                       {disabled
                         ? t('plugins.projectWizard.requiresSupportedProvider', {
-                            defaultValue: 'Requires Claude, Codex, or Kimi',
+                            defaultValue: 'Requires Claude or Codex',
                           })
                         : project.path}
                     </div>

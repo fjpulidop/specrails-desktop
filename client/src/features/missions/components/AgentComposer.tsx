@@ -57,7 +57,7 @@ import { BackgroundProcessLogsModal } from '../../background/components/Backgrou
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
 import { backgroundProcessKey } from '../../background/lib/background-processes-api'
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
-import { reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
+import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
 
 function replaceInlineRange(
   text: string,
@@ -200,7 +200,7 @@ export function AgentComposer({
   const provider = active?.provider ?? draftProvider
   const { availableIds: discoveredProviders, labels: providerLabels } = useAvailableProviders()
   const selectableProviders = useMemo(
-    () => [provider, ...discoveredProviders].filter((id, index, all) => all.indexOf(id) === index),
+    () => [provider, ...discoveredProviders].filter((id, index, all) => isPublicProvider(id) && all.indexOf(id) === index),
     [provider, discoveredProviders],
   )
   // A local engine shows its connection label, never the raw connection id;

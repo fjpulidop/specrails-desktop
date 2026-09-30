@@ -11,28 +11,13 @@ Profile 决定的是*哪些 Agent 运行、用什么模型*。但 Agent 本身�
 
 ## 添加一个自定义 Agent
 
-Role 是 provider-native asset：Claude 使用
-`.claude/agents/custom-<name>.md`；Kimi 使用
-`.kimi-code/skills/custom-<name>/SKILL.md`。
-
-Asset 存在后会出现在对应 provider 的目录中，其 id 只能加入同 provider 的 Profile。`custom-docs` 在 Claude 中对应 `.claude/agents/custom-docs.md`，在 Kimi 中对应 `.kimi-code/skills/custom-docs/SKILL.md`；二者互不混用。
-
 由于它们就住在你的仓库里，自定义 Agent 是**可提交的团队资产**：提交这个文件，你的整个团队就都拥有了这个 Agent。这呼应了贯穿整个 Agents 区的核心观念——
 
 > **Agent 定义是共享的（它们住在仓库里，随 `git` 一起流转）。模型配置则因项目而异（它住在 Profile 里）。**
 
-Core 保护两种格式。Kimi 支持手动 create/edit/run；Generate、Test 和
-AI Refine 会在 spawn 前拒绝。
-
 ## 让自定义 Agent 上岗
 
 典型流程如下：
-
-1. 创建 native Claude asset 或 Kimi Skill，并使用有效指令/model。
-2. 确认它出现在 **Agents → 目录** 的「自定义」分组下。
-3. 在 **Agents → Profile** 中，把这个 Agent 加入某条 Profile 链（也可在该 Profile 内覆盖它的模型）。
-4. 添加一条路由规则，让带有合适标签的任务到达它——或者依赖链的顺序。
-5. 在 rail 头部用该 Profile 启动一条 rail。
 
 ## 观察 Profile 的表现
 

@@ -24,10 +24,6 @@
 
 > 任务需要服务器提供**较大的上下文窗口**（64k token 以上）：operator 提示词加上 Specrails 工具 schema 体积很大。聊天和 Explore 在 32k 下即可。若某轮以 *exceeds the available context size* 失败，请增大窗口（Ollama `OLLAMA_CONTEXT_LENGTH`、llama.cpp `-c`、LM Studio *Context Length*）。
 
-## 只安装了本地引擎？
-
-无需任何配置。Specrails 只提供你的机器真正能运行的引擎，并在所有地方用同一条规则选择默认值：已安装的 CLI（Claude → Codex → Gemini → Kimi），否则是第一个端点有响应的本地引擎。在只有本地端点的机器上，rails、Add Spec、聊天、**agent 任务和 Project Builder** 都会直接在它上面启动，无需碰任何选择器。服务器未运行的引擎在恢复响应前不会被提供。已有任务保留创建时的引擎；选择器仍可切换。
-
 ## 选择模型
 
 质量取决于模型而非 Specrails。运行 rails 请使用 30B 参数以上、针对工具调用调优的代码模型；较小的 instruct 模型足以应对聊天、Explore 和 Quick spec。将完整的 implement rail 交给新模型之前，先试试 **Freestyle** 或一次 Explore 会话。

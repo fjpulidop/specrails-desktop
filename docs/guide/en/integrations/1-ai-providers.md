@@ -1,31 +1,18 @@
-# AI providers (Claude, Codex, Gemini, Kimi)
+# AI providers (Claude, Codex)
 
 Specrails isn't tied to a single AI. Explore, rails, chat, loops, and the
 terminal's "Open AI CLI" action run through a provider adapter; pure-output
 surfaces additionally require a safe tool policy. You choose the provider set
 for a project and can switch among compatible engines per invocation.
 
-## The four providers
+## The two providers
 
 | Provider | CLI | Made by | Notes |
 |---|---|---|---|
 | **Claude** | `claude` | Anthropic | Native billed-cost events and persistent interactive stdin. |
 | **Codex** | `codex` | OpenAI | Needs codex `0.128.0+`. Reads its MCP servers from your global `~/.codex/config.toml`. |
-| **Gemini** | `gemini` | Google | Needs gemini `0.11.0+`. Uses native telemetry and a `GEMINI.md` instructions file. |
-| **Kimi Code** | `kimi` | Moonshot AI | Needs Kimi Code `0.27.0+`. Uses CLI-only `-p` execution and `.kimi-code` directory-form skills. |
-
-All four are registered by default. A provider is selectable in **Add Project**
-when its CLI is installed, executable, and on `PATH`. Once its `--version`
-command works in a fresh terminal, Specrails can use it. Kimi users must also
-complete `kimi login`; the setup probe does not spend quota merely to test
-authentication.
 
 ## Providers are detected automatically
-
-You never pick providers per project. Specrails detects every provider CLI
-installed on your machine and makes **all of them** available to **every**
-project, always. Each surface then checks the provider's advertised
-capabilities. See [Using Kimi](../../../kimi.md) for Kimi's exact matrix.
 
 If a provider you want doesn't show up anywhere, it's almost always because the
 CLI isn't installed or isn't on your `PATH`. Install it, sign in, and switch
@@ -37,11 +24,6 @@ a *Not signed in* badge on the engine selectors.
 A few things worth knowing about multi-provider machines:
 
 - **One provider behaves exactly like before.** If only a single provider is detected, you'll never see a provider picker anywhere — the app stays clean and simple.
-- **Capability checks drive the sidebar.** A section is visible when at least
-  one detected provider supports it; inside it, engine-scoped affordances offer
-  only the capable providers. Kimi advertises profiles, custom roles, and
-  Freestyle; it does not advertise structured actions that require an
-  enforceable no-tools boundary.
 - **Nothing is locked.** Installing or removing a provider CLI updates every
   project automatically — there is no per-project provider setting to manage.
 
@@ -49,9 +31,6 @@ A few things worth knowing about multi-provider machines:
 
 The real payoff of a multi-provider project is choosing the right AI for each task — without changing any global setting. Wherever an AI runs, a small provider picker appears (only when the project has more than one):
 
-- **Add Spec** — an engine selector lets you Explore with a compatible
-  provider. Quick Spec only lists providers that can enforce its pure-output
-  boundary; Kimi uses Explore or the agentic Quick Launcher instead.
 - **Rail header** — pick the engine, model, profile, and supported reasoning
   effort for that rail.
 - **Terminal** — the "Open AI CLI" (Sparkles) button opens a provider menu so you can drop into any installed CLI in that project's directory.
@@ -65,44 +44,9 @@ contract can support them. Native telemetry and transport still differ:
 
 - **Claude** reports billed USD cost and supports a long-lived stdin chat
   transport.
-- **Codex and Gemini** report enough usage to estimate cost from the local rate
+- **Codex** reports enough usage to estimate cost from the local rate
   card.
-- **Kimi** emits text, tool activity, errors/retries, and a resumable session
-  hint, but no authoritative token or USD-cost envelope. Those fields remain
-  unavailable.
-- **Kimi user-global MCP** cannot be isolated per child process. Specrails uses
-  additive project `.kimi-code/mcp.json` integration and does not expose the
-  Claude-style "load my approved user MCPs" toggle for Kimi.
-- **Kimi `-p` permission mode** is autonomous and offers no per-invocation
-  native equivalent of Claude's `--tools __none__` or Codex's read-only
-  sandbox. Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, Project
-  Builder blueprint/milestone generation, Loop Decider, file summary and
-  construction-story AI, and Agent Studio generation/test/refine are
-  therefore hidden or rejected before spawn. AI auto-title uses a
-  deterministic fallback.
-- Kimi still supports Project/Agent Chat, Explore/proposals, agentic Quick
-  Launcher commands (including `/opsx:ff`), rails, loops without a Decider,
-  profiles/manual roles, terminal, project MCP, Serena, attachments, and
-  truthful invocation metadata.
-
-## Cost tracking across providers
-
-The **Analytics** page tracks every invocation regardless of provider. Claude
-cost is provider-reported; Codex/Gemini values may be estimated from the rate
-card. Kimi invocation duration, outcome, model, and session are recorded, while
-cost and token fields stay null when the CLI did not report them.
 
 ## Troubleshooting
 
-- **A provider I installed isn't offered.** Confirm the CLI is on your `PATH`
-  (`claude --version`, `codex --version`, `gemini --version`, or
-  `kimi --version`) in a fresh terminal.
-- **Kimi reports a login/model error.** Run `kimi login`, then retry. Specrails
-  intentionally avoids a billable setup prompt.
 - **Codex MCP servers aren't loading in chat.** Codex reads MCP servers from your global `~/.codex/config.toml` — register them there with `codex mcp add`.
-- **Emergency disable.** A provider can be turned off app-wide via an environment variable (`SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0`). This only hides the provider from *selection*; it's rarely needed.
-
-## See also
-
-The dedicated [Kimi provider guide](../../../kimi.md), Codex guide, and Gemini
-guide cover setup and provider-specific behavior in depth.

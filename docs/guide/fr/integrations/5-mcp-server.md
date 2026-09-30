@@ -1,6 +1,6 @@
 # Piloter Specrails depuis n'importe quelle IA (serveur MCP)
 
-> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude, Codex, Kimi and Gemini. It includes verified bridge discovery, registration and read-only checks.
+> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
 
 Specrails peut s'exposer **lui-même** à n'importe quel assistant IA qui parle le [Model Context Protocol](https://modelcontextprotocol.io) — Claude Desktop, Claude Code, Cursor, Cline, ou votre propre agent. Activez-le, pointez votre assistant vers Specrails, et vous pouvez piloter toute l'app en discutant : *« liste mes projets », « crée une spec pour la connexion sociale dans le projet API », « lance le rail 0 et préviens-moi quand c'est terminé », « combien ai-je dépensé cette semaine ? »*. Votre assistant appelle les outils de Specrails en coulisses, plutôt que de vous faire cliquer partout.
 
@@ -32,19 +32,6 @@ Dans un client comme Claude Desktop ou Cursor, la configuration ressemble à cec
 ```
 
 Les clients qui prennent en charge les serveurs MCP HTTP distants peuvent à la place pointer directement vers `http://127.0.0.1:4200/api/mcp` avec le jeton du panneau.
-
-### Depuis le terminal : Claude Code, Gemini CLI, Codex CLI
-
-Copiez votre jeton depuis **Réglages ▸ MCP ▸ Copier le jeton**, puis :
-
-```bash
-# Claude Code
-claude mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <votre jeton>"
-
-# Gemini CLI
-gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <votre jeton>"
 
 # Codex CLI (stdio — enregistrez la commande du bridge affichée dans Réglages ▸ MCP)
 codex mcp add specrails -- <commande du bridge depuis Réglages ▸ MCP>

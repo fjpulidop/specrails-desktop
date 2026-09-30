@@ -24,10 +24,6 @@ No disponible en motores locales: perfiles de agente y roles personalizados, enr
 
 > Las misiones necesitan una **ventana de contexto grande** en el servidor (64k tokens o más): el prompt del operador más los schemas de herramientas de Specrails ocupan mucho. Chat y Explore van bien con 32k. Si un turno falla con *exceeds the available context size*, amplía la ventana (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
 
-## ¿Solo tienes un motor local?
-
-No hay nada que configurar. Specrails ofrece los motores que tu máquina puede ejecutar de verdad y elige el predeterminado con una única regla en todas partes: un CLI instalado (Claude → Codex → Gemini → Kimi) o, si no hay ninguno, el primer motor local cuyo endpoint responda. En una máquina con solo un endpoint local, los rails, Add Spec, el chat, **las misiones del agente y el Project Builder** arrancan en él sin tocar ningún selector. Un motor cuyo servidor está caído simplemente no se ofrece hasta que vuelva a responder. Las misiones existentes conservan el motor con el que se crearon; el selector sigue permitiendo cambiarlo.
-
 ## Elegir modelo
 
 La calidad depende del modelo, no de Specrails. Para rails usa un modelo de código afinado para tool calling de 30B parámetros o más; los modelos instruct pequeños valen para chat, Explore y specs Quick. Prueba **Freestyle** o una sesión Explore antes de confiar un rail implement completo a un modelo nuevo.

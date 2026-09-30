@@ -193,7 +193,7 @@
   },
   "noProvider": {
     "title": "Nenhum provedor de IA instalado",
-    "body": "O agente precisa de Claude, Codex, Gemini ou Kimi na sua máquina. Instale um e reabra o agente para começar a conversar.",
+    "body": "O agente precisa de Claude ou Codex na sua máquina. Instale um e reabra o agente para começar a conversar.",
     "placeholder": "Instale um provedor de IA para usar o agente…"
   },
   "degraded": {

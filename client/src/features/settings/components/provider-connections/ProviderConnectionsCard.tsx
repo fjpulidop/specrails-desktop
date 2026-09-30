@@ -1,7 +1,8 @@
+import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, Cpu, Plus, Save, Server, SlidersHorizontal, TerminalSquare } from 'lucide-react'
+import { Cpu, Plus, Save, Server, TerminalSquare } from 'lucide-react'
 import {
   RUNTIME_CLI_PROVIDERS, isRuntimeProvidersResponse, nextRuntimeProviderId,
   type RuntimeCli, type RuntimeCliProvider, type RuntimeLocalProvider, type RuntimeProvider, type RuntimeProviderStatus,
@@ -21,20 +22,14 @@ function rowsFrom(providers: RuntimeProvider[], persisted: boolean): Row[] {
   return providers.map((provider) => ({ key: nextKey++, provider, persisted }))
 }
 
-interface Props {
-  /** Extra provider-level configuration rendered under the collapsible "Provider defaults" block. */
-  children?: ReactNode
-}
-
 /**
  * Settings ▸ AI providers. The section header explains the two kinds of
  * provider (CLI tools detected on this machine · local OpenAI-compatible
  * engines) and where they are used; the body groups them — CLI tools as a
  * compact read-only list, local engines as expandable cards — and persists
- * through `PUT /api/runtime-providers`. `children` (provider defaults) sit in
- * a collapsible block below. Legacy plain rows when the client flag is off.
+ * through `PUT /api/runtime-providers`. Legacy plain rows remain when the client flag is off.
  */
-export function ProviderConnectionsCard({ children }: Props) {
+export function ProviderConnectionsCard() {
   const { t } = useTranslation('agentRuntime')
   const legacy = !isLocalEnginesEnabled()
   const [rows, setRows] = useState<Row[] | null>(null)
@@ -43,7 +38,6 @@ export function ProviderConnectionsCard({ children }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [invalidKeys, setInvalidKeys] = useState<Set<number>>(() => new Set())
-  const [defaultsOpen, setDefaultsOpen] = useState(true)
   const mounted = useRef(true)
 
   useEffect(() => {
@@ -114,9 +108,9 @@ export function ProviderConnectionsCard({ children }: Props) {
     }
   }
 
-  const cliRows = rows?.filter((row): row is Row & { provider: RuntimeCliProvider } => row.provider.kind === 'cli') ?? []
+  const cliRows = rows?.filter((row): row is Row & { provider: RuntimeCliProvider } => row.provider.kind === 'cli' && isPublicProvider(row.provider.cli)) ?? []
   const localRows = rows?.filter((row): row is Row & { provider: RuntimeLocalProvider } => row.provider.kind === 'openai-compatible') ?? []
-  const missingClis = RUNTIME_CLI_PROVIDERS.filter((cli) => !cliRows.some((row) => row.provider.cli === cli))
+  const missingClis = RUNTIME_CLI_PROVIDERS.filter(isPublicProvider).filter((cli) => !cliRows.some((row) => row.provider.cli === cli))
 
   const addLocalButton = (
     <Button size="sm" className="gap-1.5" onClick={addLocal} data-testid="add-local-engine">
@@ -145,7 +139,7 @@ export function ProviderConnectionsCard({ children }: Props) {
       {rows && legacy && (
         <fieldset disabled={busy} className="space-y-3 disabled:opacity-70">
           {rows.length === 0 && <p className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">{t('providers.empty')}</p>}
-          {rows.map((row) => (
+          {rows.filter(row => row.provider.kind !== 'cli' || isPublicProvider(row.provider.cli)).map((row) => (
             <ConnectionRow key={row.key} provider={row.provider} onChange={(next) => changeRow(row.key, next)} onRemove={() => removeRow(row.key)} />
           ))}
           <div className="flex flex-wrap gap-2">
@@ -206,18 +200,6 @@ export function ProviderConnectionsCard({ children }: Props) {
         </div>
       )}
 
-      {/* Provider defaults */}
-      {children && (
-        <div className="rounded-xl border border-border/70 bg-card/40" data-testid="provider-defaults">
-          <button type="button" aria-expanded={defaultsOpen} aria-controls="provider-defaults-body" onClick={() => setDefaultsOpen((v) => !v)}
-            className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('providers.defaultsGroup')}</span>
-            <ChevronDown className={cn('ml-auto h-4 w-4 text-muted-foreground transition-transform duration-200', defaultsOpen && 'rotate-180')} aria-hidden />
-          </button>
-          {defaultsOpen && <div id="provider-defaults-body" className="px-4 pb-4 [&>section]:border-t-0 [&>section]:pt-1">{children}</div>}
-        </div>
-      )}
     </section>
   )
 }

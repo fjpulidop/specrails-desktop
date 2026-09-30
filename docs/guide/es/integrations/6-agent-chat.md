@@ -20,17 +20,6 @@ La cabecera tiene un **selector de proyecto** (como el de Cursor). Elige un proy
 
 Elegir un proyecto aquí **no** mueve tu panel: el objetivo del agente y lo que estás mirando son independientes.
 
-## Proveedor y modelo
-
-Justo encima del cuadro de mensaje eliges el **proveedor** (Claude, Codex,
-Gemini o Kimi) y su **modelo**. Cada proveedor tiene su propia lista y cambiar
-de proveedor inicia una sesión separada.
-
-Con Kimi, los niveles limitan las herramientas MCP de Specrails, pero no
-convierten `kimi -p` en un sandbox: Kimi aprueba sus herramientas nativas
-automáticamente. Las acciones pure-output inseguras se rechazan antes de
-iniciar el proceso; consulta la [matriz Kimi](../../../kimi.md).
-
 ## Niveles de permiso: tú llevas las riendas
 
 El agente puede tocar toda la app, así que tú decides cuánta libertad tiene con un **nivel** que cambias en vivo pulsando **Shift+Tab** (el mismo ciclo que usa Claude Code). Cada nivel incluye todo lo que hay por debajo:

@@ -35,14 +35,6 @@ La sélection du profil se fait là où vous lancez — dans l'**en-tête du rai
 
 Voilà tout le flux : choisir un profil, lancer, terminé. Des rails simultanés dans un même lot peuvent chacun porter leur propre profil, si bien qu'un correctif rapide et une grosse fonctionnalité peuvent tourner côte à côte avec des configurations différentes.
 
-## Quand la section Agents reste silencieuse
-
-Les profils sont séparés par fournisseur. Claude et Kimi prennent en charge
-profils/rôles ; Codex et Gemini utilisent le mode legacy. Dans un projet
-mixte, un même nom ne traverse jamais Claude/Kimi. Kimi permet les rôles
-manuels, mais génération, smoke test et AI Refine d'Agent Studio échouent
-avant démarrage. Kimi exige `specrails-core` 4.12.0 ou plus récent.
-
 ## Pour aller plus loin
 
 - [Personnaliser les modèles par agent](customizing-models-per-agent) — construisez des profils `fast` et `max`.

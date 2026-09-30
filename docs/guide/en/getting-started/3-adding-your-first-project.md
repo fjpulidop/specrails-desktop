@@ -20,10 +20,6 @@ A friendly label shown in the sidebar. If you leave it blank, specrails uses the
 
 That's the whole form — click **Add** and you're done.
 
-## AI providers are detected automatically
-
-You don't pick providers anymore. Specrails detects every AI CLI installed on your machine — **Claude**, **Codex**, **Gemini**, **Kimi** — and every project can use all of them, always. Install a new provider later and it appears everywhere on its own the next time you focus the app; no re-setup, no per-project configuration. If a provider is installed but not signed in, its selector shows a subtle *Not signed in* badge.
-
 ## Setup happens silently
 
 There is no setup wizard. The moment you click **Add**, the project is registered and appears in your sidebar — you can open it immediately. In the background, specrails assembles the project's workspace (a few seconds, fully offline): a tiny pulsing dot on the project's sidebar row shows it's working, and it simply disappears when everything is ready. If something goes wrong for one provider, the project still works with the others — an amber dot appears, and clicking it retries.

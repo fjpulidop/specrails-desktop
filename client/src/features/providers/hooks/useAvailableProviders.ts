@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../lib/provider-capabilities'
 import { useEffect, useState } from 'react'
 import { API_ORIGIN } from '../../../lib/origin'
 
@@ -68,7 +69,7 @@ export function useAvailableProviders(options: { enabled?: boolean } = {}): Avai
         const available: Record<string, boolean> = {}
         for (const [id, value] of Object.entries(data)) {
           if (id === 'tiers' || id === 'providerIssues' || id === 'launchDescriptors' || id === 'labels') continue
-          if (typeof value === 'boolean') available[id] = value
+          if (typeof value === 'boolean' && isPublicProvider(id)) available[id] = value
         }
         const rawIssues =
           data.providerIssues && typeof data.providerIssues === 'object'

@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { Cpu, Server } from 'lucide-react'
 
 export interface ProviderTab {
@@ -30,7 +31,7 @@ interface Props {
 export function ProviderTabs({ name, value, tabs, onChange, disabled, ariaLabel }: Props) {
   return (
     <div role="radiogroup" aria-label={ariaLabel} className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-border bg-background/60 p-1">
-      {tabs.map((tab) => {
+      {tabs.filter(tab => isPublicProvider(tab.value)).map((tab) => {
         const active = tab.value === value
         return (
           <label

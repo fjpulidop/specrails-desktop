@@ -20,10 +20,6 @@ Eine freundliche Bezeichnung in der Seitenleiste. Lässt du sie leer, verwendet 
 
 Das ist das ganze Formular — klicke auf **Hinzufügen** und fertig.
 
-## KI-Provider werden automatisch erkannt
-
-Du wählst keine Provider mehr aus. Specrails erkennt jedes auf deinem Rechner installierte KI-CLI — **Claude**, **Codex**, **Gemini**, **Kimi** — und jedes Projekt kann sie alle nutzen, immer. Installierst du später einen neuen Provider, erscheint er beim nächsten Fokussieren der App von selbst überall; keine Neueinrichtung, keine Konfiguration pro Projekt. Ist ein Provider installiert, aber nicht angemeldet, zeigt sein Auswahlmenü ein dezentes *Nicht angemeldet*-Badge.
-
 ## Die Einrichtung läuft still im Hintergrund
 
 Es gibt keinen Einrichtungsassistenten. Sobald du auf **Hinzufügen** klickst, ist das Projekt registriert und erscheint in deiner Seitenleiste — du kannst es sofort öffnen. Im Hintergrund baut specrails den Workspace des Projekts zusammen (wenige Sekunden, vollständig offline): Ein kleiner pulsierender Punkt in der Projektzeile zeigt die Arbeit an und verschwindet, sobald alles bereit ist. Schlägt etwas für einen Provider fehl, funktioniert das Projekt mit den anderen weiter — ein bernsteinfarbener Punkt erscheint, ein Klick darauf versucht es erneut.

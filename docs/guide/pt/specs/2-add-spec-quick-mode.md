@@ -2,10 +2,6 @@
 
 O modo Quick é para quando já sabe o que quer. Escreve a sua ideia, a IA redige a spec completa, e ela aterra no seu quadro como **Por fazer**. Sem idas e vindas — basta descrever e avançar.
 
-> **Kimi não está disponível no Quick Spec.** `kimi -p` não consegue impor
-> o limite pure-output deste formulário. O pedido é recusado antes do spawn;
-> use Explore, Raw ou Quick Launcher (`/opsx:ff`).
-
 ## Criar uma spec no modo Quick
 
 Para criar uma spec rapidamente:
@@ -22,9 +18,6 @@ Enquanto a spec está a ser escrita, uma pequena notificação no canto mostra o
 ## O que pode ajustar
 
 **Modelo** — por predefinição, a IA escolhe um modelo sensato. Pode substituí-lo por spec a partir do seletor de modelo se quiser um mais rápido ou mais capaz.
-
-**Motor** — o seletor mostra apenas providers **compatíveis**; Kimi fica
-excluído de Quick Spec.
 
 **Contexto** — o modo Quick normalmente corre como um único turno, porque não precisa de ler a sua base de código para escrever uma spec a partir da sua descrição. Mas um seletor de contexto permite dar-lhe mais material para trabalhar:
 

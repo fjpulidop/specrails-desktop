@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../providers/lib/provider-capabilities'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { CheckCircle2, AlertTriangle, RefreshCw, XCircle, Package } from 'lucide-react'
@@ -170,7 +171,7 @@ export function PrerequisitesPanel({ status, isLoading, error, onRefresh, onMore
       </div>
 
       <ul className="mt-2 space-y-1">
-        {status.prerequisites.map((item) => {
+        {status.prerequisites.filter(item => isPublicProvider(item.key)).map((item) => {
           const isCorrupted = item.error === 'corrupted-bundle'
           const isBundledOk = item.bundled === true && item.executable === true && !isCorrupted
           const ok = !isCorrupted && item.installed && item.meetsMinimum

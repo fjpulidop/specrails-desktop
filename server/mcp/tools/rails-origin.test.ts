@@ -316,12 +316,12 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     })
   }
 
-  it('uses published loop agents instead of conversation and explicit launch engines on modern Core', async () => {
+  it('inherits conversation and explicit launch engines in modern builtins', async () => {
     coreCapabilities.value = { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1 }
     const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
     const result = await captured!({ action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'codex', model: 'gpt-6-astra' }, launchExtra(conv.id))
     expect(result.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined, graph: { config: { agents: { agents: { developer: { provider: 'claude' } } } } } })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6-astra' }, graph: { config: { agents: { agents: { developer: { provider: 'inherit' } } } } } })
     expect(getActivePrDeliveryByRail(db, 0)!.origin_conversation_id).toBe(conv.id)
     await settle()
   })

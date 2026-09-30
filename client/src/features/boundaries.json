@@ -273,6 +273,7 @@
     ],
     "dependencies": [
       "integrations",
+      "providers",
       "settings"
     ]
   },
@@ -347,7 +348,8 @@
       "integrations",
       "jobs",
       "loops",
-      "projects"
+      "projects",
+      "providers"
     ]
   },
   "specs": {

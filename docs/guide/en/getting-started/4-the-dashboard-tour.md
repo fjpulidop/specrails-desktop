@@ -26,13 +26,8 @@ The right sidebar is your switchboard for the current project. Hover it to expan
 
 - **Dashboard** — the specs board and rails (where you just were).
 - **Jobs** — every pipeline run for this project, past and present, with status, duration, and the ability to dig into any run's detail and logs.
-- **Analytics** — invocations broken down by day, activity, model, and ticket. Claude reports billed cost, Codex/Gemini use estimates, and Kimi leaves unavailable token/USD fields blank.
-- **Agents** — provider-scoped profiles and role catalogs for Claude and Kimi. Kimi roles can be created and edited manually; Generate, Test, and AI Refine are unavailable.
-- **Code** — a read-only file browser and chips showing which files the AI has touched. Plain-language AI summaries appear only for providers that support that transform; they are unavailable with Kimi.
 - **Integrations** — optional add-ons, like connecting your specs to a **Jira** board or enabling extra tooling for the AI.
 - **Settings** — per-project options (telemetry, budgets, provider configuration, and more).
-
-> Sections and actions appear only when they make sense for the effective provider. For example, profiles are available for Claude and Kimi, while Kimi's Agent Studio AI actions fail closed.
 
 ## The status bar
 

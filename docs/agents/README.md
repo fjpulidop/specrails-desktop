@@ -1,7 +1,5 @@
 # Documentation exclusively for agents
 
-When a person says “connect to the Specrails MCP”, use the [connection runbook](mcp.md). These instructions cover Claude Code, Codex CLI/desktop, Kimi Code and Gemini CLI. They require local discovery, a configuration-preserving registration and a real read-only verification.
-
 ## Maintaining the public copy
 
 The canonical connection runbook is `docs/agents/mcp.md` in Specrails Desktop. Specrails Web keeps a reviewed copy in `src/content/for-agents/`. Its `docs:sync` command generates `/llms.txt`, `/for-agents/index.html` and the static Markdown runbook. These resources are usable without executing the documentation SPA.

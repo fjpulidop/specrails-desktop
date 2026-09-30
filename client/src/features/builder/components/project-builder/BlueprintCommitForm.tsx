@@ -1,3 +1,4 @@
+import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Github, Rocket } from 'lucide-react'
@@ -66,7 +67,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
         const avail: Record<string, boolean> = {}
         for (const [k, v] of Object.entries(data)) {
           if (k === 'tiers' || k === 'providerIssues' || k === 'launchDescriptors') continue
-          if (typeof v === 'boolean') avail[k] = v
+          if (typeof v === 'boolean' && isPublicProvider(k)) avail[k] = v
         }
         setAvailable(avail)
         const next = new Set<string>()
@@ -80,7 +81,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
   const ghInstalled = Boolean(gh?.installed && gh?.executable !== false)
   const ghReady = ghInstalled && Boolean(gh?.authenticated)
 
-  const orderedSelected = ['claude', 'codex', 'gemini', 'kimi', ...Object.keys(available)]
+  const orderedSelected = ['claude', 'codex', ...Object.keys(available)]
     .filter((id, i, arr) => arr.indexOf(id) === i)
     .filter((id) => selected.has(id) && available[id])
 
