@@ -217,7 +217,7 @@ function DesktopApp() {
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState<'appearance' | 'mobile'>('appearance')
+  const [settingsSection, setSettingsSection] = useState<'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'>('appearance')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
@@ -357,7 +357,7 @@ function DesktopApp() {
   // single-adopter invariant holds.
   const { connectionStatus } = usePipeline()
   const panelState = useProjectTerminals(activeProjectId)
-  const statusBarHeight = uiMode === 'agent' ? 0 : STATUSBAR_HEIGHT_PX
+  const statusBarHeight = STATUSBAR_HEIGHT_PX
   const mainColRef = useRef<HTMLDivElement | null>(null)
   const [viewportHeight, setViewportHeight] = useState<number>(
     typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -479,7 +479,7 @@ function DesktopApp() {
             statusBarHeight={statusBarHeight}
           />
         )}
-        {uiMode !== 'agent' && <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />}
+        <StatusBar connectionStatus={connectionStatus} minimal={uiMode === 'agent'} rightSlot={uiMode === 'agent' ? undefined : chevronSlot} />
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
@@ -711,11 +711,11 @@ export default function App() {
               <UiModeProvider initialMode={secondary ? 'agent' : undefined} persist={!secondary}>
               {!secondary && <MainDesktopUpdateNotifier />}
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
-              <TitleBar />
               <SpecGenTrackerProvider>
                 <ContractRefineTrackerProvider>
                 <SmashTrackerProvider>
                 <SidebarPinProvider>
+                  <TitleBar />
                   <TerminalsProviderWithDesktop>
                     <RailMetricsProviderWithDesktop>
                     <RailPrDecisionProviderWithDesktop>

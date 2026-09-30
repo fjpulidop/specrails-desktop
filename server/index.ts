@@ -1,3 +1,4 @@
+import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
 // Note: the pkg-binary native-addon hijacks (better_sqlite3.node, node-pty, pty.node)
 // used to live here but had to move to an esbuild `banner.js` in scripts/build-sidecar.mjs
 // so they run BEFORE esbuild's top-of-bundle `require('node-pty')` statement.
@@ -330,6 +331,7 @@ function broadcast(msg: WsMessage): void {
 let _getProjectCount: () => number = () => 0
 /** Captured by the Super-mode bootstrap block so graceful shutdown can tear down every
  *  project's spawners (rail/chat children) instead of orphaning them. */
+let _usageService: ReturnType<typeof createDesktopUsageService> | null = null
 let _registry: ProjectRegistry | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
@@ -722,7 +724,9 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
   // everything else under /api/projects/:projectId/* falls through to the
   // project router.
-  app.use('/api', createDesktopRouter(registry, broadcast))
+  const usageService = createDesktopUsageService()
+  _usageService = usageService
+  app.use('/api', createDesktopRouter(registry, broadcast, usageService))
 
   // Per-project routes under /api/projects/:projectId/*
   app.use('/api/projects', createProjectRouter(registry))
@@ -844,6 +848,7 @@ async function shutdown(): Promise<void> {
   // skip Agent Chat, and Headroom must remain available until all routed AI
   // children have received their termination signal.
   await Promise.allSettled([
+    Promise.resolve().then(() => _usageService?.dispose()),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),

@@ -50,7 +50,7 @@ describe('ArcSidebar', () => {
   it('opens Companion setup from the collapsed sidebar', () => {
     const onOpenCompanion = vi.fn()
     render(<ArcSidebar {...defaultProps} onOpenCompanion={onOpenCompanion} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Connect phone' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Companion' }))
     expect(onOpenCompanion).toHaveBeenCalledOnce()
     expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
   })

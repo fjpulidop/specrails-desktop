@@ -41,6 +41,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [loops](../loops/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
+- [subscription-usage](../subscription-usage/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
@@ -57,3 +58,5 @@ engine selection and workflow policy belong to the loop builder. Saving checks
 preserves historical configuration for legacy graphs; frozen executions retain
 their admission snapshot. The focused runtime forms exported above are also used
 by the loop editor.
+
+Subscription usage is available in the global settings modal and shares the machine-scoped store with the footer menu.

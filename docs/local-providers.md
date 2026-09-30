@@ -206,3 +206,11 @@ selectors. Update the app; nothing to configure.
   results and retries once; a second failure surfaces the server message. Use
   a larger context window or a smaller spec.
 - **Cost shows `—`** — expected without rates. Configure rates for an estimate.
+
+## Subscription allowance
+
+The left sidebar shows read-only Claude and Codex account usage separately from job cost accounting. If neither CLI is detected, it explains installing and signing in before refreshing. See [local subscription usage](subscription-usage.md).
+
+## Keep computer awake
+
+The native footer has an Off/On coffee control, disabled by default on every application launch. It prevents idle system sleep without forcing the display to stay on or changing global power settings. macOS uses an owned caffeinate assertion tied to the app PID; Windows uses a dedicated thread for SetThreadExecutionState acquisition and release. Turning it off or exiting releases the assertion. Browser-only sessions and unsupported platforms omit the control. No memory indicator is collected or shown. Automatic activation based on running jobs is not part of this control.

@@ -72,7 +72,8 @@
       "advanced": "Erweitert",
       "webhooks": "Webhooks",
       "about": "Info",
-      "effects": "Effekte"
+      "effects": "Effekte",
+      "subscriptionUsage": "Abonnementnutzung"
     },
     "title": "Desktop-Einstellungen",
     "description": "Registrierte Projekte verwalten und Desktop-Informationen einsehen.",

@@ -1850,6 +1850,71 @@
       ]
     }
   },
+  "subscription-usage": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "runtime/composition.ts",
+      "runtime/usage-service.ts"
+    ],
+    "dependencies": {
+      "adapters/claude.ts": [
+        "../domain",
+        "../ports",
+        "./errors",
+        "./local-auth",
+        "node:child_process",
+        "node:fs/promises",
+        "node:os",
+        "node:path"
+      ],
+      "adapters/codex.ts": [
+        "../../../util/win-spawn",
+        "../domain",
+        "../ports",
+        "./errors",
+        "./local-auth",
+        "node:child_process",
+        "node:os",
+        "node:path",
+        "node:string_decoder"
+      ],
+      "adapters/errors.ts": [],
+      "adapters/http.ts": [
+        "../domain",
+        "../runtime/usage-service",
+        "express"
+      ],
+      "adapters/local-auth.ts": [
+        "./errors",
+        "node:crypto",
+        "node:fs/promises"
+      ],
+      "application.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ],
+      "runtime/composition.ts": [
+        "../../../provider-detection",
+        "../adapters/claude",
+        "../adapters/codex",
+        "./usage-service"
+      ],
+      "runtime/usage-service.ts": [
+        "../adapters/errors",
+        "../application",
+        "../domain",
+        "../ports",
+        "node:crypto"
+      ]
+    }
+  },
   "terminals": {
     "publicEntries": [
       "runtime/background-process-control.ts",

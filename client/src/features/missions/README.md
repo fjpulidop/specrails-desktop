@@ -103,3 +103,5 @@ side, and stays within the viewport while resizing or scrolling.
 The primary split pane is a flex column with a constrained height, even when it
 is the only visible pane. Message lists shrink within that height and scroll
 independently, keeping the composer visible for long conversations.
+
+The conversation Split view action uses a multiple-panel icon and is suppressed for conversations already visible in the primary or a split pane, including keyboard context-menu requests.

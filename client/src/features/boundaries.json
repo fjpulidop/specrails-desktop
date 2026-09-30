@@ -350,7 +350,8 @@
       "jobs",
       "loops",
       "projects",
-      "providers"
+      "providers",
+      "subscription-usage"
     ]
   },
   "specs": {
@@ -383,6 +384,15 @@
       "projects",
       "providers",
       "rails"
+    ]
+  },
+  "subscription-usage": {
+    "publicEntries": [
+      "components/SubscriptionUsageFooter.tsx",
+      "components/SubscriptionUsagePanel.tsx"
+    ],
+    "dependencies": [
+      "builder"
     ]
   },
   "terminals": {

@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "文档",
     "analytics": "分析",
-    "companion": "连接手机",
+    "companion": "Companion",
     "settings": "设置",
     "plugins": "插件",
     "review": "审阅"
@@ -115,5 +115,13 @@
     "pinAria": "固定该区块（保持展开）",
     "unpinTooltip": "取消固定（默认折叠）",
     "pinTooltip": "固定展开（保持展开）"
+  },
+  "keepAwake": {
+    "label": "保持电脑唤醒",
+    "on": "开启",
+    "off": "关闭",
+    "active": "防止自动睡眠，屏幕仍可关闭。",
+    "inactive": "允许正常睡眠。",
+    "failed": "无法更改睡眠状态。"
   }
 }

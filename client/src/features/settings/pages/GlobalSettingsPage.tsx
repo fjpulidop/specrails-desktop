@@ -1,3 +1,4 @@
+import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
@@ -56,7 +57,7 @@ interface DesktopSettings {
 }
 
 interface SettingsDialogProps {
-  initialSection?: 'appearance' | 'mobile'
+  initialSection?: 'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'
   open: boolean
   onClose: () => void
   onOpenOnboarding?: () => void
@@ -94,6 +95,7 @@ const SETTINGS_SECTIONS = [
   { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
   { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
   { id: 'specrailsAgents', icon: Cpu, labelKey: 'desktop.nav.specrailsAgents' },
+  { id: 'subscriptionUsage', icon: Cpu, labelKey: 'desktop.nav.subscriptionUsage' },
   { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
   { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
@@ -378,6 +380,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('specrailsAgents')}>
             <ProviderConnectionsCard />
             </div>
+
+            {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}
 
             <div className={paneCls('code')}>
             <CodeSectionSettings />

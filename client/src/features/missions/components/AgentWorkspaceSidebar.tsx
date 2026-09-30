@@ -1,3 +1,4 @@
+import { isTauri } from '../../../lib/tauri-shell'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -111,7 +112,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           onKeyDown={resize.onGripKeyDown}
         />
       )}
-      <div className={cn(
+      {!isTauri() && <div className={cn(
         'flex items-center h-12 border-b border-border flex-shrink-0',
         expanded ? 'px-3 justify-between' : 'justify-center',
       )}>
@@ -120,7 +121,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
             {t('workspace.title')}
           </span>
         )}
-        <button
+        {!isTauri() && <button
           type="button"
           onClick={cycleRightMode}
           className={cn(
@@ -131,8 +132,8 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           title={tNav('sidebarPin.withShortcut', { label: pinLabel, shortcut: '⌘B' })}
         >
           <PanelRight className="w-4 h-4" />
-        </button>
-      </div>
+        </button>}
+      </div>}
 
       {builderMode.active ? (
         // ── Builder transformation: the tool rail becomes the live blueprint

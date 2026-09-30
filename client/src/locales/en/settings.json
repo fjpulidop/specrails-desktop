@@ -72,7 +72,8 @@
       "advanced": "Advanced",
       "webhooks": "Webhooks",
       "about": "About",
-      "effects": "Effects"
+      "effects": "Effects",
+      "subscriptionUsage": "Subscription usage"
     },
     "title": "Desktop Settings",
     "description": "Manage registered projects and view Desktop information.",

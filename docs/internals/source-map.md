@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 992 source/build files. Nearby tests are linked where names
+Includes 1012 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -33,6 +33,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
+- [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
@@ -714,6 +715,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [spec-sort.ts](../../client/src/features/specs/types/spec-sort.ts)
 
+## client/src/features/subscription-usage/components
+
+- [SubscriptionUsageFooter.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageFooter.tsx)
+- [SubscriptionUsagePanel.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsagePanel.tsx)
+- [SubscriptionUsageSection.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageSection.tsx)
+- [UsageProviderIcon.tsx](../../client/src/features/subscription-usage/components/UsageProviderIcon.tsx)
+
+## client/src/features/subscription-usage/lib
+
+- [store.ts](../../client/src/features/subscription-usage/lib/store.ts)
+- [types.ts](../../client/src/features/subscription-usage/lib/types.ts)
+- [useSubscriptionUsage.ts](../../client/src/features/subscription-usage/lib/useSubscriptionUsage.ts)
+
 ## client/src/features/terminals/components/terminal
 
 - [BottomPanel.tsx](../../client/src/features/terminals/components/terminal/BottomPanel.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/BottomPanel.test.tsx)
@@ -1321,6 +1335,26 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
 - [ticket-watcher.ts](../../server/modules/specs/runtime/ticket-watcher.ts) · [test](../../server/modules/specs/runtime/ticket-watcher.test.ts)
 
+## server/modules/subscription-usage
+
+- [application.ts](../../server/modules/subscription-usage/application.ts)
+- [domain.ts](../../server/modules/subscription-usage/domain.ts) · [test](../../server/modules/subscription-usage/domain.test.ts)
+- [index.ts](../../server/modules/subscription-usage/index.ts)
+- [ports.ts](../../server/modules/subscription-usage/ports.ts)
+
+## server/modules/subscription-usage/adapters
+
+- [claude.ts](../../server/modules/subscription-usage/adapters/claude.ts) · [test](../../server/modules/subscription-usage/adapters/claude.test.ts)
+- [codex.ts](../../server/modules/subscription-usage/adapters/codex.ts) · [test](../../server/modules/subscription-usage/adapters/codex.test.ts)
+- [errors.ts](../../server/modules/subscription-usage/adapters/errors.ts)
+- [http.ts](../../server/modules/subscription-usage/adapters/http.ts) · [test](../../server/modules/subscription-usage/adapters/http.test.ts)
+- [local-auth.ts](../../server/modules/subscription-usage/adapters/local-auth.ts)
+
+## server/modules/subscription-usage/runtime
+
+- [composition.ts](../../server/modules/subscription-usage/runtime/composition.ts)
+- [usage-service.ts](../../server/modules/subscription-usage/runtime/usage-service.ts) · [test](../../server/modules/subscription-usage/runtime/usage-service.test.ts)
+
 ## server/modules/terminals/runtime
 
 - [background-process-control.ts](../../server/modules/terminals/runtime/background-process-control.ts) · [test](../../server/modules/terminals/runtime/background-process-control.test.ts)
@@ -1408,6 +1442,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser_popup.rs](../../src-tauri/src/browser_popup.rs)
 - [browser_popup_windows.rs](../../src-tauri/src/browser_popup_windows.rs)
 - [desktop_actions.rs](../../src-tauri/src/desktop_actions.rs)
+- [desktop_status.rs](../../src-tauri/src/desktop_status.rs)
 - [invoke_guard.rs](../../src-tauri/src/invoke_guard.rs)
 - [lib.rs](../../src-tauri/src/lib.rs)
 - [loop_windows.rs](../../src-tauri/src/loop_windows.rs)

@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Analytics",
-    "companion": "Connect phone",
+    "companion": "Companion",
     "settings": "Settings",
     "plugins": "Plugins",
     "review": "Review"
@@ -115,5 +115,13 @@
     "pinAria": "Pin section (will stay expanded)",
     "unpinTooltip": "Unpin (collapse by default)",
     "pinTooltip": "Pin open (stay expanded)"
+  },
+  "keepAwake": {
+    "label": "Keep computer awake",
+    "on": "On",
+    "off": "Off",
+    "active": "Prevents idle sleep. The display can turn off.",
+    "inactive": "Normal sleep allowed.",
+    "failed": "Could not change sleep prevention."
   }
 }

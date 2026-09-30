@@ -1,7 +1,9 @@
+import { useSidebarPin } from '../context/SidebarPinContext'
+import { keyboardLabel } from '../lib/keyboard-label'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Copy, Minus, Search, Square, X } from 'lucide-react'
+import { Copy, Minus, PanelLeft, PanelRight, Search, Square, X } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { useUiMode } from '../context/UiModeContext'
 
@@ -160,6 +162,16 @@ export function TitleBar() {
   return <DefaultTitleBar />
 }
 
+function SidebarWindowButton({ side }: { side: 'left' | 'right' }) {
+  const { t } = useTranslation('nav')
+  const { leftMode, rightMode, cycleLeftMode, cycleRightMode } = useSidebarPin()
+  const mode = side === 'left' ? leftMode : rightMode
+  const key = mode === 'pinned-open' ? 'pinnedOpen' : mode === 'pinned-collapsed' ? 'pinnedCollapsed' : 'unpinned'
+  const label = t(`sidebarPin.${side}.${key}`)
+  const Icon = side === 'left' ? PanelLeft : PanelRight
+  return <button type="button" aria-label={label} title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌥⌘B' : '⌘B') })} onClick={side === 'left' ? cycleLeftMode : cycleRightMode} className="flex h-6 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline focus-visible:outline-ring" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}><Icon className="h-4 w-4" /></button>
+}
+
 function MacTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
@@ -170,8 +182,8 @@ function MacTitleBar() {
       data-tauri-drag-region
       style={{
         position: 'relative',
-        height: 28,
-        minHeight: 28,
+        height: 36,
+        minHeight: 36,
         background: 'var(--color-background-deep)',
         display: 'flex',
         alignItems: 'center',
@@ -180,7 +192,9 @@ function MacTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
+      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
+      <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>
     </div>
   )
 }
@@ -244,7 +258,7 @@ function DefaultTitleBar() {
           both modes keeps the in-flow children identical. */}
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
 
-      <div data-tauri-drag-region style={{ minWidth: 116, height: '100%' }} />
+      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /></div>
 
       {/* Right: native-feeling window controls for frameless Windows/Linux */}
       <div
@@ -257,6 +271,7 @@ function DefaultTitleBar() {
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
+        <SidebarWindowButton side="right" />
         <WinButton
           onClick={handleMinimize}
           icon={<Minus size={14} strokeWidth={1.8} />}

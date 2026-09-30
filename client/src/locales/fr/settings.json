@@ -72,7 +72,8 @@
       "advanced": "Avancé",
       "webhooks": "Webhooks",
       "about": "À propos",
-      "effects": "Effets"
+      "effects": "Effets",
+      "subscriptionUsage": "Utilisation des abonnements"
     },
     "title": "Paramètres de Desktop",
     "description": "Gérez les projets enregistrés et consultez les informations de Desktop.",

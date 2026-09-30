@@ -1,3 +1,4 @@
+import { isTauri } from '../lib/tauri-shell'
 import { keyboardLabel } from '../lib/keyboard-label'
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -47,7 +48,7 @@ export function ProjectRightSidebar() {
       onMouseLeave={() => { if (rightMode === 'unpinned') setHovered(false) }}
     >
       {/* Header */}
-      <div className={cn(
+      {!isTauri() && <div className={cn(
         'flex items-center h-12 border-b border-border flex-shrink-0',
         expanded ? 'px-3 justify-between' : 'justify-center'
       )}>
@@ -56,7 +57,7 @@ export function ProjectRightSidebar() {
             {t('rightSidebar.projectTitle')}
           </span>
         )}
-        <button
+        {!isTauri() && <button
           type="button"
           onClick={cycleRightMode}
           className={cn(
@@ -69,8 +70,8 @@ export function ProjectRightSidebar() {
           title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌘B') })}
         >
           <PanelRight className="w-4 h-4" />
-        </button>
-      </div>
+        </button>}
+      </div>}
 
       {/* Nav items */}
       <nav className="flex-1 py-2 px-1.5 space-y-0.5">

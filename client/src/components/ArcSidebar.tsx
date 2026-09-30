@@ -1,3 +1,4 @@
+import { isTauri } from '../lib/tauri-shell'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
 import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
 import { keyboardLabel } from '../lib/keyboard-label'
@@ -549,7 +550,7 @@ export function ArcSidebar({
   // below keeps `hovered` true during a drag so an unpinned rail can't collapse
   // out from under the resize.
   const resize = useResizableSidebar('left-arc', {
-    side: 'left', defaultWidth: 240, min: 200, max: 460, collapsedWidth: 44, expanded,
+    side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 44, expanded,
   })
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
@@ -594,7 +595,7 @@ export function ArcSidebar({
         />
       )}
       {/* Header */}
-      <div
+      {!isTauri() && <div
         className={cn(
           'flex items-center h-12 border-b border-border flex-shrink-0',
           expanded ? 'px-3 justify-between' : 'justify-center'
@@ -605,7 +606,7 @@ export function ArcSidebar({
             {t('arcSidebar.desktopTitle')}
           </span>
         )}
-        <button
+        {!isTauri() && <button
           type="button"
           onClick={cycleLeftMode}
           className={cn(
@@ -618,8 +619,8 @@ export function ArcSidebar({
           title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
         >
           <PanelLeft className="w-4 h-4" />
-        </button>
-      </div>
+        </button>}
+      </div>}
 
       {/* Agent Mode cluster — Switch (both modes), New agent + Search (agent) */}
       {FEATURE_AGENT_MODE && (
@@ -871,23 +872,24 @@ export function ArcSidebar({
         </button>
       </div>
 
+
       {/* Desktop nav items */}
-      <div className="border-t border-border py-2 px-1.5 space-y-0.5">
+      <div className={cn('border-t border-border py-2 px-1.5 flex', expanded ? 'flex-row items-stretch justify-between gap-1' : 'flex-col items-center gap-0.5')}>
         {navItems.map(({ label, icon: Icon, action }) => (
           <button
             key={label}
             type="button"
             onClick={action}
             className={cn(
-              'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-              'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-              expanded ? 'px-2' : 'px-0 justify-center'
+              'flex items-center rounded-md transition-colors focus-visible:outline focus-visible:outline-ring',
+              expanded ? 'min-w-0 flex-1 flex-col justify-start gap-1.5 self-stretch px-1 py-2' : 'w-8 h-8 justify-center',
+              'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             )}
             aria-label={label}
-            title={!expanded ? label : undefined}
+            title={label}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
-            {expanded && <span className="text-xs whitespace-nowrap">{label}</span>}
+            {expanded && <span className="w-full text-center text-[10px] font-normal leading-tight break-words">{label}</span>}
           </button>
         ))}
       </div>

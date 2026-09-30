@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Analytics",
-    "companion": "Collega telefono",
+    "companion": "Companion",
     "settings": "Impostazioni",
     "plugins": "Plugin",
     "review": "Revisione"
@@ -115,5 +115,13 @@
     "pinAria": "Fissa sezione (resterà espansa)",
     "unpinTooltip": "Sblocca (compressa per impostazione predefinita)",
     "pinTooltip": "Fissa aperta (resta espansa)"
+  },
+  "keepAwake": {
+    "label": "Mantieni il computer attivo",
+    "on": "Attivo",
+    "off": "Disattivo",
+    "active": "Impedisce la sospensione automatica. Lo schermo può spegnersi.",
+    "inactive": "Sospensione normale consentita.",
+    "failed": "Impossibile modificare la sospensione."
   }
 }

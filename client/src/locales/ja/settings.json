@@ -72,7 +72,8 @@
       "advanced": "詳細",
       "webhooks": "Webhooks",
       "about": "概要",
-      "effects": "エフェクト"
+      "effects": "エフェクト",
+      "subscriptionUsage": "サブスクリプション使用量"
     },
     "title": "Desktop 設定",
     "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",

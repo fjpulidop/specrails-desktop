@@ -1,5 +1,6 @@
 mod browser;
 mod desktop_actions;
+mod desktop_status;
 mod invoke_guard;
 mod backend_health;
 mod mission_windows;
@@ -399,12 +400,15 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .manage(desktop_status::DesktopStatus::default())
         .invoke_handler(|invoke| invoke_guard::dispatch(invoke, tauri::generate_handler![
             restart_app,
             set_tray_labels,
             desktop_actions::desktop_reveal_path,
             desktop_actions::desktop_save_text,
             desktop_actions::desktop_notify,
+            desktop_status::desktop_system_status,
+            desktop_status::desktop_set_awake,
             loop_windows::loop_window_open,
             loop_windows::plugin_window_open,
             mission_windows::mission_windows_supported,

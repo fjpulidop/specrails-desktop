@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "ドキュメント",
     "analytics": "分析",
-    "companion": "スマートフォンを接続",
+    "companion": "Companion",
     "settings": "設定",
     "plugins": "プラグイン",
     "review": "レビュー"
@@ -115,5 +115,13 @@
     "pinAria": "セクションをピン留め (常に展開)",
     "unpinTooltip": "ピン留め解除 (デフォルトで折りたたみ)",
     "pinTooltip": "ピン留めして開く (常に展開)"
+  },
+  "keepAwake": {
+    "label": "コンピューターをスリープさせない",
+    "on": "オン",
+    "off": "オフ",
+    "active": "自動スリープを防止します。画面は消灯できます。",
+    "inactive": "通常のスリープを許可します。",
+    "failed": "スリープ設定を変更できませんでした。"
   }
 }

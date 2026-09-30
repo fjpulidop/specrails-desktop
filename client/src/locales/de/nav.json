@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Doku",
     "analytics": "Analytics",
-    "companion": "Handy verbinden",
+    "companion": "Companion",
     "settings": "Einstellungen",
     "plugins": "Plugins",
     "review": "Review"
@@ -115,5 +115,13 @@
     "pinAria": "Abschnitt anpinnen (bleibt ausgeklappt)",
     "unpinTooltip": "Lösen (standardmäßig einklappen)",
     "pinTooltip": "Offen anpinnen (bleibt ausgeklappt)"
+  },
+  "keepAwake": {
+    "label": "Computer wach halten",
+    "on": "An",
+    "off": "Aus",
+    "active": "Verhindert automatischen Ruhezustand. Der Bildschirm darf ausgehen.",
+    "inactive": "Normaler Ruhezustand erlaubt.",
+    "failed": "Ruhezustand konnte nicht geändert werden."
   }
 }

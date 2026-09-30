@@ -47,7 +47,7 @@ function Workspace() {
   useEffect(() => { void chat.selectConversation('c1'); void chat.refreshConversations() }, [chat.selectConversation, chat.refreshConversations])
   return <>
     <output data-testid="primary-id">{chat.active?.id}</output>
-    {['c2', 'c3'].map(id => <MissionConversationMenu key={id} conversationId={id}><button>Open {id}</button></MissionConversationMenu>)}
+    {['c1', 'c2', 'c3'].map(id => <MissionConversationMenu key={id} conversationId={id}><button>Open {id}</button></MissionConversationMenu>)}
     <MissionSplitLayout><Pane /></MissionSplitLayout>
   </>
 }
@@ -73,9 +73,11 @@ it('adds conversations without replacing the current one, isolates drafts and li
   act(() => { for (const handler of ws.handlers.values()) handler({ type: 'agent_stream', conversationId: 'c2', delta: 'Second stream' }) })
   expect(screen.getByTestId('stream-c2')).toHaveTextContent('Second stream')
   expect(screen.getByTestId('stream-c1')).toBeEmptyDOMElement()
-  // Opening the same conversation again focuses it without a duplicate provider.
+  // Already visible conversations offer no redundant split action.
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Open c2' }))
-  await user.click(screen.getByRole('menuitem', { name: 'Split view' }))
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Open c1' }), { key: 'F10', shiftKey: true })
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   expect(screen.getAllByTestId('pane-c2')).toHaveLength(1)
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Open c3' }))
   await user.click(screen.getByRole('menuitem', { name: 'Split view' }))

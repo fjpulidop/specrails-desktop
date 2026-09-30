@@ -72,7 +72,8 @@
       "advanced": "Avanzate",
       "webhooks": "Webhooks",
       "about": "Info",
-      "effects": "Effetti"
+      "effects": "Effetti",
+      "subscriptionUsage": "Utilizzo abbonamenti"
     },
     "title": "Impostazioni Desktop",
     "description": "Gestisci i progetti registrati e visualizza le informazioni di Desktop.",

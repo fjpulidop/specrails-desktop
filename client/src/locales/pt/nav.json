@@ -30,7 +30,7 @@
     "loops": "Loops",
     "docs": "Docs",
     "analytics": "Análises",
-    "companion": "Conectar telemóvel",
+    "companion": "Companion",
     "settings": "Definições",
     "plugins": "Plugins",
     "review": "Revisão"
@@ -115,5 +115,13 @@
     "pinAria": "Afixar secção (ficará expandida)",
     "unpinTooltip": "Desafixar (recolhida por predefinição)",
     "pinTooltip": "Afixar aberta (manter expandida)"
+  },
+  "keepAwake": {
+    "label": "Manter o computador ativo",
+    "on": "Ativado",
+    "off": "Desativado",
+    "active": "Impede a suspensão automática. O ecrã pode apagar-se.",
+    "inactive": "Suspensão normal permitida.",
+    "failed": "Não foi possível alterar a suspensão."
   }
 }
