@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.59.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.58.1...v2.59.0) (2026-10-01)
+
+
+### Features
+
+* add editable workflows and compact mission workspace ([2853528](https://github.com/fjpulidop/specrails-desktop/commit/2853528d555bd44916708843954a2ae92596be36))
+* add editable workflows and compact mission workspace ([#719](https://github.com/fjpulidop/specrails-desktop/issues/719)) ([2853528](https://github.com/fjpulidop/specrails-desktop/commit/2853528d555bd44916708843954a2ae92596be36))
+
 ## [2.58.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.58.0...v2.58.1) (2026-09-29)
 
 
