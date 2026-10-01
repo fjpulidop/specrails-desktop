@@ -146,3 +146,4 @@ The local server binds to loopback and authenticates API and WebSocket access. S
 - [Contributing](CONTRIBUTING.md) and [changelog](CHANGELOG.md)
 
 Specrails Desktop is available under the [MIT license](LICENSE). Development can be supported through [Ko-fi](https://ko-fi.com/D1D81Y002C).
+
