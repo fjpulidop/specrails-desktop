@@ -94,9 +94,10 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
       approve: [result.pendingInterrupts![0].id], onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
   }
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
-  expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall })
-  if (!legacy && !stall) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
-  expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 2\n')
+  const correctionStalled = process.env.SPECRAILS_FACTORY_NOOP === '1'
+  expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall || correctionStalled })
+  if (!legacy && !stall && !correctionStalled) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+  expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(correctionStalled ? 'module.exports = 3\n' : 'module.exports = 2\n')
   return { result, calls, events }
 }
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'quick-sdd', 'freestyle'])('executes the %s factory through the real bridge and Core with deterministic local executors', async mode => {
@@ -165,6 +166,19 @@ it.skipIf(!core)('routes failed verification to the configurable correction agen
   vi.stubEnv('SPECRAILS_FACTORY_CORRECT', '1')
   const actual = await execute('implement', false, false, undefined, undefined, false, true)
   expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'assess'])
+}, 180_000)
+
+it.skipIf(!core)('stops configurable Implement after an unchanged correction without repeating failed host checks', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_CORRECT', '1')
+  vi.stubEnv('SPECRAILS_FACTORY_NOOP', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'failed', completion: { ok: false, verified: false }, errorText: expect.stringContaining('Queue-modal test is outside the approved scope') })
+  const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(1)
+  expect(starts).toContain('correction-stalled')
+  expect(starts).not.toContain('reviewer')
+  expect(starts).not.toContain('archive')
 }, 180_000)
 
 it.skipIf(!core)('resumes candidate-bound approval in configurable Implement without replaying its agents', async () => {

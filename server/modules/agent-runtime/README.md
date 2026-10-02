@@ -138,3 +138,6 @@ Readable verification logs suppress passing Node spec (`✔`) and TAP cases and 
 blocks while keeping failed cases, diagnostic blocks and totals. Long assertion/source dump lines are shortened in the readable log. Raw runtime
 events retain the full output. Failed gate outcomes and role error messages are
 reported explicitly in the readable log.
+Failed terminal completion reasons are preserved as the job error when Core has no
+more specific runtime error, so a scoped correction blocker is not replaced by a
+generic unsuccessful-Core-exit message.

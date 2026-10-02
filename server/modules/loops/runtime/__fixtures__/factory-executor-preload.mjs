@@ -65,6 +65,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
       }
       await tools.execute({ action: 'instructions', artifact: 'apply' })
       if (['developer', 'build', 'correct'].includes(request.role)) {
+        if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_NOOP === '1') return { text: JSON.stringify({ summary: 'Queue-modal test is outside the approved scope; no edits were made.', incomplete: [] }), usage }
         fs.writeFileSync(path.join(request.cwd, 'code.cjs'), request.role === 'build' && process.env.SPECRAILS_FACTORY_CORRECT === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
         const file = path.join(request.openspec.root, 'openspec/changes', change, 'tasks.md')
         fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('- [ ]', '- [x]'))

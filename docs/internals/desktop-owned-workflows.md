@@ -54,6 +54,12 @@ real committed full verification and the reviewed/approved candidate before
 publishing the recoverable write set. The final host check certifies the archived
 candidate. Reviewer assertions remain AI evidence and cannot create verification.
 
+Implement checks the host candidate hash after each correction. When verification
+failed and the correction leaves that candidate unchanged, it ends unsuccessfully
+with the corrector's explanation instead of rerunning the same failed checks.
+Corrections after a passing verification may still refresh review evidence without
+source changes. Failed completion reasons are surfaced in Desktop's job error.
+
 Admission freezes the graph, agents, Core package and repository checks. Resume
 uses this snapshot. Generic forks copy an active change into a separate change,
 carry scope-owned contracts forward, rebind `run.changeId`, and clear verification.

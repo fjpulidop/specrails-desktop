@@ -266,3 +266,6 @@ A verification node ending with outcome `fail` is displayed as failed even when
 the workflow operation itself completed. Core retains the failed-check diagnostics
 and stops three repeated failures on an unchanged candidate instead of spending
 further fixer turns on that same state.
+The configurable Implement recipe stops earlier when a correction leaves a failed
+verification candidate unchanged, retaining its summary as the failure reason.
+Review corrections after passing verification remain eligible for another review.

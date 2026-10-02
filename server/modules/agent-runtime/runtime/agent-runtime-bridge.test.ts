@@ -276,6 +276,11 @@ describe('Core process bridge', () => {
     script(`console.log(JSON.stringify(${JSON.stringify(final('paused', { pendingQuestion: { stepId: 'architect', question: '' } }))}));process.exitCode=2;`)
     expect((await runAgentRuntimeInvocation(options())).errorText).toContain('approval')
   })
+  it('reports the failed workflow completion reason instead of a generic Core exit error', async () => {
+    const reason = 'Verification remains failed and the correction made no candidate changes. Queue-modal test is outside the approved scope.'
+    script(`console.log(JSON.stringify(${JSON.stringify(final('failed', { completion: { ok: false, verified: false, reasons: [reason] } }))}));process.exitCode=1;`)
+    expect(await runAgentRuntimeInvocation(options())).toMatchObject({ failed: true, errorText: reason, text: reason })
+  })
   it('terminates a hung child and retains recovery metadata', async () => {
     script('setInterval(()=>{},1000)')
     expect(await runAgentRuntimeInvocation({ ...options(), timeoutMs: 100 })).toMatchObject({ failed: true, errorText: expect.stringContaining('timed out') })

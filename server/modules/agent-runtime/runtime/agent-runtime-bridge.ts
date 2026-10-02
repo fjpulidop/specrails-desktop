@@ -371,6 +371,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const validPause = definitionEngine && code === 2 && result?.status === 'paused'
       const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError) || Boolean(acceptanceBlocked)
       const runtimeError = typeof result?.error === 'string' ? result.error : result?.error?.message
+      const completionError = Array.isArray(result?.completion?.reasons) ? result.completion.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : ''
       const runtimeStatus: AiStepResult['runtimeStatus'] = invalidProtocol || timedOut || observerError || (result?.status === 'paused' && !validPause) || (result?.status === 'succeeded' && code !== 0) ? 'failed' : acceptanceBlocked ? 'blocked' : ['succeeded', 'paused', 'failed', 'blocked', 'cancelled'].includes(result?.status ?? '') ? result!.status as AiStepResult['runtimeStatus'] : 'failed'
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
@@ -378,7 +379,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         : runtimeError ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')
-        : failed ? stderr || 'Core exited without a successful programmatic workflow result' : undefined))
+        : failed ? completionError || stderr || 'Core exited without a successful programmatic workflow result' : undefined))
       try { writeRuntimeHistory(options.contextPath, invalidProtocol || timedOut || observerError || !result ? { status: 'failed', error: errorText } : { ...result }) } catch { /* Projection failure cannot replay a completed execution. */ }
       resolve({
         text: summary || (failed ? errorText ?? '' : definitionEngine ? 'Workflow execution completed.' : 'Programmatic implementation verified and archived.'),
