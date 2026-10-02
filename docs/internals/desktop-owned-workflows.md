@@ -72,6 +72,11 @@ justify an unrelated-failure diagnosis. Focused checks retain their original exi
 codes; repaired assertions need negative cases. Saved/customized definitions keep
 their frozen prompts; future unedited recipes use these updated defaults.
 
+The paired Core also supplies the official verify skill and real status/apply
+context before a read-only reviewer turn, including custom `assess` roles. Missing
+planning context still blocks invocation; host preparation does not approve the
+candidate or replace the review's inspection and structured findings.
+
 Admission freezes the graph, agents, Core package and repository checks. Resume
 uses this snapshot. Generic forks copy an active change into a separate change,
 carry scope-owned contracts forward, rebind `run.changeId`, and clear verification.

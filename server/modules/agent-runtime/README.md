@@ -27,6 +27,15 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
+Readable verification logs fold long quoted assertion-input blocks, including
+blocks spanning runtime events, while preserving the assertion, expected value,
+application stack and original raw events. Failed results without an explicit
+Core error or completion reason retain the latest unresolved step failure instead
+of replacing it with a generic exit message; successful results ignore that
+fallback, so a recovered step does not make the whole job fail. Recovery clears
+that step's fallback only in its own scope; failed projections preserve the
+resolved diagnostic for later history reads.
+
 ## Loop admission
 
 For graphs with `config.agents`, the bridge validates explicit loop definitions,

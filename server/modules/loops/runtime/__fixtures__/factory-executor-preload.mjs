@@ -51,7 +51,8 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         return { text: 'VERIFICATION: PASS', usage }
       }
       const tools = new OpenSpecTools(request.openspec), change = request.openspec.change
-      await tools.execute({ action: 'load_skill' })
+      const omitReviewWorkflow = ['reviewer', 'assess'].includes(request.role) && process.env.SPECRAILS_FACTORY_OMIT_REVIEW_WORKFLOW === '1'
+      if (!omitReviewWorkflow) await tools.execute({ action: 'load_skill' })
       if (['architect', 'plan'].includes(request.role)) {
         await tools.execute({ action: 'new' })
         for (const [file, content] of Object.entries(artifacts('feature-' + change.slice(-6)))) {
@@ -63,7 +64,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         const low = process.env.SPECRAILS_FACTORY_CONFIDENCE === '1' && calls.filter(call => call.role === 'plan').length <= 2
         return { text: request.role === 'plan' ? JSON.stringify({ confidence: low ? 'low' : 'high', question: low ? 'Confirm the requested value?' : '', verification: [] }) : '{"confidence":"high"}', usage }
       }
-      await tools.execute({ action: 'instructions', artifact: 'apply' })
+      if (!omitReviewWorkflow) await tools.execute({ action: 'instructions', artifact: 'apply' })
       if (['developer', 'build', 'correct'].includes(request.role)) {
         if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_NOOP === '1') return { text: JSON.stringify({ summary: 'Queue-modal test is outside the approved scope; no edits were made.', incomplete: [] }), usage }
         if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_REGEX === '1') {

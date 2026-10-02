@@ -83,23 +83,34 @@ function requiresConfiguredChecks(value: unknown): boolean {
 /** Keep TAP failure diagnostics and totals in the readable log. The unfiltered
  * event stream remains available as runtime evidence. State is invocation-local. */
 function verificationLogFilter(): (text: string) => string {
-  const streams = new Map<string, { tap: boolean; failed: boolean; yaml: boolean }>()
-  return text => stripVTControlCharacters(text).split(/(?<=\n)/).filter(line => {
+  const streams = new Map<string, { tap: boolean; failed: boolean; yaml: boolean; inputLines: number | null }>()
+  return text => stripVTControlCharacters(text).split(/(?<=\n)/).flatMap(line => {
     const match = line.match(/^(\[verification [^\]]+\] )?(.*?)(?:\n)?$/)
-    if (!match) return true
+    if (!match) return [line]
     const key = match[1] ?? '', body = match[2].trim()
-    const state = streams.get(key) ?? { tap: false, failed: false, yaml: false }
+    const state = streams.get(key) ?? { tap: false, failed: false, yaml: false, inputLines: null }
     streams.set(key, state)
-    if (/^[✔✓]\s/.test(body)) return false
-    if (/^[✖✗]\s/.test(body)) { state.failed = true; return true }
-    if (/^TAP version |^# Subtest:/.test(body)) { state.tap = true; return false }
-    if (/^(?:not )?ok \d+\b/.test(body)) { state.tap = true; state.failed = body.startsWith('not ok'); state.yaml = false; return state.failed }
-    if (!state.tap) return true
-    if (body === '---') { state.yaml = true; return state.failed }
-    if (body === '...') { state.yaml = false; return state.failed }
-    if (state.yaml) return state.failed
-    if (/^1\.\.\d+$/.test(body) || !body) return false
-    return true
+    if (/AssertionError\b.*\bInput:\s*$/.test(body)) state.inputLines = 0
+    else if (state.inputLines !== null) {
+      // Node prints assert.match's entire source input as quoted concatenation
+      // lines. Bound only that block; stacks, expected values and other streams
+      // remain visible and original events remain intact.
+      if (/^["'`]/.test(body)) {
+        state.inputLines++
+        if (state.inputLines > 2) return state.inputLines === 3 ? [key + '[Assertion input shortened; inspect raw evidence]\n'] : []
+      } else if (!body) return []
+      else state.inputLines = null
+    }
+    if (/^[✔✓]\s/.test(body)) return []
+    if (/^[✖✗]\s/.test(body)) { state.failed = true; return [line] }
+    if (/^TAP version |^# Subtest:/.test(body)) { state.tap = true; return [] }
+    if (/^(?:not )?ok \d+\b/.test(body)) { state.tap = true; state.failed = body.startsWith('not ok'); state.yaml = false; return state.failed ? [line] : [] }
+    if (!state.tap) return [line]
+    if (body === '---') { state.yaml = true; return state.failed ? [line] : [] }
+    if (body === '...') { state.yaml = false; return state.failed ? [line] : [] }
+    if (state.yaml) return state.failed ? [line] : []
+    if (/^1\.\.\d+$/.test(body) || !body) return []
+    return [line]
   }).map(line => line.length > 2_000 ? line.slice(0, 1_900) + '\n[Long diagnostic line shortened; inspect raw evidence]\n' : line).join('')
 }
 
@@ -288,6 +299,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     let result: RuntimeResult | undefined
     let graph: Record<string, unknown> | undefined
     let stderr = '', summary = '', invalidProtocol = false, timedOut = false
+    const stepFailures = new Map<string, string>()
     let timer: ReturnType<typeof setTimeout> | undefined
     const child = spawn(resolveCoreNodeRuntime(), args, {
       cwd: options.cwd, env: windowsSpawnEnv(options.env), shell: false, windowsHide: true,
@@ -323,9 +335,14 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
       } else if (event.type === 'workflow-event') {
-        const payload = event.event as { type?: string; stepId?: string; message?: string; outcome?: string; error?: { message?: string } }
+        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; error?: { message?: string } }
         const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
         const detail = payload?.error?.message ?? payload?.message
+        const stepKey = JSON.stringify([payload?.scopeId ?? null, payload?.nodePath ?? payload?.stepId ?? null])
+        if (payload?.type === 'step_failed' && typeof detail === 'string' && detail.trim()) {
+          stepFailures.delete(stepKey)
+          stepFailures.set(stepKey, detail.trim().slice(0, 4_000))
+        } else if (payload?.type === 'step_succeeded') stepFailures.delete(stepKey)
         if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n`))
       } else if (event.type === 'agent-event') {
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
@@ -379,8 +396,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         : runtimeError ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')
-        : failed ? completionError || stderr || 'Core exited without a successful programmatic workflow result' : undefined))
-      try { writeRuntimeHistory(options.contextPath, invalidProtocol || timedOut || observerError || !result ? { status: 'failed', error: errorText } : { ...result }) } catch { /* Projection failure cannot replay a completed execution. */ }
+        : failed ? completionError || [...stepFailures.values()].at(-1) || stderr || 'Core exited without a successful programmatic workflow result' : undefined))
+      try { writeRuntimeHistory(options.contextPath, invalidProtocol || timedOut || observerError || !result ? { status: 'failed', error: errorText } : { ...result, ...(failed && errorText ? { error: errorText } : {}) }) } catch { /* Projection failure cannot replay a completed execution. */ }
       resolve({
         text: summary || (failed ? errorText ?? '' : definitionEngine ? 'Workflow execution completed.' : 'Programmatic implementation verified and archived.'),
         provider: 'agent-runtime', model: 'per-role', failed, errorText,

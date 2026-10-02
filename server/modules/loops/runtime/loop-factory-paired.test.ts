@@ -196,6 +196,20 @@ it.skipIf(!core)('delivers a pre-existing formatting test failure to the configu
   expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
 }, 180_000)
 
+it.skipIf(!core)('completes after a formatting repair when the reviewer omits workflow tool calls', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REGEX', '1')
+  vi.stubEnv('SPECRAILS_FACTORY_OMIT_REVIEW_WORKFLOW', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'assess'])
+  const review = actual.calls.find(call => call.role === 'assess')!
+  expect(review).toMatchObject({ access: 'read', artifacts: 'none' })
+  expect(review.prompt).toContain('Host-loaded official verify workflow')
+  expect(review.prompt).toContain('openspec-verify-change')
+  expect(review.prompt).toContain('contextFiles')
+  expect(actual.events.filter(event => event.type === 'workflow-event' && event.event.nodePath === 'reviewer').map(event => event.event.type)).toEqual(['step_started', 'step_succeeded'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+
 it.skipIf(!core)('resumes candidate-bound approval in configurable Implement without replaying its agents', async () => {
   const actual = await execute('implement', false, false, undefined, undefined, false, true, false, true)
   expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess'])
