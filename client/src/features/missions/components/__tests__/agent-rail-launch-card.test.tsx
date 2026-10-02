@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, renderHook } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, renderHook, within } from '@testing-library/react'
 
 vi.mock('../../../providers/hooks/useProviderDetection', () => ({
   useProviderDetection: () => ({
@@ -16,6 +16,9 @@ import { useRailLaunchProposals } from '../useRailLaunchProposals'
 import { recordLocalIntent, resetLocalIntents } from '../../../rails/lib/rail-launch-intents'
 import type { RailLaunchProposal } from '../../../rails/lib/rail-launch-draft'
 import type { AgentMessage as ApiAgentMessage, AgentMessageIntent } from '../../lib/agent-api'
+import type { ProjectRepository } from '../../../projects/lib/project-repositories'
+import { StrictMode } from 'react'
+import { setActiveProjectId } from '../../../../lib/api'
 
 vi.mock('../../../jobs/components/JobDetailModal', () => ({
   JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => (
@@ -46,6 +49,10 @@ const ticketsPayload = {
   ],
 }
 
+const primaryRepository: ProjectRepository = { id: 'primary-p1', projectId: 'p1', name: 'App', path: '/skills', isPrimary: true, kind: 'git', integrationBranch: null, addedAt: '' }
+const apiRepository: ProjectRepository = { ...primaryRepository, id: 'api', name: 'API', path: '/api', isPrimary: false }
+const extraRepository: ProjectRepository = { ...apiRepository, id: 'extra', name: 'Extra', path: '/extra', workspacePaths: ['/extra/ui', '/extra/service'] }
+
 type Call = { url: string; init?: RequestInit }
 let calls: Call[]
 function mockFetch(overrides: Partial<Record<string, (init?: RequestInit) => { status: number; body: unknown }>> = {}) {
@@ -60,6 +67,7 @@ function mockFetch(overrides: Partial<Record<string, (init?: RequestInit) => { s
     }
     if (url.endsWith('/rails') && (!init || !init.method)) return { ok: true, status: 200, json: async () => railsPayload } as Response
     if (url.endsWith('/tickets') && (!init || !init.method)) return { ok: true, status: 200, json: async () => ticketsPayload } as Response
+    if (url.endsWith('/repositories')) return { ok: true, status: 200, json: async () => ({ repositories: [primaryRepository] }) } as Response
     if (url.includes('/profiles')) return { ok: true, status: 200, json: async () => ({ profiles: [{ name: 'fast', isDefault: false, updatedAt: 0 }] }) } as Response
     if (url.endsWith('/rails') && init?.method === 'POST') return { ok: true, status: 201, json: async () => ({ rail: { railIndex: 2 } }) } as Response
     if (/\/rails\/\d+\/(tickets|name|engine|profile)$/.test(url)) return { ok: true, status: 200, json: async () => ({ rail: {} }) } as Response
@@ -83,6 +91,250 @@ function renderCard(over: Partial<RailLaunchProposal> = {}, intent: AgentMessage
 }
 
 describe('AgentRailLaunchCard', () => {
+  it('shows saved historical assignments even in a single-repository project', async () => {
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByRole('group', { name: 'Repositories for this launch' })).toHaveTextContent('App')
+    expect(screen.getByTestId('rail-card-spec-scope-12')).toHaveTextContent('App')
+    expect(screen.getByTestId('rail-card-spec-scope-14')).toHaveTextContent('App')
+  })
+
+  it('merges current spec requirements into a stale proposal and freezes the resolved launch selection', async () => {
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }),
+      '/tickets': () => ({ status: 200, body: { tickets: [{ ...ticketsPayload.tickets[0], repositoryIds: ['api'] }] } }),
+    })
+    renderCard({ ticketIds: [12], repositoryIds: ['primary-p1'] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByRole('checkbox', { name: 'App' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'API' })).toBeChecked()
+    expect(screen.getByTestId('rail-card-spec-scope-12')).toHaveTextContent('API')
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/launch'))!).repositoryIds).toEqual(['primary-p1', 'api'])
+    expect(body(calls.find(c => c.url.includes('/intent'))!).config).toMatchObject({ repositoryIds: ['primary-p1', 'api'] })
+  })
+
+  it('blocks an omitted required repository, then saves a replacement spec scope without losing an extra target', async () => {
+    const ticket = { ...ticketsPayload.tickets[0], repositoryIds: ['api'] }
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository, extraRepository] } }),
+      '/tickets': init => ({ status: 200, body: init?.method === 'PATCH' ? { ticket: { ...ticket, repositoryIds: JSON.parse(String(init.body)).repositoryIds } } : { tickets: [ticket] } }),
+    })
+    renderCard({ ticketIds: [12], repositoryIds: ['api', 'extra'], workspaceSelection: { api: ['/api'], extra: ['/extra/ui'] } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('checkbox', { name: 'API' }))
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    expect(screen.getByText(/Required repositories missing: API/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit repositories for #12' }))
+    const editor = within(screen.getByTestId('rail-card-scope-editor'))
+    fireEvent.click(editor.getByRole('checkbox', { name: 'App' }))
+    fireEvent.click(editor.getByRole('checkbox', { name: 'API' }))
+    expect(calls.some(c => c.init?.method === 'PATCH')).toBe(false)
+    fireEvent.click(editor.getByRole('button', { name: 'Save repositories' }))
+    await waitFor(() => expect(screen.queryByTestId('rail-card-scope-editor')).not.toBeInTheDocument())
+    const save = calls.find(c => c.init?.method === 'PATCH')!
+    expect(save.url).toContain('/api/projects/p1/tickets/12')
+    expect(body(save)).toEqual({ repositoryIds: ['primary-p1'] })
+    expect(screen.getByTestId('rail-card-spec-scope-12')).toHaveTextContent('App')
+    expect(screen.getByRole('checkbox', { name: 'API' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Extra/ })).toBeChecked()
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/launch'))!)).toMatchObject({ repositoryIds: ['extra', 'primary-p1'], workspaceSelection: { extra: ['/extra/ui'] } })
+  })
+
+  it('cancel discards a scope draft and never writes or launches', async () => {
+    mockFetch({ '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }) })
+    renderCard({ ticketIds: [12] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Edit repositories for #12' }))
+    fireEvent.click(within(screen.getByTestId('rail-card-scope-editor')).getByRole('checkbox', { name: 'API' }))
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId('rail-card-spec-scope-12')).not.toHaveTextContent('API')
+    expect(screen.getByRole('checkbox', { name: 'API' })).not.toBeChecked()
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+    expect(calls.some(c => c.init?.method === 'PATCH' || c.url.endsWith('/launch'))).toBe(false)
+  })
+
+  it('retains the saved scope and draft when its save fails', async () => {
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }),
+      '/tickets': init => init?.method === 'PATCH' ? { status: 409, body: { error: 'repository_in_use' } } : { status: 200, body: ticketsPayload },
+    })
+    renderCard({ ticketIds: [12] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Edit repositories for #12' }))
+    fireEvent.click(within(screen.getByTestId('rail-card-scope-editor')).getByRole('checkbox', { name: 'API' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save repositories' }))
+    await waitFor(() => expect(screen.getByText("Could not save the spec's repositories.")).toBeInTheDocument())
+    expect(screen.getByText('repository_in_use')).toBeInTheDocument()
+    expect(within(screen.getByTestId('rail-card-scope-editor')).getByRole('checkbox', { name: 'API' })).toBeChecked()
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    expect(calls.some(c => c.url.endsWith('/launch'))).toBe(false)
+  })
+
+  it('removes optional launch targets and their workspace selections without changing specs', async () => {
+    mockFetch({ '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, extraRepository] } }) })
+    renderCard({ ticketIds: [12], repositoryIds: ['primary-p1', 'extra'], workspaceSelection: { extra: ['/extra/ui'] } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('checkbox', { name: /Extra/ }))
+    expect(screen.queryByRole('checkbox', { name: '/extra/ui' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/launch'))!)).toMatchObject({ repositoryIds: ['primary-p1'], workspaceSelection: {} })
+    expect(calls.some(c => c.init?.method === 'PATCH' && c.url.includes('/tickets/'))).toBe(false)
+  })
+
+  it('blocks before repository loading completes and fails closed when that request fails', async () => {
+    let resolveRepositories!: (response: Response) => void
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((input, init) => String(input).endsWith('/repositories') ? new Promise<Response>(resolve => { resolveRepositories = resolve }) : original(input, init))
+    renderCard()
+    await waitFor(() => expect(screen.getByText('#12')).toBeInTheDocument())
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    await act(async () => resolveRepositories({ ok: false, status: 503 } as Response))
+    expect(screen.getByText(/Could not load the project's rails, specs or repositories/)).toBeInTheDocument()
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    expect(calls.some(c => c.url.endsWith('/launch'))).toBe(false)
+  })
+
+  it('keeps a missing target visible and blocks launch until scope is repaired', async () => {
+    renderCard({ repositoryIds: ['removed-repo'] })
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Unavailable: removed-repo' })).toBeInTheDocument())
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Unavailable: removed-repo' }))
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+  })
+
+  it('can add an optional repository to the launch without writing a spec', async () => {
+    mockFetch({ '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }) })
+    renderCard({ ticketIds: [12] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('checkbox', { name: 'API' }))
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/launch'))!).repositoryIds).toEqual(['primary-p1', 'api'])
+    expect(calls.some(c => c.init?.method === 'PATCH' && c.url.includes('/tickets/'))).toBe(false)
+  })
+
+  it('reconciles adding and removing specs, preserving shared requirements and optional targets', async () => {
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository, extraRepository] } }),
+      '/tickets': () => ({ status: 200, body: { tickets: [
+        { ...ticketsPayload.tickets[0], repositoryIds: ['api'] },
+        { ...ticketsPayload.tickets[1], repositoryIds: ['api', 'primary-p1'] },
+      ] } }),
+    })
+    renderCard({ ticketIds: [12], repositoryIds: ['extra'], workspaceSelection: { api: ['/api'], extra: ['/extra/ui'] } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.keyDown(screen.getByTestId('rail-card-add-spec'), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('option', { name: '#14 Session refresh' }))
+    expect(screen.getByRole('checkbox', { name: 'App' })).toBeChecked()
+    fireEvent.click(screen.getByLabelText('Remove #12'))
+    expect(screen.getByRole('checkbox', { name: 'API' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Extra/ })).toBeChecked()
+    expect(screen.getByTestId('rail-card-spec-scope-14')).toHaveTextContent('API · App')
+    fireEvent.click(screen.getByLabelText('Remove #14'))
+    expect(screen.getByRole('checkbox', { name: 'API' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Extra/ })).toBeChecked()
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+  })
+
+  it('does not drop a repository still assigned to a sibling spec after saving a narrower scope', async () => {
+    const tickets = [
+      { ...ticketsPayload.tickets[0], repositoryIds: ['api'] },
+      { ...ticketsPayload.tickets[1], repositoryIds: ['api'] },
+    ]
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }),
+      '/tickets': init => ({ status: 200, body: init?.method === 'PATCH' ? { ticket: { ...tickets[0], repositoryIds: ['primary-p1'] } } : { tickets } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Edit repositories for #12' }))
+    const editor = within(screen.getByTestId('rail-card-scope-editor'))
+    fireEvent.click(editor.getByRole('checkbox', { name: 'App' }))
+    fireEvent.click(editor.getByRole('checkbox', { name: 'API' }))
+    fireEvent.click(editor.getByRole('button', { name: 'Save repositories' }))
+    await waitFor(() => expect(screen.queryByTestId('rail-card-scope-editor')).not.toBeInTheDocument())
+    expect(screen.getByRole('checkbox', { name: 'API' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'App' })).toBeChecked()
+    expect(screen.getByTestId('rail-card-spec-scope-14')).toHaveTextContent('API')
+  })
+
+  it('updates assignments and requirements on Refresh while retaining extra launch targets', async () => {
+    let scope = ['api']
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository, extraRepository] } }),
+      '/tickets': () => ({ status: 200, body: { tickets: [{ ...ticketsPayload.tickets[0], repositoryIds: scope }] } }),
+    })
+    renderCard({ ticketIds: [12], repositoryIds: ['extra'] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    scope = ['primary-p1']
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(screen.getByTestId('rail-card-spec-scope-12')).toHaveTextContent('App'))
+    expect(screen.getByRole('checkbox', { name: 'API' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Extra/ })).toBeChecked()
+  })
+
+  it('retries failed repository loading and still refuses offline implementation targets', async () => {
+    let status = 503
+    mockFetch({ '/repositories': () => ({ status, body: { repositories: [primaryRepository, { ...apiRepository, available: false }] } }) })
+    renderCard({ repositoryIds: ['api'] })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retry loading' })).toBeInTheDocument())
+    status = 200
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading' }))
+    await waitFor(() => expect(screen.getByText(/unavailable for implementation: API/)).toBeInTheDocument())
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Unavailable: API' }))
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+  })
+
+  it('saves scope to the pinned project even if a different project is globally active', async () => {
+    setActiveProjectId('other-project')
+    mockFetch({
+      '/repositories': () => ({ status: 200, body: { repositories: [primaryRepository, apiRepository] } }),
+      '/tickets': init => ({ status: 200, body: init?.method === 'PATCH' ? { ticket: { ...ticketsPayload.tickets[0], repositoryIds: ['primary-p1', 'api'] } } : ticketsPayload }),
+    })
+    renderCard({ ticketIds: [12] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Edit repositories for #12' }))
+    fireEvent.click(within(screen.getByTestId('rail-card-scope-editor')).getByRole('checkbox', { name: 'API' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save repositories' }))
+    await waitFor(() => expect(screen.queryByTestId('rail-card-scope-editor')).not.toBeInTheDocument())
+    expect(calls.filter(c => c.url.includes('/api/projects/')).every(c => c.url.includes('/api/projects/p1/'))).toBe(true)
+  })
+
+  it('blocks a switched project until its own repository snapshot loads', async () => {
+    let resolveRepositories!: (response: Response) => void
+    const original = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation((input, init) => String(input).endsWith('/p2/repositories') ? new Promise<Response>(resolve => { resolveRepositories = resolve }) : original(input, init))
+    const { rerender } = renderCard({ ticketIds: [12] })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    rerender(<AgentRailLaunchCard proposal={proposal({ ticketIds: [12] })} proposalIndex={0} messageId="m1" conversationId="c1" projectId="p2" intent={null} />)
+    expect(screen.getByTestId('rail-card-play')).toBeDisabled()
+    expect(screen.queryByTestId('rail-card-repositories')).not.toBeInTheDocument()
+    await act(async () => resolveRepositories({ ok: true, json: async () => ({ repositories: [{ ...primaryRepository, id: 'primary-p2', projectId: 'p2', name: 'Project Two' }] }) } as Response))
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByTestId('rail-card-spec-scope-12')).toHaveTextContent('Project Two')
+    expect(screen.queryByText('App')).not.toBeInTheDocument()
+  })
+
+  it('clears Launching after a rejected launch even under Strict Mode and remains editable', async () => {
+    mockFetch({ '/launch': () => ({ status: 400, body: { error: 'repository_scope_incomplete', detail: 'Spec scope changed concurrently.' } }) })
+    render(<StrictMode><AgentRailLaunchCard proposal={proposal()} proposalIndex={0} messageId="m1" conversationId="c1" projectId="p1" intent={null} /></StrictMode>)
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(screen.getByText('Spec scope changed concurrently.')).toBeInTheDocument())
+    expect(screen.getByTestId('rail-card-play')).toHaveTextContent('Play')
+    expect(screen.getByTestId('rail-card-play')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Edit repositories for #12' })).toBeEnabled()
+  })
+
   it('renders the proposal pre-filled and reconciled against live rails/tickets', async () => {
     renderCard()
     expect(screen.getByTestId('agent-rail-launch-card')).toBeInTheDocument()

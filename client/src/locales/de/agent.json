@@ -627,7 +627,7 @@
     },
     "block": {
       "noProject": "Diese Mission ist an kein Projekt angeheftet.",
-      "loadFailed": "Die Rails des Projekts konnten nicht geladen werden.",
+      "loadFailed": "Die Rails, Specs oder Repositories des Projekts konnten nicht geladen werden.",
       "noSpecs": "Füge mindestens eine Spec hinzu, um zu starten.",
       "railLimit": "Alle {{max}} Rails existieren bereits und keiner ist frei."
     },
@@ -638,7 +638,9 @@
       "invalid_base_branch": "Dieser Basis-Branch existiert lokal nicht.",
       "base_branch_requires_isolation": "Ein Basis-Branch benötigt Worktree-Isolation (ein Git-Repository mit Commits).",
       "target_pr_requires_pr_mode": "Ein Ziel-PR benötigt Worktree-Isolation (ein Git-Repository mit Commits).",
-      "invalid_response": "Unerwartete Antwort vom Server."
+      "invalid_response": "Unerwartete Antwort vom Server.",
+      "scope_save_failed": "Die Repositories der Spec konnten nicht gespeichert werden.",
+      "repository_scope_incomplete": "Für den Start fehlt ein von den Specs benötigtes Repository. Prüfen Sie die Zuweisungen oben."
     },
     "stub": {
       "launched": "Gestartet → Rail {{rail}}",
@@ -661,6 +663,23 @@
     "addenda": {
       "rides_one": "{{count}} offenes Addendum reist mit diesem Start mit:",
       "rides_other": "{{count}} offene Addenda reisen mit diesem Start mit:"
+    },
+    "repositories": {
+      "launch": "Repositories für diesen Start",
+      "launchHint": "Enthält die von den Specs benötigten Repositories. Sie können weitere Projekt-Repositories hinzufügen.",
+      "assignments": "Jeder Spec zugewiesen",
+      "edit": "Bearbeiten",
+      "editSpec": "Repositories für #{{id}} bearbeiten",
+      "spec": "Repositories der Spec #{{id}}",
+      "saveHint": "Beim Speichern werden die Repository-Zuweisungen dieser Spec auch für zukünftige Starts aktualisiert.",
+      "save": "Repositories speichern",
+      "cancel": "Abbrechen",
+      "finishEditing": "Speichern oder verwerfen Sie die Repository-Änderung vor dem Start.",
+      "missing": "Benötigte Repositories fehlen: {{names}}. Wählen Sie sie oben aus oder bearbeiten Sie die Spec-Zuweisungen, falls sich ihre Ziele geändert haben.",
+      "unavailable": "Ausgewählte Repositories sind für die Implementierung nicht verfügbar: {{names}}. Aktualisieren Sie die Auswahl oder die Spec-Zuweisungen.",
+      "refresh": "Aktualisieren",
+      "retry": "Laden erneut versuchen",
+      "checkScope": "Prüfen Sie die Repository-Auswahl vor dem Start."
     }
   },
   "runCard": {

@@ -17,6 +17,21 @@ function Controlled({ initial, repositories = [primary, api, docs] }: { initial?
 beforeEach(() => { desktop.projects = [{ id: 'p', name: 'Legacy', path: '/app', added_at: '' }]; desktop.activeProjectId = 'p' })
 
 describe('RepositoryScopeSelector', () => {
+  it('can show a single repository with launch-specific copy without enabling an empty scope', () => {
+    render(<RepositoryScopeSelector repositories={[primary]} onChange={vi.fn()} showSingle label="Launch repositories" hint="Choose the run targets" />)
+    expect(screen.getByRole('group', { name: 'Launch repositories' })).toHaveTextContent('Choose the run targets')
+    expect(screen.getByRole('checkbox', { name: 'App' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'App' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'App' })).toHaveAttribute('data-agent-interactive')
+  })
+
+  it('shows offline repositories but allows removing an old selection', async () => {
+    render(<Controlled repositories={[primary, { ...api, available: false }]} initial={['primary-p', 'api']} />)
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Unavailable: API' }))
+    expect(screen.getByTestId('scope')).toHaveTextContent('["primary-p"]')
+    expect(screen.getByRole('checkbox', { name: 'Unavailable: API' })).toBeDisabled()
+  })
+
   it('preserves historical single-root forms without adding controls', () => {
     const onChange = vi.fn()
     const { container } = render(<RepositoryScopeSelector onChange={onChange} />)

@@ -59,6 +59,21 @@ Run the adjacent tests with `npm run test --prefix client -- src/features/missio
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
 
+## Launch repository scope
+
+Mission launch proposals show launch repositories and the saved assignments of
+each spec, including single-repository projects. Edit a spec's assignments in
+place with **Edit → Save repositories** or **Cancel**. Save updates its durable
+scope for future launches; selecting extra launch targets only affects this run.
+At least one target must remain, and context-only folders are not implementation
+targets. Missing or unavailable targets block Play with their names.
+
+The card loads and writes to its pinned project. It reconciles current spec
+requirements with the proposal, retains extra launch targets, and removes stale
+workspace entries when a target is removed. **Refresh** reloads current
+assignments. Failed loads expose **Retry loading**; failed saves retain the draft.
+Server admission still checks the latest scope before execution.
+
 ## Split view and compact composer
 
 Right-click a sidebar mission (or press Shift+F10 on its row) and choose

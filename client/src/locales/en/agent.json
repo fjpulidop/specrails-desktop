@@ -627,7 +627,7 @@
     },
     "block": {
       "noProject": "This mission is not pinned to a project.",
-      "loadFailed": "Could not load the project's rails.",
+      "loadFailed": "Could not load the project's rails, specs or repositories.",
       "noSpecs": "Add at least one spec to launch.",
       "railLimit": "All {{max}} rails exist and none is free."
     },
@@ -638,7 +638,9 @@
       "invalid_base_branch": "That base branch does not exist locally.",
       "base_branch_requires_isolation": "A base branch needs worktree isolation (a git repository with commits).",
       "target_pr_requires_pr_mode": "A target PR needs worktree isolation (a git repository with commits).",
-      "invalid_response": "Unexpected server response."
+      "invalid_response": "Unexpected server response.",
+      "scope_save_failed": "Could not save the spec's repositories.",
+      "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",
@@ -661,6 +663,23 @@
     "addenda": {
       "rides_one": "{{count}} open addendum rides into this launch:",
       "rides_other": "{{count}} open addenda ride into this launch:"
+    },
+    "repositories": {
+      "launch": "Repositories for this launch",
+      "launchHint": "Includes the repositories required by the specs. You can add other project repositories.",
+      "assignments": "Assigned to each spec",
+      "edit": "Edit",
+      "editSpec": "Edit repositories for #{{id}}",
+      "spec": "Repositories for spec #{{id}}",
+      "saveHint": "Saving updates this spec's repository assignments for future launches too.",
+      "save": "Save repositories",
+      "cancel": "Cancel",
+      "finishEditing": "Save or cancel the repository edit before launching.",
+      "missing": "Required repositories missing: {{names}}. Include them above or edit the spec assignments if its targets have changed.",
+      "unavailable": "Selected repositories are unavailable for implementation: {{names}}. Update the selection or the spec assignments.",
+      "refresh": "Refresh",
+      "retry": "Retry loading",
+      "checkScope": "Review the repository selection before launching."
     }
   },
   "runCard": {

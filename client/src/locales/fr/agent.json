@@ -627,7 +627,7 @@
     },
     "block": {
       "noProject": "Cette mission n’est épinglée à aucun projet.",
-      "loadFailed": "Impossible de charger les rails du projet.",
+      "loadFailed": "Impossible de charger les rails, specs ou dépôts du projet.",
       "noSpecs": "Ajoutez au moins une spec pour lancer.",
       "railLimit": "Les {{max}} rails existent déjà et aucun n’est libre."
     },
@@ -638,7 +638,9 @@
       "invalid_base_branch": "Cette branche de base n’existe pas en local.",
       "base_branch_requires_isolation": "Une branche de base nécessite l’isolation par worktree (un dépôt git avec des commits).",
       "target_pr_requires_pr_mode": "Une PR cible nécessite l’isolation par worktree (un dépôt git avec des commits).",
-      "invalid_response": "Réponse inattendue du serveur."
+      "invalid_response": "Réponse inattendue du serveur.",
+      "scope_save_failed": "Impossible d’enregistrer les dépôts de la spec.",
+      "repository_scope_incomplete": "Un dépôt requis par les specs manque au lancement. Vérifiez les attributions ci-dessus."
     },
     "stub": {
       "launched": "Lancé → Rail {{rail}}",
@@ -661,6 +663,23 @@
     "addenda": {
       "rides_one": "{{count}} addendum ouvert accompagne ce lancement :",
       "rides_other": "{{count}} addenda ouverts accompagnent ce lancement :"
+    },
+    "repositories": {
+      "launch": "Dépôts pour ce lancement",
+      "launchHint": "Inclut les dépôts requis par les specs. Vous pouvez ajouter d’autres dépôts du projet.",
+      "assignments": "Attribués à chaque spec",
+      "edit": "Modifier",
+      "editSpec": "Modifier les dépôts de #{{id}}",
+      "spec": "Dépôts de la spec #{{id}}",
+      "saveHint": "L’enregistrement met aussi à jour les dépôts de cette spec pour les futurs lancements.",
+      "save": "Enregistrer les dépôts",
+      "cancel": "Annuler",
+      "finishEditing": "Enregistrez ou annulez la modification des dépôts avant de lancer.",
+      "missing": "Dépôts requis manquants : {{names}}. Incluez-les ci-dessus ou modifiez les attributions de la spec si ses cibles ont changé.",
+      "unavailable": "Les dépôts sélectionnés ne sont pas disponibles pour l’implémentation : {{names}}. Modifiez la sélection ou les attributions des specs.",
+      "refresh": "Actualiser",
+      "retry": "Réessayer le chargement",
+      "checkScope": "Vérifiez la sélection des dépôts avant de lancer."
     }
   },
   "runCard": {

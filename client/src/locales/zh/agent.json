@@ -627,7 +627,7 @@
     },
     "block": {
       "noProject": "此任务未固定到任何项目。",
-      "loadFailed": "无法加载项目的 Rail。",
+      "loadFailed": "无法加载项目的轨道、规格或仓库。",
       "noSpecs": "至少添加一个 Spec 才能启动。",
       "railLimit": "{{max}} 个 Rail 已全部存在，且没有空闲的。"
     },
@@ -638,7 +638,9 @@
       "invalid_base_branch": "该基础分支在本地不存在。",
       "base_branch_requires_isolation": "基础分支需要 worktree 隔离（带有提交的 git 仓库）。",
       "target_pr_requires_pr_mode": "目标 PR 需要 worktree 隔离（带有提交的 git 仓库）。",
-      "invalid_response": "服务器返回了意外的响应。"
+      "invalid_response": "服务器返回了意外的响应。",
+      "scope_save_failed": "无法保存规格的仓库。",
+      "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",
@@ -661,6 +663,23 @@
     "addenda": {
       "rides_one": "{{count}} 个待处理附录将随本次启动传递：",
       "rides_other": "{{count}} 个待处理附录将随本次启动传递："
+    },
+    "repositories": {
+      "launch": "本次运行的仓库",
+      "launchHint": "包含规格所需的仓库。你可以添加项目中的其他仓库。",
+      "assignments": "各规格分配的仓库",
+      "edit": "编辑",
+      "editSpec": "编辑 #{{id}} 的仓库",
+      "spec": "规格 #{{id}} 的仓库",
+      "saveHint": "保存后，此规格未来的运行也会使用更新后的仓库分配。",
+      "save": "保存仓库",
+      "cancel": "取消",
+      "finishEditing": "运行前请保存或取消仓库编辑。",
+      "missing": "缺少必需的仓库：{{names}}。请在上方选中它们；如果规格的目标已变更，请编辑仓库分配。",
+      "unavailable": "所选仓库无法用于实现：{{names}}。请更新选择或规格的仓库分配。",
+      "refresh": "刷新",
+      "retry": "重新加载",
+      "checkScope": "运行前请检查仓库选择。"
     }
   },
   "runCard": {
