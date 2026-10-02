@@ -119,7 +119,7 @@ export class CoreUpdateManager {
       this.latestVersion != null &&
       currentVersion != null &&
       (isNewer(this.latestVersion, currentVersion) || selected.error !== null && this.latestVersion === currentVersion) &&
-      Number(this.latestVersion.split('.')[0]) <= 5
+      isSupportedCoreVersion(this.latestVersion)
     return {
       available: this.isAvailable(),
       currentVersion,

@@ -1,3 +1,4 @@
+import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
 import { stripVTControlCharacters } from 'node:util'
@@ -53,6 +54,51 @@ export function scopedHostChecks<T extends { repositoryId: string; cwd?: string 
     if (!scopes.some(root => cwd === root || cwd.startsWith(root + '/'))) throw new Error(`Verification cwd ${JSON.stringify(check.cwd)} escapes the selected code workspace ${scopes.join(', ')}`)
     return [{ ...check, cwd }]
   })
+}
+
+/** Discover only checks belonging to the admitted worktrees. Explicit host
+ * checks win; inferred commands are frozen per run, never saved to project settings. */
+function completeHostChecks(config: RuntimeConfig, repositories: Array<RuntimeLogRepository & { scope?: string[] }>): void {
+  for (const repository of repositories) {
+    if (config.verification.some(check => check.repositoryId === repository.id) || !repository.path) continue
+    const workspacePaths = (repository.scope?.length ? repository.scope.map(scope => resolve(repository.path!, scope)) : [repository.path]).filter(workspace => existsSync(workspace))
+    const root = realpathSync(repository.path)
+    for (const workspace of workspacePaths) {
+      const inside = relative(root, realpathSync(workspace))
+      if (isAbsolute(inside) || inside === '..' || inside.startsWith('..' + sep)) throw new Error('Verification workspace escapes its admitted repository')
+    }
+    const suggestions = suggestVerificationCommands([{ id: repository.id, path: repository.path, workspacePaths }])
+    config.verification.push(...suggestions.map(({ reason: _reason, ...check }) => check))
+  }
+}
+
+/** Configured-only gates cannot obtain missing checks from an agent later. */
+function requiresConfiguredChecks(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const body = value as { nodes?: Record<string, { kind?: string; params?: { commands?: unknown; additionalCommandsFrom?: unknown; unverified?: unknown } }>; components?: Record<string, unknown> }
+  return Object.values(body.nodes ?? {}).some(node => node.kind === 'verify' && node.params?.commands === 'configured' && !node.params.additionalCommandsFrom && node.params.unverified !== true)
+    || Object.values(body.components ?? {}).some(requiresConfiguredChecks)
+}
+
+/** Keep TAP failure diagnostics and totals in the readable log. The unfiltered
+ * event stream remains available as runtime evidence. State is invocation-local. */
+function verificationLogFilter(): (text: string) => string {
+  const streams = new Map<string, { tap: boolean; failed: boolean; yaml: boolean }>()
+  return text => stripVTControlCharacters(text).split(/(?<=\n)/).filter(line => {
+    const match = line.match(/^(\[verification [^\]]+\] )?(.*?)(?:\n)?$/)
+    if (!match) return true
+    const key = match[1] ?? '', body = match[2].trim()
+    const state = streams.get(key) ?? { tap: false, failed: false, yaml: false }
+    streams.set(key, state)
+    if (/^TAP version |^# Subtest:/.test(body)) { state.tap = true; return false }
+    if (/^(?:not )?ok \d+\b/.test(body)) { state.tap = true; state.failed = body.startsWith('not ok'); state.yaml = false; return state.failed }
+    if (!state.tap) return true
+    if (body === '---') { state.yaml = true; return state.failed }
+    if (body === '...') { state.yaml = false; return state.failed }
+    if (state.yaml) return state.failed
+    if (/^1\.\.\d+$/.test(body) || !body) return false
+    return true
+  }).join('')
 }
 
 export const RUNTIME_HOST_ENV_KEYS = [
@@ -153,6 +199,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source: options.loopConfig ? 'loop-role' : source, providerOverride: options.loopConfig ? undefined : options.providerOverride,
     })
     config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
+    if (definitionEngine) completeHostChecks(config, admittedContext.repositories)
     if (!options.loopConfig) config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts(), ...config.rolePrompts }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.
@@ -169,6 +216,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       ? options.prepareDefinition(compilationConfig)
       : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined : undefined
     if (definitionEngine && !draft) throw new Error('A new Core workflow requires a definition')
+    if (requiresConfiguredChecks(draft)) {
+      const missing = admittedContext.repositories.filter(repository => !config.verification.some(check => check.repositoryId === repository.id))
+      if (missing.length) throw new Error(`verification_checks_missing: No configured or detected verification commands for ${missing.map(repository => repository.name ?? repository.id).join(', ')}. Configure checks in project agent-runtime settings before starting this workflow.`)
+      if (config.verification.length > 100) throw new Error('verification_checks_limit: This workflow supports at most 100 verification commands. Reduce the configured checks before starting it.')
+    }
     const selectedOrigins = bindWorkflowRoleSelections(config, draft, options.workflowRoleBindings)
     if (options.loopConfig && (draft as { roles?: string[] } | undefined)?.roles?.includes('loop-decider') && !config.roles?.['loop-decider']) throw new Error('The loop must define its loop-decider agent')
     const workflowOrigins = { ...bindWorkflowRoleDefaults(config, draft), ...selectedOrigins }
@@ -246,6 +298,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (child.pid) treeKillSafe(child.pid, 'SIGKILL')
     }
     const observe = (callback: (() => void) | undefined): void => { try { callback?.() } catch { /* Logging cannot replay a workflow. */ } }
+    const readableVerification = verificationLogFilter()
     const lines = createInterface({ input: child.stdout! })
     lines.on('line', line => {
       if (line.length > 2_000_000) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
@@ -268,8 +321,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
       } else if (event.type === 'workflow-event') {
-        const payload = event.event as { type?: string; stepId?: string; message?: string }
-        if (payload?.type) observe(() => options.onLine?.(`[runtime] ${payload.type}${payload.stepId ? ': ' + payload.stepId : ''}${payload.message ? ' — ' + payload.message : ''}\n`))
+        const payload = event.event as { type?: string; stepId?: string; message?: string; outcome?: string; error?: { message?: string } }
+        const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
+        const detail = payload?.error?.message ?? payload?.message
+        if (kind) observe(() => options.onLine?.(`[runtime] ${kind}${payload.stepId ? ': ' + payload.stepId : ''}${detail ? ' — ' + detail : ''}\n`))
       } else if (event.type === 'agent-event') {
         const payload = event.event as { kind?: string; text?: string; tool?: string; detail?: string }
         const role = typeof event.role === 'string' ? event.role : 'agent'
@@ -283,7 +338,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           observe(() => options.onLine?.(`[${role}]${scope} ${payload.tool}${payload.detail ? ' ' + payload.detail : ''}\n`))
         }
       } else if (event.type === 'verification-output' && typeof event.text === 'string') {
-        observe(() => options.onLine?.(stripVTControlCharacters(String(event.text))))
+        const readable = readableVerification(String(event.text))
+        if (readable) observe(() => options.onLine?.(readable))
       } else if (event.type === 'span') {
         // Trace spans are telemetry; the raw line is already recorded for diagnostics.
       }

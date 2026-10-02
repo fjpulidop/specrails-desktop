@@ -98,6 +98,7 @@
         "./agent-runtime-package",
         "./agent-runtime-repositories",
         "./agent-runtime-settings",
+        "./agent-runtime-verification-suggestions",
         "node:child_process",
         "node:crypto",
         "node:fs",

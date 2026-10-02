@@ -58,7 +58,10 @@ Quick SDD uses two native skill prompts plus real validation, archive and host
 verification before and after archive. Freestyle alternates verified edits with
 an evidence-based decision and preserves the no-progress bound. Every successful
 factory exit requires verified delivery. Empty configured checks cannot fabricate
-a verification receipt. Older retained Core packages receive the legacy graphs.
+a verification receipt. New definition launches detect existing workspace checks
+when configured checks are absent; Quick SDD rejects a missing verification plan
+before any AI step. Resumes retain their original checks. Older retained Core
+packages receive the legacy graphs.
 
 Legacy Quick SDD also implements full specs without addenda or a PR. Its normal path is
 prepare → strict preflight → apply/tests → strict validation → archive (two AI
@@ -258,3 +261,8 @@ The log prints actual directories, commands and arguments. Several workspaces in
 Git repository share its branch, worktree and delivery. Independent nested Git
 checkouts use separate memberships. Workspace configuration changes are blocked
 while unfinished runs or deliveries still reference the project.
+
+A verification node ending with outcome `fail` is displayed as failed even when
+the workflow operation itself completed. Core retains the failed-check diagnostics
+and stops three repeated failures on an unchanged candidate instead of spending
+further fixer turns on that same state.

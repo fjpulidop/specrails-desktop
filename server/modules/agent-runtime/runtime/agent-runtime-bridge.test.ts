@@ -1,6 +1,6 @@
 import { defaultLoopAgents } from '../../loops/runtime/loop-agents'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
 const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[] }))
@@ -58,6 +58,62 @@ describe('host checks of a package inside a larger checkout', () => {
   })
 })
 
+describe('definition verification admission', () => {
+  const definition = () => ({ schemaVersion: 1, id: 'quick', entry: 'check', nodes: {
+    check: { kind: 'verify', params: { commands: 'configured' }, ends: { pass: 'done', fail: 'failed' } },
+  } })
+  function setup(checks: unknown[] = []) {
+    fixture.v2 = true
+    const config = JSON.parse(readFileSync(options().configPath, 'utf8'))
+    config.verification = checks
+    writeFileSync(options().configPath, JSON.stringify(config))
+    writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front', path: root, scope: ['studio'] }] }))
+    mkdirSync(join(root, 'studio'))
+    script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
+  }
+
+  it('detects workspace tests, freezes them and resumes without rediscovery', async () => {
+    setup([{ repositoryId: 'back', command: 'npm', args: ['test'] }])
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'wrong parent tests' } }))
+    writeFileSync(join(root, 'studio', 'package.json'), JSON.stringify({ scripts: { test: 'tsx --test lib/*.test.ts' } }))
+    loadRuntimeConfigFile(options().configPath)
+    const original = readFileSync(options().configPath, 'utf8')
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition })
+    const file = join(root, 'state', 'desktop-runtime-config.json'), frozen = readFileSync(file, 'utf8')
+    expect(JSON.parse(frozen).verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'], cwd: 'studio' }])
+    expect(readFileSync(options().configPath, 'utf8')).toBe(original)
+    writeFileSync(join(root, 'studio', 'package.json'), '{}')
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, resume: true })
+    expect(readFileSync(file, 'utf8')).toBe(frozen)
+  })
+
+  it('rejects missing checks before spawning and never falls back to parent or sibling scripts', async () => {
+    setup()
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'wrong parent tests' } }))
+    mkdirSync(join(root, 'service'))
+    writeFileSync(join(root, 'service', 'package.json'), JSON.stringify({ scripts: { test: 'wrong sibling tests' } }))
+    const onSpawn = vi.fn()
+    await expect(runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onSpawn })).rejects.toThrow('verification_checks_missing')
+    expect(onSpawn).not.toHaveBeenCalled()
+    expect(existsSync(join(root, 'state', 'desktop-runtime-config.json'))).toBe(false)
+  })
+
+  it('preserves explicit checks instead of adding detected scripts', async () => {
+    setup([{ repositoryId: 'front', command: 'npm', args: ['run', 'custom'] }])
+    writeFileSync(join(root, 'studio', 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }))
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition })
+    expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8')).verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['run', 'custom'], cwd: 'studio' }])
+  })
+
+  it('allows workflows that supply verification proposals later', async () => {
+    setup()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: () => ({ ...definition(), nodes: {
+      check: { kind: 'verify', params: { commands: 'configured', additionalCommandsFrom: 'architect' }, ends: {} },
+    } }) })
+    expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8')).verification).toEqual([])
+  })
+})
+
 describe('Core process bridge', () => {
   it('freezes global role definitions for new jobs and ignores later edits on resume', async () => {
     saveRuntimeRolePrompts({ developer: 'Use my project conventions' })
@@ -95,6 +151,31 @@ describe('Core process bridge', () => {
     expect(onLine).toHaveBeenCalledWith('67 passed\n')
     expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
   })
+  it('summarizes TAP successes, retains failures and preserves raw verification events', async () => {
+    const text = '[verification front/npm] TAP version 13\n[verification front/npm] # Subtest: passing\n[verification front/npm] ok 1 - passing\n[verification front/npm]   ---\n[verification front/npm]   duration_ms: 0.1\n[verification front/npm]   ...\n[verification front/npm] # Subtest: broken\n[verification front/npm] not ok 2 - broken\n[verification front/npm]   ---\n[verification front/npm]   error: wrong result\n[verification front/npm]   ...\n[verification front/npm] # tests 2\n[verification front/npm] # pass 1\n[verification front/npm] # fail 1\n'
+    const event = { type: 'verification-output', text }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const readable = onLine.mock.calls.map(call => call[0]).join('')
+    expect(readable).not.toContain('ok 1 - passing')
+    expect(readable).not.toContain('duration_ms:')
+    expect(readable).toContain('not ok 2 - broken')
+    expect(readable).toContain('error: wrong result')
+    expect(readable).toContain('# tests 2')
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
+  it('explains failed verification outcomes and role errors in the readable log', async () => {
+    const events = [{ type: 'workflow-event', event: { type: 'step_succeeded', stepId: 'verify', outcome: 'fail' } },
+      { type: 'workflow-event', event: { type: 'step_failed', stepId: 'architect', error: { message: 'missing instructions tasks' } } }]
+    script(events.map(event => `console.log(JSON.stringify(${JSON.stringify(event)}));`).join('') + `console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine })
+    expect(onLine).toHaveBeenCalledWith('[runtime] verification_failed: verify\n')
+    expect(onLine).toHaveBeenCalledWith('[runtime] step_failed: architect — missing instructions tasks\n')
+  })
+
   it('freezes only the selected repositories checks and resumes without rereading project settings', async () => {
     script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const original = readFileSync(options().configPath, 'utf8')

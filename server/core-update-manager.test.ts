@@ -141,6 +141,23 @@ describe('CoreUpdateManager', () => {
     })
   })
 
+  it.each(['6.2.0', '7.0.0'])('offers only compatible registry updates: %s', async (latest) => {
+    bundle('6.1.0')
+    const manager = new CoreUpdateManager({ home, fetchLatest: async () => latest })
+    expect((await manager.checkForUpdate()).updateAvailable).toBe(latest === '6.2.0')
+  })
+
+  it('offers repair of Core 6 when the active framework has no runtime', async () => {
+    bundle('6.1.0')
+    const root = frameworkRoot(home)
+    mkdirSync(path.join(root, '6.2.0'), { recursive: true })
+    symlinkSync('6.2.0', path.join(root, 'current'))
+    const manager = new CoreUpdateManager({ home, fetchLatest: async () => '6.2.0', npmInstall: stagingInstaller('6.2.0') })
+    expect(await manager.checkForUpdate()).toMatchObject({ updateAvailable: true, runtimeVersion: null })
+    expect(await manager.update()).toMatchObject({ ok: true, version: '6.2.0' })
+    expect(manager.getStatus()).toMatchObject({ updateAvailable: false, runtimeVersion: '6.2.0', runtimeError: null })
+  })
+
   describe('update', () => {
     it('materializes + swaps current to the newer staged core and broadcasts', async () => {
       bundle('4.8.0')

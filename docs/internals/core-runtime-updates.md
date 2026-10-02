@@ -61,6 +61,9 @@ rollback restored already updated copies. **Finish updating** retries with the
 retained package and works offline. Successful completion is emitted only after
 all workspace refreshes and the final recovery-state write succeed.
 
+Core 6 registry updates and same-version runtime repairs are offered using the
+same supported-major policy as runtime selection.
+
 ## Version reporting
 
 Global status distinguishes the selected runtime and its source, the active

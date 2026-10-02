@@ -38,6 +38,14 @@ loop engines, including connection defaults. Selection provenance uses
 Resume refuses replacement configuration and uses the retained run snapshot.
 See [workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 
+For new definition runs, repositories without selected configured checks reuse
+Desktop's offline verification detector against their admitted worktrees and code
+workspaces. Explicit checks take precedence. Detected commands are frozen in the
+run configuration, never persisted to project settings or rediscovered on resume.
+Configured-only verification gates reject missing repository checks and plans over
+100 commands before spawning Core. Gates consuming structured agent proposals
+retain their existing admission policy.
+
 ## Configured roles
 
 `workflowRoleDefaults` exposes app-owned read-only decision-role defaults.
@@ -125,3 +133,8 @@ packages under `agent-runtime-package-lock.ts`. Expired runs keep a
 execution claims reject them with 410 `runtime_history_expired`. Jobs, cost
 records and repository content are never touched. See
 [the retention decision](../../../openspec/changes/core-agent-engine/RUNTIME-RETENTION-DECISION.md).
+
+Readable verification logs suppress passing TAP cases and their timing/YAML
+blocks while keeping failed cases, diagnostic blocks and totals. Raw runtime
+events retain the full output. Failed gate outcomes and role error messages are
+reported explicitly in the readable log.
