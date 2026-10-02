@@ -166,6 +166,22 @@ describe('Core process bridge', () => {
     expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
   })
 
+  it('summarizes the Node spec reporter and bounds huge assertion source dumps', async () => {
+    const text = '[verification front/npm] ✔ passing case (1ms)\n[verification front/npm] ✖ broken case (1ms)\n[verification front/npm] ℹ tests 2\n[verification front/npm] ℹ pass 1\n[verification front/npm] ℹ fail 1\n[verification front/npm] test at lib/reconcileProdGuard.test.ts:52\n[verification front/npm] AssertionError: expected Escape guard\n[verification front/npm] actual: ' + 'source'.repeat(5000) + '\n[verification front/npm] expected: /Escape/\n'
+    const event = { type: 'verification-output', text }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const readable = onLine.mock.calls.map(call => call[0]).join('')
+    expect(readable).not.toContain('✔ passing case')
+    expect(readable).toContain('✖ broken case')
+    expect(readable).toContain('ℹ fail 1')
+    expect(readable).toContain('reconcileProdGuard.test.ts:52')
+    expect(readable).toContain('expected: /Escape/')
+    expect(readable.length).toBeLessThan(3_000)
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
   it('explains failed verification outcomes and role errors in the readable log', async () => {
     const events = [{ type: 'workflow-event', event: { type: 'step_succeeded', stepId: 'verify', outcome: 'fail' } },
       { type: 'workflow-event', event: { type: 'step_failed', stepId: 'architect', error: { message: 'missing instructions tasks' } } }]

@@ -134,7 +134,7 @@ execution claims reject them with 410 `runtime_history_expired`. Jobs, cost
 records and repository content are never touched. See
 [the retention decision](../../../openspec/changes/core-agent-engine/RUNTIME-RETENTION-DECISION.md).
 
-Readable verification logs suppress passing TAP cases and their timing/YAML
-blocks while keeping failed cases, diagnostic blocks and totals. Raw runtime
+Readable verification logs suppress passing Node spec (`✔`) and TAP cases and their timing/YAML
+blocks while keeping failed cases, diagnostic blocks and totals. Long assertion/source dump lines are shortened in the readable log. Raw runtime
 events retain the full output. Failed gate outcomes and role error messages are
 reported explicitly in the readable log.

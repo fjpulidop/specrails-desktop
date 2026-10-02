@@ -90,6 +90,8 @@ function verificationLogFilter(): (text: string) => string {
     const key = match[1] ?? '', body = match[2].trim()
     const state = streams.get(key) ?? { tap: false, failed: false, yaml: false }
     streams.set(key, state)
+    if (/^[✔✓]\s/.test(body)) return false
+    if (/^[✖✗]\s/.test(body)) { state.failed = true; return true }
     if (/^TAP version |^# Subtest:/.test(body)) { state.tap = true; return false }
     if (/^(?:not )?ok \d+\b/.test(body)) { state.tap = true; state.failed = body.startsWith('not ok'); state.yaml = false; return state.failed }
     if (!state.tap) return true
@@ -98,7 +100,7 @@ function verificationLogFilter(): (text: string) => string {
     if (state.yaml) return state.failed
     if (/^1\.\.\d+$/.test(body) || !body) return false
     return true
-  }).join('')
+  }).map(line => line.length > 2_000 ? line.slice(0, 1_900) + '\n[Long diagnostic line shortened; inspect raw evidence]\n' : line).join('')
 }
 
 export const RUNTIME_HOST_ENV_KEYS = [
