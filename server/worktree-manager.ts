@@ -98,6 +98,10 @@ export interface CreateWorktreeInput {
    *  branch/worktree from `baseRef` before the run starts. Never rewrites
    *  diverged or locally-ahead branches. */
   refreshFromBaseRef?: boolean
+  /** A fresh launch owns a new mount and branch; prior attempts stay intact. */
+  fresh?: boolean
+  /** Exact delivered branch continuations may reuse a mount at another run path. */
+  reuseBranchWorktree?: boolean
 }
 
 export interface WorktreeHandle {
@@ -210,7 +214,18 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   //     it out into a worktree (resume from the committed partial work).
   //  3. neither → create a fresh branch off base.
   const existing = await listWorktrees(git, input.repoDir)
-  if (existing.some((p) => canonicalWorktreePath(p) === canonicalWorktreePath(wt))) {
+  let mounted = existing.find((p) => canonicalWorktreePath(p) === canonicalWorktreePath(wt))
+  if (input.reuseBranchWorktree) {
+    // New allocations have run-specific paths. A continuation must find the
+    // exact recorded branch, never borrow a ticket-keyed mount on another ref.
+    mounted = undefined
+    for (const candidate of existing) {
+      const head = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], candidate)
+      if (head.code === 0 && head.stdout.trim() === branch) { mounted = candidate; break }
+    }
+  }
+  if (mounted) {
+    if (input.fresh) throw new Error(`Fresh launch cannot reuse existing worktree ${mounted}`)
     // The still-mounted worktree may be checked out on a DIFFERENT branch than
     // the caller's preferred name (the path is keyed by ticketId only, so a
     // stale mount from a prior run of the same ticket collides here). The
@@ -218,16 +233,17 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
     // — reporting the caller's preferred name recorded a branch that never
     // existed, so the later `git push` had no ref and the PR delivery wedged
     // at local-only. Detached HEAD / a git failure falls back to the input.
-    const head = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], wt)
+    const head = await git.run(['rev-parse', '--abbrev-ref', 'HEAD'], mounted)
     const actual = head.code === 0 ? head.stdout.trim() : ''
     const actualBranch = actual && actual !== 'HEAD' ? actual : branch
     if (input.refreshFromBaseRef && actualBranch === branch) {
-      await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef, wt)
+      await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef, mounted)
     }
-    await ensurePrNeverStageExcludes(git, wt)
-    return { branch: actualBranch, worktreePath: wt, worktreeCreated: false, branchCreated: false }
+    await ensurePrNeverStageExcludes(git, mounted)
+    return { branch: actualBranch, worktreePath: mounted, worktreeCreated: false, branchCreated: false }
   }
   const hasBranch = (await git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)).code === 0
+  if (hasBranch && input.fresh) throw new Error(`Fresh launch cannot reuse existing branch ${branch}`)
   if (hasBranch && input.refreshFromBaseRef) {
     await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef)
   }
@@ -354,7 +370,73 @@ async function auditStagedPaths(
   const result = await gitRun(git, [...INDEX_AUDIT_ARGS], worktreePath)
   const parsed = parseNulTerminatedPaths(result, phase)
   if (parsed.error) return { forbidden: [], error: parsed.error }
+  try {
+    const deliverable = parsed.paths.filter(candidate => !forbiddenStagedPaths([candidate], excludePaths).length)
+    const external = deliverable.filter(candidate => {
+      const target = path.join(worktreePath, candidate)
+      let stat: fs.Stats
+      try { stat = fs.lstatSync(target) } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false // staged deletion
+        throw err
+      }
+      if (!stat.isSymbolicLink()) return false
+      const link = fs.readlinkSync(target)
+      const relative = path.relative(worktreePath, link)
+      return path.isAbsolute(link) && (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+    })
+    if (external.length) return { forbidden: [], error: `External absolute symlinks cannot be delivered: ${describeForbiddenPaths(external)}. Working files were preserved.` }
+  } catch (err) {
+    return { forbidden: [], error: `Could not inspect staged symlinks: ${err instanceof Error ? err.message : String(err)}` }
+  }
   return { forbidden: forbiddenStagedPaths(parsed.paths, excludePaths) }
+}
+
+/** Automated delivery must not publish an unfinished change introduced by this
+ * checkout. Baseline active changes and archived changes remain legitimate. */
+async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRef: string): Promise<string | undefined> {
+  // Agents may create their own commits before settlement. Index-only checks
+  // cannot catch an overlay link already in HEAD, even when it is now excluded.
+  const changed = parseNulTerminatedPaths(await gitRun(git, ['diff', '--name-only', '--no-renames', '-z', baseRef, 'HEAD', '--'], worktreePath), 'Committed delivery audit')
+  if (changed.error) return changed.error
+  if (changed.paths.length) {
+    const tree = parseNulTerminatedPaths(await gitRun(git, ['ls-tree', '-r', '-z', 'HEAD'], worktreePath), 'Committed symlink audit')
+    if (tree.error) return tree.error
+    const paths = new Set(changed.paths)
+    for (const entry of tree.paths) {
+      const tab = entry.indexOf('\t'), metadata = entry.slice(0, tab).split(' '), rel = entry.slice(tab + 1)
+      if (metadata[0] !== '120000' || !paths.has(rel)) continue
+      if (tab < 0 || metadata[1] !== 'blob' || !/^[a-f0-9]{40,64}$/i.test(metadata[2])) return 'Committed symlink audit returned malformed tree evidence'
+      const blob = await gitRun(git, ['cat-file', 'blob', metadata[2]], worktreePath)
+      if (blob.code !== 0) return `Could not inspect committed symlink ${JSON.stringify(rel)}`
+      const relative = path.relative(worktreePath, blob.stdout)
+      if (path.isAbsolute(blob.stdout) && (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))) {
+        return `External absolute symlink already committed on the delivery branch: ${JSON.stringify(rel)}. Review and remove it before delivery; working files were preserved.`
+      }
+    }
+  }
+  const baseline = await gitRun(git, ['ls-tree', '-d', '--name-only', '-z', `${baseRef}:openspec/changes`], worktreePath)
+  // A missing subtree is normal, but an invalid baseline is never a pass.
+  if (baseline.code !== 0) {
+    const exists = await gitRun(git, ['rev-parse', '--verify', `${baseRef}^{commit}`], worktreePath)
+    if (exists.code !== 0) return `Could not inspect OpenSpec delivery baseline: ${gitFailure(exists, baseRef)}`
+    const root = await gitRun(git, ['ls-tree', '-r', '--name-only', '-z', baseRef, '--', 'openspec/changes'], worktreePath)
+    if (root.code !== 0 || root.stdout) return `Could not inspect OpenSpec delivery baseline: ${gitFailure(baseline, baseRef)}`
+  }
+  const parsed = baseline.code === 0 ? parseNulTerminatedPaths(baseline, 'OpenSpec baseline audit') : { paths: [] }
+  if (parsed.error) return parsed.error
+  const known = new Set(parsed.paths)
+  try {
+    const directory = path.join(worktreePath, 'openspec', 'changes')
+    let entries: fs.Dirent[]
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }) } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+      throw err
+    }
+    const active = entries.filter(entry => entry.name !== 'archive' && (entry.isDirectory() || entry.isSymbolicLink()) && !known.has(entry.name)).map(entry => `openspec/changes/${entry.name}`)
+    if (active.length) return `OpenSpec delivery blocked by new active changes: ${describeForbiddenPaths(active)}. Archive the intended change and review unrelated work before delivery; files were preserved.`
+  } catch (err) {
+    return `Could not inspect active OpenSpec changes: ${err instanceof Error ? err.message : String(err)}`
+  }
 }
 
 function forbiddenResetPathspecs(excludePaths: string[]): string[] {
@@ -380,8 +462,13 @@ export async function commitWorktreeAndVerify(
   git: GitRunner,
   worktreePath: string,
   message: string,
-  excludePaths: string[] = []
+  excludePaths: string[] = [],
+  baseRef?: string,
 ): Promise<CommitWorktreeResult> {
+  if (baseRef) {
+    const error = await deliveryHygieneError(git, worktreePath, baseRef)
+    if (error) return { staged: false, committed: false, clean: false, dirty: [], error }
+  }
   const pathspecs = commitPathspecs(excludePaths)
   // The add is deliberately PLAIN — no exclude pathspecs. `git add` exits 1
   // with "The following paths are ignored by one of your .gitignore files"

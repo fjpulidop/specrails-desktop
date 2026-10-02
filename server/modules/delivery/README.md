@@ -44,6 +44,19 @@ the existing supersession/rollback contract. `revisionOfDeliveryId` remains the
 wire field for identifying the generation; it no longer selects a Revision loop.
 See [spec addenda](../../../docs/internals/spec-addenda.md).
 
+Fresh launches use run-specific mounts and new sibling branches; failed attempts
+remain recoverable through their original ledger and frozen runtime. Only a
+recorded delivery/PR continuation reuses its exact branch. Undelivered failed
+generations with open addenda are atomically replaced by fresh launches, without
+claiming prior delivery. Every frozen addendum must be claimed before any agent
+starts; partial claims are reopened if admission fails.
+
+Settlement blocks new active OpenSpec change directories against the frozen base
+and deliverable external absolute symlinks with an actionable `commit_failed`
+detail, retaining the checkout. Archives and base changes remain allowed.
+Authenticated overlay exclusions survive supported provider switches; cleanup
+authority still requires live fingerprints. See the [safe PR guide](../../../docs/internals/safe-pr-review-flow.md).
+
 ## Definition-engine evidence
 
 Before isolated delivery releases worktrees, it obtains full status from each

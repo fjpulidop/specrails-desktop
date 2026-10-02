@@ -75,7 +75,7 @@ function fixture() {
     broadcast: broadcasts, getTicketSpec: (id: number) => id ? { id, title: 'Shared contract', description: 'Backend + frontend', repositoryIds: ['backend', 'frontend'] } : undefined,
   } as unknown as ProjectContext
   const io: IsolatedLaunchIO = {
-    create: (runner, input) => createWorktree(runner, { ...input, worktreesRoot: path.join(dir, 'worktrees', path.basename(input.repoDir)) }),
+    create: (runner, input) => createWorktree(runner, { ...input, worktreesRoot: path.join(dir, 'worktrees', path.basename(input.repoDir), path.basename(input.worktreesRoot)) }),
     overlay: () => ({ createdPaths: [], cleanupEvidence: [], warnings: [] }),
     linkNodeModules: () => ({ linked: [], skipped: [], warnings: [], evidence: [], authenticated: [] }),
     recordProvenance: () => {},
@@ -92,6 +92,40 @@ async function settled(db: DbInstance): Promise<string> {
 }
 
 describe('coordinated multi-repository execution', () => {
+  it('retries an undelivered failed group in fresh mounts and preserves its stranded changes', async () => {
+    const f = fixture()
+    f.runAiStep.mockImplementationOnce(async request => {
+      for (const repo of request.executionManifest!.repositories) {
+        const active = path.join(repo.worktreePath, 'openspec/changes/stranded')
+        fs.mkdirSync(active, { recursive: true }); fs.writeFileSync(path.join(active, 'tasks.md'), '- [ ] interrupted\n')
+      }
+      return { text: 'Implementation interrupted', failed: true }
+    })
+    await launchIsolatedRail(f.input, f.io)
+    const previousId = await settled(f.db)
+    const previous = getPrDelivery(f.db, previousId)!
+    const oldMounts = listRepositoryDeliveries(f.db, previousId).flatMap(row => toPrDeliverySnapshot(row).branches.map(unit => unit.worktreePath!))
+    expect(previous.implementation_outcome).toBe('failed')
+    expect(oldMounts).toHaveLength(2)
+    const observed: string[] = []
+    f.runAiStep.mockImplementationOnce(async request => {
+      for (const repo of request.executionManifest!.repositories) {
+        observed.push(repo.worktreePath)
+        expect(fs.existsSync(path.join(repo.worktreePath, 'openspec/changes/stranded'))).toBe(false)
+        fs.writeFileSync(path.join(repo.worktreePath, 'contract.json'), '{"api":"v2"}')
+      }
+      return { text: 'Implemented cleanly' }
+    })
+    await launchIsolatedRail({ ...f.input, retryOfDelivery: { deliveryId: previousId, decision: previous.decision } }, f.io)
+    const nextId = await settled(f.db)
+    expect(nextId).not.toBe(previousId)
+    expect(getPrDelivery(f.db, nextId)?.implementation_outcome).toBe('succeeded')
+    expect(getPrDelivery(f.db, previousId)?.decision).toBe('superseded')
+    for (const mount of oldMounts) {
+      expect(observed).not.toContain(mount)
+      expect(fs.readFileSync(path.join(mount, 'openspec/changes/stranded/tasks.md'), 'utf8')).toContain('interrupted')
+    }
+  })
   it('runs one provider across two real worktrees, persists scope and retries only the incomplete local integration', async () => {
     const f = fixture()
     const runIds = await launchIsolatedRail(f.input, f.io)

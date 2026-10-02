@@ -41,6 +41,18 @@ function seedWorkspaceSource(): void {
 }
 
 describe('applyWorktreeOverlay — relocated workspace source', () => {
+  it('retains authenticated Codex links and copies when switching to Claude', () => {
+    write(source, '.codex/config.toml', 'model = "fixture"')
+    write(source, '.codex/skills/implement/SKILL.md', '# implement')
+    write(source, 'AGENTS.md', '# codex\n<!-- specrails-managed:start -->Use .codex/skills/sr-* for implement<!-- specrails-managed:end -->')
+    seedWorkspaceSource()
+    const codex = applyWorktreeOverlay({ worktreePath: wt, sourceRoot: source, providerDir: '.codex', instructionsFilename: 'AGENTS.md' })
+    const claude = apply()
+    for (const rel of ['.codex/config.toml', '.codex/skills', 'AGENTS.md']) expect(claude.createdPaths).toContain(rel)
+    expect(claude.createdPaths).toContain('.claude/commands')
+    write(wt, 'AGENTS.md', '# user edits')
+    expect(revalidateOverlayCleanupEvidence({ worktreePath: wt, sourceRoot: source, providerDir: '.claude', instructionsFilename: 'CLAUDE.md' }, codex.cleanupEvidence).map(entry => entry.path)).not.toContain('AGENTS.md')
+  })
   it('refreshes only overlay-owned legacy instructions and preserves project text', () => {
     const old = 'User guidance before\n<!-- specrails-managed:start -->Use .codex/skills/sr-* for implement<!-- specrails-managed:end -->\nUser guidance after'
     write(source, 'CLAUDE.md', old)

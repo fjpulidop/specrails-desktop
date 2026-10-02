@@ -32,7 +32,7 @@ import { newId } from '../../../ids'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
-import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree } from './rail-worktrees-store'
+import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from '../../../jira/jira-db'
 import type { DbInstance } from '../../../db'
@@ -67,7 +67,7 @@ import {
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
 import { buildRevisionSeed } from '../../execution/runtime/revision-seed'
 import { renderFollowUpBriefing, type PrFollowUp } from './pr-follow-up'
-import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, snapshotSpecAddenda, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, settleSpecAddendaAt, snapshotSpecAddenda, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { isCodeExplorerEnabled } from '../../../feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
@@ -100,6 +100,8 @@ export interface IsolatedLaunchInput {
   repositoryIds?: string[]
   workspaceSelection?: Record<string, string[]>
   repositoryContinuation?: { deliveryId: string; decision: PrDecision }
+  /** Replace an undelivered failed generation without inheriting its checkout. */
+  retryOfDelivery?: { deliveryId: string; decision: PrDecision }
   repositoryBaseBranches?: Record<string, string>
   repositoryBaseShas?: Record<string, string>
   /** Internal owner of runtime state when this launch is a repository child. */
@@ -240,6 +242,8 @@ export interface AllocatedRun {
   continuationTarget: ActivePrContinuationTarget | null
   /** Ref the worktree was materialized/refreshed from (fresh/resume evidence). */
   baseRef: string
+  /** Frozen integration/base commit used to detect foreign active changes. */
+  hygieneBaseSha?: string | null
   /** HEAD observed before the loop starts. Null means Git could not prove it. */
   initialSha: string | null
   /** Ownership is captured at allocation so rollback cannot delete a borrowed
@@ -298,7 +302,7 @@ function buildRevisionSeedForLaunch(
   revision: NonNullable<IsolatedLaunchInput['revision']>,
   ticketIds: readonly number[],
   includeSpecBody = true,
-): string {
+): { briefing: string; number: number } {
   try {
     const previous = getPrDelivery(db, revision.ofDeliveryId)
     const branches = previous
@@ -312,7 +316,7 @@ function buildRevisionSeedForLaunch(
       depth += 1
       cursor = getPrDelivery(db, cursor.revision_of) ?? undefined
     }
-    return buildRevisionSeed({
+    return { number: depth, briefing: buildRevisionSeed({
       note: revision.note,
       includeSpecBody,
       specSnapshot: previous ? readSpecSnapshot(previous.spec_snapshot) : null,
@@ -322,10 +326,10 @@ function buildRevisionSeedForLaunch(
       branchDiffSummary: null,
       evidence: previous ? readSettleEvidence(previous.settle_evidence) : null,
       revisionNumber: depth,
-    })
+    }) }
   } catch {
     // Absolute floor: the user's instruction still reaches the run.
-    return revision.note
+    return { briefing: revision.note, number: 1 }
   }
 }
 
@@ -686,6 +690,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
         a.handle.worktreePath,
         commitMessage(a, implementationOutcome === 'failed'),
         a.overlayExcludes,
+        a.hygieneBaseSha ?? a.initialSha ?? a.baseRef,
       )
     } catch (err) {
       commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
@@ -864,10 +869,13 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // provider session by contract, so durable context is the only thing it has.
   // Per-RUN data, so it is layered over the project's constant map for this
   // launch only and never persisted as a constant.
-  const constants = input.revision
+  const revisionSeed = input.revision ? buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds, !['factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision'].includes(loopId)) : undefined
+  const constants = input.revision && revisionSeed
     ? {
         ...loadConstantMap(ctx.desktopDb),
-        REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds, !['factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision'].includes(loopId)),
+        REVISION_REQUEST: revisionSeed.briefing,
+        REVISION_NUMBER: String(revisionSeed.number),
+        REVISION_OF_DELIVERY_ID: input.revision.ofDeliveryId,
       }
     : loadConstantMap(ctx.desktopDb)
   // Spec addenda (spec-addenda): the iteration notes the specs carry are
@@ -876,6 +884,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // briefing every AI step of the run receives.
   const addendaStorePath = ticketStorePathForProject(ctx.project)
   const addendaPlan = planSpecAddendaAt(addendaStorePath, ticketIds)
+  const claimedAddendaByRun = new Map<string, ReturnType<typeof claimSpecAddendaForRun>>()
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.
   const prMode = Boolean(input.repositoryExecution) || isRailPrDeliveryEnabled()
@@ -1172,7 +1181,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       // predecessor through the shipped rollback path.
       : input.revision
         ? { id: input.revision.ofDeliveryId, decision: input.revision.decision }
-        : null)
+        : input.retryOfDelivery
+          ? { id: input.retryOfDelivery.deliveryId, decision: input.retryOfDelivery.decision }
+          : null)
     prDeliveryId = generation.delivery.id
     supersededDelivery = generation.superseded
     input.onPrDeliveryCreated?.(prDeliveryId)
@@ -1200,15 +1211,27 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   // Conventional branch naming (pr-naming): `<type>/<ref>-<kebab-title>`, the
   // Jira key prevailing over the local id when linked. Collisions with foreign
-  // branches suffix `-2`… (bounded); a branch a PRIOR rail run allocated for
-  // the SAME ticket is ours to resume, so it is NOT treated as a collision.
+  // branches suffix `-2`… (bounded). Ordinary launches start a new sibling;
+  // only exact recorded revision/PR branches can be reused.
   // The integration branch is never used; exhaustion falls back to the legacy
   // `sr/<slug>/ticket-<id>` name. Snapshot under the lock so concurrent
   // launches see each other's just-created branches.
   const takenBranches = await listLocalBranches(git, baseRepo)
   const preexistingBranches = new Set(takenBranches)
+  const hygieneBase = await git.run(['rev-parse', '--verify', `${worktreeBaseRef.baseRef}^{commit}`], baseRepo)
+  if (hygieneBase.code !== 0) throw new Error('Could not freeze the OpenSpec delivery baseline')
+  const hygieneBaseSha = /^[a-f0-9]{40,64}$/i.test(hygieneBase.stdout.trim()) ? hygieneBase.stdout.trim() : null
+  const revisionBranches = input.repositoryExecution?.revisionBranches ?? new Map<number, { branch: string; sha: string }>()
+  if (input.revision && !input.repositoryExecution && !launchContinuation) {
+    const previous = getPrDelivery(ctx.db, input.revision.ofDeliveryId)
+    for (const unit of previous ? toPrDeliverySnapshot(previous).branches : []) {
+      if (unit.succeeded && unit.finalSha && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked') {
+        revisionBranches.set(unit.ticketId, { branch: unit.branch, sha: unit.finalSha })
+      }
+    }
+  }
   const unitBranchName = (ticketId: number): { branch: string; ownership: AllocatedRun['branchOwnership'] } => {
-    const revisionBranch = input.repositoryExecution?.revisionBranches?.get(ticketId)
+    const revisionBranch = revisionBranches.get(ticketId)
     if (revisionBranch) return { branch: revisionBranch.branch, ownership: 'preexisting' }
     const continuation = launchContinuation && continuationTargets.get(ticketId)
     if (continuation) {
@@ -1217,10 +1240,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
     const preferred = ticketBranchName(unitNamingInput(ctx, ticketId))
     const branch = resolveCollisionFreeName(preferred, {
-      // A grouped run can reuse a branch only through the exact revision/PR
+      // A run can reuse a branch only through the exact revision/PR
       // evidence above. An accepted predecessor may now lag the integration
       // branch, so ordinary grouped allocations must start a fresh branch.
-      taken: (name) => takenBranches.has(name) && (Boolean(input.repositoryExecution) || !railWorktreeBranchExistsForTicket(ctx.db, ticketId, name)),
+      taken: (name) => takenBranches.has(name),
       reserved: [integration.branch],
     }) ?? worktreeBranch(slug, ticketId)
     takenBranches.add(branch)
@@ -1229,6 +1252,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   try {
     for (const unit of units) {
+      const runId = input.repositoryExecution?.runIds.get(unit.ticketId) ?? newId()
       const continuationTarget = launchContinuation ? continuationTargets.get(unit.ticketId) ?? null : null
       const branchPlan = unitBranchName(unit.ticketId)
       let handle: WorktreeHandle | null = null
@@ -1236,7 +1260,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       let worktreeOwnership: AllocatedRun['worktreeOwnership'] = 'created'
       let initialSha: string | null = null
       try {
-        const revisionBranch = input.repositoryExecution?.revisionBranches?.get(unit.ticketId)
+        const revisionBranch = revisionBranches.get(unit.ticketId)
+        if (input.revision && !input.repositoryExecution && !launchContinuation && !revisionBranch) throw new Error('Revision requires a recorded delivered branch for every ticket')
         if (revisionBranch) {
           const observed = await git.run(['rev-parse', '--verify', `refs/heads/${revisionBranch.branch}`], baseRepo)
           if (observed.code !== 0 || observed.stdout.trim() !== revisionBranch.sha) {
@@ -1245,12 +1270,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         }
         handle = await create(git, {
           repoDir: baseRepo,
-          worktreesRoot,
+          worktreesRoot: path.join(worktreesRoot, runId),
           slug,
           ticketId: unit.ticketId,
           baseRef: revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
           branch: branchPlan.branch,
           refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
+          fresh: !revisionBranch && !continuationTarget,
+          reuseBranchWorktree: Boolean(revisionBranch || continuationTarget),
         })
         worktreeOwnership = handle.worktreeCreated === false ? 'preexisting' : 'created'
         if (!continuationTarget && (handle.branch !== branchPlan.branch || handle.branchCreated === false)) {
@@ -1322,7 +1349,6 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
           }
         }
-        const runId = input.repositoryExecution?.runIds.get(unit.ticketId) ?? newId()
         const ledgerId = newId()
         createRailWorktree(ctx.db, {
           id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
@@ -1342,6 +1368,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           provenanceSnapshot,
           continuationTarget,
           baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          hygieneBaseSha,
           initialSha,
           branchOwnership,
           worktreeOwnership,
@@ -1371,8 +1398,22 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         partialCommitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId, true), run,
       })
     })()
+    // Freeze every addendum claim before any sibling can start Core. A missing
+    // store or failed claim must never silently turn a delta into an unbriefed run.
+    for (const run of allocated) {
+      const plan = addendaPlan.filter(entry => run.ticketIds.includes(entry.ticketId)).map(entry =>
+        input.retryOfDelivery ? { ...entry, status: null } : launchContinuation || input.revision || input.repositoryContinuation ? { ...entry, status: 'on_review' } : entry)
+      const claimed = claimSpecAddendaForRun(addendaStorePath, run.ticketIds, run.runId, { plan })
+      claimedAddendaByRun.set(run.runId, claimed)
+      const expected = snapshotSpecAddenda(plan)
+      if (expected.some(entry => !claimed.snapshot.some(actual => actual.ticketId === entry.ticketId && actual.id === entry.id && actual.hash === entry.hash)) || (expected.length && !claimed.briefing)) {
+        throw new Error('Could not claim the complete frozen spec addenda; no implementation was started. Restore ticket storage and retry.')
+      }
+      broadcastSpecAddendaChange(msg => ctx.broadcast(msg as never), ctx.project.id, claimed)
+    }
   } catch (err) {
     for (const a of allocated) {
+      if (claimedAddendaByRun.has(a.runId)) broadcastSpecAddendaChange(msg => ctx.broadcast(msg as never), ctx.project.id, settleSpecAddendaAt(addendaStorePath, a.ticketIds, a.runId, 'failed'))
       if (a.worktreeOwnership === 'created') {
         await remove(git, {
           repoDir: baseRepo,
@@ -1478,12 +1519,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       requiresTerminalIntent: true,
     })
     const spec = ctx.getTicketSpec(a.ticketId)
-    const claimedAddenda = claimSpecAddendaForRun(addendaStorePath, a.ticketIds, a.runId, {
-      plan: addendaPlan.filter((e) => a.ticketIds.includes(e.ticketId)).map((entry) =>
-        launchContinuation || input.revision || input.repositoryContinuation
-          ? { ...entry, status: 'on_review' } : entry),
-    })
-    broadcastSpecAddendaChange((msg) => ctx.broadcast(msg as never), ctx.project.id, claimedAddenda)
+    const claimedAddenda = claimedAddendaByRun.get(a.runId)!
     const enginePromise = ctx.loopRunManager.run({
         runtimeProviderOverride: input.runtimeProviderOverride,
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,

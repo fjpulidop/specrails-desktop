@@ -111,9 +111,16 @@ export function prDeliveryRevisionAllowed(
 ): boolean {
   if (delivery.id !== revisionOfDeliveryId) return false
   if (isTerminalPrDecision(delivery.decision)) return false
+  if (!hasDeliveredWork(delivery)) return false
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
+}
+
+function hasDeliveredWork(delivery: PrDeliverySnapshot): boolean {
+  return Boolean((delivery.branch && delivery.deliverySha && ((delivery.prUrl && delivery.prState === 'pr-created') || (delivery.implementationOutcome !== 'failed' && delivery.deliveryOutcome !== 'blocked' && delivery.deliveryOutcome !== 'not_started')))
+    || delivery.branches?.some(unit => unit.succeeded && unit.finalSha && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked' && unit.deliveryOutcome !== 'not_started')
+    || delivery.repositoryDeliveries?.some(unit => unit.branch && unit.deliverySha && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked' && unit.deliveryOutcome !== 'not_started'))
 }
 
 function prDeliveryCheckoutTarget(delivery: PrDeliverySnapshot): { branch: string; sha: string } | null {
@@ -934,6 +941,7 @@ export function createRailsRouter(): Router {
         let isolationUnavailable: string | undefined
         let continuablePrDelivery: PrDeliverySnapshot | null = null
         let revisionRequest: { ofDeliveryId: string; decision: PrDecision; note: string } | null = null
+        let retryOfDelivery: { deliveryId: string; decision: PrDecision } | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
@@ -970,6 +978,11 @@ export function createRailsRouter(): Router {
           // Explicit change requests name it; open addenda on the same rail
           // identify it implicitly. Both use the existing supersession contract.
           const revisionsEnabled = areDeliveryRevisionsEnabled()
+          const failedAddendumRetry = Boolean(launchAddenda.length && pendingSnapshot && !revisionOfDeliveryId
+            && ['implementation_failed', 'pr_failed'].includes(pendingSnapshot.decision)
+            && !pendingSnapshot.prUrl && !hasDeliveredWork(pendingSnapshot)
+            && new Set(pendingSnapshot.ticketIds).size === new Set(rail.ticketIds).size
+            && rail.ticketIds.every(id => pendingSnapshot.ticketIds.includes(id)))
           const addendumContinuation = Boolean(
             launchAddenda.length && pendingSnapshot && pendingSnapshot.decision !== 'building'
             && !revisionOfDeliveryId
@@ -986,7 +999,7 @@ export function createRailsRouter(): Router {
               detail: 'a revision must target the rail\'s active delivery and cover all of its specs',
             }); return
           }
-          if (pendingSnapshot && !revisionOfPending && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
+          if (pendingSnapshot && !revisionOfPending && !failedAddendumRetry && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
           if (revisionOfPending && pendingSnapshot) {
@@ -998,6 +1011,7 @@ export function createRailsRouter(): Router {
                 : revisionNote as string,
             }
           }
+          if (failedAddendumRetry && pendingSnapshot) retryOfDelivery = { deliveryId: pendingSnapshot.id, decision: pendingSnapshot.decision as PrDecision }
           // Explicit target vs an undecided continuable delivery: the slot's
           // active generation owns its PR. A DIFFERENT explicit target would
           // append to the undecided branches → 409; the SAME PR is redundant
@@ -1077,7 +1091,7 @@ export function createRailsRouter(): Router {
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
-                ...(continuablePrDelivery?.executionManifest && !revisionRequest ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
+                ...(continuablePrDelivery?.executionManifest && !revisionRequest && !retryOfDelivery ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
                 ...(continuablePrDelivery && !continuablePrDelivery.executionManifest && prDeliveryContinuesTickets(continuablePrDelivery, rail.ticketIds) ? {
                   requiredPrContinuation: {
                     deliveryId: continuablePrDelivery.id,
@@ -1098,6 +1112,7 @@ export function createRailsRouter(): Router {
                 // Revision of an undecided delivery: the guard above proved the
                 // exemption, so pass the contract through for supersession.
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
+                ...(retryOfDelivery ? { retryOfDelivery } : {}),
                 ...(followUp ? { followUp } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })

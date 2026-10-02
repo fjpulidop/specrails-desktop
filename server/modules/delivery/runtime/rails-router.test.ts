@@ -1754,7 +1754,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
   ])('continues a same-spec pending delivery with addenda using the selected workflow (%j)', async (selection) => {
     seedAddenda()
     const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
-    transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true }] })
+    transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true, finalSha: 'a'.repeat(40) }] })
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['next-run'])
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
@@ -1763,6 +1763,24 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: selection.loopId ?? (selection.mode === 'implement' ? 'factory:implement' : 'factory:sdd-quick-openspec'), revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
     // A local review has no published PR yet: never pass a null PR target.
     expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
+  })
+
+  it('retries open addenda from an undelivered failed generation without revision semantics', async () => {
+    seedAddenda()
+    const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    transitionDecision(db, row.id, 'building', 'implementation_failed', {
+      branches: [{ ticketId: 1, branch: 'feat/failed', succeeded: false, finalSha: 'a'.repeat(40), implementationOutcome: 'failed', deliveryOutcome: 'blocked' }],
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed',
+    })
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['retry-run'])
+    const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(mockLaunchIsolated.mock.calls[0][0]).toMatchObject({ retryOfDelivery: { deliveryId: row.id, decision: 'implementation_failed' } })
+    expect(mockLaunchIsolated.mock.calls[0][0].revision).toBeUndefined()
+    expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
+    expect(addendumState(path.join(projDir, '.specrails', 'local-tickets.json')).status).toBe('open') // actual launch owns the claim
   })
 
   it('addenda cannot continue a different delivery spec set', async () => {
@@ -2670,7 +2688,7 @@ describe('rails-router launch — revision of an undecided delivery', () => {
       ticketIds, baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
     })
     transitionDecision(db, row.id, 'building', 'on_review', {
-      branches: ticketIds.map((id) => ({ ticketId: id, branch: `feat/${id}`, succeeded: true })),
+      branches: ticketIds.map((id) => ({ ticketId: id, branch: `feat/${id}`, succeeded: true, finalSha: 'a'.repeat(40) })),
       implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
     })
     return row.id
@@ -2777,7 +2795,7 @@ describe('rails-router launch — revision of an undecided delivery', () => {
 
 describe('prDeliveryRevisionAllowed', () => {
   const snap = (over: Record<string, unknown> = {}) => ({
-    id: 'del-1', decision: 'on_review', ticketIds: [1, 2], ...over,
+    id: 'del-1', decision: 'on_review', ticketIds: [1, 2], branches: [{ ticketId: 1, branch: 'feat/1', succeeded: true, finalSha: 'a'.repeat(40) }], ...over,
   }) as unknown as PrDeliverySnapshot
 
   it('allows the rail\'s active delivery with an exact ticket-set match', () => {
@@ -2802,6 +2820,13 @@ describe('prDeliveryRevisionAllowed', () => {
     for (const decision of ['merged', 'discarded', 'superseded', 'completed']) {
       expect(prDeliveryRevisionAllowed(snap({ decision }), 'del-1', [1, 2])).toBe(false)
     }
+  })
+
+  it('rejects undelivered failed work, even when an old checkout or partial commit exists', () => {
+    expect(prDeliveryRevisionAllowed(snap({ decision: 'implementation_failed', branches: [] }), 'del-1', [1, 2])).toBe(false)
+    expect(prDeliveryRevisionAllowed(snap({ decision: 'pr_failed', branches: [{ branch: 'feat/failed', succeeded: false, finalSha: 'a'.repeat(40), implementationOutcome: 'failed', deliveryOutcome: 'blocked' }] }), 'del-1', [1, 2])).toBe(false)
+    expect(prDeliveryRevisionAllowed(snap({ decision: 'implementation_failed', branch: 'feat/partial', deliverySha: 'a'.repeat(40), implementationOutcome: 'failed', deliveryOutcome: 'blocked', branches: [] }), 'del-1', [1, 2])).toBe(false)
+    expect(prDeliveryRevisionAllowed(snap({ decision: 'pr_failed', branch: 'feat/published', deliverySha: 'a'.repeat(40), prUrl: 'https://github.com/org/repo/pull/1', prState: 'pr-created', implementationOutcome: 'failed', deliveryOutcome: 'blocked', branches: [] }), 'del-1', [1, 2])).toBe(true)
   })
 
   it('allows every non-terminal decision, including a PR already created', () => {
