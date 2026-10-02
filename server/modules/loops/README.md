@@ -269,3 +269,8 @@ further fixer turns on that same state.
 The configurable Implement recipe stops earlier when a correction leaves a failed
 verification candidate unchanged, retaining its summary as the failure reason.
 Review corrections after passing verification remain eligible for another review.
+Correctors receive bounded failure facts with complete evidence references and
+the current candidate's reviewer output directly, clearing missing or outdated
+review feedback before correction. Default instructions allow proven minimal
+test compatibility repairs in admitted workspaces, preserve safety assertions,
+and require focused reproduction with original exit codes and negative cases.

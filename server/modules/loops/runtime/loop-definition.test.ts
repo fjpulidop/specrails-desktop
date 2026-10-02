@@ -217,8 +217,8 @@ it('requires applied evidence for every frozen addendum before Implement can arc
     expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.tests.length > 0`)
   }
   expect(definition.nodes.reviewer.ends.next).toBe('addenda-review-0')
-  expect(definition.nodes['addenda-review-0'].ends).toEqual({ true: 'review-policy', false: 'fixer' })
-  expect(definition.nodes['review-policy'].ends).toEqual({ true: 'approve', false: 'fixer' })
+  expect(definition.nodes['addenda-review-0'].ends).toEqual({ true: 'review-policy', false: 'correction-context' })
+  expect(definition.nodes['review-policy'].ends).toEqual({ true: 'approve', false: 'correction-context' })
   expect(definition.nodes.archive.params.requiresVerified).toBe(true)
   expect(definition.nodes.architect.params.prompt).toContain('Frozen delta')
   expect(graph).toEqual(original)

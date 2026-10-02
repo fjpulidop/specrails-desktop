@@ -60,6 +60,18 @@ with the corrector's explanation instead of rerunning the same failed checks.
 Corrections after a passing verification may still refresh review evidence without
 source changes. Failed completion reasons are surfaced in Desktop's job error.
 
+The corrector receives the exact verification command, cwd, original exit code,
+failure summary, full-evidence identifier and current candidate's review output
+directly. The recipe explicitly clears review feedback when verification fails
+or its candidate no longer matches, including before the first reviewer visit.
+It reproduces the failure, distinguishes implementation defects from test
+compatibility assumptions and external blockers, and may make a minimal test
+compatibility repair inside the admitted workspace while preserving the tested
+behavior and every required safety guard. An unchanged filename alone cannot
+justify an unrelated-failure diagnosis. Focused checks retain their original exit
+codes; repaired assertions need negative cases. Saved/customized definitions keep
+their frozen prompts; future unedited recipes use these updated defaults.
+
 Admission freezes the graph, agents, Core package and repository checks. Resume
 uses this snapshot. Generic forks copy an active change into a separate change,
 carry scope-owned contracts forward, rebind `run.changeId`, and clear verification.

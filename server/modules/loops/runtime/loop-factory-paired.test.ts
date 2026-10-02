@@ -41,6 +41,10 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
   writeFileSync(path.join(repository, 'code.cjs'), 'module.exports = 1\n')
+  if (process.env.SPECRAILS_FACTORY_REGEX === '1') {
+    writeFileSync(path.join(repository, 'modal.txt'), "e.key === 'Escape' &&\n!confirmPending")
+    writeFileSync(path.join(repository, 'guard.test.cjs'), `const { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst guard = /e\\.key === 'Escape' && !confirmPending/;\ntest('cancelling confirmation preserves the queue', () => { assert.match(fs.readFileSync('modal.txt', 'utf8'), guard); assert.doesNotMatch("e.key === 'Escape' &&\\ntrue", guard); });\ntest('required feature returns two', () => assert.equal(require('./code.cjs'), 2));\n`)
+  }
   expect(spawnSync('git', ['-C', repository, 'add', '.']).status).toBe(0)
   expect(spawnSync('git', ['-C', repository, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'baseline']).status).toBe(0)
   const runtime = path.join(backlog, '.specrails/pipeline', id); mkdirSync(runtime, { recursive: true })
@@ -49,6 +53,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: id, backlogRoot: backlog, artifactRoot: repository, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: repository }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs }))
   const config = JSON.parse(readFileSync(path.join(core!, 'src/agent-runtime/engine/__fixtures__/acceptance/runtime-config.json'), 'utf8'))
   config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }]
+  if (process.env.SPECRAILS_FACTORY_REGEX === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['--test', '--test-reporter=spec', 'guard.test.cjs'] }]
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
   const change = 'paired-change'
@@ -98,7 +103,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall || correctionStalled })
   if (!legacy && !stall && !correctionStalled) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
   expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(correctionStalled ? 'module.exports = 3\n' : 'module.exports = 2\n')
-  return { result, calls, events }
+  return { result, calls, events, repository }
 }
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'quick-sdd', 'freestyle'])('executes the %s factory through the real bridge and Core with deterministic local executors', async mode => {
   const actual = await execute(mode)
@@ -181,6 +186,16 @@ it.skipIf(!core)('stops configurable Implement after an unchanged correction wit
   expect(starts).not.toContain('archive')
 }, 180_000)
 
+it.skipIf(!core)('delivers a pre-existing formatting test failure to the configurable fixer and verifies its minimal repair', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REGEX', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'assess'])
+  const prompt = actual.calls.find(call => call.role === 'correct')!.prompt
+  for (const value of ['failureSummary', 'evidenceId', 'guard.test.cjs', 'ERR_ASSERTION', 'expected:', 'An unchanged file or a pre-existing test does not prove', 'Latest review findings']) expect(prompt).toContain(value)
+  expect(readFileSync(path.join(actual.repository, 'guard.test.cjs'), 'utf8')).toContain('&&\\s*!confirmPending/')
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+
 it.skipIf(!core)('resumes candidate-bound approval in configurable Implement without replaying its agents', async () => {
   const actual = await execute('implement', false, false, undefined, undefined, false, true, false, true)
   expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess'])
@@ -225,5 +240,18 @@ it.skipIf(!core)('admits Implement addendum gates and rejects missing, partial o
 it.skipIf(!core)('corrects a partial addendum before archiving through the real Implement runtime', async () => {
   const actual = await execute('implement', false, false, undefined, undefined, false, true, false, false, false, ['a1'])
   expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+}, 180_000)
+
+it.skipIf(!core)('clears previous review findings when a review correction breaks host verification', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_STALE_REVIEW', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, false, false, false, ['a1'])
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct', 'correct', 'assess'])
+  const corrections = actual.calls.filter(call => call.role === 'correct')
+  const reviewContext = (prompt: string) => prompt.split('Latest review findings for this candidate:')[1].split('Prior execution:')[0]
+  expect(reviewContext(corrections[0].prompt)).toContain('"verdict":"partial"')
+  expect(reviewContext(corrections[1].prompt)).toContain('No reviewer findings for the current verified candidate')
+  expect(reviewContext(corrections[1].prompt)).not.toContain('"verdict":"partial"')
+  expect(corrections[1].prompt).toContain('"exitCode":9')
   expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
 }, 180_000)
