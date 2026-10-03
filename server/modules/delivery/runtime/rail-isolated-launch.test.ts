@@ -272,7 +272,7 @@ describe('launchIsolatedRail', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
-  it('keeps a pre-existing resumable branch when a later allocation rolls back', async () => {
+  it('keeps a branch reported as pre-existing when a later allocation rolls back', async () => {
     const { ctx, db, run } = fakeCtx()
     createRailWorktree(db, {
       id: 'prior-ticket-1',
@@ -307,7 +307,7 @@ describe('launchIsolatedRail', () => {
     expect(remove).toHaveBeenCalledWith(git, {
       repoDir: '/repo',
       worktreePath: '/wt/ticket-1',
-      branch: 'feat/1-t1',
+      branch: 'feat/1-t1-2',
       deleteBranch: false,
     })
     expect(getRailWorktree(db, 'prior-ticket-1')?.merge_state).toBe('failed')
@@ -402,7 +402,8 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
   it('inserts a building row at launch (origin persisted) and broadcasts rail.pr_state at insert + run allocation', async () => {
     const { ctx, db, broadcast } = fakeCtx() // never-settling runs → row stays 'building'
 
-    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-1' }, okIo())
+    const launchConfig = { mode: 'implement', loopId: 'factory:implement', aiEngine: 'claude', model: 'sonnet', profileName: null }
+    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), launchConfig, scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-1' }, okIo())
 
     const row = getActivePrDeliveryByRail(db, 0)!
     expect(row).toMatchObject({
@@ -413,6 +414,8 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     })
     // run_ids round-trip: patched onto the row right after allocation.
     expect(JSON.parse(row.run_ids)).toEqual(ids)
+    expect(JSON.parse(row.launch_config_json!)).toEqual(launchConfig)
+    expect(ctx.loopRunManager.run).toHaveBeenCalledWith(expect.objectContaining({ launchConfig }))
     // Both durable broadcasts carry the EXACT snapshot payload shape: the
     // insert (runIds still []) then the allocation patch (runIds populated —
     // the building card/strip gains its per-run "View log" chips live).
@@ -889,7 +892,7 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
     expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1-2' }))
   })
 
-  it('a branch a PRIOR rail run allocated for the SAME ticket is resumed, not suffixed', async () => {
+  it('a prior branch for the same ticket gets a new sibling on a fresh launch', async () => {
     const { ctx, db } = fakeCtx()
     createRailWorktree(db, { id: 'old', railIndex: 0, ticketId: 1, branch: 'feat/1-t1', worktreePath: '/wt/old', mergeState: 'failed' })
     const create = mockCreate()
@@ -897,7 +900,7 @@ describe('launchIsolatedRail — conventional branch naming (pr-naming threading
       git: gitWithBranches(['feat/1-t1']), create, remove: vi.fn(async () => {}),
     })
 
-    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1' }))
+    expect(create).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branch: 'feat/1-t1-2', fresh: true, reuseBranchWorktree: false }))
   })
 
   it('NEVER allocates the integration branch, even when the preferred name matches it', async () => {
@@ -1412,6 +1415,25 @@ describe('launchIsolatedRail — active PR continuation', () => {
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       delivery_sha: finalSha, status_code: 'existing_pr_updated', delivery_outcome: 'delivered',
     })
+  })
+
+  it('restores an undelivered failed source when retry allocation fails, preserving its original checkout', async () => {
+    const { ctx, db, run } = fakeCtx()
+    const prior = createPrDelivery(db, { id: 'failed-source', railIndex: 0, railKey: '0-implement',
+      loopId: 'factory:implement', ticketIds: [4], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    const oldUnit = { ticketId: 4, branch: 'fix/old', worktreePath: '/wt/old', succeeded: false, failureCode: 'tests_failed' }
+    transitionDecision(db, prior.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed', branches: [oldUnit] })
+    const remove = vi.fn(async () => {})
+    await expect(launchIsolatedRail({ ...input([4], ctx), retryOfDelivery: { deliveryId: prior.id, decision: 'implementation_failed' } }, {
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      exec: { run: vi.fn(async () => ({ code: 0, stdout: '[]', stderr: '' })) },
+      create: vi.fn(async () => { throw new Error('allocation refused') }), remove,
+    })).rejects.toThrow('allocation refused')
+    expect(run).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({ id: prior.id, decision: 'implementation_failed', branches: JSON.stringify([oldUnit]) })
+    expect(remove.mock.calls.flat()).not.toContain('/wt/old')
+    expect(db.prepare('SELECT decision, supersedes_delivery_id FROM rail_pr_deliveries WHERE id <> ?').get(prior.id)).toMatchObject({ decision: 'discarded', supersedes_delivery_id: prior.id })
+    db.close()
   })
 
   it('restores the superseded PR generation atomically when continuation allocation fails', async () => {
@@ -2400,13 +2422,9 @@ describe('launchIsolatedRail — active PR continuation', () => {
 describe('launchIsolatedRail — stale mounted worktree from a prior run (live #37 repro)', () => {
   beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR })
 
-  it('REPRO: the settled delivery + ledger record the branch that ACTUALLY carries the commits, not the preferred name', async () => {
-    // A prior auto-discarded run of the SAME ticket left its worktree MOUNTED
-    // on the legacy sr/ branch. The worktree path is keyed by ticketId only, so
-    // the new launch's real createWorktree reuses that checkout — the run's
-    // commits land on sr/p/ticket-1 while the old code recorded the preferred
-    // feat/1-t1 name that never existed → `git push` had no ref → local-only
-    // wedge that no retry could heal.
+  it('keeps a stale ticket mount intact and allocates a new branch and run-specific mount', async () => {
+    // A prior attempt left a legacy ticket-keyed mount. The real allocator
+    // must leave it untouched and record a distinct fresh mount/branch.
     const { ctx, db } = fakeCtx(settlingRun('success'))
     const wt = path.join(resolveHome(), '.specrails', 'projects', 'p', 'worktrees', 'ticket-1')
     createRailWorktree(db, { id: 'stale', railIndex: 0, ticketId: 1, branch: 'sr/p/ticket-1', worktreePath: wt, mergeState: 'failed' })
@@ -2419,6 +2437,7 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
           return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' } // the mounted checkout's REAL branch
         }
         if (args[0] === 'for-each-ref') return { code: 0, stdout: 'sr/p/ticket-1\n', stderr: '' }
+        if (args[0] === 'rev-parse' && args.at(-1)?.startsWith('refs/heads/feat/')) return { code: 1, stdout: '', stderr: '' }
         return successfulGitResult(args)
       },
     }
@@ -2429,13 +2448,16 @@ describe('launchIsolatedRail — stale mounted worktree from a prior run (live #
     await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
     const row = getActivePrDeliveryByRail(db, 0)!
     expect(JSON.parse(row.branches)[0]).toMatchObject({
-      ticketId: 1, branch: 'sr/p/ticket-1', succeeded: true,
+      ticketId: 1, branch: 'feat/1-t1', succeeded: true,
       implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
       initialSha: TEST_SHA, finalSha: TEST_SHA,
     })
     const fresh = listRailWorktrees(db, 0).filter((r) => r.id !== 'stale')
     expect(fresh).toHaveLength(1)
-    expect(fresh[0].branch).toBe('sr/p/ticket-1')
+    expect(fresh[0].branch).toBe('feat/1-t1')
+    expect(fresh[0].worktree_path).not.toBe(wt)
+    expect(fresh[0].worktree_path).toContain(fresh[0].run_id!)
+    expect(getRailWorktree(db, 'stale')?.merge_state).toBe('failed')
     expect(fresh[0].merge_state).toBe('built')
   })
 })
@@ -4105,6 +4127,32 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     } finally {
       fs.rmSync(projDir, { recursive: true, force: true })
     }
+  })
+
+  it('starts no agents and reopens earlier claims if a sibling loses its frozen addenda', async () => {
+    const { ctx, db, run } = fakeCtx()
+    const projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ril-claim-failure-'))
+    ctx.project.path = projDir
+    const storePath = path.join(projDir, '.specrails/local-tickets.json')
+    fs.mkdirSync(path.dirname(storePath), { recursive: true })
+    try {
+      mutateStore(storePath, store => {
+        const now = '2026-10-02T10:00:00.000Z'
+        store.tickets['1'] = { id: 1, title: 'First', description: 'Original', status: 'todo', priority: 'medium', labels: [], assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null, is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null, created_at: now, updated_at: now, created_by: 'test', source: 'manual', addenda: [buildSpecAddendum({ kind: 'constraint', title: 'Frozen', body: 'Must reach every role' }, { createdBy: 'user', now })] }
+        store.tickets['2'] = { ...structuredClone(store.tickets['1']), id: 2, title: 'Second' }
+        store.next_id = 3
+      })
+      const io = okIo(), original = io.create!
+      io.create = async (git, request) => {
+        if (request.ticketId === 2) mutateStore(storePath, store => { delete store.tickets['2'] })
+        return original(git, request)
+      }
+      await expect(launchIsolatedRail(input([1, 2], ctx), io)).rejects.toThrow('complete frozen spec addenda')
+      expect(run).not.toHaveBeenCalled()
+      expect(readSpecAddenda(readStore(storePath).tickets['1'].addenda)[0]).toMatchObject({ status: 'open', run_id: null })
+      expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined()
+      expect(db.prepare('SELECT decision, status_detail FROM rail_pr_deliveries ORDER BY rowid DESC LIMIT 1').get()).toMatchObject({ decision: 'discarded', status_detail: expect.stringContaining('complete frozen spec addenda') })
+    } finally { fs.rmSync(projDir, { recursive: true, force: true }) }
   })
 
   it('a launch without addenda leaves spec_addenda NULL and passes no addenda to the engine (byte-identical)', async () => {

@@ -113,7 +113,12 @@ Both temporary checkouts use non-force cleanup, including after a Git runner exc
 ## Launch and recovery wiring (`server/modules/delivery/runtime/rail-isolated-launch.ts`)
 
 - `prMode` is captured once. Admission is rechecked inside the per-repository allocation lock;
-  two requests cannot both create a generation or reuse the ticket-keyed worktree.
+  two requests cannot both create a generation or claim the same continuation branch.
+- Fresh launches allocate `<worktreesRoot>/<runId>/ticket-<id>` and a new collision-free
+  branch from the selected base. Failed attempts retain their dirty mounts and branches
+  for explicit recovery; pressing Launch never silently adopts their edits. Same-run
+  recovery uses the frozen mount. Recorded delivery/PR continuations find the exact
+  mounted branch and verify its recorded commit before execution.
 - A continuation supersedes its prior generation and creates the new `building` row in one DB
   transaction. Allocation failure closes the new row and restores the prior generation atomically,
   recording the failed replacement id so every client can safely undo its tombstone for that pair.
@@ -121,6 +126,16 @@ Both temporary checkouts use non-force cleanup, including after a Git runner exc
   verification distinguish changed, resumed, and no-change results.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
+- Before staging, settlement blocks active OpenSpec change directories introduced relative to
+  the frozen integration/base commit, including the run's own unarchived change. Base changes
+  and archives are allowed. It reports the paths as a blocked `commit_failed` delivery and
+  preserves the checkout; Core never archives unrelated changes on Desktop's behalf.
+- Revision semantics require actual delivered branch/commit evidence. Open addenda on an
+  undelivered failed generation replace it atomically with a fresh full-spec launch, without
+  a revision briefing or branch adoption. Equivalent delta retries use readable, stable,
+  Core-compatible names derived from durable lineage/addendum bodies rather than run IDs.
+  All frozen addenda must be claimed before any agent starts; claim failure reopens earlier
+  sibling claims and rolls allocation back through the existing ownership-aware path.
 - Clean, committed worktrees may be released only after a final live preflight proves tracked and
   untracked status (apart from durably recorded Specrails overlay paths), plus exact worktree HEAD
   and branch ref. Gitignored paths are release-safe only when covered by the IMMUTABLE settlement
@@ -219,9 +234,12 @@ at launch:
   from the first root containing them when checkout lacks them. Windows: junction →
   dereferencing-copy fallback.
 - **Never on the PR**: the resume-safe manifest records authenticated overlay leaves against
-  any configured root; settlement persists immutable fingerprints. Commit delivery deliberately
+  any configured root across supported provider namespaces, so switching provider retains
+  prior authenticated exclusions; settlement persists immutable fingerprints. Commit delivery deliberately
   runs plain `git add -A`, audits the index, resets forbidden literal top-level paths, re-audits,
-  and makes those exclusions authoritative with `git commit --only`. The writable manifest alone
+  and makes those exclusions authoritative with `git commit --only`. Unexcluded staged symlinks
+  with absolute destinations outside the checkout block commit rather than leaking machine paths.
+  The writable manifest alone
   never grants cleanup authority. Cleanup atomically renames each authenticated root into a unique
   sibling quarantine, revalidates it after the move, discloses raced content there, and never
   deletes or restores quarantined paths automatically over a possibly recreated source. A modified
@@ -371,9 +389,10 @@ diff collection), fully unit-tested.
   nothing (`<type>/<ref>`). Every generated name passes `isValidBranchName`.
 - **Batch branch** (N>1 assembled delivery) — `<type>/<primary-ref>-batch-<n>-tickets`.
 - **Collisions** — bounded suffixing `-2`, `-3`… (20 attempts). At worktree allocation
-  (`rail-isolated-launch`) a branch that a PRIOR rail run allocated for the SAME ticket (per the
-  `rail_worktrees` ledger) is **resumed**, not suffixed — preserving the stop/relaunch resume
-  semantics; exhaustion falls back to the legacy `sr/<slug>/ticket-<id>`. The **integration
+  (`rail-isolated-launch`) a fresh run collision-suffixes even a prior branch for the same ticket;
+  only exact recorded delivery/PR continuations reuse a branch. Same-run recovery retains its
+  frozen checkout. Exhaustion falls back to the legacy `sr/<slug>/ticket-<id>` with fresh-branch
+  validation. The **integration
   branch is never used** (reserved in the resolver + asserted in tests). `createWorktree` stays
   generic: an optional preferred `branch` input with the legacy fallback when absent.
 - **PR title** — `[<ref>]<type> - <change>` (e.g. `[SKILLS-101]feat - darkmode added`); the
@@ -781,4 +800,3 @@ typed, frozen delta that travels with the DELIVERY, never with the spec.
   scope-creep detection, PR head-drift revalidation policy, partial-commit
   recovery UX (the preparation-failure Discard fix above covers the stuck-rail
   half of the incident).
-

@@ -41,8 +41,8 @@ describe('buildRevisionSeed', () => {
   it('leads with the instruction and forbids starting over', () => {
     const text = seed()
     expect(text).toContain('make the login button blue')
-    expect(text).toContain('ALREADY been delivered')
-    expect(text).toMatch(/Do NOT start over/i)
+    expect(text).toContain('recorded branch work')
+    expect(text).toContain('Preserve its existing implementation')
   })
 
   it('carries the FROZEN spec text, not a live re-read', () => {
@@ -75,6 +75,9 @@ describe('buildRevisionSeed', () => {
   it('falls back to naming the base branch when no branch was recorded', () => {
     const text = seed({ branches: [], branchDiffSummary: null })
     expect(text).toContain('Base branch: main')
+    expect(text).toContain('no delivered branch was recorded')
+    expect(text).toContain('Implement the full spec')
+    expect(text).not.toContain('code exists')
   })
 
   it('keeps its sections readable (blank-line separated, not a wall of text)', () => {

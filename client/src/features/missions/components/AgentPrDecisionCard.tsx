@@ -416,6 +416,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const liveRun: RuntimeRun | null = runtime.runs.find((r) => r.runId === primaryRunId) ?? runtime.runs[0] ?? null
   const actionableRun: RuntimeRun | null = liveRun ?? (primaryRunId ? runtimeRunFromSnapshot(envelope, primaryRunId) : null)
   const [relaunching, setRelaunching] = useState(false)
+  const relaunchInFlight = useRef(false)
+  const [relaunchAccepted, setRelaunchAccepted] = useState(false)
+  const [relaunchError, setRelaunchError] = useState<string | null>(null)
+  useEffect(() => { setRelaunchAccepted(false); setRelaunchError(null) }, [envelope.prDeliveryId])
   // Focus bus: a failure marker / launch stub asks to bring THIS card into view.
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [flash, setFlash] = useState(false)
@@ -631,30 +635,38 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     }
   }
 
-  /** Relaunch the rail with its STORED config, tagged with this mission so the
-   *  new run lands as a fresh card here (mission-rail-cards). The server
-   *  re-validates everything (409 tickets_in_flight / pr_decision_pending). */
+  /** Identify this attempt: the slot's assignments/config can already have
+   * changed or been released. The server resolves and revalidates the source. */
   const relaunch = async () => {
-    if (relaunching || anyBusyRef.current) return
+    if (relaunchInFlight.current || relaunchAccepted || anyBusyRef.current) return
+    relaunchInFlight.current = true
     setRelaunching(true)
+    setRelaunchError(null)
     try {
-      const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/rails/${envelope.railIndex}/launch`, {
+      const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/rails/${envelope.railIndex}/relaunch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sourceId: envelope.prDeliveryId,
           ...(conversationId ? { originConversationId: conversationId, originSurface: 'agent-chat' } : {}),
         }),
       })
       if (res.status === 202) {
+        setRelaunchAccepted(true)
         toast.success(t('runCard.relaunchSent', { index: envelope.railIndex + 1 }))
         notifyGitChanged(envelope.projectId)
         return
       }
       const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; action?: string }
-      toast.error(t('runCard.relaunchFailed'), { description: [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}` })
+      const detail = [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
+      setRelaunchError(detail)
+      toast.error(t('runCard.relaunchFailed'), { description: detail })
     } catch (e) {
-      toast.error(t('runCard.relaunchFailed'), { description: e instanceof Error ? e.message : undefined })
+      const detail = e instanceof Error ? e.message : t('runCard.relaunchFailed')
+      setRelaunchError(detail)
+      toast.error(t('runCard.relaunchFailed'), { description: detail })
     } finally {
+      relaunchInFlight.current = false
       setRelaunching(false)
     }
   }
@@ -752,13 +764,16 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   )
   const relaunchBlocked = Boolean(liveRun?.active) || runStatus === 'running' || runStatus === 'paused'
   const relaunchAction = FEATURE_MISSION_RAIL_CARDS && (
-    <button type="button" data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked}
-      title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
-      onClick={() => void relaunch()}
-      className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
-      {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-      {t('runCard.actions.relaunch')}
-    </button>
+    <>
+      <button type="button" data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
+        title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
+        onClick={() => void relaunch()}
+        className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
+        {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+        {t('runCard.actions.relaunch')}
+      </button>
+      {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
+    </>
   )
   const runtimeError = FEATURE_MISSION_RAIL_CARDS && runtime.error && runtimeInterest ? (
     <p className="mt-1 text-[10px] text-destructive/80" data-testid="mission-run-runtime-error">{runtime.error}</p>

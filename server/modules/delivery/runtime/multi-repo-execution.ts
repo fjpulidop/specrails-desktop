@@ -186,7 +186,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
       integrationBranches.set(repo.id, target.branch)
     }
   }
-  const previousParentId = input.revision?.ofDeliveryId ?? input.repositoryContinuation?.deliveryId
+  const previousParentId = input.revision?.ofDeliveryId ?? input.repositoryContinuation?.deliveryId ?? input.retryOfDelivery?.deliveryId
   const previousParent = previousParentId ? getPrDelivery(ctx.db, previousParentId) : undefined
   const previousManifest = readExecutionManifest(previousParent?.execution_manifest)
   const previousChildren = previousParentId ? listRepositoryDeliveries(ctx.db, previousParentId) : []
@@ -221,12 +221,13 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
     artifactRepositoryId, selectedRepositoryIds: selected.map((repo) => repo.id), repositories: [],
   }
   const generation = createPrDeliveryGeneration(ctx.db, {
+    launchConfig: input.launchConfig,
     id: parentId, railIndex: input.railIndex, loopId: input.loopId, railKey: `${input.railIndex}-${input.loopId}`,
     ticketIds: input.ticketIds, baseBranch: input.baseBranch ?? '', loopName: input.loopName,
     originSurface: input.originSurface ?? 'dashboard', originConversationId: input.originConversationId,
     specSnapshot: buildSpecSnapshot(ctx, input.ticketIds),
     ...(input.revision ? { revisionNote: input.revision.note, revisionOf: input.revision.ofDeliveryId } : {}),
-  }, input.revision ? { id: input.revision.ofDeliveryId, decision: input.revision.decision } : input.repositoryContinuation ? { id: input.repositoryContinuation.deliveryId, decision: input.repositoryContinuation.decision } : null)
+  }, input.revision ? { id: input.revision.ofDeliveryId, decision: input.revision.decision } : input.repositoryContinuation ? { id: input.repositoryContinuation.deliveryId, decision: input.repositoryContinuation.decision } : input.retryOfDelivery ? { id: input.retryOfDelivery.deliveryId, decision: input.retryOfDelivery.decision } : null)
   for (const child of previousChildren) {
     if (!['merged', 'completed', 'discarded', 'superseded'].includes(child.decision)) transitionDecision(ctx.db, child.id, child.decision, 'superseded')
   }
@@ -262,14 +263,14 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
       const childSettlement = deferred<void>()
       const previous = previousChildren.find((row) => row.repository_id === repository.id)
       const previousRepository = previousManifest?.repositories.find((row) => row.repositoryId === repository.id)
-      const previousBaseBranch = previous && ['merged', 'completed'].includes(previous.decision)
+      const previousBaseBranch = input.retryOfDelivery ? undefined : previous && ['merged', 'completed'].includes(previous.decision)
         ? previousRepository?.integrationBranch ?? previous.base_branch
         : previous?.base_branch
       const oldSnapshot = previous ? toPrDeliverySnapshot(previous) : null
       const revisionBranches = new Map<number, { branch: string; sha: string }>()
-      if (oldSnapshot && !['merged', 'completed', 'discarded'].includes(oldSnapshot.decision) && !previous?.pr_url) {
+      if (!input.retryOfDelivery && oldSnapshot && !['merged', 'completed', 'discarded'].includes(oldSnapshot.decision) && !previous?.pr_url) {
         for (const unit of oldSnapshot.branches) {
-          if (unit.finalSha) revisionBranches.set(unit.ticketId, { branch: unit.branch, sha: unit.finalSha })
+          if (unit.succeeded && unit.finalSha && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked') revisionBranches.set(unit.ticketId, { branch: unit.branch, sha: unit.finalSha })
         }
       }
       const continuation = previous?.pr_url && previous.branch && previous.delivery_sha && previous.pr_number &&
@@ -299,6 +300,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
         ...input, ctx: childCtx, scope: effectiveScope, loopGraph: graph,
         runtimeStateProject: ctx.project,
         revision: input.revision && previous ? { ...input.revision, ofDeliveryId: previous.id, decision: previous.decision } : undefined,
+        retryOfDelivery: input.retryOfDelivery && previous ? { deliveryId: previous.id, decision: previous.decision } : undefined,
         requiredPrContinuation: continuation,
         explicitPrTarget: continuation?.prNumber ? { prNumber: continuation.prNumber } : input.explicitPrTarget,
         originConversationId: undefined,

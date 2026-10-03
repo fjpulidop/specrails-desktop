@@ -18,12 +18,11 @@ import type { FollowUpProposal } from '../../rails/lib/rail-launch-draft'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles,
-  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText,
+  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText, Pencil, RefreshCw,
 } from 'lucide-react'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
-import type { ProjectRepository } from '../../projects/lib/project-repositories'
+import { repositoryApiBase, type ProjectRepository } from '../../projects/lib/project-repositories'
 import { cn } from '../../../lib/utils'
-import { API_ORIGIN } from '../../../lib/origin'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
 import type { RailLaunchProposal } from '../../rails/lib/rail-launch-draft'
 import { patchAgentMessageIntent, type AgentMessageIntent } from '../lib/agent-api'
@@ -116,6 +115,22 @@ function railLabel(t: (k: string, o?: Record<string, unknown>) => string, rail: 
   return rail.name ? `${base} · ${rail.name}` : base
 }
 
+function specRepositories(ticket: LocalTicket, repositories: ProjectRepository[]): string[] {
+  return ticket.repositoryIds ?? repositories.filter(repository => repository.isPrimary).map(repository => repository.id)
+}
+
+function requiredRepositories(tickets: LocalTicket[], ticketIds: number[], repositories: ProjectRepository[]): string[] {
+  return [...new Set(tickets.filter(ticket => ticketIds.includes(ticket.id)).flatMap(ticket => specRepositories(ticket, repositories)))]
+}
+
+function reconcileRepositories(selected: string[], previousRequired: string[], nextRequired: string[]): string[] {
+  return [...new Set([...selected.filter(id => !previousRequired.includes(id) || nextRequired.includes(id)), ...nextRequired])]
+}
+
+function selectedWorkspaces(selection: RailLaunchConfig['workspaceSelection'], repositoryIds: string[]): RailLaunchConfig['workspaceSelection'] {
+  return selection && Object.fromEntries(Object.entries(selection).filter(([id]) => repositoryIds.includes(id)))
+}
+
 interface Props {
   proposal: RailLaunchProposal
   proposalIndex: number
@@ -140,28 +155,51 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [profiles, setProfiles] = useState<ProfileListEntry[]>([])
   const [customLoops, setCustomLoops] = useState<LoopDefinition[]>([])
   const [repositories, setRepositories] = useState<ProjectRepository[]>([])
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null)
+  const [refreshVersion, setRefreshVersion] = useState(0)
+  const [loadedVersion, setLoadedVersion] = useState(-1)
   const [loadError, setLoadError] = useState(false)
+  const [busy, setBusy] = useState<'launch' | 'dismiss' | 'scope' | null>(null)
+  const [scopeEdit, setScopeEdit] = useState<{ ticketId: number; repositoryIds: string[] } | null>(null)
+  const [inlineError, setInlineError] = useState<{ error: string; detail?: string; action?: string } | null>(null)
+  const projectIdRef = useRef(projectId)
+  projectIdRef.current = projectId
 
   useEffect(() => {
     if (!projectId || intent) return
     let cancelled = false
-    const base = `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}`
+    setLoadError(false)
+    setScopeEdit(null)
+    setInlineError(null)
+    setBusy(null)
+    const base = repositoryApiBase(projectId)
     Promise.all([
       fetch(`${base}/rails`).then((r) => (r.ok ? (r.json() as Promise<RailsResponse>) : Promise.reject(new Error(String(r.status))))),
       fetch(`${base}/tickets`).then((r) => (r.ok ? (r.json() as Promise<{ tickets?: LocalTicket[] }>) : Promise.reject(new Error(String(r.status))))),
-    ]).then(([rails, tix]) => {
+      fetch(`${base}/repositories`).then((r) => (r.ok ? (r.json() as Promise<{ repositories?: ProjectRepository[] }>) : Promise.reject(new Error(String(r.status))))),
+    ]).then(([rails, tix, repos]) => {
       if (cancelled) return
+      if (!Array.isArray(repos.repositories) || !repos.repositories.some(repository => repository.isPrimary)) throw new Error('Missing project repositories')
+      const liveTickets = Array.isArray(tix?.tickets) ? tix.tickets : []
       setRailsData(rails && typeof rails === 'object' ? rails : {})
-      setTickets(Array.isArray(tix?.tickets) ? tix.tickets : [])
+      setTickets(liveTickets)
+      setRepositories(repos.repositories)
+      setLoadedProjectId(projectId)
+      setLoadedVersion(refreshVersion)
+      setConfig(current => {
+        const previousRequired = loadedProjectId === projectId ? requiredRepositories(tickets ?? [], current.ticketIds, repositories) : []
+        const selected = loadedProjectId === projectId ? current.repositoryIds ?? previousRequired : proposal.repositoryIds ?? []
+        const repositoryIds = reconcileRepositories(selected, previousRequired, requiredRepositories(liveTickets, current.ticketIds, repos.repositories!))
+        return { ...current, repositoryIds, workspaceSelection: selectedWorkspaces(current.workspaceSelection, repositoryIds) }
+      })
     }).catch(() => { if (!cancelled) setLoadError(true) })
     if (FEATURE_LOOPS_SECTION) {
       loopsApi.list()
         .then((ls) => { if (!cancelled) setCustomLoops(ls.filter((l) => l.status === 'published' && loopNeedsTicket(l.graph))) })
         .catch(() => { /* custom loops are optional */ })
     }
-    fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/repositories`).then(response => response.ok ? response.json() as Promise<{ repositories?: ProjectRepository[] }> : {} as { repositories?: ProjectRepository[] }).then(data => { if (!cancelled) setRepositories(Array.isArray(data.repositories) ? data.repositories : []) }).catch(() => {})
     return () => { cancelled = true }
-  }, [projectId, intent])
+  }, [projectId, intent, refreshVersion])
 
   // ── Editable config, seeded from the proposal ────────────────────────────────
   const [config, setConfig] = useState<RailLaunchConfig>(() => ({
@@ -215,7 +253,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   useEffect(() => {
     if (!projectId || intent || !catalogProvider || !profilesApply) { setProfiles([]); return }
     let cancelled = false
-    fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
+    fetch(`${repositoryApiBase(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles?: ProfileListEntry[] }>) : { profiles: [] }))
       .then((d) => {
         if (cancelled) return
@@ -254,6 +292,31 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     [config.ticketIds, ticketById, tickets],
   )
   const droppedTickets = tickets ? config.ticketIds.filter((id) => !ticketById.has(id)) : []
+  const requiredRepositoryIds = requiredRepositories(tickets ?? [], validTicketIds, repositories)
+  const launchRepositoryIds = config.repositoryIds ?? requiredRepositoryIds
+  const repositoryName = (id: string) => repositories.find(repository => repository.id === id)?.name ?? id
+  const missingRepositoryIds = requiredRepositoryIds.filter(id => !launchRepositoryIds.includes(id))
+  const invalidRepositoryIds = launchRepositoryIds.filter(id => {
+    const repository = repositories.find(member => member.id === id)
+    return !repository || repository.available === false || (repository.kind === 'folder' && !repository.isPrimary)
+  })
+  const loading = !!projectId && !loadError && (loadedProjectId !== projectId || loadedVersion !== refreshVersion || railsData === null || tickets === null)
+  const repositoryBlockReason = invalidRepositoryIds.length
+    ? t('railCard.repositories.unavailable', { names: invalidRepositoryIds.map(repositoryName).join(', ') })
+    : missingRepositoryIds.length
+      ? t('railCard.repositories.missing', { names: missingRepositoryIds.map(repositoryName).join(', ') })
+      : null
+  const changeRepositories = (repositoryIds: string[]) => {
+    patch({ repositoryIds, workspaceSelection: selectedWorkspaces(config.workspaceSelection, repositoryIds) })
+    setInlineError(null)
+  }
+  const changeTickets = (ticketIds: number[]) => {
+    const nextRequired = requiredRepositories(tickets ?? [], ticketIds, repositories)
+    const repositoryIds = reconcileRepositories(launchRepositoryIds, requiredRepositoryIds, nextRequired)
+    patch({ ticketIds, repositoryIds, workspaceSelection: selectedWorkspaces(config.workspaceSelection, repositoryIds) })
+    setScopeEdit(null)
+    setInlineError(null)
+  }
   // Spec addenda (spec-addenda): the open notes the launch will brief the run
   // with — surfaced here so the user sees the iteration delta before Play.
   const openAddendaEntries = useMemo(
@@ -278,19 +341,50 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const effectiveLoop = effectiveLoopId(loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId, mode, hasAddenda)
 
   // ── Play ─────────────────────────────────────────────────────────────────────
-  const [busy, setBusy] = useState<'launch' | 'dismiss' | null>(null)
-  const [inlineError, setInlineError] = useState<{ error: string; detail?: string; action?: string } | null>(null)
   const [localIntent, setLocalIntent] = useState<AgentMessageIntent | null>(null)
   const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   const decided = intent ?? localIntent
   const blockReason: string | null = !projectId
     ? t('railCard.block.noProject')
     : loadError ? t('railCard.block.loadFailed')
+    : loading ? t('railCard.status.loading')
+    : scopeEdit ? t('railCard.repositories.finishEditing')
     : validTicketIds.length === 0 ? t('railCard.block.noSpecs')
+    : repositoryBlockReason ? t('railCard.repositories.checkScope')
     : railSelectorValue === '' ? t('railCard.block.railLimit', { max: MAX_RAILS })
     : null
+
+  const saveScope = async () => {
+    if (!scopeEdit || !projectId || busy || loading) return
+    const saveProjectId = projectId
+    const edit = scopeEdit
+    setBusy('scope')
+    setInlineError(null)
+    try {
+      const response = await fetch(`${repositoryApiBase(saveProjectId)}/tickets/${edit.ticketId}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ repositoryIds: edit.repositoryIds }),
+      })
+      const data = await response.json() as { ticket?: LocalTicket; error?: string; detail?: string }
+      if (!response.ok) throw new Error(data.detail ?? data.error ?? `HTTP ${response.status}`)
+      if (data.ticket?.id !== edit.ticketId) throw new Error(t('railCard.errors.invalid_response'))
+      if (!mounted.current || projectIdRef.current !== saveProjectId) return
+      const nextTickets = (tickets ?? []).map(ticket => ticket.id === edit.ticketId ? data.ticket! : ticket)
+      const nextRequired = requiredRepositories(nextTickets, validTicketIds, repositories)
+      const repositoryIds = reconcileRepositories(launchRepositoryIds, requiredRepositoryIds, nextRequired)
+      setTickets(nextTickets)
+      patch({ repositoryIds, workspaceSelection: selectedWorkspaces(config.workspaceSelection, repositoryIds) })
+      setScopeEdit(null)
+    } catch (error) {
+      if (mounted.current && projectIdRef.current === saveProjectId) {
+        setInlineError({ error: 'scope_save_failed', detail: error instanceof Error ? error.message : undefined })
+      }
+    } finally {
+      if (mounted.current && projectIdRef.current === saveProjectId) setBusy(null)
+    }
+  }
 
   const finalize = useCallback(async (decision: Omit<AgentMessageIntent, 'at'>) => {
     const res = await patchAgentMessageIntent(conversationId, messageId, decision)
@@ -303,7 +397,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     if (!projectId || blockReason || busy) return
     setBusy('launch')
     setInlineError(null)
-    const base = `${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/rails`
+    const base = `${repositoryApiBase(projectId)}/rails`
     const json = { 'content-type': 'application/json' }
     const readError = async (r: Response) => {
       let body: Record<string, unknown> = {}
@@ -338,8 +432,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         loopId: effectiveLoop,
         originConversationId: conversationId,
         originSurface: 'agent-chat',
-        ...(config.repositoryIds ? { repositoryIds: config.repositoryIds } : {}),
-        ...(config.workspaceSelection ? { workspaceSelection: config.workspaceSelection } : {}),
+        repositoryIds: launchRepositoryIds,
+        ...(config.workspaceSelection ? { workspaceSelection: selectedWorkspaces(config.workspaceSelection, launchRepositoryIds) } : {}),
         ...(engineForRail ? { aiEngine: engineForRail } : {}),
         ...(!rolesEngine && effectiveModel ? { model: effectiveModel } : {}),
         ...(!rolesEngine && effectiveEffort ? { reasoning_effort: effectiveEffort } : {}),
@@ -367,7 +461,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     } finally {
       if (mounted.current) setBusy(null)
     }
-  }, [projectId, blockReason, busy, resolvedRailIndex, config, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize])
+  }, [projectId, blockReason, busy, resolvedRailIndex, config, launchRepositoryIds, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize])
 
   const dismiss = useCallback(async () => {
     if (busy) return
@@ -454,7 +548,6 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const modelOptions: AgentToolbarOption[] = models.map((m) => ({ value: m.value, label: m.label ?? m.value }))
   const effortOptions: AgentToolbarOption[] = [{ value: NO_EFFORT, label: t('railCard.effortDefault') }, ...efforts.map((e) => ({ value: e, label: t(`effort.${e}`, { defaultValue: e }) }))]
   const profileOptions: AgentToolbarOption[] = [{ value: NO_PROFILE, label: t('railCard.profileNone') }, ...profiles.map((p) => ({ value: p.name, label: p.name }))]
-  const loading = !!projectId && !loadError && (railsData === null || tickets === null)
   const statusPill = loading
     ? { tone: 'border-border/60 bg-surface/60 text-foreground/50', label: t('railCard.status.loading') }
     : blockReason
@@ -542,8 +635,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                   type="button"
                   data-agent-interactive
                   aria-label={t('railCard.fields.removeSpec', { id })}
-                  disabled={!!busy}
-                  onClick={() => patch({ ticketIds: config.ticketIds.filter((x) => x !== id) })}
+                  disabled={loading || !!busy}
+                  onClick={() => changeTickets(config.ticketIds.filter((x) => x !== id))}
                   className="rounded-full p-0.5 text-accent-primary/60 hover:bg-accent-primary/20 hover:text-accent-primary"
                 >
                   <X className="h-3 w-3" />
@@ -558,13 +651,53 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               value=""
               placeholder={t('railCard.fields.addSpec')}
               options={addableTickets.slice(0, 40).map((tk) => ({ value: String(tk.id), label: `#${tk.id} ${tk.title}` }))}
-              disabled={!!busy}
+              disabled={loading || !!busy}
               testId="rail-card-add-spec"
-              onSelect={(v) => patch({ ticketIds: [...config.ticketIds, Number(v)] })}
+              onSelect={(v) => changeTickets([...config.ticketIds, Number(v)])}
             />
           )}
         </div>
-        <RepositoryScopeSelector workspaceOnly repositories={repositories} value={config.repositoryIds ?? [...new Set((tickets ?? []).filter(ticket => config.ticketIds.includes(ticket.id)).flatMap(ticket => ticket.repositoryIds ?? repositories.filter(member => member.isPrimary).map(member => member.id)))]} onChange={() => {}} workspaceSelection={config.workspaceSelection} onWorkspaceChange={workspaceSelection => patch({ workspaceSelection })} disabled={!!busy} />
+        {!loading && !loadError && projectId && (
+          <div className="space-y-2.5 rounded-lg border border-border/50 bg-surface/30 p-2.5" data-testid="rail-card-repositories">
+            <RepositoryScopeSelector showSingle repositories={repositories} value={launchRepositoryIds} onChange={changeRepositories} disabled={!!busy || !!scopeEdit}
+              label={t('railCard.repositories.launch')} hint={t('railCard.repositories.launchHint')} />
+            <div className="space-y-1.5 border-t border-border/40 pt-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-foreground/55">{t('railCard.repositories.assignments')}</p>
+                <button type="button" data-agent-interactive disabled={!!busy || !!scopeEdit} className="inline-flex items-center gap-1 text-[11px] text-foreground/60 hover:text-accent-primary disabled:opacity-40" onClick={() => setRefreshVersion(version => version + 1)}>
+                  <RefreshCw className="h-3 w-3" />{t('railCard.repositories.refresh')}
+                </button>
+              </div>
+              {validTicketIds.map(id => {
+                const ticket = ticketById.get(id)!
+                const editing = scopeEdit?.ticketId === id
+                const validEdit = !!scopeEdit?.repositoryIds.length && scopeEdit.repositoryIds.every(repositoryId => repositories.some(repository => repository.id === repositoryId && repository.available !== false && (repository.kind === 'git' || repository.isPrimary)))
+                return <div key={id} className="space-y-2" data-testid={`rail-card-spec-scope-${id}`}>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="shrink-0 text-accent-primary" title={ticket.title}>#{id}</span>
+                    <span className="min-w-0 flex-1 break-words text-foreground/75">{specRepositories(ticket, repositories).map(repositoryName).join(' · ')}</span>
+                    <button type="button" data-agent-interactive aria-label={t('railCard.repositories.editSpec', { id })} disabled={!!busy || !!scopeEdit} className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-foreground/60 hover:bg-accent-primary/10 hover:text-accent-primary disabled:opacity-40"
+                      onClick={() => { setScopeEdit({ ticketId: id, repositoryIds: specRepositories(ticket, repositories) }); setInlineError(null) }}>
+                      <Pencil className="h-3 w-3" />{t('railCard.repositories.edit')}
+                    </button>
+                  </div>
+                  {editing && scopeEdit && <div className="space-y-2 rounded-md border border-accent-primary/25 p-2" data-testid="rail-card-scope-editor">
+                    <RepositoryScopeSelector showSingle repositories={repositories} value={scopeEdit.repositoryIds} onChange={repositoryIds => setScopeEdit({ ticketId: id, repositoryIds })} disabled={!!busy}
+                      label={t('railCard.repositories.spec', { id })} hint={t('railCard.repositories.saveHint')} />
+                    <div className="flex justify-end gap-2">
+                      <button type="button" data-agent-interactive disabled={!!busy} className="rounded px-2 py-1 text-xs text-foreground/65 hover:bg-surface" onClick={() => { setScopeEdit(null); setInlineError(null) }}>{t('railCard.repositories.cancel')}</button>
+                      <button type="button" data-agent-interactive disabled={!!busy || !validEdit} className="inline-flex items-center gap-1 rounded bg-accent-primary/15 px-2 py-1 text-xs text-accent-primary hover:bg-accent-primary/25 disabled:opacity-40" onClick={() => void saveScope()}>
+                        {busy === 'scope' && <Loader2 className="h-3 w-3 animate-spin" />}{t('railCard.repositories.save')}
+                      </button>
+                    </div>
+                  </div>}
+                </div>
+              })}
+            </div>
+            <RepositoryScopeSelector workspaceOnly repositories={repositories} value={launchRepositoryIds} onChange={() => {}} workspaceSelection={config.workspaceSelection} onWorkspaceChange={workspaceSelection => patch({ workspaceSelection })} disabled={!!busy || !!scopeEdit} />
+            {repositoryBlockReason && <p role="alert" className="text-xs text-accent-warning">{repositoryBlockReason}</p>}
+          </div>
+        )}
         {droppedTickets.length > 0 && <Note tone="muted" text={t('railCard.notes.specsDropped', { ids: droppedTickets.map((id) => `#${id}`).join(', ') })} />}
         {openAddendaTotal > 0 && (
           <div data-testid="rail-card-addenda" className="flex items-start gap-1.5 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-1.5 text-[11px] text-foreground/75">
@@ -676,8 +809,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         )}
 
         {/* Actions */}
+        {loadError && projectId && <button type="button" data-agent-interactive disabled={!!busy} className="inline-flex items-center gap-1 text-xs text-accent-primary" onClick={() => setRefreshVersion(version => version + 1)}>
+          <RefreshCw className="h-3 w-3" />{t('railCard.repositories.retry')}
+        </button>}
         <div className="flex items-center justify-between gap-2 pt-0.5">
-          <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/45">
+          <span className="min-w-0 flex-1 text-[11px] text-foreground/45">
             {blockReason ?? t('railCard.playHint')}
           </span>
           <button

@@ -593,3 +593,94 @@ describe('listWorktrees', () => {
     expect(await listWorktrees(git, '/repo')).toEqual(['/wt/ticket-1', '/wt/ticket-2'])
   })
 })
+
+describe('fresh launch and delivery artifact isolation with real Git', () => {
+  const repository = async (verify: (dir: string, git: (args: string[], cwd?: string) => string) => Promise<void>) => {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sr-delivery-isolation-')))
+    const git = (args: string[], cwd = dir) => execFileSync('git', args, { cwd, encoding: 'utf8' })
+    try {
+      git(['init', '-q', '-b', 'main'])
+      git(['config', 'user.email', 'test@example.test'])
+      git(['config', 'user.name', 'Specrails Test'])
+      fs.writeFileSync(path.join(dir, 'app.ts'), 'base\n')
+      git(['add', '.']); git(['commit', '-q', '-m', 'base'])
+      await verify(dir, git)
+    } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+  }
+
+  it('isolates a new run while preserving dirty prior work and exact continuation/resume', async () => {
+    await repository(async (dir, git) => {
+      const input = { repoDir: dir, slug: 'p', ticketId: 180, baseRef: 'main', branch: 'fix/180', worktreesRoot: path.join(dir, 'mounts', 'first') }
+      const first = await createWorktree(defaultGitRunner, { ...input, fresh: true })
+      fs.writeFileSync(path.join(first.worktreePath, 'app.ts'), 'unfinished\n')
+      const stray = path.join(first.worktreePath, 'openspec/changes/stray')
+      fs.mkdirSync(stray, { recursive: true }); fs.writeFileSync(path.join(stray, 'tasks.md'), '- [ ] old work\n')
+      const second = await createWorktree(defaultGitRunner, { ...input, worktreesRoot: path.join(dir, 'mounts', 'second'), branch: 'fix/180-2', fresh: true })
+      expect(second.worktreePath).not.toBe(first.worktreePath)
+      expect(git(['status', '--porcelain'], second.worktreePath)).toBe('')
+      expect(fs.readFileSync(path.join(second.worktreePath, 'app.ts'), 'utf8')).toBe('base\n')
+      expect(fs.existsSync(path.join(second.worktreePath, 'openspec'))).toBe(false)
+      const resumed = await createWorktree(defaultGitRunner, input)
+      expect(resumed).toMatchObject({ worktreePath: first.worktreePath, worktreeCreated: false })
+      const continued = await createWorktree(defaultGitRunner, { ...input, worktreesRoot: path.join(dir, 'mounts', 'third'), reuseBranchWorktree: true })
+      expect(continued.worktreePath).toBe(first.worktreePath)
+      expect(fs.readFileSync(path.join(stray, 'tasks.md'), 'utf8')).toContain('old work')
+      expect(fs.readFileSync(path.join(first.worktreePath, 'app.ts'), 'utf8')).toBe('unfinished\n')
+      await expect(createWorktree(defaultGitRunner, { ...input, fresh: true })).rejects.toThrow('cannot reuse existing worktree')
+      await expect(createWorktree(defaultGitRunner, { ...input, worktreesRoot: path.join(dir, 'mounts', 'fourth'), fresh: true })).rejects.toThrow('cannot reuse existing branch')
+    })
+  })
+
+  it('blocks a foreign active change without staging, then admits base changes and an archive', async () => {
+    await repository(async (dir, git) => {
+      const old = path.join(dir, 'openspec/changes/base-change')
+      fs.mkdirSync(old, { recursive: true }); fs.writeFileSync(path.join(old, 'tasks.md'), '- [ ] base\n')
+      git(['add', '.']); git(['commit', '-q', '-m', 'existing planning'])
+      const baseline = git(['rev-parse', 'HEAD']).trim()
+      const stray = path.join(dir, 'openspec/changes/foreign-change')
+      fs.mkdirSync(stray); fs.writeFileSync(path.join(stray, 'tasks.md'), '- [ ] unrelated\n')
+      fs.writeFileSync(path.join(dir, 'app.ts'), 'updated\n')
+      const blocked = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [], baseline)
+      expect(blocked).toMatchObject({ staged: false, committed: false, clean: false })
+      expect(blocked.error).toContain('openspec/changes/foreign-change')
+      expect(git(['diff', '--cached', '--name-only'])).toBe('')
+      expect(git(['rev-parse', 'HEAD']).trim()).toBe(baseline)
+      const archive = path.join(dir, 'openspec/changes/archive/2026-10-02-foreign-change')
+      fs.mkdirSync(path.dirname(archive)); fs.renameSync(stray, archive)
+      fs.writeFileSync(path.join(old, 'tasks.md'), '- [x] base\n')
+      expect(await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [], baseline)).toMatchObject({ committed: true, clean: true })
+    })
+  })
+
+  it('checks a missing OpenSpec subtree, invalid baselines and agent-committed active residue', async () => {
+    await repository(async (dir, git) => {
+      const baseline = git(['rev-parse', 'HEAD']).trim()
+      const stray = path.join(dir, 'openspec/changes/own-unarchived')
+      fs.mkdirSync(stray, { recursive: true }); fs.writeFileSync(path.join(stray, 'tasks.md'), '- [x] done\n')
+      git(['add', '.']); git(['commit', '-q', '-m', 'agent commit'])
+      expect((await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [], baseline)).error).toContain('own-unarchived')
+      expect((await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [], 'invalid-ref')).error).toContain('Committed delivery audit')
+      expect(fs.existsSync(stray)).toBe(true)
+    })
+  })
+
+  it('blocks unknown external links and commits only code when overlay exclusions prove ownership', async () => {
+    await repository(async (dir, git) => {
+      fs.mkdirSync(path.join(dir, '.codex/skills'), { recursive: true })
+      const link = '.codex/skills/implement'
+      fs.symlinkSync('/outside/workspace/.codex/skills/implement', path.join(dir, link))
+      fs.writeFileSync(path.join(dir, 'app.ts'), 'updated\n')
+      const initial = git(['rev-parse', 'HEAD']).trim()
+      expect((await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery')).error).toContain('External absolute symlinks')
+      expect(git(['rev-parse', 'HEAD']).trim()).toBe(initial)
+      expect(fs.readlinkSync(path.join(dir, link))).toContain('/outside/')
+      expect(await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [link])).toMatchObject({ committed: true, clean: true })
+      expect(git(['show', '--format=', '--name-only', 'HEAD']).trim()).toBe('app.ts')
+      const clean = git(['rev-parse', 'HEAD']).trim()
+      git(['add', '--', link]); git(['commit', '-q', '-m', 'agent commits its overlay'])
+      const result = await commitWorktreeAndVerify(defaultGitRunner, dir, 'delivery', [link], clean)
+      expect(result).toMatchObject({ staged: false, committed: false, clean: false })
+      expect(result.error).toContain('already committed on the delivery branch')
+    })
+  })
+})

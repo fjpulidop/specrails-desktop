@@ -86,8 +86,12 @@ export function buildRevisionSeed(input: RevisionSeedInput): string {
   return [
     '## Revision briefing',
     '',
-    `This is revision ${input.revisionNumber} of work that has ALREADY been delivered for the spec(s) below.`,
-    'The code exists on the branch listed here. Do NOT start over, re-plan, or re-implement it.',
+    input.branches.length > 0
+      ? `This is revision ${input.revisionNumber} of recorded branch work for the spec(s) below.`
+      : `This is attempt ${input.revisionNumber} for the spec(s) below; no delivered branch was recorded.`,
+    input.branches.length > 0
+      ? 'Inspect the recorded branch first. Preserve its existing implementation and apply the requested changes.'
+      : 'Implement the full spec together with the requested changes; do not assume prior implementation exists.',
     '',
     '## What the user asked to change',
     '',

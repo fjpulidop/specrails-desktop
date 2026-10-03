@@ -38,7 +38,7 @@ export function createUsageService(deps: UsageDependencies) {
       if (result.identity) identities.set(id, result.identity)
       const available = result.availability === 'available'
       if (!available) clear(id)
-      rows.set(id, { ...rows.get(id)!, availability: result.availability, plan: result.plan, source: result.source, windows: available ? result.windows : [],
+      rows.set(id, { ...rows.get(id)!, availability: result.availability, plan: result.plan, source: result.source, windows: available ? result.windows : [], spend: available ? result.spend ?? null : null,
         // Identity is internal: explicitly select fields instead of returning adapter metadata.
         providerId: id, installed: true, refreshState: 'idle', freshness: available ? 'fresh' : 'unknown',
         observedAt: available ? new Date(now()).toISOString() : null, retryAt: new Date(now() + 30_000).toISOString(),

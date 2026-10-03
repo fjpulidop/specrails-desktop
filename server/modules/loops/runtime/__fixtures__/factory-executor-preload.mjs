@@ -51,7 +51,8 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         return { text: 'VERIFICATION: PASS', usage }
       }
       const tools = new OpenSpecTools(request.openspec), change = request.openspec.change
-      await tools.execute({ action: 'load_skill' })
+      const omitReviewWorkflow = ['reviewer', 'assess'].includes(request.role) && process.env.SPECRAILS_FACTORY_OMIT_REVIEW_WORKFLOW === '1'
+      if (!omitReviewWorkflow) await tools.execute({ action: 'load_skill' })
       if (['architect', 'plan'].includes(request.role)) {
         await tools.execute({ action: 'new' })
         for (const [file, content] of Object.entries(artifacts('feature-' + change.slice(-6)))) {
@@ -63,9 +64,16 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         const low = process.env.SPECRAILS_FACTORY_CONFIDENCE === '1' && calls.filter(call => call.role === 'plan').length <= 2
         return { text: request.role === 'plan' ? JSON.stringify({ confidence: low ? 'low' : 'high', question: low ? 'Confirm the requested value?' : '', verification: [] }) : '{"confidence":"high"}', usage }
       }
-      await tools.execute({ action: 'instructions', artifact: 'apply' })
+      if (!omitReviewWorkflow) await tools.execute({ action: 'instructions', artifact: 'apply' })
       if (['developer', 'build', 'correct'].includes(request.role)) {
-        fs.writeFileSync(path.join(request.cwd, 'code.cjs'), request.role === 'build' && process.env.SPECRAILS_FACTORY_CORRECT === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
+        if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_NOOP === '1') return { text: JSON.stringify({ summary: 'Queue-modal test is outside the approved scope; no edits were made.', incomplete: [] }), usage }
+        if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_REGEX === '1') {
+          const file = path.join(request.cwd, 'guard.test.cjs')
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('&& !confirmPending/', '&&\\s*!confirmPending/'))
+        }
+        const calls = fs.readFileSync(process.env.SPECRAILS_FACTORY_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+        const breakReviewCorrection = request.role === 'correct' && process.env.SPECRAILS_FACTORY_STALE_REVIEW === '1' && calls.filter(call => call.role === 'correct').length === 1
+        fs.writeFileSync(path.join(request.cwd, 'code.cjs'), (request.role === 'build' && process.env.SPECRAILS_FACTORY_CORRECT === '1') || breakReviewCorrection ? 'module.exports = 3\n' : 'module.exports = 2\n')
         const file = path.join(request.openspec.root, 'openspec/changes', change, 'tasks.md')
         fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('- [ ]', '- [x]'))
         return { text: request.role === 'developer' ? 'Implemented the required value.' : '{"summary":"Implemented the required value.","incomplete":[]}', usage }
@@ -74,6 +82,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         const ids = JSON.parse(process.env.SPECRAILS_FACTORY_ADDENDA ?? '[]')
         const calls = fs.readFileSync(process.env.SPECRAILS_FACTORY_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line))
         const verdict = calls.filter(call => call.role === 'assess').length === 1 ? 'partial' : 'applied'
+        if (ids.length && calls.filter(call => call.role === 'assess').length > 1 && !calls.find(call => call.role === 'correct')?.prompt.includes('"verdict":"partial"')) throw Error('The correction prompt omitted the actual reviewer finding')
         const addenda = Object.fromEntries(ids.map((id, index) => [`a${index}`, { id, verdict, files: ['code.cjs'], tests: ['Node verifies value equals 2'] }]))
         return { text: JSON.stringify({ approved: true, summary: 'Read actual code and verification evidence', issues: [], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 }, ...(ids.length ? { addenda } : {}) }), usage }
       }

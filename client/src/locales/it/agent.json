@@ -627,7 +627,7 @@
     },
     "block": {
       "noProject": "Questa missione non è fissata a nessun progetto.",
-      "loadFailed": "Impossibile caricare i rail del progetto.",
+      "loadFailed": "Impossibile caricare i rail, le spec o i repository del progetto.",
       "noSpecs": "Aggiungi almeno una spec per lanciare.",
       "railLimit": "Tutti i {{max}} rail esistono già e nessuno è libero."
     },
@@ -638,7 +638,9 @@
       "invalid_base_branch": "Quel branch di base non esiste in locale.",
       "base_branch_requires_isolation": "Un branch di base richiede l’isolamento tramite worktree (un repository git con commit).",
       "target_pr_requires_pr_mode": "Una PR di destinazione richiede l’isolamento tramite worktree (un repository git con commit).",
-      "invalid_response": "Risposta inattesa dal server."
+      "invalid_response": "Risposta inattesa dal server.",
+      "scope_save_failed": "Impossibile salvare i repository della spec.",
+      "repository_scope_incomplete": "Manca un repository richiesto dalle spec per l’avvio. Controlla le assegnazioni sopra."
     },
     "stub": {
       "launched": "Lanciato → Rail {{rail}}",
@@ -661,6 +663,23 @@
     "addenda": {
       "rides_one": "{{count}} addendum aperto viaggia con questo lancio:",
       "rides_other": "{{count}} addenda aperti viaggiano con questo lancio:"
+    },
+    "repositories": {
+      "launch": "Repository per questo avvio",
+      "launchHint": "Include i repository richiesti dalle spec. Puoi aggiungere altri repository del progetto.",
+      "assignments": "Assegnati a ogni spec",
+      "edit": "Modifica",
+      "editSpec": "Modifica i repository di #{{id}}",
+      "spec": "Repository della spec #{{id}}",
+      "saveHint": "Il salvataggio aggiorna le assegnazioni dei repository di questa spec anche per gli avvii futuri.",
+      "save": "Salva repository",
+      "cancel": "Annulla",
+      "finishEditing": "Salva o annulla la modifica dei repository prima di avviare.",
+      "missing": "Mancano repository necessari: {{names}}. Includili sopra o modifica le assegnazioni della spec se i suoi obiettivi sono cambiati.",
+      "unavailable": "I repository selezionati non sono disponibili per l’implementazione: {{names}}. Aggiorna la selezione o le assegnazioni delle spec.",
+      "refresh": "Aggiorna",
+      "retry": "Riprova il caricamento",
+      "checkScope": "Controlla la selezione dei repository prima di avviare."
     }
   },
   "runCard": {

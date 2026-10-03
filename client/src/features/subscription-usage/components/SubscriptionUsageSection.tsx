@@ -5,6 +5,7 @@ import { Activity, ChevronRight, RefreshCw, TerminalSquare } from 'lucide-react'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
 import { isStale, usageIssue, usageLabel, useUsageClock } from './SubscriptionUsagePanel'
 import { cn } from '../../../lib/utils'
+import { EnterpriseSpendMeter } from './EnterpriseSpendMeter'
 export function SubscriptionUsageSection({ expanded, menu = false }: { expanded: boolean; menu?: boolean }) {
   const { t, i18n } = useTranslation('subscriptionUsage')
   const { snapshot, busy, error, refresh } = useSubscriptionUsage()
@@ -33,7 +34,7 @@ export function SubscriptionUsageSection({ expanded, menu = false }: { expanded:
   const empty = snapshot?.providers.every(p => p.installed === false)
   const refreshing = busy || snapshot?.providers.some(p => p.refreshState === 'refreshing')
   const cooling = snapshot?.providers.every(p => p.retryAt && Date.parse(p.retryAt) > now)
-  const warning = snapshot?.providers.some(p => !isStale(p, now) && p.windows.some(w => w.usedPercent !== null && w.usedPercent >= 90))
+  const warning = snapshot?.providers.some(p => !isStale(p, now) && ((p.spend?.usedPercent ?? 0) >= 90 || p.windows.some(w => w.usedPercent !== null && w.usedPercent >= 90)))
   return <div className={cn('shrink-0 px-1.5 py-2', !menu && 'border-t border-border', expanded && 'space-y-1.5')} data-testid="subscription-usage-section">
     {expanded ? <>
       {!menu && <div className="flex items-center justify-end px-2">{!menu && <button type="button" aria-hidden={menu} tabIndex={menu ? -1 : 0} disabled={menu} aria-expanded={open} aria-controls={contentId} onClick={() => { setOpen(!open); if (!open) void refresh() }} className="flex min-h-8 flex-1 items-center gap-1.5 rounded-md text-left text-xs font-normal text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-ring"><ChevronRight aria-hidden="true" className={cn('h-3 w-3 motion-safe:transition-transform', open && 'rotate-90', menu && 'hidden')} />{t('shortTitle')}</button>}
@@ -43,9 +44,9 @@ export function SubscriptionUsageSection({ expanded, menu = false }: { expanded:
       {!snapshot ? <p className="px-2 text-[11px] text-muted-foreground">{t(error ? 'loadFailed' : 'loading')}</p> : empty ? <div className="p-3 text-[11px] text-muted-foreground"><TerminalSquare className="mb-2 h-4 w-4" /><p>{t('empty')}</p></div> : <div className={cn(!menu && 'max-h-[36vh]', 'divide-y divide-border/40 overflow-y-auto')}>{snapshot.providers.map(provider => {
         const stale = isStale(provider, now)
         return <article key={provider.providerId} aria-label={provider.providerId === 'claude' ? 'Claude' : 'Codex'} className="w-full px-3 py-4 text-left">
-          <span className="flex items-center gap-2 text-xs font-semibold"><span className="shrink-0 text-white"><UsageProviderIcon provider={provider.providerId} className="h-4 w-4" /></span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}{stale && <span className="ml-auto text-[10px] font-normal text-muted-foreground">{t('stale')}</span>}</span>
+          <span className="flex items-center gap-2 text-xs font-semibold"><span className="shrink-0 text-white"><UsageProviderIcon provider={provider.providerId} className="h-4 w-4" /></span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}{provider.spend && <span className="text-[10px] font-normal text-muted-foreground">{t('spend.enterprise')}</span>}{stale && <span className="ml-auto text-[10px] font-normal text-muted-foreground">{t('stale')}</span>}</span>
           {provider.observedAt && <p className="mt-1 text-[10px] text-muted-foreground" title={absolute(provider.observedAt)}>{t('updated', { time: updated(provider.observedAt) })}</p>}
-          <div className="mt-2.5 space-y-2.5">{provider.windows.length ? provider.windows.map(w => <div key={w.id} className="space-y-1.5">
+          <div className="mt-2.5 space-y-2.5">{provider.spend ? <EnterpriseSpendMeter spend={provider.spend} stale={stale} now={now} compact /> : provider.windows.length ? provider.windows.map(w => <div key={w.id} className="space-y-1.5">
             <div className="flex justify-between gap-2 text-[10px]"><span className="truncate text-muted-foreground">{usageLabel(w, t)}</span><span className="shrink-0 font-medium tabular-nums">{w.usedPercent === null ? '—' : `${w.usedPercent}%`}</span></div>
             {w.usedPercent !== null && <div role="progressbar" aria-label={`${provider.providerId} ${usageLabel(w, t)}`} aria-valuenow={w.usedPercent} aria-valuemin={0} aria-valuemax={100} className="h-1 overflow-hidden rounded-full bg-muted"><div className={cn('h-full rounded-full', stale ? 'bg-muted-foreground/50' : w.usedPercent >= 90 ? 'bg-destructive' : w.usedPercent >= 80 ? 'bg-accent-warning' : 'bg-accent-primary')} style={{ width: `${w.usedPercent}%` }} /></div>}
             <p className="text-[10px] tabular-nums text-muted-foreground" title={w.resetsAt ? absolute(w.resetsAt) : undefined}>{w.resetsAt ? Date.parse(w.resetsAt) <= now ? t('resetPassed') : t('resetsIn', { time: duration(w.resetsAt) }) : t('resetUnknown')}</p>

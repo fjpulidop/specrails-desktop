@@ -98,6 +98,7 @@
         "./agent-runtime-package",
         "./agent-runtime-repositories",
         "./agent-runtime-settings",
+        "./agent-runtime-verification-suggestions",
         "node:child_process",
         "node:crypto",
         "node:fs",
@@ -1102,6 +1103,12 @@
         "../../specs/runtime/ticket-store",
         "./rail-pr-store"
       ],
+      "runtime/rail-relaunch.ts": [
+        "../../../project-registry",
+        "../../loops/runtime/loop-runs-store",
+        "./rail-pr-store",
+        "./rails-store"
+      ],
       "runtime/rail-worktree-release.ts": [
         "../../../db",
         "../../../repo-lock",
@@ -1168,6 +1175,7 @@
         "./rail-isolation",
         "./rail-pr-decision",
         "./rail-pr-store",
+        "./rail-relaunch",
         "./rail-worktree-release",
         "./rails-store",
         "./review-packet",

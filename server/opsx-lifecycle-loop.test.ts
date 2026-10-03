@@ -339,17 +339,19 @@ describe('opsx-lifecycle run (engine integration)', () => {
     expect(runShell.mock.calls[2][0].command).toBe('openspec archive from-spec -y')
   })
 
-  it.each([
+  it.each(['todo', 'on_review'].flatMap(status => [
     ['missing', 'VERIFICATION: PASS', 'failed'],
     ['partial', '- [a1] partial — files: ui.ts — tests: ui.test.ts\nVERIFICATION: PASS', 'failed'],
     ['no evidence', '- [a1] applied\nVERIFICATION: PASS', 'failed'],
     ['complete', '- [a1] applied — files: ui.ts — tests: ui.test.ts\nVERIFICATION: PASS', 'success'],
-  ])('addendum scope has its own target and rejects %s coverage before archive', async (_label, output, outcome) => {
-    const req = { ...baseReq(), runId: 'delta-run', spec: { ...baseReq().spec, openspecChangeName: 'old-completed-feature' }, addenda: { ids: ['a1'], briefing: 'Add module fields only; preserve pair selection.' } }
+  ].map(([label, output, outcome]) => [status, label, output, outcome])))('addenda on %s work reject %s coverage before archive', async (status, _label, output, outcome) => {
+    const req = { ...baseReq(), runId: 'delta-run', spec: { ...baseReq().spec, status, openspecChangeName: 'original-feature' }, addenda: { ids: ['a1'], briefing: 'Add module fields only; preserve pair selection.' } }
     const target = seedChangeId(req)!
-    expect(target.source).toBe('addenda')
+    expect(target.source).toBe(status === 'on_review' ? 'addenda' : 'spec')
+    if (status === 'todo') expect(target.id).toBe('original-feature')
+    else expect(target.id).toMatch(/^original-feature-addenda-/)
     expect(seedChangeId(req)).toEqual(target)
-    expect(seedChangeId({ ...req, runId: 'retry' })?.id).not.toBe(target.id)
+    expect(seedChangeId({ ...req, runId: 'retry' })).toEqual(target)
     const runAiStep = vi.fn(async () => ({ text: output }))
     const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0 }))
     const res = await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(req)
@@ -357,7 +359,7 @@ describe('opsx-lifecycle run (engine integration)', () => {
     for (const [call] of runAiStep.mock.calls as unknown as [{ prompt: string }][]) {
       expect(call.prompt).toContain(target.id)
       expect(call.prompt).toContain(req.addenda.briefing)
-      expect(call.prompt).toContain('Create it if missing')
+      if (status === 'on_review') expect(call.prompt).toContain('Create it if missing')
     }
     if (outcome === 'failed') expect(runShell).toHaveBeenCalledTimes(1)
     else expect(runShell.mock.calls.map((c) => (c as unknown as [{ command: string }])[0].command)).toEqual([

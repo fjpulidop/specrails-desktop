@@ -475,6 +475,7 @@ export function ArcSidebar({
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
   // Per-project settings modal (Agent Mode hover gear on a project folder).
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false)
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -556,10 +557,9 @@ export function ArcSidebar({
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])
 
   const navItems = [
-    { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
-    { label: t('arcSidebar.analytics'), icon: BarChart2, action: onOpenAnalytics },
     ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),
-    { label: t('arcSidebar.settings'), icon: Settings, action: onOpenSettings },
+    { label: t('arcSidebar.analytics'), icon: BarChart2, action: onOpenAnalytics },
+    { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
   ]
 
   async function handleRemove(project: DesktopProject) {
@@ -873,25 +873,57 @@ export function ArcSidebar({
       </div>
 
 
-      {/* Desktop nav items */}
-      <div className={cn('border-t border-border py-2 px-1.5 flex', expanded ? 'flex-row items-stretch justify-between gap-1' : 'flex-col items-center gap-0.5')}>
-        {navItems.map(({ label, icon: Icon, action }) => (
+      {/* Desktop tools disclosure */}
+      <div className="border-t border-border py-2 px-1.5">
+        <div className="flex items-center rounded-md text-muted-foreground">
           <button
-            key={label}
             type="button"
-            onClick={action}
+            onClick={onOpenSettings}
+            aria-label={t('arcSidebar.settings')}
+            title={t('arcSidebar.settings')}
             className={cn(
-              'flex items-center rounded-md transition-colors focus-visible:outline focus-visible:outline-ring',
-              expanded ? 'min-w-0 flex-1 flex-col justify-start gap-1.5 self-stretch px-1 py-2' : 'w-8 h-8 justify-center',
-              'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              'flex items-center gap-2 flex-1 min-w-0 h-8 rounded-md hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
+              expanded ? 'px-2' : 'justify-center',
             )}
-            aria-label={label}
-            title={label}
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {expanded && <span className="w-full text-center text-[10px] font-normal leading-tight break-words">{label}</span>}
+            <Settings className="w-4 h-4 flex-shrink-0" />
+            {expanded && <span className="text-left text-xs">{t('arcSidebar.settings')}</span>}
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => setSettingsExpanded((open) => !open)}
+            aria-label={t(settingsExpanded ? 'common:actions.collapse' : 'common:actions.expand')}
+            aria-expanded={settingsExpanded}
+            aria-controls="sidebar-desktop-tools"
+            title={t(settingsExpanded ? 'common:actions.collapse' : 'common:actions.expand')}
+            className={cn(
+              'flex items-center justify-center h-8 shrink-0 rounded-md hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
+              expanded ? 'w-8' : 'w-3.5',
+            )}
+          >
+            <ChevronRight className={cn('w-3 h-3 transition-transform', settingsExpanded && 'rotate-90')} />
+          </button>
+        </div>
+        {settingsExpanded && (
+          <div id="sidebar-desktop-tools" role="group" aria-label={t('arcSidebar.settings')} className="flex flex-col gap-0.5 mt-1">
+            {navItems.map(({ label, icon: Icon, action }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={action}
+                className={cn(
+                  'flex items-center gap-2 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-ring',
+                  expanded ? 'pl-5 pr-2' : 'w-8 justify-center self-center',
+                )}
+                aria-label={label}
+                title={label}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {expanded && <span className="text-xs">{label}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {projectSettingsOpen && (

@@ -276,6 +276,8 @@ export interface LoopExecutors {
 }
 
 export interface LoopRunRequest {
+  /** Admitted rail options for a fresh retry; excludes execution paths/ids. */
+  launchConfig?: Record<string, unknown>
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Loop Decider engine (roles launch, hybrid-role-engines); absent ⇒ the rail's provider/model/effort. */
   deciderEngine?: { provider: string; model: string; effort?: ReasoningEffort }
@@ -529,28 +531,36 @@ export function resolveRunVars(text: string, vars: Record<string, string>): stri
   return text.replace(RUN_TOKEN_RE, (_m, key: string) => vars[key] ?? '')
 }
 
-const CHANGE_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,99}$/i
+const CHANGE_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /** The authoritative OpenSpec target for a launch.
- *  Addenda/delivery deltas get a run-specific name; ordinary launches use the
+ *  Addenda/delivery deltas use durable content/lineage identity; ordinary launches use the
  *  follow-up's declared name, else the spec's `openspecChangeName`. */
-export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec' | 'addenda' | 'runId' | 'constants'>): { id: string; source: 'addenda' | 'revision' | 'followUp' | 'spec' } | undefined {
-  if (req.addenda?.ids.length) {
-    // A new generation never picks an old/archived proposal, even when the
-    // ticket metadata still names it. Resuming the same run keeps its target.
-    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.addenda.ids, req.addenda.briefing])).digest('hex').slice(0, 20)
-    return { id: `spec-addenda-${hash}`, source: 'addenda' }
-  }
-  if (req.constants?.REVISION_REQUEST) {
-    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.constants.REVISION_REQUEST])).digest('hex').slice(0, 20)
-    return { id: `delivery-change-${hash}`, source: 'revision' }
-  }
+export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec' | 'addenda' | 'runId' | 'constants' | 'cwd' | 'ticketId'>): { id: string; source: 'addenda' | 'revision' | 'followUp' | 'spec' } | undefined {
+  const valid = (value: string) => value.length <= 64 && CHANGE_NAME_RE.test(value)
   const fromFollowUp = typeof req.followUp?.openspecChangeName === 'string' ? req.followUp.openspecChangeName.trim() : ''
-  if (fromFollowUp && CHANGE_NAME_RE.test(fromFollowUp)) return { id: fromFollowUp, source: 'followUp' }
   const direct = typeof req.spec?.openspecChangeName === 'string' ? req.spec.openspecChangeName.trim() : ''
   const fromMetadata = typeof req.spec?.metadata?.openspecChangeName === 'string' ? req.spec.metadata.openspecChangeName.trim() : ''
-  const fromSpec = direct || fromMetadata
-  if (fromSpec && CHANGE_NAME_RE.test(fromSpec)) return { id: fromSpec, source: 'spec' }
+  const declared = valid(fromFollowUp) ? fromFollowUp : valid(direct || fromMetadata) ? direct || fromMetadata : ''
+  const source = declared === fromFollowUp ? 'followUp' as const : 'spec' as const
+  if (req.addenda?.ids.length || req.constants?.REVISION_REQUEST) {
+    const state = declared ? openspecChangeState(req.cwd, declared) : 'missing'
+    // A pending implementation's addenda refine the same change. Only work
+    // already delivered/archived needs a separate delta proposal.
+    if (declared && (state === 'active' || (state === 'missing' && !req.constants?.REVISION_REQUEST && req.spec?.status !== 'on_review'))) return { id: declared, source }
+    const hash = createHash('sha256').update(JSON.stringify([
+      req.constants?.REVISION_OF_DELIVERY_ID ?? null,
+      req.constants?.REVISION_NUMBER ?? null,
+      req.constants?.REVISION_REQUEST ?? null,
+      req.addenda ? [...req.addenda.ids].sort() : [], req.addenda?.briefing ?? null,
+    ])).digest('hex').slice(0, 12)
+    const revisionNumber = req.constants?.REVISION_NUMBER
+    const kind = req.addenda?.ids.length ? 'addenda' : 'revision'
+    const suffix = req.constants?.REVISION_REQUEST ? `rev${revisionNumber && /^[1-9]\d{0,3}$/.test(revisionNumber) ? revisionNumber : '1'}-${hash}` : `addenda-${hash}`
+    const stem = declared || (req.ticketId && req.ticketId > 0 ? `ticket-${req.ticketId}` : 'spec')
+    return { id: `${stem.slice(0, 63 - suffix.length).replace(/-+$/, '')}-${suffix}`, source: kind }
+  }
+  if (declared) return { id: declared, source }
   return undefined
 }
 
@@ -1266,6 +1276,7 @@ export class LoopRunManager {
         startedAt: launchStartedAt,
       })
       if (definitionEngine) saveDefinitionRun(this.db,runId,{request:req,source:'definition'})
+      if (req.launchConfig) this.db.prepare('UPDATE loop_runs SET launch_config_json = ? WHERE id = ?').run(JSON.stringify(req.launchConfig), runId)
       if (req.executionManifest) this.db.prepare('UPDATE loop_runs SET execution_manifest = ? WHERE id = ?').run(JSON.stringify(req.executionManifest), runId)
       createJob(this.db, {
         id: runId,

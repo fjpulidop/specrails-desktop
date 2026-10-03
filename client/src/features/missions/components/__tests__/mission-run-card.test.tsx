@@ -99,11 +99,35 @@ describe('run-only card (shared-cwd launch)', () => {
     global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'tickets_in_flight', detail: 'busy', action: 'wait' }), { status: 409, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
     await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
-    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/rails\/1\/launch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ originConversationId: 'c1', originSurface: 'agent-chat' }) }))
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/rails\/1\/relaunch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceId: 'run:r1', originConversationId: 'c1', originSurface: 'agent-chat' }) }))
     expect(toast.error).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ description: 'busy — wait' }))
+    expect(screen.getByTestId('mission-run-relaunch-error')).toHaveTextContent('busy — wait')
     ;(global.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => new Response('{}', { status: 202 }))
     await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
     expect(toast.success).toHaveBeenCalled()
+    expect(screen.queryByTestId('mission-run-relaunch-error')).toBeNull()
+    expect(screen.getByTestId('mission-run-relaunch')).toBeDisabled()
+  })
+
+  it('submits only once for synchronous repeat clicks and stays disabled after acceptance', async () => {
+    let resolve!: (value: Response) => void
+    global.fetch = vi.fn(() => new Promise<Response>(done => { resolve = done })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
+    const button = screen.getByTestId('mission-run-relaunch')
+    act(() => { fireEvent.click(button); fireEvent.click(button) })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(button).toBeDisabled()
+    await act(async () => { resolve(new Response('{}', { status: 202 })) })
+    fireEvent.click(button)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(button).toBeDisabled()
+  })
+
+  it('sends the isolated delivery id and pins requests to the card project', async () => {
+    global.fetch = vi.fn(async () => new Response('{}', { status: 202 })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ projectId: 'other-project', prDeliveryId: 'failed-delivery', hasDelivery: true, decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
+    await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/projects\/other-project\/rails\/1\/relaunch$/), expect.objectContaining({ body: JSON.stringify({ sourceId: 'failed-delivery', originConversationId: 'c1', originSurface: 'agent-chat' }) }))
   })
 
   it('scrolls + flashes on a matching focus event', () => {

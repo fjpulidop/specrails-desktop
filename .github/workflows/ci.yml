@@ -63,7 +63,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20.19.0
+          node-version: 22.22.3
       - name: Assemble integrity-locked bundled Core
         run: node scripts/assemble-bundled-core.mjs
       - name: Smoke bundled Core relocation for every provider
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: c170a1bd32f7771e1959952aae755bb5a4ad9399  # Paired generic workflow operations
+          ref: ae52a5ff0ff9dce024008adf16115e7f04d1ef35  # Core 6.2.1: verification, OpenSpec hydration and correction progress fixes
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f

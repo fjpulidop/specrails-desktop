@@ -127,7 +127,7 @@ export function createDefinitionEventProjection(input: {
           nextCount += 1
           persist('loop_step', { index: nextCount, kind: 'core', title: workflow.nodePath, iteration: workflow.visit, startedAtMs: Date.parse(at), ...correlation })
         } else if (opening && ['step_succeeded','step_failed','step_blocked','step_interrupted','step_retrying','step_paused'].includes(String(workflow.type))) {
-          persist('loop_step_end', { index: opening.index, status: workflow.type === 'step_succeeded' ? 'ok' : workflow.type === 'step_paused' ? 'paused' : workflow.type === 'step_interrupted' ? 'interrupted' : 'failed',
+          persist('loop_step_end', { index: opening.index, status: workflow.type === 'step_succeeded' ? workflow.outcome === 'fail' ? 'failed' : 'ok' : workflow.type === 'step_paused' ? 'paused' : workflow.type === 'step_interrupted' ? 'interrupted' : 'failed',
             runtimeStatus: String(workflow.type).slice(5), outcome: workflow.outcome, exitCode: null,
             durationMs: Math.max(0,Date.parse(at)-Number(opening.startedAtMs)), ...correlation })
         }

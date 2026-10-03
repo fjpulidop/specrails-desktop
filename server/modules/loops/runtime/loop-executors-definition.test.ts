@@ -46,7 +46,7 @@ it('freezes a fresh delta target and briefs every Implement role without mutatin
   const original = structuredClone(input)
   await createLoopExecutors({ env: {} }).runDefinition!({ ...callbacks, request: input, runId: 'delta-run' })
   const call = vi.mocked(runAgentRuntimeInvocation).mock.calls[0][0]
-  expect(call.change).toMatch(/^spec-addenda-/)
+  expect(call.change).toMatch(/^original-change-rev1-/)
   expect(call.change).not.toBe('original-change')
   const definition = call.prepareDefinition!(input.graph.config.agents!)
   for (const role of ['architect', 'developer', 'reviewer', 'fixer']) {

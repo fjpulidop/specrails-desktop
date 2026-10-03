@@ -34,6 +34,20 @@ Mission mode (Agent Mode) replaces the routed dashboard, so `RailsBoard`, `Specs
 
 ## Protocol contract
 
+Relaunch identifies the card's delivery or shared run with
+`POST /rails/:railIndex/relaunch { sourceId, originConversationId?, originSurface? }`.
+It uses the source's saved specs and launch options, even after terminal cleanup
+emptied the rail. New attempts freeze these options in migration 71; historical
+ones reconstruct only recorded loop/runtime/manifest fields. A missing workflow
+requires a configured fresh launch. A rail reused for different specs is left
+untouched; stale cards and delivered work that needs recovery are rejected.
+Independent per-ticket siblings do not invalidate each other; newer overlapping
+spec ownership does. A successful unit reporting no changes is not delivered work.
+Undelivered failed generations are atomically superseded in fresh worktrees,
+with allocation rollback and the original failed checkout retained. A synchronous
+click guard prevents duplicate submissions; accepted relaunches stay disabled
+until the new card appears, and rejected admission details remain inline.
+
 ```rail-launch
 {
   "version": 1,
@@ -85,6 +99,7 @@ WS messages: `agent_pr_decision` (existing, now carries the new fields), `agent_
 
 - `client/src/features/missions/components/AgentMessage.tsx` — extraction step after spec-draft (flag `FEATURE_MISSION_RAIL_CARDS`); renders `AgentRailLaunchCard` per proposal, `AgentRailLaunchPending`, `AgentRailLaunchUnreadable`.
 - `AgentRailLaunchCard.tsx` — live reconciliation (`/rails` availability, `/tickets`, `/profiles`, `useProviderDetection`, model/effort catalogs, loops), New rail, Play flow (`POST /rails` → `PUT /tickets` → `POST /launch` with `originConversationId` + `originSurface:'agent-chat'` → `notifyGitChanged` → intent PATCH), inline 400/409, launched/dismissed stubs, `FOCUS_PR_CARD_EVENT`.
+- Repository context (`/repositories`) is required before Play. The card shows launch targets and each spec's saved scope, including primary-only historical specs. **Edit → Save repositories** persists only `repositoryIds` through the pinned project's existing ticket PATCH; Cancel leaves it untouched. Saved scope and spec-list changes reconcile required targets while retaining extra launch targets and dropping workspace entries for removed repositories. Optional launch targets do not edit specs. Omitted required targets and missing/offline/context-only implementation targets block Play visibly. **Refresh** reloads assignments; failed loads expose **Retry loading**. The resolved launch scope and filtered workspace selection are frozen in the launched intent, and server admission remains authoritative.
 - `client/src/features/rails/lib/rail-launch-intents.ts` — session overlay (`recordLocalIntent`, `intentFor`); `useRailLaunchProposals.ts` — undecided proposals for the dock; `AgentPrPinnedDock.tsx` — proposals pinned above PR cards.
 - `AgentPrDecisionCard.tsx` — run phase header (`deriveMissionRunStatus`, live `useRuntimeRuns` first), run-only rendering for `hasDelivery === false`, `RunFailureBlock`, Resume / Approve / Recover / Relaunch, focus-bus scroll + flash.
 - `agent-pr-pinning.ts` `isPrEnvelopePinned`; `agent-run-failure.ts` (`parseRunFailureRow`, `systemBriefingRunId`, `FOCUS_PR_CARD_EVENT`, `MISSION_OPEN_RUN_EVENT`, `requestMissionOpenRun`); `AgentRunFailureMarker.tsx`.

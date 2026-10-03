@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
 import { initDb, createJob, getJob, getJobEvents, type DbInstance } from '../../../db'
-import { LoopRunManager, recoverOrphanLoopStepAccounting, truncate, type LoopExecutors, type InteractiveAiStepPlan, type InteractivePlanInput } from './loop-run-manager'
+import { LoopRunManager, recoverOrphanLoopStepAccounting, seedChangeId, truncate, type LoopExecutors, type InteractiveAiStepPlan, type InteractivePlanInput } from './loop-run-manager'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import { createLoopRun, getLoopRun, stageLoopStepRecovery } from './loop-runs-store'
 import { fixLoopGraph } from './loop-templates'
 import { getAdapter } from '../../../providers'
@@ -105,6 +108,17 @@ beforeEach(() => {
 })
 
 describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
+  it('freezes rail retry options before the first executor runs, including legacy graph runs', async () => {
+    const launchConfig = { mode: 'loop', loopId: 'loop-1', aiEngine: 'claude', model: 'sonnet', profileName: null, repositoryIds: ['primary'], workspaceSelection: { primary: ['app'] } }
+    const runAiStep = vi.fn(async () => {
+      expect(JSON.parse(getLoopRun(db, 'retry-source')!.launch_config_json!)).toEqual(launchConfig)
+      return { text: 'done', provider: 'claude', model: 'sonnet' }
+    })
+    await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), runId: 'retry-source', launchConfig })
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(getLoopRun(db, 'retry-source')!.launch_config_json!)).toEqual(launchConfig)
+  })
+
   it.each(['premium', null])('forwards the rail profile %s to both spawn paths', async (profileName) => {
     const planInteractiveAiStep = vi.fn(() => null)
     const ex = makeExecutors({ planInteractiveAiStep })
@@ -2901,5 +2915,41 @@ describe('LoopRunManager graph isolation (editable built-ins)', () => {
     expect(prompts).toHaveLength(2)
     expect(prompts.every((prompt) => prompt.includes('Implement') && !prompt.includes('EDITED'))).toBe(true)
     expect(ex.runShell).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('stable Core-compatible OpenSpec change identity', () => {
+  const input = () => ({ cwd: '/unavailable-repo', ticketId: 180, runId: 'first-run', spec: { title: 'Fix', openspecChangeName: 'fix-lesson-errors' }, constants: { REVISION_REQUEST: 'Make retries safe', REVISION_NUMBER: '2', REVISION_OF_DELIVERY_ID: 'delivered-generation' } })
+  it('uses the same readable revision identity across run retries but separates durable lineage', () => {
+    const first = seedChangeId(input())!
+    expect(first.id).toMatch(/^fix-lesson-errors-rev2-[a-f0-9]{12}$/)
+    expect(seedChangeId({ ...input(), runId: 'another-run' })).toEqual(first)
+    expect(seedChangeId({ ...input(), constants: { ...input().constants, REVISION_OF_DELIVERY_ID: 'another-generation' } })?.id).not.toBe(first.id)
+  })
+  it('uses stable addendum identities and refines an undelivered declared change', () => {
+    const request = { ...input(), constants: {}, spec: { ...input().spec, status: 'on_review' }, addenda: { ids: ['b', 'a'], briefing: 'frozen bodies' } }
+    const first = seedChangeId(request)!
+    expect(first.id).toMatch(/^fix-lesson-errors-addenda-/)
+    expect(seedChangeId({ ...request, runId: 'next', addenda: { ...request.addenda, ids: ['a', 'b'] } })).toEqual(first)
+    expect(seedChangeId({ ...request, spec: { ...request.spec, status: 'todo' } })?.id).toBe('fix-lesson-errors')
+  })
+  it('reuses an active declared change for revisions and creates a delta after archive', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-stable-change-'))
+    try {
+      const active = path.join(cwd, 'openspec/changes/fix-lesson-errors')
+      fs.mkdirSync(active, { recursive: true })
+      expect(seedChangeId({ ...input(), cwd })?.id).toBe('fix-lesson-errors')
+      const archived = path.join(cwd, 'openspec/changes/archive/2026-10-02-fix-lesson-errors')
+      fs.mkdirSync(path.dirname(archived)); fs.renameSync(active, archived)
+      expect(seedChangeId({ ...input(), cwd })?.id).toMatch(/^fix-lesson-errors-rev2-/)
+    } finally { fs.rmSync(cwd, { recursive: true, force: true }) }
+  })
+  it('bounds long stems and rejects names Core cannot accept', () => {
+    const long = seedChangeId({ ...input(), spec: { title: 'Long', openspecChangeName: 'a'.repeat(64) } })!.id
+    expect(long.length).toBeLessThanOrEqual(64)
+    expect(long).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    for (const openspecChangeName of ['Wrong_Name', 'dotted.change', 'a'.repeat(65), '../escape']) {
+      expect(seedChangeId({ ...input(), constants: {}, spec: { title: 'Invalid', openspecChangeName } })).toBeUndefined()
+    }
   })
 })

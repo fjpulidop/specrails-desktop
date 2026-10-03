@@ -53,5 +53,15 @@
     "cleanup-failed": "クエリを停止できません",
     "usage-unavailable": "使用量を取得できません"
   },
-  "resetsIn": "{{time}}後にリセット"
+  "resetsIn": "{{time}}後にリセット",
+  "spend": {
+    "enterprise": "Enterprise · 従量課金",
+    "monthly": "今月の利用額",
+    "amounts": "{{limit}} のうち {{used}} を使用",
+    "consumed": "{{used}} を使用",
+    "unlimited": "月額上限なし",
+    "limitUnknown": "月額上限を取得できません",
+    "resets": "{{time}} にリセット",
+    "progress": "Claudeの月間利用額"
+  }
 }

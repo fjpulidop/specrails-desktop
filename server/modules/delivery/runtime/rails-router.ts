@@ -50,6 +50,7 @@ import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { resolveRailRelaunch, restoreRelaunchRail, RailRelaunchError, type RailRelaunch } from './rail-relaunch'
 import { repoIsolationStatus, defaultGitRunner } from '../../../worktree-manager'
 import { isValidBranchName } from '../../../integration-branch'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
@@ -111,9 +112,16 @@ export function prDeliveryRevisionAllowed(
 ): boolean {
   if (delivery.id !== revisionOfDeliveryId) return false
   if (isTerminalPrDecision(delivery.decision)) return false
+  if (!hasDeliveredWork(delivery)) return false
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
+}
+
+function hasDeliveredWork(delivery: PrDeliverySnapshot): boolean {
+  return Boolean((delivery.branch && delivery.deliverySha && ((delivery.prUrl && delivery.prState === 'pr-created') || (delivery.implementationOutcome !== 'failed' && delivery.deliveryOutcome !== 'blocked' && delivery.deliveryOutcome !== 'not_started' && delivery.deliveryOutcome !== 'no_changes')))
+    || delivery.branches?.some(unit => unit.succeeded && unit.finalSha && unit.changed !== false && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked' && unit.deliveryOutcome !== 'not_started' && unit.deliveryOutcome !== 'no_changes')
+    || delivery.repositoryDeliveries?.some(unit => unit.branch && unit.deliverySha && unit.implementationOutcome !== 'failed' && unit.deliveryOutcome !== 'blocked' && unit.deliveryOutcome !== 'not_started' && unit.deliveryOutcome !== 'no_changes'))
 }
 
 function prDeliveryCheckoutTarget(delivery: PrDeliverySnapshot): { branch: string; sha: string } | null {
@@ -495,11 +503,41 @@ export function createRailsRouter(): Router {
     }
   })
 
-  // POST /rails/:railIndex/launch — launch job(s) for a rail
-  router.post('/:railIndex/launch', async (req: Request, res: Response) => {
+  // Both doors share admission checks; Relaunch resolves its original source
+  // before interpreting launch options, never the mutable slot's new specs.
+  router.post(['/:railIndex/launch', '/:railIndex/relaunch'], async (req: Request, res: Response) => {
     const railIndex = parseInt(req.params.railIndex as string, 10)
     if (isNaN(railIndex) || railIndex < 0 || railIndex >= MAX_RAILS) {
       res.status(400).json({ error: 'Invalid rail index' }); return
+    }
+
+    const c = ctx(req)
+    let relaunchSource: RailRelaunch | undefined
+    if (/\/relaunch\/?$/i.test(req.path)) {
+      try {
+        if (!isLoopsEnabled()) {
+          res.status(409).json({ error: 'relaunch_workflow_unavailable', detail: 'The original loop workflow cannot run while Loops are disabled.',
+            action: 'Enable Loops before retrying this attempt.' }); return
+        }
+        relaunchSource = resolveRailRelaunch(c, railIndex, req.body?.sourceId)
+        if (relaunchSource.delivery && !isRailPrDeliveryEnabled()) {
+          res.status(409).json({ error: 'relaunch_delivery_unavailable', detail: 'The original attempt belongs to isolated PR delivery, which is disabled.',
+            action: 'Enable PR delivery before retrying this attempt.' }); return
+        }
+        if (relaunchSource.delivery && hasDeliveredWork(relaunchSource.delivery)) {
+          res.status(409).json({ error: 'relaunch_requires_recovery',
+            detail: 'This attempt has delivered work that must be recovered before it can be retried.',
+            action: 'Use Recover & retry or the delivery actions on this card.' }); return
+        }
+        req.body = { ...relaunchSource.config,
+          originConversationId: req.body?.originConversationId ?? relaunchSource.delivery?.originConversationId,
+          originSurface: req.body?.originSurface ?? relaunchSource.delivery?.originSurface ?? 'dashboard',
+        }
+      } catch (error) {
+        res.status(409).json({ error: error instanceof RailRelaunchError ? error.code : 'relaunch_config_unavailable',
+          detail: error instanceof Error ? error.message : String(error),
+          action: error instanceof RailRelaunchError ? error.action : 'Configure a fresh launch on a free rail.' }); return
+      }
     }
 
     let runtimeProviderOverride
@@ -581,6 +619,7 @@ export function createRailsRouter(): Router {
       loopId = getFactoryLoop(loopId)!.id // canonicalize saved legacy aliases
       mode = fmode
     }
+    if (relaunchSource) relaunchSource.config = { ...relaunchSource.config, mode }
     if (!VALID_MODES.has(mode as string)) {
       res.status(400).json({ error: 'mode must be "implement", "freestyle" or "loop"' }); return
     }
@@ -615,7 +654,6 @@ export function createRailsRouter(): Router {
     // capability) decides, so the launch no longer passes an explicit flag. A
     // legacy `interactive` body param is accepted and ignored (wire compat).
 
-    const c = ctx(req)
     try {
       assertProcessAdmission(c.project.id)
     } catch (err) {
@@ -624,7 +662,15 @@ export function createRailsRouter(): Router {
       }
       throw err
     }
-    const rail = getRail(c.db, railIndex)
+    const storedRail = getRail(c.db, railIndex)
+    const rail = relaunchSource ? { ...storedRail, ticketIds: [...relaunchSource.ticketIds],
+      profileName: typeof profileName === 'string' ? profileName : null,
+      aiEngine: typeof aiEngine === 'string' ? aiEngine : null } : storedRail
+
+    if (relaunchSource && rail.ticketIds.some(id => !c.getTicketSpec?.(id))) {
+      res.status(409).json({ error: 'relaunch_specs_unavailable', detail: 'One or more original specs are no longer available.',
+        action: 'Refresh the mission and configure a launch with the current specs.' }); return
+    }
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
@@ -656,6 +702,10 @@ export function createRailsRouter(): Router {
       res.status(error instanceof RepositoryValidationError ? error.status : 400).json({ error: error instanceof Error ? error.message : 'Invalid repository selection' }); return
     }
     let repositoryBases: Awaited<ReturnType<typeof resolveRepositoryDeliveryBases>> | undefined
+    if (relaunchSource?.delivery?.executionManifest && baseDeliveryIds === undefined) {
+      repositoryBases = { repositoryBaseBranches: Object.fromEntries(relaunchSource.delivery.executionManifest.repositories.map(repo => [repo.repositoryId, repo.baseBranch])), repositoryBaseShas: {} }
+      baseBranch = repositoryBases.repositoryBaseBranches[primaryRepository.id] ?? baseBranch
+    }
     if (baseDeliveryIds !== undefined) {
       try {
         repositoryBases = await resolveRepositoryDeliveryBases(c.db, c.project, repositoryIds, baseDeliveryIds, defaultGitRunner)
@@ -925,6 +975,18 @@ export function createRailsRouter(): Router {
           res.status(400).json({ error: `This loop uses a command unsupported by provider '${loopProvider}'` }); return
         }
         const scope = loopGraph.config.ticketScope ?? (loopGraph.config.journal === 'implementation' ? 'all' : dominantTicketScope(promptsText))
+        // Freeze only admitted launch choices. Execution paths, run ids,
+        // addendum claims and revision generation ids must never be replayed.
+        const launchConfig: Record<string, unknown> = {
+          mode, loopId, repositoryIds, workspaceSelection,
+          aiEngine: rolesMode ? ROLES_ENGINE : loopProvider, model: loopModel,
+          reasoning_effort: effort, profileName: resolvedProfile,
+          ...(runtimeProviderOverride ? { runtimeProviderOverride } : {}),
+          ...(baseBranch ? { baseBranch } : {}),
+          ...(baseDeliveryIds ? { baseDeliveryIds } : {}),
+          ...(typeof targetPrNumber === 'number' ? { targetPrNumber } : {}),
+          ...(followUp ? { followUp } : {}),
+        }
 
         // Parallel isolation (default-on; disable with SPECRAILS_RAIL_WORKTREES=0):
         // a per-ticket rail on a repo-mutating loop runs each ticket in its own git
@@ -934,6 +996,7 @@ export function createRailsRouter(): Router {
         let isolationUnavailable: string | undefined
         let continuablePrDelivery: PrDeliverySnapshot | null = null
         let revisionRequest: { ofDeliveryId: string; decision: PrDecision; note: string } | null = null
+        let retryOfDelivery: { deliveryId: string; decision: PrDecision } | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
@@ -949,7 +1012,7 @@ export function createRailsRouter(): Router {
           // `pr_decision_pending` — the user already saw the failure on the card,
           // and pressing Launch again IS the decision. A revision naming it is
           // meaningless (there is no work to revise) and gets a precise 409.
-          if (pending && isPreparationFailureRow(pending)) {
+          if (pending && !relaunchSource && isPreparationFailureRow(pending)) {
             if (revisionOfDeliveryId === pending.id) {
               res.status(409).json({
                 error: 'invalid_revision_target',
@@ -970,6 +1033,15 @@ export function createRailsRouter(): Router {
           // Explicit change requests name it; open addenda on the same rail
           // identify it implicitly. Both use the existing supersession contract.
           const revisionsEnabled = areDeliveryRevisionsEnabled()
+          const failedAddendumRetry = Boolean(launchAddenda.length && pendingSnapshot && !revisionOfDeliveryId
+            && ['implementation_failed', 'pr_failed'].includes(pendingSnapshot.decision)
+            && !pendingSnapshot.prUrl && !hasDeliveredWork(pendingSnapshot)
+            && new Set(pendingSnapshot.ticketIds).size === new Set(rail.ticketIds).size
+            && rail.ticketIds.every(id => pendingSnapshot.ticketIds.includes(id)))
+          const identifiedFailureRetry = Boolean(relaunchSource?.delivery && pendingSnapshot
+            && relaunchSource.sourceId === pendingSnapshot.id
+            && ['implementation_failed', 'pr_failed'].includes(pendingSnapshot.decision)
+            && !hasDeliveredWork(pendingSnapshot))
           const addendumContinuation = Boolean(
             launchAddenda.length && pendingSnapshot && pendingSnapshot.decision !== 'building'
             && !revisionOfDeliveryId
@@ -986,7 +1058,7 @@ export function createRailsRouter(): Router {
               detail: 'a revision must target the rail\'s active delivery and cover all of its specs',
             }); return
           }
-          if (pendingSnapshot && !revisionOfPending && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
+          if (pendingSnapshot && !revisionOfPending && !failedAddendumRetry && !identifiedFailureRetry && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
           if (revisionOfPending && pendingSnapshot) {
@@ -998,11 +1070,12 @@ export function createRailsRouter(): Router {
                 : revisionNote as string,
             }
           }
+          if ((failedAddendumRetry || identifiedFailureRetry) && pendingSnapshot) retryOfDelivery = { deliveryId: pendingSnapshot.id, decision: pendingSnapshot.decision as PrDecision }
           // Explicit target vs an undecided continuable delivery: the slot's
           // active generation owns its PR. A DIFFERENT explicit target would
           // append to the undecided branches → 409; the SAME PR is redundant
           // (the continuation contract below already drives it) and is dropped.
-          if (pendingSnapshot && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber
+          if (pendingSnapshot && !retryOfDelivery && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber
             && !pendingSnapshot.repositoryDeliveries?.some((delivery) => delivery.prNumber === targetPrNumber)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
@@ -1019,6 +1092,10 @@ export function createRailsRouter(): Router {
         })
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
+        }
+        if (relaunchSource?.delivery && !useIsolation) {
+          res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
+            action: 'Restore worktree isolation and the original workflow before retrying.' }); return
         }
         if (typeof targetPrNumber === 'number' && !useIsolation) {
           res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires an isolated (worktree) launch; this launch would run in the shared checkout' }); return
@@ -1068,7 +1145,9 @@ export function createRailsRouter(): Router {
               }
             }
             try {
+              if (relaunchSource && restoreRelaunchRail(c, railIndex, relaunchSource)) broadcastRailUpdated(c, railIndex, 'tickets')
               const ids = await launchIsolatedRail({
+                launchConfig,
                 runtimeProviderOverride,
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
@@ -1077,7 +1156,7 @@ export function createRailsRouter(): Router {
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
-                ...(continuablePrDelivery?.executionManifest && !revisionRequest ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
+                ...(continuablePrDelivery?.executionManifest && !revisionRequest && !retryOfDelivery ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
                 ...(continuablePrDelivery && !continuablePrDelivery.executionManifest && prDeliveryContinuesTickets(continuablePrDelivery, rail.ticketIds) ? {
                   requiredPrContinuation: {
                     deliveryId: continuablePrDelivery.id,
@@ -1092,17 +1171,21 @@ export function createRailsRouter(): Router {
                 // Explicit target only drives fresh launches; when the slot has
                 // a continuable delivery for the same PR, the continuation
                 // contract above is the (stricter) authority.
-                ...(typeof targetPrNumber === 'number' && !continuablePrDelivery
+                ...(typeof targetPrNumber === 'number' && (!continuablePrDelivery || retryOfDelivery)
                   ? { explicitPrTarget: { prNumber: targetPrNumber } }
                   : {}),
                 // Revision of an undecided delivery: the guard above proved the
                 // exemption, so pass the contract through for supersession.
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
+                ...(retryOfDelivery ? { retryOfDelivery } : {}),
                 ...(followUp ? { followUp } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
               return
             } catch (err) {
+              if (err instanceof RailRelaunchError) {
+                res.status(409).json({ error: err.code, detail: err.message, action: err.action }); return
+              }
               if (err instanceof PrDeliveryGenerationConflict) {
                 res.status(409).json({
                   error: 'pr_delivery_generation_conflict',
@@ -1120,7 +1203,7 @@ export function createRailsRouter(): Router {
                 })
                 return
               }
-              if (continuablePrDelivery || err instanceof PrContinuationIsolationError) {
+              if ((continuablePrDelivery && !retryOfDelivery) || err instanceof PrContinuationIsolationError) {
                 const detail = err instanceof Error ? err.message : String(err)
                 res.status(409).json({
                   error: 'pr_continuation_isolation_required',
@@ -1143,6 +1226,7 @@ export function createRailsRouter(): Router {
         // Spawn from the SAME cwd a rail uses (workspace when relocated, else the
         // repo) so native `{{cmd:*}}` slash commands resolve — and surface the repo
         // via SPECRAILS_REPO_DIR + `--add-dir` exactly like QueueManager.
+        if (relaunchSource && restoreRelaunchRail(c, railIndex, relaunchSource)) broadcastRailUpdated(c, railIndex, 'tickets')
         const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
         const loopRunIds: string[] = []
         const loopTicketCompletionStatus = isRailPrDeliveryEnabled() ? 'on_review' as const : 'done' as const
@@ -1197,6 +1281,7 @@ export function createRailsRouter(): Router {
           }
           const runPromise = c.loopRunManager
             .run({
+              launchConfig,
               runtimeProviderOverride,
               runId,
               loopId,
@@ -1338,6 +1423,9 @@ export function createRailsRouter(): Router {
 
       res.status(202).json({ jobId, railIndex, mode })
     } catch (err) {
+      if (err instanceof RailRelaunchError) {
+        res.status(409).json({ error: err.code, detail: err.message, action: err.action }); return
+      }
       if (err instanceof ClaudeNotFoundError) {
         res.status(503).json({ error: 'Claude CLI not found' }); return
       }

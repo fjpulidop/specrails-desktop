@@ -50,9 +50,23 @@ describe('ArcSidebar', () => {
   it('opens Companion setup from the collapsed sidebar', () => {
     const onOpenCompanion = vi.fn()
     render(<ArcSidebar {...defaultProps} onOpenCompanion={onOpenCompanion} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand', expanded: false }))
     fireEvent.click(screen.getByRole('button', { name: 'Companion' }))
     expect(onOpenCompanion).toHaveBeenCalledOnce()
     expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
+  })
+
+  it('toggles desktop tools in reverse order without opening settings', () => {
+    render(<ArcSidebar {...defaultProps} onOpenCompanion={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Companion' })).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Expand', expanded: false })
+    fireEvent.click(toggle)
+    expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: /^Settings$/ })).toHaveLength(1)
+    const group = screen.getByRole('group', { name: 'Settings' })
+    expect(Array.from(group.querySelectorAll('button')).map(button => button.getAttribute('aria-label'))).toEqual(['Companion', 'Analytics', 'Docs'])
+    fireEvent.click(toggle)
+    expect(screen.queryByRole('group', { name: 'Settings' })).not.toBeInTheDocument()
   })
 
   it('renders collapsed (unpinned) by default', () => {
@@ -162,6 +176,7 @@ describe('ArcSidebar', () => {
   it('renders desktop nav items when expanded', () => {
     render(<ArcSidebar {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand', expanded: false }))
     expect(screen.getByRole('button', { name: /Docs/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Analytics$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Settings$/i })).toBeInTheDocument()
@@ -170,6 +185,7 @@ describe('ArcSidebar', () => {
   it('calls onOpenAnalytics when Analytics is clicked', () => {
     render(<ArcSidebar {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand', expanded: false }))
     fireEvent.click(screen.getByRole('button', { name: /^Analytics$/i }))
     expect(defaultProps.onOpenAnalytics).toHaveBeenCalledOnce()
   })
@@ -178,6 +194,7 @@ describe('ArcSidebar', () => {
     render(<ArcSidebar {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
     fireEvent.click(screen.getByRole('button', { name: /^Settings$/i }))
+    expect(screen.queryByRole('group', { name: 'Settings' })).not.toBeInTheDocument()
     expect(defaultProps.onOpenSettings).toHaveBeenCalledOnce()
   })
 

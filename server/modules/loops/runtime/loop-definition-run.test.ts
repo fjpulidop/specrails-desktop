@@ -127,6 +127,16 @@ describe('Core definitions in Loop Manager',()=>{
     expect(()=>project({...usage(10),payload:{...usage(10).payload,model:'changed'}})).toThrow('changed its committed content')
     expect(()=>seen!.onRuntimeEvent({...step(20,'step_started'),event:{...step(20,'step_started').event,runId:'other'}})).toThrow('another run')
   })
+  it('marks a completed verification gate with a fail outcome as failed', async () => {
+    await new LoopRunManager(db, () => {}, executors(async () => complete())).run(request())
+    let sequence = 100
+    const project = createDefinitionEventProjection({ db, runId: 'r1', projectId: 'p1', ticketIds: [], nextSequence: () => sequence++, broadcast: () => {} })
+    project(step(1, 'step_started'))
+    const terminal = step(2, 'step_succeeded')
+    project({ ...terminal, event: { ...terminal.event, outcome: 'fail' } })
+    const row = db.prepare("SELECT payload FROM events WHERE job_id=? AND event_type='loop_step_end' ORDER BY seq DESC LIMIT 1").get('r1') as { payload: string }
+    expect(JSON.parse(row.payload)).toMatchObject({ status: 'failed', outcome: 'fail' })
+  })
   it('caches aggregates between physical invocations and commits cursor/status with the event', async () => {
     await new LoopRunManager(db, () => {}, executors(async () => complete())).run(request())
     const prepare = vi.spyOn(db, 'prepare'), progress = vi.fn()

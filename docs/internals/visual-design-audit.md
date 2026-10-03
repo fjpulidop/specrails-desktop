@@ -16,6 +16,11 @@ The canon below is the **majority-existing code**, promoted to law. Reference im
 - **Priority canon** (the ProposeSpecModal set — the only fully tokenized one): critical=`destructive`, high=`accent-warning`, medium=`accent-info`, low=`muted`.
 - **Left sidebar title = accent-primary, right sidebars = accent-secondary** (existing rule; document, keep).
 
+The left sidebar footer groups desktop tools behind a Settings gear and right
+chevron disclosure, closed initially. Expanded tools appear vertically in this
+order: Companion (when available), Analytics, Docs. The Settings icon and label
+open the app settings modal; a separate chevron button toggles the group.
+
 ## 1.2 Icon scale (lucide, `w-N h-N` pair idiom — never `size={}` props)
 | Context | Size | Margin |
 |---|---|---|

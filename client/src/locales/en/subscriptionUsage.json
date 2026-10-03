@@ -53,5 +53,15 @@
     "cleanup-failed": "Could not stop the usage query",
     "usage-unavailable": "Usage unavailable"
   },
-  "resetsIn": "Resets in {{time}}"
+  "resetsIn": "Resets in {{time}}",
+  "spend": {
+    "enterprise": "Enterprise · On demand",
+    "monthly": "Monthly spend",
+    "amounts": "{{used}} of {{limit}} spent",
+    "consumed": "{{used}} spent",
+    "unlimited": "No monthly limit",
+    "limitUnknown": "Monthly limit unavailable",
+    "resets": "Resets {{time}}",
+    "progress": "Claude monthly spend"
+  }
 }

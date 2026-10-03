@@ -53,5 +53,15 @@
     "cleanup-failed": "Abfrage konnte nicht beendet werden",
     "usage-unavailable": "Nutzung nicht verfügbar"
   },
-  "resetsIn": "Zurückgesetzt in {{time}}"
+  "resetsIn": "Zurückgesetzt in {{time}}",
+  "spend": {
+    "enterprise": "Enterprise · Nach Verbrauch",
+    "monthly": "Monatlicher Verbrauch",
+    "amounts": "{{used}} von {{limit}} verbraucht",
+    "consumed": "{{used}} verbraucht",
+    "unlimited": "Kein Monatslimit",
+    "limitUnknown": "Monatslimit nicht verfügbar",
+    "resets": "Zurücksetzung am {{time}}",
+    "progress": "Monatlicher Claude-Verbrauch"
+  }
 }

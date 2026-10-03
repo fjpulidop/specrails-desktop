@@ -5,9 +5,10 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { UsageProviderIcon } from './UsageProviderIcon'
 import { SubscriptionUsageSection } from './SubscriptionUsageSection'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
+import { formatSpendPercent } from './EnterpriseSpendMeter'
 
 export function SubscriptionUsageFooter() {
-  const { t } = useTranslation('subscriptionUsage')
+  const { t, i18n } = useTranslation('subscriptionUsage')
   const { snapshot, busy, refresh } = useSubscriptionUsage()
   const refreshing = busy || !!snapshot?.providers.some(provider => provider.refreshState === 'refreshing')
   const [open, setOpen] = useState(false)
@@ -38,12 +39,13 @@ export function SubscriptionUsageFooter() {
     <Dialog.Trigger asChild>
       <button ref={trigger} type="button" aria-label={t('shortTitle')} className="flex h-6 items-center gap-1.5 rounded px-2 text-xs hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-ring" onPointerEnter={event => { if (event.pointerType === 'mouse') changeOpen(true) }} onPointerLeave={scheduleClose} onFocus={() => changeOpen(true)} onBlur={scheduleClose} onClick={event => { event.preventDefault(); changeOpen(true) }}>
         
-        {(!snapshot || snapshot.providers.every(provider => !provider.windows.length)) && <span className="text-muted-foreground">—</span>}
-        <span className="flex items-center gap-3">{snapshot?.providers.filter(provider => provider.windows.length).map(provider => {
+        {(!snapshot || snapshot.providers.every(provider => !provider.windows.length && !provider.spend)) && <span className="text-muted-foreground">—</span>}
+        <span className="flex items-center gap-3">{snapshot?.providers.filter(provider => provider.windows.length || provider.spend).map(provider => {
           const window = provider.windows.find(window => window.scope === 'account' && window.label === 'weekly')
             ?? provider.windows.find(window => window.scope === 'account')
             ?? provider.windows[0]
-          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-white" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="tabular-nums">{window.usedPercent === null ? '—' : `${window.usedPercent}%`}</span></span>
+          const percent = provider.spend ? provider.spend.usedPercent === null ? '—' : formatSpendPercent(provider.spend.usedPercent, i18n.language) : window.usedPercent === null ? '—' : `${window.usedPercent}%`
+          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-white" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="tabular-nums">{percent}</span></span>
         })}</span>
       </button>
     </Dialog.Trigger>

@@ -41,6 +41,12 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/loops` and any affected consumers.
 
+Rail launches carry `launchConfig` with admitted workflow, engine/model/effort,
+profile, repository/workspace and target choices. The launch transaction writes
+it to `loop_runs.launch_config_json` before any executor starts, for both legacy
+graphs and Core definitions. Fresh mission relaunches read these options through
+delivery admission; recovery still uses the original frozen runtime request.
+
 Quick SDD is the default for delivery changes and addenda; explicit workflows
 (including Implement) take precedence. Each addendum launch seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.
@@ -58,7 +64,10 @@ Quick SDD uses two native skill prompts plus real validation, archive and host
 verification before and after archive. Freestyle alternates verified edits with
 an evidence-based decision and preserves the no-progress bound. Every successful
 factory exit requires verified delivery. Empty configured checks cannot fabricate
-a verification receipt. Older retained Core packages receive the legacy graphs.
+a verification receipt. New definition launches detect existing workspace checks
+when configured checks are absent; Quick SDD rejects a missing verification plan
+before any AI step. Resumes retain their original checks. Older retained Core
+packages receive the legacy graphs.
 
 Legacy Quick SDD also implements full specs without addenda or a PR. Its normal path is
 prepare → strict preflight → apply/tests → strict validation → archive (two AI
@@ -258,3 +267,16 @@ The log prints actual directories, commands and arguments. Several workspaces in
 Git repository share its branch, worktree and delivery. Independent nested Git
 checkouts use separate memberships. Workspace configuration changes are blocked
 while unfinished runs or deliveries still reference the project.
+
+A verification node ending with outcome `fail` is displayed as failed even when
+the workflow operation itself completed. Core retains the failed-check diagnostics
+and stops three repeated failures on an unchanged candidate instead of spending
+further fixer turns on that same state.
+The configurable Implement recipe stops earlier when a correction leaves a failed
+verification candidate unchanged, retaining its summary as the failure reason.
+Review corrections after passing verification remain eligible for another review.
+Correctors receive bounded failure facts with complete evidence references and
+the current candidate's reviewer output directly, clearing missing or outdated
+review feedback before correction. Default instructions allow proven minimal
+test compatibility repairs in admitted workspaces, preserve safety assertions,
+and require focused reproduction with original exit codes and negative cases.

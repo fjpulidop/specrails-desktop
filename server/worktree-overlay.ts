@@ -165,11 +165,11 @@ function overlayRootsOf(input: WorktreeOverlayInput): string[] {
  *  manifest entry may authenticate against. Empty for unauthorised rels. */
 function sourceCandidatesForOverlayEntry(input: WorktreeOverlayInput, rel: string): string[] {
   const roots = overlayRootsOf(input)
-  if (rel === '.mcp.json' || rel === input.instructionsFilename) {
+  if (rel === '.mcp.json' || [input.instructionsFilename, 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md'].includes(rel)) {
     return roots.map((root) => path.join(root, rel))
   }
-  const providerPrefix = `${input.providerDir}/`
-  if (!rel.startsWith(providerPrefix)) return []
+  const providerPrefix = [input.providerDir, '.claude', '.codex', '.gemini', '.kimi-code'].map(dir => `${dir}/`).find(prefix => rel.startsWith(prefix))
+  if (!providerPrefix) return []
   const providerRel = rel.slice(providerPrefix.length)
   if (!providerRel || providerRel === 'worktrees' || providerRel.startsWith('worktrees/')) return []
   return roots.map((root) => path.join(root, ...rel.split('/')))
@@ -265,7 +265,7 @@ export function captureOverlayCleanupEvidence(
       if (!sources.some((source) => {
         if (dereferencedDigest(source) === destinationDigest) return true
         // A bootstrap refresh is still an exact, reproducible source copy.
-        if (rel !== input.instructionsFilename || !destinationStat.isFile()) return false
+        if (![input.instructionsFilename, 'CLAUDE.md', 'AGENTS.md', 'GEMINI.md', '.kimi-code/AGENTS.md'].includes(rel) || !destinationStat.isFile()) return false
         try { return fs.readFileSync(destination, 'utf8') === refreshLegacyInstructions(fs.readFileSync(source, 'utf8')) } catch { return false }
       })) continue
     }

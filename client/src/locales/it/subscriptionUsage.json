@@ -53,5 +53,15 @@
     "cleanup-failed": "Impossibile arrestare la richiesta",
     "usage-unavailable": "Utilizzo non disponibile"
   },
-  "resetsIn": "Si reimposta tra {{time}}"
+  "resetsIn": "Si reimposta tra {{time}}",
+  "spend": {
+    "enterprise": "Enterprise · A consumo",
+    "monthly": "Spesa del mese",
+    "amounts": "{{used}} spesi su {{limit}}",
+    "consumed": "{{used}} spesi",
+    "unlimited": "Nessun limite mensile",
+    "limitUnknown": "Limite mensile non disponibile",
+    "resets": "Si reimposta il {{time}}",
+    "progress": "Spesa mensile di Claude"
+  }
 }

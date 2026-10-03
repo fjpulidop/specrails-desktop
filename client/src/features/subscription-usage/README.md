@@ -27,3 +27,5 @@ Validate navigation with `node scripts/audit-client-features.mjs --check`.
 The footer menu omits the section title, divider and refresh spinner. During collection it reuses BuilderHalo around the menu outline, with reduced-motion support.
 
 Provider rows share the outer menu surface, with no individual card borders or backgrounds; a subtle horizontal divider separates Claude and Codex.
+
+Enterprise consumption observations replace Claude's window rows with monthly measured spend and the current assigned cap. `EnterpriseSpendMeter` shares localized currency, percentage, reset, stale and over-limit rendering between the menu and settings panel. The footer includes monetary-only Claude accounts; unknown or unlimited caps display no invented percentage. Normal subscription windows and Codex retain their presentation. The additive `spend` field is validated against the confirmed Enterprise plan, monetary value semantics and absence of meaningful traditional windows; snapshots from older servers without the field remain accepted.

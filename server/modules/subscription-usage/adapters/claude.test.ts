@@ -33,3 +33,48 @@ describe('read-only Claude usage adapter', () => {
     await expect(reader.context(signal)).rejects.toMatchObject({ code: 'credentials-unreadable' })
   })
 })
+
+describe('Enterprise OAuth spend', () => {
+  const payload = { five_hour: null, seven_day: null, extra_usage: { is_enabled: true, monthly_limit: 100000, used_credits: 2078, currency: 'USD' } }
+  function fixture(plan?: string) {
+    const auth = JSON.stringify({ claudeAiOauth: { accessToken: 'private-enterprise-token', subscriptionType: plan } })
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify(payload)))
+    const reader = createClaudeReader({ configDir: '/test', platform: 'linux', readFile: vi.fn().mockResolvedValue(auth), request, now: () => Date.parse('2026-10-03T05:56:00Z') })
+    return { reader, request }
+  }
+  it('accepts money-only Enterprise without administrator credentials or additional requests', async () => {
+    const f = fixture('enterprise'), result = await f.reader.read(signal)
+    expect(result).toMatchObject({ availability: 'available', windows: [], plan: 'enterprise', source: 'oauth', spend: { usedAmount: 20.78, limitAmount: 1000 } })
+    expect(f.request).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(result)).not.toContain('private-enterprise-token')
+  })
+  it('resolves missing plan metadata with the same OAuth session profile', async () => {
+    const f = fixture()
+    f.request.mockResolvedValueOnce(new Response(JSON.stringify(payload))).mockResolvedValueOnce(new Response(JSON.stringify({ organization: { organization_type: 'claude_enterprise' } })))
+    expect(await f.reader.read(signal)).toMatchObject({ plan: 'enterprise', spend: { limitAmount: 1000 } })
+    expect(f.request).toHaveBeenNthCalledWith(2, 'https://api.anthropic.com/api/oauth/profile', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer private-enterprise-token' }), redirect: 'error' }))
+  })
+  it('does not classify an unknown or Team profile as Enterprise', async () => {
+    for (const organization_type of [undefined, 'claude_team']) {
+      const f = fixture()
+      f.request.mockResolvedValueOnce(new Response(JSON.stringify(payload))).mockResolvedValueOnce(new Response(JSON.stringify({ organization: { organization_type } })))
+      await expect(f.reader.read(signal)).rejects.toMatchObject({ code: 'usage-unavailable' })
+    }
+  })
+  it('keeps conventional subscriptions and Enterprise windows even with extra spending', async () => {
+    for (const plan of ['pro', 'max', 'team', 'enterprise']) {
+      const f = fixture(plan)
+      f.request.mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, five_hour: { utilization: 12 } })))
+      expect(await f.reader.read(signal)).toMatchObject({ plan, spend: null, windows: [expect.objectContaining({ usedPercent: 12 })] })
+      expect(f.request).toHaveBeenCalledTimes(1)
+    }
+    const f = fixture('team')
+    await expect(f.reader.read(signal)).rejects.toMatchObject({ code: 'usage-unavailable' })
+    expect(f.request).toHaveBeenCalledTimes(1)
+  })
+  it('keeps profile authorization and throttle failures bounded and free of response bodies', async () => {
+    const f = fixture()
+    f.request.mockResolvedValueOnce(new Response(JSON.stringify(payload))).mockResolvedValueOnce(new Response('private profile body', { status: 403 }))
+    await expect(f.reader.read(signal)).rejects.toMatchObject({ code: 'permission-denied' })
+  })
+})

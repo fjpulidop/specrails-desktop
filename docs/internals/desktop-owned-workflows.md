@@ -54,6 +54,29 @@ real committed full verification and the reviewed/approved candidate before
 publishing the recoverable write set. The final host check certifies the archived
 candidate. Reviewer assertions remain AI evidence and cannot create verification.
 
+Implement checks the host candidate hash after each correction. When verification
+failed and the correction leaves that candidate unchanged, it ends unsuccessfully
+with the corrector's explanation instead of rerunning the same failed checks.
+Corrections after a passing verification may still refresh review evidence without
+source changes. Failed completion reasons are surfaced in Desktop's job error.
+
+The corrector receives the exact verification command, cwd, original exit code,
+failure summary, full-evidence identifier and current candidate's review output
+directly. The recipe explicitly clears review feedback when verification fails
+or its candidate no longer matches, including before the first reviewer visit.
+It reproduces the failure, distinguishes implementation defects from test
+compatibility assumptions and external blockers, and may make a minimal test
+compatibility repair inside the admitted workspace while preserving the tested
+behavior and every required safety guard. An unchanged filename alone cannot
+justify an unrelated-failure diagnosis. Focused checks retain their original exit
+codes; repaired assertions need negative cases. Saved/customized definitions keep
+their frozen prompts; future unedited recipes use these updated defaults.
+
+The paired Core also supplies the official verify skill and real status/apply
+context before a read-only reviewer turn, including custom `assess` roles. Missing
+planning context still blocks invocation; host preparation does not approve the
+candidate or replace the review's inspection and structured findings.
+
 Admission freezes the graph, agents, Core package and repository checks. Resume
 uses this snapshot. Generic forks copy an active change into a separate change,
 carry scope-owned contracts forward, rebind `run.changeId`, and clear verification.

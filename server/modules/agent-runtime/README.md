@@ -27,6 +27,15 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
+Readable verification logs fold long quoted assertion-input blocks, including
+blocks spanning runtime events, while preserving the assertion, expected value,
+application stack and original raw events. Failed results without an explicit
+Core error or completion reason retain the latest unresolved step failure instead
+of replacing it with a generic exit message; successful results ignore that
+fallback, so a recovered step does not make the whole job fail. Recovery clears
+that step's fallback only in its own scope; failed projections preserve the
+resolved diagnostic for later history reads.
+
 ## Loop admission
 
 For graphs with `config.agents`, the bridge validates explicit loop definitions,
@@ -37,6 +46,14 @@ loop engines, including connection defaults. Selection provenance uses
 `loop-role`. New independent implementation graphs require loop-owned agents.
 Resume refuses replacement configuration and uses the retained run snapshot.
 See [workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
+
+For new definition runs, repositories without selected configured checks reuse
+Desktop's offline verification detector against their admitted worktrees and code
+workspaces. Explicit checks take precedence. Detected commands are frozen in the
+run configuration, never persisted to project settings or rediscovered on resume.
+Configured-only verification gates reject missing repository checks and plans over
+100 commands before spawning Core. Gates consuming structured agent proposals
+retain their existing admission policy.
 
 ## Configured roles
 
@@ -125,3 +142,11 @@ packages under `agent-runtime-package-lock.ts`. Expired runs keep a
 execution claims reject them with 410 `runtime_history_expired`. Jobs, cost
 records and repository content are never touched. See
 [the retention decision](../../../openspec/changes/core-agent-engine/RUNTIME-RETENTION-DECISION.md).
+
+Readable verification logs suppress passing Node spec (`✔`) and TAP cases and their timing/YAML
+blocks while keeping failed cases, diagnostic blocks and totals. Long assertion/source dump lines are shortened in the readable log. Raw runtime
+events retain the full output. Failed gate outcomes and role error messages are
+reported explicitly in the readable log.
+Failed terminal completion reasons are preserved as the job error when Core has no
+more specific runtime error, so a scoped correction blocker is not replaced by a
+generic unsuccessful-Core-exit message.

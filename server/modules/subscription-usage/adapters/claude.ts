@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { homedir, userInfo } from 'node:os'
 import { realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { normalizeClaude, record } from '../domain'
+import { claudePlan, normalizeClaude, normalizeClaudeSpend, record } from '../domain'
 import type { UsageReader } from '../ports'
 import { UsageError } from './errors'
 import { fingerprint, limitedJson, readAuthFile } from './local-auth'
@@ -12,6 +12,7 @@ interface ClaudeOptions {
   readFile?: typeof readAuthFile
   keychain?: (service: string, signal: AbortSignal) => Promise<string | null>
   request?: typeof fetch
+  now?: () => number
 }
 function readKeychain(service: string, signal: AbortSignal): Promise<string | null> {
   return new Promise((resolve, reject) => {
@@ -54,26 +55,36 @@ export function createClaudeReader(options: ClaudeOptions = {}): UsageReader {
       try { data = record(JSON.parse(raw)) } catch { throw new UsageError('credentials-unreadable') }
       const oauth = record(data.claudeAiOauth)
       if (typeof oauth.accessToken !== 'string' || !oauth.accessToken) return { availability: 'unsupported-auth', windows: [], plan: null, source: null }
-      const response = await (options.request ?? fetch)('https://api.anthropic.com/api/oauth/usage', {
-        headers: { Authorization: `Bearer ${oauth.accessToken}`, 'anthropic-beta': 'oauth-2025-04-20', 'User-Agent': 'claude-code/2.1.0' },
-        signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]), redirect: 'error',
-      })
-      if (!response.ok) {
-        await response.body?.cancel().catch(() => {})
-        if (response.status === 401) throw new UsageError('signed-out')
-        if (response.status === 403) throw new UsageError('permission-denied')
-        if (response.status === 429) {
-          const header = response.headers.get('retry-after')
-          const seconds = header !== null && header.trim() !== '' ? Number(header) : NaN
-          const date = header ? Date.parse(header) : NaN
-          const retry = Number.isFinite(seconds) ? seconds * 1000 : Number.isFinite(date) ? date - Date.now() : 60_000
-          throw new UsageError('rate-limited', true, Math.max(30_000, Math.min(24 * 60 * 60_000, retry)))
+      async function query(route: 'usage' | 'profile') {
+        const response = await (options.request ?? fetch)(`https://api.anthropic.com/api/oauth/${route}`, {
+          headers: { Authorization: `Bearer ${oauth.accessToken}`, 'anthropic-beta': 'oauth-2025-04-20', 'User-Agent': 'claude-code/2.1.0' },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]), redirect: 'error',
+        })
+        if (!response.ok) {
+          await response.body?.cancel().catch(() => {})
+          if (response.status === 401) throw new UsageError('signed-out')
+          if (response.status === 403) throw new UsageError('permission-denied')
+          if (response.status === 429) {
+            const header = response.headers.get('retry-after')
+            const seconds = header !== null && header.trim() !== '' ? Number(header) : NaN
+            const date = header ? Date.parse(header) : NaN
+            const retry = Number.isFinite(seconds) ? seconds * 1000 : Number.isFinite(date) ? date - Date.now() : 60_000
+            throw new UsageError('rate-limited', true, Math.max(30_000, Math.min(24 * 60 * 60_000, retry)))
+          }
+          throw new UsageError('provider-error', response.status >= 500)
         }
-        throw new UsageError('provider-error', response.status >= 500)
+        return limitedJson(response)
       }
-      const payload = await limitedJson(response), windows = normalizeClaude(payload)
-      if (!windows.length) throw new UsageError('usage-unavailable')
-      return { availability: 'available', windows, plan: null, source: 'oauth' }
+      const payload = await query('usage'), windows = normalizeClaude(payload)
+      let plan = claudePlan(oauth.subscriptionType) ?? claudePlan(oauth.rateLimitTier)
+      const candidate = normalizeClaudeSpend(payload, 'enterprise', (options.now ?? Date.now)())
+      if (!plan && candidate) {
+        const profile = record(await query('profile')), organization = record(profile.organization)
+        plan = claudePlan(organization.organization_type) ?? claudePlan(organization.rate_limit_tier)
+      }
+      const spend = plan === 'enterprise' ? candidate : null
+      if (!windows.length && !spend) throw new UsageError('usage-unavailable')
+      return { availability: 'available', windows: spend ? [] : windows, spend, plan, source: 'oauth' }
     },
   }
 }

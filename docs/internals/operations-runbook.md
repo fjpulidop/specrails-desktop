@@ -217,6 +217,12 @@ thresholds and publish separate reports. Native macOS, Windows Core assembly and
 runtime portability jobs remain required. The final `test` job preserves the check
 name used by branch protection and rejects any failed, skipped or cancelled lane.
 
+The paired Core lane uses an immutable commit in `.github/workflows/ci.yml`.
+When Desktop tests require new Core behavior, push that Core commit first and
+update the pin in the same Desktop change. Validate the real bridge suites with
+`SPECRAILS_CORE_SOURCE_DIR` selecting the built Core checkout; a missing checkout
+skips these optional local tests and does not prove paired compatibility.
+
 Push CI still runs on every branch: native release validation requires a trusted
 push run for the exact branch and commit. PR and merge-queue runs remain enabled.
 Concurrency cancels superseded runs within the same event/ref. No path filters
