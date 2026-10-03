@@ -216,6 +216,18 @@ describe('Core process bridge', () => {
     expect(onLine).toHaveBeenCalledWith('[runtime] step_failed: architect — missing instructions tasks\n')
   })
 
+  it('shows bounded durable completion reasons in the readable failure log without changing settlement', async () => {
+    const reason = 'Automatic correction made no candidate changes. Required canvas fallback is missing.'
+    const event = { type: 'workflow-event', event: { type: 'workflow_failed', reasons: [null, '', reason, 'x'.repeat(10_000)] } }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));console.log(JSON.stringify(${JSON.stringify(final('failed', { completion: { ok: false, verified: false, reasons: [reason] } }))}));process.exitCode=1;`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    expect(await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })).toMatchObject({ failed: true, errorText: reason })
+    const readable = onLine.mock.calls.flat().filter(line => typeof line === 'string' && line.startsWith('[runtime] workflow_failed')).join('')
+    expect(readable).toContain('[runtime] workflow_failed — ' + reason)
+    expect(readable.length).toBeLessThan(4_040)
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
   it('freezes only the selected repositories checks and resumes without rereading project settings', async () => {
     script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const original = readFileSync(options().configPath, 'utf8')

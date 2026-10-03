@@ -272,9 +272,14 @@ A verification node ending with outcome `fail` is displayed as failed even when
 the workflow operation itself completed. Core retains the failed-check diagnostics
 and stops three repeated failures on an unchanged candidate instead of spending
 further fixer turns on that same state.
-The configurable Implement recipe stops earlier when a correction leaves a failed
-verification candidate unchanged, retaining its summary as the failure reason.
-Review corrections after passing verification remain eligible for another review.
+The configurable Implement recipe stops after any correction that leaves the
+candidate unchanged, including a rejected review whose host checks passed.
+Changed corrections must pass host verification and review again. A scoped counter
+limits each frozen plan to three automatic fixer turns and survives pause/resume;
+a forked recipe can edit its declared correction limit. Stalled or exhausted runs
+retain the current review, acceptance thresholds and fixer diagnosis in the failure
+reason, which also appears in the bounded readable runtime log. Passing commands
+cannot bypass rejected acceptance obligations or below-threshold aspect scores.
 Correctors receive bounded failure facts with complete evidence references and
 the current candidate's reviewer output directly, clearing missing or outdated
 review feedback before correction. Default instructions allow proven minimal

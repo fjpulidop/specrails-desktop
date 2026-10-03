@@ -335,9 +335,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
       } else if (event.type === 'workflow-event') {
-        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; error?: { message?: string } }
+        const payload = event.event as { type?: string; stepId?: string; nodePath?: string; scopeId?: string; message?: string; outcome?: string; reasons?: unknown; error?: { message?: string } }
         const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
-        const detail = payload?.error?.message ?? payload?.message
+        const completionDetail = payload?.type === 'workflow_failed' && Array.isArray(payload.reasons)
+          ? payload.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : undefined
+        const detail = payload?.error?.message ?? payload?.message ?? completionDetail
         const stepKey = JSON.stringify([payload?.scopeId ?? null, payload?.nodePath ?? payload?.stepId ?? null])
         if (payload?.type === 'step_failed' && typeof detail === 'string' && detail.trim()) {
           stepFailures.delete(stepKey)
