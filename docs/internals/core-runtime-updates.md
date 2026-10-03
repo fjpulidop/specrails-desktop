@@ -13,12 +13,16 @@ framework is rejected rather than silently replacing an update.
 
 ## Persistence and publication
 
-The release bundle pins Core 6.1.0 in `desktop-release.yml` and
+The release bundle pins Core 6.2.1 in `desktop-release.yml` and
 `scripts/assemble-bundled-core.lock.json`. Core 6 is the Desktop-only engine: it
-publishes integration contract 5.0 (no standalone `update`) and ships only the
+publishes integration contract 5.1 (no standalone `update`) and ships only the
 implement and retry workflows (Batch was folded into implement; Desktop no
 longer requires `batch-implement` but stays compatible with Cores that still ship it). Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
+
+The paired CI checkout uses the immutable Core 6.2.1 release commit
+`ae52a5ff0ff9dce024008adf16115e7f04d1ef35`. Bundle smoke checks use Node 22.22.3,
+matching Core's minimum supported Node version and the Desktop release runtime.
 
 Desktop updates retain the complete npm installation, including dependencies,
 under `~/.specrails/core/<version>/`. The registry home override applies to this
