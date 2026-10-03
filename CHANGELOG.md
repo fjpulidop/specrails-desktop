@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.59.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.1...v2.59.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* stop ineffective Implement review corrections ([#723](https://github.com/fjpulidop/specrails-desktop/issues/723)) ([031980e](https://github.com/fjpulidop/specrails-desktop/commit/031980e74d3253ad2a5037d23d50cf9c1de4bb2e))
+
 ## [2.59.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.0...v2.59.1) (2026-10-03)
 
 
