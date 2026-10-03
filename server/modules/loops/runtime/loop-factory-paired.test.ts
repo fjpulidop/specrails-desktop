@@ -37,10 +37,11 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
 async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string, converted = false, configurable = false, customStep = false, approval = false, planningQuestion = false, addendaIds: string[] = []) {
+  const reviewMode = process.env.SPECRAILS_FACTORY_REVIEW_MODE
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
-  writeFileSync(path.join(repository, 'code.cjs'), 'module.exports = 1\n')
+  writeFileSync(path.join(repository, 'code.cjs'), process.env.SPECRAILS_FACTORY_ALREADY_IMPLEMENTED === '1' ? 'module.exports = 2\n' : 'module.exports = 1\n')
   if (process.env.SPECRAILS_FACTORY_REGEX === '1') {
     writeFileSync(path.join(repository, 'modal.txt'), "e.key === 'Escape' &&\n!confirmPending")
     writeFileSync(path.join(repository, 'guard.test.cjs'), `const { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst guard = /e\\.key === 'Escape' && !confirmPending/;\ntest('cancelling confirmation preserves the queue', () => { assert.match(fs.readFileSync('modal.txt', 'utf8'), guard); assert.doesNotMatch("e.key === 'Escape' &&\\ntrue", guard); });\ntest('required feature returns two', () => assert.equal(require('./code.cjs'), 2));\n`)
@@ -51,13 +52,30 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   const contextPath = path.join(runtime, 'desktop-context.json'), configPath = path.join(root, id + '-config.json')
   const specs = [1].map(ticket => ({ id: ticket, title: 'Return two', description: 'code.cjs returns two', repositoryIds: ['repo'], acceptanceCriteria: ['Function returns 2'] }))
   writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: id, backlogRoot: backlog, artifactRoot: repository, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: repository }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs }))
-  const config = JSON.parse(readFileSync(path.join(core!, 'src/agent-runtime/engine/__fixtures__/acceptance/runtime-config.json'), 'utf8'))
-  config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }]
+  // Keep Desktop's fixture self-contained so it also exercises the published
+  // Core package, which intentionally does not include its source/test tree.
+  const config = { schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }],
+    agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } },
+    verification: [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }],
+  }
   if (process.env.SPECRAILS_FACTORY_REGEX === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['--test', '--test-reporter=spec', 'guard.test.cjs'] }]
   writeFileSync(configPath, JSON.stringify(config))
-  const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
+  const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = [], lines: string[] = []
   const change = 'paired-change'
   let factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1, implementationSteps: 1, ...(configurable ? { workflowAgentSteps: 1 } : {}) })!
+  if (reviewMode) factory.graph.config.maxTransitions = 80
+  if (process.env.SPECRAILS_FACTORY_CORRECTION_QUESTION === '1') {
+    factory.graph.edges.find(edge => edge.source === 'begin-correction')!.target = 'ask-first-correction'
+    factory.graph.nodes.push(
+      { id: 'ask-first-correction', type: 'core', position: { x: 360, y: 800 }, data: { kind: 'condition', params: { expr: '$vars.correctionAttempts == 1' } } },
+      { id: 'correction-question', type: 'core', position: { x: 360, y: 940 }, data: { kind: 'question', params: { text: 'Confirm the first correction?' } } },
+    )
+    factory.graph.edges.push(
+      { id: 'ask-first-yes', source: 'ask-first-correction', target: 'correction-question', label: 'true' },
+      { id: 'ask-first-no', source: 'ask-first-correction', target: 'fixer', label: 'false' },
+      { id: 'correction-answer', source: 'correction-question', target: 'fixer', label: 'next' },
+    )
+  }
   if (approval) factory.graph.nodes.find(node => node.id === 'approve')!.data!.params!.enabled = true
   if (customStep) {
     factory.graph.config.agents!.roles!.accessibility = { provider: 'claude', access: 'read', artifacts: 'none', prompt: 'Review accessibility against the actual requirements.' }
@@ -78,7 +96,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
     ...(decisionModel ? { workflowRoleBindings: { 'loop-decider': { provider: 'claude', model: decisionModel, access: 'read' as const, artifacts: 'none' as const } } } : {}),
     ...(converted && factory.graph.config.legacyDeciderRole ? { workflowRoleBindings: { [LEGACY_DECIDER_ROLE]: { provider: 'claude', access: 'read' as const, artifacts: 'none' as const } } } : {}),
     ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: config => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, spec: specs[0], roles: config.roles, ...(factory.graph.config.agents ? { loopAgents: config } : {}), repositoryCount: 1, changeId: change, addendaIds }) } : {}),
-    onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
+    onRuntimeEvent: event => events.push(event), onLine: line => lines.push(line), timeoutMs: 150_000,
   })
   if (blockAt) {
     expect(result).toMatchObject({ failed: false, runtimeStatus: 'paused' })
@@ -99,11 +117,11 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
       approve: [result.pendingInterrupts![0].id], onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
   }
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
-  const correctionStalled = process.env.SPECRAILS_FACTORY_NOOP === '1'
+  const correctionStalled = process.env.SPECRAILS_FACTORY_NOOP === '1' || ['reject', 'score', 'churn'].includes(reviewMode ?? '')
   expect(result, JSON.stringify({ result, events: events.filter(event => event.type === 'workflow-event' && ['archive', 'approve', 'reviewer', 'verify'].includes(event.event?.nodePath)).slice(0, 20) })).toMatchObject({ failed: stall || correctionStalled })
   if (!legacy && !stall && !correctionStalled) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
-  expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(correctionStalled ? 'module.exports = 3\n' : 'module.exports = 2\n')
-  return { result, calls, events, repository }
+  expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(process.env.SPECRAILS_FACTORY_NOOP === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
+  return { result, calls, events, repository, lines }
 }
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'quick-sdd', 'freestyle'])('executes the %s factory through the real bridge and Core with deterministic local executors', async mode => {
   const actual = await execute(mode)
@@ -184,6 +202,67 @@ it.skipIf(!core)('stops configurable Implement after an unchanged correction wit
   expect(starts).toContain('correction-stalled')
   expect(starts).not.toContain('reviewer')
   expect(starts).not.toContain('archive')
+}, 180_000)
+
+it.skipIf(!core).each(['reject', 'score'])('stops unchanged %s review corrections even when all host checks pass', async reviewMode => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', reviewMode)
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'failed', completion: { ok: false }, errorText: expect.stringContaining('no candidate changes') })
+  expect(actual.result.errorText).not.toContain('Maximum global node visits')
+  expect(actual.result.errorText).toContain(reviewMode === 'reject' ? 'Required canvas fallback is missing.' : '"security":70')
+  const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(1)
+  expect(starts).toContain('correction-stalled')
+  expect(starts).not.toContain('archive')
+  const prompt = actual.calls.find(call => call.role === 'correct')!.prompt
+  expect(prompt).toContain('security >= 75')
+  expect(prompt).toContain('Host verification is valid')
+  expect(actual.lines.join('')).toContain('[runtime] workflow_failed — Automatic correction made no candidate changes')
+}, 180_000)
+
+it.skipIf(!core)('accepts a review correction only after its real candidate changes pass verification and review', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', 'repair')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct', 'assess'])
+  expect(readFileSync(path.join(actual.repository, 'review-obligation.txt'), 'utf8')).toContain('Required review obligation implemented')
+  const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(2)
+  expect(starts).toContain('archive')
+}, 180_000)
+
+it.skipIf(!core)('accepts already implemented work on its first review without requiring an artificial code diff', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_ALREADY_IMPLEMENTED', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess'])
+  const diff = spawnSync('git', ['-C', actual.repository, 'diff', '--', 'code.cjs'])
+  expect(diff.status).toBe(0)
+  expect(diff.stdout.toString()).toBe('')
+}, 180_000)
+
+it.skipIf(!core)('bounds changed corrections that never satisfy review before exhausting global node visits', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', 'churn')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.filter(call => call.role === 'correct')).toHaveLength(3)
+  expect(actual.calls.filter(call => call.role === 'assess')).toHaveLength(4)
+  expect(actual.result).toMatchObject({ runtimeStatus: 'failed', completion: { ok: false }, errorText: expect.stringContaining('Automatic correction limit reached') })
+  expect(actual.result.errorText).toContain('Required canvas fallback is missing.')
+  const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+  expect(starts).toContain('correction-exhausted')
+  expect(starts).not.toContain('archive')
+}, 180_000)
+
+it.skipIf(!core)('retains the correction budget across a question before fixing without replaying completed review', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', 'churn')
+  vi.stubEnv('SPECRAILS_FACTORY_CORRECTION_QUESTION', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true, false, false, true)
+  // A real question pauses after consuming the first correction slot. Resume
+  // keeps that slot and leaves only two further corrections available.
+  expect(actual.calls.filter(call => call.role === 'correct')).toHaveLength(3)
+  expect(actual.calls.filter(call => call.role === 'assess')).toHaveLength(4)
+  expect(actual.calls.filter(call => call.role === 'plan')).toHaveLength(1)
+  expect(actual.calls.filter(call => call.role === 'build')).toHaveLength(1)
+  expect(actual.result.errorText).toContain('Automatic correction limit reached (3/3)')
 }, 180_000)
 
 it.skipIf(!core)('delivers a pre-existing formatting test failure to the configurable fixer and verifies its minimal repair', async () => {
