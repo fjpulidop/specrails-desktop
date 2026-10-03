@@ -128,8 +128,10 @@ describe('coordinated multi-repository execution', () => {
   })
   it('runs one provider across two real worktrees, persists scope and retries only the incomplete local integration', async () => {
     const f = fixture()
-    const runIds = await launchIsolatedRail(f.input, f.io)
+    const launchConfig = { mode: 'loop', loopId: f.input.loopId, repositoryIds: ['backend', 'frontend'], workspaceSelection: { frontend: ['src'] } }
+    const runIds = await launchIsolatedRail({ ...f.input, launchConfig }, f.io)
     const parentId = await settled(f.db)
+    expect(JSON.parse(getPrDelivery(f.db, parentId)!.launch_config_json!)).toEqual(launchConfig)
     expect(runIds).toHaveLength(1)
     expect(f.runAiStep).toHaveBeenCalledTimes(1)
     expect(f.onLoopRunFinished).toHaveBeenCalledTimes(1)

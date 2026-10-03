@@ -398,6 +398,27 @@ describe('db', () => {
       }
     })
 
+    it('migration 71 adds nullable relaunch options without changing historical rows and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-relaunch-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare("INSERT INTO rail_pr_deliveries (id, rail_index, rail_key, ticket_ids, base_branch, loop_name, origin_surface) VALUES ('old', 0, '0-quick', '[4]', 'main', 'Quick', 'dashboard')").run()
+        for (const table of ['rail_pr_deliveries', 'loop_runs']) db.exec(`ALTER TABLE ${table} DROP COLUMN launch_config_json`)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 71').run()
+        db.close(); db = initDb(dbPath)
+        for (const table of ['rail_pr_deliveries', 'loop_runs']) {
+          expect(db.prepare(`PRAGMA table_info(${table})`).all()).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'launch_config_json', notnull: 0 })]))
+        }
+        expect(db.prepare("SELECT ticket_ids, launch_config_json FROM rail_pr_deliveries WHERE id='old'").get()).toEqual({ ticket_ids: '[4]', launch_config_json: null })
+        db.prepare('DELETE FROM schema_migrations WHERE version = 71').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 71').get()).toEqual({ version: 71 })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 70 converts stored Batch rails to implement', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-remove-batch-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1013 source/build files. Nearby tests are linked where names
+Includes 1014 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1220,6 +1220,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rail-pr-recovery-git.ts](../../server/modules/delivery/runtime/rail-pr-recovery-git.ts) · [test](../../server/modules/delivery/runtime/rail-pr-recovery-git.test.ts)
 - [rail-pr-store.ts](../../server/modules/delivery/runtime/rail-pr-store.ts) · [test](../../server/modules/delivery/runtime/rail-pr-store.test.ts)
 - [rail-pr-ticket-effects.ts](../../server/modules/delivery/runtime/rail-pr-ticket-effects.ts) · [test](../../server/modules/delivery/runtime/rail-pr-ticket-effects.test.ts)
+- [rail-relaunch.ts](../../server/modules/delivery/runtime/rail-relaunch.ts) · [test](../../server/modules/delivery/runtime/rail-relaunch.test.ts)
 - [rail-worktree-release.ts](../../server/modules/delivery/runtime/rail-worktree-release.ts) · [test](../../server/modules/delivery/runtime/rail-worktree-release.test.ts)
 - [rail-worktrees-store.ts](../../server/modules/delivery/runtime/rail-worktrees-store.ts) · [test](../../server/modules/delivery/runtime/rail-worktrees-store.test.ts)
 - [rails-router.ts](../../server/modules/delivery/runtime/rails-router.ts) · [test](../../server/modules/delivery/runtime/rails-router.test.ts)

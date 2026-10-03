@@ -108,6 +108,17 @@ beforeEach(() => {
 })
 
 describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
+  it('freezes rail retry options before the first executor runs, including legacy graph runs', async () => {
+    const launchConfig = { mode: 'loop', loopId: 'loop-1', aiEngine: 'claude', model: 'sonnet', profileName: null, repositoryIds: ['primary'], workspaceSelection: { primary: ['app'] } }
+    const runAiStep = vi.fn(async () => {
+      expect(JSON.parse(getLoopRun(db, 'retry-source')!.launch_config_json!)).toEqual(launchConfig)
+      return { text: 'done', provider: 'claude', model: 'sonnet' }
+    })
+    await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), runId: 'retry-source', launchConfig })
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(getLoopRun(db, 'retry-source')!.launch_config_json!)).toEqual(launchConfig)
+  })
+
   it.each(['premium', null])('forwards the rail profile %s to both spawn paths', async (profileName) => {
     const planInteractiveAiStep = vi.fn(() => null)
     const ex = makeExecutors({ planInteractiveAiStep })

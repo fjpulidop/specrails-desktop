@@ -41,6 +41,12 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/loops` and any affected consumers.
 
+Rail launches carry `launchConfig` with admitted workflow, engine/model/effort,
+profile, repository/workspace and target choices. The launch transaction writes
+it to `loop_runs.launch_config_json` before any executor starts, for both legacy
+graphs and Core definitions. Fresh mission relaunches read these options through
+delivery admission; recovery still uses the original frozen runtime request.
+
 Quick SDD is the default for delivery changes and addenda; explicit workflows
 (including Implement) take precedence. Each addendum launch seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.

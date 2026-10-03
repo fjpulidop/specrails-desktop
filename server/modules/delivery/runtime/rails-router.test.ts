@@ -16,7 +16,7 @@ import { createLoop, getLoop, publishLoop, updateLoop } from '../../loops/runtim
 import { ensureBuiltinLoops, probeCoreCapabilities } from '../../loops/runtime/builtin-loops'
 import { getFactoryLoop } from '../../loops/runtime/loop-factory'
 import { createLoopRun } from '../../loops/runtime/loop-runs-store'
-import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
+import { createPrDelivery, createPrDeliveryGeneration, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from '../../../process-admission'
 import { ExplicitPrTargetError } from './active-pr-continuation'
@@ -1096,6 +1096,183 @@ describe('rails-router loop mode', () => {
     expect(res.status).toBe(200)
     expect(cancel).toHaveBeenCalledWith('rid-1')
     expect(broadcast.mock.calls.some(([m]) => (m as { type: string }).type === 'loop.run_stopped')).toBe(true)
+  })
+})
+
+describe('rails-router source-bound Relaunch', () => {
+  let db: DbInstance, desktopDb: DbInstance, projectPath: string
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  const savedPr = process.env.SPECRAILS_RAIL_DELIVER_PR
+
+  beforeEach(() => {
+    db = initDb(':memory:'); desktopDb = initDesktopDb(':memory:')
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rail-relaunch-'))
+    delete process.env.SPECRAILS_LOOPS_SECTION; delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['new-run'])
+    vi.spyOn(defaultGitRunner, 'run').mockResolvedValue({ code: 0, stdout: 'a'.repeat(40), stderr: '' })
+  })
+  afterEach(() => {
+    openProjectProcessAdmission('p1'); vi.restoreAllMocks()
+    db.close(); desktopDb.close(); fs.rmSync(projectPath, { recursive: true, force: true })
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION; else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+    if (savedPr === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR; else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPr
+  })
+  const relaunchApp = (options: Parameters<typeof appWith>[1] = {}) => appWith(db, {
+    desktopDb, projectPath, providers: ['claude', 'codex'],
+    loopRunManager: { run: vi.fn(() => new Promise<never>(() => {})), cancel: vi.fn() },
+    getTicketSpec: id => ({ title: `Spec ${id}`, description: 'Fix the problem' }), ...options,
+  })
+  const failure = (options: Partial<CreatePrDeliveryInput> = {}) => {
+    const row = createPrDelivery(db, { railIndex: 0, railKey: '0-quick', ticketIds: [4], baseBranch: 'main',
+      loopId: 'factory:sdd-quick-openspec', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1', ...options })
+    transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
+    return row
+  }
+
+  it('restores released specs and the recorded workflow, replacing an undelivered failed generation', async () => {
+    const row = failure()
+    expect(getRail(db, 0).ticketIds).toEqual([])
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:sdd-quick-openspec',
+      baseBranch: 'main', originConversationId: 'mission-1', retryOfDelivery: { deliveryId: row.id, decision: 'implementation_failed' } }))
+    expect(getRail(db, 0).ticketIds).toEqual([4])
+  })
+
+  it('retries a preparation failure atomically without discarding its source before allocation', async () => {
+    const row = failure()
+    transitionDecision(db, row.id, 'implementation_failed', 'pr_failed', { statusCode: 'delivery_failed' })
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(getPrDelivery(db, row.id)?.decision).toBe('pr_failed') // mocked launch did not supersede
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ retryOfDelivery: { deliveryId: row.id, decision: 'pr_failed' } }))
+  })
+
+  it('keeps trailing-slash and case-insensitive routes bound to the original source', async () => {
+    const row = failure()
+    const response = await request(relaunchApp()).post('/rails/0/RELAUNCH/').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', ticketIds: [4] }))
+  })
+
+  it('does not treat an unchanged sibling as delivered work that blocks retrying a failed batch', async () => {
+    const row = failure({ ticketIds: [4, 5] })
+    transitionDecision(db, row.id, 'implementation_failed', 'implementation_failed', { branches: [
+      { ticketId: 4, branch: 'fix/no-change', succeeded: true, finalSha: 'a'.repeat(40), changed: false, implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes' },
+      { ticketId: 5, branch: 'fix/failed', succeeded: false, implementationOutcome: 'failed', deliveryOutcome: 'blocked' },
+    ] })
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4, 5], retryOfDelivery: { deliveryId: row.id, decision: 'implementation_failed' } }))
+  })
+
+  it('preserves saved custom workflow, engine, model, effort, explicit profile opt-out and target options', async () => {
+    const custom = createLoop(desktopDb, { id: 'custom-relaunch', name: 'My workflow', graph: {
+      nodes: [{ id: 's', type: 'start', position: { x: 0, y: 0 } }, { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Fix {{spec.title}}' } }, { id: 'e', type: 'end', position: { x: 0, y: 2 } }],
+      edges: [{ id: 'a', source: 's', target: 'ai' }, { id: 'b', source: 'ai', target: 'e' }], config: { maxIterations: 2, timeoutMinutes: 5 },
+    } })
+    publishLoop(desktopDb, custom.id)
+    const row = failure({ loopId: custom.id, launchConfig: { mode: 'loop', loopId: custom.id, aiEngine: 'codex', model: 'gpt-6.1-sol', reasoning_effort: 'high', profileName: null, baseBranch: 'main', targetPrNumber: 51 } })
+    setRailTickets(db, 0, [4], 'implement', 'unrelated-profile', 'claude')
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id, loopId: 'factory:implement', aiEngine: 'claude' })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: custom.id, provider: 'codex', model: 'gpt-6.1-sol', effort: 'high', profileName: null, explicitPrTarget: { prNumber: 51 } }))
+    expect(mockLaunchIsolated.mock.calls[0][0].launchConfig).toMatchObject({ targetPrNumber: 51 })
+  })
+
+  it('rejects a reused rail without overwriting or launching its current specs', async () => {
+    const row = failure()
+    setRailTickets(db, 0, [99], 'freestyle', 'keep', 'codex')
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(409); expect(response.body.error).toBe('relaunch_rail_changed')
+    expect(getRail(db, 0)).toMatchObject({ ticketIds: [99], mode: 'freestyle', profileName: 'keep', aiEngine: 'codex' })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('refuses slot edits that arrive during the asynchronous repository preflight', async () => {
+    const row = failure()
+    mockRepoStatus.mockImplementationOnce(async () => {
+      setRailTickets(db, 0, [99], 'freestyle')
+      return 'ok'
+    })
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(409); expect(response.body.error).toBe('relaunch_rail_changed')
+    expect(getRail(db, 0).ticketIds).toEqual([99]); expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('rejects repeating an already admitted source and creates only one replacement', async () => {
+    const row = failure()
+    mockLaunchIsolated.mockImplementationOnce(async (input) => {
+      createPrDeliveryGeneration(db, { railIndex: 0, railKey: '0-quick', loopId: input.loopId,
+        loopName: input.loopName, ticketIds: input.ticketIds, baseBranch: 'main', originSurface: 'agent-chat' },
+      { id: row.id, decision: 'implementation_failed' })
+      return ['new-run']
+    })
+    const app = relaunchApp()
+    expect((await request(app).post('/rails/0/relaunch').send({ sourceId: row.id })).status).toBe(202)
+    const response = await request(app).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(409); expect(response.body.error).toBe('relaunch_source_stale')
+    expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
+    expect(db.prepare('SELECT count(*) AS n FROM rail_pr_deliveries').get()).toEqual({ n: 2 })
+  })
+
+  it('rejects missing specs and unknown sources without restoring assignments', async () => {
+    const row = failure()
+    const response = await request(relaunchApp({ getTicketSpec: () => undefined })).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.body.error).toBe('relaunch_specs_unavailable')
+    expect((await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: 'unknown' })).body.error).toBe('relaunch_source_missing')
+    expect(getRail(db, 0).ticketIds).toEqual([])
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('refuses stale generations and delivered work without closing either', async () => {
+    const old = failure()
+    transitionDecision(db, old.id, 'implementation_failed', 'superseded')
+    const current = failure()
+    expect((await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: old.id })).body.error).toBe('relaunch_source_stale')
+    transitionDecision(db, current.id, 'implementation_failed', 'implementation_failed', { branch: 'fix/current', prUrl: 'https://github.com/o/r/pull/1', prNumber: 1, prState: 'pr-created', deliverySha: 'a'.repeat(40) })
+    expect((await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: current.id })).body.error).toBe('relaunch_requires_recovery')
+    expect(getPrDelivery(db, current.id)?.decision).toBe('implementation_failed')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('reports fresh retry allocation errors honestly instead of calling them PR continuation errors', async () => {
+    const row = failure()
+    mockLaunchIsolated.mockRejectedValue(new Error('worktree allocation refused'))
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(409)
+    expect(response.body).toMatchObject({ error: 'isolation_failed', detail: 'worktree allocation refused' })
+    expect(getPrDelivery(db, row.id)?.decision).toBe('implementation_failed')
+  })
+
+  it('refuses a shared-cwd fallback for an originally isolated attempt', async () => {
+    const row = failure()
+    mockRepoStatus.mockResolvedValue('no-git')
+    const run = vi.fn()
+    const response = await request(relaunchApp({ loopRunManager: { run, cancel: vi.fn() } })).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('base_branch_requires_isolation')
+    expect(run).not.toHaveBeenCalled(); expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(getRail(db, 0).ticketIds).toEqual([])
+  })
+
+  it('relaunches a historical shared run from its recorded workflow and specs after release', async () => {
+    createLoopRun(db, { id: 'old-run', projectId: 'p1', railIndex: 0, loopId: 'factory:freestyle', loopName: 'Freestyle', ticketIds: [4], ticketId: 4, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: '2026-10-03T08:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed',final_outcome='failed' WHERE id=?").run('old-run')
+    const response = await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: 'run:old-run', originConversationId: 'mission-1', originSurface: 'agent-chat' })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [4], loopId: 'factory:freestyle', provider: 'claude' }))
+  })
+
+  it('blocks unavailable recorded workflows and disabled loops instead of choosing Implement', async () => {
+    const row = failure({ loopId: null })
+    expect((await request(relaunchApp()).post('/rails/0/relaunch').send({ sourceId: row.id })).body.error).toBe('relaunch_config_unavailable')
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    const enqueue = vi.fn()
+    const response = await request(relaunchApp({ queueManager: { enqueue } })).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status).toBe(409); expect(response.body.error).toBe('relaunch_workflow_unavailable')
+    expect(enqueue).not.toHaveBeenCalled(); expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 })
 

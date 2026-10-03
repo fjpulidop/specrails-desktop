@@ -51,6 +51,18 @@ generations with open addenda are atomically replaced by fresh launches, without
 claiming prior delivery. Every frozen addendum must be claimed before any agent
 starts; partial claims are reopened if admission fails.
 
+Mission Relaunch posts the original delivery/run `sourceId` to
+`POST /rails/:railIndex/relaunch`. `runtime/rail-relaunch.ts` resolves that
+project's saved configuration and original spec set, then shares normal launch
+admission checks. Migration 71 freezes admitted options on deliveries and loop
+runs before execution. Empty assignments are restored after preflight; reused
+or removed rails, newer generations and delivered work are rejected. An
+identified undelivered failure uses the existing atomic `retryOfDelivery`
+supersession/rollback, retaining its original checkout. Historical attempts use
+recorded loop/runtime/manifest fields; absent workflow identity never silently
+selects Implement. A retry cannot fall back to shared cwd from an isolated
+delivery. See [mission rail cards](../../../docs/internals/mission-rail-cards.md).
+
 Settlement blocks new active OpenSpec change directories against the frozen base
 and deliverable external absolute symlinks with an actionable `commit_failed`
 detail, retaining the checkout. Archives and base changes remain allowed.

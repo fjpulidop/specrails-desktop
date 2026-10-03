@@ -44,6 +44,7 @@ export interface LoopRunRow {
   causal_ownership?: number
   engine_version?: number | null
   run_request_json?: string | null
+  launch_config_json?: string | null
   runtime_metadata_json?: string | null
   runtime_status_json?: string | null
   core_revision?: number | null

@@ -110,6 +110,7 @@ export function isTerminalPrDecision(s: string): boolean {
 }
 
 export interface RailPrDeliveryRow {
+  launch_config_json?: string | null
   parent_delivery_id?: string | null
   repository_id?: string | null
   repository_path?: string | null
@@ -174,6 +175,8 @@ export interface RailPrDeliveryRow {
 }
 
 export interface CreatePrDeliveryInput {
+  /** Validated launch options, independent of the mutable rail assignment. */
+  launchConfig?: Record<string, unknown>
   parentDeliveryId?: string | null
   repositoryId?: string | null
   repositoryPath?: string | null
@@ -213,9 +216,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda, launch_config_json
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -238,6 +241,7 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.repositoryPath ?? null,
     input.followUp ? JSON.stringify(input.followUp) : null,
     input.specAddenda && input.specAddenda.length > 0 ? JSON.stringify(input.specAddenda) : null,
+    input.launchConfig ? JSON.stringify(input.launchConfig) : null,
   )
   return getPrDelivery(db, id)!
 }

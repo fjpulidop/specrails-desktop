@@ -34,6 +34,20 @@ Mission mode (Agent Mode) replaces the routed dashboard, so `RailsBoard`, `Specs
 
 ## Protocol contract
 
+Relaunch identifies the card's delivery or shared run with
+`POST /rails/:railIndex/relaunch { sourceId, originConversationId?, originSurface? }`.
+It uses the source's saved specs and launch options, even after terminal cleanup
+emptied the rail. New attempts freeze these options in migration 71; historical
+ones reconstruct only recorded loop/runtime/manifest fields. A missing workflow
+requires a configured fresh launch. A rail reused for different specs is left
+untouched; stale cards and delivered work that needs recovery are rejected.
+Independent per-ticket siblings do not invalidate each other; newer overlapping
+spec ownership does. A successful unit reporting no changes is not delivered work.
+Undelivered failed generations are atomically superseded in fresh worktrees,
+with allocation rollback and the original failed checkout retained. A synchronous
+click guard prevents duplicate submissions; accepted relaunches stay disabled
+until the new card appears, and rejected admission details remain inline.
+
 ```rail-launch
 {
   "version": 1,

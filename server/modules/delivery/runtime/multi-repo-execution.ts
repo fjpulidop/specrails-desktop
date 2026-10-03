@@ -221,6 +221,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
     artifactRepositoryId, selectedRepositoryIds: selected.map((repo) => repo.id), repositories: [],
   }
   const generation = createPrDeliveryGeneration(ctx.db, {
+    launchConfig: input.launchConfig,
     id: parentId, railIndex: input.railIndex, loopId: input.loopId, railKey: `${input.railIndex}-${input.loopId}`,
     ticketIds: input.ticketIds, baseBranch: input.baseBranch ?? '', loopName: input.loopName,
     originSurface: input.originSurface ?? 'dashboard', originConversationId: input.originConversationId,

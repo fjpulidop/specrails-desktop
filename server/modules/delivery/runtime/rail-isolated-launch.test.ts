@@ -402,7 +402,8 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
   it('inserts a building row at launch (origin persisted) and broadcasts rail.pr_state at insert + run allocation', async () => {
     const { ctx, db, broadcast } = fakeCtx() // never-settling runs → row stays 'building'
 
-    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-1' }, okIo())
+    const launchConfig = { mode: 'implement', loopId: 'factory:implement', aiEngine: 'claude', model: 'sonnet', profileName: null }
+    const ids = await launchIsolatedRail({ ...input([1, 2], ctx), launchConfig, scope: 'all', originSurface: 'agent-chat', originConversationId: 'conv-1' }, okIo())
 
     const row = getActivePrDeliveryByRail(db, 0)!
     expect(row).toMatchObject({
@@ -413,6 +414,8 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     })
     // run_ids round-trip: patched onto the row right after allocation.
     expect(JSON.parse(row.run_ids)).toEqual(ids)
+    expect(JSON.parse(row.launch_config_json!)).toEqual(launchConfig)
+    expect(ctx.loopRunManager.run).toHaveBeenCalledWith(expect.objectContaining({ launchConfig }))
     // Both durable broadcasts carry the EXACT snapshot payload shape: the
     // insert (runIds still []) then the allocation patch (runIds populated —
     // the building card/strip gains its per-run "View log" chips live).
@@ -1412,6 +1415,25 @@ describe('launchIsolatedRail — active PR continuation', () => {
     expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({
       delivery_sha: finalSha, status_code: 'existing_pr_updated', delivery_outcome: 'delivered',
     })
+  })
+
+  it('restores an undelivered failed source when retry allocation fails, preserving its original checkout', async () => {
+    const { ctx, db, run } = fakeCtx()
+    const prior = createPrDelivery(db, { id: 'failed-source', railIndex: 0, railKey: '0-implement',
+      loopId: 'factory:implement', ticketIds: [4], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    const oldUnit = { ticketId: 4, branch: 'fix/old', worktreePath: '/wt/old', succeeded: false, failureCode: 'tests_failed' }
+    transitionDecision(db, prior.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed', branches: [oldUnit] })
+    const remove = vi.fn(async () => {})
+    await expect(launchIsolatedRail({ ...input([4], ctx), retryOfDelivery: { deliveryId: prior.id, decision: 'implementation_failed' } }, {
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      exec: { run: vi.fn(async () => ({ code: 0, stdout: '[]', stderr: '' })) },
+      create: vi.fn(async () => { throw new Error('allocation refused') }), remove,
+    })).rejects.toThrow('allocation refused')
+    expect(run).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toMatchObject({ id: prior.id, decision: 'implementation_failed', branches: JSON.stringify([oldUnit]) })
+    expect(remove.mock.calls.flat()).not.toContain('/wt/old')
+    expect(db.prepare('SELECT decision, supersedes_delivery_id FROM rail_pr_deliveries WHERE id <> ?').get(prior.id)).toMatchObject({ decision: 'discarded', supersedes_delivery_id: prior.id })
+    db.close()
   })
 
   it('restores the superseded PR generation atomically when continuation allocation fails', async () => {

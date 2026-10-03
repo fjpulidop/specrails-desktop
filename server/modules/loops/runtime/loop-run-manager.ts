@@ -276,6 +276,8 @@ export interface LoopExecutors {
 }
 
 export interface LoopRunRequest {
+  /** Admitted rail options for a fresh retry; excludes execution paths/ids. */
+  launchConfig?: Record<string, unknown>
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Loop Decider engine (roles launch, hybrid-role-engines); absent ⇒ the rail's provider/model/effort. */
   deciderEngine?: { provider: string; model: string; effort?: ReasoningEffort }
@@ -1274,6 +1276,7 @@ export class LoopRunManager {
         startedAt: launchStartedAt,
       })
       if (definitionEngine) saveDefinitionRun(this.db,runId,{request:req,source:'definition'})
+      if (req.launchConfig) this.db.prepare('UPDATE loop_runs SET launch_config_json = ? WHERE id = ?').run(JSON.stringify(req.launchConfig), runId)
       if (req.executionManifest) this.db.prepare('UPDATE loop_runs SET execution_manifest = ? WHERE id = ?').run(JSON.stringify(req.executionManifest), runId)
       createJob(this.db, {
         id: runId,

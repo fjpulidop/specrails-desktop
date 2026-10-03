@@ -95,6 +95,7 @@ import type { ProjectContext } from '../../../project-registry'
 import type { ReasoningEffort } from '../../../providers/types'
 
 export interface IsolatedLaunchInput {
+  launchConfig?: Record<string, unknown>
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Registered write targets. When omitted, use the specs' targets, then primary. */
   repositoryIds?: string[]
@@ -1155,6 +1156,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   if (prMode) {
     const generation = createPrDeliveryGeneration(ctx.db, {
+      launchConfig: input.launchConfig,
       parentDeliveryId: input.repositoryExecution?.parentDeliveryId,
       repositoryId: input.repositoryExecution?.repositoryId,
       repositoryPath: input.repositoryExecution ? baseRepo : undefined,
@@ -1522,7 +1524,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     const claimedAddenda = claimedAddendaByRun.get(a.runId)!
     const enginePromise = ctx.loopRunManager.run({
         runtimeProviderOverride: input.runtimeProviderOverride,
-        runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
+        runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id, launchConfig: input.launchConfig,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         repositoryId: singleRepositoryId,
         workspacePaths: singleRepositoryId ? input.workspaceSelection?.[singleRepositoryId] : undefined,

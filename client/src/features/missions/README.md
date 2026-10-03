@@ -3,6 +3,12 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+Failed-card Relaunch sends its original `prDeliveryId` (or `run:<id>`) to the
+card project's source-bound relaunch endpoint. It does not authorize the rail's
+current assignments. Duplicate clicks are guarded synchronously, acceptance
+disables further relaunches, and rejection details/actions stay visible inline
+alongside the toast. See [mission rail cards](../../../../docs/internals/mission-rail-cards.md).
+
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other

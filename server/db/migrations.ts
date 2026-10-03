@@ -1706,6 +1706,15 @@ const MIGRATIONS: Migration[] = [
     db.exec(`UPDATE rails SET mode='implement' WHERE mode IN ('batch-implement','batch')`)
   },
 
+  // Migration 71: source-bound rail relaunch. NULL preserves historical rows;
+  // new attempts freeze their admitted launch options before agent execution.
+  (db) => {
+    for (const table of ['rail_pr_deliveries', 'loop_runs']) {
+      const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+      if (!columns.some(column => column.name === 'launch_config_json')) db.exec(`ALTER TABLE ${table} ADD COLUMN launch_config_json TEXT`)
+    }
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {
