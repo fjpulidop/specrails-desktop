@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.59.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.0...v2.59.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* repair Implement execution, rail relaunch, launch scope and Claude usage ([#721](https://github.com/fjpulidop/specrails-desktop/issues/721)) ([025c202](https://github.com/fjpulidop/specrails-desktop/commit/025c2022a10a836e9ce29484542ae2711b65465e))
+
 ## [2.59.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.58.1...v2.59.0) (2026-10-01)
 
 
