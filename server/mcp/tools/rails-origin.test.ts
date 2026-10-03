@@ -34,12 +34,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 // Mutable isolation status so a test can drive the no-git fallback path.
 const isoStatus = vi.hoisted(() => ({ value: 'ok' as 'ok' | 'no-git' | 'no-commits' }))
-const testRefs = vi.hoisted(() => ({ headSha: 'a'.repeat(40) }))
+const testRefs = vi.hoisted(() => ({ headSha: 'a'.repeat(40), baselineAvailable: true }))
 
 vi.mock('../../worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   defaultGitRunner: {
     run: async (args: string[]) => args.join(' ') === 'rev-parse --verify HEAD'
+      || (args.join(' ') === 'rev-parse --verify HEAD^{commit}' && testRefs.baselineAvailable)
       ? { code: 0, stdout: `${testRefs.headSha}\n`, stderr: '' }
       : { code: 1, stdout: '', stderr: '' },
   }, // integration branch still falls back to HEAD; settlement can prove exact HEAD
@@ -75,6 +76,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
   beforeEach(async () => {
     delete process.env.SPECRAILS_RAIL_DELIVER_PR // PR delivery default-on
     isoStatus.value = 'ok'
+    testRefs.baselineAvailable = true
     coreCapabilities.value = {}
     db = initDb(':memory:')
     desktopDb = initDesktopDb(':memory:')
@@ -145,12 +147,29 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     return { requestInfo: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }
   }
 
+  it('rejects an isolated MCP launch when its OpenSpec delivery baseline cannot be frozen', async () => {
+    testRefs.baselineAvailable = false
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
+      launchExtra('conv-baseline-missing'),
+    )
+    expect(r.isError).toBe(true)
+    expect(r.content[0].text).toContain('isolation_failed')
+    expect(r.content[0].text).toContain('Could not freeze the OpenSpec delivery baseline')
+    expect(loopRun).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
+    const deliveryId = postPrDecisionCard.mock.calls[0][1].prDeliveryId as string
+    expect(getPrDelivery(db, deliveryId)).toMatchObject({ decision: 'discarded', status_code: 'delivery_failed' })
+    expect(updatePrDecisionCard).toHaveBeenCalledWith('conv-baseline-missing',
+      expect.objectContaining({ prDeliveryId: deliveryId, decision: 'discarded', statusCode: 'delivery_failed' }))
+  })
+
   it('a capability-authenticated launch persists origin_conversation_id and fires the chat card at settle', async () => {
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra('conv-int-42'),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(1) // scope='all' → one unit
@@ -197,7 +216,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-sdd-quick'),
     )
 
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(2)
@@ -220,7 +239,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra('conv-nogit'),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
     // Shared-cwd fallback surfaced verbatim + isolated flag absent.
     expect(payload.isolationUnavailable).toBe('no-git')
@@ -244,7 +263,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
 
     const row = getActivePrDeliveryByRail(db, 0)
     expect(row).toBeTruthy()
@@ -272,7 +291,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, mode: 'implement' },
       launchExtra('conv-bare-7'),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     const payload = JSON.parse(r.content[0].text)
     expect(payload.isolated).toBe(true)
     expect(payload.loopRunIds).toHaveLength(1) // derived implement is all-scope → one unit
@@ -293,7 +312,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       { requestInfo: { headers: { [AGENT_CONVERSATION_HEADER]: 'not valid!!' } } },
     )
-    expect(r.isError).toBeFalsy() // sanitized to null → fields omitted from the body
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy() // sanitized to null → fields omitted from the body
 
     const row = getActivePrDeliveryByRail(db, 0)
     expect(row!.origin_conversation_id).toBeNull()
@@ -332,7 +351,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
 
     expect(loopRun).toHaveBeenCalledTimes(1)
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', runtimeProviderOverride: { provider: 'codex' } })
@@ -360,7 +379,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'claude' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: { provider: 'claude' } })
     await settle()
   })
@@ -371,7 +390,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra', effort: 'ultra', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6-astra', effort: 'ultra' } })
     await settle()
   })
@@ -382,7 +401,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', model: 'gpt-5.6-luna' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.6-luna' })
     expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
     await settle()
@@ -394,7 +413,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'claude' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: { provider: 'claude' } })
     expect(loopRun.mock.calls[0][0].model).not.toBe('gpt-6-astra')
     expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
@@ -407,7 +426,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: null },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined })
     await settle()
   })
@@ -417,7 +436,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra('conv-that-does-not-exist'),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined })
     // The router doesn't require the conversation to exist for the origin tag.
     expect(getActivePrDeliveryByRail(db, 0)!.origin_conversation_id).toBe('conv-that-does-not-exist')
@@ -441,7 +460,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'high' })
     await settle()
   })
@@ -452,7 +471,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'low' })
     await settle()
   })
@@ -463,7 +482,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', reasoning_effort: 'low' },
       launchExtra(conv.id),
     )
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, JSON.stringify(r.content)).toBeFalsy()
     expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'low' })
     await settle()
   })
