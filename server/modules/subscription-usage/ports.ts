@@ -1,7 +1,8 @@
-import type { Availability, ProviderUsage, UsageProvider, UsageWindow } from './domain'
+import type { Availability, EnterpriseSpend, ProviderUsage, UsageProvider, UsageWindow } from './domain'
 export interface UsageReadResult {
   availability: Availability
   windows: UsageWindow[]
+  spend?: EnterpriseSpend | null
   plan: string | null
   source: ProviderUsage['source']
   identity?: string

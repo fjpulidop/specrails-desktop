@@ -8,6 +8,16 @@ it('validates provider scope and rejects fabricated/invalid usage values', () =>
   expect(isUsageSnapshot({ ...snapshot, providers: [{ ...snapshot.providers[0], providerId: 'cursor' }, snapshot.providers[1]] })).toBe(false)
   expect(isUsageSnapshot({ ...snapshot, providers: [snapshot.providers[0], snapshot.providers[0]] })).toBe(false)
 })
+it('accepts Enterprise spend snapshots and rejects invalid money or wrong account classification', () => {
+  const spend = { kind: 'enterprise-on-demand', usedAmount: 20.78, limitAmount: 1000, limitStatus: 'limited', currency: 'USD', usedPercent: 2, resetsAt: '2030-02-01T00:00:00Z' }
+  const value = { ...snapshot, providers: [{ ...snapshot.providers[0], availability: 'available', plan: 'enterprise', spend }, snapshot.providers[1]] }
+  expect(isUsageSnapshot(value)).toBe(true)
+  for (const patch of [{ usedAmount: -1 }, { limitAmount: Infinity }, { currency: 'dollars' }, { usedPercent: -1 }, { limitStatus: 'unlimited' }, { usedAmount: null, limitAmount: null }]) {
+    expect(isUsageSnapshot({ ...value, providers: [{ ...value.providers[0], spend: { ...spend, ...patch } }, snapshot.providers[1]] })).toBe(false)
+  }
+  expect(isUsageSnapshot({ ...value, providers: [{ ...value.providers[0], plan: 'team' }, snapshot.providers[1]] })).toBe(false)
+  expect(isUsageSnapshot({ ...value, providers: [{ ...value.providers[0], windows: [{ id: 'session', label: 'session', scope: 'account', model: null, usedPercent: 0, durationMinutes: 300, resetsAt: null }] }, snapshot.providers[1]] })).toBe(false)
+})
 it('shares a single demand loop, stops on hide/unmount and automatically refreshes on reopen', async () => {
   vi.useFakeTimers()
   const request = vi.fn().mockImplementation(async (_url, init) => new Response(JSON.stringify(init?.method === 'POST' ? { snapshot, scheduled: false } : snapshot)))

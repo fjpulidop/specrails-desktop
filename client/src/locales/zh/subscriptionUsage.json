@@ -53,5 +53,15 @@
     "cleanup-failed": "无法停止查询",
     "usage-unavailable": "用量不可用"
   },
-  "resetsIn": "{{time}}后重置"
+  "resetsIn": "{{time}}后重置",
+  "spend": {
+    "enterprise": "Enterprise · 按量付费",
+    "monthly": "本月消费",
+    "amounts": "已消费 {{used}}，总额度 {{limit}}",
+    "consumed": "已消费 {{used}}",
+    "unlimited": "无月度限额",
+    "limitUnknown": "月度限额不可用",
+    "resets": "{{time}} 重置",
+    "progress": "Claude 月度消费"
+  }
 }

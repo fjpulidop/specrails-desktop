@@ -53,5 +53,15 @@
     "cleanup-failed": "Arrêt de la requête impossible",
     "usage-unavailable": "Utilisation indisponible"
   },
-  "resetsIn": "Réinitialisation dans {{time}}"
+  "resetsIn": "Réinitialisation dans {{time}}",
+  "spend": {
+    "enterprise": "Enterprise · À la demande",
+    "monthly": "Dépenses du mois",
+    "amounts": "{{used}} dépensés sur {{limit}}",
+    "consumed": "{{used}} dépensés",
+    "unlimited": "Sans limite mensuelle",
+    "limitUnknown": "Limite mensuelle indisponible",
+    "resets": "Réinitialisation le {{time}}",
+    "progress": "Dépenses mensuelles Claude"
+  }
 }

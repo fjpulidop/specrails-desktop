@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1012 source/build files. Nearby tests are linked where names
+Includes 1013 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -717,6 +717,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/subscription-usage/components
 
+- [EnterpriseSpendMeter.tsx](../../client/src/features/subscription-usage/components/EnterpriseSpendMeter.tsx)
 - [SubscriptionUsageFooter.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageFooter.tsx)
 - [SubscriptionUsagePanel.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsagePanel.tsx)
 - [SubscriptionUsageSection.tsx](../../client/src/features/subscription-usage/components/SubscriptionUsageSection.tsx)

@@ -73,6 +73,25 @@ describe('machine subscription usage lifecycle', () => {
   })
 })
 
+it('retains same-account spending as stale and clears money on account changes and sign-out', async () => {
+  const f = fixture()
+  const spend = { kind: 'enterprise-on-demand' as const, usedAmount: 20.78, limitAmount: 1000, limitStatus: 'limited' as const, currency: 'USD', usedPercent: 2.078, resetsAt: '2030-02-01T00:00:00Z' }
+  f.read.mockResolvedValue({ ...result, plan: 'enterprise', windows: [], spend })
+  f.service.refresh('claude'); await f.service.settled()
+  expect(f.service.snapshot().providers[0]).toMatchObject({ spend, windows: [], availability: 'available' })
+  f.advance(); f.read.mockRejectedValueOnce(new Error('network failure'))
+  f.service.refresh('claude'); await f.service.settled()
+  expect(f.service.snapshot().providers[0]).toMatchObject({ spend, freshness: 'stale' })
+  f.advance(); f.context.mockResolvedValue('account-b'); f.read.mockRejectedValueOnce(new Error('network failure'))
+  f.service.refresh('claude'); await f.service.settled()
+  expect(f.service.snapshot().providers[0]).toMatchObject({ spend: null, observedAt: null })
+  f.advance(); f.service.refresh('claude'); await f.service.settled()
+  expect(f.service.snapshot().providers[0].spend).toEqual(spend)
+  f.advance(); f.read.mockRejectedValueOnce(new UsageError('signed-out'))
+  f.service.refresh('claude'); await f.service.settled()
+  expect(f.service.snapshot().providers[0]).toMatchObject({ spend: null, availability: 'signed-out' })
+})
+
 it('does not query a detected CLI which is disabled or incompatible', async () => {
   const read = vi.fn(), context = vi.fn()
   const service = createUsageService({ installed: async () => true, eligible: async () => false, readers: { claude: { read, context }, codex: { read, context } } })

@@ -5,6 +5,7 @@ import { Button } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'
 import { useSubscriptionUsage } from '../lib/useSubscriptionUsage'
 import type { ProviderUsage, UsageWindow } from '../lib/types'
+import { EnterpriseSpendMeter } from './EnterpriseSpendMeter'
 export function useUsageClock() {
   const [now, setNow] = useState(Date.now)
   useEffect(() => { const timer = setInterval(() => { if (document.visibilityState !== 'hidden') setNow(Date.now()) }, 60_000); return () => clearInterval(timer) }, [])
@@ -13,6 +14,7 @@ export function useUsageClock() {
 export function isStale(provider: ProviderUsage, now: number) {
   return provider.freshness === 'stale' || !!provider.observedAt && now - Date.parse(provider.observedAt) >= 300_000
     || provider.windows.some(w => w.resetsAt && Date.parse(w.resetsAt) <= now)
+    || !!provider.spend?.resetsAt && Date.parse(provider.spend.resetsAt) <= now
 }
 export function usageLabel(window: UsageWindow, t: (key: string) => string) {
   const label = ['session', 'weekly', 'monthly'].includes(window.label) ? t(`windows.${window.label}`) : t('windows.window')
@@ -51,9 +53,10 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
       const stale = isStale(provider, now), issue = usageIssue(provider)
       return <article key={provider.providerId} className="space-y-2 border-b border-border pb-4 last:border-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">{provider.plan}</span>}</h3>
+          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">{provider.spend ? t('spend.enterprise') : provider.plan}</span>}</h3>
           {provider.observedAt && <span className="text-[11px] text-muted-foreground" title={absolute(provider.observedAt)}>{stale ? t('stale') : t('updated', { time: relative(provider.observedAt) })}</span>}
         </div>
+        {provider.spend && <EnterpriseSpendMeter spend={provider.spend} stale={stale} now={now} />}
         {provider.windows.map(window => <div key={window.id} className="space-y-1.5">
           <div className="flex flex-wrap justify-between gap-1 text-xs"><span className="text-muted-foreground">{usageLabel(window, t)}</span><span className="tabular-nums">{window.usedPercent === null ? t('unknown') : t('used', { value: window.usedPercent })}</span></div>
           {window.usedPercent !== null && <div role="progressbar" aria-label={`${provider.providerId} ${usageLabel(window, t)}`} aria-valuenow={window.usedPercent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 overflow-hidden rounded-full bg-muted">

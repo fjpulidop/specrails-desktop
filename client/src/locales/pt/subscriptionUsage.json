@@ -53,5 +53,15 @@
     "cleanup-failed": "Não foi possível encerrar a consulta",
     "usage-unavailable": "Uso indisponível"
   },
-  "resetsIn": "Reinicia em {{time}}"
+  "resetsIn": "Reinicia em {{time}}",
+  "spend": {
+    "enterprise": "Enterprise · Sob demanda",
+    "monthly": "Consumo deste mês",
+    "amounts": "{{used}} de {{limit}} consumidos",
+    "consumed": "{{used}} consumidos",
+    "unlimited": "Sem limite mensal",
+    "limitUnknown": "Limite mensal indisponível",
+    "resets": "Reinicia em {{time}}",
+    "progress": "Consumo mensal do Claude"
+  }
 }

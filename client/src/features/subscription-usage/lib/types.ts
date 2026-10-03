@@ -2,11 +2,18 @@ export interface UsageWindow {
   id: string; label: string; scope: 'account' | 'model'; model: string | null
   usedPercent: number | null; durationMinutes: number | null; resetsAt: string | null
 }
+export interface EnterpriseSpend {
+  kind: 'enterprise-on-demand'
+  usedAmount: number | null; limitAmount: number | null
+  limitStatus: 'limited' | 'unlimited' | 'unknown'
+  currency: string; usedPercent: number | null; resetsAt: string | null
+}
 export interface ProviderUsage {
   providerId: 'claude' | 'codex'; installed: boolean | null; generation: string
   availability: 'available' | 'signed-out' | 'unsupported-auth' | 'unsupported-cli' | 'unsupported-platform' | 'unavailable'
   refreshState: 'idle' | 'refreshing' | 'error'; freshness: 'unknown' | 'fresh' | 'stale'
   plan: string | null; windows: UsageWindow[]; source: 'oauth' | 'app-server' | null
+  spend?: EnterpriseSpend | null
   observedAt: string | null; attemptedAt: string | null; retryAt: string | null
   issue: { code: string; retryable: boolean } | null
 }
@@ -28,6 +35,18 @@ export function isUsageSnapshot(value: unknown): value is UsageSnapshot {
       || !(p.source === null || p.source === 'oauth' || p.source === 'app-server') || !date(p.observedAt) || !date(p.attemptedAt) || !date(p.retryAt)
       || !Array.isArray(p.windows) || p.windows.length > 64) return false
     if (p.issue !== null) { const issue = object(p.issue); if (typeof issue.code !== 'string' || typeof issue.retryable !== 'boolean') return false }
+    if (p.spend != null) {
+      const spend = object(p.spend)
+      const amount = (value: unknown) => value === null || typeof value === 'number' && Number.isFinite(value) && value >= 0
+      if (p.providerId !== 'claude' || p.plan !== 'enterprise' || spend.kind !== 'enterprise-on-demand'
+        || !amount(spend.usedAmount) || !amount(spend.limitAmount) || !amount(spend.usedPercent)
+        || spend.usedAmount === null && spend.limitAmount === null || !date(spend.resetsAt)
+        || typeof spend.currency !== 'string' || !/^[A-Z]{3}$/.test(spend.currency)
+        || !['limited', 'unlimited', 'unknown'].includes(spend.limitStatus as string)
+        || (spend.limitStatus === 'limited') !== (spend.limitAmount !== null)
+        || spend.limitStatus !== 'limited' && spend.usedPercent !== null
+        || p.windows.some(raw => { const window = object(raw); return window.usedPercent !== null || window.resetsAt !== null })) return false
+    }
     for (const rawWindow of p.windows) {
       const w = object(rawWindow)
       if (typeof w.id !== 'string' || typeof w.label !== 'string' || !nullableString(w.model) || !['account', 'model'].includes(w.scope as string)

@@ -9,6 +9,15 @@ export interface UsageWindow {
   durationMinutes: number | null
   resetsAt: string | null
 }
+export interface EnterpriseSpend {
+  kind: 'enterprise-on-demand'
+  usedAmount: number | null
+  limitAmount: number | null
+  limitStatus: 'limited' | 'unlimited' | 'unknown'
+  currency: string
+  usedPercent: number | null
+  resetsAt: string | null
+}
 export type Availability = 'available' | 'signed-out' | 'unsupported-auth' | 'unsupported-cli' | 'unsupported-platform' | 'unavailable'
 export interface ProviderUsage {
   providerId: UsageProvider
@@ -19,6 +28,7 @@ export interface ProviderUsage {
   freshness: 'unknown' | 'fresh' | 'stale'
   plan: string | null
   windows: UsageWindow[]
+  spend: EnterpriseSpend | null
   source: 'oauth' | 'app-server' | null
   observedAt: string | null
   attemptedAt: string | null
@@ -58,6 +68,33 @@ export function normalizeClaude(payload: unknown): UsageWindow[] {
   }
   return windows
 }
+export function claudePlan(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const words = value.trim().toLowerCase().split(/[^a-z0-9]+/)
+  return ['enterprise', 'team', 'max', 'pro', 'ultra', 'free'].find(plan => words.includes(plan)) ?? null
+}
+export function hasClaudeWindows(windows: UsageWindow[]): boolean {
+  return windows.some(window => window.usedPercent !== null || window.resetsAt !== null)
+}
+export function normalizeClaudeSpend(payload: unknown, plan: string | null, now: number): EnterpriseSpend | null {
+  if (plan !== 'enterprise' || hasClaudeWindows(normalizeClaude(payload))) return null
+  const extra = record(record(payload).extra_usage)
+  const amount = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+  const used = amount(extra.used_credits), limit = amount(extra.monthly_limit)
+  if (used === null && limit === null) return null
+  const currency = extra.currency == null ? 'USD' : typeof extra.currency === 'string' ? extra.currency.trim().toUpperCase() : ''
+  if (!/^[A-Z]{3}$/.test(currency)) return null
+  // OAuth spend is in currency minor units, including fractional minor units.
+  const exponent = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
+  const divisor = 10 ** exponent
+  const usedAmount = used === null ? null : used / divisor, limitAmount = limit === null ? null : limit / divisor
+  const limitStatus = limit !== null ? 'limited' : extra.monthly_limit === null && extra.is_enabled === true ? 'unlimited' : 'unknown'
+  const ratio = used !== null && limit !== null && limit > 0 ? used / limit * 100 : null
+  const usedPercent = limitStatus === 'limited' ? amount(extra.utilization) ?? (ratio !== null && Number.isFinite(ratio) ? ratio : null) : null
+  const date = new Date(now)
+  return { kind: 'enterprise-on-demand', usedAmount, limitAmount, limitStatus, currency, usedPercent,
+    resetsAt: timestamp(extra.resets_at, typeof extra.resets_at === 'number') ?? new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)).toISOString() }
+}
 export function normalizeCodex(payload: unknown): UsageWindow[] {
   const data = record(payload), groups = record(data.rateLimitsByLimitId)
   const entries = Object.keys(groups).length ? Object.entries(groups) : [['codex', data.rateLimits]] as [string, unknown][]
@@ -76,5 +113,5 @@ export function normalizeCodex(payload: unknown): UsageWindow[] {
 }
 export function initialUsage(providerId: UsageProvider, generation: string): ProviderUsage {
   return { providerId, installed: null, generation, availability: 'unavailable', refreshState: 'idle', freshness: 'unknown', plan: null,
-    windows: [], source: null, observedAt: null, attemptedAt: null, retryAt: null, issue: null }
+    windows: [], spend: null, source: null, observedAt: null, attemptedAt: null, retryAt: null, issue: null }
 }

@@ -134,3 +134,65 @@ describe('subscription usage surfaces', () => {
     expect(screen.queryByText('plus')).not.toBeInTheDocument()
   })
 })
+
+describe('Enterprise monthly spending surfaces', () => {
+  function enterprise() {
+    const provider = fixture.snapshot!.providers[0]
+    provider.plan = 'enterprise'; provider.windows = []
+    provider.spend = { kind: 'enterprise-on-demand', usedAmount: 20.78, limitAmount: 1000, limitStatus: 'limited', currency: 'USD', usedPercent: 2, resetsAt: new Date(Date.now() + 86400_000).toISOString() }
+    return provider
+  }
+  it('shows measured dollar spend and assigned budget in the footer menu instead of unavailable', () => {
+    enterprise()
+    render(<SubscriptionUsageFooter />)
+    const trigger = screen.getByRole('button', { name: 'Usage' })
+    expect(trigger).toHaveTextContent('Claude2%')
+    fireEvent.focus(trigger)
+    expect(screen.getByText('Enterprise · On demand')).toBeInTheDocument()
+    expect(screen.getByText('$20.78 of $1,000.00 spent')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Claude monthly spend' })).toHaveAttribute('aria-valuenow', '2')
+    expect(screen.queryByText('Usage unavailable')).not.toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Codex' })).toHaveTextContent('5 hours')
+  })
+  it('shows monetary progress in settings and refreshes changed caps', () => {
+    const provider = enterprise()
+    const view = render(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('$20.78 of $1,000.00 spent')).toBeInTheDocument()
+    provider.spend = { ...provider.spend!, limitAmount: 2000, usedPercent: 1 }
+    view.rerender(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('$20.78 of $2,000.00 spent')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+  })
+  it('keeps zero spending distinct from missing amounts and unlimited caps', () => {
+    const provider = enterprise()
+    provider.spend = { ...provider.spend!, usedAmount: 0, usedPercent: 0 }
+    const view = render(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('$0.00 of $1,000.00 spent')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    provider.spend = { ...provider.spend, limitAmount: null, limitStatus: 'unlimited', usedPercent: null }
+    view.rerender(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('No monthly limit')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    provider.spend = { ...provider.spend, limitStatus: 'unknown' }
+    view.rerender(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('Monthly limit unavailable')).toBeInTheDocument()
+    provider.spend = { ...provider.spend, usedAmount: null, limitAmount: 1000, limitStatus: 'limited' }
+    view.rerender(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('— of $1,000.00 spent')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+  it('preserves over-budget values, formats currency and marks passed resets stale', () => {
+    const provider = enterprise()
+    provider.spend = { ...provider.spend!, usedAmount: 1200, usedPercent: 120, currency: 'EUR' }
+    const view = render(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('€1,200.00 of €1,000.00 spent')).toBeInTheDocument()
+    expect(screen.getByText('120%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByText('Limit reached')).toBeInTheDocument()
+    provider.spend = { ...provider.spend, resetsAt: new Date(Date.now() - 1000).toISOString() }
+    view.rerender(<SubscriptionUsagePanel selectedProvider="claude" />)
+    expect(screen.getByText('Out of date')).toBeInTheDocument()
+    expect(screen.getByText('Reset reached; refresh to confirm')).toBeInTheDocument()
+    expect(screen.queryByText('Limit reached')).not.toBeInTheDocument()
+  })
+})
