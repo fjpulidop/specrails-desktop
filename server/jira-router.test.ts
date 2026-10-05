@@ -7,6 +7,7 @@ import {
   upsertConnection,
   enqueueOutbox,
   markOutboxDead,
+  retryDeadOutbox,
 } from './jira/jira-db'
 import { setSecretStore, type SecretStore } from './jira/jira-credential-store'
 import type { ProjectContext } from './project-registry'
@@ -32,6 +33,7 @@ type JiraSyncManagerStub = {
   listOutbox: ReturnType<typeof vi.fn>
   outboxCounts: ReturnType<typeof vi.fn>
   drainOnce: ReturnType<typeof vi.fn>
+  retryOutbox: ReturnType<typeof vi.fn>
   createSpec: ReturnType<typeof vi.fn>
   listLinks: ReturnType<typeof vi.fn>
 }
@@ -54,6 +56,7 @@ function makeStub(): JiraSyncManagerStub {
     listOutbox: vi.fn(() => []),
     outboxCounts: vi.fn(() => ({ pending: 0, inflight: 0, done: 0, dead: 0 })),
     drainOnce: vi.fn(() => Promise.resolve()),
+    retryOutbox: vi.fn((id: number) => retryDeadOutbox(db, id)),
     createSpec: vi.fn(),
     listLinks: vi.fn(() => []),
   }
@@ -485,11 +488,32 @@ describe('POST /outbox/:id/retry', () => {
     const id = seedDeadOp()
     const res = await request(app).post(`/jira/outbox/${id}/retry`)
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true })
+    expect(res.body).toEqual({ ok: true, disposition: 'pending' })
     expect(syncStub.drainOnce).toHaveBeenCalled()
     // The row was flipped back to pending.
     const row = db.prepare('SELECT state FROM jira_outbox WHERE id = ?').get(id) as { state: string }
     expect(row.state).toBe('pending')
+  })
+
+  it('idempotently acknowledges an obsolete retry without draining Jira writes', async () => {
+    const id = seedDeadOp()
+    enqueueOutbox(db, {
+      jiraIssueId: '10001', opType: 'transition', idempotencyKey: 'newer-status', payload: { logicalState: 'done' },
+    })
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await request(app).post(`/jira/outbox/${id}/retry`)
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ ok: true, disposition: 'superseded' })
+    }
+    expect(syncStub.drainOnce).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT state FROM jira_outbox WHERE id = ?').get(id)).toEqual({ state: 'superseded' })
+  })
+
+  it.each(['1junk', '1.5', '-1', '0'])('rejects invalid retry ID %s without touching another operation', async (id) => {
+    const res = await request(app).post(`/jira/outbox/${id}/retry`)
+    expect(res.status).toBe(400)
+    expect(syncStub.retryOutbox).not.toHaveBeenCalled()
   })
 })
 

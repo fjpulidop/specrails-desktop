@@ -82,6 +82,31 @@ Project settings apply to a single project. Open them from the project's **Setti
 
 ---
 
+## Jira status mapping and pending updates
+
+In the project's Jira connector, map **To Do**, **In Progress**, **On Review**,
+**Done** and **Cancelled** to the real Jira statuses you want to use. Automatic
+uses Jira's status categories; an explicit selection uses the selected status
+identity, even when its category differs. The API accepts status names or status
+IDs, never transition IDs. Both
+outbound transitions and inbound polling honor the mapping. When several logical
+states share a destination, On Review retains precedence; other ambiguities use
+the category-derived state. Prefer distinct destinations when possible.
+
+The pending-updates panel identifies the issue and requested destination. After
+correcting a mapping or a Jira workflow restriction, retry the current failed
+operation. A failed transition replaced by a later status intention is retained
+as `superseded` history and removed from attention counts; retrying it cannot
+revert newer work. Comments and field updates remain independently retryable.
+Older pending retries are also suppressed when a newer status transition has
+already completed. Normal pending operations retain their per-issue FIFO order.
+
+Jira still determines which transitions the signed-in account can apply. A
+missing reverse transition cannot be bypassed by selecting a target, and the
+connector does not move through arbitrary statuses to discover possible paths.
+If loading the status list fails, the connector preserves the saved mapping and
+offers a retry instead of silently reducing the picker to Automatic.
+
 ## CLI
 
 The `specrails-desktop` CLI is documented in full in [../cli.md](../cli.md). Quick reference:

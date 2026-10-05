@@ -20,7 +20,7 @@ import {
 } from '../modules/specs/runtime/ticket-store'
 import { adfToText } from './jira-adf'
 import { getLinkByIssueId, insertLinkWithId, updateLinkStatusCategory } from './jira-db'
-import type { JiraConnection, JiraIssue, JiraStatusCategory } from './types'
+import type { JiraConnection, JiraIssue, JiraStatusCategory, SpecLogicalState } from './types'
 
 // Keep in sync with CANCEL_LEXICON in jira-status-resolver.ts. 'discard'/'discarded'
 // cover "Discard"/"Discarded" so an inbound issue parked in a Discarded status reads
@@ -42,18 +42,19 @@ export function issueStatusCategory(issue: JiraIssue): JiraStatusCategory {
 }
 
 /**
- * Map a Jira issue's status to a Specrails ticket status. When the connection
- * has an explicit `statusMap.on_review` and the issue's status NAME equals it
- * (case-insensitive), the inbound status is preserved as `on_review` — the
- * category fallback alone would flatten it to `in_progress` and silently revert
- * a ticket parked at on_review once its outbox transition drains (the frozen
- * guard only protects the pending window). Unconfigured ⇒ byte-identical
- * category mapping.
+ * Explicit status identities apply in both sync directions, even when a
+ * customer's category differs from the logical state's default. Preserve the
+ * historical on_review precedence for shared mappings; other ambiguous targets
+ * retain category fallback rather than choosing by configuration object order.
  */
 export function mapStatus(issue: JiraIssue, statusMap?: JiraConnection['statusMap']): TicketStatus {
   const name = (issue.fields.status?.name ?? '').toLowerCase()
-  const onReviewTarget = statusMap?.on_review
-  if (onReviewTarget && name && name === onReviewTarget.toLowerCase()) return 'on_review'
+  const matches = (target: string | undefined): boolean => Boolean(target
+    && (issue.fields.status?.id === target || (name && name === target.toLowerCase())))
+  if (matches(statusMap?.on_review)) return 'on_review'
+  const states: SpecLogicalState[] = ['todo', 'in_progress', 'done', 'cancelled']
+  const mapped = states.filter((state) => matches(statusMap?.[state]))
+  if (mapped.length === 1) return mapped[0]
   const cat = issueStatusCategory(issue)
   if (cat === 'new') return 'todo'
   if (cat === 'indeterminate') return 'in_progress'

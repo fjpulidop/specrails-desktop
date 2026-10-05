@@ -47,7 +47,9 @@
     "onReview": "En révision",
     "done": "Terminé",
     "cancelled": "Annulé",
-    "loading": "Chargement des statuts…"
+    "loading": "Chargement des statuts…",
+    "loadFailed": "Impossible de charger les statuts Jira. Vérifiez la connexion et réessayez.",
+    "retry": "Réessayer"
   },
   "review": {
     "site": "Site",
@@ -75,10 +77,16 @@
     "dead": "{{count}} à vérifier",
     "allSynced": "Toutes les mises à jour sont synchronisées",
     "retry": "Réessayer",
-    "deadHelp": "Celles-ci n'ont pas pu être appliquées automatiquement (p. ex. votre workflow n'a pas de transition correspondante). Corrigez dans Jira, puis réessayez.",
+    "deadHelp": "Vérifiez la correspondance des statuts ci-dessus et les transitions autorisées pour chaque ticket Jira, puis réessayez. Les demandes de statut remplacées par des demandes plus récentes ne nécessitent plus votre attention.",
     "opTransition": "Mise à jour du statut",
     "opComment": "Commentaire",
-    "opCreate": "Créer un ticket"
+    "opCreate": "Créer un ticket",
+    "issueFallback": "Ticket Jira {{id}}",
+    "target": "Destination : {{status}}",
+    "retrying": "Nouvelle tentative…",
+    "loadFailed": "Impossible de charger les mises à jour Jira en attente.",
+    "opUpdate": "Modification du ticket",
+    "nonePending": "Aucune mise à jour Jira en attente"
   },
   "authExpired": {
     "title": "Jira déconnecté",

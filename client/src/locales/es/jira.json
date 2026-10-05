@@ -47,7 +47,9 @@
     "onReview": "En revisión",
     "done": "Hecho",
     "cancelled": "Cancelado",
-    "loading": "Cargando estados…"
+    "loading": "Cargando estados…",
+    "loadFailed": "No se pudieron cargar los estados de Jira. Comprueba la conexión y vuelve a intentarlo.",
+    "retry": "Reintentar"
   },
   "review": {
     "site": "Sitio",
@@ -75,10 +77,16 @@
     "dead": "{{count}} necesitan atención",
     "allSynced": "Todas las actualizaciones sincronizadas",
     "retry": "Reintentar",
-    "deadHelp": "Estas no se pudieron aplicar automáticamente (p. ej. tu flujo no tiene una transición compatible). Arréglalo en Jira y reintenta.",
+    "deadHelp": "Comprueba el mapeo de estados de arriba y las transiciones permitidas para cada issue en Jira; después, reintenta. Las solicitudes de estado sustituidas por otras más recientes ya no necesitan atención.",
     "opTransition": "Actualización de estado",
     "opComment": "Comentario",
-    "opCreate": "Crear issue"
+    "opCreate": "Crear issue",
+    "issueFallback": "Issue de Jira {{id}}",
+    "target": "Destino: {{status}}",
+    "retrying": "Reintentando…",
+    "loadFailed": "No se pudieron cargar las actualizaciones pendientes de Jira.",
+    "opUpdate": "Edición del issue",
+    "nonePending": "No hay actualizaciones de Jira pendientes"
   },
   "authExpired": {
     "title": "Jira desconectado",

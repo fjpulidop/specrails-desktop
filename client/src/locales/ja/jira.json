@@ -47,7 +47,9 @@
     "onReview": "レビュー中",
     "done": "完了",
     "cancelled": "キャンセル",
-    "loading": "ステータスを読み込み中…"
+    "loading": "ステータスを読み込み中…",
+    "loadFailed": "Jiraのステータスを読み込めませんでした。接続を確認して再試行してください。",
+    "retry": "再試行"
   },
   "review": {
     "site": "サイト",
@@ -75,10 +77,16 @@
     "dead": "{{count}} 件は対応が必要",
     "allSynced": "すべての更新が同期されました",
     "retry": "再試行",
-    "deadHelp": "これらは自動で適用できませんでした（例：ワークフローに一致する遷移がない）。Jira で修正してから再試行してください。",
+    "deadHelp": "上のステータスの対応付けと、各Jira課題で許可されている遷移を確認してから再試行してください。新しいリクエストに置き換えられた古いステータス変更は、対応不要になります。",
     "opTransition": "ステータス更新",
     "opComment": "コメント",
-    "opCreate": "課題を作成"
+    "opCreate": "課題を作成",
+    "issueFallback": "Jiraの課題 {{id}}",
+    "target": "移行先: {{status}}",
+    "retrying": "再試行中…",
+    "loadFailed": "保留中のJira更新を読み込めませんでした。",
+    "opUpdate": "課題の編集",
+    "nonePending": "保留中のJira更新はありません"
   },
   "authExpired": {
     "title": "Jira が切断されました",

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../components/ui/button'
 import { Input } from '../../../../components/ui/input'
+import { useDesktop } from '../../../../hooks/useDesktop'
 import {
   jiraApi,
   type JiraProjectOption,
@@ -37,7 +38,12 @@ export interface JiraConnectWizardProps {
  * Add-Project setup wizard's final step. Keep it presentation-only: the caller
  * decides what `onConnected`/`onSkip` do (reload vs go-to-project).
  */
-export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectWizardProps) {
+export function JiraConnectWizard(props: JiraConnectWizardProps) {
+  const { activeProjectId } = useDesktop()
+  return <JiraConnectWizardContent key={props.apiBase ?? activeProjectId ?? 'legacy'} {...props} />
+}
+
+function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectWizardProps) {
   const { t } = useTranslation('jira')
   const [step, setStep] = useState<WizardStep>(1)
 
@@ -60,6 +66,15 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
   const [statuses, setStatuses] = useState<JiraStatusOption[]>([])
   const [statusMap, setStatusMap] = useState<Partial<Record<SpecLogicalState, string>>>({})
   const [discardStatus, setDiscardStatus] = useState('')
+  const [loadingStatuses, setLoadingStatuses] = useState(false)
+  const [statusLoadFailed, setStatusLoadFailed] = useState(false)
+  const statusRevision = useRef(0)
+  const alive = useRef(true)
+
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false; statusRevision.current++ }
+  }, [])
 
   const [connecting, setConnecting] = useState(false)
   const credsInput = () => ({ baseUrl: baseUrl.trim(), accountEmail: email.trim() || null, token })
@@ -68,10 +83,12 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
     setTestState('testing')
     try {
       const r = await jiraApi.test(credsInput(), apiBase)
+      if (!alive.current) return
       setTestState('ok')
       setDisplayName(r.displayName)
       setDeployment(r.deployment)
     } catch (e) {
+      if (!alive.current) return
       setTestState('error')
       toast.error(errMsg(e, t))
     }
@@ -82,23 +99,47 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
     setLoadingProjects(true)
     try {
       const { projects: list } = await jiraApi.discoverProjects({ ...credsInput(), query: projectQuery.trim() || undefined }, apiBase)
+      if (!alive.current) return
       setProjects(list)
     } catch (e) {
-      toast.error(errMsg(e, t))
+      if (alive.current) toast.error(errMsg(e, t))
     } finally {
-      setLoadingProjects(false)
+      if (alive.current) setLoadingProjects(false)
     }
   }
 
   async function goToMapping() {
     setStep(3)
+    await loadStatuses()
+  }
+
+  async function loadStatuses() {
     if (!selectedKey) return
+    const request = ++statusRevision.current
+    setLoadingStatuses(true)
     try {
       const { statuses: list } = await jiraApi.discoverStatuses({ ...credsInput(), projectKey: selectedKey }, apiBase)
+      if (!alive.current || request !== statusRevision.current) return
       setStatuses(list)
+      setStatusLoadFailed(false)
     } catch {
-      setStatuses([])
+      if (alive.current && request === statusRevision.current) setStatusLoadFailed(true)
+    } finally {
+      if (alive.current && request === statusRevision.current) setLoadingStatuses(false)
     }
+  }
+
+  function chooseProject(key: string, name: string) {
+    if (key !== selectedKey) {
+      statusRevision.current++
+      setStatuses([])
+      setStatusMap({})
+      setDiscardStatus('')
+      setStatusLoadFailed(false)
+      setLoadingStatuses(false)
+    }
+    setSelectedKey(key)
+    setSelectedName(name)
   }
 
   async function connect() {
@@ -114,12 +155,13 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
         },
         apiBase
       )
+      if (!alive.current) return
       toast.success(t('status.connected', { key: selectedKey.trim() }))
       onConnected()
     } catch (e) {
-      toast.error(errMsg(e, t))
+      if (alive.current) toast.error(errMsg(e, t))
     } finally {
-      setConnecting(false)
+      if (alive.current) setConnecting(false)
     }
   }
 
@@ -179,7 +221,7 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => { setSelectedKey(p.key); setSelectedName(p.name) }}
+                  onClick={() => chooseProject(p.key, p.name)}
                   className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted ${selectedKey === p.key ? 'bg-muted' : ''}`}
                 >
                   <span className="font-medium">{p.key}</span>
@@ -189,7 +231,7 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
             </div>
           )}
           <Field label={t('project.manualLabel')}>
-            <Input value={selectedKey} onChange={(e) => { setSelectedKey(e.target.value.toUpperCase()); setSelectedName('') }} placeholder={t('project.manualPlaceholder')} />
+            <Input value={selectedKey} onChange={(e) => chooseProject(e.target.value.toUpperCase(), '')} placeholder={t('project.manualPlaceholder')} />
           </Field>
           <div className="flex justify-between">
             <Button size="sm" variant="ghost" onClick={() => setStep(1)}>{t('wizard.back')}</Button>
@@ -202,6 +244,13 @@ export function JiraConnectWizard({ onConnected, onSkip, apiBase }: JiraConnectW
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">{t('wizard.step3Title')}</h3>
           <p className="text-xs text-muted-foreground">{t('mapping.intro')}</p>
+          {statusLoadFailed && (
+            <div className="flex items-center justify-between gap-2">
+              <p role="alert" className="text-xs text-accent-warning">{t('mapping.loadFailed')}</p>
+              <Button size="sm" variant="outline" disabled={loadingStatuses} onClick={() => void loadStatuses()}>{t('mapping.retry')}</Button>
+            </div>
+          )}
+          {loadingStatuses && <p role="status" className="text-xs text-muted-foreground">{t('mapping.loading')}</p>}
           {STATE_KEYS.map((s) => (
             <Field key={s} label={t(`mapping.${STATE_LABEL[s]}`)}>
               <select

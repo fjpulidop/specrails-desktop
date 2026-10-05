@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '../../../../../test-utils'
+import { act, render, screen, fireEvent, waitFor, within } from '../../../../../test-utils'
+
+const desktop = vi.hoisted(() => ({ activeProjectId: null as string | null }))
+vi.mock('../../../../../hooks/useDesktop', () => ({ useDesktop: () => desktop }))
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
@@ -57,6 +60,7 @@ function makeState(
 describe('JiraConnectedCard — discard status picker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    desktop.activeProjectId = null
     api.listOutbox.mockResolvedValue({ ops: [], counts: { pending: 0, inflight: 0, done: 0, dead: 0 } })
     api.listStatuses.mockResolvedValue({ statuses: STATUSES })
     api.patchConnection.mockResolvedValue({ connection: makeState(null).connection })
@@ -150,6 +154,68 @@ describe('JiraConnectedCard — discard status picker', () => {
 
     await waitFor(() => expect(api.patchConnection).toHaveBeenCalledWith({ statusMap: { on_review: 'In Review' } }))
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('identifies blocked issues and refreshes the attention count after retry', async () => {
+    api.listOutbox.mockResolvedValueOnce({
+      ops: [{ id: 8, jiraIssueId: '10008', jiraKey: 'PROJ-8', opType: 'transition', state: 'dead', logicalState: 'todo', targetStatus: 'Ready', deadReason: 'No permitted transition to Ready' }],
+      counts: { pending: 0, inflight: 0, done: 0, dead: 1 },
+    }).mockResolvedValue({ ops: [], counts: { pending: 1, inflight: 0, done: 0, dead: 0 } })
+    api.retryOutbox.mockResolvedValue({ ok: true, disposition: 'pending' })
+    const state = makeState(null)
+    state.outbox = { pending: 0, inflight: 0, done: 0, dead: 1 }
+    render(<JiraConnectedCard state={state} onChanged={vi.fn()} apiBase="/api/projects/p1" />)
+
+    expect(await screen.findByRole('link', { name: 'PROJ-8' })).toHaveAttribute('href', 'https://acme.atlassian.net/browse/PROJ-8')
+    expect(screen.getByText('Target: Ready')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(api.retryOutbox).toHaveBeenCalledWith(8, '/api/projects/p1'))
+    expect(await screen.findByText('1 pending')).toBeInTheDocument()
+    expect(screen.queryByText('1 need attention')).not.toBeInTheDocument()
+  })
+
+  it('explains status discovery failures and can retry without resetting the mapping', async () => {
+    api.listStatuses.mockRejectedValueOnce(new Error('Unauthorized')).mockResolvedValue({ statuses: STATUSES })
+    render(<JiraConnectedCard state={makeState(null, { todo: 'To Do' })} onChanged={vi.fn()} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load Jira statuses")
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    const todo = screen.getByTestId('jira-statusmap-todo') as HTMLSelectElement
+    await waitFor(() => expect(within(todo).getByRole('option', { name: 'In Progress' })).toBeInTheDocument())
+    expect(todo.value).toBe('To Do')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('ignores old project rows, statuses and save completion after the active project switches', async () => {
+    let oldOutbox!: (value: unknown) => void
+    let oldStatuses!: (value: unknown) => void
+    let oldSave!: (value: unknown) => void
+    api.listOutbox.mockImplementationOnce(() => new Promise((resolve) => { oldOutbox = resolve }))
+    api.listStatuses.mockImplementationOnce(() => new Promise((resolve) => { oldStatuses = resolve }))
+    api.patchConnection.mockImplementationOnce(() => new Promise((resolve) => { oldSave = resolve }))
+    desktop.activeProjectId = 'p1'
+    const onChanged = vi.fn()
+    const { rerender } = render(<JiraConnectedCard state={makeState(null, { todo: 'To Do' })} onChanged={onChanged} />)
+    fireEvent.change(screen.getByTestId('jira-statusmap-todo'), { target: { value: '' } })
+    await waitFor(() => expect(api.patchConnection).toHaveBeenCalled())
+
+    desktop.activeProjectId = 'p2'
+    const nextState = makeState(null, { todo: 'Ready' })
+    nextState.connection!.projectId = 'p2'
+    api.listOutbox.mockResolvedValue({ ops: [{ id: 9, jiraKey: 'NEW-9', jiraIssueId: '9', state: 'dead', opType: 'transition' }], counts: { pending: 0, inflight: 0, done: 0, dead: 1 } })
+    api.listStatuses.mockResolvedValue({ statuses: [{ id: '77', name: 'Ready', category: 'new' }] })
+    rerender(<JiraConnectedCard state={nextState} onChanged={onChanged} />)
+    await screen.findByRole('link', { name: 'NEW-9' })
+    await act(async () => {
+      oldOutbox({ ops: [{ id: 8, jiraKey: 'OLD-8', jiraIssueId: '8', state: 'dead', opType: 'transition' }], counts: { pending: 0, inflight: 0, done: 0, dead: 28 } })
+      oldStatuses({ statuses: STATUSES })
+      oldSave({ connection: makeState(null).connection })
+    })
+    expect(screen.queryByRole('link', { name: 'OLD-8' })).not.toBeInTheDocument()
+    expect((screen.getByTestId('jira-statusmap-todo') as HTMLSelectElement).value).toBe('Ready')
+    expect(within(screen.getByTestId('jira-statusmap-todo')).queryByRole('option', { name: 'To Do' })).not.toBeInTheDocument()
+    expect(onChanged).not.toHaveBeenCalled()
   })
 
   it('patches statusMap null when the only mapping (on_review) is cleared', async () => {

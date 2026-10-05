@@ -190,16 +190,18 @@ Por qué token‑paste y no OAuth en v1:
 
 ## 6. Ciclo de vida y mapeo de estados (la parte difícil)
 
-Los issues de Jira **no tienen un campo `status` asignable** — hay que **transicionar**, y las transiciones están **gateadas por el workflow** del cliente (que es arbitrario). Las 4 lógicas de Specrails (`todo/in_progress/done/cancelled`) deben caer sobre N estados de cliente repartidos en solo **3 categorías estables**: `new` / `indeterminate` / `done` (`statusCategory.key`).
+Los issues de Jira **no tienen un campo `status` asignable** — hay que **transicionar**, y las transiciones están **gateadas por el workflow** del cliente (que es arbitrario). Las 5 lógicas de Specrails (`todo/in_progress/on_review/done/cancelled`) deben caer sobre N estados de cliente repartidos en solo **3 categorías estables**: `new` / `indeterminate` / `done` (`statusCategory.key`).
 
 ### Resolver de dos niveles
 
 1. **Mapa explícito por proyecto gana siempre.** En Settings el usuario elige, de la **lista real de estados** de su proyecto (fetched en vivo), el target para cada estado lógico. Esto resuelve la ambigüedad (p.ej. dos estados sobre categoría `done`: `Released` vs `Won't Do`).
 2. **Fallback por categoría** cuando no hay mapa: anclar en `statusCategory.key` (nunca en el **nombre** localizable del estado). Para `cancelled`, preferir un *cancel‑lexicon* (`won't do`, `cancelled`, `rejected`, `abandoned`, `invalid`, `duplicate`) y fijar `resolution`; para `done`/éxito, preferir un *ship‑lexicon* (`done`, `closed`, `released`, `resolved`, `complete`) y **alejarse** del cancel‑lexicon.
 
-### Camino de transición — BFS por saltos
+El mapa también se respeta al materializar Jira en la caché local para los cinco estados lógicos. Si varios estados comparten destino, `on_review` mantiene su prioridad histórica; para otras ambigüedades se conserva la interpretación por categoría.
 
-Como solo ves las transiciones salientes del estado **actual**, un workflow `Backlog → Selected for Dev → In Progress → Done` no ofrece arista directa a `Done`. Algoritmo: `GET /transitions` del issue vivo → aplicar la arista que reduce la distancia a la categoría objetivo (orden `new < indeterminate < done`) → re‑`GET` → repetir. Cap ~5 saltos, dedup de estados visitados (evitar bucles), parar si ninguna transición reduce distancia. **Idempotency‑first**: si la categoría actual ya es la objetivo, **no‑op**. Si no hay camino en N saltos → **dead‑letter** no‑fatal ("mover estado manualmente en Jira") y **jamás** se hace error del rail.
+### Camino de transición — recorrido acotado por categorías
+
+Como solo ves las transiciones salientes del estado **actual**, un workflow `Backlog → Selected for Dev → In Progress → Done` no ofrece arista directa a `Done`. Algoritmo: `GET /transitions` del issue vivo → aplicar la arista que reduce la distancia a la categoría objetivo (orden `new < indeterminate < done`) → re‑`GET` → repetir. Cap ~5 saltos, dedup de estados visitados (evitar bucles), parar si ninguna transición reduce distancia. **Idempotency‑first**: si hay destino explícito, comparar primero su ID/nombre con el estado actual, incluso si pertenece a otra categoría. Sin destino explícito, la categoría objetivo permite el **no‑op**. Un estado intermedio de la categoría esperada no completa un destino explícito diferente. Este recorrido no explora estados laterales modificando Jira a ciegas. Si no hay camino en N saltos → **dead‑letter** no‑fatal ("mover estado manualmente en Jira") y **jamás** se hace error del rail.
 
 ### Pantallas de transición / campos requeridos
 
@@ -238,10 +240,11 @@ Diseño de poll:
 ### Outbound — outbox durable
 
 - Drenaje en worker de fondo: **FIFO por‑issue** (una transición debe aterrizar antes que el comentario que la describe), **paralelo entre issues distintos**, con cap de concurrencia.
-- **Idempotencia:** transiciones por no‑op‑si‑ya‑en‑categoría; **comentarios** con un *self‑marker* invisible embebido en el body ADF (`[specrails:job-<id>]`) — Jira no tiene idempotencia nativa de comentarios, así que antes de re‑postear se hace `GET .../comment` y se salta si el marker ya existe. El marker dobla como filtro de auto‑eco en el poll.
+- **Idempotencia:** transiciones por identidad explícita ID/nombre y, sin mapa, por categoría; **comentarios** con un *self‑marker* invisible embebido en el body ADF (`[specrails:job-<id>]`) — Jira no tiene idempotencia nativa de comentarios, así que antes de re‑postear se hace `GET .../comment` y se salta si el marker ya existe. El marker dobla como filtro de auto‑eco en el poll.
 - **Rate limits:** honrar `Retry-After` en 429 exacto; si ausente, backoff exponencial con jitter (base 2s, cap 30s, ~4 reintentos); respetar el techo ~20 writes/2s por issue. Token‑bucket por debajo de los burst caps.
 - **Clasificación de errores:** `401` = credencial → **pausar** outbox del proyecto + banner re‑auth (no reintentar en bucle); `403` = permiso de operación concreta → dead‑letter nombrando la operación ("tu cuenta no puede transicionar en PROJ"), sin inferir fallo global; `404` sobre issue conocido = terminal (issue borrado/movido) → marcar link `orphaned`, parar la op; solo `429/5xx/timeout` son reintentables.
 - **Dead‑letter visible** con reintento manual: `GET /jira/outbox`, `POST /jira/outbox/:id/retry`, indicador `JiraSyncIndicator` en UI. Un workflow‑gap o un 403 **nunca** es un drop silencioso.
+- **Operaciones reemplazadas:** las transiciones fallidas con una intención posterior para el mismo issue se conservan como `superseded`, fuera del contador de atención y sin reintento. Un reintento antiguo ya encolado tampoco se aplica si una transición posterior ya terminó. Se conservan el FIFO normal y los comentarios/ediciones independientes. El panel identifica el issue y el destino, y muestra errores al cargar los estados con una acción de reintento.
 
 ---
 

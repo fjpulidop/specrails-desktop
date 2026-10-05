@@ -47,7 +47,9 @@
     "onReview": "On Review",
     "done": "Done",
     "cancelled": "Cancelled",
-    "loading": "Loading statuses…"
+    "loading": "Loading statuses…",
+    "loadFailed": "Couldn't load Jira statuses. Check the connection and try again.",
+    "retry": "Retry"
   },
   "review": {
     "site": "Site",
@@ -75,10 +77,16 @@
     "dead": "{{count}} need attention",
     "allSynced": "All updates synced",
     "retry": "Retry",
-    "deadHelp": "These couldn't be applied automatically (e.g. your workflow has no matching transition). Fix in Jira, then retry.",
+    "deadHelp": "Check the status mapping above and the permitted transitions for each issue in Jira, then retry. Older status requests replaced by newer ones no longer need attention.",
     "opTransition": "Status update",
     "opComment": "Comment",
-    "opCreate": "Create issue"
+    "opCreate": "Create issue",
+    "issueFallback": "Jira issue {{id}}",
+    "target": "Target: {{status}}",
+    "retrying": "Retrying…",
+    "loadFailed": "Couldn't load pending Jira updates.",
+    "opUpdate": "Issue update",
+    "nonePending": "No pending Jira updates"
   },
   "authExpired": {
     "title": "Jira disconnected",

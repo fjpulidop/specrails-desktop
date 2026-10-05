@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1017 source/build files. Nearby tests are linked where names
+Includes 1018 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -317,6 +317,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [DiscardSpecDialog.tsx](../../client/src/features/integrations/components/jira/DiscardSpecDialog.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/DiscardSpecDialog.test.tsx)
 - [JiraConnectWizard.tsx](../../client/src/features/integrations/components/jira/JiraConnectWizard.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraConnectWizard.test.tsx)
 - [JiraConnectedCard.tsx](../../client/src/features/integrations/components/jira/JiraConnectedCard.tsx)
+- [JiraOutboxPanel.tsx](../../client/src/features/integrations/components/jira/JiraOutboxPanel.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraOutboxPanel.test.tsx)
 - [JiraSpecDetailsPanel.tsx](../../client/src/features/integrations/components/jira/JiraSpecDetailsPanel.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraSpecDetailsPanel.test.tsx)
 
 ## client/src/features/integrations/context

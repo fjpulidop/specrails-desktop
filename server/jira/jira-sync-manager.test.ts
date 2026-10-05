@@ -18,6 +18,8 @@ import {
   tombstoneLink,
   getLinkByLocalId,
   claimDrainable,
+  markOutboxDead,
+  markOutboxDone,
 } from './jira-db'
 import { readBacklogConfig } from './jira-backlog-config'
 import type { FetchImpl } from './jira-client'
@@ -1426,6 +1428,80 @@ function enqueueComment(jiraIssueId: string, text: string, marker: string, key: 
 }
 
 describe('drainOnce()', () => {
+  it('does not contact Jira for a legacy stale retry after a newer completed transition', async () => {
+    seedConnection()
+    enqueueTransition('STALE-1', 'todo', 'legacy-retry')
+    enqueueTransition('STALE-1', 'done', 'newer-complete')
+    markOutboxDone(db, listOutbox(db)[0].id)
+    const fake = makeFakeFetch()
+    const mgr = makeManager(fake.fetchImpl)
+
+    await mgr.drainOnce()
+
+    expect(fake.calls).toEqual([])
+    expect(listOutbox(db).find((row) => row.idempotencyKey === 'legacy-retry')?.state).toBe('superseded')
+    expect(lastOfType('jira.outbox_changed')).toMatchObject({ pending: 0, dead: 0 })
+  })
+
+  it('does not resend an obsolete failed status while draining the latest intent', async () => {
+    seedConnection()
+    enqueueTransition('LATEST-1', 'todo', 'older-failure')
+    markOutboxDead(db, listOutbox(db)[0].id, 'no workflow transition')
+    enqueueTransition('LATEST-1', 'done', 'latest-intent')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/LATEST-1?', {
+      status: 200, body: { id: 'LATEST-1', fields: { status: { name: 'Done', statusCategory: { key: 'done' } } } },
+    })
+    const mgr = makeManager(fake.fetchImpl)
+
+    await mgr.drainOnce()
+
+    expect(fake.calls.map((call) => call.method)).toEqual(['GET'])
+    expect(listOutbox(db).find((row) => row.idempotencyKey === 'older-failure')?.state).toBe('superseded')
+    expect(listOutbox(db).find((row) => row.idempotencyKey === 'latest-intent')?.state).toBe('done')
+  })
+
+  it('recognizes a configured status ID already reached without fetching or applying transitions', async () => {
+    seedConnection({ statusMap: { todo: 'status-backlog' } })
+    enqueueTransition('ID-NOOP', 'todo', 'configured-status-id')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/ID-NOOP?', {
+      status: 200,
+      body: { id: 'ID-NOOP', fields: { status: { id: 'status-backlog', name: 'Backlog', statusCategory: { key: 'indeterminate' } } } },
+    })
+
+    await makeManager(fake.fetchImpl).drainOnce()
+
+    expect(fake.calls).toHaveLength(1)
+    expect(listOutbox(db)[0].state).toBe('done')
+  })
+
+  it('retires a transition that fails after a newer intent is enqueued during its request', async () => {
+    seedConnection()
+    enqueueTransition('RACE-1', 'todo', 'old-inflight')
+    const fake = makeFakeFetch()
+    fake.on('GET', '/issue/RACE-1?',
+      { status: 200, body: { fields: { status: { name: 'Working', statusCategory: { key: 'indeterminate' } } } } },
+      { status: 200, body: { fields: { status: { name: 'Working', statusCategory: { key: 'indeterminate' } } } } },
+    )
+    fake.on('GET', '/issue/RACE-1/transitions', { status: 200, body: { transitions: [] } })
+    let inserted = false
+    const mgr = makeManager(async (url, init) => {
+      if (!inserted && url.includes('/transitions')) {
+        inserted = true
+        enqueueTransition('RACE-1', 'in_progress', 'new-during-request')
+      }
+      return fake.fetchImpl(url, init)
+    })
+
+    await mgr.drainOnce()
+
+    expect(listOutbox(db).find((row) => row.idempotencyKey === 'old-inflight')?.state).toBe('superseded')
+    expect(listOutbox(db).find((row) => row.idempotencyKey === 'new-during-request')?.state).toBe('done')
+    expect(fake.calls.every((call) => call.method === 'GET')).toBe(true)
+    expect(mgr.outboxCounts()).toMatchObject({ dead: 0, superseded: 1, done: 1 })
+  })
+
   it('coalesces overlapping drain requests into one in-flight loop', async () => {
     seedConnection()
     enqueueTransition('SERIAL-1', 'done', 'serial-drain')
@@ -1788,6 +1864,41 @@ describe('resumeAfterReauth', () => {
 // ─── Read helpers ─────────────────────────────────────────────────────────────
 
 describe('read helpers', () => {
+  it('reconciles historic failures and exposes issue identity and the current effective target without Jira calls', () => {
+    seedConnection({ statusMap: { todo: 'Ready', done: 'Released' } })
+    seedLinkedTicket(30, 'L-30', 'todo')
+    enqueueTransition('L-30', 'todo', 'old-read', 30)
+    markOutboxDead(db, listOutbox(db)[0].id, 'old failure')
+    enqueueTransition('L-30', 'done', 'latest-read', 30)
+    markOutboxDead(db, listOutbox(db)[0].id, 'latest failure')
+    const fake = makeFakeFetch()
+    const mgr = makeManager(fake.fetchImpl)
+
+    expect(mgr.listOutbox('dead')).toMatchObject([
+      { jiraKey: 'ACME-30', logicalState: 'done', targetStatus: 'Released', idempotencyKey: 'latest-read' },
+    ])
+    expect(mgr.outboxCounts()).toMatchObject({ dead: 1, superseded: 1 })
+    expect(mgr.listOutbox('superseded')).toHaveLength(1)
+    expect(fake.calls).toEqual([])
+  })
+
+  it('lists explicit target overrides and safely handles legacy invalid payloads', () => {
+    seedConnection({ statusMap: { todo: 'Ready' } })
+    enqueueMany(db, [{
+      jiraIssueId: 'EXPLICIT', opType: 'transition', idempotencyKey: 'explicit-target',
+      payload: { logicalState: 'todo', targetStatus: 'Queued' },
+    }, {
+      jiraIssueId: 'MALFORMED', opType: 'transition', idempotencyKey: 'invalid-payload', payload: null,
+    }])
+    db.prepare("UPDATE jira_outbox SET payload = 'not json' WHERE idempotency_key = 'invalid-payload'").run()
+    const fake = makeFakeFetch()
+    const rows = makeManager(fake.fetchImpl).listOutbox()
+
+    expect(rows.find((row) => row.jiraIssueId === 'EXPLICIT')).toMatchObject({ jiraKey: null, logicalState: 'todo', targetStatus: 'Queued' })
+    expect(rows.find((row) => row.jiraIssueId === 'MALFORMED')).toMatchObject({ jiraKey: null, logicalState: null, targetStatus: null })
+    expect(fake.calls).toEqual([])
+  })
+
   it('listLinks / listOutbox / outboxCounts proxy the db layer', () => {
     seedConnection()
     seedLinkedTicket(30, 'L-30', 'todo')

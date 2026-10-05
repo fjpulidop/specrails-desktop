@@ -480,14 +480,43 @@ export function resetInflight(db: DbInstance): number {
   return info.changes
 }
 
-/** Re-queue a dead-lettered op for a manual retry. */
-export function retryDeadOutbox(db: DbInstance, id: number): boolean {
-  const info = db
-    .prepare(
+/**
+ * Preserve obsolete failed status intentions as terminal history rather than
+ * offering a retry that could revert a newer intention. Ordinary pending and
+ * inflight operations retain FIFO ownership. A pending row with a newer DONE
+ * transition is an old retry (normal FIFO cannot produce that ordering).
+ * Comments and field edits are independent operations and never superseded.
+ */
+export function reconcileSupersededTransitions(db: DbInstance): number {
+  return db.prepare(
+    `UPDATE jira_outbox AS candidate
+        SET state = 'superseded', next_attempt_at = NULL, updated_at = ?
+      WHERE candidate.op_type = 'transition'
+        AND candidate.state IN ('dead', 'pending')
+        AND EXISTS (
+          SELECT 1 FROM jira_outbox AS newer
+           WHERE newer.jira_issue_id = candidate.jira_issue_id
+             AND newer.op_type = 'transition'
+             AND newer.id > candidate.id
+             AND (candidate.state = 'dead' OR newer.state = 'done')
+        )`
+  ).run(new Date().toISOString()).changes
+}
+
+export type OutboxRetryDisposition = 'pending' | 'superseded'
+
+/** Reconcile and re-queue atomically, so an obsolete intention is never revived. */
+export function retryDeadOutbox(db: DbInstance, id: number): OutboxRetryDisposition | null {
+  return db.transaction((): OutboxRetryDisposition | null => {
+    reconcileSupersededTransitions(db)
+    const row = db.prepare('SELECT state FROM jira_outbox WHERE id = ?').get(id) as { state: string } | undefined
+    if (row?.state === 'superseded') return 'superseded'
+    if (row?.state !== 'dead') return null
+    db.prepare(
       "UPDATE jira_outbox SET state = 'pending', next_attempt_at = NULL, dead_reason = NULL, last_error = NULL, updated_at = ? WHERE id = ? AND state = 'dead'"
-    )
-    .run(new Date().toISOString(), id)
-  return info.changes > 0
+    ).run(new Date().toISOString(), id)
+    return 'pending'
+  })()
 }
 
 export function listOutbox(db: DbInstance, opts: { state?: OutboxState; limit?: number } = {}): OutboxRow[] {
@@ -505,7 +534,7 @@ export function countOutboxByState(db: DbInstance): Record<OutboxState, number> 
     state: string
     n: number
   }>
-  const out: Record<OutboxState, number> = { pending: 0, inflight: 0, done: 0, dead: 0 }
+  const out: Record<OutboxState, number> = { pending: 0, inflight: 0, done: 0, dead: 0, superseded: 0 }
   for (const r of rows) {
     if (r.state in out) out[r.state as OutboxState] = r.n
   }

@@ -18,7 +18,7 @@ export type SpecLogicalState = 'todo' | 'in_progress' | 'on_review' | 'done' | '
 /** Outbox operation kinds. */
 export type OutboxOpType = 'transition' | 'comment' | 'create' | 'update'
 
-export type OutboxState = 'pending' | 'inflight' | 'done' | 'dead'
+export type OutboxState = 'pending' | 'inflight' | 'done' | 'dead' | 'superseded'
 
 /**
  * Per-project Jira connection config. The encrypted token is stored separately
@@ -96,6 +96,14 @@ export interface OutboxRow {
   updatedAt: string
 }
 
+/** Additive display context; the durable payload remains unchanged. */
+export interface OutboxListRow extends OutboxRow {
+  jiraKey: string | null
+  logicalState: SpecLogicalState | null
+  /** Explicit operation target, otherwise the current configured mapping. */
+  targetStatus: string | null
+}
+
 /** Normalised result envelope from every JiraClient call. */
 export type JiraResult<T> =
   | { ok: true; data: T; status: number }
@@ -131,6 +139,7 @@ export interface JiraIssue {
     labels?: string[]
     updated?: string
     status?: {
+      id?: string
       name: string
       statusCategory?: { key: string }
     }

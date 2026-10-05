@@ -160,4 +160,16 @@ describe('JiraConnectWizard', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Invalid email or token'))
     expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
   })
+
+  it('explains a failed status discovery and recovers To Do options on retry', async () => {
+    api.test.mockResolvedValue({ ok: true, deployment: 'cloud', displayName: 'Jane' })
+    api.discoverProjects.mockResolvedValue({ projects: [{ id: '1', key: 'OPS', name: 'Ops' }] })
+    api.discoverStatuses.mockRejectedValueOnce(new Error('Permission denied')).mockResolvedValue({ statuses: STATUSES })
+    render(<JiraConnectWizard onConnected={vi.fn()} />)
+    await goToMappingStep()
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load Jira statuses")
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect((screen.getByLabelText('Backlog / To Do') as HTMLSelectElement).options).toHaveLength(4))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })
