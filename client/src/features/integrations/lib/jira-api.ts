@@ -5,7 +5,7 @@ import { getApiBase } from '../../../lib/api'
 
 export type JiraDeployment = 'cloud' | 'dc'
 export type SpecLogicalState = 'todo' | 'in_progress' | 'on_review' | 'done' | 'cancelled'
-export type OutboxState = 'pending' | 'inflight' | 'done' | 'dead'
+export type OutboxState = 'pending' | 'inflight' | 'done' | 'dead' | 'superseded'
 
 export interface JiraConnectionPublic {
   projectId: string
@@ -29,12 +29,16 @@ export interface OutboxCounts {
   inflight: number
   done: number
   dead: number
+  superseded?: number
 }
 
 export interface OutboxOp {
   id: number
   jiraIssueId: string
-  opType: 'transition' | 'comment' | 'create'
+  jiraKey?: string | null
+  logicalState?: SpecLogicalState | null
+  targetStatus?: string | null
+  opType: 'transition' | 'comment' | 'create' | 'update'
   state: OutboxState
   attempts: number
   lastError: string | null
@@ -216,7 +220,7 @@ export const jiraApi = {
     return fetch(`${base(apiBase)}/jira/outbox${qs}`).then((r) => asJson(r))
   },
 
-  retryOutbox(id: number, apiBase?: string): Promise<{ ok: true }> {
+  retryOutbox(id: number, apiBase?: string): Promise<{ ok: true; disposition?: 'pending' | 'superseded' }> {
     return fetch(`${base(apiBase)}/jira/outbox/${id}/retry`, { method: 'POST' }).then((r) => asJson(r))
   },
 }

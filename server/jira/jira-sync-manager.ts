@@ -52,6 +52,8 @@ import {
   markOutboxDone,
   markOutboxRetry,
   resetInflight,
+  reconcileSupersededTransitions,
+  retryDeadOutbox,
   setConnectionEnabled,
   setDiscardStatus,
   setHighWater,
@@ -70,6 +72,7 @@ import type {
   JiraStatusCategory,
   JiraTransition,
   OutboxRow,
+  OutboxListRow,
   SpecLogicalState,
 } from './types'
 
@@ -1078,6 +1081,10 @@ export class JiraSyncManager {
 
     let changed = false
     while (!this.authPaused) {
+      // A failed transition may have acquired a newer intention while its HTTP
+      // request was in flight. Reconcile before each claim, including legacy
+      // manual retries whose newer transition has already completed.
+      if (reconcileSupersededTransitions(this.db) > 0) changed = true
       const batch = claimDrainable(this.db, MAX_DRAIN_BATCH)
       if (batch.length === 0) break
       changed = true
@@ -1181,6 +1188,7 @@ export class JiraSyncManager {
       // the SAME category (e.g. In Progress → In Review, both indeterminate)
       // while still noop-ing when the issue already sits on the target.
       currentStatusName: issue.data.fields.status?.name,
+      currentStatusId: issue.data.fields.status?.id,
       explicitTarget,
       getTransitions: async () => {
         const res = await client.getTransitions(payload.jiraIssueId)
@@ -1314,6 +1322,7 @@ export class JiraSyncManager {
   }
 
   private broadcastOutboxState(): void {
+    reconcileSupersededTransitions(this.db)
     const counts = countOutboxByState(this.db)
     this.broadcast({ type: 'jira.outbox_changed', projectId: this.projectId, pending: counts.pending + counts.inflight, dead: counts.dead })
   }
@@ -1394,12 +1403,39 @@ export class JiraSyncManager {
     return listLinks(this.db)
   }
 
-  listOutbox(state?: OutboxRow['state']) {
-    return listOutbox(this.db, state ? { state } : {})
+  listOutbox(state?: OutboxRow['state']): OutboxListRow[] {
+    if (reconcileSupersededTransitions(this.db) > 0) this.broadcastOutboxState()
+    const links = new Map(listLinks(this.db).map((link) => [link.jiraIssueId, link.jiraKey]))
+    const statusMap = getConnection(this.db, this.projectId)?.statusMap
+    const logicalStates: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
+    return listOutbox(this.db, state ? { state } : {}).map((row) => {
+      let logicalState: SpecLogicalState | null = null
+      let targetStatus: string | null = null
+      if (row.opType === 'transition') {
+        try {
+          const payload = JSON.parse(row.payload)
+          if (payload && typeof payload === 'object') {
+            if (logicalStates.includes(payload.logicalState)) logicalState = payload.logicalState
+            if (typeof payload.targetStatus === 'string' && payload.targetStatus.trim()) targetStatus = payload.targetStatus
+          }
+        } catch {
+          // Historical/corrupt payloads remain visible for diagnosis.
+        }
+        targetStatus ??= logicalState ? statusMap?.[logicalState] ?? null : null
+      }
+      return { ...row, jiraKey: links.get(row.jiraIssueId) ?? null, logicalState, targetStatus }
+    })
   }
 
   outboxCounts() {
+    if (reconcileSupersededTransitions(this.db) > 0) this.broadcastOutboxState()
     return countOutboxByState(this.db)
+  }
+
+  retryOutbox(id: number) {
+    const disposition = retryDeadOutbox(this.db, id)
+    if (disposition) this.broadcastOutboxState()
+    return disposition
   }
 }
 

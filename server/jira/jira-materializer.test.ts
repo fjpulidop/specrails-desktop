@@ -47,6 +47,7 @@ interface IssueOpts {
   description?: unknown
   labels?: string[]
   updated?: string
+  statusId?: string
   statusName?: string
   statusCategoryKey?: string | undefined
   priorityName?: string | null
@@ -55,9 +56,10 @@ interface IssueOpts {
 
 function makeIssue(o: IssueOpts = {}): JiraIssue {
   const status =
-    o.statusName === undefined && o.statusCategoryKey === undefined
+    o.statusId === undefined && o.statusName === undefined && o.statusCategoryKey === undefined
       ? undefined
       : {
+          ...(o.statusId === undefined ? {} : { id: o.statusId }),
           name: o.statusName ?? 'To Do',
           ...(o.statusCategoryKey === undefined
             ? {}
@@ -129,6 +131,36 @@ describe('issueStatusCategory', () => {
 // ─── mapStatus ───────────────────────────────────────────────────────────────
 
 describe('mapStatus', () => {
+  it.each(['todo', 'in_progress', 'on_review', 'done', 'cancelled'] as const)(
+    'honors a configured %s status by name regardless of Jira category', (logical) => {
+      const category = logical === 'in_progress' ? 'new' : 'indeterminate'
+      expect(mapStatus(makeIssue({ statusName: 'CUSTOM STATUS', statusCategoryKey: category }), {
+        [logical]: 'Custom Status',
+      })).toBe(logical)
+    },
+  )
+
+  it.each(['todo', 'in_progress', 'on_review', 'done', 'cancelled'] as const)(
+    'honors a configured %s status by ID regardless of its display name', (logical) => {
+      const category = logical === 'in_progress' ? 'new' : 'indeterminate'
+      expect(mapStatus(makeIssue({ statusId: '10042', statusName: 'Custom Status', statusCategoryKey: category }), {
+        [logical]: '10042',
+      })).toBe(logical)
+    },
+  )
+
+  it('preserves on_review precedence for shared explicit mappings', () => {
+    expect(mapStatus(makeIssue({ statusName: 'Review', statusCategoryKey: 'done' }), {
+      done: 'Review', on_review: 'Review',
+    })).toBe('on_review')
+  })
+
+  it('uses category fallback for other ambiguous mappings instead of object insertion order', () => {
+    const issue = makeIssue({ statusId: '10042', statusName: 'Custom', statusCategoryKey: 'indeterminate' })
+    expect(mapStatus(issue, { todo: '10042', done: 'Custom' })).toBe('in_progress')
+    expect(mapStatus(issue, { done: 'Custom', todo: '10042' })).toBe('in_progress')
+  })
+
   it('maps new → todo', () => {
     expect(mapStatus(makeIssue({ statusCategoryKey: 'new', statusName: 'Backlog' }))).toBe('todo')
   })
@@ -609,6 +641,21 @@ describe('upsertIssuesIntoStore', () => {
     ])
     const localId = getLinkByIssueId(db, '620')!.localId
     expect(readStore(storePath()).tickets[String(localId)].status).toBe('on_review')
+  })
+
+  it('keeps configured To Do after an unfrozen poll even when Jira categorizes it as in progress', () => {
+    const c = makeConn({ statusMap: { todo: '10042' } })
+    const issue = makeIssue({
+      id: '624', key: 'PROJ-624', statusId: '10042', statusName: 'Ready', statusCategoryKey: 'indeterminate',
+    })
+    upsertIssuesIntoStore(db, projectPath, c, [issue])
+    const localId = getLinkByIssueId(db, '624')!.localId
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('todo')
+
+    const result = upsertIssuesIntoStore(db, projectPath, c, [issue], new Set())
+    expect(readStore(storePath()).tickets[String(localId)].status).toBe('todo')
+    expect(result.changedLocalIds).toEqual([])
+    expect(result.wrote).toBe(false)
   })
 
   it('does NOT revert a local on_review after the outbox op drains (no longer frozen)', () => {

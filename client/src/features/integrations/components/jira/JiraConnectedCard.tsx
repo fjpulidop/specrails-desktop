@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../components/ui/button'
-import { jiraApi, type ConnectionState, type JiraStatusOption, type OutboxOp, type SpecLogicalState } from '../../lib/jira-api'
+import { useDesktop } from '../../../../hooks/useDesktop'
+import { JiraOutboxPanel } from './JiraOutboxPanel'
+import { jiraApi, type ConnectionState, type JiraStatusOption, type SpecLogicalState } from '../../lib/jira-api'
 
 const STATE_KEYS: SpecLogicalState[] = ['todo', 'in_progress', 'on_review', 'done', 'cancelled']
 const STATE_LABEL: Record<SpecLogicalState, string> = {
@@ -19,40 +21,49 @@ const STATE_LABEL: Record<SpecLogicalState, string> = {
  * disconnect. Shared by the Integrations Jira card (and previously the Settings
  * section). `state.connection` must be present.
  */
-export function JiraConnectedCard({ state, onChanged, apiBase }: { state: ConnectionState; onChanged: () => void; apiBase?: string }) {
+interface Props { state: ConnectionState; onChanged: () => void; apiBase?: string }
+
+export function JiraConnectedCard(props: Props) {
+  const { activeProjectId } = useDesktop()
+  const scope = `${props.apiBase ?? activeProjectId ?? ''}:${props.state.connection!.projectId}`
+  return <JiraConnectedCardContent key={scope} {...props} />
+}
+
+function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
   const { t } = useTranslation('jira')
   const connection = state.connection!
   const [enabled, setEnabled] = useState(connection.enabled)
   const [syncing, setSyncing] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [deadOps, setDeadOps] = useState<OutboxOp[]>([])
+  const [outboxRefresh, setOutboxRefresh] = useState(0)
   const [statuses, setStatuses] = useState<JiraStatusOption[]>([])
   const [discardStatus, setDiscardStatus] = useState(connection.discardStatus ?? '')
   const [statusMap, setStatusMap] = useState<Partial<Record<SpecLogicalState, string>>>(connection.statusMap ?? {})
-  const counts = state.outbox ?? { pending: 0, inflight: 0, done: 0, dead: 0 }
+  const [statusLoadFailed, setStatusLoadFailed] = useState(false)
+  const [loadingStatuses, setLoadingStatuses] = useState(false)
+  const statusRevision = useRef(0)
+  const alive = useRef(true)
 
-  const loadDead = useCallback(async () => {
+  const loadStatuses = useCallback(async () => {
+    const request = ++statusRevision.current
+    setLoadingStatuses(true)
     try {
-      const { ops } = apiBase ? await jiraApi.listOutbox('dead', apiBase) : await jiraApi.listOutbox('dead')
-      setDeadOps(ops)
+      const { statuses: list } = await jiraApi.listStatuses(apiBase)
+      if (!alive.current || request !== statusRevision.current) return
+      setStatuses(list)
+      setStatusLoadFailed(false)
     } catch {
-      setDeadOps([])
+      if (alive.current && request === statusRevision.current) setStatusLoadFailed(true)
+    } finally {
+      if (alive.current && request === statusRevision.current) setLoadingStatuses(false)
     }
   }, [apiBase])
 
   useEffect(() => {
-    void loadDead()
-  }, [loadDead])
-
-  // Load the board's statuses for the discard "move-to" picker (best-effort).
-  useEffect(() => {
-    let cancelled = false
-    jiraApi
-      .listStatuses(apiBase)
-      .then(({ statuses: list }) => { if (!cancelled) setStatuses(list) })
-      .catch(() => { if (!cancelled) setStatuses([]) })
-    return () => { cancelled = true }
-  }, [apiBase])
+    alive.current = true
+    void loadStatuses()
+    return () => { alive.current = false; statusRevision.current++ }
+  }, [loadStatuses])
 
   async function changeDiscardStatus(next: string) {
     const prev = discardStatus
@@ -60,8 +71,10 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
     try {
       if (apiBase) await jiraApi.patchConnection({ discardStatus: next || null }, apiBase)
       else await jiraApi.patchConnection({ discardStatus: next || null })
+      if (!alive.current) return
       onChanged()
     } catch (e) {
+      if (!alive.current) return
       setDiscardStatus(prev)
       toast.error(errMsg(e, t))
     }
@@ -75,8 +88,11 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
     try {
       if (apiBase) await jiraApi.patchConnection({ statusMap: Object.keys(clean).length ? clean : null }, apiBase)
       else await jiraApi.patchConnection({ statusMap: Object.keys(clean).length ? clean : null })
+      if (!alive.current) return
+      setOutboxRefresh((value) => value + 1)
       onChanged()
     } catch (e) {
+      if (!alive.current) return
       setStatusMap(prev)
       toast.error(errMsg(e, t))
     }
@@ -90,10 +106,11 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
       if (apiBase) await jiraApi.setEnabled(next, apiBase)
       else await jiraApi.setEnabled(next)
     } catch (e) {
+      if (!alive.current) return
       setEnabled(!next)
       toast.error(errMsg(e, t))
     } finally {
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
   }
 
@@ -101,11 +118,13 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
     setSyncing(true)
     try {
       const r = apiBase ? await jiraApi.syncNow(apiBase) : await jiraApi.syncNow()
+      if (!alive.current) return
       toast.success(t('status.syncedToast', { count: r.upserted }))
+      setOutboxRefresh((value) => value + 1)
     } catch (e) {
-      toast.error(errMsg(e, t))
+      if (alive.current) toast.error(errMsg(e, t))
     } finally {
-      setSyncing(false)
+      if (alive.current) setSyncing(false)
     }
   }
 
@@ -115,26 +134,15 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
     try {
       if (apiBase) await jiraApi.disconnect(apiBase)
       else await jiraApi.disconnect()
+      if (!alive.current) return
       toast.success(t('status.disconnectedToast'))
       onChanged()
     } catch (e) {
-      toast.error(errMsg(e, t))
+      if (alive.current) toast.error(errMsg(e, t))
     } finally {
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
   }
-
-  async function retry(id: number) {
-    try {
-      if (apiBase) await jiraApi.retryOutbox(id, apiBase)
-      else await jiraApi.retryOutbox(id)
-      await loadDead()
-    } catch (e) {
-      toast.error(errMsg(e, t))
-    }
-  }
-
-  const pending = counts.pending + counts.inflight
 
   return (
     <div className="space-y-4" data-testid="jira-connected">
@@ -171,6 +179,13 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
       <div className="rounded-md border border-border p-3" data-testid="jira-status-map">
         <p className="text-sm font-medium">{t('wizard.step3Title')}</p>
         <p className="mt-0.5 mb-2 text-xs text-muted-foreground">{t('mapping.intro')}</p>
+        {statusLoadFailed && (
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p role="alert" className="text-xs text-accent-warning">{t('mapping.loadFailed')}</p>
+            <Button variant="outline" size="sm" disabled={loadingStatuses} onClick={() => void loadStatuses()}>{t('mapping.retry')}</Button>
+          </div>
+        )}
+        {loadingStatuses && <p role="status" className="mb-2 text-xs text-muted-foreground">{t('mapping.loading')}</p>}
         <div className="space-y-2">
           {STATE_KEYS.map((s) => (
             <label key={s} className="flex items-center justify-between gap-3">
@@ -222,39 +237,9 @@ export function JiraConnectedCard({ state, onChanged, apiBase }: { state: Connec
         </Button>
       </div>
 
-      <div className="rounded-md border border-border p-3" data-testid="jira-outbox">
-        <p className="text-sm font-medium">{t('outbox.title')}</p>
-        {counts.dead > 0 ? (
-          <p className="mt-1 text-xs text-accent-warning">{t('outbox.dead', { count: counts.dead })}</p>
-        ) : pending > 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">{t('outbox.pending', { count: pending })}</p>
-        ) : (
-          <p className="mt-1 text-xs text-muted-foreground">{t('outbox.allSynced')}</p>
-        )}
-        {deadOps.length > 0 && (
-          <div className="mt-2 space-y-2">
-            <p className="text-xs text-muted-foreground">{t('outbox.deadHelp')}</p>
-            {deadOps.map((op) => (
-              <div key={op.id} className="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1">
-                <span className="truncate text-xs">
-                  {opLabel(op, t)} · {op.deadReason ?? op.lastError ?? ''}
-                </span>
-                <Button variant="outline" size="sm" onClick={() => retry(op.id)}>
-                  {t('outbox.retry')}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <JiraOutboxPanel projectId={connection.projectId} baseUrl={connection.baseUrl} apiBase={apiBase} initialCounts={state.outbox} refreshToken={outboxRefresh} />
     </div>
   )
-}
-
-function opLabel(op: OutboxOp, t: (k: string) => string): string {
-  if (op.opType === 'transition') return t('outbox.opTransition')
-  if (op.opType === 'comment') return t('outbox.opComment')
-  return t('outbox.opCreate')
 }
 
 function errMsg(e: unknown, t: (k: string) => string): string {

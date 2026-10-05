@@ -94,6 +94,12 @@ describe('categoryRank', () => {
 // ---------------------------------------------------------------------------
 
 describe('pickDirectTransition', () => {
+  it('prefers a matching destination ID over an unrelated colliding transition ID', () => {
+    const unrelated = tx({ id: '10042', toId: '20000', toName: 'Unrelated', category: 'done' })
+    const intended = tx({ id: '55', toId: '10042', toName: 'Ready', category: 'new' })
+    expect(pickDirectTransition([unrelated, intended], 'todo', '10042')).toEqual(intended)
+  })
+
   it('returns null on empty list', () => {
     expect(pickDirectTransition([], 'todo')).toBeNull()
   })
@@ -117,13 +123,13 @@ describe('pickDirectTransition', () => {
     expect(got!.id).toBe('tB')
   })
 
-  it('explicit target matches by transition id', () => {
+  it('rejects a transition ID that does not identify the configured destination', () => {
     const transitions = [
       tx({ id: 'tA', toId: 's-new', toName: 'New', category: 'new' }),
       tx({ id: 'tB', toId: 's-prog', toName: 'In Progress', category: 'indeterminate' }),
     ]
     const got = pickDirectTransition(transitions, 'todo', 'tB')
-    expect(got!.id).toBe('tB')
+    expect(got).toBeNull()
   })
 
   it('explicit target that does not match returns null (never substitutes another status)', () => {
@@ -640,6 +646,151 @@ describe('buildTransitionFields', () => {
 // ---------------------------------------------------------------------------
 
 describe('walkToCategory', () => {
+  it('never applies a colliding transition ID when the configured status is unavailable', async () => {
+    const discard = tx({ id: '10042', toId: 's-discarded', toName: 'Discarded', category: 'done' })
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'indeterminate', currentStatusName: 'In Progress', explicitTarget: '10042',
+      getTransitions: async () => [discard], applyTransition,
+    })
+    expect(out.status).toBe('no_path')
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('does not require a self-transition when the configured To Do is in another category', async () => {
+    const getTransitions = vi.fn(async () => [] as JiraTransition[])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'indeterminate', currentStatusName: 'READY', explicitTarget: 'Ready',
+      getTransitions, applyTransition,
+    })
+    expect(out).toEqual({ status: 'noop' })
+    expect(getTransitions).not.toHaveBeenCalled()
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('recognizes the current status by configured ID even when its name and category differ', async () => {
+    const getTransitions = vi.fn(async () => [] as JiraTransition[])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'indeterminate', currentStatusId: '10042', currentStatusName: 'Ready', explicitTarget: '10042',
+      getTransitions, applyTransition,
+    })
+    expect(out).toEqual({ status: 'noop' })
+    expect(getTransitions).not.toHaveBeenCalled()
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('reports the actual category of an explicit target outside the logical category', async () => {
+    const review = tx({ id: 'review', toId: 's-review', toName: 'Review', category: 'indeterminate' })
+    const out = await walkToCategory({
+      state: 'done', currentCategory: 'new', explicitTarget: 'Review',
+      getTransitions: async () => [review], applyTransition: vi.fn(async () => {}),
+    })
+    expect(out).toEqual({ status: 'applied', finalCategory: 'indeterminate', transitions: ['review'] })
+  })
+
+  it('does not invent a destination category when Jira omits it for an explicit match', async () => {
+    const review = tx({ id: 'review', toId: 's-review', toName: 'Review', category: null })
+    const out = await walkToCategory({
+      state: 'done', currentCategory: 'new', explicitTarget: 'Review',
+      getTransitions: async () => [review], applyTransition: vi.fn(async () => {}),
+    })
+    expect(out).toEqual({ status: 'applied', finalCategory: null, transitions: ['review'] })
+  })
+
+  it('continues after reaching the fallback category until the configured status is reached', async () => {
+    const progress = tx({ id: 'reopen', toId: 's-progress', toName: 'In Progress', category: 'indeterminate' })
+    const review = tx({ id: 'review', toId: 's-review', toName: 'Review', category: 'indeterminate' })
+    const getTransitions = vi.fn().mockResolvedValueOnce([progress]).mockResolvedValueOnce([review])
+    const applyTransition = vi.fn(async () => {})
+    const out = await walkToCategory({
+      state: 'in_progress', currentCategory: 'done', explicitTarget: 'Review', getTransitions, applyTransition,
+    })
+    expect(out).toEqual({ status: 'applied', finalCategory: 'indeterminate', transitions: ['reopen', 'review'] })
+    expect(applyTransition).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not report success at another status in the configured target category', async () => {
+    const progress = tx({ id: 'reopen', toId: 's-progress', toName: 'In Progress', category: 'indeterminate' })
+    const getTransitions = vi.fn().mockResolvedValueOnce([progress]).mockResolvedValueOnce([])
+    const out = await walkToCategory({
+      state: 'in_progress', currentCategory: 'done', explicitTarget: 'Review',
+      getTransitions, applyTransition: vi.fn(async () => {}),
+    })
+    expect(out.status).toBe('no_path')
+    if (out.status === 'no_path') {
+      expect(out.reason).toContain('Review')
+      expect(out.reason).toContain('In Progress')
+      expect(out.reason).toContain('s-progress')
+    }
+    expect(getTransitions).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports the configured destination still missing when the hop budget ends in its fallback category', async () => {
+    const progress = tx({ id: 'reopen', toId: 's-progress', toName: 'In Progress', category: 'indeterminate' })
+    const getTransitions = vi.fn(async () => [progress])
+    const out = await walkToCategory({
+      state: 'in_progress', currentCategory: 'done', explicitTarget: 'Review', maxHops: 1,
+      getTransitions, applyTransition: vi.fn(async () => {}),
+    })
+    expect(out).toEqual({
+      status: 'no_path',
+      reason: 'configured status not reached within 1 hops; current status "In Progress" (id "s-progress"); configured target "Review"; available destinations: not fetched for current status',
+    })
+    expect(getTransitions).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps valid reverse transitions from Done through In Progress to To Do', async () => {
+    const progress = tx({ id: 'reopen', toId: 's-progress', toName: 'In Progress', category: 'indeterminate' })
+    const todo = tx({ id: 'todo', toId: 's-todo', toName: 'To Do', category: 'new' })
+    const getTransitions = vi.fn().mockResolvedValueOnce([progress]).mockResolvedValueOnce([todo])
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'done', getTransitions, applyTransition: vi.fn(async () => {}),
+    })
+    expect(out).toEqual({ status: 'applied', finalCategory: 'new', transitions: ['reopen', 'todo'] })
+  })
+
+  it('explains an unavailable transition using bounded current, configured, and available status identities', async () => {
+    const applyTransition = vi.fn(async () => {})
+    const transitions = Array.from({ length: 100 }, (_, i) => tx({
+      id: `tr-${i}`, toId: `status-${i}`, toName: `Other ${i} ${'x'.repeat(500)}`, category: 'done',
+    }))
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'indeterminate', currentStatusName: 'In Progress', currentStatusId: 'current-1',
+      explicitTarget: 'Ready', getTransitions: async () => transitions, applyTransition,
+    })
+    expect(out.status).toBe('no_path')
+    if (out.status === 'no_path') {
+      expect(out.reason).toContain('In Progress')
+      expect(out.reason).toContain('current-1')
+      expect(out.reason).toContain('Ready')
+      expect(out.reason).toContain('Other 0')
+      expect(out.reason).toContain('status-0')
+      expect(out.reason.length).toBeLessThanOrEqual(500)
+      expect(out.reason).toMatch(/\+\d+ more$/)
+    }
+    expect(applyTransition).not.toHaveBeenCalled()
+  })
+
+  it('keeps long escaped status identities within durable dead-letter storage limits', async () => {
+    const out = await walkToCategory({
+      state: 'todo', currentCategory: 'indeterminate', currentStatusName: '"'.repeat(1_000),
+      currentStatusId: 'current'.repeat(100), explicitTarget: 'target'.repeat(100),
+      getTransitions: async () => Array.from({ length: 10 }, (_, i) => tx({
+        toId: `id-${i}-${'x'.repeat(500)}`, toName: '"'.repeat(1_000), category: 'done',
+      })),
+      applyTransition: vi.fn(async () => {}),
+    })
+    expect(out.status).toBe('no_path')
+    if (out.status === 'no_path') {
+      expect(out.reason.length).toBeLessThanOrEqual(500)
+      expect(out.reason).toContain('configured target')
+      expect(out.reason).toContain('available destinations')
+      expect(out.reason).toMatch(/\+\d+ more$/)
+    }
+  })
+
   it('noop when already in the target category', async () => {
     const getTransitions = vi.fn(async () => [] as JiraTransition[])
     const applyTransition = vi.fn(async () => {})
@@ -794,7 +945,7 @@ describe('walkToCategory', () => {
     })
     expect(out).toEqual({
       status: 'no_path',
-      reason: 'no workflow transition from category "new" toward "indeterminate"',
+      reason: 'no workflow transition from category "new" toward "indeterminate"; current status (unknown); available destinations: "New2" (id "s-new2")',
     })
     expect(applyTransition).not.toHaveBeenCalled()
   })
@@ -934,7 +1085,7 @@ describe('walkToCategory', () => {
     })
     expect(out).toEqual({
       status: 'no_path',
-      reason: 'no workflow transition from category "indeterminate" toward "done"',
+      reason: 'no workflow transition from category "indeterminate" toward "done"; current status "In Progress" (id "s-prog"); available destinations: "Reviewing" (id "s-review")',
     })
     // One progress step applied (the forward edge), then stuck.
     expect(applyTransition).toHaveBeenCalledTimes(1)
@@ -954,12 +1105,12 @@ describe('walkToCategory', () => {
       getTransitions,
       applyTransition,
     })
-    expect(out).toEqual({ status: 'no_path', reason: 'target category "done" not reached within 1 hops' })
+    expect(out).toEqual({ status: 'no_path', reason: 'target category "done" not reached within 1 hops; current status "In Progress" (id "s-prog"); available destinations: not fetched for current status' })
     expect(applyTransition).toHaveBeenCalledTimes(1)
   })
 
   it('honours an explicit target during the walk', async () => {
-    // explicit transition id wins immediately even though category fallback would also match.
+    // Explicit destination ID wins even though category fallback would also match.
     const explicit = tx({ id: 'tExplicit', toId: 's-special', toName: 'Special Done', category: 'done' })
     const other = tx({ id: 'tOther', toId: 's-done', toName: 'Done', category: 'done' })
     const getTransitions = vi.fn(async () => [other, explicit])
@@ -967,7 +1118,7 @@ describe('walkToCategory', () => {
     const out = await walkToCategory({
       state: 'done',
       currentCategory: 'indeterminate',
-      explicitTarget: 'tExplicit',
+      explicitTarget: 's-special',
       getTransitions,
       applyTransition,
     })

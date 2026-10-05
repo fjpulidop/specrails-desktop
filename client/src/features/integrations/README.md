@@ -24,6 +24,21 @@ load every UI component. Changes to this surface require updating the boundary m
 
 No direct feature dependencies.
 
+## Jira status recovery
+
+The connection's status map applies to both outbound transitions and inbound
+ticket materialization. Pick a real destination status for each logical state
+that needs an override; the API also accepts status IDs. An already-matching
+destination is a no-op even when Jira assigns it a different category.
+
+Pending Jira updates show the affected issue and destination. Counts and rows
+refresh after sync/retry and ignore responses from a previously selected project.
+An unavailable status catalog displays an error and retry action while preserving
+the saved mapping. Superseded status operations remain server-side history and
+are excluded from attention counts; independent comments and field updates remain
+retryable. A genuine missing workflow transition still requires a valid Jira
+workflow path or a corrected mapping.
+
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.

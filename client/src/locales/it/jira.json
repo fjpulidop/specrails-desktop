@@ -47,7 +47,9 @@
     "onReview": "In revisione",
     "done": "Fatto",
     "cancelled": "Annullato",
-    "loading": "Caricamento stati…"
+    "loading": "Caricamento stati…",
+    "loadFailed": "Impossibile caricare gli stati Jira. Controlla la connessione e riprova.",
+    "retry": "Riprova"
   },
   "review": {
     "site": "Sito",
@@ -75,10 +77,16 @@
     "dead": "{{count}} da verificare",
     "allSynced": "Tutti gli aggiornamenti sincronizzati",
     "retry": "Riprova",
-    "deadHelp": "Questi non sono stati applicati automaticamente (es. il tuo workflow non ha una transizione corrispondente). Correggi in Jira, poi riprova.",
+    "deadHelp": "Controlla la mappatura degli stati qui sopra e le transizioni consentite per ogni issue Jira, poi riprova. Le richieste di stato sostituite da richieste più recenti non richiedono più attenzione.",
     "opTransition": "Aggiornamento stato",
     "opComment": "Commento",
-    "opCreate": "Crea ticket"
+    "opCreate": "Crea ticket",
+    "issueFallback": "Issue Jira {{id}}",
+    "target": "Destinazione: {{status}}",
+    "retrying": "Nuovo tentativo…",
+    "loadFailed": "Impossibile caricare gli aggiornamenti Jira in sospeso.",
+    "opUpdate": "Modifica issue",
+    "nonePending": "Nessun aggiornamento Jira in sospeso"
   },
   "authExpired": {
     "title": "Jira disconnesso",

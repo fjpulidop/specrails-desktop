@@ -47,7 +47,9 @@
     "onReview": "In Prüfung",
     "done": "Fertig",
     "cancelled": "Abgebrochen",
-    "loading": "Status werden geladen…"
+    "loading": "Status werden geladen…",
+    "loadFailed": "Die Jira-Status konnten nicht geladen werden. Prüfe die Verbindung und versuche es erneut.",
+    "retry": "Erneut versuchen"
   },
   "review": {
     "site": "Site",
@@ -75,10 +77,16 @@
     "dead": "{{count}} benötigen Aufmerksamkeit",
     "allSynced": "Alle Updates synchronisiert",
     "retry": "Erneut versuchen",
-    "deadHelp": "Diese konnten nicht automatisch angewendet werden (z. B. hat dein Workflow keinen passenden Übergang). Korrigiere in Jira und versuche es erneut.",
+    "deadHelp": "Prüfe die Statuszuordnung oben und die zulässigen Übergänge für jeden Jira-Vorgang. Versuche es dann erneut. Durch neuere Anfragen ersetzte Statusanfragen benötigen keine Aufmerksamkeit mehr.",
     "opTransition": "Status-Update",
     "opComment": "Kommentar",
-    "opCreate": "Vorgang erstellen"
+    "opCreate": "Vorgang erstellen",
+    "issueFallback": "Jira-Vorgang {{id}}",
+    "target": "Ziel: {{status}}",
+    "retrying": "Neuer Versuch…",
+    "loadFailed": "Ausstehende Jira-Aktualisierungen konnten nicht geladen werden.",
+    "opUpdate": "Vorgang bearbeiten",
+    "nonePending": "Keine ausstehenden Jira-Aktualisierungen"
   },
   "authExpired": {
     "title": "Jira getrennt",

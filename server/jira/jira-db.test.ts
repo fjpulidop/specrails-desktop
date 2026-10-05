@@ -37,6 +37,7 @@ import {
   markOutboxDead,
   resetInflight,
   retryDeadOutbox,
+  reconcileSupersededTransitions,
   listOutbox,
   countOutboxByState,
   type EnqueueOutboxInput,
@@ -618,7 +619,7 @@ describe('jira_outbox', () => {
     const id = enqueueOutbox(db, op())
     markOutboxRetry(db, id, '2030-01-01T00:00:00.000Z', 'err') // sets attempts + next + last_error
     markOutboxDead(db, id, 'validation')
-    expect(retryDeadOutbox(db, id)).toBe(true)
+    expect(retryDeadOutbox(db, id)).toBe('pending')
     const row = listOutbox(db)[0]
     expect(row.state).toBe('pending')
     expect(row.nextAttemptAt).toBeNull()
@@ -628,19 +629,100 @@ describe('jira_outbox', () => {
     expect(row.attempts).toBe(1)
   })
 
-  it('retryDeadOutbox returns false for a non-dead row (only dead → pending)', () => {
+  it('retryDeadOutbox returns null for a non-dead row (only dead → pending)', () => {
     const pendingId = enqueueOutbox(db, op({ idempotencyKey: 'p', jiraIssueId: 'P' }))
-    expect(retryDeadOutbox(db, pendingId)).toBe(false)
+    expect(retryDeadOutbox(db, pendingId)).toBeNull()
     expect(listOutbox(db).find((r) => r.id === pendingId)!.state).toBe('pending')
 
     const doneId = enqueueOutbox(db, op({ idempotencyKey: 'd', jiraIssueId: 'D' }))
     markOutboxDone(db, doneId)
-    expect(retryDeadOutbox(db, doneId)).toBe(false)
+    expect(retryDeadOutbox(db, doneId)).toBeNull()
     expect(listOutbox(db).find((r) => r.id === doneId)!.state).toBe('done')
   })
 
-  it('retryDeadOutbox returns false for an unknown id', () => {
-    expect(retryDeadOutbox(db, 99999)).toBe(false)
+  it('retryDeadOutbox returns null for an unknown id', () => {
+    expect(retryDeadOutbox(db, 99999)).toBeNull()
+  })
+
+  it.each(['pending', 'done', 'dead'] as const)('retires an obsolete dead transition when its newer intent is %s', (state) => {
+    const older = enqueueOutbox(db, op({ idempotencyKey: 'old', jiraIssueId: 'A' }))
+    markOutboxRetry(db, older, '2030-01-01T00:00:00.000Z', 'original network error')
+    markOutboxDead(db, older, 'original workflow error')
+    const newer = enqueueOutbox(db, op({ idempotencyKey: 'new', jiraIssueId: 'A' }))
+    if (state === 'done') markOutboxDone(db, newer)
+    if (state === 'dead') markOutboxDead(db, newer, 'latest workflow error')
+
+    expect(reconcileSupersededTransitions(db)).toBe(1)
+    expect(listOutbox(db).find((row) => row.id === older)).toMatchObject({
+      state: 'superseded', attempts: 1, lastError: 'original network error', deadReason: 'original workflow error',
+    })
+    expect(listOutbox(db).find((row) => row.id === newer)?.state).toBe(state)
+    expect(retryDeadOutbox(db, older)).toBe('superseded')
+    expect(reconcileSupersededTransitions(db)).toBe(0)
+    expect(countOutboxByState(db).superseded).toBe(1)
+  })
+
+  it('does not retire dead comments, field edits or transitions for a different issue', () => {
+    const comment = enqueueOutbox(db, op({ opType: 'comment', idempotencyKey: 'comment', jiraIssueId: 'A' }))
+    const update = enqueueOutbox(db, op({ opType: 'update', idempotencyKey: 'update', jiraIssueId: 'A' }))
+    const other = enqueueOutbox(db, op({ idempotencyKey: 'other', jiraIssueId: 'B' }))
+    for (const id of [comment, update, other]) markOutboxDead(db, id, 'failed')
+    enqueueOutbox(db, op({ idempotencyKey: 'latest', jiraIssueId: 'A' }))
+
+    expect(reconcileSupersededTransitions(db)).toBe(0)
+    expect(retryDeadOutbox(db, comment)).toBe('pending')
+    expect(retryDeadOutbox(db, update)).toBe('pending')
+    expect(retryDeadOutbox(db, other)).toBe('pending')
+  })
+
+  it('preserves normal pending and inflight transition FIFO', () => {
+    const first = enqueueOutbox(db, op({ idempotencyKey: 'first', jiraIssueId: 'A' }))
+    const second = enqueueOutbox(db, op({ idempotencyKey: 'second', jiraIssueId: 'A' }))
+    const third = enqueueOutbox(db, op({ idempotencyKey: 'third', jiraIssueId: 'A' }))
+    expect(reconcileSupersededTransitions(db)).toBe(0)
+    expect(claimDrainable(db, 10).map((row) => row.id)).toEqual([first])
+    expect(reconcileSupersededTransitions(db)).toBe(0)
+    expect(listOutbox(db).find((row) => row.id === first)?.state).toBe('inflight')
+    markOutboxDone(db, first)
+    expect(claimDrainable(db, 10).map((row) => row.id)).toEqual([second])
+    expect(listOutbox(db).find((row) => row.id === third)?.state).toBe('pending')
+  })
+
+  it('retires a legacy retry left pending after a newer transition already completed', () => {
+    const older = enqueueOutbox(db, op({ idempotencyKey: 'old-retry', jiraIssueId: 'A' }))
+    const newer = enqueueOutbox(db, op({ idempotencyKey: 'latest-complete', jiraIssueId: 'A' }))
+    markOutboxDone(db, newer)
+
+    expect(reconcileSupersededTransitions(db)).toBe(1)
+    expect(listOutbox(db).find((row) => row.id === older)?.state).toBe('superseded')
+    expect(claimDrainable(db, 10)).toEqual([])
+  })
+
+  it('atomically refuses to requeue an obsolete dead transition', () => {
+    const older = enqueueOutbox(db, op({ idempotencyKey: 'old-manual', jiraIssueId: 'A' }))
+    markOutboxDead(db, older, 'workflow unavailable')
+    enqueueOutbox(db, op({ idempotencyKey: 'latest-manual', jiraIssueId: 'A' }))
+
+    expect(retryDeadOutbox(db, older)).toBe('superseded')
+    expect(listOutbox(db).find((row) => row.id === older)?.state).toBe('superseded')
+  })
+
+  it('keeps supersession inside the owning project database', () => {
+    const otherDb = initDb(':memory:')
+    try {
+      const local = enqueueOutbox(db, op({ idempotencyKey: 'old-project-a', jiraIssueId: 'SHARED' }))
+      const remote = enqueueOutbox(otherDb, op({ idempotencyKey: 'old-project-b', jiraIssueId: 'SHARED' }))
+      markOutboxDead(db, local, 'blocked A')
+      markOutboxDead(otherDb, remote, 'blocked B')
+      enqueueOutbox(otherDb, op({ idempotencyKey: 'new-project-b', jiraIssueId: 'SHARED' }))
+
+      expect(reconcileSupersededTransitions(db)).toBe(0)
+      expect(reconcileSupersededTransitions(otherDb)).toBe(1)
+      expect(listOutbox(db)[0].state).toBe('dead')
+      expect(listOutbox(otherDb).find((row) => row.id === remote)?.state).toBe('superseded')
+    } finally {
+      otherDb.close()
+    }
   })
 
   it('listOutbox returns rows newest-first (id DESC) and honours the limit', () => {
@@ -675,8 +757,8 @@ describe('jira_outbox', () => {
     expect(listOutbox(db)).toHaveLength(1)
   })
 
-  it('countOutboxByState returns all four states zero-filled', () => {
-    expect(countOutboxByState(db)).toEqual({ pending: 0, inflight: 0, done: 0, dead: 0 })
+  it('countOutboxByState returns all five states zero-filled', () => {
+    expect(countOutboxByState(db)).toEqual({ pending: 0, inflight: 0, done: 0, dead: 0, superseded: 0 })
   })
 
   it('countOutboxByState tallies a mix of states', () => {
@@ -688,6 +770,6 @@ describe('jira_outbox', () => {
     markOutboxDead(db, b, 'permission')
     // c → inflight
     db.prepare("UPDATE jira_outbox SET state = 'inflight' WHERE id = ?").run(c)
-    expect(countOutboxByState(db)).toEqual({ pending: 1, inflight: 1, done: 1, dead: 1 })
+    expect(countOutboxByState(db)).toEqual({ pending: 1, inflight: 1, done: 1, dead: 1, superseded: 0 })
   })
 })

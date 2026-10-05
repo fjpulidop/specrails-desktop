@@ -47,7 +47,9 @@
     "onReview": "评审中",
     "done": "完成",
     "cancelled": "已取消",
-    "loading": "正在加载状态…"
+    "loading": "正在加载状态…",
+    "loadFailed": "无法加载 Jira 状态。请检查连接并重试。",
+    "retry": "重试"
   },
   "review": {
     "site": "站点",
@@ -75,10 +77,16 @@
     "dead": "{{count}} 个需要处理",
     "allSynced": "所有更新已同步",
     "retry": "重试",
-    "deadHelp": "这些无法自动应用（例如你的工作流没有匹配的转换）。请在 Jira 中修正后重试。",
+    "deadHelp": "请检查上方的状态映射以及每个 Jira 事项允许的状态转换，然后重试。已被较新请求替代的旧状态请求不再需要处理。",
     "opTransition": "状态更新",
     "opComment": "评论",
-    "opCreate": "创建事务"
+    "opCreate": "创建事务",
+    "issueFallback": "Jira 事项 {{id}}",
+    "target": "目标：{{status}}",
+    "retrying": "正在重试…",
+    "loadFailed": "无法加载待处理的 Jira 更新。",
+    "opUpdate": "编辑事项",
+    "nonePending": "没有待处理的 Jira 更新"
   },
   "authExpired": {
     "title": "Jira 已断开",

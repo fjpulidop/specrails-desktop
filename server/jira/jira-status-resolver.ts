@@ -8,8 +8,8 @@
 //   2. Category fallback anchored on `statusCategory.key` (never the localizable
 //      status NAME), with a cancel/ship lexicon to disambiguate the `done`
 //      category (e.g. `Won't Do` vs `Released`).
-//   3. BFS transition walk for forward-only workflows where there is no direct
-//      edge to the target category.
+//   3. Bounded category-monotonic transition walk where there is no direct edge
+//      to the target category. Unknown lateral paths are never explored by writes.
 //
 // This module is PURE: the walker takes async callbacks (getTransitions /
 // applyTransition) so it is fully testable without HTTP.
@@ -60,12 +60,15 @@ function isCancelName(name: string | undefined): boolean {
   return nameMatches(name, CANCEL_LEXICON)
 }
 
+function matchesStatusTarget(id: string | undefined, name: string | undefined, target: string): boolean {
+  return id === target || (name !== undefined && name.toLowerCase() === target.toLowerCase())
+}
+
 /** Does this transition's destination match the user's explicitly configured
- *  target (by status id, status name, or transition id)? Case-insensitive on name.
+ *  target (by status id or status name)? Case-insensitive on name.
  *  The explicit config ALWAYS wins over the cancel/ship lexicon heuristics. */
 function matchesExplicit(t: JiraTransition, explicitTarget: string): boolean {
-  const e = explicitTarget.toLowerCase()
-  return t.to.id === explicitTarget || t.to.name.toLowerCase() === e || t.id === explicitTarget
+  return matchesStatusTarget(t.to.id, t.to.name, explicitTarget)
 }
 
 function transitionCategory(t: JiraTransition): JiraStatusCategory | null {
@@ -86,6 +89,8 @@ export function pickDirectTransition(
   explicitTarget?: string
 ): JiraTransition | null {
   if (explicitTarget) {
+    // Values identify destination statuses, never transition IDs: the two ID
+    // namespaces can collide, including with an unrelated terminal transition.
     const t = transitions.find((tr) => matchesExplicit(tr, explicitTarget))
     if (t) return t
     // The user explicitly configured a target status (e.g. statusMap.done =
@@ -120,9 +125,9 @@ export function pickDirectTransition(
 
 /**
  * Pick a transition that moves the issue closer to the target category (used by
- * the BFS walk when no direct transition exists). Returns the edge whose target
+ * the bounded walk when no direct transition exists). Returns the edge whose target
  * category is strictly closer (in rank distance) to the goal, never overshooting
- * past it, preferring the smallest forward step.
+ * past it, preferring the furthest progress in either direction.
  */
 export function pickProgressTransition(
   transitions: JiraTransition[],
@@ -203,29 +208,68 @@ export function buildTransitionFields(transition: JiraTransition, state: SpecLog
 
 export type WalkOutcome =
   | { status: 'noop' }
-  | { status: 'applied'; finalCategory: JiraStatusCategory; transitions: string[] }
+  | { status: 'applied'; finalCategory: JiraStatusCategory | null; transitions: string[] }
   | { status: 'no_path'; reason: string }
   | { status: 'blocked'; reason: string }
   | { status: 'error'; reason: string }
 
+function diagnosticValue(value: string, limit = 64): string {
+  const compact = value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim()
+  if (compact.length <= limit && JSON.stringify(compact).length <= limit) return JSON.stringify(compact)
+  let preview = compact.slice(0, limit)
+  while (JSON.stringify(`${preview}…`).length > limit) preview = preview.slice(0, -1)
+  return JSON.stringify(`${preview}…`)
+}
+
+function statusDiagnostic(name: string | undefined, id: string | undefined): string {
+  return `${name ? diagnosticValue(name, 48) : '(unknown)'}${id ? ` (id ${diagnosticValue(id, 24)})` : ''}`
+}
+
+function noPathReason(
+  summary: string,
+  currentName: string | undefined,
+  currentId: string | undefined,
+  explicitTarget: string | undefined,
+  transitions: JiraTransition[] | undefined,
+): string {
+  // Dead-letter storage retains at most 500 characters. Budget the entire
+  // message here so available destinations are never silently cut off there.
+  const prefix = `${summary.slice(0, 160)}; current status ${statusDiagnostic(currentName, currentId)}`
+    + (explicitTarget ? `; configured target ${diagnosticValue(explicitTarget)}` : '')
+    + '; available destinations: '
+  if (transitions === undefined) return `${prefix}not fetched for current status`
+  const available: string[] = []
+  for (const transition of transitions.slice(0, 8)) {
+    const candidate = [...available, statusDiagnostic(transition.to.name, transition.to.id)]
+    const omitted = transitions.length - candidate.length
+    const suffix = omitted > 0 ? `; +${omitted} more` : ''
+    if (`${prefix}${candidate.join(', ')}${suffix}`.length > 500) break
+    available.push(candidate[candidate.length - 1])
+  }
+  const omitted = transitions.length - available.length
+  return `${prefix}${available.join(', ') || (omitted ? '(omitted)' : 'none')}${omitted > 0 ? `; +${omitted} more` : ''}`
+}
+
 /**
  * Walk the transition graph from the current category to the target category for
  * `state`, applying edges per hop (you can only see the current status's
- * outgoing edges). Idempotency-first: if already in the target category, no-op —
- * UNLESS an explicit target status is configured and the issue is not already
- * sitting on it (see `currentStatusName`).
+ * outgoing edges). An explicit destination's identity wins over the default
+ * category, including idempotency. Without a destination, the category suffices.
  */
 export async function walkToCategory(args: {
   state: SpecLogicalState
   currentCategory: JiraStatusCategory
   explicitTarget?: string
+  /** The live status ID, not a transition ID, for configured-ID idempotency. */
+  currentStatusId?: string
   /**
    * The issue's CURRENT status name (from the caller's idempotency re-GET).
    * With an `explicitTarget` configured, a same-category walk must still run
    * when the current status differs from the target — e.g. statusMap.on_review
    * = "In Review" while the issue sits at "In Progress" (both `indeterminate`);
    * the old category-only noop would strand the issue forever. When the name
-   * already matches the explicit target (case-insensitive) the noop stands.
+   * already matches the explicit target (case-insensitive) the noop stands,
+   * even if that status is outside the logical state's default category.
    */
   currentStatusName?: string
   maxHops?: number
@@ -233,18 +277,17 @@ export async function walkToCategory(args: {
   applyTransition: (transition: JiraTransition, plan: TransitionFieldPlan) => Promise<void>
 }): Promise<WalkOutcome> {
   const target = targetCategoryFor(args.state)
-  if (args.currentCategory === target) {
-    const alreadyAtExplicit =
-      !args.explicitTarget ||
-      (args.currentStatusName !== undefined &&
-        args.currentStatusName.toLowerCase() === args.explicitTarget.toLowerCase())
-    if (alreadyAtExplicit) return { status: 'noop' }
-  }
+  const alreadyAtTarget = args.explicitTarget
+    ? matchesStatusTarget(args.currentStatusId, args.currentStatusName, args.explicitTarget)
+    : args.currentCategory === target
+  if (alreadyAtTarget) return { status: 'noop' }
 
   const maxHops = args.maxHops ?? 5
-  const visited = new Set<string>()
+  const visited = new Set<string>(args.currentStatusId ? [args.currentStatusId] : [])
   const applied: string[] = []
   let currentCategory = args.currentCategory
+  let currentStatusName = args.currentStatusName
+  let currentStatusId = args.currentStatusId
 
   for (let hop = 0; hop < maxHops; hop++) {
     let transitions: JiraTransition[]
@@ -265,7 +308,7 @@ export async function walkToCategory(args: {
         return { status: 'error', reason: err instanceof Error ? err.message : String(err) }
       }
       applied.push(direct.id)
-      return { status: 'applied', finalCategory: target, transitions: applied }
+      return { status: 'applied', finalCategory: transitionCategory(direct), transitions: applied }
     }
 
     // No direct edge → step toward the target category. For any non-cancel walk
@@ -278,7 +321,8 @@ export async function walkToCategory(args: {
     if (!step) {
       return {
         status: 'no_path',
-        reason: `no workflow transition from category "${currentCategory}" toward "${target}"`,
+        reason: noPathReason(`no workflow transition from category "${currentCategory}" toward "${target}"`,
+          currentStatusName, currentStatusId, args.explicitTarget, transitions),
       }
     }
     const plan = buildTransitionFields(step, args.state)
@@ -290,11 +334,19 @@ export async function walkToCategory(args: {
     }
     applied.push(step.id)
     visited.add(step.to.id)
+    currentStatusName = step.to.name
+    currentStatusId = step.to.id
     const stepCat = transitionCategory(step)
     if (stepCat) currentCategory = stepCat
-    if (currentCategory === target) {
+    if (!args.explicitTarget && currentCategory === target) {
       return { status: 'applied', finalCategory: target, transitions: applied }
     }
   }
-  return { status: 'no_path', reason: `target category "${target}" not reached within ${maxHops} hops` }
+  return {
+    status: 'no_path',
+    reason: noPathReason(args.explicitTarget
+      ? `configured status not reached within ${maxHops} hops`
+      : `target category "${target}" not reached within ${maxHops} hops`,
+      currentStatusName, currentStatusId, args.explicitTarget, undefined),
+  }
 }

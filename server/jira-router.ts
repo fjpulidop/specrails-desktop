@@ -184,7 +184,7 @@ export function createJiraRouter(): Router {
   router.get('/outbox', (req: Request, res: Response) => {
     const c = ctx(req)
     const state = req.query.state as string | undefined
-    const valid: OutboxState[] = ['pending', 'inflight', 'done', 'dead']
+    const valid: OutboxState[] = ['pending', 'inflight', 'done', 'dead', 'superseded']
     const filter = valid.includes(state as OutboxState) ? (state as OutboxState) : undefined
     res.json({ ops: c.jiraSyncManager.listOutbox(filter), counts: c.jiraSyncManager.outboxCounts() })
   })
@@ -192,19 +192,18 @@ export function createJiraRouter(): Router {
   // POST /outbox/:id/retry — re-queue a dead-lettered op for a manual retry.
   router.post('/outbox/:id/retry', async (req: Request, res: Response) => {
     const c = ctx(req)
-    const id = parseInt(req.params.id as string, 10)
-    if (Number.isNaN(id)) {
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id <= 0) {
       res.status(400).json({ error: 'Invalid op id' })
       return
     }
-    const { retryDeadOutbox } = await import('./jira/jira-db')
-    const ok = retryDeadOutbox(c.db, id)
-    if (!ok) {
+    const disposition = c.jiraSyncManager.retryOutbox(id)
+    if (!disposition) {
       res.status(404).json({ error: 'Op not found or not in dead state' })
       return
     }
-    void c.jiraSyncManager.drainOnce().catch(() => undefined)
-    res.json({ ok: true })
+    if (disposition === 'pending') void c.jiraSyncManager.drainOnce().catch(() => undefined)
+    res.json({ ok: true, disposition })
   })
 
   // POST /specs — Add Spec when the project source is Jira: create the issue in
