@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.59.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.2...v2.59.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* honor Jira status mappings and prevent stale transition retries ([#726](https://github.com/fjpulidop/specrails-desktop/issues/726)) ([5af7867](https://github.com/fjpulidop/specrails-desktop/commit/5af786720183698fc274eddf83fb4b472ee1a058))
+* prepare isolated rails and keep verification logs readable ([#725](https://github.com/fjpulidop/specrails-desktop/issues/725)) ([4192dc8](https://github.com/fjpulidop/specrails-desktop/commit/4192dc8697c0e763771f295edede095b64b166c0))
+
 ## [2.59.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.1...v2.59.2) (2026-10-03)
 
 
