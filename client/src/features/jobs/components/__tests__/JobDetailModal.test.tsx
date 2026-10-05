@@ -1,4 +1,6 @@
 import React from 'react'
+import type { EventRow } from '../../../../types'
+import { act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '../../../../test-utils'
 
@@ -35,18 +37,21 @@ vi.mock('../PipelineProgress', () => ({
   PipelineProgress: () => <div data-testid="pipeline-progress">PipelineProgress</div>,
 }))
 
+let displayedEvents: EventRow[] = []
 vi.mock('../LogViewer', () => ({
-  LogViewer: ({ events, isLoading }: { events: unknown[]; isLoading: boolean }) => (
-    <div data-testid="log-viewer">
+  LogViewer: ({ events, isLoading }: { events: EventRow[]; isLoading: boolean }) => {
+    displayedEvents = events
+    return <div data-testid="log-viewer">
       {isLoading ? 'loading...' : `${events.length} events`}
     </div>
-  ),
+  },
 }))
 
 vi.mock('../../../loops/components/loop-log/LoopStepExplorer', () => ({
-  LoopStepExplorer: ({ events }: { events: unknown[] }) => (
-    <div data-testid="loop-step-explorer">{events.length} loop events</div>
-  ),
+  LoopStepExplorer: ({ events }: { events: EventRow[] }) => {
+    displayedEvents = events
+    return <div data-testid="loop-step-explorer">{events.length} loop events</div>
+  },
 }))
 
 // Import the component after mocks
@@ -80,6 +85,7 @@ describe('JobDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     wsHandler = null
+    displayedEvents = []
     // The log surface defaults to the narrated altitude; these tests are about
     // the RAW views, so pin the shared reading preference.
     localStorage.setItem('specrails-desktop:job-log-mode', 'log')
@@ -559,6 +565,41 @@ describe('JobDetailModal', () => {
   // live stdout never grew the modal. It now appends both, matching
   // JobDetailPage's handler semantics.
   describe('live log frames', () => {
+    it.each(['replay', 'live'] as const)('keeps lifecycle records and one omission notice after a %s flood', async (mode) => {
+      const row = (event_type: string, payload: object, seq: number): EventRow => ({ id: seq, seq, job_id: mockJob.id, event_type,
+        payload: JSON.stringify(payload), source: 'stdout', timestamp: '2026-01-01T00:00:00Z' })
+      const start = row('loop_step', { index: 1, title: 'Verify' }, 1)
+      const check = row('runtime-efficiency-event', { event: { kind: 'check-finished', payload: { exitCode: 0 } } }, 2)
+      const end = row('loop_step_end', { index: 1, status: 'ok' }, 30_000)
+      const records = [start, check,
+        ...Array.from({ length: 12_000 }, (_, i) => row('verification-output', { text: 'raw evidence' }, i + 3)),
+        ...Array.from({ length: 10_050 }, (_, i) => row('log', { line: `readable ${i}` }, i + 12_003)), end]
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop: Verify' }, events: mode === 'replay' ? records : [] }) })
+      render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+      await screen.findByTestId('loop-step-explorer')
+      if (mode === 'live') act(() => {
+        for (const record of records) wsHandler?.({ type: 'event', jobId: mockJob.id, ...record })
+      })
+      await waitFor(() => expect(displayedEvents).toHaveLength(8_004))
+      expect(screen.getByRole('status')).toHaveTextContent('Earlier log output omitted from this view')
+      expect(screen.getByRole('status')).toBeVisible()
+      expect(displayedEvents.filter(event => event.event_type === 'verification-output')).toHaveLength(0)
+      expect(displayedEvents.filter(event => ['loop_step', 'runtime-efficiency-event', 'loop_step_end'].includes(event.event_type)).map(event => event.payload)).toEqual([start, check, end].map(event => event.payload))
+      expect(displayedEvents.filter(event => event.payload.includes('Earlier log output omitted'))).toHaveLength(1)
+      expect(displayedEvents.some(event => event.payload.includes('readable 10049'))).toBe(true)
+      expect(displayedEvents.some(event => event.payload === '{"line":"readable 0"}')).toBe(false)
+    })
+
+    it('preserves valid live attempt attribution and ignores invalid metadata', async () => {
+      render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
+      await screen.findByTestId('log-viewer')
+      act(() => {
+        for (const attemptId of ['attempt-1', '', '   ', 'x'.repeat(257), 42]) wsHandler?.({ type: 'log', processId: mockJob.id, source: 'stdout', line: 'summary', attemptId, timestamp: '2026-01-01T00:00:00Z' })
+      })
+      await waitFor(() => expect(displayedEvents).toHaveLength(5))
+      expect(displayedEvents.map(event => JSON.parse(event.payload).attemptId)).toEqual(['attempt-1', undefined, undefined, undefined, undefined])
+    })
+
     it('appends live STDOUT log frames (stdout-fix pin)', async () => {
       const { act } = await import('@testing-library/react')
       render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)

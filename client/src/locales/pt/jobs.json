@@ -308,6 +308,7 @@
     "filterPlaceholder": "Filtrar logs...",
     "copySuccess": "Log copiado para a área de transferência",
     "copyFailed": "Falha ao copiar o log",
+    "retainedTail": "As linhas anteriores do registro foram omitidas desta visualização. A cópia inclui apenas o conteúdo mantido. Consulte Detalhes para as evidências de verificação disponíveis.",
     "lineCount": "{{filtered}} / {{total}} linhas",
     "jumpToBottom": "Ir para o fim",
     "phaseLines_one": "{{count}} linha",

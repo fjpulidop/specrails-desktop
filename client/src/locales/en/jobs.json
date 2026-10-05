@@ -308,6 +308,7 @@
     "filterPlaceholder": "Filter logs...",
     "copySuccess": "Log copied to clipboard",
     "copyFailed": "Failed to copy log",
+    "retainedTail": "Earlier log output omitted from this view. Copy includes only the retained view. Check Details for available verification evidence.",
     "lineCount": "{{filtered}} / {{total}} lines",
     "jumpToBottom": "Jump to bottom",
     "phaseLines_one": "{{count}} line",

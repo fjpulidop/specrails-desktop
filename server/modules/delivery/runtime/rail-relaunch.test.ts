@@ -80,6 +80,32 @@ describe('rail relaunch source and assignment ownership', () => {
     expect(source.config).not.toHaveProperty('cwd'); expect(source.config).not.toHaveProperty('runId')
   })
 
+  it.each([false, true])('omits default workspace scope reconstructed from a manifest (saved config: %s)', saved => {
+    const row = failed()
+    if (saved) db.prepare('UPDATE rail_pr_deliveries SET launch_config_json=? WHERE id=?').run(JSON.stringify({ mode: 'loop', loopId: 'factory:implement' }), row.id)
+    transitionDecision(db, row.id, 'implementation_failed', 'implementation_failed', {
+      executionManifest: { version: 1, groupId: row.id, projectId: 'p1', primaryRepositoryId: 'backend', artifactRepositoryId: 'backend', selectedRepositoryIds: ['backend', 'frontend'],
+        repositories: ['backend', 'frontend'].map(repositoryId => ({ repositoryId, name: repositoryId, sourcePath: `/repos/${repositoryId}`, gitCommonDir: '/git', baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: `/old/${repositoryId}`, branch: 'fix/old', worktreeId: repositoryId })) },
+    })
+    const source = resolveRailRelaunch(ctx, 0, row.id)
+    expect(source.config.repositoryIds).toEqual(['backend', 'frontend'])
+    expect(source.config).not.toHaveProperty('workspaceSelection')
+  })
+
+  it.each([undefined, { backend: ['other-api'] }, { backend: [] }, {}, null])('preserves partial narrowing and saved explicit scope %j', savedSelection => {
+    const row = failed()
+    if (savedSelection !== undefined) db.prepare('UPDATE rail_pr_deliveries SET launch_config_json=? WHERE id=?').run(JSON.stringify({ mode: 'loop', loopId: 'factory:implement', workspaceSelection: savedSelection }), row.id)
+    transitionDecision(db, row.id, 'implementation_failed', 'implementation_failed', {
+      executionManifest: { version: 1, groupId: row.id, projectId: 'p1', primaryRepositoryId: 'backend', artifactRepositoryId: 'backend', selectedRepositoryIds: ['backend', 'frontend'],
+        repositories: ['backend', 'frontend'].map(repositoryId => ({ repositoryId, name: repositoryId, sourcePath: `/repos/${repositoryId}`, gitCommonDir: '/git', baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: `/old/${repositoryId}`, branch: 'fix/old', worktreeId: repositoryId,
+          ...(repositoryId === 'backend' ? { selectedWorkspacePaths: ['api'] } : {}),
+        })) },
+    })
+    const source = resolveRailRelaunch(ctx, 0, row.id)
+    expect(source.config.repositoryIds).toEqual(['backend', 'frontend'])
+    expect(source.config.workspaceSelection).toEqual(savedSelection !== undefined ? savedSelection : { backend: ['api'] })
+  })
+
   it('refuses corrupt saved options and missing dynamic rails without changing assignments', () => {
     const row = failed()
     db.prepare('UPDATE rail_pr_deliveries SET launch_config_json=? WHERE id=?').run('[]', row.id)

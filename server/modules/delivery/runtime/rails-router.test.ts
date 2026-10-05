@@ -23,6 +23,7 @@ import { ExplicitPrTargetError } from './active-pr-continuation'
 import { withRepoLock } from '../../../repo-lock'
 import * as profileManager from '../../agents/runtime/profile-manager'
 import { defaultGitRunner } from '../../../worktree-manager'
+import type { ProjectRepository } from '../../../project-repositories'
 
 const {
   mockExecRun,
@@ -100,9 +101,10 @@ function appWith(
     desktopDb?: DbInstance
     loopRunManager?: { run: (...args: unknown[]) => Promise<unknown>; cancel: (id: string) => void }
     railLoopRuns?: Map<string, { railIndex: number; ticketIds: number[] }>
-    getTicketSpec?: (ticketId: number) => { title: string; description: string } | undefined
+    getTicketSpec?: (ticketId: number) => { title: string; description: string; repositoryIds?: string[] } | undefined
     onLoopRunFinished?: (runId: string, outcome: string) => void
     projectPath?: string
+    repositories?: ProjectRepository[]
   },
 ) {
   const providers = opts?.providers ?? ['claude']
@@ -115,7 +117,7 @@ function appWith(
       db,
       railJobs: new Map(),
       railLoopRuns: opts?.railLoopRuns ?? new Map(),
-      project: { id: 'p1', slug: 's1', provider: providers[0], providers, path: opts?.projectPath ?? '/repo' },
+      project: { id: 'p1', slug: 's1', provider: providers[0], providers, path: opts?.projectPath ?? '/repo', repositories: opts?.repositories },
       queueManager: opts?.queueManager,
       broadcast: opts?.broadcast ?? (() => { /* noop */ }),
       desktopDb: opts?.desktopDb,
@@ -1129,6 +1131,55 @@ describe('rails-router source-bound Relaunch', () => {
     transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
     return row
   }
+
+  const multiRepositoryFailure = (workspaceSelection?: Record<string, string[]>) => {
+    const repositories: ProjectRepository[] = ['backend', 'frontend'].map((id, index) => {
+      const repositoryPath = path.join(projectPath, id)
+      fs.mkdirSync(repositoryPath)
+      return { id, projectId: 'p1', name: id, path: repositoryPath, isPrimary: index === 0,
+        kind: 'git', integrationBranch: 'main', addedAt: '2026-10-05T00:00:00Z' }
+    })
+    const row = failure(workspaceSelection === undefined ? {} : {
+      launchConfig: { mode: 'loop', loopId: 'factory:sdd-quick-openspec', workspaceSelection },
+    })
+    transitionDecision(db, row.id, 'implementation_failed', 'implementation_failed', {
+      executionManifest: { version: 1, groupId: row.id, projectId: 'p1', primaryRepositoryId: 'backend',
+        artifactRepositoryId: 'backend', selectedRepositoryIds: repositories.map(repository => repository.id),
+        repositories: repositories.map(repository => ({ repositoryId: repository.id, name: repository.name,
+          sourcePath: repository.path, gitCommonDir: path.join(repository.path, '.git'), baseBranch: 'main',
+          baseSha: 'a'.repeat(40), worktreePath: path.join(projectPath, 'old-worktrees', repository.id),
+          branch: 'fix/old', worktreeId: repository.id,
+        })),
+      },
+    })
+    const app = relaunchApp({ repositories, getTicketSpec: id => ({ title: `Spec ${id}`, description: 'Fix both repositories',
+      repositoryIds: repositories.map(repository => repository.id) }) })
+    return { row, app }
+  }
+
+  it('relaunches a failed multi-repository delivery using registered workspace defaults', async () => {
+    const { row, app } = multiRepositoryFailure()
+    const response = await request(app).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledOnce()
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ repositoryIds: ['backend', 'frontend'],
+      workspaceSelection: undefined, ticketIds: [4], retryOfDelivery: { deliveryId: row.id, decision: 'implementation_failed' },
+    }))
+    expect(getRail(db, 0).ticketIds).toEqual([4])
+  })
+
+  it.each([
+    { selection: { backend: [] }, error: 'Select at least one code workspace per repository' },
+    { selection: { backend: ['../unregistered'] }, error: 'Select only registered code workspace paths' },
+  ])('rejects invalid saved workspace selection $selection without restoring or launching specs', async ({ selection, error }) => {
+    const { row, app } = multiRepositoryFailure(selection)
+    const response = await request(app).post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(response.status, JSON.stringify(response.body)).toBe(400)
+    expect(response.body.error).toBe(error)
+    expect(getRail(db, 0).ticketIds).toEqual([])
+    expect(getPrDelivery(db, row.id)?.decision).toBe('implementation_failed')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
 
   it('restores released specs and the recorded workflow, replacing an undelivered failed generation', async () => {
     const row = failure()

@@ -124,6 +124,15 @@ Both temporary checkouts use non-force cleanup, including after a Git runner exc
   recording the failed replacement id so every client can safely undo its tombstone for that pair.
 - Isolation units remain `per-ticket` or one `all`-scope batch unit. Initial/final SHAs plus commit
   verification distinguish changed, resumed, and no-change results.
+- Warm dependency preparation preserves a registered directory's position inside its Git checkout.
+  For example, registering `apps/catalog` prepares its installed packages and Yarn state beneath
+  `worktree/apps/catalog/node_modules`. Discovery stays relative to the registered directory
+  (depth at most two); unrelated root and sibling installations are not selected. Package entries
+  link to the source installation, while tool caches remain local. Existing real installations and
+  foreign links are preserved. Live cleanup uses the same projection and exact target fingerprints,
+  including proofs for historical misplaced links; symlinked destination ancestors confer no
+  authority. Registration paths, frozen manifests and Core scope remain unchanged. A failed run
+  keeps its old checkout; after updating Desktop, a fresh Relaunch receives the corrected layout.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
 - Before staging, settlement blocks active OpenSpec change directories introduced relative to

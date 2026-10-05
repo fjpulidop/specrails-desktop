@@ -5,7 +5,7 @@ import path from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import express from 'express'
 import request from 'supertest'
-import { createJob, initDb, type DbInstance } from '../../../db'
+import { createJob, initDb, updateProjectSettings, type DbInstance } from '../../../db'
 import { createLoopRun, listLoopStepRecoveries } from '../../loops/runtime/loop-runs-store'
 import { AgentRuntimeControls, readAgentRuntimeStatus, readRuntimeSteering, RuntimeControlError, validateRuntimeResumeInput } from './agent-runtime-controls'
 import { registerAgentRuntimeControlRoutes, shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
@@ -15,10 +15,11 @@ import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-ma
 import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summary.v1.json'
 
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
+const loginShell = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
 vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => loader.cli }))
-vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
-vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: () => ({ ...process.env, SPECRAILS_GIT_AUTO: 'true', SPECRAILS_REPO_MAP_PATH: 'new-map', SPECRAILS_PROFILE_PATH: 'legacy-profile.json' }) }))
+vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath, readEnvFromLoginShellSync: loginShell.read }))
+vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: (_project: unknown, _home?: string, baseEnv: NodeJS.ProcessEnv = process.env) => ({ ...baseEnv, SPECRAILS_GIT_AUTO: 'true', SPECRAILS_REPO_MAP_PATH: 'new-map', SPECRAILS_PROFILE_PATH: 'legacy-profile.json' }) }))
 
 let directory: string, runDirectory: string, contextPath: string, db: DbInstance, ctx: ProjectContext
 let service: AgentRuntimeControls
@@ -27,6 +28,7 @@ const state = () => ({ runId: 'run-1', status: 'paused', nextStep: 'archive', st
 const status = vi.fn(), execute = vi.fn(), kill = vi.fn()
 beforeEach(() => {
   vi.clearAllMocks(); loader.cli = null
+  loginShell.read.mockReset().mockReturnValue({})
   directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-controls-')))
   runDirectory = path.join(directory, '.specrails', 'pipeline', 'run-1'); fs.mkdirSync(runDirectory, { recursive: true })
   contextPath = path.join(runDirectory, 'desktop-context.json')
@@ -42,9 +44,55 @@ beforeEach(() => {
   execute.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
   service = new AgentRuntimeControls(ctx, { status, execute, kill })
 })
-afterEach(() => { service.shutdown(); vi.restoreAllMocks(); db.close(); fs.rmSync(directory, { recursive: true, force: true }) })
+afterEach(() => { service.shutdown(); vi.restoreAllMocks(); vi.unstubAllEnvs(); db.close(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('agent runtime lifecycle', () => {
+  it.each(['resume', 'recovery'] as const)('uses current parent-project credentials for multi-repository %s without persisting them', async operation => {
+    const key = 'NODE_AUTH_TOKEN', secret = 'runtime-controls-fixture-credential'
+    vi.stubEnv(key, undefined)
+    loginShell.read.mockImplementation((names: string[]) => names.includes(key) ? { [key]: secret } : {})
+    updateProjectSettings(db, { worktreeEnvPassthrough: [key] })
+    const repositories = ['primary', 'secondary'].map(id => {
+      const worktree = path.join(directory, 'worktrees', id)
+      fs.mkdirSync(worktree, { recursive: true })
+      return { id, name: id, path: worktree }
+    })
+    const worktree = repositories[0].path
+    fs.writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', backlogRoot: directory, artifactRoot: worktree, repositories }))
+    const hostPath = path.join(runDirectory, 'desktop-runtime-host.json')
+    fs.writeFileSync(hostPath, JSON.stringify({ schemaVersion: 1, cwd: worktree, env: { SPECRAILS_GIT_AUTO: 'false', SPECRAILS_REPO_DIR: worktree } }))
+    const savedFiles = [contextPath, hostPath, path.join(runDirectory, 'agent-runtime-request.json')]
+      .map(file => ({ file, content: fs.readFileSync(file, 'utf8') }))
+    const recovery = vi.fn().mockResolvedValue({ status: 'inspected' })
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, recovery })
+    db.prepare("UPDATE jobs SET status = 'failed' WHERE id = 'run-1'").run()
+    const invoke = async () => {
+      if (operation === 'recovery') await service.recovery('run-1', { action: 'inspect' })
+      else {
+        await service.resume('run-1', {})
+        finish({ provider: 'agent-runtime', cost: 0, tokensIn: 0, tokensOut: 0, durationMs: 0, text: 'Paused', failed: true })
+        await vi.waitFor(() => expect(service.isActive('run-1')).toBe(false))
+      }
+    }
+
+    await invoke()
+    const invocation = operation === 'resume' ? execute.mock.calls[0][0] : recovery.mock.calls[0][0]
+    expect(invocation).toMatchObject({ contextPath, cwd: worktree, env: { [key]: secret, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_REPO_DIR: worktree } })
+    expect(invocation.env.SPECRAILS_REPO_MAP_PATH).toBeUndefined()
+    expect(invocation.env.SPECRAILS_PROFILE_PATH).toBeUndefined()
+    if (operation === 'resume') expect(status).toHaveBeenCalledWith(contextPath, worktree, expect.objectContaining({ [key]: secret }))
+    expect(loginShell.read.mock.calls[0][0]).toContain(key)
+    expect(process.env[key]).toBeUndefined()
+
+    updateProjectSettings(db, { worktreeEnvPassthrough: [] })
+    await invoke()
+    const next = operation === 'resume' ? execute.mock.calls[1][0] : recovery.mock.calls[1][0]
+    expect(next.env[key]).toBeUndefined()
+    expect(process.env[key]).toBeUndefined()
+    for (const { file, content } of savedFiles) expect(fs.readFileSync(file, 'utf8')).toBe(content)
+    expect(db.serialize().includes(Buffer.from(secret))).toBe(false)
+  })
+
   it('sends steering through the retained CLI stdin with a stable id and Core acceptance time', async () => {
     status.mockResolvedValue({ ...state(), engineVersion: 2 })
     loader.cli = path.join(directory, 'signal.cjs')
@@ -268,6 +316,13 @@ describe('agent runtime lifecycle', () => {
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'runtime.continuation', jobId: 'run-1', active: true }))
     execute.mock.calls[0][0].onLine('Developer resumed\n')
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', processId: 'run-1', line: 'Developer resumed\n' }))
+    execute.mock.calls[0][0].onLine('Delayed verification summary\n', 'stdout', { attemptId: 'verify-a' })
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', processId: 'run-1', line: 'Delayed verification summary\n', attemptId: 'verify-a' }))
+    const attributed = db.prepare("SELECT payload FROM events WHERE event_type='log' AND json_extract(payload,'$.attemptId')='verify-a'").get() as { payload: string }
+    expect(JSON.parse(attributed.payload)).toEqual({ line: 'Delayed verification summary', attemptId: 'verify-a' })
+    execute.mock.calls[0][0].onLine('Legacy summary\n', 'stdout', { attemptId: 'x'.repeat(257) })
+    const legacy = db.prepare("SELECT payload FROM events WHERE event_type='log' AND json_extract(payload,'$.line')='Legacy summary'").get() as { payload: string }
+    expect(JSON.parse(legacy.payload)).toEqual({ line: 'Legacy summary' })
     execute.mock.calls[0][0].onRawLine(JSON.stringify({ type: 'workflow-event', event: { type: 'step_started', stepId: 'developer' } }))
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'event', jobId: 'run-1', event_type: 'workflow-event' }))
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ contextPath, cwd: directory, resume: true, approve: ['archive'] }))

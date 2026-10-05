@@ -12,12 +12,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { fingerprintOverlayCleanupPath, type OverlayCleanupEvidence } from './worktree-overlay'
+import { checkoutSubdirectory } from './util/checkout-path'
 
 export interface NodeModulesLinkResult {
   /** Worktree-relative dependency directories prepared by THIS call. */
   linked: string[]
   /** Worktree-relative POSIX paths of every warm link PROVEN to point at the
-   *  base checkout's identically-named dependency dir — created by this call OR
+   *  registered source's corresponding dependency entry — created by this call OR
    *  by an earlier pass. This is the set callers must exclude and authorize. */
   authenticated: string[]
   /** Cleanup fingerprints for `authenticated`, in overlay-evidence shape so the
@@ -97,10 +98,25 @@ function resolveRealPath(target: string): string {
   }
 }
 
+/** Destination ancestors must be local directories, never links into another
+ * checkout. Missing directories can be created during preparation. */
+function hasLocalParents(worktreePath: string, rel: string): boolean {
+  let parent = worktreePath
+  for (const segment of rel.split('/').slice(0, -1)) {
+    parent = path.join(parent, segment)
+    try {
+      if (!fs.lstatSync(parent).isDirectory()) return false
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return false
+    }
+  }
+  return true
+}
+
 /**
  * Prove one worktree-relative path is an app-created warm-dependency link and
  * fingerprint it. Returns null for anything that is not EXACTLY a symlink whose
- * target resolves to the base checkout's identically-named directory — a real
+ * target resolves to the registered source's corresponding entry — a real
  * directory, a dereferencing copy, a dangling link, or a link into some other
  * tree are all unauthorized and must keep preserving the worktree.
  */
@@ -108,15 +124,17 @@ function authenticateWarmLink(
   baseRepo: string,
   worktreePath: string,
   rel: string,
+  sourceRel = rel,
 ): OverlayCleanupEvidence | null {
+  if (!hasLocalParents(worktreePath, rel)) return null
   const dest = path.join(worktreePath, ...rel.split('/'))
   try {
     if (!fs.lstatSync(dest).isSymbolicLink()) return null
     const target = path.resolve(path.dirname(dest), fs.readlinkSync(dest))
-    const expected = path.join(baseRepo, ...rel.split('/'))
+    const expected = path.join(baseRepo, ...sourceRel.split('/'))
     if (resolveRealPath(target) !== resolveRealPath(expected)) return null
-    // A link to something that is not a live directory proves nothing about the
-    // base checkout's dependency tree.
+    // A dangling link proves nothing about the source dependency tree (entries
+    // include both package directories and files such as Yarn's install state).
     if (!exists(target)) return null
   } catch {
     return null
@@ -171,29 +189,39 @@ export function authenticateWarmNodeModulesLinks(
   baseRepo: string,
   worktreePath: string,
 ): OverlayCleanupEvidence[] {
-  const evidence: OverlayCleanupEvidence[] = []
-  for (const rel of discoverWorktreeDependencyPaths(worktreePath)) {
-    const legacy = authenticateWarmLink(baseRepo, worktreePath, rel)
-    if (legacy) { evidence.push(legacy); continue }
-    const dest = path.join(worktreePath, rel)
-    try {
-      if (!fs.lstatSync(dest).isDirectory()) continue
-      for (const name of fs.readdirSync(dest)) {
-        if ((WORKTREE_DEPENDENCY_CACHES as readonly string[]).includes(name)) continue
-        const entryRel = `${rel}/${name}`
-        const entry = authenticateWarmLink(baseRepo, worktreePath, entryRel)
-        if (entry) { evidence.push(entry); continue }
-        // Scoped package parents are local too; never follow foreign symlinks.
-        if (name.startsWith('@') && fs.lstatSync(path.join(dest, name)).isDirectory()) {
-          for (const scoped of fs.readdirSync(path.join(dest, name))) {
-            const child = authenticateWarmLink(baseRepo, worktreePath, `${entryRel}/${scoped}`)
-            if (child) evidence.push(child)
+  const evidence = new Map<string, OverlayCleanupEvidence>()
+  const prefix = checkoutSubdirectory(baseRepo)
+  // Retained mounts may still contain the former misplaced layout. Keep its
+  // exact source proof, without moving it or broadening cleanup to directories.
+  for (const destinationPrefix of prefix ? [prefix, ''] : ['']) {
+    const project = (rel: string): string => destinationPrefix ? `${destinationPrefix}/${rel}` : rel
+    if (!hasLocalParents(worktreePath, project(DEPS_DIR))) continue
+    const destinationRoot = path.join(worktreePath, destinationPrefix)
+    const authenticate = (sourceRel: string): OverlayCleanupEvidence | null =>
+      authenticateWarmLink(baseRepo, worktreePath, project(sourceRel), sourceRel)
+    for (const rel of discoverWorktreeDependencyPaths(destinationRoot)) {
+      const legacy = authenticate(rel)
+      if (legacy) { evidence.set(legacy.path, legacy); continue }
+      const dest = path.join(destinationRoot, rel)
+      try {
+        if (!fs.lstatSync(dest).isDirectory()) continue
+        for (const name of fs.readdirSync(dest)) {
+          if ((WORKTREE_DEPENDENCY_CACHES as readonly string[]).includes(name)) continue
+          const entryRel = `${rel}/${name}`
+          const entry = authenticate(entryRel)
+          if (entry) { evidence.set(entry.path, entry); continue }
+          // Scoped package parents are local too; never follow foreign symlinks.
+          if (name.startsWith('@') && fs.lstatSync(path.join(dest, name)).isDirectory()) {
+            for (const scoped of fs.readdirSync(path.join(dest, name))) {
+              const child = authenticate(`${entryRel}/${scoped}`)
+              if (child) evidence.set(child.path, child)
+            }
           }
         }
-      }
-    } catch { /* Unreadable or concurrently removed entries confer no authority. */ }
+      } catch { /* Unreadable or concurrently removed entries confer no authority. */ }
+    }
   }
-  return evidence
+  return [...evidence.values()]
 }
 
 function linkDependencyEntry(source: string, destination: string): void {
@@ -225,12 +253,18 @@ function createLocalDependencyTree(source: string, destination: string): void {
 export function linkNodeModulesIntoWorktree(baseRepo: string, worktreePath: string): NodeModulesLinkResult {
   const result: NodeModulesLinkResult = { linked: [], authenticated: [], evidence: [], warnings: [] }
   if (!isWorktreeNodeModulesEnabled()) return result
+  const prefix = checkoutSubdirectory(baseRepo)
   for (const pkgRel of discoverPackageDirs(baseRepo)) {
-    const rel = pkgRel === '' ? DEPS_DIR : `${pkgRel}/${DEPS_DIR}`
-    const src = path.join(baseRepo, ...rel.split('/'))
+    const sourceRel = pkgRel === '' ? DEPS_DIR : `${pkgRel}/${DEPS_DIR}`
+    const rel = prefix ? `${prefix}/${sourceRel}` : sourceRel
+    const src = path.join(baseRepo, ...sourceRel.split('/'))
     if (!isDir(src)) continue
+    if (!hasLocalParents(worktreePath, rel)) {
+      result.warnings.push(`failed to prepare ${rel}: destination parent is not a local directory`)
+      continue
+    }
     const dest = path.join(worktreePath, ...rel.split('/'))
-    const legacy = authenticateWarmLink(baseRepo, worktreePath, rel)
+    const legacy = authenticateWarmLink(baseRepo, worktreePath, rel, sourceRel)
     if (!exists(dest) || legacy) {
       let staging: string | undefined
       let removedLegacy = false
@@ -242,7 +276,7 @@ export function linkNodeModulesIntoWorktree(baseRepo: string, worktreePath: stri
         if (legacy) {
           // Recheck immediately before removing the old link. Never unlink a
           // directory or a replacement another actor installed in the meantime.
-          const current = authenticateWarmLink(baseRepo, worktreePath, rel)
+          const current = authenticateWarmLink(baseRepo, worktreePath, rel, sourceRel)
           if (!current || current.digest !== legacy.digest) throw new Error('dependency link changed during preparation')
           fs.unlinkSync(dest)
           removedLegacy = true

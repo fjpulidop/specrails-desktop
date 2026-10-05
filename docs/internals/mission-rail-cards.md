@@ -48,6 +48,13 @@ with allocation rollback and the original failed checkout retained. A synchronou
 click guard prevents duplicate submissions; accepted relaunches stay disabled
 until the new card appears, and rejected admission details remain inline.
 
+Workspace narrowing is optional: when a delivery manifest has no explicit
+workspace selections, Relaunch omits `workspaceSelection` and uses registered
+defaults for its recorded repositories. Partial selections remain partial and
+saved explicit selections take precedence; invalid selections still fail normal
+admission. Removing the last repository with a workspace override from a launch
+card also omits the property, instead of sending an invalid empty map.
+
 ```rail-launch
 {
   "version": 1,

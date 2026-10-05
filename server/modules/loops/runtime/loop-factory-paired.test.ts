@@ -36,6 +36,10 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
+const compilerFailures = [
+  "src/catalog.ts(12,7): error TS2551: Property 'CATALOG_V2' does not exist on type 'Endpoints'. Did you mean 'CATALOG_V1'?",
+  "src/search.ts(23,5): error TS2339: Property 'SEARCH_V2' does not exist on type 'Endpoints'.",
+]
 async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string, converted = false, configurable = false, customStep = false, approval = false, planningQuestion = false, addendaIds: string[] = []) {
   const reviewMode = process.env.SPECRAILS_FACTORY_REVIEW_MODE
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
@@ -45,6 +49,11 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   if (process.env.SPECRAILS_FACTORY_REGEX === '1') {
     writeFileSync(path.join(repository, 'modal.txt'), "e.key === 'Escape' &&\n!confirmPending")
     writeFileSync(path.join(repository, 'guard.test.cjs'), `const { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst guard = /e\\.key === 'Escape' && !confirmPending/;\ntest('cancelling confirmation preserves the queue', () => { assert.match(fs.readFileSync('modal.txt', 'utf8'), guard); assert.doesNotMatch("e.key === 'Escape' &&\\ntrue", guard); });\ntest('required feature returns two', () => assert.equal(require('./code.cjs'), 2));\n`)
+  }
+  if (process.env.SPECRAILS_FACTORY_TYPESCRIPT_FAILURE === '1') {
+    // A real portable subprocess supplies evidence. Keep diagnostics out of its
+    // argv, and beyond both output tails, so prompt assertions test the summary.
+    writeFileSync(path.join(repository, 'compiler-check.cjs'), `const noise = Array.from({ length: 120 }, (_, i) => 'lint warning ' + i + ': ' + 'context '.repeat(30));\nconsole.log(['✖ 74 problems (0 errors, 74 warnings)', ...noise, ...${JSON.stringify(compilerFailures)}, ...noise].join('\\n'));\nprocess.exitCode = 2;\n`)
   }
   expect(spawnSync('git', ['-C', repository, 'add', '.']).status).toBe(0)
   expect(spawnSync('git', ['-C', repository, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'baseline']).status).toBe(0)
@@ -59,6 +68,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
     verification: [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }],
   }
   if (process.env.SPECRAILS_FACTORY_REGEX === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['--test', '--test-reporter=spec', 'guard.test.cjs'] }]
+  if (process.env.SPECRAILS_FACTORY_TYPESCRIPT_FAILURE === '1') config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['compiler-check.cjs'] }]
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = [], lines: string[] = []
   const change = 'paired-change'
@@ -199,6 +209,29 @@ it.skipIf(!core)('stops configurable Implement after an unchanged correction wit
   expect(actual.result).toMatchObject({ runtimeStatus: 'failed', completion: { ok: false, verified: false }, errorText: expect.stringContaining('Queue-modal test is outside the approved scope') })
   const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
   expect(starts.filter(node => node === 'verify')).toHaveLength(1)
+  expect(starts).toContain('correction-stalled')
+  expect(starts).not.toContain('reviewer')
+  expect(starts).not.toContain('archive')
+}, 180_000)
+
+it.skipIf(!core)('hands compiler failures through lint noise to the fixer and stops after one unchanged correction', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_TYPESCRIPT_FAILURE', '1')
+  vi.stubEnv('SPECRAILS_FACTORY_CORRECT', '1')
+  vi.stubEnv('SPECRAILS_FACTORY_NOOP', '1')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct'])
+  const prompt = actual.calls.find(call => call.role === 'correct')!.prompt
+  const verificationText = prompt.split('Host verification: ')[1]?.split('. Latest review findings for this candidate:')[0]
+  expect(verificationText).toBeDefined()
+  const verification = JSON.parse(verificationText!) as { commands: Array<{ args: string[]; exitCode: number; evidenceId: string; failureSummary: string[] }> }
+  expect(verification.commands).toHaveLength(1)
+  expect(verification.commands[0]).toMatchObject({ args: ['compiler-check.cjs'], exitCode: 2, evidenceId: expect.any(String), failureSummary: expect.arrayContaining(compilerFailures) })
+  expect(verification.commands[0].evidenceId).not.toBe('')
+  expect(verification.commands[0].failureSummary.join('\n')).not.toContain('0 errors, 74 warnings')
+  expect(actual.result).toMatchObject({ failed: true, runtimeStatus: 'failed', completion: { ok: false, verified: false } })
+  const starts = actual.events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(1)
+  expect(starts.filter(node => node === 'fixer')).toHaveLength(1)
   expect(starts).toContain('correction-stalled')
   expect(starts).not.toContain('reviewer')
   expect(starts).not.toContain('archive')

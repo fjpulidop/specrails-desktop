@@ -308,6 +308,7 @@
     "filterPlaceholder": "Filtrar logs...",
     "copySuccess": "Log copiado al portapapeles",
     "copyFailed": "No se pudo copiar el log",
+    "retainedTail": "Se ha omitido texto anterior del registro en esta vista. La copia incluye solo la vista conservada. Consulta en Detalles las evidencias de verificación disponibles.",
     "lineCount": "{{filtered}} / {{total}} líneas",
     "jumpToBottom": "Ir al final",
     "phaseLines_one": "{{count}} línea",

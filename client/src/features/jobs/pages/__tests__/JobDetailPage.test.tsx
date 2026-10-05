@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
+import { act } from '@testing-library/react'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../../../types'
 // The run header polls the agent-runtime continuation through this hook; the
@@ -655,6 +656,64 @@ describe('JobDetailPage', () => {
       expect(screen.getAllByTestId('loop-step-section')).toHaveLength(1)
       expect(screen.getAllByText('Implement').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('step output line')).toBeInTheDocument()
+    })
+
+    it.each(['replay', 'live'] as const)('retains loop boundaries and copies an honest bounded view after a %s output flood', async (mode) => {
+      const row = (event_type: string, payload: object, seq: number): EventRow => ({
+        ...loopEvents[0], id: seq, seq, event_type, payload: JSON.stringify(payload),
+      })
+      const start = row('loop_step', { index: 1, kind: 'core', title: 'Verification', attemptId: 'verify-1' }, 1)
+      const records = [
+        start,
+        ...Array.from({ length: 12_000 }, (_, i) => row('verification-output', { text: 'invisible raw evidence' }, i + 2)),
+        ...Array.from({ length: 10_050 }, (_, i) => row('log', { line: `readable output ${i}` }, i + 12_002)),
+        row('loop_step_end', { index: 1, status: 'ok', attemptId: 'verify-1' }, 23_000),
+        row('loop_step', { index: 2, kind: 'terminal', title: 'Done', attemptId: 'done-1' }, 23_001),
+      ]
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: loopJob, events: mode === 'replay' ? records : [] }) })
+      render(<JobDetailPage />)
+      await screen.findByTestId('loop-step-explorer')
+      if (mode === 'live') {
+        const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
+        act(() => {
+          for (const record of records) handler({ type: 'event', jobId: loopJob.id, projectId: 'proj-1', ...record })
+        })
+      }
+      await waitFor(() => expect(screen.getAllByTestId('loop-step-section')).toHaveLength(2))
+      expect(screen.getByRole('status')).toHaveTextContent('Earlier log output omitted from this view')
+      expect(screen.getByRole('status')).toBeVisible()
+      fireEvent.click(screen.getByRole('button', { name: 'Log copied to clipboard' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+      const copied = writeText.mock.calls[0][0] as string
+      expect(copied.match(/Earlier log output omitted from this view/g)).toHaveLength(1)
+      expect(copied).toContain('Copy includes only the retained view')
+      expect(copied).toContain('Step 1 · Verification')
+      expect(copied).toContain('Step 2 · Done')
+      expect(copied).toContain('readable output 10049')
+      expect(copied).not.toContain('readable output 0\n')
+      expect(copied).not.toContain('invisible raw evidence')
+    })
+
+    it('attributes a delayed live summary to its original parallel attempt', async () => {
+      const starts = ['Verify A', 'Verify B'].map((title, index) => ({ ...loopEvents[1],
+        id: index + 1, seq: index + 1,
+        payload: JSON.stringify({ index: index + 1, kind: 'core', title, attemptId: `attempt-${index}` }),
+      }))
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: loopJob, events: starts }) })
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+      render(<JobDetailPage />)
+      await screen.findByTestId('loop-step-explorer')
+      const handler = mockRegisterHandler.mock.calls.at(-1)?.[1] as (message: unknown) => void
+      act(() => handler({ type: 'log', processId: loopJob.id, line: 'Verification A succeeded', source: 'stdout', attemptId: 'attempt-0', timestamp: loopEvents[0].timestamp }))
+      // Open the first (finished receiving) attempt to observe the delayed line.
+      fireEvent.click(screen.getByRole('button', { name: /Expand all/i }))
+      await screen.findByText('Verification A succeeded')
+      fireEvent.click(screen.getByRole('button', { name: 'Log copied to clipboard' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalled())
+      expect(writeText.mock.calls[0][0]).toMatch(/Step 1 · Verify A[^]*Verification A succeeded[^]*Step 2 · Verify B/)
     })
 
     it('regression pin: non-loop jobs keep the legacy LogViewer (no explorer)', async () => {

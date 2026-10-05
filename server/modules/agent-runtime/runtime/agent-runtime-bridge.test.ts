@@ -116,6 +116,137 @@ describe('definition verification admission', () => {
 })
 
 describe('Core process bridge', () => {
+  it('compacts a large successful Jest stream without changing raw events or its recorded outcome', async () => {
+    const identity = { runId: 'run-1', nodePath: 'verify', scopeId: 'root', attemptId: 'attempt-1', attempt: 1, visit: 1 }
+    const rows = 77_018
+    script(`
+      const identity = ${JSON.stringify(identity)};
+      const send = event => console.log(JSON.stringify({...identity, ...event}));
+      send({type:'runtime-efficiency-event',kind:'check-started',executionId:'check-1',repositoryId:'front',checkId:'test',label:'yarn'});
+      for (let i=0;i<${rows};i++) send({type:'verification-output',text:'[verification front/yarn] '+(i%3===0 ? ' PASS app/example-'+i+'.spec.ts' : i%3===1 ? '    console.warn' : '      at warning (node_modules/example/index.js:20:10)')+'\\n'});
+      send({type:'verification-output',text:'[verification front/yarn] Test Suites: 457 passed, 457 total\\n[verification front/yarn] Tests: 4230 passed, 4230 total\\n'});
+      send({type:'runtime-efficiency-event',kind:'check-finished',executionId:'check-1',repositoryId:'front',checkId:'test',label:'yarn',exitCode:0,durationMs:189365,reason:null});
+      send({type:'workflow-event',event:{type:'step_succeeded',stepId:'verify',...identity}});
+      console.log(JSON.stringify(${JSON.stringify(final())}));
+    `)
+    const readable: string[] = []
+    let rawCount = 0, runtimeCount = 0
+    const result = await runAgentRuntimeInvocation({ ...options(), timeoutMs: 30_000, onLine: line => readable.push(line), onRawLine: () => rawCount++, onRuntimeEvent: () => runtimeCount++ })
+    const log = readable.join('')
+    expect(result.failed).toBe(false)
+    expect(rawCount).toBe(rows + 5)
+    expect(runtimeCount).toBe(rawCount)
+    expect(log.length).toBeLessThan(16_000)
+    expect(log).toContain('output omitted')
+    expect(log).toContain('Verification evidence')
+    expect(log).toContain('Test Suites: 457 passed, 457 total')
+    expect(log).toContain('Tests: 4230 passed, 4230 total')
+    expect(log).toContain('passed (exit 0, 189.4 s)')
+    expect(log.indexOf('Test Suites:')).toBeLessThan(log.indexOf('[runtime] step_succeeded: verify'))
+  }, 30_000)
+
+  it('reserves late compiler and assertion facts after unknown output and flushes before the next step', async () => {
+    const before = '[verification front/check] progress detail\n'.repeat(1600)
+    const after = Array.from({ length: 1600 }, (_, index) => '[verification front/check] generic trailing detail ' + index + '\n').join('')
+    const events = [
+      { runId: 'run-1', type: 'verification-output', text: before },
+      { runId: 'run-1', type: 'verification-output', text: '[verification front/check] src/feature.ts(10,3): error TS2551: Missing property\n[verification front/check] AssertionError: expected enabled guard\n[verification front/check] expected: true\n' },
+      { runId: 'run-1', type: 'verification-output', text: after },
+      { type: 'workflow-event', event: { type: 'step_succeeded', stepId: 'verify', outcome: 'fail' } },
+      { type: 'workflow-event', event: { type: 'step_started', stepId: 'fixer' } },
+    ]
+    script(events.map(event => `console.log(JSON.stringify(${JSON.stringify(event)}));`).join('') + `console.log(JSON.stringify(${JSON.stringify(final('failed'))}));`)
+    const readable: string[] = [], raw: string[] = [], order: string[] = []
+    const result = await runAgentRuntimeInvocation({ ...options(), onLine: line => { readable.push(line); order.push(line) }, onRawLine: line => raw.push(line), onRuntimeEvent: event => {
+      if (event.type === 'workflow-event') order.push('PROJECT ' + String((event.event as { type: string }).type))
+    } })
+    const log = readable.join('')
+    expect(result.failed).toBe(true)
+    expect(log.length).toBeLessThan(16_000)
+    expect(log).toContain('output omitted')
+    expect(log).toContain('src/feature.ts(10,3): error TS2551: Missing property')
+    expect(log).toContain('AssertionError: expected enabled guard')
+    expect(log).toContain('expected: true')
+    expect(log.indexOf('generic trailing detail')).toBeLessThan(log.indexOf('[runtime] verification_failed: verify'))
+    expect(order.findIndex(line => line.includes('generic trailing detail'))).toBeLessThan(order.indexOf('PROJECT step_succeeded'))
+    expect(raw).toEqual([...events, final('failed')].map(event => JSON.stringify(event)))
+  })
+
+  it('isolates interleaved attempts and repeated checks and supports nested lifecycle payloads', async () => {
+    const a = { runId: 'run-1', nodePath: 'map[0]/verify', scopeId: 'a', attemptId: 'a1', attempt: 1, visit: 1 }
+    const b = { ...a, nodePath: 'map[1]/verify', scopeId: 'b', attemptId: 'b1' }
+    const check = { repositoryId: 'front', checkId: 'tests', label: 'node' }
+    const events = [
+      { ...a, type: 'runtime-efficiency-event', kind: 'check-started', ...check, executionId: 'one' },
+      { ...b, type: 'runtime-efficiency-event', payload: { kind: 'check-started', ...check, executionId: 'two' } },
+      { ...a, type: 'verification-output', text: '[verification front/tests] noise\n'.repeat(200) },
+      { ...b, type: 'verification-output', text: '[verification front/tests] AssertionError: branch two fails\n' },
+      { ...a, type: 'runtime-efficiency-event', kind: 'check-finished', ...check, executionId: 'one', exitCode: 0, durationMs: 10 },
+      { ...b, type: 'runtime-efficiency-event', payload: { kind: 'check-finished', ...check, executionId: 'two', exitCode: 1, durationMs: 20 } },
+      { ...a, type: 'runtime-efficiency-event', kind: 'check-started', ...check, executionId: 'three' },
+      { ...a, type: 'verification-output', text: '[verification front/tests] next command is visible\n' },
+      { ...a, type: 'runtime-efficiency-event', kind: 'check-finished', ...check, executionId: 'three', exitCode: 0, durationMs: 30 },
+      { ...b, type: 'runtime-efficiency-event', kind: 'check-reused', ...check, executionId: 'four', exitCode: 0, durationMs: 0 },
+      { ...b, type: 'runtime-efficiency-event', kind: 'check-invalidated', ...check, executionId: 'four', reason: 'Candidate changed during verification' },
+    ]
+    script(events.map(event => `console.log(JSON.stringify(${JSON.stringify(event)}));`).join('') + `console.log(JSON.stringify(${JSON.stringify(final('failed'))}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const log = onLine.mock.calls.map(call => call[0]).join('')
+    expect(log).toContain('AssertionError: branch two fails')
+    expect(log).toContain('next command is visible')
+    expect(log).toContain('failed (exit 1, 0.0 s)')
+    expect(log).toContain('reused (exit 0, 0.0 s)')
+    expect(log).toContain('invalidated: Candidate changed during verification')
+    expect(log.match(/started/g)).toHaveLength(3)
+    expect(onLine.mock.calls.filter(call => String(call[0]).includes('branch two fails')).every(call => call[2]?.attemptId === 'b1')).toBe(true)
+    expect(onLine.mock.calls.filter(call => String(call[0]).includes('output lines compacted')).every(call => call[2]?.attemptId === 'a1')).toBe(true)
+    for (const event of events) expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
+  it('flushes bounded unknown output on process close without requiring lifecycle support', async () => {
+    const event = { type: 'verification-output', text: '[verification old/tool] beginning\n' + '[verification old/tool] generic detail\n'.repeat(1000) + '[verification old/tool] final unknown failure detail\n' }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));console.log(JSON.stringify(${JSON.stringify(final('failed'))}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const log = onLine.mock.calls.map(call => call[0]).join('')
+    expect(log.length).toBeLessThan(16_000)
+    expect(log).toContain('beginning')
+    expect(log).toContain('final unknown failure detail')
+    expect(log).toContain('output omitted')
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
+  it('bounds repeated assertion source blocks and flushes their late diagnostic after cancellation', async () => {
+    const prefix = '[verification front/node] '
+    const block = prefix + 'AssertionError: Input:\n' + [1, 2, 3, 4].map(index => prefix + '"source ' + index + '\\n" +\n').join('')
+    const event = { type: 'verification-output', attemptId: 'cancelled-attempt', text: block.repeat(1000) + prefix + 'final cancellation diagnostic\n' }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));setTimeout(()=>process.kill(process.pid,'SIGTERM'),30);`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    const result = await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const log = onLine.mock.calls.map(call => call[0]).join('')
+    expect(result.failed).toBe(true)
+    expect(log.length).toBeLessThan(16_000)
+    expect(log.match(/Assertion input shortened/g)).toHaveLength(1)
+    expect(log).toContain('final cancellation diagnostic')
+    expect(onLine.mock.calls.filter(call => String(call[0]).includes('final cancellation diagnostic')).every(call => call[2]?.attemptId === 'cancelled-attempt')).toBe(true)
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
+  it('retains totals and compiler facts with long valid repository IDs and command labels', async () => {
+    const repositoryId = 'repository-'.repeat(11), label = 'verify-suite-'.repeat(19)
+    const prefix = `[verification ${repositoryId}/${label}] `
+    const event = { type: 'verification-output', text: (prefix + 'console detail\n').repeat(200) + prefix + 'src/a.ts(1,2): error TS2551: Missing field\n' + prefix + 'Tests: 4 passed, 4 total\n' }
+    script(`console.log(JSON.stringify(${JSON.stringify(event)}));console.log(JSON.stringify(${JSON.stringify(final('failed'))}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), onLine, onRawLine })
+    const log = onLine.mock.calls.map(call => call[0]).join('')
+    expect(log.length).toBeLessThan(16_000)
+    expect(log).toContain('Tests: 4 passed, 4 total')
+    expect(log).toContain('src/a.ts(1,2): error TS2551: Missing field')
+    expect(onRawLine).toHaveBeenCalledWith(JSON.stringify(event))
+  })
+
   it('freezes global role definitions for new jobs and ignores later edits on resume', async () => {
     saveRuntimeRolePrompts({ developer: 'Use my project conventions' })
     script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)

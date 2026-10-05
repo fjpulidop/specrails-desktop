@@ -134,6 +134,26 @@ specrails-desktop --port 5000 implement "#42"
 
 ## Environment variables
 
+### Project execution environment
+
+Project Settings stores the **names** of environment variables to pass through,
+such as `NODE_AUTH_TOKEN`; it never stores their values. One parent project setting
+applies to every repository and workspace admitted to its rails, including isolated
+worktrees. The same policy is applied to retained runtime controls and recovery.
+
+Non-empty values already inherited by Desktop take precedence. For missing configured names
+on macOS/Linux, Desktop probes the login shell, using `SHELL` or the account's login
+shell when a GUI launch does not supply it. A zsh login shell reads `~/.zprofile`
+(and interactive configuration); configure the real credential there rather than
+adding it to tracked repository files. Windows uses its inherited environment.
+
+Recovered values stay in a project-owned in-memory overlay, not the server's global
+environment, SQLite or runtime snapshots. Each project's lookup cache expires after
+30 seconds, including failed/empty results, so a repaired profile or rotated shell
+credential can be picked up without restarting Desktop. Removing a configured name
+drops its recovered value immediately. A missing value remains absent: Desktop never
+substitutes a dummy credential or treats a blocked package-manager command as passed.
+
 A few env vars are read directly by the app. The two most useful operational ones:
 
 | Variable | Description |

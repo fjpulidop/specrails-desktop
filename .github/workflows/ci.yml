@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: ae52a5ff0ff9dce024008adf16115e7f04d1ef35  # Core 6.2.1: verification, OpenSpec hydration and correction progress fixes
+          ref: 0322ba286ed7bab74661dcf9d92e4803ada0482e  # Core: preserve compiler errors in verification summaries and fixer evidence
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f

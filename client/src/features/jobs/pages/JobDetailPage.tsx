@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../../../lib/api'
 import { cancelJob } from '../lib/cancel-job'
@@ -20,6 +20,7 @@ import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplor
 import { NarratedProgress, type DurationRange } from '../../loops/components/loop-log/NarratedProgress'
 import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
+import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
@@ -35,7 +36,8 @@ export default function JobDetailPage() {
   const navigate = useNavigate()
   const { openTicketDetail } = useTicketDetailModal()
   const [job, setJob] = useState<JobSummary | null>(null)
-  const [events, setEvents] = useState<EventRow[]>([])
+  const [eventBuffer, setEventBuffer] = useState<JobEventBuffer>(() => retainJobEvents([]))
+  const events = useMemo(() => jobEventsWithNotice(eventBuffer, t('logViewer.retainedTail')), [eventBuffer, t])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
   const [phases, setPhases] = useState<PhaseMap>({})
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
@@ -94,8 +96,11 @@ export default function JobDetailPage() {
   useEffect(() => {
     if (!id) return
     const controller = new AbortController()
+    pendingEventsRef.current = { events: [], omitted: false }
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+    rafIdRef.current = null
     setJob(null)
-    setEvents([])
+    setEventBuffer(retainJobEvents([]))
     setPhaseDefinitions([])
     setPhases({})
     setIsLoading(true)
@@ -110,8 +115,9 @@ export default function JobDetailPage() {
         }
         if (!res.ok) throw new Error('Failed to fetch job')
         const data = await res.json() as { job: JobSummary; events: EventRow[] }
+        if (controller.signal.aborted) return
         setJob(data.job)
-        setEvents(data.events)
+        setEventBuffer(retainJobEvents(data.events))
       } catch (err) {
         if ((err as DOMException).name === 'AbortError') return
         setNotFound(true)
@@ -147,26 +153,24 @@ export default function JobDetailPage() {
   jobStatusRef.current = job?.status ?? null
 
   // ── Batched event accumulation (flush via rAF → max ~60 updates/sec) ────
-  const pendingEventsRef = useRef<EventRow[]>([])
+  const pendingEventsRef = useRef<JobEventBuffer>({ events: [], omitted: false })
   const rafIdRef = useRef<number | null>(null)
 
   const flushEvents = useCallback(() => {
     rafIdRef.current = null
     const batch = pendingEventsRef.current
-    if (batch.length === 0) return
-    pendingEventsRef.current = []
-    setEvents((prev) => {
-      const next = [...prev, ...batch]
-      return next.length > 10000 ? next.slice(next.length - 8000) : next
-    })
+    if (batch.events.length === 0) return
+    pendingEventsRef.current = { events: [], omitted: false }
+    setEventBuffer((prev) => retainJobEvents([...prev.events, ...batch.events], prev.omitted || batch.omitted))
   }, [])
 
   // Queue an event for the next rAF flush. Caps the pending queue at push time:
   // while the surface is hidden (rAF paused) it would otherwise grow unbounded.
   const enqueuePending = useCallback((ev: EventRow) => {
+    if (!isJobDisplayEvent(ev)) return
     const q = pendingEventsRef.current
-    q.push(ev)
-    if (q.length > 10000) pendingEventsRef.current = q.slice(-8000)
+    q.events.push(ev)
+    if (q.events.length > 10000) pendingEventsRef.current = retainJobEvents(q.events, q.omitted)
     if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
   }, [flushEvents])
 
@@ -210,7 +214,10 @@ export default function JobDetailPage() {
         seq: 0,
         event_type: 'log',
         source: msg.source as string,
-        payload: JSON.stringify({ line: msg.line }),
+        payload: JSON.stringify({
+          line: msg.line,
+          ...(typeof msg.attemptId === 'string' && msg.attemptId.trim() && msg.attemptId.length <= 256 ? { attemptId: msg.attemptId } : {}),
+        }),
         timestamp: msg.timestamp as string,
       }
       enqueuePending(syntheticEvent)
@@ -515,6 +522,12 @@ export default function JobDetailPage() {
           </>
         )}
       />
+
+      {eventBuffer.omitted && (
+        <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+          {t('logViewer.retainedTail')}
+        </p>
+      )}
 
       {/* Log surface. The narrated altitude is a MODE over the same stream —
           the raw views below stay byte-identical when it is off. */}

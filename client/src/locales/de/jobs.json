@@ -308,6 +308,7 @@
     "filterPlaceholder": "Logs filtern…",
     "copySuccess": "Log in die Zwischenablage kopiert",
     "copyFailed": "Log konnte nicht kopiert werden",
+    "retainedTail": "Frühere Protokollausgaben wurden in dieser Ansicht ausgelassen. Die Kopie enthält nur die beibehaltene Ansicht. Verfügbare Prüfnachweise finden Sie unter Details.",
     "lineCount": "{{filtered}} / {{total}} Zeilen",
     "jumpToBottom": "Zum Ende springen",
     "phaseLines_one": "{{count}} Zeile",

@@ -308,6 +308,7 @@
     "filterPlaceholder": "Filtra i log...",
     "copySuccess": "Log copiato negli appunti",
     "copyFailed": "Impossibile copiare il log",
+    "retainedTail": "Le righe precedenti del log sono state omesse da questa vista. La copia include solo il contenuto conservato. Consulta Dettagli per le evidenze di verifica disponibili.",
     "lineCount": "{{filtered}} / {{total}} righe",
     "jumpToBottom": "Vai in fondo",
     "phaseLines_one": "{{count}} riga",

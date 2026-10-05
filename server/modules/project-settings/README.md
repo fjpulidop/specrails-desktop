@@ -22,6 +22,11 @@ or the project registry. The repository is bound to a single project connection.
 Unknown PATCH fields remain ignored; the historical boolean coercion remains
 compatible. Read-only `orchestratorModelExplicit` cannot be written through the
 application API. Environment configuration stores names, never secret values.
+The owning project's names apply to all repositories in a rail. Spawn-time
+resolution in `server/project-env.ts` recovers missing values into a project-owned
+overlay with a 30-second cache, including retries for failed lookups; it never
+adds those recovered values to the global process environment. Runtime controls
+use the same resolution when restoring a retained run.
 
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy

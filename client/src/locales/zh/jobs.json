@@ -308,6 +308,7 @@
     "filterPlaceholder": "筛选日志…",
     "copySuccess": "日志已复制到剪贴板",
     "copyFailed": "复制日志失败",
+    "retainedTail": "此视图省略了较早的日志输出。复制仅包含保留的内容。请在“详情”中查看可用的验证证据。",
     "lineCount": "{{filtered}} / {{total}} 行",
     "jumpToBottom": "跳到底部",
     "phaseLines_one": "{{count}} 行",
