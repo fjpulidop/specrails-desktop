@@ -381,6 +381,16 @@ interface AugmentOptions {
   timeoutMs?: number
 }
 
+/** GUI launches may omit SHELL even when the account uses zsh/bash. */
+function resolveLoginShell(env: NodeJS.ProcessEnv = process.env): string {
+  if (env.SHELL) return env.SHELL
+  try {
+    return os.userInfo().shell || '/bin/sh'
+  } catch {
+    return '/bin/sh'
+  }
+}
+
 /**
  * Spawn the user's login shell once and merge any additional PATH segments
  * it exposes (Volta/nvm/fnm/asdf shims) into `process.env.PATH`. Async,
@@ -409,7 +419,7 @@ export async function augmentPathFromLoginShell(opts: AugmentOptions = {}): Prom
 
   const spawnFn = opts.spawnFn ?? spawn
   const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
-  const shell = process.env.SHELL || '/bin/sh'
+  const shell = resolveLoginShell()
   const command = `printf "${PATH_BEGIN}%s${PATH_END}" "$PATH"`
 
   const status = await new Promise<LoginShellStatus>((resolve) => {
@@ -491,7 +501,6 @@ export const AUTH_ENV_VARS = [
 ] as const
 
 const LOGIN_SHELL_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
-const loginShellEnvProbeCache = new Set<string>()
 
 function normalizeLoginShellEnvNames(names: readonly string[]): string[] {
   const out: string[] = []
@@ -546,7 +555,7 @@ export async function augmentEnvFromLoginShell(
 
   const spawnFn = opts.spawnFn ?? spawn
   const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
-  const shell = process.env.SHELL || '/bin/sh'
+  const shell = resolveLoginShell()
   const command = buildLoginShellEnvCommand(wanted)
 
   await new Promise<void>((resolve) => {
@@ -585,40 +594,55 @@ export async function augmentEnvFromLoginShell(
   })
 }
 
-/** Synchronous, cached variant for spawn-time env assembly. It probes each
- * missing name at most once per process to keep loops from paying the login
- * shell timeout on every step. */
-export function augmentEnvFromLoginShellSync(
+/** Read missing configured names without mutating the caller's or global env.
+ * Callers own any cache so project credentials cannot leak across scopes. */
+export function readEnvFromLoginShellSync(
   names: readonly string[],
-  opts: { timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
-): void {
-  if (process.platform === 'win32') return
-  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return
+  opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
+): NodeJS.ProcessEnv {
+  if (process.platform === 'win32') return {}
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return {}
 
-  const wanted = normalizeLoginShellEnvNames(names).filter((name) => !process.env[name] && !loginShellEnvProbeCache.has(name))
-  if (wanted.length === 0) return
-  for (const name of wanted) loginShellEnvProbeCache.add(name)
+  const env = opts.env ?? process.env
+  const wanted = normalizeLoginShellEnvNames(names).filter((name) => !env[name])
+  if (wanted.length === 0) return {}
 
   const spawnSyncFn = opts.spawnSyncFn ?? spawnSync
   const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
-  const shell = process.env.SHELL || '/bin/sh'
+  const shell = resolveLoginShell(env)
   const command = buildLoginShellEnvCommand(wanted)
   let res: SpawnSyncReturns<string | Buffer>
   try {
     res = spawnSyncFn(shell, ['-l', '-i', '-c', command], {
+      env,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
     })
   } catch {
-    return
+    return {}
   }
-  if (res.error) return
+  if (res.error || res.status !== 0) return {}
   const stdout = typeof res.stdout === 'string' ? res.stdout : res.stdout?.toString('utf8') ?? ''
   const recovered = parseLoginShellEnv(stdout)
+  const out: NodeJS.ProcessEnv = {}
   for (const key of wanted) {
     const val = recovered[key]
-    if (val && !process.env[key]) process.env[key] = val
+    if (val) out[key] = val
+  }
+  return out
+}
+
+/** Compatibility backfill for callers that intentionally augment process.env.
+ * Failed probes remain retryable; successful names are already present. */
+export function augmentEnvFromLoginShellSync(
+  names: readonly string[],
+  opts: { timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
+): void {
+  const recovered = readEnvFromLoginShellSync(names, opts)
+  for (const [key, value] of Object.entries(recovered)) {
+    if (value && !process.env[key]) process.env[key] = value
   }
 }
 
@@ -667,5 +691,4 @@ export function __resetPathResolverForTest(): void {
   diagnostic = { pathSegments: [], pathSources: [], loginShellStatus: 'skipped' }
   warnedLoginShell = false
   bundledRuntimesActive = false
-  loginShellEnvProbeCache.clear()
 }

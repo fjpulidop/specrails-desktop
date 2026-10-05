@@ -116,6 +116,7 @@
       "runtime/agent-runtime-controls.ts": [
         "../../../core-node-runtime",
         "../../../db",
+        "../../../project-env",
         "../../../project-registry",
         "../../../util/win-spawn",
         "../../../workspace-resolution",

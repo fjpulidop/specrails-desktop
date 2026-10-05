@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -8,7 +9,9 @@ import { runAgentRuntimeInvocation } from '../../agent-runtime/runtime/agent-run
 import { resetCoreAgentRuntimeApiCache } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from './loop-compat'
 import { compileLoopToDefinition } from './loop-definition'
-import { initDb } from '../../../db'
+import { initDb, updateProjectSettings } from '../../../db'
+import { applyWorktreeEnvPassthrough } from '../../../project-env'
+import { readEnvFromLoginShellSync } from '../../../path-resolver'
 import { LoopRunManager } from './loop-run-manager'
 import { getLoopRun } from './loop-runs-store'
 import { FACTORY_LOOPS } from './loop-factory'
@@ -16,6 +19,10 @@ import { LEGACY_LOOP_TEMPLATES } from './loop-templates'
 import { opsxLifecycleGraph } from './loop-templates'
 import type { LoopGraph } from './loop-graph'
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
+vi.mock('../../../path-resolver', async original => ({
+  ...await original<typeof import('../../../path-resolver')>(),
+  readEnvFromLoginShellSync: vi.fn(),
+}))
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', async original => {
   const selected = new Map<string, string>()
   return { ...await original<typeof import('../../agent-runtime/runtime/agent-runtime-package')>(),
@@ -55,8 +62,11 @@ async function execute(source: LoopGraph, plan: Response[], answer?: string, ver
   const contextPath = path.join(runtime, 'context.json'), configPath = path.join(root, 'config.json'), planPath = path.join(root, 'plan.json'), callsFile = path.join(root, 'calls.jsonl')
   writeFileSync(planPath, JSON.stringify(plan))
   writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: 'compat', backlogRoot: root, artifactRoot: repository, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: repository }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs: [{ id: 1, title: 'Required behavior', description: 'Preserve required work', repositoryIds: ['repo'] }] }))
-  const config = JSON.parse(readFileSync(path.join(core!, 'src/agent-runtime/engine/__fixtures__/acceptance/runtime-config.json'), 'utf8'))
-  config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', verification] }]
+  const config = { schemaVersion: 1, enabled: true,
+    providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }],
+    agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } },
+    verification: [{ repositoryId: 'repo', command: process.execPath, args: ['-e', verification] }],
+  }
   writeFileSync(configPath, JSON.stringify(config))
   const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_COMPAT_CORE: core, SPECRAILS_COMPAT_PLAN: planPath, SPECRAILS_COMPAT_CALLS: callsFile,
     NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/compat-executor-preload.mjs')).href}` }
@@ -111,6 +121,73 @@ async function executeLegacy(source: LoopGraph, plan: Response[], answer?: strin
   } finally { db.close() }
 }
 const paired = it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))
+paired('inherits the parent project shell credential in both repository worktrees without persisting its value', async () => {
+  const credential = 'fictitious-parent-project-token-for-pairing'
+  const credentialName = 'NODE_AUTH_TOKEN'
+  vi.stubEnv(credentialName, undefined)
+  vi.mocked(readEnvFromLoginShellSync).mockReturnValue({ [credentialName]: credential })
+  const db = initDb(':memory:')
+  try {
+    updateProjectSettings(db, { worktreeEnvPassthrough: [credentialName] })
+    const repositories = ['client', 'service'].map(id => {
+      const source = path.join(root, id), worktree = path.join(root, 'rails', 'job', id)
+      expect(spawnSync('git', ['init', '-q', source]).status).toBe(0)
+      expect(spawnSync('git', ['-C', source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'baseline']).status).toBe(0)
+      expect(spawnSync('git', ['-C', source, 'worktree', 'add', '--detach', worktree, 'HEAD']).status).toBe(0)
+      return { id, name: id, path: worktree }
+    })
+    const runtime = path.join(root, '.specrails', 'pipeline', 'multi-repository-env')
+    mkdirSync(runtime, { recursive: true })
+    const contextPath = path.join(runtime, 'context.json'), configPath = path.join(root, 'config.json')
+    const planPath = path.join(root, 'plan.json'), callsFile = path.join(root, 'calls.jsonl')
+    const digest = createHash('sha256').update(credential).digest('hex')
+    // Only a one-way digest enters fixture plans/commands, so an accidental
+    // runtime serialization of the credential remains observable below.
+    const probe = `if(require('node:crypto').createHash('sha256').update(process.env.${credentialName}??'').digest('hex')!==${JSON.stringify(digest)})process.exit(9);console.log('credential available in '+require('node:path').basename(process.cwd()))`
+    writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: 'multi-repository-env', backlogRoot: root,
+      artifactRoot: repositories[0].path, artifactRepositoryId: repositories[0].id, repositories,
+      ownership: { git: 'host', backlog: 'host', worktrees: 'host' },
+      specs: [{ id: 1, title: 'Verify private dependencies', description: 'Both project repositories inherit configured credentials', repositoryIds: repositories.map(repo => repo.id) }],
+    }))
+    writeFileSync(configPath, JSON.stringify({ schemaVersion: 1, enabled: true,
+      providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }],
+      agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } },
+      verification: repositories.map(repo => ({ repositoryId: repo.id, command: process.execPath, args: ['-e', probe] })),
+    }))
+    writeFileSync(planPath, JSON.stringify([{ ...prompt('Both repository tools inherited the configured credential'), environmentProbe: probe }]))
+    const env = applyWorktreeEnvPassthrough(db, { ...process.env, SPECRAILS_GIT_AUTO: 'false',
+      SPECRAILS_COMPAT_CORE: core, SPECRAILS_COMPAT_PLAN: planPath, SPECRAILS_COMPAT_CALLS: callsFile,
+      NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/compat-executor-preload.mjs')).href}`,
+    })
+    const lines: string[] = [], rawLines: string[] = []
+    const result = await runAgentRuntimeInvocation({ contextPath, configPath, change: 'environment-pairing',
+      cwd: repositories[0].path, env, engineVersion: 2, timeoutMs: 60_000, onLine: line => lines.push(line), onRawLine: line => rawLines.push(line),
+      prepareDefinition: () => ({ schemaVersion: 1, id: 'environment-pairing', title: 'Project environment',
+        journal: 'ledger-only', change: 'none', entry: 'tools', roles: [], maxTransitions: 4,
+        delivery: { requiresVerified: true },
+        nodes: {
+          tools: { kind: 'prompt', params: { engine: { provider: 'claude' }, text: 'Check private dependencies in every repository', access: 'read' }, ends: { next: 'verify', failed: null } },
+          verify: { kind: 'verify', params: { commands: 'configured' }, ends: { pass: 'done', fail: null, failed: null } },
+          done: { kind: 'end', params: { outcome: 'success' }, ends: {} },
+        },
+      }),
+    })
+    expect(result, JSON.stringify({ result, lines })).toMatchObject({ failed: false, runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+    expect(JSON.parse(readFileSync(callsFile, 'utf8'))).toMatchObject({ role: 'prompt', environmentProbeRoots: repositories.map(repo => repo.path) })
+    for (const repo of repositories) expect(lines.join('')).toContain('credential available in ' + repo.id)
+    expect(process.env[credentialName]).toBeUndefined()
+    expect(db.serialize().includes(Buffer.from(credential))).toBe(false)
+    expect(lines.join('')).not.toContain(credential)
+    expect(rawLines.join('')).not.toContain(credential)
+    expect(readFileSync(callsFile, 'utf8')).not.toContain(credential)
+    // Covers the frozen context, host, config, request and Core ledger, including
+    // binary SQLite storage: secrets are inherited only by live subprocesses.
+    for (const file of readdirSync(runtime, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile())) {
+      expect(readFileSync(path.join(file.parentPath, file.name)).includes(Buffer.from(credential)), file.name).toBe(false)
+    }
+  } finally { db.close() }
+}, 90_000)
+
 paired('preserves failed-pass continuation before accepting a later stop with real host evidence', async () => {
   const plan = [prompt('VERIFICATION: FAIL'), decision(), prompt('VERIFICATION: PASS'), decision()]
   expect((await executeLegacy(legacy(), plan)).outcome).toBe('success')

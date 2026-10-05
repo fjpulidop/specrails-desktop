@@ -47,6 +47,12 @@ loop engines, including connection defaults. Selection provenance uses
 Resume refuses replacement configuration and uses the retained run snapshot.
 See [workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 
+Runtime controls restore the frozen host identity and worktree scope while resolving
+current environment passthrough names from the owning project's database. This uses
+the same scoped login-shell overlay as new rails, including parent projects with
+multiple repositories. Credentials remain outside frozen context/config/host files;
+restoring a retained run after a Desktop restart can recover them again.
+
 For new definition runs, repositories without selected configured checks reuse
 Desktop's offline verification detector against their admitted worktrees and code
 workspaces. Explicit checks take precedence. Detected commands are frozen in the
