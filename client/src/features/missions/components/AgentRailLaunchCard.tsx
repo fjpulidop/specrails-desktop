@@ -128,7 +128,9 @@ function reconcileRepositories(selected: string[], previousRequired: string[], n
 }
 
 function selectedWorkspaces(selection: RailLaunchConfig['workspaceSelection'], repositoryIds: string[]): RailLaunchConfig['workspaceSelection'] {
-  return selection && Object.fromEntries(Object.entries(selection).filter(([id]) => repositoryIds.includes(id)))
+  if (!selection) return undefined
+  const entries = Object.entries(selection).filter(([id]) => repositoryIds.includes(id))
+  return entries.length ? Object.fromEntries(entries) : undefined
 }
 
 interface Props {

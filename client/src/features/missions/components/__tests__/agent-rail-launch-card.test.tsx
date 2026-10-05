@@ -185,7 +185,9 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.getByTestId('rail-card-play')).toBeEnabled()
     fireEvent.click(screen.getByTestId('rail-card-play'))
     await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
-    expect(body(calls.find(c => c.url.endsWith('/launch'))!)).toMatchObject({ repositoryIds: ['primary-p1'], workspaceSelection: {} })
+    const launch = body(calls.find(c => c.url.endsWith('/launch'))!)
+    expect(launch).toMatchObject({ repositoryIds: ['primary-p1'] })
+    expect(launch).not.toHaveProperty('workspaceSelection')
     expect(calls.some(c => c.init?.method === 'PATCH' && c.url.includes('/tickets/'))).toBe(false)
   })
 

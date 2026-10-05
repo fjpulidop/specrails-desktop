@@ -63,6 +63,11 @@ recorded loop/runtime/manifest fields; absent workflow identity never silently
 selects Implement. A retry cannot fall back to shared cwd from an isolated
 delivery. See [mission rail cards](../../../docs/internals/mission-rail-cards.md).
 
+Manifest reconstruction omits `workspaceSelection` when no repository records
+workspace narrowing, preserving registered defaults. Explicit saved selections
+and nonempty partial maps remain intact and pass through normal scope validation;
+invalid entries are never discarded to broaden the launch.
+
 Settlement blocks new active OpenSpec change directories against the frozen base
 and deliverable external absolute symlinks with an actionable `commit_failed`
 detail, retaining the checkout. Archives and base changes remain allowed.
