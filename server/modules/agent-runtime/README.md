@@ -47,6 +47,12 @@ loop engines, including connection defaults. Selection provenance uses
 Resume refuses replacement configuration and uses the retained run snapshot.
 See [workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 
+Runtime controls restore the frozen host identity and worktree scope while resolving
+current environment passthrough names from the owning project's database. This uses
+the same scoped login-shell overlay as new rails, including parent projects with
+multiple repositories. Credentials remain outside frozen context/config/host files;
+restoring a retained run after a Desktop restart can recover them again.
+
 For new definition runs, repositories without selected configured checks reuse
 Desktop's offline verification detector against their admitted worktrees and code
 workspaces. Explicit checks take precedence. Detected commands are frozen in the
@@ -143,10 +149,16 @@ execution claims reject them with 410 `runtime_history_expired`. Jobs, cost
 records and repository content are never touched. See
 [the retention decision](../../../openspec/changes/core-agent-engine/RUNTIME-RETENTION-DECISION.md).
 
-Readable verification logs suppress passing Node spec (`✔`) and TAP cases and their timing/YAML
-blocks while keeping failed cases, diagnostic blocks and totals. Long assertion/source dump lines are shortened in the readable log. Raw runtime
-events retain the full output. Failed gate outcomes and role error messages are
-reported explicitly in the readable log.
+Readable verification logs compact passing Node spec (`✔`), TAP and Jest cases,
+warning stacks and long assertion/source dumps. The presentation has bounded
+context, reserved diagnostics and final summaries, plus explicit omission notices.
+Recorded check lifecycle events provide command outcomes when available; display
+compaction never changes verification validity, correction decisions or settlement.
+Original runtime events still follow the existing persistence path unchanged.
+The Details → Verification evidence panel exposes retained stdout/stderr with
+pagination. Core currently retains up to 1 MiB per output stream, with an explicit
+truncation indicator; evidence retention is separate from readable-log compaction.
+Failed gate outcomes and role error messages are reported explicitly in the readable log.
 Failed terminal completion reasons are preserved as the job error when Core has no
 more specific runtime error, so a scoped correction blocker is not replaced by a
 generic unsuccessful-Core-exit message.

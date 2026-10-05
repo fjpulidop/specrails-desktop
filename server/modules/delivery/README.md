@@ -63,6 +63,20 @@ recorded loop/runtime/manifest fields; absent workflow identity never silently
 selects Implement. A retry cannot fall back to shared cwd from an isolated
 delivery. See [mission rail cards](../../../docs/internals/mission-rail-cards.md).
 
+Manifest reconstruction omits `workspaceSelection` when no repository records
+workspace narrowing, preserving registered defaults. Explicit saved selections
+and nonempty partial maps remain intact and pass through normal scope validation;
+invalid entries are never discarded to broaden the launch.
+
+Warm dependency reuse preserves the registered source's position in its Git
+checkout. A registration at `apps/catalog` prepares its dependencies beneath
+`apps/catalog/node_modules` in the full worktree, with local writable caches;
+discovery stays scoped to the registered source. Cleanup reconstructs exact live
+source proofs at those worktree-relative paths after restart and also recognizes
+authenticated historical links without moving them. Replaced packages, foreign
+links and paths beneath symlinked destination ancestors confer no new cleanup
+authority. Registration identity and Core's execution scope remain unchanged.
+
 Settlement blocks new active OpenSpec change directories against the frozen base
 and deliverable external absolute symlinks with an actionable `commit_failed`
 detail, retaining the checkout. Archives and base changes remain allowed.

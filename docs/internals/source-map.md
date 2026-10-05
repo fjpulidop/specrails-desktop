@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1015 source/build files. Nearby tests are linked where names
+Includes 1018 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -366,6 +366,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/lib
 
 - [cancel-job.ts](../../client/src/features/jobs/lib/cancel-job.ts) · [test](../../client/src/features/jobs/lib/__tests__/cancel-job.test.ts)
+- [job-event-buffer.ts](../../client/src/features/jobs/lib/job-event-buffer.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-event-buffer.test.ts)
 - [job-log-mode.ts](../../client/src/features/jobs/lib/job-log-mode.ts)
 - [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
 
@@ -1094,6 +1095,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
 - [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
+- [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
 
 ## server/modules/agents/runtime
@@ -1425,6 +1427,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/util
 
+- [checkout-path.ts](../../server/util/checkout-path.ts)
 - [cli-prompt.ts](../../server/util/cli-prompt.ts) · [test](../../server/util/cli-prompt.test.ts)
 - [distribute-int.ts](../../server/util/distribute-int.ts)
 - [secure-fs.ts](../../server/util/secure-fs.ts) · [test](../../server/util/secure-fs.test.ts)

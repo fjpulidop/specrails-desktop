@@ -8,6 +8,7 @@ import { createRailWorktree, getRailWorktree, updateRailWorktreeState } from './
 import { releaseRailWorktrees, durableSettlementIgnoredPaths } from './rail-worktree-release'
 import type { GitRunner } from '../../../worktree-manager'
 import { applyWorktreeOverlay, fingerprintOverlayCleanupPath } from '../../../worktree-overlay'
+import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
 
 function overlayQuarantineRoots(worktreePath: string): string[] {
   const parent = path.dirname(worktreePath)
@@ -763,6 +764,117 @@ describe('releaseRailWorktrees + warm dependency links', () => {
     fs.rmSync(wt, { recursive: true, force: true })
     fs.rmSync(repoDir, { recursive: true, force: true })
     db.close()
+  })
+})
+
+describe('releaseRailWorktrees + registered subdirectory dependencies', () => {
+  function nestedRegistration() {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-nested-')))
+    const checkout = path.join(root, 'checkout'), registered = path.join(checkout, 'apps', 'catalog')
+    const worktree = path.join(root, 'worktree'), branch = 'feat/nested-warm'
+    const gitCalls: Array<{ args: string[]; cwd: string }> = []
+    const gitCommand = (args: string[], cwd: string) => {
+      const result = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 10_000 })
+      return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
+    }
+    const setupGit = (args: string[], cwd = checkout) => {
+      const result = gitCommand(args, cwd)
+      expect(result.code, result.stderr).toBe(0)
+      return result.stdout.trim()
+    }
+    const write = (relative: string, content = '{}') => {
+      const file = path.join(checkout, relative)
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, content)
+    }
+    try {
+      write('package.json')
+      write('apps/catalog/package.json')
+      write('apps/catalog/tools/viewer/package.json')
+      setupGit(['init', '-q'])
+      setupGit(['add', 'package.json', 'apps/catalog/package.json', 'apps/catalog/tools/viewer/package.json'])
+      setupGit(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'baseline'])
+      const head = setupGit(['rev-parse', 'HEAD'])
+      setupGit(['worktree', 'add', '-qb', branch, worktree, 'HEAD'])
+      write('apps/catalog/node_modules/.bin/tool', 'fixture executable')
+      write('apps/catalog/node_modules/.yarn-state.yml', '__metadata:\n  version: 1\n')
+      write('apps/catalog/node_modules/@example/components/index.js', 'module.exports = "original package"')
+      write('apps/catalog/tools/viewer/node_modules/view-lib/index.js', 'module.exports = "viewer"')
+      const git: GitRunner = { async run(args, cwd) { gitCalls.push({ args, cwd }); return gitCommand(args, cwd) } }
+      return { root, checkout, registered, worktree, branch, head, git, gitCalls }
+    } catch (error) {
+      fs.rmSync(root, { recursive: true, force: true })
+      throw error
+    }
+  }
+
+  it('reconstructs exact nested dependency evidence after restart and releases using the registered source identity', async () => {
+    const fixture = nestedRegistration(), db = initDb(':memory:')
+    const { registered, worktree, branch, head, git, gitCalls } = fixture
+    try {
+      const prepared = linkNodeModulesIntoWorktree(registered, worktree)
+      const expectedPaths = [
+        'apps/catalog/node_modules/.bin', 'apps/catalog/node_modules/.yarn-state.yml',
+        'apps/catalog/node_modules/@example/components', 'apps/catalog/tools/viewer/node_modules/view-lib',
+      ]
+      expect(prepared.warnings).toEqual([])
+      expect(prepared.authenticated.sort()).toEqual(expectedPaths.sort())
+      expect(prepared.evidence).toEqual(expect.arrayContaining(expectedPaths.map(relative => ({
+        path: relative, ...fingerprintOverlayCleanupPath(path.join(worktree, relative))!,
+      }))))
+      expect(authenticateWarmNodeModulesLinks(registered, worktree)).toEqual(prepared.evidence)
+      createRailWorktree(db, {
+        id: 'nested-restart', railIndex: 0, ticketId: 1, branch, worktreePath: worktree,
+        repositoryId: 'catalog', repositoryPath: registered, mergeState: 'needs-review',
+      })
+      const warnings = await releaseRailWorktrees({
+        db, git, repoDir: registered, worktreeIds: ['nested-restart'],
+        expectedHeadByBranch: new Map([[branch, head]]), overlayEvidenceByBranch: new Map(),
+      })
+      expect(warnings).toEqual([])
+      expect(getRailWorktree(db, 'nested-restart')?.merge_state).toBe('released')
+      expect(getRailWorktree(db, 'nested-restart')?.repository_path).toBe(registered)
+      expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', worktree], cwd: registered })
+      expect(fs.existsSync(worktree)).toBe(false)
+      const archive = overlayQuarantineRoots(worktree)
+      expect(archive).toHaveLength(1)
+      for (const relative of expectedPaths) {
+        expect(fs.lstatSync(path.join(archive[0], relative)).isSymbolicLink()).toBe(true)
+      }
+      expect(fs.readFileSync(path.join(registered, 'node_modules/@example/components/index.js'), 'utf8')).toBe('module.exports = "original package"')
+      expect(fs.readFileSync(path.join(registered, 'node_modules/.yarn-state.yml'), 'utf8')).toContain('version: 1')
+    } finally { db.close(); fs.rmSync(fixture.root, { recursive: true, force: true }) }
+  })
+
+  it.each(['directory', 'foreign link'])('preserves a replaced nested package %s instead of trusting stale cleanup evidence', async replacement => {
+    const fixture = nestedRegistration(), db = initDb(':memory:')
+    const { registered, worktree, branch, head, git, gitCalls } = fixture
+    try {
+      const prepared = linkNodeModulesIntoWorktree(registered, worktree)
+      const relative = 'apps/catalog/node_modules/@example/components'
+      const destination = path.join(worktree, relative)
+      expect(prepared.authenticated).toContain(relative)
+      fs.unlinkSync(destination)
+      const changedRoot = replacement === 'directory' ? destination : path.join(fixture.root, 'foreign')
+      fs.mkdirSync(changedRoot, { recursive: true })
+      fs.writeFileSync(path.join(changedRoot, 'saved-work.js'), 'retain my edits')
+      if (replacement === 'foreign link') fs.symlinkSync(changedRoot, destination, process.platform === 'win32' ? 'junction' : undefined)
+      expect(authenticateWarmNodeModulesLinks(registered, worktree).map(entry => entry.path)).not.toContain(relative)
+      createRailWorktree(db, {
+        id: 'nested-replaced', railIndex: 0, ticketId: 1, branch, worktreePath: worktree,
+        repositoryId: 'catalog', repositoryPath: registered, mergeState: 'built',
+      })
+      const warnings = await releaseRailWorktrees({
+        db, git, repoDir: registered, worktreeIds: ['nested-replaced'],
+        expectedHeadByBranch: new Map([[branch, head]]), overlayEvidenceByBranch: new Map([[branch, prepared.evidence]]),
+      })
+      expect(warnings).toEqual([expect.stringContaining('changes made after settlement')])
+      expect(getRailWorktree(db, 'nested-replaced')?.merge_state).toBe('needs-review')
+      expect(gitCalls.some(call => call.args[0] === 'worktree' && call.args[1] === 'remove')).toBe(false)
+      expect(fs.readFileSync(path.join(destination, 'saved-work.js'), 'utf8')).toBe('retain my edits')
+      expect(fs.readFileSync(path.join(registered, 'node_modules/@example/components/index.js'), 'utf8')).toBe('module.exports = "original package"')
+      expect(overlayQuarantineRoots(worktree)).toEqual([])
+    } finally { db.close(); fs.rmSync(fixture.root, { recursive: true, force: true }) }
   })
 })
 

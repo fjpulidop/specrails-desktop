@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { spawnSync } from 'node:child_process'
 const core = process.env.SPECRAILS_COMPAT_CORE
 if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-runtime/cli.js')) {
   const { ExecutorRegistry } = await import(pathToFileURL(path.join(core, 'dist/agent-runtime/executors.js')).href)
@@ -13,7 +14,15 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
       const calls = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).length : 0
       const response = plan[calls]
       if (!response || response.role !== request.role) throw Error(`Unexpected invocation ${calls}: ${request.role}`)
-      fs.appendFileSync(file, JSON.stringify({ role: request.role, model: request.model, prompt: request.prompt }) + '\n')
+      const environmentProbeRoots = []
+      if (response.environmentProbe) for (const cwd of request.allowedRoots) {
+        const child = spawnSync(process.execPath, ['-e', response.environmentProbe], { cwd, env: process.env, encoding: 'utf8', timeout: 10_000 })
+        if (child.status !== 0) throw Error('Configured project credential unavailable to a repository tool')
+        environmentProbeRoots.push(cwd)
+      }
+      fs.appendFileSync(file, JSON.stringify({ role: request.role, model: request.model, prompt: request.prompt,
+        ...(response.environmentProbe ? { environmentProbeRoots } : {}),
+      }) + '\n')
       if (response.error) throw Error(response.error)
       if (response.createChange) {
         const { resolveOpenSpecCli, runOpenSpec } = await import(pathToFileURL(path.join(core, 'dist/agent-runtime/openspec.js')).href)

@@ -9,6 +9,7 @@ import {
   augmentAuthEnvFromLoginShell,
   augmentEnvFromLoginShell,
   augmentEnvFromLoginShellSync,
+  readEnvFromLoginShellSync,
   parseLoginShellOutput,
   parseLoginShellEnv,
   getPathDiagnostic,
@@ -563,6 +564,116 @@ describe('parseLoginShellEnv', () => {
   it('preserves `=` characters inside a value', () => {
     const stdout = '__SRH_ENV_BEGIN__GEMINI_API_KEY=a=b=c\n__SRH_ENV_END__'
     expect(parseLoginShellEnv(stdout).GEMINI_API_KEY).toBe('a=b=c')
+  })
+})
+
+describe('readEnvFromLoginShellSync', () => {
+  const success = (stdout = '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=fixture-token\n__SRH_ENV_END__') => ({
+    stdout, stderr: '', status: 0, signal: null, pid: 123, output: [],
+  })
+
+  beforeEach(() => {
+    __resetPathResolverForTest()
+    setPlatform('darwin')
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NODE_AUTH_TOKEN', undefined)
+    vi.stubEnv('SHELL', undefined)
+    vi.spyOn(os, 'userInfo').mockReturnValue({ uid: 1, gid: 1, username: 'fixture', homedir: '/home/fixture', shell: '/bin/zsh' })
+  })
+  afterEach(() => {
+    setPlatform(ORIGINAL_PLATFORM)
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('recovers only requested missing names without changing either environment', () => {
+    const env = { PATH: '/bin', NPM_TOKEN: 'explicit' }
+    const spawnSyncFn = vi.fn(() => success('__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=fixture-token\nNPM_TOKEN=ignored\nUNREQUESTED=ignored\n__SRH_ENV_END__'))
+
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN', 'NPM_TOKEN'], { env, spawnSyncFn: spawnSyncFn as any })).toEqual({ NODE_AUTH_TOKEN: 'fixture-token' })
+    expect(env).toEqual({ PATH: '/bin', NPM_TOKEN: 'explicit' })
+    expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
+    expect(spawnSyncFn).toHaveBeenCalledWith('/bin/zsh', expect.arrayContaining(['-l', '-i', '-c']), expect.objectContaining({ env, timeout: 1500, maxBuffer: 1024 * 1024 }))
+    expect(spawnSyncFn.mock.calls[0]?.[1]?.[3]).not.toContain('NPM_TOKEN')
+  })
+
+  it('honors an explicit source shell before consulting account metadata', () => {
+    const spawnSyncFn = vi.fn(() => success())
+    readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { env: { SHELL: '/custom/bash' }, spawnSyncFn: spawnSyncFn as any })
+    expect(spawnSyncFn).toHaveBeenCalledWith('/custom/bash', expect.any(Array), expect.any(Object))
+    expect(os.userInfo).not.toHaveBeenCalled()
+  })
+
+  it.skipIf(process.platform === 'win32' || !fs.existsSync('/bin/zsh'))('reads a real temporary zprofile through the account shell when SHELL is absent', () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'project-env-zprofile-'))
+    try {
+      fs.writeFileSync(path.join(home, '.zprofile'), 'export NODE_AUTH_TOKEN=fixture-real-zprofile-token\n')
+      const env = { HOME: home, ZDOTDIR: home, PATH: '/usr/bin:/bin' }
+      const recovered = readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { env })
+      expect(recovered).toEqual({ NODE_AUTH_TOKEN: 'fixture-real-zprofile-token' })
+      expect(os.userInfo).toHaveBeenCalledOnce()
+      expect(env).toEqual({ HOME: home, ZDOTDIR: home, PATH: '/usr/bin:/bin' })
+      expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true })
+    }
+  })
+
+  it('uses the account shell for startup PATH and auth recovery too', async () => {
+    vi.stubEnv('PATH', '/bin')
+    const pathSpawn = vi.fn(makeFakeSpawn({ stdout: '__SRH_PATH_BEGIN__/fixture/bin:/bin__SRH_PATH_END__', exitCode: 0 }))
+    const authSpawn = vi.fn(makeFakeSpawn({ stdout: '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=fixture-token\n__SRH_ENV_END__', exitCode: 0 }))
+    await augmentPathFromLoginShell({ spawnFn: pathSpawn as any })
+    await augmentEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: authSpawn as any })
+    expect(pathSpawn).toHaveBeenCalledWith('/bin/zsh', expect.any(Array), expect.any(Object))
+    expect(authSpawn).toHaveBeenCalledWith('/bin/zsh', expect.any(Array), expect.any(Object))
+  })
+
+  it.each(['missing', 'unavailable'])('falls back to sh when the account shell is %s', (mode) => {
+    if (mode === 'missing') vi.mocked(os.userInfo).mockReturnValue({ uid: 1, gid: 1, username: 'fixture', homedir: '/home/fixture', shell: null })
+    else vi.mocked(os.userInfo).mockImplementation(() => { throw new Error('account unavailable') })
+    const spawnSyncFn = vi.fn(() => success())
+    readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+    expect(spawnSyncFn).toHaveBeenCalledWith('/bin/sh', expect.any(Array), expect.any(Object))
+  })
+
+  it('preserves explicit values and rejects invalid names without starting a shell', () => {
+    const spawnSyncFn = vi.fn()
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN', 'BAD-NAME', ''], { env: { NODE_AUTH_TOKEN: 'explicit' }, spawnSyncFn: spawnSyncFn as any })).toEqual({})
+    expect(spawnSyncFn).not.toHaveBeenCalled()
+  })
+
+  it.each(['timeout', 'nonzero', 'throw', 'empty'])('allows a subsequent read to recover after %s', (failure) => {
+    const spawnSyncFn = vi.fn().mockImplementationOnce(() => {
+      if (failure === 'throw') throw new Error('spawn failed')
+      if (failure === 'timeout') return { ...success(), error: new Error('ETIMEDOUT'), status: null }
+      if (failure === 'nonzero') return { ...success(), status: 1 }
+      return success('__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=\n__SRH_ENV_END__')
+    }).mockReturnValue(success())
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { timeoutMs: 25, spawnSyncFn: spawnSyncFn as any })).toEqual({})
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toEqual({ NODE_AUTH_TOKEN: 'fixture-token' })
+    expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
+    expect(spawnSyncFn).toHaveBeenCalledTimes(2)
+    expect(spawnSyncFn.mock.calls[0]?.[2]).toMatchObject({ timeout: 25 })
+  })
+
+  it('does not cache failed compatibility backfills forever', () => {
+    const spawnSyncFn = vi.fn().mockReturnValueOnce({ ...success(), status: 1 }).mockReturnValue(success())
+    augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+    expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
+    augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+    augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
+    expect(process.env.NODE_AUTH_TOKEN).toBe('fixture-token')
+    expect(spawnSyncFn).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['windows', 'test'])('skips shell recovery in %s environments', (mode) => {
+    if (mode === 'windows') setPlatform('win32')
+    else vi.stubEnv('VITEST', 'true')
+    const spawnSyncFn = vi.fn()
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toEqual({})
+    expect(spawnSyncFn).not.toHaveBeenCalled()
   })
 })
 

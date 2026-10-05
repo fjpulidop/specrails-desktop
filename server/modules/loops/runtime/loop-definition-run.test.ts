@@ -75,6 +75,27 @@ describe('Core definitions in Loop Manager',()=>{
     const events=getJobEvents(db,'r1');expect(events.filter(e=>e.event_type==='loop_step')).toHaveLength(2)
     expect(events.filter(e=>e.event_type==='loop_step_end').map(e=>JSON.parse(e.payload).index)).toEqual([2,1])
   })
+  it('preserves attempt attribution for delayed readable output in persistence and live events', async () => {
+    const broadcast = vi.fn()
+    const ex = executors(async input => {
+      input.onRuntimeEvent(step(1, 'step_started'))
+      input.onRuntimeEvent(step(2, 'step_started', 'attempt-b', 'map[1]/read'))
+      input.onLine('First branch summary', 'stdout', { attemptId: 'attempt-a' })
+      input.onLine('Second branch diagnostic', 'stderr', { attemptId: 'attempt-b' })
+      input.onLine('Legacy output')
+      for (const attemptId of ['', '   ', 'x'.repeat(257)]) input.onLine('Unattributed output', 'stdout', { attemptId })
+      return complete()
+    })
+    await new LoopRunManager(db, broadcast, ex).run(request())
+    const logs = getJobEvents(db, 'r1').filter(event => event.event_type === 'log').map(event => JSON.parse(event.payload))
+    expect(logs).toContainEqual({ line: 'First branch summary', attemptId: 'attempt-a' })
+    expect(logs).toContainEqual({ line: 'Second branch diagnostic', attemptId: 'attempt-b' })
+    expect(logs).toContainEqual({ line: 'Legacy output' })
+    expect(logs.filter(row => row.line === 'Unattributed output')).toEqual(Array.from({ length: 3 }, () => ({ line: 'Unattributed output' })))
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', line: 'First branch summary', attemptId: 'attempt-a' }))
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', line: 'Second branch diagnostic', source: 'stderr', attemptId: 'attempt-b' }))
+    expect(broadcast.mock.calls.filter(([row]) => row.line === 'Unattributed output').every(([row]) => !Object.hasOwn(row, 'attemptId'))).toBe(true)
+  })
   it('requires explicit approval and keeps text-only messages from authorizing an effect',async()=>{
     let calls=0
     const ex=executors(async input=>{if(calls++===0)return {text:'',runtimeStatus:'paused',pendingInterrupts:[{id:'approval-id',nodePath:'archive',kind:'approval'}]};expect(input.approve).toEqual(['approval-id']);return complete()})

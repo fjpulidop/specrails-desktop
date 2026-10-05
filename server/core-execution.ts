@@ -6,6 +6,8 @@ import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo
 import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { assertWorkspaceCoreReady } from './core-update-state'
 import { findCoreAgentRuntimeCli } from './modules/agent-runtime/runtime/agent-runtime-loader'
+import { checkoutSubdirectory } from './util/checkout-path'
+export { checkoutSubdirectory } from './util/checkout-path'
 
 export interface CoreRunInput {
   runId: string
@@ -48,16 +50,6 @@ function canonicalPath(path: string): string {
     const parent = dirname(path)
     if (parent === path) throw error
     return join(canonicalPath(parent), basename(path))
-  }
-}
-
-/** Where a directory sits inside its git checkout: '' for the checkout root or a directory outside git. */
-export function checkoutSubdirectory(directory: string): string {
-  let start: string
-  try { start = realpathSync(directory) } catch { return '' }
-  for (let current = start; ; current = dirname(current)) {
-    if (existsSync(join(current, '.git'))) return relative(current, start).split(sep).join('/')
-    if (dirname(current) === current) return ''
   }
 }
 

@@ -282,6 +282,12 @@ reason, which also appears in the bounded readable runtime log. Passing commands
 cannot bypass rejected acceptance obligations or below-threshold aspect scores.
 Correctors receive bounded failure facts with complete evidence references and
 the current candidate's reviewer output directly, clearing missing or outdated
-review feedback before correction. Default instructions allow proven minimal
+review feedback before correction. Core's diagnostic classifier preserves
+file-located compiler errors in these summaries; warning-only lint reports do
+not displace actual errors. The paired factory suite verifies the fixer's real
+prompt, nonzero exit code and evidence reference through a noisy subprocess.
+Candidate fingerprints and unchanged-correction termination still apply; better
+diagnostics do not install dependencies or certify a failing candidate.
+Default instructions allow proven minimal
 test compatibility repairs in admitted workspaces, preserve safety assertions,
 and require focused reproduction with original exit codes and negative cases.

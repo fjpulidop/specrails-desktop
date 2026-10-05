@@ -93,8 +93,14 @@ export function resolveRailRelaunch(c: ProjectContext, railIndex: number, source
     if (!config.baseBranch && row.base_branch) config.baseBranch = row.base_branch
     if (delivery.executionManifest) {
       config.repositoryIds = delivery.executionManifest.selectedRepositoryIds
-      config.workspaceSelection = savedConfig?.workspaceSelection ?? Object.fromEntries(delivery.executionManifest.repositories
-        .filter(repo => repo.selectedWorkspacePaths).map(repo => [repo.repositoryId, repo.selectedWorkspacePaths]))
+      if (savedConfig?.workspaceSelection === undefined) {
+        const entries = delivery.executionManifest.repositories
+          .filter(repo => repo.selectedWorkspacePaths !== undefined).map(repo => [repo.repositoryId, repo.selectedWorkspacePaths])
+        // No recorded narrowing means registered defaults, represented by
+        // absence. Explicit values remain subject to ordinary launch validation.
+        if (entries.length) config.workspaceSelection = Object.fromEntries(entries)
+        else delete config.workspaceSelection
+      }
     }
   }
   if (!Array.isArray(ticketIds) || !ticketIds.length || ticketIds.some(id => !Number.isSafeInteger(id) || id <= 0)) unavailable('relaunch_specs_unavailable', 'The original spec set is unavailable.')

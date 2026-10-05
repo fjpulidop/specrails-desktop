@@ -9,6 +9,10 @@ current assignments. Duplicate clicks are guarded synchronously, acceptance
 disables further relaunches, and rejection details/actions stay visible inline
 alongside the toast. See [mission rail cards](../../../../docs/internals/mission-rail-cards.md).
 
+Launch-card repository edits project workspace overrides onto the remaining
+repositories. An empty projection omits `workspaceSelection` so the server uses
+registered defaults; retained entries remain subject to normal validation.
+
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other

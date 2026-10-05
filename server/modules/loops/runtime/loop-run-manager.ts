@@ -165,7 +165,7 @@ export interface DeciderRunResult extends DeciderDecision {
 
 /** Streams a live activity line to the run's job log (AI text, tool use, shell
  *  output) so the session is inspectable in real time in JobDetail. */
-export type LoopLogSink = (line: string, source?: 'stdout' | 'stderr') => void
+export type LoopLogSink = (line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }) => void
 
 /** Registers the spawned child so the engine can kill it on cancel/stop (a
  *  cooperative `_cancelled` flag alone can't interrupt a blocked `await`). */
@@ -1371,12 +1371,14 @@ export class LoopRunManager {
       openStep = null
       emitRunEvent('loop_step_end', payload)
     }
-    const logLine = (line: string, source: 'stdout' | 'stderr' = 'stdout'): void => {
+    const logLine: LoopLogSink = (line, source = 'stdout', metadata) => {
+      const attemptId = metadata?.attemptId
+      const attribution = typeof attemptId === 'string' && attemptId.trim() && attemptId.length <= 256 ? { attemptId } : {}
       const s = takeSeq()
       try {
-        appendEvent(this.db, runId, s, { event_type: 'log', source, payload: JSON.stringify({ line }) })
+        appendEvent(this.db, runId, s, { event_type: 'log', source, payload: JSON.stringify({ line, ...attribution }) })
       } catch { /* events table best-effort */ }
-      this._emit({ type: 'log', source, line, timestamp: new Date(this.now()).toISOString(), processId: runId })
+      this._emit({ type: 'log', source, line, timestamp: new Date(this.now()).toISOString(), processId: runId, ...attribution })
     }
     // Forward a RAW provider stdout line (claude/codex JSONL) as an `event` —
     // identical to QueueManager — so JobStatusPanel parses real activity
