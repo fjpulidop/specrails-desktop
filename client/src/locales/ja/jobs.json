@@ -308,6 +308,7 @@
     "filterPlaceholder": "ログをフィルター...",
     "copySuccess": "ログをクリップボードにコピーしました",
     "copyFailed": "ログのコピーに失敗しました",
+    "retainedTail": "このビューでは以前のログ出力が省略されています。コピーには保持された内容のみが含まれます。利用可能な検証の証拠は「詳細」で確認してください。",
     "lineCount": "{{filtered}} / {{total}} 行",
     "jumpToBottom": "最下部へ移動",
     "phaseLines_one": "{{count}} 行",

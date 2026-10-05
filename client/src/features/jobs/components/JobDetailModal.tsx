@@ -1,5 +1,5 @@
 import { modalOverlayStyle } from '../../../lib/modal-safe-area'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +17,7 @@ import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplor
 import { NarratedProgress } from '../../loops/components/loop-log/NarratedProgress'
 import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
+import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
 import { InteractiveJobComposer } from './InteractiveJobComposer'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
@@ -54,7 +55,8 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
     saveJobLogMode(mode)
   }, [])
   const [job, setJob] = useState<JobSummary | null>(null)
-  const [events, setEvents] = useState<EventRow[]>([])
+  const [eventBuffer, setEventBuffer] = useState<JobEventBuffer>(() => retainJobEvents([]))
+  const events = useMemo(() => jobEventsWithNotice(eventBuffer, t('logViewer.retainedTail')), [eventBuffer, t])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
   const [phases, setPhases] = useState<PhaseMap>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -64,17 +66,27 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
 
   // Fetch initial job data + historical events
   useEffect(() => {
+    let cancelled = false
+    pendingEventsRef.current = { events: [], omitted: false }
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
+    rafIdRef.current = null
+    setEventBuffer(retainJobEvents([]))
+    setJob(null)
+    setIsLoading(true)
+    setNotFound(false)
     async function loadJob() {
       try {
         const res = await fetch(`${apiBase()}/jobs/${jobId}`)
+        if (cancelled) return
         if (res.status === 404) {
           setNotFound(true)
           return
         }
         if (!res.ok) throw new Error('Failed to fetch job')
         const data = await res.json() as { job: JobSummary; events: EventRow[]; phaseDefinitions?: PhaseDefinition[] }
+        if (cancelled) return
         setJob(data.job)
-        setEvents(data.events)
+        setEventBuffer(retainJobEvents(data.events))
         if (data.phaseDefinitions) {
           setPhaseDefinitions(data.phaseDefinitions)
           const initPhases: PhaseMap = {}
@@ -84,12 +96,13 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           setPhases(initPhases)
         }
       } catch {
-        setNotFound(true)
+        if (!cancelled) setNotFound(true)
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
     loadJob()
+    return () => { cancelled = true }
   }, [jobId, apiBase])
 
   // Tolerant job-row refetch (interactive settle / status flips): only replaces
@@ -104,19 +117,25 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   }, [jobId, apiBase])
 
   // ── Batched event accumulation (flush via rAF → max ~60 updates/sec) ────
-  const pendingEventsRef = useRef<EventRow[]>([])
+  const pendingEventsRef = useRef<JobEventBuffer>({ events: [], omitted: false })
   const rafIdRef = useRef<number | null>(null)
 
   const flushEvents = useCallback(() => {
     rafIdRef.current = null
     const batch = pendingEventsRef.current
-    if (batch.length === 0) return
-    pendingEventsRef.current = []
-    setEvents((prev) => {
-      const next = [...prev, ...batch]
-      return next.length > 10000 ? next.slice(next.length - 8000) : next
-    })
+    if (batch.events.length === 0) return
+    pendingEventsRef.current = { events: [], omitted: false }
+    setEventBuffer((prev) => retainJobEvents([...prev.events, ...batch.events], prev.omitted || batch.omitted))
   }, [])
+
+  // Keep a hidden modal's pending queue bounded without evicting step markers.
+  const enqueuePending = useCallback((event: EventRow) => {
+    if (!isJobDisplayEvent(event)) return
+    const pending = pendingEventsRef.current
+    pending.events.push(event)
+    if (pending.events.length > 10000) pendingEventsRef.current = retainJobEvents(pending.events, pending.omitted)
+    if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+  }, [flushEvents])
 
   // Cleanup rAF on unmount
   useEffect(() => () => { if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current) }, [])
@@ -135,8 +154,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
         payload: msg.payload as string,
         timestamp: msg.timestamp as string,
       }
-      pendingEventsRef.current.push(eventRow)
-      if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+      enqueuePending(eventRow)
     } else if (msg.type === 'log' && msg.processId === jobId) {
       // Append BOTH stdout and stderr live log frames — matching JobDetailPage's
       // handler. The old stderr-only filter froze live stdout in mission mode
@@ -147,11 +165,13 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
         seq: 0,
         event_type: 'log',
         source: msg.source as string,
-        payload: JSON.stringify({ line: msg.line }),
+        payload: JSON.stringify({
+          line: msg.line,
+          ...(typeof msg.attemptId === 'string' && msg.attemptId.trim() && msg.attemptId.length <= 256 ? { attemptId: msg.attemptId } : {}),
+        }),
         timestamp: msg.timestamp as string,
       }
-      pendingEventsRef.current.push(syntheticEvent)
-      if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+      enqueuePending(syntheticEvent)
     } else if (
       (msg.type === 'job.finalized' && msg.jobId === jobId)
       || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
@@ -172,7 +192,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
         setJob((prev) => prev ? { ...prev, status: matchingJob.status as JobSummary['status'] } : prev)
       }
     }
-  }, [jobId, job, flushEvents, refetchJob])
+  }, [jobId, job, enqueuePending, refetchJob])
 
   useWebSocket(WS_URL, handleMessage)
 
@@ -301,6 +321,12 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
               </Button>
             ) : null}
           />
+        )}
+
+        {eventBuffer.omitted && (
+          <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+            {t('logViewer.retainedTail')}
+          </p>
         )}
 
         {/* Content */}

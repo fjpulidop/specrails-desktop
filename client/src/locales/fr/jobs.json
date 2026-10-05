@@ -308,6 +308,7 @@
     "filterPlaceholder": "Filtrer les logs…",
     "copySuccess": "Log copié dans le presse-papiers",
     "copyFailed": "Échec de la copie du log",
+    "retainedTail": "Les premières lignes du journal ont été omises de cette vue. La copie contient uniquement la vue conservée. Consultez Détails pour les preuves de vérification disponibles.",
     "lineCount": "{{filtered}} / {{total}} lignes",
     "jumpToBottom": "Aller en bas",
     "phaseLines_one": "{{count}} ligne",

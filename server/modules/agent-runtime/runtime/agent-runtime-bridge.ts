@@ -1,7 +1,7 @@
 import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
-import { stripVTControlCharacters } from 'node:util'
+import { createVerificationLogProjection } from './agent-runtime-verification-log'
 import { bindWorkflowRoleDefaults, bindWorkflowRoleSelections, fillDefaultRoleModels, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -80,40 +80,6 @@ function requiresConfiguredChecks(value: unknown): boolean {
     || Object.values(body.components ?? {}).some(requiresConfiguredChecks)
 }
 
-/** Keep TAP failure diagnostics and totals in the readable log. The unfiltered
- * event stream remains available as runtime evidence. State is invocation-local. */
-function verificationLogFilter(): (text: string) => string {
-  const streams = new Map<string, { tap: boolean; failed: boolean; yaml: boolean; inputLines: number | null }>()
-  return text => stripVTControlCharacters(text).split(/(?<=\n)/).flatMap(line => {
-    const match = line.match(/^(\[verification [^\]]+\] )?(.*?)(?:\n)?$/)
-    if (!match) return [line]
-    const key = match[1] ?? '', body = match[2].trim()
-    const state = streams.get(key) ?? { tap: false, failed: false, yaml: false, inputLines: null }
-    streams.set(key, state)
-    if (/AssertionError\b.*\bInput:\s*$/.test(body)) state.inputLines = 0
-    else if (state.inputLines !== null) {
-      // Node prints assert.match's entire source input as quoted concatenation
-      // lines. Bound only that block; stacks, expected values and other streams
-      // remain visible and original events remain intact.
-      if (/^["'`]/.test(body)) {
-        state.inputLines++
-        if (state.inputLines > 2) return state.inputLines === 3 ? [key + '[Assertion input shortened; inspect raw evidence]\n'] : []
-      } else if (!body) return []
-      else state.inputLines = null
-    }
-    if (/^[✔✓]\s/.test(body)) return []
-    if (/^[✖✗]\s/.test(body)) { state.failed = true; return [line] }
-    if (/^TAP version |^# Subtest:/.test(body)) { state.tap = true; return [] }
-    if (/^(?:not )?ok \d+\b/.test(body)) { state.tap = true; state.failed = body.startsWith('not ok'); state.yaml = false; return state.failed ? [line] : [] }
-    if (!state.tap) return [line]
-    if (body === '---') { state.yaml = true; return state.failed ? [line] : [] }
-    if (body === '...') { state.yaml = false; return state.failed ? [line] : [] }
-    if (state.yaml) return state.failed ? [line] : []
-    if (/^1\.\.\d+$/.test(body) || !body) return []
-    return [line]
-  }).map(line => line.length > 2_000 ? line.slice(0, 1_900) + '\n[Long diagnostic line shortened; inspect raw evidence]\n' : line).join('')
-}
-
 export const RUNTIME_HOST_ENV_KEYS = [
   'SPECRAILS_REPO_DIR', 'SPECRAILS_GIT_AUTO', 'SPECRAILS_REPO_MAP_PATH',
   'SPECRAILS_EXECUTION_CONTEXT', 'SPECRAILS_EXECUTION_MANIFEST', 'SPECRAILS_REPOSITORIES',
@@ -174,7 +140,7 @@ export interface AgentRuntimeInvocationOptions {
   /** Durable projection errors abort observation; ordinary log callbacks remain advisory. */
   onRuntimeEvent?(event: Record<string, unknown>): void
   timeoutMs?: number
-  onLine?: (line: string, source?: 'stdout' | 'stderr') => void
+  onLine?: (line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }) => void
   onRawLine?: (line: string) => void
   onSpawn?: (child: ChildProcess) => void
 }
@@ -312,7 +278,12 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (child.pid) treeKillSafe(child.pid, 'SIGKILL')
     }
     const observe = (callback: (() => void) | undefined): void => { try { callback?.() } catch { /* Logging cannot replay a workflow. */ } }
-    const readableVerification = verificationLogFilter()
+    const readableVerification = createVerificationLogProjection()
+    const readableLines = (lines: ReturnType<typeof readableVerification.project>): void => {
+      for (const line of lines) observe(() => line.attemptId
+        ? options.onLine?.(line.text, 'stdout', { attemptId: line.attemptId })
+        : options.onLine?.(line.text))
+    }
     const lines = createInterface({ input: child.stdout! })
     lines.on('line', line => {
       if (line.length > 2_000_000) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
@@ -324,6 +295,9 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         if (repositories.length) event.repositories = repositories.map(repo => ({ id: repo.id, name: repo.name || repo.id }))
       }
       if (definitionEngine && ((typeof event.runId === 'string' && event.runId !== admittedContext.runId) || (event.type === 'workflow-event' && (event.event as { runId?: unknown })?.runId !== admittedContext.runId))) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
+      const boundary = event.type === 'workflow-event' || event.type === 'runtime-result'
+      // Flush buffered output before the projection advances the current step.
+      if (boundary) readableLines(readableVerification.project(event))
       try { options.onRuntimeEvent?.(event) } catch (error) {
         observerError = error instanceof Error ? error.message : String(error)
         if (child.pid) treeKillSafe(child.pid, 'SIGKILL')
@@ -331,6 +305,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       }
       if (event.type === 'runtime-graph') graph = event
       observe(() => options.onRawLine?.(event.repositories ? JSON.stringify(event) : line))
+      if (!boundary) readableLines(readableVerification.project(event))
       if (event.type === 'runtime-result') {
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
@@ -358,9 +333,6 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           const scope = repositories?.length ? ` [${repositories.map(repo => repo.name).join(' + ')}]` : ''
           observe(() => options.onLine?.(`[${role}]${scope} ${payload.tool}${payload.detail ? ' ' + payload.detail : ''}\n`))
         }
-      } else if (event.type === 'verification-output' && typeof event.text === 'string') {
-        const readable = readableVerification(String(event.text))
-        if (readable) observe(() => options.onLine?.(readable))
       } else if (event.type === 'span') {
         // Trace spans are telemetry; the raw line is already recorded for diagnostics.
       }
@@ -380,6 +352,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     child.on('close', code => {
       if (timer) clearTimeout(timer)
       lines.close()
+      readableLines(readableVerification.flush())
       const usage = result?.invocationUsage
       const known = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
       const cost = known(usage?.costUsd), tokensIn = known(usage?.inputTokens), tokensOut = known(usage?.outputTokens)

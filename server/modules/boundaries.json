@@ -98,14 +98,14 @@
         "./agent-runtime-package",
         "./agent-runtime-repositories",
         "./agent-runtime-settings",
+        "./agent-runtime-verification-log",
         "./agent-runtime-verification-suggestions",
         "node:child_process",
         "node:crypto",
         "node:fs",
         "node:os",
         "node:path",
-        "node:readline",
-        "node:util"
+        "node:readline"
       ],
       "runtime/agent-runtime-controls-router.ts": [
         "../../../project-router-helpers",
@@ -257,6 +257,9 @@
         "../../delivery/runtime/rail-pr-store",
         "node:crypto",
         "node:fs"
+      ],
+      "runtime/agent-runtime-verification-log.ts": [
+        "node:util"
       ],
       "runtime/agent-runtime-verification-suggestions.ts": [
         "node:fs",

@@ -147,6 +147,33 @@ One chip per graph node, states `pending → running → ok / failed / interrupt
 - **Filtering** searches every section: while the filter is non-empty, all sections are treated as expanded; clearing it restores the previous mode.
 - **Copy**: each step header carries its own copy button (per-step lines only; the control lives outside the toggle so the header stays a valid button), and the toolbar copy grabs the whole log with `── Step N · title ──` separators.
 
+### Verbose verification and retained display
+
+Desktop compacts verification output before publishing readable log lines. Passing
+cases and repeated console stacks no longer flood the rail; bounded diagnostic
+context, final test totals and recorded command outcomes remain visible. Omission
+notices distinguish a concise display from the original runtime evidence. This
+changes presentation only, including when tests print warnings or errors but exit
+successfully; recorded exit codes and workflow completion remain authoritative.
+
+Both job detail surfaces omit invisible raw `verification-output` events from
+their in-memory display buffer and preserve lifecycle markers when bounding
+ordinary output. A translated notice indicates when earlier readable output was
+removed and that Copy contains only the retained view. Initial history and live
+updates use the same retention rules. Persisted events are unchanged.
+
+For detailed verification output, expand **Details → Verification evidence** and
+open a check's stdout or stderr, using the next-page control as needed. These are
+the retained Core artifacts: currently up to 1 MiB per stream, with truncation
+reported explicitly. They follow the configured runtime retention policy and are
+not an unlimited archive. Compaction does not rewrite historical logs in storage.
+
+Readable runtime lines preserve an optional recorded `attemptId` in both stored
+log payloads and live WebSocket frames. The existing attempt map uses it to attach
+buffered verification summaries to their originating step, including parallel
+attempts. Older lines without that identity retain their existing arrival-order
+fallback; Desktop does not invent an attempt ID.
+
 ## Performance
 
 - **Collapsed sections render nothing** — the body subtree is not mounted, so a 10k-line settled step costs one header row.

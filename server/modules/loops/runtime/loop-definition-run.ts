@@ -43,7 +43,7 @@ export interface DefinitionLoopInvocation {
   answer?: string
   approve?: string[]
   interruptId?: string
-  onLine(line: string, source?: 'stdout' | 'stderr'): void
+  onLine(line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }): void
   onRuntimeEvent(event: Record<string, unknown>): void
   onSpawn(child: ChildProcess): void
   timeoutMs?: number
@@ -55,7 +55,7 @@ export interface DefinitionLoopExecutionPorts {
   invoke(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
   isCancelled(): boolean
   remainingMs(): number | undefined
-  onLine(line: string, source?: 'stdout' | 'stderr'): void
+  onLine(line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }): void
   onRuntimeEvent(event: Record<string, unknown>): void
   onSpawn(child: ChildProcess): void
   onPrepared?(metadata: DefinitionPrepared): void

@@ -316,6 +316,13 @@ describe('agent runtime lifecycle', () => {
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'runtime.continuation', jobId: 'run-1', active: true }))
     execute.mock.calls[0][0].onLine('Developer resumed\n')
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', processId: 'run-1', line: 'Developer resumed\n' }))
+    execute.mock.calls[0][0].onLine('Delayed verification summary\n', 'stdout', { attemptId: 'verify-a' })
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', processId: 'run-1', line: 'Delayed verification summary\n', attemptId: 'verify-a' }))
+    const attributed = db.prepare("SELECT payload FROM events WHERE event_type='log' AND json_extract(payload,'$.attemptId')='verify-a'").get() as { payload: string }
+    expect(JSON.parse(attributed.payload)).toEqual({ line: 'Delayed verification summary', attemptId: 'verify-a' })
+    execute.mock.calls[0][0].onLine('Legacy summary\n', 'stdout', { attemptId: 'x'.repeat(257) })
+    const legacy = db.prepare("SELECT payload FROM events WHERE event_type='log' AND json_extract(payload,'$.line')='Legacy summary'").get() as { payload: string }
+    expect(JSON.parse(legacy.payload)).toEqual({ line: 'Legacy summary' })
     execute.mock.calls[0][0].onRawLine(JSON.stringify({ type: 'workflow-event', event: { type: 'step_started', stepId: 'developer' } }))
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'event', jobId: 'run-1', event_type: 'workflow-event' }))
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ contextPath, cwd: directory, resume: true, approve: ['archive'] }))

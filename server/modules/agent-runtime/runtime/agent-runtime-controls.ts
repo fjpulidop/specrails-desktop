@@ -507,10 +507,12 @@ export class AgentRuntimeControls {
         loopDurationBaseline: previous.total_duration_ms, completedDurationMs: 0,
         iterationCount: previous.iteration_count, activeTurnStartedAtMs: startedAtMs, lastActivityAtMs: startedAtMs,
       })
-      const logLine = (line: string, source: 'stdout' | 'stderr' = 'stdout'): void => {
+      const logLine = (line: string, source: 'stdout' | 'stderr' = 'stdout', metadata?: { attemptId?: string }): void => {
         if (this.disposed) return
-        try { appendEvent(this.ctx.db, runId, ++sequence, { event_type: 'log', source, payload: JSON.stringify({ line: line.replace(/\n$/, '') }) }) } catch { /* events table best-effort */ }
-        try { this.ctx.broadcast?.({ type: 'log', source, line, timestamp: new Date().toISOString(), processId: runId }) } catch { /* persisted log remains authoritative */ }
+        const attemptId = metadata?.attemptId
+        const attribution = typeof attemptId === 'string' && attemptId.trim() && attemptId.length <= 256 ? { attemptId } : {}
+        try { appendEvent(this.ctx.db, runId, ++sequence, { event_type: 'log', source, payload: JSON.stringify({ line: line.replace(/\n$/, ''), ...attribution }) }) } catch { /* events table best-effort */ }
+        try { this.ctx.broadcast?.({ type: 'log', source, line, timestamp: new Date().toISOString(), processId: runId, ...attribution }) } catch { /* persisted log remains authoritative */ }
       }
       if (parent.rail_index != null) this.ctx.railLoopRuns?.set(runId, { railIndex: parent.rail_index, ticketIds, requiresTerminalIntent: true })
       const publishActivity = (running: boolean) => {
