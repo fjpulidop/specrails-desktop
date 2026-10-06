@@ -1394,8 +1394,7 @@
         "node:crypto"
       ],
       "runtime/loop-agents.ts": [
-        "../../agent-runtime/runtime/agent-runtime-settings",
-        "./loop-agent-defaults.json"
+        "../../agent-runtime/runtime/agent-runtime-settings"
       ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
@@ -1490,6 +1489,7 @@
         "./loop-agents"
       ],
       "runtime/loop-implement-recipe.ts": [
+        "../../agent-runtime/runtime/agent-runtime-settings",
         "./loop-agents",
         "./loop-graph"
       ],

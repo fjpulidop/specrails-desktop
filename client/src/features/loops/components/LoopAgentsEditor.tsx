@@ -27,6 +27,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
   const [providers, setProviders] = useState<RuntimeProvider[]>([])
   const [models, setModels] = useState<Record<string, string[]>>({})
   const [defaults, setDefaults] = useState<LoopAgentConfig>()
+  const [coreDefinitions, setCoreDefinitions] = useState<Record<string, string> | null>(null)
   const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
   const [showUnused, setShowUnused] = useState(false)
@@ -43,7 +44,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
       return response.json()
     }))).then(([connections, factory]) => {
       if (controller.signal.aborted) return
-      setProviders(connections.providers ?? []); setDefaults(factory.agents)
+      setProviders(connections.providers ?? []); setDefaults(factory.agents); setCoreDefinitions(factory.rolePromptDefaults ?? null)
       setModels(Object.fromEntries(Object.entries(connections.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])))
     }).catch(() => { if (!controller.signal.aborted) setError(t('loadFailed')) })
     return () => controller.abort()
@@ -102,8 +103,14 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
       {showAgents && builtinRoles.filter(role => !visibleRoles || visibleRoles.includes(role)).map(role => <details key={role} open={selectedRole === role} className="rounded-md border border-border p-2">
         <summary className="cursor-pointer text-sm font-medium">{role}</summary>
         <div className="mt-3 space-y-3">{engine(role)}
-          <label className="block text-xs">{t('customRoles.prompt')}<textarea className={field} rows={10} maxLength={20000} value={value.rolePrompts?.[role] ?? ''} onChange={event => onChange({ ...value, rolePrompts: { ...value.rolePrompts, [role]: event.target.value } })} /></label>
-          <Button size="sm" variant="ghost" disabled={!defaults} onClick={() => onChange({ ...value, rolePrompts: { ...value.rolePrompts, [role]: defaults?.rolePrompts?.[role] ?? '' } })}>{t('loopAgents.restoreDefinition')}</Button>
+          {value.rolePrompts?.[role] === 'inherit' ? <>
+            <p className="text-xs text-muted-foreground">{t('loopAgents.inheritDefinition')}</p>
+            <textarea readOnly aria-label={t('customRoles.prompt')} className={`${field} opacity-80`} rows={8} value={coreDefinitions?.[role] ?? t('loopAgents.coreDefinitionUnavailable')} />
+            <Button size="sm" variant="ghost" disabled={!coreDefinitions?.[role]} onClick={() => onChange({ ...value, rolePrompts: { ...value.rolePrompts, [role]: coreDefinitions?.[role] ?? '' } })}>{t('loopAgents.customizeDefinition')}</Button>
+          </> : <>
+            <label className="block text-xs">{t('customRoles.prompt')}<textarea className={field} rows={10} maxLength={20000} value={value.rolePrompts?.[role] ?? ''} onChange={event => onChange({ ...value, rolePrompts: { ...value.rolePrompts, [role]: event.target.value } })} /></label>
+            <Button size="sm" variant="ghost" onClick={() => onChange({ ...value, rolePrompts: { ...value.rolePrompts, [role]: 'inherit' } })}>{t('loopAgents.restoreDefinition')}</Button>
+          </>}
         </div>
       </details>)}
       {mode === 'step' && selectedRole && ![...builtinRoles, 'archive', 'verify'].includes(selectedRole) && !value.roles?.[selectedRole] && <Button size="sm" disabled={!providers.length} onClick={() => onChange({ ...value, roles: { ...value.roles, [selectedRole]: { provider: 'inherit', access: 'read', artifacts: 'none' } } })}>{t('customRoles.add')}</Button>}

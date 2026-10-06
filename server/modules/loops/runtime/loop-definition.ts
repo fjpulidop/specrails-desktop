@@ -132,7 +132,7 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
         }
       }
       if (kind === 'prompt' && graph.config.agents) {
-        const definition = graph.config.agents.rolePrompts?.[promptRole]?.replaceAll('{{', '{{{{')
+        const definition = agents?.rolePrompts?.[promptRole]?.replaceAll('{{', '{{{{')
         if (definition) {
           if (object(params.nativeCommand)) params.nativeCommand = { ...params.nativeCommand, args: String(params.nativeCommand.args ?? '') + '\n\nLoop agent definition:\n' + definition }
           else if (typeof params.text === 'string') params.text = definition + '\n\n' + params.text
