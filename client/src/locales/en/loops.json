@@ -315,7 +315,22 @@
     "approveContinue": "Approve and continue",
     "paused": "Paused",
     "acceptance": "Acceptance",
-    "verified": "Verified"
+    "verified": "Verified",
+    "hostBlocked": "Blocked by the host environment",
+    "blockerKind": {
+      "network": "Network",
+      "credential": "Credentials",
+      "environment-variable": "Environment variable",
+      "toolchain": "Toolchain",
+      "setup": "Setup command",
+      "environment": "Environment",
+      "scope": "Out of scope"
+    },
+    "failingCommand": "Failing command",
+    "inDirectory": "in {{cwd}}",
+    "requiredAction": "Required action",
+    "copyCommand": "Copy command",
+    "copiedCommand": "Copied"
   },
   "conversion": {
     "title": "Convert {{name}} to Core",

@@ -150,6 +150,19 @@
     "moveUp": "Sposta su",
     "moveDown": "Sposta giù"
   },
+  "setup": {
+    "title": "Comandi di preparazione",
+    "hint": "Comandi idempotenti che Core esegue prima di ogni verifica, nel checkout del repository (per esempio `npx playwright install chromium`).",
+    "add": "Aggiungi comando di preparazione",
+    "invalidLine": "Il comando di preparazione è vuoto o ha una virgoletta non chiusa: {{line}}",
+    "repository": "Repository",
+    "command": "Comando di preparazione",
+    "label": "Etichetta di preparazione (facoltativa)",
+    "remove": "Rimuovi",
+    "moveUp": "Sposta su il comando di preparazione",
+    "moveDown": "Sposta giù il comando di preparazione",
+    "empty": "Nessun comando di preparazione. La verifica viene eseguita direttamente nel checkout."
+  },
   "runs": {
     "title": "Esecuzioni salvate",
     "refresh": "Aggiorna",

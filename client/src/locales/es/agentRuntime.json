@@ -150,6 +150,19 @@
     "moveUp": "Subir",
     "moveDown": "Bajar"
   },
+  "setup": {
+    "title": "Comandos de preparación",
+    "hint": "Comandos idempotentes que Core ejecuta antes de cada verificación, en el checkout del repositorio (por ejemplo `npx playwright install chromium`).",
+    "add": "Añadir comando de preparación",
+    "invalidLine": "El comando de preparación está vacío o tiene una comilla sin cerrar: {{line}}",
+    "repository": "Repositorio",
+    "command": "Comando de preparación",
+    "label": "Etiqueta de preparación (opcional)",
+    "remove": "Quitar",
+    "moveUp": "Subir comando de preparación",
+    "moveDown": "Bajar comando de preparación",
+    "empty": "Sin comandos de preparación. La verificación se ejecuta directamente en el checkout."
+  },
   "runs": {
     "title": "Ejecuciones guardadas",
     "refresh": "Actualizar",

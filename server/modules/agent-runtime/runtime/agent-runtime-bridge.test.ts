@@ -4,8 +4,8 @@ import { readRuntimeHistory } from './agent-runtime-history'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[] }))
-vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {} }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
+const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[], capabilities: {} as Record<string, number> }))
+vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: { ...(fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {}), ...fixture.capabilities } }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
 vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
@@ -19,7 +19,7 @@ beforeEach(() => {
   mkdirSync(join(root, 'state'))
   writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front' }] }))
   writeFileSync(join(root, 'config.json'), JSON.stringify({ schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }], agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } }, verification: [{ repositoryId: 'front', command: 'npm', args: ['test'] }, { repositoryId: 'back', command: './mvnw', args: ['test'] }] }))
-  fixture.v2 = false; fixture.invalid = false; fixture.validation = []
+  fixture.v2 = false; fixture.invalid = false; fixture.validation = []; fixture.capabilities = {}
   fixture.cli = join(root, 'cli.mjs')
 })
 afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null })
@@ -104,6 +104,29 @@ describe('definition verification admission', () => {
     writeFileSync(join(root, 'studio', 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }))
     await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition })
     expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8')).verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['run', 'custom'], cwd: 'studio' }])
+  })
+
+  it('forwards setup commands, scoped like checks, only when Core advertises setupCommands', async () => {
+    setup([{ repositoryId: 'front', command: 'npm', args: ['test'] }])
+    const config = JSON.parse(readFileSync(options().configPath, 'utf8'))
+    config.setup = [{ repositoryId: 'front', command: 'npx', args: ['playwright', 'install', 'chromium'] }, { repositoryId: 'elsewhere', command: 'true', args: [] }]
+    writeFileSync(options().configPath, JSON.stringify(config))
+    writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front', scope: ['apps/web'] }] }))
+    const frozen = () => JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8'))
+
+    fixture.capabilities = { setupCommands: 1 }
+    const supported = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: supported })
+    expect(frozen().setup).toEqual([{ repositoryId: 'front', command: 'npx', args: ['playwright', 'install', 'chromium'], cwd: 'apps/web' }])
+    expect(supported.mock.calls.map(call => call[0]).join('')).not.toContain('setup commands ignored')
+
+    fixture.capabilities = {}
+    rmSync(join(root, 'state', 'desktop-runtime-config.json'), { force: true })
+    const unsupported = vi.fn()
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onLine: unsupported })
+    expect(frozen()).not.toHaveProperty('setup')
+    expect(frozen().verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'], cwd: 'apps/web' }])
+    expect(unsupported.mock.calls.map(call => call[0]).join('')).toContain('[runtime] setup commands ignored: the installed Core does not advertise setupCommands (1 configured)')
   })
 
   it('allows workflows that supply verification proposals later', async () => {

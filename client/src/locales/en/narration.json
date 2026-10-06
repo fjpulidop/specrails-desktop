@@ -71,7 +71,8 @@
       "archive": "Archiving the reviewed change",
       "stopped": "The runtime stopped: {{target}}",
       "corrections": "Continuing the remaining tasks (developer)",
-      "resumed": "Resuming the saved execution"
+      "resumed": "Resuming the saved execution",
+      "blocked": "The host environment blocked the run: {{target}}"
     },
     "check": {
       "started": "Checking {{target}}",

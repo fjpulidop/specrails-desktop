@@ -71,7 +71,8 @@
       "archive": "Archiviazione della modifica revisionata",
       "stopped": "Il motore si è fermato: {{target}}",
       "corrections": "Prosecuzione delle attività rimanenti (sviluppatore)",
-      "resumed": "Ripresa dell’esecuzione salvata"
+      "resumed": "Ripresa dell’esecuzione salvata",
+      "blocked": "L'ambiente host ha bloccato l'esecuzione: {{target}}"
     },
     "check": {
       "started": "Verifica di {{target}}",

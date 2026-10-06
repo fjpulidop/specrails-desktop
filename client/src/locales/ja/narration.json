@@ -71,7 +71,8 @@
       "archive": "レビュー済みの変更をアーカイブ中",
       "stopped": "実行エンジンが停止しました: {{target}}",
       "corrections": "残りのタスクを続行中（開発者）",
-      "resumed": "保存した実行を再開しています"
+      "resumed": "保存した実行を再開しています",
+      "blocked": "ホスト環境が実行をブロックしました: {{target}}"
     },
     "check": {
       "started": "{{target}} を検証中",

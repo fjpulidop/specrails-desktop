@@ -150,6 +150,19 @@
     "moveUp": "Nach oben",
     "moveDown": "Nach unten"
   },
+  "setup": {
+    "title": "Setup-Befehle",
+    "hint": "Idempotente Befehle, die Core vor jeder Verifikation im Repository-Checkout ausführt (zum Beispiel `npx playwright install chromium`).",
+    "add": "Setup-Befehl hinzufügen",
+    "invalidLine": "Der Setup-Befehl ist leer oder hat ein nicht geschlossenes Anführungszeichen: {{line}}",
+    "repository": "Repository",
+    "command": "Setup-Befehl",
+    "label": "Setup-Bezeichnung (optional)",
+    "remove": "Entfernen",
+    "moveUp": "Setup-Befehl nach oben",
+    "moveDown": "Setup-Befehl nach unten",
+    "empty": "Keine Setup-Befehle. Die Verifikation läuft direkt im Checkout."
+  },
   "runs": {
     "title": "Gespeicherte Ausführungen",
     "refresh": "Aktualisieren",

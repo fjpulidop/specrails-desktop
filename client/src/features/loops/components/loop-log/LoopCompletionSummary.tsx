@@ -1,5 +1,42 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { LoopCompletion } from './completion-model'
+import { Check, Copy, ShieldAlert } from 'lucide-react'
+import { blockerCommandLine, type LoopCompletion, type LoopHostBlocker } from './completion-model'
+
+/** Premium blocked state: the host could not satisfy a precondition, so the run stopped before any correction round. */
+function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
+  const { t } = useTranslation('loops')
+  const [copied, setCopied] = useState(false)
+  const command = blockerCommandLine(blocker)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard unavailable — subtle, non-critical control
+    }
+  }
+  return <div data-testid="loop-completion-blocker" className="rounded-md border border-accent-warning/40 bg-accent-warning/5 px-3 py-2.5 space-y-1.5">
+    <p className="flex items-center gap-1.5 font-medium text-accent-warning">
+      <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>{t('core.hostBlocked')}</span>
+      <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
+    </p>
+    {blocker.reason && <p className="text-foreground/80">{blocker.reason}</p>}
+    {command && <div className="min-w-0">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">{t('core.failingCommand')}</span>
+        <button type="button" onClick={() => void copy()} aria-label={t('core.copyCommand')} title={t('core.copyCommand')} className="p-0.5 text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer">
+          {copied ? <Check className="h-2.5 w-2.5 text-accent-success" /> : <Copy className="h-2.5 w-2.5" />}
+        </button>
+        {copied && <span className="text-[9px] text-accent-success">{t('core.copiedCommand')}</span>}
+      </div>
+      <pre className="mt-0.5 font-mono text-[10px] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+    </div>}
+    <p><span className="font-medium">{t('core.requiredAction')}:</span> {blocker.requiredAction}</p>
+  </div>
+}
 
 export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
   const { t } = useTranslation('jobs')
@@ -11,7 +48,7 @@ export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
     {result.completion ? <div className="space-y-1">
       <p className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</p>
       <p>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</p>
-      {result.completion.reasons.map((reason,index) => <p key={index} className="text-foreground/70">{reason}</p>)}
+      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons.map((reason,index) => <p key={index} className="text-foreground/70">{reason}</p>)}
     </div> : core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>

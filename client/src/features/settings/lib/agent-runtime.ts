@@ -116,6 +116,8 @@ export interface AgentRuntimeConfig {
   fixer?: RuntimeAgent
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
   verification: RuntimeVerificationCommand[]
+  /** Idempotent commands Core runs in the repository checkout before every verification (same entry shape). The API answers it as an array; older saves may omit it. */
+  setup?: RuntimeVerificationCommand[]
   approvalBeforeArchive?: boolean
   review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
   architect?: { onLowConfidence?: ArchitectLowConfidencePolicy }
@@ -199,7 +201,7 @@ export function isAgentRuntimeSettingsResponse(value: unknown): value is AgentRu
   return typeof data.configured === 'boolean' && typeof data.runtimeAvailable === 'boolean' &&
     config?.schemaVersion === 1 && typeof config.enabled === 'boolean' &&
     Array.isArray(config.providers) && config.providers.every((provider) => provider && typeof provider.id === 'string' && ['cli', 'openai-compatible'].includes(provider.kind)) &&
-    Array.isArray(config.verification) && Boolean(config.agents) &&
+    Array.isArray(config.verification) && (config.setup === undefined || Array.isArray(config.setup)) && Boolean(config.agents) &&
     RUNTIME_ROLES.every((role) => typeof config.agents[role]?.provider === 'string') &&
     (config.roles === undefined || (config.roles !== null && typeof config.roles === 'object' && !Array.isArray(config.roles) && Object.entries(config.roles).every(([id, role]) => CUSTOM_ROLE_ID.test(id) && id !== 'fixer' && role && typeof role.provider === 'string' && ['read', 'write'].includes(role.access) && ['none', 'tasks-checkboxes', 'all'].includes(role.artifacts))))
 }

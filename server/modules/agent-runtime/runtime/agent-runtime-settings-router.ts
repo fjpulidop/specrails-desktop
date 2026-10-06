@@ -20,6 +20,11 @@ function withDefaultRoleModels(body: Record<string, unknown>): Record<string, un
 }
 import { LoopRoleEnginesError, loadLoopRoleEngines, saveLoopRoleEngines, validateLoopRoleEngines } from '../../loops/runtime/loop-role-engines'
 
+/** The settings API always answers `setup` as an array; the file keeps it absent until the user saves one. */
+function withSetupList<T extends { setup?: unknown[] } | null>(config: T): T {
+  return config ? { ...config, setup: config.setup ?? [] } : config
+}
+
 export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<ProjectRoutesDeps, 'router' | 'ctx'>): void {
   /** Guardrail catalog of the loaded Core (configurable-guardrails): ids + phase; the UI owns labels. `supported:false` on older cores. */
   router.get('/:projectId/agent-runtime/guardrails', async (_req, res) => {
@@ -53,7 +58,7 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
       const config = loadAgentRuntimeConfig(project)
       let efficiencyAvailable = false, openRolesAvailable = false
       try { const capabilities = (await loadCoreAgentRuntime()).api?.capabilities; efficiencyAvailable = capabilities?.efficientRoleExecution === 1; openRolesAvailable = capabilities?.openRoles === 1 } catch { /* Ordinary settings remain readable without capability support. */ }
-      res.json({ configured, config, runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable, openRolesAvailable,
+      res.json({ configured, config: withSetupList(config), runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable, openRolesAvailable,
         workflowRoleDefaults: openRolesAvailable && config ? workflowRoleDefaults(config) : {} })
     } catch (err) {
       const validation = err instanceof AgentRuntimeConfigError
@@ -112,7 +117,7 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
         }
       }
       const saved = saveAgentRuntimeConfig(ctx(req).project, config)
-      res.json({ configured: true, config: saved, runtimeAvailable, efficiencyAvailable, openRolesAvailable })
+      res.json({ configured: true, config: withSetupList(saved), runtimeAvailable, efficiencyAvailable, openRolesAvailable })
     } catch (err) {
       const validation = err instanceof AgentRuntimeConfigError
       res.status(validation ? 400 : 500).json({ error: validation ? 'invalid_runtime_config' : 'runtime_config_write_failed', message: validation ? err.message : 'Could not save runtime configuration' })

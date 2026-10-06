@@ -71,7 +71,8 @@
       "archive": "Archivage du changement relu",
       "stopped": "Le moteur s’est arrêté : {{target}}",
       "corrections": "Poursuite des tâches restantes (développeur)",
-      "resumed": "Reprise de l’exécution enregistrée"
+      "resumed": "Reprise de l’exécution enregistrée",
+      "blocked": "L'environnement hôte a bloqué l'exécution : {{target}}"
     },
     "check": {
       "started": "Vérification de {{target}}",

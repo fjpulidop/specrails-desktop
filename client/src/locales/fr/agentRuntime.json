@@ -150,6 +150,19 @@
     "moveUp": "Monter",
     "moveDown": "Descendre"
   },
+  "setup": {
+    "title": "Commandes de préparation",
+    "hint": "Commandes idempotentes que Core exécute avant chaque vérification, dans le checkout du dépôt (par exemple `npx playwright install chromium`).",
+    "add": "Ajouter une commande de préparation",
+    "invalidLine": "La commande de préparation est vide ou contient un guillemet non fermé : {{line}}",
+    "repository": "Dépôt",
+    "command": "Commande de préparation",
+    "label": "Libellé de préparation (facultatif)",
+    "remove": "Retirer",
+    "moveUp": "Monter la commande de préparation",
+    "moveDown": "Descendre la commande de préparation",
+    "empty": "Aucune commande de préparation. La vérification s'exécute directement dans le checkout."
+  },
   "runs": {
     "title": "Exécutions enregistrées",
     "refresh": "Actualiser",

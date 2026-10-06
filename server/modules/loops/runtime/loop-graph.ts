@@ -18,6 +18,12 @@ export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', '
 export type CoreNodeKind = typeof CORE_NODE_KINDS[number]
 export interface CorePieceShape { kind: string; outcomes: readonly string[] }
 
+/** Mirror of Core's `getOutcomes(params)`: `verify` advertises `blocked` only when the node opts into host blockers. */
+export function effectivePieceOutcomes(descriptor: CorePieceShape, params: Record<string, unknown> | undefined): readonly string[] {
+  if (descriptor.kind === 'verify' && params?.hostBlockers !== true) return descriptor.outcomes.filter(outcome => outcome !== 'blocked')
+  return descriptor.outcomes
+}
+
 /** Boolean join carried on an edge leaving a `condition` node. */
 export type LoopJoin = 'AND' | 'OR'
 
@@ -321,7 +327,7 @@ export function validateLoopGraph(graph: LoopGraph, catalog?: readonly CorePiece
       const labels = new Set<string>()
       for (const edge of out) {
         if (typeof edge.label !== 'string' || !/^[a-z][a-z0-9-]{0,31}$/.test(edge.label) || labels.has(edge.label) ||
-          (descriptor && !descriptor.outcomes.includes(edge.label))) {
+          (descriptor && !effectivePieceOutcomes(descriptor, node.data?.params).includes(edge.label))) {
           errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, edgeId: edge.id, message: 'Core outcome edges need unique labels advertised by the piece.' })
         }
         if (edge.label) labels.add(edge.label)

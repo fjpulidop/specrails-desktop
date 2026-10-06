@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateLoopGraph,
+  effectivePieceOutcomes,
   emptyLoopGraph,
   nodesById,
   findStartNode,
@@ -322,5 +323,33 @@ describe('interpolateSpec', () => {
     expect(JSON.parse(result).description).toBe(description)
     expect(interpolateSpec('{{spec.scope}}', undefined)).toBe('')
     expect(interpolateSpec('{{spec.scope}}', {})).toBe('')
+  })
+})
+
+describe('verify piece outcomes (host blockers opt-in)', () => {
+  const catalog = [{ kind: 'verify', outcomes: ['pass', 'fail', 'failed', 'blocked'] }]
+  const graph = (params: Record<string, unknown>): LoopGraph => ({
+    nodes: [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'check', type: 'core', position: { x: 0, y: 1 }, data: { kind: 'verify', params } },
+      { id: 'done', type: 'end', position: { x: 0, y: 2 }, data: { outcome: 'success' } },
+      { id: 'failed', type: 'end', position: { x: 1, y: 2 }, data: { outcome: 'failure' } },
+    ],
+    edges: [
+      { id: 'e-start', source: 'start', target: 'check' },
+      { id: 'e-pass', source: 'check', target: 'done', label: 'pass' },
+      { id: 'e-fail', source: 'check', target: 'failed', label: 'fail' },
+      { id: 'e-blocked', source: 'check', target: 'failed', label: 'blocked' },
+    ],
+    config: { maxIterations: 1, timeoutMinutes: 0 },
+  })
+  it('accepts a blocked edge only when the node sets hostBlockers: true', () => {
+    expect(validateLoopGraph(graph({ commands: 'configured', hostBlockers: true }), catalog).valid).toBe(true)
+    expect(validateLoopGraph(graph({ commands: 'configured' }), catalog).errors).toContainEqual(expect.objectContaining({ code: 'INVALID_BRANCH', edgeId: 'e-blocked' }))
+  })
+  it('mirrors Core getOutcomes for the catalog helper', () => {
+    expect(effectivePieceOutcomes(catalog[0], { hostBlockers: true })).toEqual(['pass', 'fail', 'failed', 'blocked'])
+    expect(effectivePieceOutcomes(catalog[0], undefined)).toEqual(['pass', 'fail', 'failed'])
+    expect(effectivePieceOutcomes({ kind: 'shell', outcomes: ['next', 'failed'] }, {})).toEqual(['next', 'failed'])
   })
 })

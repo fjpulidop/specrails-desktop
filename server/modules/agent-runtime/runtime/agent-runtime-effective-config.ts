@@ -70,6 +70,7 @@ export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
   }
   fillDefaultRoleModels(config)
   config.verification = config.verification.filter(check => options.repositoryIds.includes(check.repositoryId))
+  if (config.setup) config.setup = config.setup.filter(check => options.repositoryIds.includes(check.repositoryId))
   return { config, origins: { architect: override ? 'explicit-launch-override' : options.source, developer: override ? 'explicit-launch-override' : options.source, reviewer: override ? 'explicit-launch-override' : options.source } }
 }
 
