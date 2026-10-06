@@ -79,7 +79,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [AgentRoleFields.tsx](../../client/src/features/agents/components/AgentRoleFields.tsx) · [test](../../client/src/features/agents/components/__tests__/AgentRoleFields.test.tsx)
 - [AgentStudio.tsx](../../client/src/features/agents/components/AgentStudio.tsx)
-- [AgentsCatalogTab.tsx](../../client/src/features/agents/components/AgentsCatalogTab.tsx)
+- [AgentsCatalogTab.tsx](../../client/src/features/agents/components/AgentsCatalogTab.tsx) · [test](../../client/src/features/agents/components/__tests__/AgentsCatalogTab.test.tsx)
 - [AiRefineOverlay.tsx](../../client/src/features/agents/components/AiRefineOverlay.tsx)
 - [ProfileAnalyticsCard.tsx](../../client/src/features/agents/components/ProfileAnalyticsCard.tsx)
 - [ProfileEditor.tsx](../../client/src/features/agents/components/ProfileEditor.tsx) · [test](../../client/src/features/agents/components/__tests__/ProfileEditor.test.tsx)

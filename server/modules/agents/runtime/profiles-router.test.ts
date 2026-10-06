@@ -12,6 +12,23 @@ import {
 import type { ProjectContext } from '../../../project-registry'
 import { installConfigPath } from '../../../install-config-path'
 
+// Baseline roles are runtime-defined: the catalog reads their body from the
+// Core runtime (defaults + global overrides), never from `sr-*` files.
+vi.mock('../../agent-runtime/runtime/agent-runtime-loader', async (original) => ({
+  ...await original<typeof import('../../agent-runtime/runtime/agent-runtime-loader')>(),
+  loadCoreAgentRuntime: async () => ({
+    rolePromptDefaults: () => ({
+      architect: 'Runtime architect definition',
+      developer: 'Runtime developer definition',
+      reviewer: 'Runtime reviewer definition',
+    }),
+  }),
+}))
+vi.mock('../../agent-runtime/runtime/agent-runtime-settings', async (original) => ({
+  ...await original<typeof import('../../agent-runtime/runtime/agent-runtime-settings')>(),
+  loadRuntimeRolePrompts: () => ({ reviewer: 'Overridden reviewer definition' }),
+}))
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 let projectPath: string
@@ -540,20 +557,34 @@ describe('GET /profiles/resolve', () => {
 })
 
 describe('GET /profiles/catalog', () => {
-  it('returns empty agents when .claude/agents does not exist', async () => {
+  it('lists the runtime-defined baseline roles when no roles directory exists', async () => {
     const res = await request(app).get('/api/projects/proj-test/profiles/catalog')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ agents: [] })
+    expect(res.body.agents.map((a: { id: string }) => a.id)).toEqual(['sr-architect', 'sr-developer', 'sr-reviewer'])
+    const byId = new Map(res.body.agents.map((a: { id: string }) => [a.id, a]))
+    expect(byId.get('sr-architect')).toMatchObject({
+      kind: 'upstream',
+      roleId: 'architect',
+      body: 'Runtime architect definition',
+      description: expect.stringMatching(/runtime-defined by specrails-core/i),
+    })
+    // Global Settings → Agent runtime overrides win over the Core defaults.
+    expect(byId.get('sr-reviewer')).toMatchObject({ kind: 'upstream', body: 'Overridden reviewer definition' })
+    expect(byId.get('sr-developer')).not.toHaveProperty('model')
+    expect(byId.get('sr-developer')).not.toHaveProperty('runtimeRoleError')
   })
 
-  it('classifies upstream vs custom agents with metadata', async () => {
+  it('keeps custom entries from files and ignores stale sr-* files', async () => {
     writeAgent('sr-architect')
     writeAgent('custom-pentester', 'opus')
     const res = await request(app).get('/api/projects/proj-test/profiles/catalog')
     expect(res.status).toBe(200)
     const byId = new Map(res.body.agents.map((a: { id: string }) => [a.id, a]))
-    expect(byId.get('sr-architect')).toMatchObject({ kind: 'upstream', model: 'sonnet' })
+    expect(res.body.agents.filter((a: { kind: string }) => a.kind === 'upstream')).toHaveLength(3)
+    expect(byId.get('sr-architect')).toMatchObject({ kind: 'upstream', body: 'Runtime architect definition' })
+    expect(byId.get('sr-architect')).not.toHaveProperty('model')
     expect(byId.get('custom-pentester')).toMatchObject({ kind: 'custom', model: 'opus' })
+    expect(byId.get('custom-pentester')).not.toHaveProperty('body')
   })
 })
 
@@ -563,6 +594,12 @@ describe('GET /profiles/catalog/:agentId', () => {
     const res = await request(app).get('/api/projects/proj-test/profiles/catalog/sr-architect')
     expect(res.status).toBe(200)
     expect(res.body.body).toContain('sr-architect')
+  })
+
+  it('serves the Core runtime definition for a baseline role without a file', async () => {
+    const res = await request(app).get('/api/projects/proj-test/profiles/catalog/sr-developer')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ id: 'sr-developer', body: 'Runtime developer definition', runtimeDefined: true })
   })
 
   it('404 for missing agent', async () => {
@@ -771,17 +808,27 @@ describe('POST /profiles/migrate-from-settings', () => {
     expect(ids).toEqual(['sr-architect', 'sr-developer', 'sr-reviewer'])
   })
 
-  it('400 when no .claude/agents directory', async () => {
+  it('seeds the baseline trio with the adapter default model when no roles directory exists', async () => {
     const res = await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(201)
+    expect(res.body.profile.agents).toEqual([
+      { id: 'sr-architect', model: 'sonnet', required: true },
+      { id: 'sr-developer', model: 'sonnet', required: true },
+      { id: 'sr-reviewer', model: 'sonnet', required: true },
+    ])
+    expect(res.body.profile.routing).toEqual([{ default: true, agent: 'sr-developer' }])
   })
 
-  it('400 when baseline is incomplete (missing sr-reviewer)', async () => {
-    writeAgent('sr-architect')
+  it('reads models only from role files that exist and seeds the rest (missing sr-reviewer)', async () => {
+    writeAgent('sr-architect', 'opus')
     writeAgent('sr-developer')
     const res = await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
-    expect(res.status).toBe(400)
-    expect(res.body.error).toContain('sr-reviewer')
+    expect(res.status).toBe(201)
+    expect(res.body.profile.agents).toEqual([
+      { id: 'sr-architect', model: 'opus', required: true },
+      { id: 'sr-developer', model: 'sonnet', required: true },
+      { id: 'sr-reviewer', model: 'sonnet', required: true },
+    ])
   })
 
   it('also seeds a fast companion profile: haiku architect/reviewer, developer model kept', async () => {

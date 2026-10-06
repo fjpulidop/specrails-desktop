@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "エージェント",
-    "subtitle": "このプロジェクトのエージェントプロファイルとカタログ（アップストリーム + カスタム）を管理します。",
+    "subtitle": "このプロジェクトのエージェントプロファイルとカタログ（ランタイム定義の基本ロール + カスタム）を管理します。",
     "tabs": {
       "profiles": "プロファイル",
       "usage": "使用状況",
@@ -45,8 +45,8 @@
       "generateButton": "生成"
     },
     "empty": {
-      "title": "エージェントがインストールされていません",
-      "body": "このプロジェクトで <code>{{command}}</code> を実行してアップストリームのエージェントをインストールするか、今すぐカスタムエージェントを作成してください。"
+      "title": "カスタムエージェントはまだありません",
+      "body": "基本ロール（architect、developer、reviewer）は specrails-core のランタイムが定義するため、インストールは不要です。チームを拡張するにはカスタムエージェントを作成してください。"
     },
     "actions": {
       "template": "テンプレート",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "アップストリーム ({{count}})",
-      "upstreamDescription": "specrails-core 付属。読み取り専用です。",
+      "upstreamDescription": "specrails-core のランタイムが定義する基本ロール。読み取り専用です。",
       "custom": "カスタム ({{count}})",
       "customDescription": "このプロジェクトの custom-*.md ファイルです。上のテンプレート / 生成 / ブランクから作成できます。",
       "noCustomAgents": "カスタムエージェントはまだありません。"
@@ -72,6 +72,7 @@
       "defaultModel": "デフォルトモデル: {{model}}",
       "aiEdit": "AI編集",
       "aiEditTitle": "AI でこのエージェントを反復的に改良",
+      "runtimeDefinition": "specrails-core ランタイム定義",
       "readOnly": "読み取り専用",
       "editableHint": "編集可能 — 上の「編集」を使用"
     },
@@ -129,7 +130,7 @@
       "body": "プロファイルを使うと、オーケストレーター + エージェント + ルーティングの組み合わせを保存し、レールごとに選択できます。",
       "migrateButton": "現在のエージェントから移行",
       "blankButton": "空のプロファイル",
-      "migrateExplainer": "「移行」は既存の <code>.claude/agents/</code> フロントマターのモデルを読み取り、現在の動作をそのまま再現する <code>default</code> プロファイルを作成します — 損失ゼロです。"
+      "migrateExplainer": "「移行」はプロバイダーの既定モデルで基本ロールを持つ <code>default</code> プロファイルを作成し、既存の <code>.claude/agents/</code> フロントマターにモデルがあればそれを引き継ぎます — 損失ゼロです。"
     },
     "sidebar": {
       "title": "プロファイル",

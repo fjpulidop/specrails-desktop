@@ -51,9 +51,9 @@ specrails-desktop list   # verify
 
 The setup wizard runs automatically. Three steps:
 
-1. **Configure** — choose which agents to install (the baseline trio `sr-architect`, `sr-developer`, `sr-reviewer` is always selected; optional agents like Test Writer or Security Reviewer are opt-in). Pick a model preset (Balanced / Budget / Max) and optionally override the model per agent.
+1. **Configure** — pick a model preset (Balanced / Budget / Max) and optionally override the model per agent. There are no role files to choose or install: the three pipeline roles (`sr-architect`, `sr-developer`, `sr-reviewer`) are defined by the Core engine's runtime, and their definitions, provider and model live in **Settings → Agent runtime**.
 2. **Install** — the app runs the installer (`npx --yes --prefer-online specrails-core@^5.1.0 init --yes --from-config <config>`) non-interactively and streams the output live. The version is pinned to the core release the app ships with — it never silently jumps to a new major.
-3. **Done** — a summary tells you how many agents and commands landed. Click **Continue to project**.
+3. **Done** — a summary tells you how many commands landed; its **Agents** tile counts only the project's custom roles (`custom-*`), because the baseline roles are not installed as files. Click **Continue to project**.
 
 That's the whole onboarding. No tier picker, no second wizard. You can manage agents and their per-agent models later from the **Agents** page (Profiles tab).
 

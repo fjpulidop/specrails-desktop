@@ -28,7 +28,7 @@ All'interno di un'esecuzione, il lavoro viene *instradato*. Un task porta con s�
 
 ## Un'idea importante, da subito
 
-La *definizione* di ciascun agente — le sue istruzioni, la sua personalità, ciò che gli è consentito fare — è **condivisa**. Queste definizioni vivono come file (`.claude/agents/<id>.md`) che viaggiano insieme al tuo repository, così tutta la tua squadra usa lo stesso architect, lo stesso reviewer.
+La *definizione* di ciascun agente di base — le sue istruzioni, la sua personalità, ciò che gli è consentito fare — arriva dal **runtime** dell'engine Core, non da un file nel tuo repository. Non c'è nulla da installare né da tenere sincronizzato: leggi la definizione di ogni ruolo nel catalogo degli Agenti e la regoli per tutti i progetti in **Impostazioni → Motore degli agenti**. Gli agenti personalizzati sono l'eccezione: vivono come file (`.claude/agents/custom-*.md`) che viaggiano insieme al tuo repository, così tutta la tua squadra usa gli stessi.
 
 Ciò che invece è **per progetto** è la *configurazione* che ci sta sopra: con quale modello gira ciascun agente e quale combinazione di agenti scegli per un dato rail. È a questo che servono i profili — ed è proprio l'argomento della prossima pagina.
 

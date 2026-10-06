@@ -8,8 +8,8 @@ import { getCoreRuntimeStatus } from './core-runtime'
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
-/** Paired development target; older supported contracts remain compatible. */
-export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.1'
+/** Paired development target; older supported contracts (5.1) remain compatible. */
+export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.2'
 
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([
@@ -19,6 +19,10 @@ const DESKTOP_KNOWN_COMMANDS = new Set([
 // Commands older Cores still ship that Desktop no longer invokes. They are
 // tolerated (not drift) but never required: Batch was folded into implement.
 const DESKTOP_TOLERATED_LEGACY_COMMANDS = new Set(['batch-implement'])
+// Checkpoints that contract 5.1 still declares but Desktop retired: role agents
+// are runtime-defined since contract 5.2, so `agent_generation` is tolerated
+// (not drift) and never required.
+const DESKTOP_TOLERATED_LEGACY_CHECKPOINTS = new Set(['agent_generation'])
 
 // v1.0: cli.initArgs / cli.updateArgs (flat); checkpoints/commands as string[]
 // v2.0: cli.claude / cli.codex (per-provider objects) + specrailsDir
@@ -28,6 +32,8 @@ const DESKTOP_TOLERATED_LEGACY_COMMANDS = new Set(['batch-implement'])
 //       removed enrichment is no longer required to prove provider support.
 // v5.1: additive engine, nodeKinds and builtins descriptors are informational;
 //       execution features are gated by runtime api capabilities.
+// v5.2: the `agent_generation` checkpoint is removed (role agents are
+//       runtime-defined, no `sr-*` files); `configSchema.agents` is optional.
 interface IntegrationContract {
   schemaVersion: string
   lifecycle?: { mode?: string; requiresEnrich?: boolean }
@@ -293,7 +299,7 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
         ? Object.keys(contract.checkpoints)
         : [])
 
-  const missingCheckpoints = contractCheckpoints.filter((c) => !desktopCheckpointKeys.includes(c))
+  const missingCheckpoints = contractCheckpoints.filter((c) => !desktopCheckpointKeys.includes(c) && !DESKTOP_TOLERATED_LEGACY_CHECKPOINTS.has(c))
   const deterministic = contract.lifecycle?.mode === 'deterministic' && contract.lifecycle.requiresEnrich === false
   // Supporting legacy installation checkpoints is compatible with Core 5;
   // demanding them from a deterministic installer would recreate enrich.

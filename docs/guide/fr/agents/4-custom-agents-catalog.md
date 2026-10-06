@@ -4,16 +4,16 @@ Les profils décident *quels agents s'exécutent et avec quels modèles*. Mais d
 
 Ouvrez **Agents → Catalogue** dans n'importe quel projet. C'est un visualiseur en lecture seule de tous les agents disponibles pour ce projet, répartis en deux groupes :
 
-- **Agents upstream** — les agents fournis avec `specrails-core` : le trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`) et d'éventuels spécialistes comme `sr-merge-resolver`.
+- **Agents upstream** — les rôles que le moteur Core définit à l'exécution : le trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`). Ce ne sont pas des fichiers de votre dépôt ; le catalogue affiche la définition en vigueur de chaque rôle en lecture seule, et vous la modifiez dans **Paramètres → Moteur d’agents**.
 - **Agents personnalisés** — les agents que vous avez ajoutés vous-même, nommés `custom-*`.
 
-Chaque entrée du catalogue indique à quoi sert l'agent et son modèle par défaut, ce qui vous permet de voir l'effectif complet avant de câbler des agents dans la chaîne d'un profil.
+Chaque entrée du catalogue indique à quoi sert l'agent ; les agents personnalisés affichent aussi leur modèle par défaut, tandis que les rôles de base tournent avec le fournisseur et le modèle définis dans **Paramètres → Moteur d’agents**. Dans tous les cas, vous voyez l'effectif complet avant de câbler des agents dans la chaîne d'un profil.
 
 ## Ajouter un agent personnalisé
 
 Parce qu'ils vivent dans votre dépôt, les agents personnalisés sont des **ressources d'équipe commitables** : commitez le fichier et toute votre équipe récupère l'agent. Cela reflète l'idée centrale qui traverse toute la section Agents —
 
-> **Les définitions d'agents sont partagées (elles vivent dans le dépôt et voyagent avec `git`). La configuration des modèles est propre au projet (elle vit dans les profils).**
+> **Les définitions des agents personnalisés sont partagées (elles vivent dans le dépôt et voyagent avec `git`) ; les rôles de base sont définis par le runtime de Core. La configuration des modèles est propre au projet (elle vit dans les profils).**
 
 ## Mettre un agent personnalisé au travail
 

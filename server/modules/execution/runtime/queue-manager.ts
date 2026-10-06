@@ -53,7 +53,7 @@ import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachm
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from '../../specs/runtime/spec-addenda'
 import { binaryOnPath } from '../../../binary-probe'
-import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
+import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
 import { resolveProjectExecution, type ProjectExecution } from '../../../workspace-resolution'
 import { applyWorktreeEnvPassthrough } from '../../../project-env'
@@ -2264,17 +2264,15 @@ export class QueueManager {
     this._jobExecution.set(jobId, execution)
     const spawnCwd = execution.cwd
 
-    // Windows repair: a relocated workspace whose `.claude/agents` was left empty
-    // by the broken `current`-junction read during assemble has no sr-* agents,
-    // so the implement pipeline can't delegate and runs inline. Self-heal here
-    // (per rail spawn) by copying the agents from the real version dir. NO-OP on
-    // POSIX (assemble's per-file symlinks already populate them).
+    // Windows repair: a relocated workspace whose dir-linked subtrees
+    // (commands/skills/rules) were left unreadable by the broken `current`
+    // junction during assemble has no `/specrails:*` commands → the CLI reports
+    // "Unknown command: /specrails:implement". Self-heal here (per rail spawn)
+    // from the real version dir. Role agents (architect/developer/reviewer) are
+    // defined by the Core runtime, not by workspace files, so nothing else is
+    // repaired. NO-OP on POSIX (assemble's symlinks already populate them).
     if (execution.relocated) {
       try {
-        ensureFrameworkAgents(execution.cwd, adapter.projectDirName)
-        // AND the dir-linked subtrees (commands/skills/rules): a broken Windows
-        // `current` junction leaves the workspace with no `/specrails:*` commands
-        // → the CLI reports "Unknown command: /specrails:implement".
         ensureFrameworkCommandSubtrees(execution.cwd, adapter.projectDirName)
       } catch {
         /* best-effort — never block a rail spawn on the repair */

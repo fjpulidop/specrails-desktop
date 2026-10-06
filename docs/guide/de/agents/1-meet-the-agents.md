@@ -28,7 +28,7 @@ Innerhalb eines Durchlaufs wird Arbeit *geroutet*. Eine Aufgabe trägt Tags, und
 
 ## Eine wichtige Idee vorab
 
-Die *Definition* jedes Agents – seine Anweisungen, seine Persönlichkeit, was er darf – ist **geteilt**. Sie lebt als Datei (`.claude/agents/<id>.md`), die mit deinem Repository mitreist, sodass dein ganzes Team denselben Architekten und denselben Reviewer nutzt.
+Die *Definition* jedes Basis-Agents – seine Anweisungen, seine Persönlichkeit, was er darf – kommt aus der **Laufzeit** der Core-Engine, nicht aus einer Datei in deinem Repository. Es gibt nichts zu installieren und nichts synchron zu halten: Du liest die Definition jeder Rolle im Agents-Katalog und passt sie für alle Projekte unter **Einstellungen → Agenten-Laufzeit** an. Custom-Agents sind die Ausnahme – sie leben als Dateien (`.claude/agents/custom-*.md`), die mit deinem Repository mitreisen, sodass dein ganzes Team dieselben nutzt.
 
 Was **pro Projekt** gilt, ist die *Konfiguration* darüber: mit welchem Modell jeder Agent läuft und welche Kombination von Agents du für eine bestimmte Rail wählst. Genau dafür sind Profile da – und das ist die nächste Seite.
 

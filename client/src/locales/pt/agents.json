@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agentes",
-    "subtitle": "Faça a gestão dos perfis de agentes e do catálogo (upstream + personalizados) deste projeto.",
+    "subtitle": "Faça a gestão dos perfis de agentes e do catálogo (papéis base definidos em runtime + personalizados) deste projeto.",
     "tabs": {
       "profiles": "Perfis",
       "usage": "Utilização",
@@ -45,8 +45,8 @@
       "generateButton": "Gerar"
     },
     "empty": {
-      "title": "Nenhum agente instalado",
-      "body": "Execute <code>{{command}}</code> neste projeto para instalar os agentes upstream, ou crie já um agente personalizado."
+      "title": "Ainda não há agentes personalizados",
+      "body": "Os papéis base (architect, developer, reviewer) são definidos pelo runtime do specrails-core e não precisam de instalação. Crie um agente personalizado para ampliar a sua equipa."
     },
     "actions": {
       "template": "Template",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "Upstream ({{count}})",
-      "upstreamDescription": "Distribuídos pelo specrails-core; apenas de leitura.",
+      "upstreamDescription": "Papéis base definidos pelo runtime do specrails-core; apenas de leitura.",
       "custom": "Personalizados ({{count}})",
       "customDescription": "Os ficheiros custom-*.md do seu projeto. Use Template / Gerar / Em branco acima para criar um.",
       "noCustomAgents": "Ainda não há agentes personalizados."
@@ -72,6 +72,7 @@
       "defaultModel": "modelo predefinido: {{model}}",
       "aiEdit": "Edição com IA",
       "aiEditTitle": "Refinar este agente iterativamente com IA",
+      "runtimeDefinition": "definição do runtime do specrails-core",
       "readOnly": "apenas leitura",
       "editableHint": "editável — use Editar acima"
     },
@@ -129,7 +130,7 @@
       "body": "Os perfis permitem guardar combinações de orquestrador + agentes + encaminhamento e escolher uma por rail.",
       "migrateButton": "Migrar a partir dos agentes atuais",
       "blankButton": "Perfil em branco",
-      "migrateExplainer": "\"Migrar\" lê os modelos do frontmatter existente em <code>.claude/agents/</code> e cria um perfil <code>default</code> que reflete o comportamento atual — sem perdas."
+      "migrateExplainer": "\"Migrar\" cria um perfil <code>default</code> com os papéis base no modelo predefinido do fornecedor, mantendo qualquer modelo encontrado no frontmatter existente em <code>.claude/agents/</code> — sem perdas."
     },
     "sidebar": {
       "title": "Perfis",

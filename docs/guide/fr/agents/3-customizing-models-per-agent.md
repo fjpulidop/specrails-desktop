@@ -15,7 +15,7 @@ Dans **Agents → Profils**, sélectionnez un profil et ouvrez son éditeur de c
 
 Les valeurs de modèle sont des alias — pour Claude, ce sont `opus`, `sonnet` et `haiku` (du plus capable au plus rapide). Définissez l'alias souhaité par agent :
 
-- Laissez le modèle d'un agent **vide** pour revenir au défaut propre au fichier de l'agent.
+- Laissez le modèle d'un agent **vide** pour revenir au défaut propre au rôle — pour le trio de base, ce sont le fournisseur et le modèle définis dans **Paramètres → Moteur d’agents** ; un agent personnalisé revient au frontmatter de son fichier.
 - Définissez-le explicitement pour le surcharger uniquement pour ce profil.
 
 Enregistrez, et le prochain rail lancé avec ce profil utilisera les nouveaux modèles. Les jobs déjà en cours conservent leur snapshot.

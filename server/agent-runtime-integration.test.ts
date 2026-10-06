@@ -10,7 +10,7 @@ vi.mock('./modules/agent-runtime/runtime/agent-runtime-package', () => ({ retain
 vi.mock('./modules/agent-runtime/runtime/agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (input: unknown) => input, rolePromptDefaults: () => ({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' }) }) }))
 vi.mock('./path-resolver', async () => ({ ...await vi.importActual<typeof import('./path-resolver')>('./path-resolver'), resolveBundledNodeExe: () => process.execPath }))
 vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation: fixture.legacy }))
-vi.mock('./workspace-manager', () => ({ ensureFrameworkAgents: fixture.framework, ensureFrameworkCommandSubtrees: fixture.framework }))
+vi.mock('./workspace-manager', () => ({ ensureFrameworkCommandSubtrees: fixture.framework }))
 vi.mock('./claude-trust', () => ({ ensureClaudeTrusted: vi.fn() }))
 vi.mock('./core-update-state', () => ({ assertWorkspaceCoreReady: vi.fn() }))
 

@@ -383,9 +383,10 @@ can run Contract Refine require AI-spawn, including Explore conversions.
 - **Plugins** (\`specrails_plugins\`): per-project MCP integrations; \`preview\`
   the diff before \`install\`; a degraded plugin never blocks rail launches.
 - **Profiles** (\`specrails_agents\`): per-project agent chains; the baseline
-  trio \`sr-architect\`/\`sr-developer\`/\`sr-reviewer\` is required; routing rules
-  end in a single terminal \`default: true\` rule; requires specrails-core
-  4.1.0 or newer.
+  trio \`sr-architect\`/\`sr-developer\`/\`sr-reviewer\` are role identifiers
+  defined by the specrails-core runtime (no installed files) and are required
+  in every chain; routing rules end in a single terminal \`default: true\` rule;
+  requires specrails-core 4.1.0 or newer.
 - **Setup** (\`specrails_setup\`): \`prerequisites\` → \`add_project\` →
   \`install_config\` per provider → ONE \`install\` (provisions all chosen
   providers; quick-only, offline) → poll \`checkpoints\` until

@@ -21,20 +21,22 @@ Dashboard/Jobs/Analytics/Settings).
 - **Profiles** tab — create and edit profiles.
 - **Usage** tab — see which profiles are actually being used (backed by
   the `/analytics` endpoint covered in section 8).
-- **Catalog** tab — read the upstream `sr-*` agents or author custom
-  `custom-*` ones via the Studio.
+- **Catalog** tab — read the runtime-defined baseline roles (`sr-architect`,
+  `sr-developer`, `sr-reviewer`, shown read-only with the definition the Core
+  runtime executes) or author custom `custom-*` ones via the Studio.
 
 When the project has no profiles yet, the empty state offers two entry
 points:
 
-- **Migrate from current agents** — reads the primary provider's native role
-  catalog (`.claude/agents/` or `.kimi-code/skills/`) and creates a
-  `default` profile mirroring today's behavior. It requires the baseline trio
-  `sr-architect`, `sr-developer`, and `sr-reviewer` to be present — the
-  server rejects the migration if any is missing. Provider-specific model
-  identifiers are retained only when they are in that provider's catalog;
-  otherwise migration uses its default and stamps the provider into the saved
-  profile.
+- **Migrate from current agents** — seeds the baseline trio `sr-architect`,
+  `sr-developer` and `sr-reviewer` as role identifiers with the provider's
+  default model, reads the primary provider's native role catalog
+  (`.claude/agents/` or `.kimi-code/skills/`) for custom roles and creates a
+  `default` profile mirroring today's behavior. No `sr-*` file has to exist:
+  a `model:` is read only from role files an older install still carries.
+  Provider-specific model identifiers are retained only when they are in that
+  provider's catalog; otherwise migration uses its default and stamps the
+  provider into the saved profile.
 - **Blank profile** — start from scratch.
 
 ## 2. Saved profiles vs selection
@@ -128,6 +130,11 @@ template/duplicate/edit and rail execution remain available.
   `sr-developer`. Fix the listed issues and Save re-enables.
 - **"agent 'xyz' already exists" (409)** — the name collides with an
   existing provider role. Pick a different name.
+- **No `.claude/agents/sr-*.md` in the project** — expected. The baseline
+  roles are defined by the Core runtime, not installed as files; read them in
+  the Catalog tab and edit their definitions, provider and model in
+  **Settings → Agent runtime**. Files left behind by an older Core are
+  tolerated until Core prunes them.
 - **The whole Agents section is missing** — it can be disabled server-side
   with `SPECRAILS_AGENTS_SECTION=false`, which 404s the entire
   `/profiles` router. Unset it (or leave it at its default) to restore the

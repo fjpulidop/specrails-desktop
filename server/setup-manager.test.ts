@@ -122,8 +122,12 @@ describe('SetupManager', () => {
   // ─── Constants ──────────────────────────────────────────────────────────────
 
   describe('CHECKPOINTS', () => {
-    it('has 7 checkpoint definitions', () => {
-      expect(CHECKPOINTS).toHaveLength(7)
+    it('has 6 checkpoint definitions', () => {
+      expect(CHECKPOINTS).toHaveLength(6)
+    })
+
+    it('no longer exposes an agent_generation checkpoint (roles are runtime-defined)', () => {
+      expect(CHECKPOINTS.map((c) => c.key)).not.toContain('agent_generation')
     })
 
     it('contains expected checkpoint keys', () => {
@@ -447,6 +451,25 @@ describe('SetupManager', () => {
       expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(0)
       expect(getBroadcastedByType(broadcast, 'setup_error')[0].error).toMatch(/repair/)
     })
+    it('reports a Core 6.3 install complete from workflow commands alone (no role files)', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => /(?:specrails-version|commands\/specrails)$/.test(String(p)))
+      vi.mocked(readFileSync).mockImplementation((p: any) => String(p).endsWith('specrails-version') ? '6.3.0' : '')
+      vi.mocked(readdirSync).mockImplementation((p: any) => String(p).endsWith('commands/specrails') ? ['implement.md'] as any : [] as any)
+      sm.startEnrich('p1', '/path/to/project', 'claude')
+      expect(mockSpawn).not.toHaveBeenCalled()
+      const complete = getBroadcastedByType(broadcast, 'setup_complete')
+      expect(complete).toHaveLength(1)
+      expect(complete[0].summary).toMatchObject({ agents: 0, specrailsCommands: 1 })
+      expect(sm.getCheckpointStatus('p1', '/path/to/project').map((c) => c.key)).not.toContain('agent_generation')
+    })
+    it('does not report an install complete from custom role files without commands', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => /(?:specrails-version|\.claude\/agents)$/.test(String(p)))
+      vi.mocked(readFileSync).mockImplementation((p: any) => String(p).endsWith('specrails-version') ? '6.3.0' : '')
+      vi.mocked(readdirSync).mockImplementation((p: any) => String(p).endsWith('/agents') ? ['custom-mine.md'] as any : [] as any)
+      sm.startEnrich('p1', '/path/to/project', 'claude')
+      expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'setup_error')).toHaveLength(1)
+    })
     it('spawns claude with /specrails:enrich args', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -575,13 +598,13 @@ describe('SetupManager', () => {
         return s.includes('.kimi-code/skills')
           && (
             s.endsWith('/skills')
-            || s.endsWith('/skills/sr-architect/SKILL.md')
+            || s.endsWith('/skills/custom-reviewer/SKILL.md')
             || s.endsWith('/skills/specrails-enrich/SKILL.md')
           )
       })
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.endsWith('.kimi-code/skills')) return ['sr-architect', 'specrails-enrich'] as any
+        if (s.endsWith('.kimi-code/skills')) return ['custom-reviewer', 'specrails-enrich'] as any
         return [] as any
       })
 
@@ -973,19 +996,19 @@ describe('SetupManager', () => {
   // ─── getCheckpointStatus ───────────────────────────────────────────────────
 
   describe('getCheckpointStatus', () => {
-    it('returns all-pending (7) when no install has started', () => {
+    it('returns all-pending (6) when no install has started', () => {
       const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
-      expect(statuses).toHaveLength(7)
+      expect(statuses).toHaveLength(6)
       expect(statuses.every((s) => s.status === 'pending')).toBe(true)
     })
 
-    it('returns 7 checkpoints after startEnrich (full tier)', () => {
+    it('returns 6 checkpoints after startEnrich (full tier)', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
       sm.startEnrich('p1', '/path/to/project')
       const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
-      expect(statuses).toHaveLength(7)
+      expect(statuses).toHaveLength(6)
     })
 
     it('returns 3 checkpoints after startInstall with a quick-tier config', () => {
@@ -1048,7 +1071,7 @@ describe('SetupManager', () => {
       expect(codebaseAnalysis?.status).toBe('done')
     })
 
-    it('completes Kimi agent and command checkpoints from .kimi-code skills', () => {
+    it('completes the Kimi command checkpoint from .kimi-code skills without any role skill', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
       vi.mocked(existsSync).mockImplementation((p: any) => {
@@ -1056,19 +1079,18 @@ describe('SetupManager', () => {
         return s.includes('.kimi-code/skills')
           && (
             s.endsWith('/skills')
-            || s.endsWith('/skills/sr-developer/SKILL.md')
             || s.endsWith('/skills/specrails-doctor/SKILL.md')
           )
       })
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.endsWith('.kimi-code/skills')) return ['sr-developer', 'specrails-doctor'] as any
+        if (s.endsWith('.kimi-code/skills')) return ['specrails-doctor'] as any
         return [] as any
       })
 
       sm.startEnrich('p1', '/path/to/project', 'kimi')
       const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
-      expect(statuses.find((s) => s.key === 'agent_generation')?.status).toBe('done')
+      expect(statuses.map((s) => s.key)).not.toContain('agent_generation')
       expect(statuses.find((s) => s.key === 'command_generation')?.status).toBe('done')
     })
   })
@@ -1096,23 +1118,28 @@ describe('SetupManager', () => {
       expect(codebaseAnalysis?.status).toBe('running')
     })
 
-    it('detects agent_generation from tool_use event', async () => {
+    it('detects command_generation from a tool_use command write and ignores role file paths', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
 
       sm.startEnrich('p1', '/path/to/project')
 
-      const event = JSON.stringify({
+      pushLine(child, JSON.stringify({
         type: 'tool_use',
         input: { file_path: '.claude/agents/sr-developer.md' },
-      })
-      pushLine(child, event)
+      }))
+      await new Promise((r) => setImmediate(r))
+      expect(getBroadcastedByType(broadcast, 'setup_checkpoint')
+        .some((m) => m.checkpoint === 'agent_generation')).toBe(false)
 
+      pushLine(child, JSON.stringify({
+        type: 'tool_use',
+        input: { file_path: '.claude/commands/specrails/implement.md' },
+      }))
       await new Promise((r) => setImmediate(r))
 
       const checkpointMsgs = getBroadcastedByType(broadcast, 'setup_checkpoint')
-      const agentGen = checkpointMsgs.find((m) => m.checkpoint === 'agent_generation')
-      expect(agentGen).toBeDefined()
+      expect(checkpointMsgs.find((m) => m.checkpoint === 'command_generation')).toBeDefined()
     })
 
     it('detects base_install from new specrails/specrails-version path in tool_use', async () => {
@@ -1271,19 +1298,19 @@ describe('SetupManager', () => {
       expect(result).not.toHaveProperty('commands')
     })
 
-    it('counts sr-*.md files as agents', () => {
+    it('counts custom-*.md files as agents and ignores stale sr-*.md role files', () => {
       vi.mocked(existsSync).mockImplementation((p: any) =>
         String(p).includes('.claude/agents')
       )
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         if (String(p).endsWith('.claude/agents')) {
-          return ['sr-architect.md', 'sr-developer.md', 'sr-reviewer.md', 'not-an-agent.md'] as any
+          return ['custom-serena.md', 'sr-architect.md', 'sr-developer.md', 'not-an-agent.md'] as any
         }
         return []
       })
 
       const result = sm.getSummary({ path: '/path/to/project' })
-      expect(result.agents).toBe(3)
+      expect(result.agents).toBe(1)
       expect(result.personas).toBe(0)
       expect(result.specrailsCommands).toBe(0)
       expect(result.opsxCommands).toBe(0)
@@ -1368,7 +1395,7 @@ describe('SetupManager', () => {
       vi.mocked(existsSync).mockReturnValue(true)
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.endsWith('.claude/agents')) return ['sr-architect.md', 'sr-developer.md'] as any
+        if (s.endsWith('.claude/agents')) return ['custom-a.md', 'custom-b.md'] as any
         if (s.includes('agents/personas')) return ['the-builder.md'] as any
         if (s.includes('commands/specrails')) return ['implement.md', 'batch-implement.md'] as any
         if (s.includes('commands/opsx')) return ['deploy.md'] as any
@@ -1396,12 +1423,12 @@ describe('SetupManager', () => {
         const candidate = String(p)
         probed.push(candidate)
         return candidate === '/workspace/project-one/.kimi-code/skills'
-          || candidate === '/workspace/project-one/.kimi-code/skills/sr-architect/SKILL.md'
+          || candidate === '/workspace/project-one/.kimi-code/skills/custom-reviewer/SKILL.md'
           || candidate === '/workspace/project-one/.kimi-code/skills/specrails-implement/SKILL.md'
       })
       vi.mocked(readdirSync).mockImplementation((p: any) =>
         String(p) === '/workspace/project-one/.kimi-code/skills'
-          ? ['sr-architect', 'specrails-implement'] as any
+          ? ['custom-reviewer', 'specrails-implement'] as any
           : [] as any
       )
 
@@ -1483,7 +1510,7 @@ describe('SetupManager', () => {
       })
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.includes('.gemini/agents')) return ['sr-architect.md', 'sr-developer.md', 'sr-reviewer.md'] as any
+        if (s.includes('.gemini/agents')) return ['custom-a.md', 'custom-b.md', 'custom-c.md'] as any
         if (s.includes('.gemini/commands/specrails')) return ['implement.toml', 'propose-spec.toml'] as any
         if (s.includes('.gemini/commands/opsx')) return ['apply.toml'] as any
         return []
@@ -1510,7 +1537,7 @@ describe('SetupManager', () => {
       // never surface claude's counts — the bug this fix addresses.
       vi.mocked(existsSync).mockImplementation((p: any) => String(p).includes('.claude'))
       vi.mocked(readdirSync).mockImplementation((p: any) =>
-        String(p).includes('.claude') ? ['sr-architect.md', 'sr-developer.md'] as any : []
+        String(p).includes('.claude') ? ['custom-a.md', 'custom-b.md'] as any : []
       )
 
       const result = computeSummary('/path', 'quick', 'gemini')
@@ -1524,6 +1551,7 @@ describe('SetupManager', () => {
         const s = String(p)
         return s.endsWith('.kimi-code/skills')
           || s.endsWith('.kimi-code/personas')
+          || s.endsWith('/custom-architect/SKILL.md')
           || s.endsWith('/sr-architect/SKILL.md')
           || s.endsWith('/specrails-enrich/SKILL.md')
           || s.endsWith('/openspec-apply-change/SKILL.md')
@@ -1531,7 +1559,7 @@ describe('SetupManager', () => {
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
         if (s.endsWith('.kimi-code/skills')) {
-          return ['sr-architect', 'specrails-enrich', 'openspec-apply-change'] as any
+          return ['custom-architect', 'sr-architect', 'specrails-enrich', 'openspec-apply-change'] as any
         }
         if (s.endsWith('.kimi-code/personas')) {
           return ['the-builder.md', 'the-maintainer.md', 'README.txt'] as any
@@ -1600,13 +1628,13 @@ describe('SetupManager', () => {
     it('startInstall broadcasts setup_install_done with summary field', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
-      // Simulate 3 agents installed
+      // Simulate 3 custom agents installed
       vi.mocked(existsSync).mockImplementation((p: any) =>
         String(p).includes('.claude/agents')
       )
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         if (String(p).endsWith('.claude/agents'))
-          return ['sr-architect.md', 'sr-developer.md', 'sr-reviewer.md'] as any
+          return ['custom-a.md', 'custom-b.md', 'custom-c.md'] as any
         return []
       })
 
@@ -1629,13 +1657,13 @@ describe('SetupManager', () => {
 
     it('startEnrich broadcasts setup_complete with summary field (enrich done)', async () => {
       // startEnrich emits 'setup_complete' (not 'setup_install_done') when Claude finishes.
-      // setup_complete is gated on hasAgents && hasCommands being true.
+      // setup_complete is gated on hasCommands being true.
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
       vi.mocked(existsSync).mockReturnValue(true)
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.endsWith('.claude/agents')) return ['sr-architect.md', 'sr-developer.md'] as any
+        if (s.endsWith('.claude/agents')) return ['custom-a.md', 'custom-b.md'] as any
         if (s.includes('agents/personas')) return ['the-builder.md'] as any
         if (s.includes('commands/sr')) return ['implement.md'] as any
         return []
@@ -1663,7 +1691,7 @@ describe('SetupManager', () => {
       })
       vi.mocked(readdirSync).mockImplementation((p: any) => {
         const s = String(p)
-        if (s.endsWith('.claude/agents')) return ['sr-architect.md', 'sr-developer.md'] as any
+        if (s.endsWith('.claude/agents')) return ['custom-a.md', 'custom-b.md'] as any
         if (s.includes('commands/specrails')) return ['implement.md', 'propose-spec.md'] as any
         return []
       })
@@ -1857,14 +1885,19 @@ describe('detectCheckpointFromText', () => {
     expect(keys('  ✓ config loaded')).toContain('config_written')
   })
 
-  it('matches the Node installer "Phase 2 & 3" header → agent_generation', () => {
+  it('matches the Node installer "Phase 2 & 3" header → command_generation', () => {
     expect(keys('Phase 2 & 3: Installing specrails artifacts'))
-      .toContain('agent_generation')
+      .toContain('command_generation')
   })
 
-  it('matches "Placing agents and commands" (quick tier) → agent_generation', () => {
+  it('matches "Placing agents and commands" (quick tier) → command_generation', () => {
     expect(keys('Phase 3c: Placing agents and commands (quick install)'))
-      .toContain('agent_generation')
+      .toContain('command_generation')
+  })
+
+  it('never emits the retired agent_generation checkpoint for role file paths', () => {
+    expect(keys('Writing .claude/agents/sr-developer.md')).not.toContain('agent_generation')
+    expect(keys('Generating all files: sr-architect, sr-developer, sr-reviewer')).not.toContain('agent_generation')
   })
 
   it('matches the "Writing manifest" Node step → command_generation', () => {
@@ -1896,9 +1929,9 @@ describe('detectCheckpointFromText', () => {
     expect(keys('  ✓ Wrote .specrails/specrails-version')).toContain('base_install')
   })
 
-  it('matches a Kimi direct-child rail skill → agent_generation', () => {
+  it('ignores a Kimi direct-child role skill (roles are runtime-defined)', () => {
     expect(keys('Writing .kimi-code/skills/sr-reviewer/SKILL.md'))
-      .toContain('agent_generation')
+      .not.toContain('agent_generation')
   })
 
   it('matches a Kimi command skill → command_generation', () => {

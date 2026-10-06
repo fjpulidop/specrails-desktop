@@ -7,7 +7,7 @@ const { runAiCliInvocation } = vi.hoisted(() => ({ runAiCliInvocation: vi.fn() }
 vi.mock('../modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation }))
 vi.mock('../workspace-manager', async (original) => ({
   ...await original<typeof import('../workspace-manager')>(),
-  ensureFrameworkAgents: vi.fn(), ensureFrameworkCommandSubtrees: vi.fn(),
+  ensureFrameworkCommandSubtrees: vi.fn(),
 }))
 import { PluginManager } from '../plugin-manager'
 import { BUNDLED_PLUGINS } from './index'

@@ -173,9 +173,9 @@ Without profiles, every rail uses the project's frontmatter-baked models. With p
 Open **Agents** in the project's right sidebar. Two sub-tabs:
 
 - **Profiles** — full CRUD over `.specrails/profiles/*.json`. The live validator enforces the baseline trio and routing ordering — Save is disabled with an "N issues to resolve" hint while the profile is broken.
-- **Agents Catalog** — read-only viewer of upstream `sr-*` agents and your `custom-*` agents.
+- **Agents Catalog** — read-only viewer of the runtime-defined baseline roles (`sr-architect`, `sr-developer`, `sr-reviewer`, shown with the definition the Core runtime actually executes) and your `custom-*` agents.
 
-The empty state offers **Migrate from current agents**: one click creates a `default` profile mirroring today's frontmatter.
+The empty state offers **Migrate from current agents**: one click creates a `default` profile from the baseline roles and your existing custom agents — no role file has to exist for it to work.
 
 Each profile gets a per-profile analytics card showing usage for the last 7 / 30 / 90 days: jobs, success rate, avg tokens, avg duration.
 

@@ -19,6 +19,9 @@ interface CatalogAgent {
   kind: 'upstream' | 'custom'
   description?: string
   model?: string
+  /** Core runtime definition carried by runtime-defined (upstream) roles. */
+  body?: string
+  runtimeRoleError?: string
 }
 
 type StudioMode =
@@ -148,9 +151,17 @@ export function AgentsCatalogTab() {
 
   useEffect(() => {
     if (!selectedId) return
+    // Upstream roles are runtime-defined by specrails-core: the catalog already
+    // carries their definition, so there is no file body to fetch.
+    const runtimeDefined = agents.find((a) => a.id === selectedId && a.kind === 'upstream')
+    if (runtimeDefined) {
+      setBodyLoading(false)
+      setBody(runtimeDefined.body ?? '')
+      return
+    }
     const cleanup = loadBody(selectedId)
     return cleanup
-  }, [selectedId, loadBody])
+  }, [selectedId, loadBody, agents])
 
   if (loading) {
     return (
@@ -569,7 +580,6 @@ export function AgentsCatalogTab() {
               <Trans
                 t={t}
                 i18nKey="catalog.empty.body"
-                values={{ command: 'npx specrails-core@latest update' }}
                 components={{ code: <code className="text-foreground" /> }}
               />
             </div>
@@ -703,6 +713,9 @@ export function AgentsCatalogTab() {
                 {selected.description && (
                   <p className="text-xs text-muted-foreground mt-1 break-words">{selected.description}</p>
                 )}
+                {selected.runtimeRoleError && (
+                  <p className="text-xs text-red-400 aurora-light:text-destructive mt-1 break-words">{selected.runtimeRoleError}</p>
+                )}
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => void duplicate(selected.id)}>
@@ -741,7 +754,9 @@ export function AgentsCatalogTab() {
             <div className="rounded-md border border-border bg-muted/30 mt-4 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
                 <span className="text-[11px] font-mono text-muted-foreground truncate">
-                  {customRoleDisplayPath(activeProvider, selected.id)}
+                  {selected.kind === 'upstream'
+                    ? t('catalog.detail.runtimeDefinition')
+                    : customRoleDisplayPath(activeProvider, selected.id)}
                 </span>
                 <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
                   {selected.kind === 'upstream'

@@ -61,7 +61,7 @@ export const exampleAdapter: ProviderAdapter = {
   buildArgs: (action: SpawnAction, opts: SpawnOptions): string[] => { /* per-action argv */ },
   parseStreamLine: (line: string): AdapterEvent | null => { /* line → canonical event */ },
   extractResult: (events): NormalisedResult => { /* events → tokens/cost/session */ },
-  baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
+  baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'], // role identifiers, not installed files
   detectInstalled: async (): Promise<DetectionResult> => { /* `which` + `--version` */ },
   // Optional — see "(Optional) prepareHeadlessSpawn" below. Gemini uses it to
   // pre-acknowledge project subagents so they load in headless `gemini -p` rails.
@@ -79,11 +79,12 @@ the optional
 `prepareHeadlessSpawn` hook, `systemPromptArg: false` system-prompt folding
 (via the `GEMINI_SYSTEM_MD` env), native OTEL with `nativeCostUsd: false`,
 and a per-action `buildArgs` switch that throws defensively on the
-`chat-stream` action it doesn't support. Note the shipped baseline is the
-three-agent trio `['sr-architect', 'sr-developer', 'sr-reviewer']`;
-`ProfileManager` validation requires exactly your `baselineAgents()` to
-be present in every profile chain, so don't add agents your scaffold
-won't actually create.
+`chat-stream` action it doesn't support. Note the baseline is the
+three role identifiers `['sr-architect', 'sr-developer', 'sr-reviewer']`;
+they name roles the Core runtime defines, not files your scaffold installs,
+and installation detection is never derived from them. `ProfileManager`
+validation requires exactly your `baselineAgents()` to be present in every
+profile chain, so don't add identifiers the runtime won't actually route.
 
 The `SpawnAction` union also includes **`chat-stream`** — used by the
 Explore persistent-stdin fast-path and interactive jobs. Only providers

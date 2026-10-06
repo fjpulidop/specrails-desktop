@@ -356,6 +356,8 @@
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
         "../../../workspace-resolution",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../../agent-runtime/runtime/agent-runtime-settings",
         "./agent-catalog",
         "./agent-generator",
         "./agent-refine-db",
