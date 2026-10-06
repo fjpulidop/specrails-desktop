@@ -156,7 +156,7 @@
       }
     },
     "coreTeamTitle": "你的智能体团队",
-    "coreTeamNote": "这三个核心智能体始终会被安装——无需选择。之后可通过配置档案和 custom-* 智能体添加专家。"
+    "coreTeamNote": "这三个核心角色由 specrails-core 运行时定义——无需安装或选择。之后可通过配置档案和 custom-* 智能体添加专家。"
   },
   "templates": {
     "security-reviewer": {

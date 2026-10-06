@@ -15,7 +15,7 @@ Em **Agentes → Perfis**, selecione um perfil e abra o seu editor de cadeia de 
 
 Os valores de modelo são aliases — para o Claude são `opus`, `sonnet` e `haiku` (do mais capaz → ao mais rápido). Defina o alias que quiser por agente:
 
-- Deixe o modelo de um agente **em branco** para recorrer à predefinição do próprio ficheiro do agente.
+- Deixe o modelo de um agente **em branco** para recorrer à predefinição do próprio papel — no trio de base são o fornecedor e o modelo definidos em **Configurações → Motor de agentes**; um agente personalizado recorre ao frontmatter do seu ficheiro.
 - Defina-o explicitamente para o substituir apenas neste perfil.
 
 Guarde, e o próximo rail lançado com esse perfil usa os novos modelos. Os jobs já em execução mantêm o seu snapshot.

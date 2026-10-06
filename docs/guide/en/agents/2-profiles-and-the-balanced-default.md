@@ -12,7 +12,7 @@ You'll find profiles in the **Agents** section of any project (right sidebar →
 
 Out of the box, a project resolves to a sensible **default** profile. It includes the baseline trio — `sr-architect`, `sr-developer`, `sr-reviewer` — and routes every task to the developer through a single catch-all rule. The models are balanced for everyday work: a capable model where it matters, without reaching for the most expensive option on every step.
 
-If your project already had agent models configured the old way (in the agent files' frontmatter), the **Migrate** button reads those and builds a `default` profile that mirrors today's behaviour exactly — zero loss, nothing changes until you decide to tune it.
+The **Migrate from current agents** button builds a `default` profile from the baseline trio and whatever custom agents the project already has — it mirrors today's behaviour exactly and needs no role file to exist. If an older install still carries agent files with models in their frontmatter, those models are kept; nothing changes until you decide to tune it.
 
 The headline: **you don't have to create a profile to use Specrails.** The default just works. Profiles are how you go further.
 

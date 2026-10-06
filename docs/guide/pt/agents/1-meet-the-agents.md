@@ -28,7 +28,7 @@ Dentro de uma execução, o trabalho é *encaminhado*. Uma tarefa traz tags, e a
 
 ## Uma ideia importante, já agora
 
-A *definição* de cada agente — as suas instruções, a sua personalidade, o que lhe é permitido fazer — é **partilhada**. Vivem como ficheiros (`.claude/agents/<id>.md`) que viajam com o seu repositório, por isso toda a equipa corre o mesmo architect, o mesmo reviewer.
+A *definição* de cada agente de base — as suas instruções, a sua personalidade, o que lhe é permitido fazer — vem do **runtime** do motor Core, não de um ficheiro no seu repositório. Não há nada para instalar nem para manter sincronizado: leia a definição de cada papel no catálogo de Agentes e afine-a para todos os projetos em **Configurações → Motor de agentes**. Os agentes personalizados são a exceção: vivem como ficheiros (`.claude/agents/custom-*.md`) que viajam com o seu repositório, por isso toda a equipa corre os mesmos.
 
 O que é **por projeto** é a *configuração* por cima: com que modelo cada agente corre, e que combinação de agentes escolhe para um dado rail. É para isso que servem os perfis — e esse é o tema da próxima página.
 

@@ -28,7 +28,7 @@ Within a run, work is *routed*. A task carries tags, and a profile's routing rul
 
 ## One important idea, up front
 
-The *definition* of each agent — its instructions, its personality, what it's allowed to do — is **shared**. These live as files (`.claude/agents/<id>.md`) that travel with your repository, so your whole team runs the same architect, the same reviewer.
+The *definition* of each baseline agent — its instructions, its personality, what it's allowed to do — comes from the Core engine's **runtime**, not from a file in your repository. There's nothing to install and nothing to keep in sync: read each role's definition in the Agents catalog and tune it for every project in **Settings → Agent runtime**. Custom agents are the exception — they live as files (`.claude/agents/custom-*.md`) that travel with your repository, so your whole team runs the same ones.
 
 What's **per-project** is the *configuration* on top: which model each agent runs with, and which combination of agents you pick for a given rail. That's what profiles are for — and that's the next page.
 

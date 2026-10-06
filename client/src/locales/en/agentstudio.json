@@ -156,7 +156,7 @@
       }
     },
     "coreTeamTitle": "Your agent team",
-    "coreTeamNote": "These three core agents are always installed — nothing to choose. Add specialists later with profiles and custom-* agents."
+    "coreTeamNote": "These three core roles are defined by the specrails-core runtime — nothing to install or choose. Add specialists later with profiles and custom-* agents."
   },
   "templates": {
     "security-reviewer": {

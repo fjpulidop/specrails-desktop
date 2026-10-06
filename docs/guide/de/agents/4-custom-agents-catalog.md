@@ -4,16 +4,16 @@ Profile entscheiden, *welche Agents mit welchen Modellen laufen*. Doch woher kom
 
 Öffne in einem beliebigen Projekt **Agents → Katalog**. Es ist eine schreibgeschützte Ansicht jedes Agents, der diesem Projekt zur Verfügung steht, in zwei Gruppen:
 
-- **Upstream-Agents** – die Agents, die mit `specrails-core` ausgeliefert werden: das Basis-Trio (`sr-architect`, `sr-developer`, `sr-reviewer`) und etwaige Spezialisten wie `sr-merge-resolver`.
+- **Upstream-Agents** – die Rollen, die die Core-Engine zur Laufzeit definiert: das Basis-Trio (`sr-architect`, `sr-developer`, `sr-reviewer`). Sie sind keine Dateien in deinem Repo; der Katalog zeigt die live geltende Definition jeder Rolle schreibgeschützt an, bearbeiten kannst du sie unter **Einstellungen → Agenten-Laufzeit**.
 - **Custom-Agents** – Agents, die du selbst hinzugefügt hast, benannt als `custom-*`.
 
-Jeder Katalogeintrag zeigt, wofür der Agent da ist und welches Standardmodell er nutzt, sodass du die vollständige Aufstellung sehen kannst, bevor du Agents in eine Profil-Kette einbindest.
+Jeder Katalogeintrag zeigt, wofür der Agent da ist; Custom-Agents zeigen zusätzlich ihr Standardmodell, während die Basis-Rollen mit Provider und Modell aus **Einstellungen → Agenten-Laufzeit** laufen. So siehst du in jedem Fall die vollständige Aufstellung, bevor du Agents in eine Profil-Kette einbindest.
 
 ## Einen Custom-Agent hinzufügen
 
 Weil sie in deinem Repo leben, sind Custom-Agents **committfähige Team-Assets**: Committe die Datei, und dein ganzes Team bekommt den Agent. Das spiegelt die Kernidee, die sich durch den gesamten Agents-Bereich zieht –
 
-> **Agent-Definitionen sind geteilt (sie leben im Repo und reisen mit `git` mit). Die Modellkonfiguration ist projektbezogen (sie lebt in Profilen).**
+> **Custom-Agent-Definitionen sind geteilt (sie leben im Repo und reisen mit `git` mit); die Basis-Rollen definiert die Core-Laufzeit. Die Modellkonfiguration ist projektbezogen (sie lebt in Profilen).**
 
 ## Einen Custom-Agent einsetzen
 

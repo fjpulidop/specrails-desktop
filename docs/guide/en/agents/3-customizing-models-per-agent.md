@@ -15,7 +15,7 @@ In **Agents → Profiles**, select a profile and open its agent chain editor. Ea
 
 The model values are aliases — for Claude that's `opus`, `sonnet`, and `haiku` (most capable → fastest). Set the alias you want per agent:
 
-- Leave an agent's model **blank** to fall back to the agent file's own default.
+- Leave an agent's model **blank** to fall back to the role's own default — for the baseline trio that's the provider and model set in **Settings → Agent runtime**; a custom agent falls back to its file's frontmatter.
 - Set it explicitly to override just for this profile.
 
 Save, and the next rail launched with that profile uses the new models. Jobs already running keep their snapshot.

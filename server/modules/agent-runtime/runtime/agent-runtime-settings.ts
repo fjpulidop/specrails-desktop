@@ -383,6 +383,28 @@ export function saveAgentRuntimeConfig(project: RuntimeConfigProject, input: unk
 /** Roles with an editable definition: the trio plus the FIXER stance (the developer role on a correction round). */
 export type RuntimePromptRole = RuntimeRole | 'fixer'
 const PROMPT_ROLES: RuntimePromptRole[] = [...ROLES, 'fixer']
+/** A loop recipe definition that follows the engine: resolved at launch to the selected Core's factory definition plus the user's global override. */
+export const INHERIT_ROLE_PROMPT = 'inherit'
+const INHERITED_ROLE_PROMPT = /^inherit:(architect|developer|reviewer|fixer)$/
+/** The prompt a declared recipe role carries when it follows a built-in definition (`inherit:<role>`), or the recipe's own text. */
+export function inheritedRolePrompt(prompts: Partial<Record<RuntimePromptRole, string>> | undefined, role: RuntimePromptRole): string {
+  const value = prompts?.[role]
+  return value === undefined || value === INHERIT_ROLE_PROMPT ? `${INHERIT_ROLE_PROMPT}:${role}` : value
+}
+/** Replace `inherit` definitions (built-in roles) and `inherit:<role>` prompts (declared roles) with the effective engine definitions. Explicit recipe text is kept verbatim. */
+export function resolveInheritedRolePrompts<T extends Pick<RuntimeConfig, 'rolePrompts' | 'roles'>>(settings: T, effective: Partial<Record<RuntimePromptRole, string>>): T {
+  // A Core predating the fixer stance has no fixer default: the fixer then follows the developer definition.
+  const resolved = { ...effective, fixer: effective.fixer ?? effective.developer }
+  const lookup = (role: string): string | undefined => resolved[role as RuntimePromptRole]
+  const rolePrompts = settings.rolePrompts && Object.fromEntries(Object.entries(settings.rolePrompts).map(([role, text]) =>
+    [role, text === INHERIT_ROLE_PROMPT ? lookup(role) ?? text : text]))
+  const roles = settings.roles && Object.fromEntries(Object.entries(settings.roles).map(([id, role]) => {
+    const inherited = role.prompt?.match(INHERITED_ROLE_PROMPT)
+    const text = inherited ? lookup(inherited[1]!) : undefined
+    return [id, text ? { ...role, prompt: text } : role]
+  }))
+  return { ...settings, ...(rolePrompts ? { rolePrompts } : {}), ...(roles ? { roles } : {}) }
+}
 export function validateRuntimeRolePrompts(input: unknown, extraRoles: readonly string[] = []): Record<string, string> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AgentRuntimeConfigError('Role prompts must be an object')
   const prompts: Record<string, string> = {}

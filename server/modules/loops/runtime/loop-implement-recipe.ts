@@ -1,3 +1,4 @@
+import { inheritedRolePrompt } from '../../agent-runtime/runtime/agent-runtime-settings'
 import { defaultLoopAgents } from './loop-agents'
 import type { LoopGraph, LoopNode, CoreNodeKind } from './loop-graph'
 
@@ -12,10 +13,10 @@ const reviewPolicy = 'approved == true; issues must be empty; score >= 70; ' + O
 export function configurableImplementGraph(): LoopGraph {
   const agents = defaultLoopAgents()
   agents.roles = {
-    plan: { ...agents.agents.architect, access: 'read', artifacts: 'all', openspecSkill: 'openspec-ff-change', prompt: agents.rolePrompts?.architect },
-    build: { ...agents.agents.developer, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: agents.rolePrompts?.developer },
-    assess: { ...agents.agents.reviewer, access: 'read', artifacts: 'none', openspecSkill: 'openspec-verify-change', prompt: agents.rolePrompts?.reviewer },
-    correct: { ...agents.fixer!, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: agents.rolePrompts?.fixer },
+    plan: { ...agents.agents.architect, access: 'read', artifacts: 'all', openspecSkill: 'openspec-ff-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'architect') },
+    build: { ...agents.agents.developer, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'developer') },
+    assess: { ...agents.agents.reviewer, access: 'read', artifacts: 'none', openspecSkill: 'openspec-verify-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'reviewer') },
+    correct: { ...agents.fixer!, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
   }
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }], edges: LoopGraph['edges'] = []
   const node = (id: string, label: string, kind: CoreNodeKind, params: Record<string, unknown>, outcomes: Record<string, string>) => {

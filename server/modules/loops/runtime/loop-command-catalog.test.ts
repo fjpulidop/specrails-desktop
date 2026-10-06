@@ -197,14 +197,17 @@ describe('revision commands — mutation and review are separate owners', () => 
       expect(gate.template).toMatch(/DO NOT repeat them/)
     })
 
-    it('runs the reviewer and asks for fresh confidence evidence', () => {
-      expect(gate.template).toMatch(/sr-reviewer/)
+    it('performs an independent senior review against the OpenSpec package instead of loading an installed sr-reviewer', () => {
+      expect(gate.template).toMatch(/independent senior review of the resulting diff against the governing OpenSpec package/)
+      expect(gate.template).not.toMatch(/sr-reviewer/)
+      expect(gate.template).not.toMatch(/installed/)
+      expect(gate.description).not.toMatch(/sr-reviewer/)
       expect(gate.template).toMatch(/fresh `confidence-score\.json`/)
     })
 
-    it('degrades honestly when the reviewer is unavailable', () => {
-      expect(gate.template).toMatch(/reviewer is unavailable or inapplicable/)
-      expect(gate.template).toMatch(/Never infer PASS from missing reviewer evidence/)
+    it('degrades honestly when no OpenSpec package governs the candidate', () => {
+      expect(gate.template).toMatch(/If no OpenSpec package governs this candidate/)
+      expect(gate.template).toMatch(/Never infer PASS from missing review evidence/)
     })
 
     it('reconciles the reviewer Score/Verdict finish with the outer sentinel', () => {

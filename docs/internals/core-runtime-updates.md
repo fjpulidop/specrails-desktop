@@ -68,6 +68,25 @@ all workspace refreshes and the final recovery-state write succeed.
 Core 6 registry updates and same-version runtime repairs are offered using the
 same supported-major policy as runtime selection.
 
+## Role definitions follow the engine
+
+Core owns how the implement roles think: `rolePromptDefaults()` returns the
+factory architect, developer, reviewer and fixer definitions (one shared senior
+engineer identity, blast-radius discipline, quality bar and the mandatory
+OpenSpec binding). Desktop owns the workflows that use those roles, and never
+keeps a copy of those definitions.
+
+- The Implement rail (engine 1) reads the defaults from the selected Core at
+  launch, merged with the user's global overrides from Settings.
+- Loop recipes store `inherit` for the built-in definitions (and
+  `inherit:<role>` for declared recipe roles such as `plan`/`build`). The
+  launch bridge resolves them to the same Core defaults plus global overrides
+  and freezes the result with the run, so every loop follows the installed
+  Core automatically. Text the user edits in the loop editor is stored verbatim
+  and stays frozen with the loop; "Use the Core definition" returns a role to
+  `inherit`. `/api/loop-agent-defaults` returns `rolePromptDefaults` so the
+  editor can preview what `inherit` resolves to today.
+
 ## Version reporting
 
 Global status distinguishes the selected runtime and its source, the active

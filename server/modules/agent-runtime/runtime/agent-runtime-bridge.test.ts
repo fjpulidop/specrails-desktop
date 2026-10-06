@@ -509,6 +509,19 @@ describe('programmatic selection', () => {
 describe('Core definition process bridge', () => {
   const definition = () => ({schemaVersion:1,id:'authored',entry:'finish',nodes:{finish:{kind:'end',params:{outcome:'success'},ends:{}}}})
   const v2 = (status='succeeded',more:object={}) => final(status,{engineVersion:2,completion:{ok:true,verified:false,reasons:[]},usage:{durationMs:1234},...more})
+  it('resolves inherit loop definitions to the engine defaults plus global overrides and freezes the result', async () => {
+    fixture.v2 = true
+    script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    saveRuntimeRolePrompts({ architect: 'Global architect override' })
+    const recipe = defaultLoopAgents()
+    recipe.roles = { ...recipe.roles, plan: { provider: 'inherit', access: 'read', artifacts: 'all', prompt: 'inherit:reviewer' } }
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, loopConfig: recipe, providerOverride: { provider: 'kimi' } })
+    const config = JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8'))
+    expect(config.rolePrompts.architect).toBe('Global architect override')
+    expect(config.rolePrompts.reviewer).toBe('Factory reviewer')
+    expect(config.roles.plan.prompt).toBe('Factory reviewer')
+    expect(JSON.stringify(config)).not.toContain('"inherit:')
+  })
   it('freezes loop agents independently of project/global prompts and resumes the original snapshot', async () => {
     fixture.v2 = true
     script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)

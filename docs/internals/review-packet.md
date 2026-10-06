@@ -140,7 +140,7 @@ one-active-generation-per-rail all come free from the shipped machinery.
 
 **The loop.** `factory:revision` is the fourth factory loop: `{{cmd:revise}}` (a
 distilled step that applies the one requested change on top of the branch and
-then runs `sr-reviewer` over the resulting diff, so packet v2 keeps its reviewer
+then runs the reviewer role (`sr-reviewer`) over the resulting diff, so packet v2 keeps its reviewer
 tier) followed by the standard `{{cmd:verify}}`. No Architect step — the plan and
 the code already exist. It is resolvable by id but deliberately NOT listed in the
 public catalog: its prompt consumes `{{const:REVISION_REQUEST}}`, which only a

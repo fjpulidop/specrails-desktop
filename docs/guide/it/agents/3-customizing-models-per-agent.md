@@ -15,7 +15,7 @@ In **Agenti → Profili**, seleziona un profilo e apri il suo editor della caten
 
 I valori dei modelli sono alias — per Claude sono `opus`, `sonnet` e `haiku` (dal più capace → al più veloce). Imposta l'alias che desideri per ogni agente:
 
-- Lascia il modello di un agente **vuoto** per ricadere sul default presente nel file dell'agente.
+- Lascia il modello di un agente **vuoto** per ricadere sul default proprio del ruolo — per il trio di base sono il provider e il modello impostati in **Impostazioni → Motore degli agenti**; un agente personalizzato ricade sul frontmatter del suo file.
 - Impostalo esplicitamente per fare l'override solo per questo profilo.
 
 Salva, e il prossimo rail avviato con quel profilo userà i nuovi modelli. I job già in esecuzione mantengono il loro snapshot.

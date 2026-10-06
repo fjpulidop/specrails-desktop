@@ -28,7 +28,7 @@ Au sein d'une exécution, le travail est *routé*. Une tâche porte des tags, et
 
 ## Une idée importante, dès le départ
 
-La *définition* de chaque agent — ses instructions, sa personnalité, ce qu'il a le droit de faire — est **partagée**. Elle vit dans des fichiers (`.claude/agents/<id>.md`) qui voyagent avec votre dépôt, si bien que toute votre équipe fait tourner le même architecte, le même relecteur.
+La *définition* de chaque agent de base — ses instructions, sa personnalité, ce qu'il a le droit de faire — vient du **runtime** du moteur Core, pas d'un fichier dans votre dépôt. Il n'y a rien à installer ni à garder synchronisé : lisez la définition de chaque rôle dans le catalogue des Agents et ajustez-la pour tous les projets dans **Paramètres → Moteur d’agents**. Les agents personnalisés sont l'exception : ils vivent dans des fichiers (`.claude/agents/custom-*.md`) qui voyagent avec votre dépôt, si bien que toute votre équipe fait tourner les mêmes.
 
 Ce qui est **propre à chaque projet**, c'est la *configuration* qui se superpose : quel modèle chaque agent utilise, et quelle combinaison d'agents vous choisissez pour un rail donné. C'est précisément à cela que servent les profils — et c'est l'objet de la page suivante.
 

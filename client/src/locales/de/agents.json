@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agents",
-    "subtitle": "Agent-Profile und den Katalog (Upstream + Custom) für dieses Projekt verwalten.",
+    "subtitle": "Agent-Profile und den Katalog (laufzeitdefinierte Basisrollen + Custom-Agents) für dieses Projekt verwalten.",
     "tabs": {
       "profiles": "Profile",
       "usage": "Nutzung",
@@ -45,8 +45,8 @@
       "generateButton": "Generieren"
     },
     "empty": {
-      "title": "Keine Agents installiert",
-      "body": "Führe <code>{{command}}</code> in diesem Projekt aus, um die Upstream-Agents zu installieren, oder erstelle jetzt einen Custom-Agent."
+      "title": "Noch keine Custom-Agents",
+      "body": "Die Basisrollen (Architect, Developer, Reviewer) werden von der specrails-core-Laufzeit definiert und müssen nicht installiert werden. Erstelle einen Custom-Agent, um dein Team zu erweitern."
     },
     "actions": {
       "template": "Vorlage",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "Upstream ({{count}})",
-      "upstreamDescription": "Wird von specrails-core mitgeliefert; schreibgeschützt.",
+      "upstreamDescription": "Basisrollen, definiert von der specrails-core-Laufzeit; schreibgeschützt.",
       "custom": "Custom ({{count}})",
       "customDescription": "Die custom-*.md-Dateien deines Projekts. Nutze Vorlage / Generieren / Leer oben, um einen zu erstellen.",
       "noCustomAgents": "Noch keine Custom-Agents."
@@ -72,6 +72,7 @@
       "defaultModel": "Standardmodell: {{model}}",
       "aiEdit": "AI Edit",
       "aiEditTitle": "Diesen Agent iterativ mit KI verfeinern",
+      "runtimeDefinition": "Laufzeitdefinition von specrails-core",
       "readOnly": "schreibgeschützt",
       "editableHint": "bearbeitbar – nutze Bearbeiten oben"
     },
@@ -129,7 +130,7 @@
       "body": "Mit Profilen speicherst du Kombinationen aus Orchestrator + Agents + Routing und wählst pro Rail eines aus.",
       "migrateButton": "Aus aktuellen Agents migrieren",
       "blankButton": "Leeres Profil",
-      "migrateExplainer": "„Migrieren“ liest die Frontmatter-Modelle deiner bestehenden <code>.claude/agents/</code>-Dateien und erstellt ein <code>default</code>-Profil, das das heutige Verhalten verlustfrei abbildet."
+      "migrateExplainer": "„Migrieren“ erstellt ein <code>default</code>-Profil mit den Basisrollen auf dem Standardmodell des Providers und übernimmt Modelle aus vorhandenem <code>.claude/agents/</code>-Frontmatter — verlustfrei."
     },
     "sidebar": {
       "title": "Profile",

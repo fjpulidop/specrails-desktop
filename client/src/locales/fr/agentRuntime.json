@@ -577,7 +577,7 @@
     "legacy": "This saved loop still uses historical project agents. Import them or enable loop agents before changing its configuration.",
     "enable": "Use loop agents",
     "import": "Import current project agents",
-    "restoreDefinition": "Restore default definition",
+    "restoreDefinition": "Utiliser la définition de Core",
     "default": "Provider default",
     "effort": "Reasoning effort",
     "escalationModel": "Escalation model",
@@ -591,6 +591,9 @@
     "showUnused": "Also show agents not used in this loop",
     "stepTitle": "Step agent and options",
     "stepHint": "Edit this step’s agent definition and engine. Steps using the same role in this loop share these settings.",
-    "inheritProvider": "Hériter du fournisseur de la mission"
+    "inheritProvider": "Hériter du fournisseur de la mission",
+    "inheritDefinition": "Suit la définition de Core : chaque mise à niveau de Core la met à jour automatiquement.",
+    "customizeDefinition": "Personnaliser pour cette boucle",
+    "coreDefinitionUnavailable": "Aperçu indisponible tant qu’aucun runtime Core n’est installé."
   }
 }

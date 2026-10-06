@@ -7,58 +7,6 @@ import { migrateWorkspaceToSymlinks } from './framework-migration'
 import { resolveHome } from './artifact-registry'
 import { mergeSpecrailsIntoWorkspaceMcp } from './agent-mcp-config'
 
-/**
- * Windows repair: ensure the workspace's `<providerDir>/agents` holds the
- * framework's `sr-*` agent definitions, copied from the REAL versioned framework
- * dir (`~/.specrails/framework/<version>/<providerDir>/agents`).
- *
- * Why: on Windows the `framework/current` JUNCTION can be untraversable by Node's
- * `fs` ("UNKNOWN: scandir" / "untrusted mount point"); the bundled core's
- * `assemble` sources the agents THROUGH `current`, so `linkAgentFiles` reads
- * nothing and the workspace ends up with NO `sr-*` agents — the implement
- * pipeline then has no sub-agents to delegate to (architect/developer/reviewer)
- * and silently runs everything inline. The versioned dir is a real, traversable
- * directory, so we read it directly. (The proper fix lives in core's `assemble`;
- * this repairs already-broken installs without waiting for a core republish, and
- * mirrors exactly what the fixed core does on Windows — copy from the version
- * dir.) `assemble` never re-runs on a rail spawn, so a workspace broken at setup
- * stays broken; this runs per rail spawn to self-heal it.
- *
- * NO-OP on POSIX (per-file symlinks already populate the workspace correctly;
- * byte-identical). Additive (never touches user `custom-*.md`) + idempotent.
- * Returns the number of agents copied.
- */
-export function ensureFrameworkAgents(workspaceDir: string, providerDir: string, home?: string): number {
-  assertWorkspaceCoreReady(workspaceDir, home)
-  if (process.platform !== 'win32') return 0
-  const root = frameworkRoot(home)
-  const version = readCurrentFrameworkVersion(home)
-  if (!version) return 0
-  const src = path.join(root, version, providerDir, 'agents')
-  let entries: string[]
-  try {
-    entries = fs.readdirSync(src)
-  } catch {
-    return 0 // framework agents not materialized for this provider
-  }
-  const dest = path.join(workspaceDir, providerDir, 'agents')
-  let copied = 0
-  for (const name of entries) {
-    // Framework agents only; never clobber a user/plugin `custom-*.md`.
-    if (!name.endsWith('.md') || name.startsWith('custom-')) continue
-    const destFile = path.join(dest, name)
-    if (fs.existsSync(destFile)) continue
-    try {
-      fs.mkdirSync(dest, { recursive: true })
-      fs.copyFileSync(path.join(src, name), destFile)
-      copied += 1
-    } catch {
-      /* best-effort per file — one failure must never abort the rail spawn */
-    }
-  }
-  return copied
-}
-
 /** Whole-directory framework links for the legacy provider layouts. */
 const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
 
@@ -67,8 +15,9 @@ const DIR_LINKED_SUBTREES = ['commands', 'skills', 'rules'] as const
  *
  * - `rules/` and `specrails/` are whole-directory framework links.
  * - `skills/` is a real merged directory. Core links only its framework-owned
- *   `specrails-*` workflow and `sr-*` role children so OpenSpec, custom, and
- *   other user-owned direct-child skills can coexist.
+ *   `specrails-*` workflow children (older Cores also linked `sr-*` role
+ *   skills) so OpenSpec, custom, and other user-owned direct-child skills can
+ *   coexist.
  *
  * The Windows repair must mirror that ownership boundary exactly. Replacing the
  * Kimi `skills/` root would destroy user state; merely seeing entries in that
@@ -138,21 +87,20 @@ function repairMissingCommands(src: string, dest: string): boolean {
 }
 
 /**
- * Windows repair for provider-owned framework links — the sibling of
- * `ensureFrameworkAgents`.
+ * Windows repair for provider-owned framework links.
  *
- * Why a SEPARATE repair: agents are linked per-file, so a broken `current`
- * junction leaves an EMPTY-but-real `agents/` dir that `ensureFrameworkAgents`
- * refills file-by-file. `commands`/`skills`/`rules` are instead a single
- * dir-symlink INTO `current/<provider>/<subtree>`; when the `current` junction is
- * untraversable by the sidecar (the documented Windows failure), that link is
- * unreadable and the workspace has NO `/specrails:*` commands at all — the claude
- * CLI then reports `Unknown command: /specrails:implement`. This replaces an
+ * Why: `commands`/`skills`/`rules` are a single dir-symlink INTO
+ * `current/<provider>/<subtree>`; when the `current` junction is untraversable
+ * by the sidecar (the documented Windows failure), that link is unreadable and
+ * the workspace has NO `/specrails:*` commands at all — the claude CLI then
+ * reports `Unknown command: /specrails:implement`. This replaces an
  * unreadable/missing link with a REAL recursively-copied directory read straight
- * from the versioned framework dir (never through `current`).
+ * from the versioned framework dir (never through `current`). Role agents need
+ * no repair: specrails-core defines them in its runtime, not as workspace files.
+ * `assemble` never re-runs on a rail spawn, so this runs per spawn to self-heal.
  *
  * Kimi needs an additional per-child repair because its `skills/` root is a real
- * merged directory. Only `specrails-*` and `sr-*` children are framework-owned;
+ * merged directory. Only `specrails-*` (and legacy `sr-*`) children are framework-owned;
  * `openspec-*`, `custom-*`, and unknown children are never copied, replaced, or
  * removed.
  *

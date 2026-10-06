@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agents",
-    "subtitle": "管理此项目的 Agent Profile 和目录（上游 + 自定义）。",
+    "subtitle": "管理此项目的 Agent Profile 和目录（运行时定义的基础角色 + 自定义）。",
     "tabs": {
       "profiles": "Profile",
       "usage": "用量",
@@ -45,8 +45,8 @@
       "generateButton": "生成"
     },
     "empty": {
-      "title": "尚未安装任何 Agent",
-      "body": "在此项目中运行 <code>{{command}}</code> 安装上游 Agent，或立即创建一个自定义 Agent。"
+      "title": "尚无自定义 Agent",
+      "body": "基础角色（architect、developer、reviewer）由 specrails-core 运行时定义，无需安装。创建一个自定义 Agent 来扩展你的团队。"
     },
     "actions": {
       "template": "模板",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "上游（{{count}}）",
-      "upstreamDescription": "由 specrails-core 提供；只读。",
+      "upstreamDescription": "由 specrails-core 运行时定义的基础角色；只读。",
       "custom": "自定义（{{count}}）",
       "customDescription": "项目中的 custom-*.md 文件。使用上方的模板 / 生成 / 空白来创建。",
       "noCustomAgents": "暂无自定义 Agent。"
@@ -72,6 +72,7 @@
       "defaultModel": "默认模型：{{model}}",
       "aiEdit": "AI 编辑",
       "aiEditTitle": "用 AI 迭代优化此 Agent",
+      "runtimeDefinition": "specrails-core 运行时定义",
       "readOnly": "只读",
       "editableHint": "可编辑——使用上方的“编辑”"
     },
@@ -129,7 +130,7 @@
       "body": "Profile 可保存编排器 + Agent + 路由的组合，并为每条 rail 单独选用。",
       "migrateButton": "从当前 Agent 迁移",
       "blankButton": "空白 Profile",
-      "migrateExplainer": "“迁移”会读取现有 <code>.claude/agents/</code> frontmatter 中的模型，并创建一个 <code>default</code> Profile，完整复刻当前行为——零损失。"
+      "migrateExplainer": "“迁移”会使用提供商的默认模型为基础角色创建一个 <code>default</code> Profile，并保留现有 <code>.claude/agents/</code> frontmatter 中找到的模型——零损失。"
     },
     "sidebar": {
       "title": "Profile",

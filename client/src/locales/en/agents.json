@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agents",
-    "subtitle": "Manage agent profiles and the catalog (upstream + custom) for this project.",
+    "subtitle": "Manage agent profiles and the catalog (runtime-defined baseline roles + custom agents) for this project.",
     "tabs": {
       "profiles": "Profiles",
       "usage": "Usage",
@@ -45,8 +45,8 @@
       "generateButton": "Generate"
     },
     "empty": {
-      "title": "No agents installed",
-      "body": "Run <code>{{command}}</code> in this project to install the upstream agents, or create a custom agent now."
+      "title": "No custom agents yet",
+      "body": "The baseline roles (architect, developer, reviewer) are defined by the specrails-core runtime and need no installation. Create a custom agent to extend your team."
     },
     "actions": {
       "template": "Template",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "Upstream ({{count}})",
-      "upstreamDescription": "Shipped by specrails-core; read-only.",
+      "upstreamDescription": "Baseline roles defined by the specrails-core runtime; read-only.",
       "custom": "Custom ({{count}})",
       "customDescription": "Your project's custom-*.md files. Use Template / Generate / Blank above to create one.",
       "noCustomAgents": "No custom agents yet."
@@ -72,6 +72,7 @@
       "defaultModel": "default model: {{model}}",
       "aiEdit": "AI Edit",
       "aiEditTitle": "Iteratively refine this agent with AI",
+      "runtimeDefinition": "specrails-core runtime definition",
       "readOnly": "read-only",
       "editableHint": "editable — use Edit above"
     },
@@ -129,7 +130,7 @@
       "body": "Profiles let you save orchestrator + agent + routing combinations and pick one per rail.",
       "migrateButton": "Migrate from current agents",
       "blankButton": "Blank profile",
-      "migrateExplainer": "\"Migrate\" reads your existing <code>.claude/agents/</code> frontmatter models and creates a <code>default</code> profile mirroring today's behavior — zero-loss."
+      "migrateExplainer": "\"Migrate\" creates a <code>default</code> profile with the baseline roles on the provider's default model, keeping any model found in existing <code>.claude/agents/</code> frontmatter — zero-loss."
     },
     "sidebar": {
       "title": "Profiles",

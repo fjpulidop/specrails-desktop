@@ -156,7 +156,7 @@
       }
     },
     "coreTeamTitle": "Dein Agenten-Team",
-    "coreTeamNote": "Diese drei Kern-Agenten werden immer installiert — nichts auszuwählen. Füge Spezialisten später über Profile und custom-*-Agenten hinzu."
+    "coreTeamNote": "Diese drei Kernrollen werden von der specrails-core-Laufzeit definiert — nichts zu installieren oder auszuwählen. Füge Spezialisten später über Profile und custom-*-Agenten hinzu."
   },
   "templates": {
     "security-reviewer": {

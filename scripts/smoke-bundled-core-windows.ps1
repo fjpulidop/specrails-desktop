@@ -7,9 +7,9 @@
 #   2. swap-current finalises: `current` resolves to the version (junction OR
 #      Windows copy-fallback — readCurrentFrameworkVersion handles both).
 #   3. assemble links the provider subtrees into a workspace: commands/skills
-#      land as dir JUNCTIONS, agents land via the COPY-FALLBACK (file
-#      symlinks need admin on Windows; core falls back to copying). Each must
-#      have content.
+#      land as dir JUNCTIONS (or the COPY-FALLBACK when junctions need admin
+#      on Windows; core falls back to copying). Each must have content. Role
+#      agents are runtime-defined by Core and are no longer workspace files.
 #   4. REAL provider discovery: all four providers (claude + codex + gemini +
 #      kimi) materialize +
 #      assemble independently into the same framework/workspace.
@@ -78,9 +78,9 @@ $providerDirs = @{
 }
 # Core 6 no longer ships a rules/ subtree for any provider.
 $linkedByProvider = @{
-  "claude" = @("agents", "commands", "skills")
+  "claude" = @("commands", "skills")
   "codex" = @("skills")
-  "gemini" = @("agents", "commands")
+  "gemini" = @("commands")
   # Kimi keeps the skills root real so OpenSpec and custom roles can coexist;
   # Core links framework-owned children within it. The specrails/ runner dir
   # remains a whole-dir framework link and exercises the junction/copy path.
@@ -107,13 +107,16 @@ foreach ($p in $providers) {
     # to follow them, which would report a false zero despite valid skills.
     $skillCount = (Get-ChildItem -Path $skills -Recurse -FollowSymlink -Filter "SKILL.md" -File -ErrorAction SilentlyContinue | Measure-Object).Count
     if ($skillCount -lt 1) { Write-Error "kimi assemble: skills has no SKILL.md content"; exit 1 }
-    $directRole = Join-Path $skills "sr-architect\SKILL.md"
-    if (-not (Test-Path $directRole)) {
-      Write-Error "kimi assemble: missing directly discoverable role at $directRole"; exit 1
+    # Workflow skills are directly discoverable `specrails-*` children.
+    $workflowSkill = Get-ChildItem -Path $skills -Directory -Filter "specrails-*" -ErrorAction SilentlyContinue |
+      Where-Object { Test-Path (Join-Path $_.FullName "SKILL.md") } |
+      Select-Object -First 1
+    if (-not $workflowSkill) {
+      Write-Error "kimi assemble: missing a directly discoverable specrails-* workflow skill under $skills"; exit 1
     }
-    $legacyNestedRole = Join-Path $skills "rails\sr-architect\SKILL.md"
-    if (Test-Path $legacyNestedRole) {
-      Write-Error "kimi assemble: role remained in undiscoverable legacy nested layout at $legacyNestedRole"; exit 1
+    $runner = Join-Path $pd "specrails\run-skill.mjs"
+    if (-not (Test-Path $runner)) {
+      Write-Error "kimi assemble: missing the specrails/ skill runner at $runner"; exit 1
     }
     $skillsItem = Get-Item $skills
     if (($skillsItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
