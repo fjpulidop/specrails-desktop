@@ -4,16 +4,16 @@ Profile 决定的是*哪些 Agent 运行、用什么模型*。但 Agent 本身�
 
 在任意项目中打开 **Agents → 目录**。它是一个只读视图，列出该项目可用的每一个 Agent，分为两组：
 
-- **上游 Agent**——随 `specrails-core` 一起发布的 Agent：基础三人组（`sr-architect`、`sr-developer`、`sr-reviewer`）以及像 `sr-merge-resolver` 这样的任何专家型 Agent。
+- **上游 Agent**——由 Core 引擎在运行时定义的角色：基础三人组（`sr-architect`、`sr-developer`、`sr-reviewer`）。它们不是你仓库里的文件；目录以只读方式展示每个角色当前生效的定义，编辑则在 **设置 → 代理运行引擎** 中进行。
 - **自定义 Agent**——你自己添加的 Agent，命名为 `custom-*`。
 
-每个目录条目都会展示该 Agent 的用途和它的默认模型，这样在把 Agent 接入某条 Profile 链之前，你就能看清整支阵容。
+每个目录条目都会展示该 Agent 的用途；自定义 Agent 还会显示它的默认模型，而基础角色则使用 **设置 → 代理运行引擎** 中设置的提供商和模型运行。无论哪种，在把 Agent 接入某条 Profile 链之前，你都能看清整支阵容。
 
 ## 添加一个自定义 Agent
 
 由于它们就住在你的仓库里，自定义 Agent 是**可提交的团队资产**：提交这个文件，你的整个团队就都拥有了这个 Agent。这呼应了贯穿整个 Agents 区的核心观念——
 
-> **Agent 定义是共享的（它们住在仓库里，随 `git` 一起流转）。模型配置则因项目而异（它住在 Profile 里）。**
+> **自定义 Agent 的定义是共享的（它们住在仓库里，随 `git` 一起流转）；基础角色由 Core 运行时定义。模型配置则因项目而异（它住在 Profile 里）。**
 
 ## 让自定义 Agent 上岗
 

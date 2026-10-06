@@ -1,6 +1,6 @@
 ## Context
 
-Desktop authors the Implement graph in `server/modules/loops/runtime/loop-implement-recipe.ts` and compiles it to a Core definition. Role prompts for the recipe's custom roles (`plan`, `build`, `assess`, `correct`) come from `loop-agent-defaults.json`. Project runtime configuration is validated with the vendored Core schema (`server/schemas/agent-runtime.schema.json`, parity-tested) and sent to Core; Core advertises capabilities through `runtime-api` (`cli.ts`), which Desktop reads in `agent-runtime-loader.ts` and gates features such as `configurableGuardrails`. The loop log renders the durable completion through `completion-model.ts` and `LoopCompletionSummary.tsx`; the bridge maps a failed acceptance to `runtimeStatus: 'blocked'`.
+Desktop authors the Implement graph in `server/modules/loops/runtime/loop-implement-recipe.ts` and compiles it to a Core definition. Role prompts for the recipe's custom roles (`plan`, `build`, `assess`, `correct`) are inherited from Core (`INHERIT_ROLE_PROMPT`), so prompt rules are a Core concern. Project runtime configuration is validated with the vendored Core schema (`server/schemas/agent-runtime.schema.json`, parity-tested) and sent to Core; Core advertises capabilities through `runtime-api` (`cli.ts`), which Desktop reads in `agent-runtime-loader.ts` and gates features such as `configurableGuardrails`. The loop log renders the durable completion through `completion-model.ts` and `LoopCompletionSummary.tsx`; the bridge maps a failed acceptance to `runtimeStatus: 'blocked'`.
 
 The paired Core change adds: `verify` params `hostBlockers` and `setup`, the opt-in `blocked` outcome, `output.blocker` and `completion.blocker` (`HostBlocker`), `RuntimeConfig.setup`, the `end` param `blockerFrom`, `[environment]` progress lines and the fixer `blocker` output field. Core advertises `hostBlockers: 1` and `setupCommands: 1` in `capabilities`.
 
@@ -22,7 +22,7 @@ Non-Goals: changing the generic loop builder's verify node UI beyond exposing th
 
 ### D2. Role defaults
 
-`loop-agent-defaults.json` developer and fixer definitions receive the exact sentences Core adds in `prompts.ts` (shared wording, kept in sync by the existing parity test if one exists, otherwise a new test asserting the sentences exist in both the Core package text and the defaults file). The fixer definition documents the `blocker` JSON field and its kinds; the developer definition documents the temporary-bypass prohibition and install-or-report rule. `loop-agents.ts` validation must accept the longer prompts (check any length limit).
+Superseded: Desktop loops inherit Core role definitions, so the developer and fixer rules ship with the paired Core change and its `prompts.test.ts`. No Desktop prompt file or parity test exists.
 
 ### D3. Setup settings
 

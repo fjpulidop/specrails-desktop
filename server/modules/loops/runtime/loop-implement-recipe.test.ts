@@ -22,7 +22,8 @@ it('uses configurable recipes only when Core advertises the generic capabilities
   expect(old.graph.nodes.some(node => node.data?.kind === 'implementation-step')).toBe(true)
   const latest = factoryLoopsForCapabilities({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }).find(loop => loop.id === 'factory:implement')!
   expect(latest.graph.nodes.some(node => node.data?.kind === 'role-turn')).toBe(true)
-  expect(latest.graph.config.agents!.roles!.build.prompt).toContain('implementation')
+  // Declared recipe roles follow the engine's built-in definitions until the user edits them.
+  expect(latest.graph.config.agents!.roles!.build.prompt).toBe('inherit:developer')
 })
 
 describe('host blockers', () => {

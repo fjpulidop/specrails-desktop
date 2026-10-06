@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.60.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.3...v2.60.0) (2026-10-06)
+
+
+### Features
+
+* loops inherit Core role definitions; stop requiring installed role agents ([#728](https://github.com/fjpulidop/specrails-desktop/issues/728)) ([674798c](https://github.com/fjpulidop/specrails-desktop/commit/674798ccde3523a17a87b7c9ad54031f14710803))
+
 ## [2.59.3](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.2...v2.59.3) (2026-10-05)
 
 

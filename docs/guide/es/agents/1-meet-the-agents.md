@@ -28,7 +28,7 @@ Dentro de una ejecución, el trabajo se *enruta*. Cada tarea lleva etiquetas, y 
 
 ## Una idea importante, de entrada
 
-La *definición* de cada agente — sus instrucciones, su personalidad, lo que tiene permitido hacer — es **compartida**. Vive en archivos (`.claude/agents/<id>.md`) que viajan con tu repositorio, así que todo tu equipo ejecuta el mismo architect, el mismo reviewer.
+La *definición* de cada agente base — sus instrucciones, su personalidad, lo que tiene permitido hacer — viene del **runtime** del motor Core, no de un archivo en tu repositorio. No hay nada que instalar ni que mantener sincronizado: lee la definición de cada rol en el catálogo de Agentes y ajústala para todos los proyectos en **Ajustes → Motor de agentes**. Los agentes personalizados son la excepción: viven en archivos (`.claude/agents/custom-*.md`) que viajan con tu repositorio, así que todo tu equipo ejecuta los mismos.
 
 Lo que es **por proyecto** es la *configuración* que se monta encima: con qué modelo corre cada agente y qué combinación de agentes eliges para un rail concreto. Para eso están los perfiles — y de eso trata la siguiente página.
 

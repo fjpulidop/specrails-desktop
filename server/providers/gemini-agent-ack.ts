@@ -1,17 +1,19 @@
-// Gemini headless subagent pre-acknowledgment.
+// Gemini headless subagent pre-acknowledgment (custom agents only).
 //
 // gemini 0.46+ DISCOVERS `<project>/.gemini/agents/*.md` but only ENABLES a
 // project's custom subagents after an interactive "New Agents Discovered →
 // Acknowledge and Enable" prompt. That prompt never fires in headless
 // (`gemini -p`) spawns — which is how the desktop runs every rail — so
-// `invoke_agent sr-architect` returns "Subagent not found" and the implement
-// orchestrator silently falls back to a generic agent (the specialised
-// architect/developer/reviewer personas never run in isolation).
+// `invoke_agent custom-<name>` returns "Subagent not found" and the role that
+// delegates to it silently falls back to inline work. The baseline roles
+// (architect/developer/reviewer) are defined by the specrails-core runtime and
+// are not `.gemini/agents` files, so only the project's `custom-*` agents need
+// this acknowledgment.
 //
 // specrails-core writes the acknowledgment file at install time; this is the
 // defence-in-depth copy the desktop runs right before a gemini rail spawn, so a
-// project installed with an older core (or whose agents changed since install)
-// is still trusted headless. The file gemini reads is
+// project whose custom agents changed since install is still trusted headless.
+// The file gemini reads is
 // `~/.gemini/acknowledgments/agents.json`, shaped
 //   { [projectRoot]: { [agentName]: <sha256-hex of the agent .md file> } }
 // where the hash is sha256 of the FULL agent markdown file (verified empirically
@@ -31,10 +33,11 @@ function ackFilePath(): string {
 }
 
 /**
- * Pre-acknowledge every `<projectPath>/.gemini/agents/*.md` so gemini loads them
- * in headless mode. No-op when the project has no `.gemini/agents` dir or no
- * agent files. The `projectPath` is the key gemini uses (the spawn cwd / repo
- * root), matching what `specrails-core` writes at install.
+ * Pre-acknowledge every `<projectPath>/.gemini/agents/*.md` (the project's
+ * custom agents) so gemini loads them in headless mode. No-op when the project
+ * has no `.gemini/agents` dir or no agent files. The `projectPath` is the key
+ * gemini uses (the spawn cwd / repo root), matching what `specrails-core`
+ * writes at install.
  */
 export function acknowledgeGeminiProjectAgents(projectPath: string): void {
   const agentsDir = join(projectPath, '.gemini', 'agents')

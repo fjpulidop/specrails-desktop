@@ -356,6 +356,8 @@
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
         "../../../workspace-resolution",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../../agent-runtime/runtime/agent-runtime-settings",
         "./agent-catalog",
         "./agent-generator",
         "./agent-refine-db",
@@ -1394,8 +1396,7 @@
         "node:crypto"
       ],
       "runtime/loop-agents.ts": [
-        "../../agent-runtime/runtime/agent-runtime-settings",
-        "./loop-agent-defaults.json"
+        "../../agent-runtime/runtime/agent-runtime-settings"
       ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
@@ -1490,6 +1491,7 @@
         "./loop-agents"
       ],
       "runtime/loop-implement-recipe.ts": [
+        "../../agent-runtime/runtime/agent-runtime-settings",
         "./loop-agents",
         "./loop-graph"
       ],

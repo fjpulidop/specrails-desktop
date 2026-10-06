@@ -3,12 +3,13 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, type DbInstance } from './db'
-import { createProfile, getProfile, ProfileNotFoundError } from './modules/agents/runtime/profile-manager'
+import { createProfile, getProfile } from './modules/agents/runtime/profile-manager'
 
 /**
- * Integration-flavor test for the migration endpoint's core logic: read
- * .claude/agents/*.md frontmatter, build a default profile, reject on
- * missing baseline agents. We exercise the filesystem + ProfileManager
+ * Integration-flavor test for the migration endpoint's core logic: seed the
+ * baseline role ids (runtime-defined by specrails-core, no file required),
+ * read `model:` only from `.claude/agents/sr-*.md` files that still exist,
+ * and build a default profile. We exercise the filesystem + ProfileManager
  * directly since the endpoint only adds ctx + broadcast plumbing.
  */
 
@@ -26,22 +27,25 @@ function seedAgent(name: string, model: 'sonnet' | 'opus' | 'haiku' = 'sonnet'):
 }
 
 // Mirror of the migration endpoint body — keeps test focused on the core logic.
-function runMigration(projectPath: string): { ok: true } | { ok: false; error: string } {
+const BASELINE = ['sr-architect', 'sr-developer', 'sr-reviewer']
+const DEFAULT_MODEL = 'sonnet'
+function runMigration(projectPath: string): { ok: true } {
   const agentsDir = path.join(projectPath, '.claude', 'agents')
-  if (!fs.existsSync(agentsDir)) return { ok: false, error: 'no .claude/agents/ directory found' }
   const agents: Array<{ id: string; model: 'sonnet' | 'opus' | 'haiku' }> = []
-  for (const entry of fs.readdirSync(agentsDir)) {
+  // Role files are optional; read models only from the `sr-*` files that exist.
+  for (const entry of fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : []) {
     if (!entry.endsWith('.md') || !entry.startsWith('sr-')) continue
     const id = entry.slice(0, -'.md'.length)
-    let model: 'sonnet' | 'opus' | 'haiku' = 'sonnet'
+    let model: 'sonnet' | 'opus' | 'haiku' = DEFAULT_MODEL
     const body = fs.readFileSync(path.join(agentsDir, entry), 'utf8')
     const m = body.match(/^model:\s*(sonnet|opus|haiku)/m)
     if (m) model = m[1] as 'sonnet' | 'opus' | 'haiku'
     agents.push({ id, model })
   }
-  const baseline = ['sr-architect', 'sr-developer', 'sr-reviewer', 'sr-merge-resolver']
-  const missing = baseline.filter((id) => !agents.some((a) => a.id === id))
-  if (missing.length > 0) return { ok: false, error: `missing: ${missing.join(', ')}` }
+  for (const id of BASELINE) {
+    if (!agents.some((a) => a.id === id)) agents.push({ id, model: DEFAULT_MODEL })
+  }
+  const baseline = BASELINE
   const profile = {
     schemaVersion: 1,
     name: 'default',
@@ -63,8 +67,8 @@ afterEach(() => {
   db.close()
 })
 
-describe('profile migration from existing agent frontmatters', () => {
-  it('creates a default profile mirroring the 4-agent baseline', () => {
+describe('profile migration from runtime-defined roles and existing agent frontmatters', () => {
+  it('creates a default profile from older-Core role files, keeping optional sr-* agents', () => {
     seedAgent('sr-architect', 'opus')
     seedAgent('sr-developer', 'sonnet')
     seedAgent('sr-reviewer', 'sonnet')
@@ -79,33 +83,32 @@ describe('profile migration from existing agent frontmatters', () => {
     const architect = profile.agents.find((a) => a.id === 'sr-architect')!
     expect(architect.model).toBe('opus')
     expect(architect.required).toBe(true)
-    // merge-resolver is required
+    // merge-resolver is not part of the baseline trio
     const merge = profile.agents.find((a) => a.id === 'sr-merge-resolver')!
-    expect(merge.required).toBe(true)
+    expect(merge.required).toBe(false)
   })
 
-  it('rejects when the baseline is incomplete (missing sr-reviewer)', () => {
-    seedAgent('sr-architect')
-    seedAgent('sr-developer')
-    seedAgent('sr-merge-resolver')
-    // sr-reviewer missing
-    const result = runMigration(projectPath)
-    expect(result.ok).toBe(false)
-    if (result.ok === false) {
-      expect(result.error).toContain('sr-reviewer')
-    }
-    expect(() => getProfile(projectPath, 'default')).toThrow(ProfileNotFoundError)
+  it('seeds the baseline trio with the default model when no role file exists (Core >= 6.3)', () => {
+    expect(fs.existsSync(path.join(projectPath, '.claude', 'agents'))).toBe(false)
+    expect(runMigration(projectPath)).toEqual({ ok: true })
+    const profile = getProfile(projectPath, 'default')
+    expect(profile.agents).toEqual([
+      { id: 'sr-architect', model: 'sonnet', required: true },
+      { id: 'sr-developer', model: 'sonnet', required: true },
+      { id: 'sr-reviewer', model: 'sonnet', required: true },
+    ])
   })
 
-  it('rejects when sr-merge-resolver is missing from the baseline', () => {
-    seedAgent('sr-architect')
-    seedAgent('sr-developer')
-    seedAgent('sr-reviewer')
-    const result = runMigration(projectPath)
-    expect(result.ok).toBe(false)
-    if (result.ok === false) {
-      expect(result.error).toContain('sr-merge-resolver')
-    }
+  it('reads models from the role files that exist and seeds the missing sr-reviewer', () => {
+    seedAgent('sr-architect', 'opus')
+    seedAgent('sr-developer', 'haiku')
+    // sr-reviewer missing: seeded with the default model instead of rejecting
+    expect(runMigration(projectPath)).toEqual({ ok: true })
+    const profile = getProfile(projectPath, 'default')
+    const byId = new Map(profile.agents.map((a) => [a.id, a]))
+    expect(byId.get('sr-architect')).toMatchObject({ model: 'opus', required: true })
+    expect(byId.get('sr-developer')).toMatchObject({ model: 'haiku', required: true })
+    expect(byId.get('sr-reviewer')).toMatchObject({ model: 'sonnet', required: true })
   })
 
   it('ignores non-sr agents (e.g. custom-*)', () => {

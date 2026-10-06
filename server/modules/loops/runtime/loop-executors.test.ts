@@ -12,19 +12,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const {
   runAiCliInvocation,
   getAdapter,
-  ensureFrameworkAgents,
+  ensureFrameworkCommandSubtrees,
   finaliseInvocationResult,
 } = vi.hoisted(() => ({
   runAiCliInvocation: vi.fn(),
   getAdapter: vi.fn(),
-  ensureFrameworkAgents: vi.fn(),
   ensureFrameworkCommandSubtrees: vi.fn(),
   finaliseInvocationResult: vi.fn(),
 }))
 
 vi.mock('../../execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation }))
 vi.mock('../../../providers', () => ({ getAdapter }))
-vi.mock('../../../workspace-manager', () => ({ ensureFrameworkAgents }))
+vi.mock('../../../workspace-manager', () => ({ ensureFrameworkCommandSubtrees }))
 vi.mock('../../accounting/runtime/result-event', () => ({ finaliseInvocationResult }))
 
 import type { RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
@@ -92,7 +91,7 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
   beforeEach(() => {
     runAiCliInvocation.mockReset()
     getAdapter.mockReset()
-    ensureFrameworkAgents.mockReset()
+    ensureFrameworkCommandSubtrees.mockReset()
     finaliseInvocationResult.mockReset()
     finaliseInvocationResult.mockImplementation(
       (_adapter: unknown, _events: unknown, options: { durationMs?: number }) => ({
@@ -398,7 +397,7 @@ describe('loop-executors — idle watchdog (loop-step-idle)', () => {
   beforeEach(() => {
     runAiCliInvocation.mockReset()
     getAdapter.mockReset()
-    ensureFrameworkAgents.mockReset()
+    ensureFrameworkCommandSubtrees.mockReset()
     finaliseInvocationResult.mockReset()
     finaliseInvocationResult.mockImplementation(
       (_adapter: unknown, _events: unknown, options: { durationMs?: number }) => ({

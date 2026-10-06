@@ -4,16 +4,16 @@ Profiles decide *which agents run and with what models*. But where do the agents
 
 Open **Agents → Catalog** in any project. It's a read-only viewer of every agent available to that project, in two groups:
 
-- **Upstream agents** — the agents that ship with `specrails-core`: the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`) and any specialists like `sr-merge-resolver`.
+- **Upstream agents** — the roles the Core engine defines at runtime: the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`). They're not files in your repo; the catalog shows each role's live definition read-only, and you edit it in **Settings → Agent runtime**.
 - **Custom agents** — agents you've added yourself, named `custom-*`.
 
-Each catalog entry shows what the agent is for and its default model, so you can see the full roster before wiring agents into a profile chain.
+Each catalog entry shows what the agent is for; custom agents also show their default model, while the baseline roles run with the provider and model set in **Settings → Agent runtime**. Either way you can see the full roster before wiring agents into a profile chain.
 
 ## Adding a custom agent
 
 Because they live in your repo, custom agents are **committable team assets**: commit the file and your whole team gets the agent. This mirrors the core idea throughout the Agents section —
 
-> **Agent definitions are shared (they live in the repo and travel with `git`). Model configuration is per-project (it lives in profiles).**
+> **Custom agent definitions are shared (they live in the repo and travel with `git`); the baseline roles are defined by the Core runtime. Model configuration is per-project (it lives in profiles).**
 
 ## Putting a custom agent to work
 

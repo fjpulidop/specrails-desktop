@@ -156,7 +156,7 @@
       }
     },
     "coreTeamTitle": "Votre équipe d'agents",
-    "coreTeamNote": "Ces trois agents de base sont toujours installés — rien à choisir. Ajoutez des spécialistes plus tard via des profils et des agents custom-*."
+    "coreTeamNote": "Ces trois rôles de base sont définis par le runtime specrails-core — rien à installer ni à choisir. Ajoutez des spécialistes plus tard via des profils et des agents custom-*."
   },
   "templates": {
     "security-reviewer": {

@@ -1,5 +1,5 @@
 import { defaultLoopAgents } from './loop-agents'
-import { validateLoopRuntimeSettings } from '../../agent-runtime/runtime/agent-runtime-settings'
+import { validateLoopRuntimeSettings, loadRuntimeRolePrompts } from '../../agent-runtime/runtime/agent-runtime-settings'
 /**
  * Loops REST surface — registered onto the GLOBAL desktop router (`/api`), so
  * the routes live at `/api/loops*` (cross-project; loops are a global library).
@@ -93,7 +93,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   router.get('/loop-agent-defaults', async (_req, res) => {
     if (!guard(res)) return
     const runtime = await loadCoreAgentRuntime().catch(() => null)
-    res.json({ agents: defaultLoopAgents(), guardrails: { supported: runtime?.api?.capabilities?.configurableGuardrails === 1, catalog: runtime?.api?.guardrails ?? [] } })
+    // `inherit` definitions resolve at launch; the editor previews what they resolve to today.
+    const rolePromptDefaults = runtime ? { ...runtime.rolePromptDefaults(), ...loadRuntimeRolePrompts() } : null
+    res.json({ agents: defaultLoopAgents(), rolePromptDefaults, guardrails: { supported: runtime?.api?.capabilities?.configurableGuardrails === 1, catalog: runtime?.api?.guardrails ?? [] } })
   })
 
   // ── Templates ──────────────────────────────────────────────────────────────

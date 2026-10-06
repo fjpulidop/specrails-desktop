@@ -11,7 +11,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
-import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
+import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
@@ -174,12 +174,16 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   if (!options.resume) {
     if (!Array.isArray(admittedContext.repositories) || !admittedContext.repositories.length || admittedContext.repositories.some(repo => !repo || typeof repo.id !== 'string' || !repo.id)) throw new Error('Core context is missing its repository scope')
     const source = existsSync(options.configPath!) ? 'project-role' : 'default'
-    const { config, origins } = resolveEffectiveRuntimeConfig(options.loopConfig ? loadLoopRuntimeConfig(options.configPath!, options.loopConfig, options.providerOverride ?? { provider: options.defaultProvider ?? 'claude' }) : loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
+    // The engine owns the factory role definitions; the user's global overrides sit on top. The Implement
+    // rail merges them under any project text, and loop recipes resolve their `inherit` definitions here.
+    const effectiveRolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts() }
+    const loopConfig = options.loopConfig && resolveInheritedRolePrompts(options.loopConfig, effectiveRolePrompts)
+    const { config, origins } = resolveEffectiveRuntimeConfig(loopConfig ? loadLoopRuntimeConfig(options.configPath!, loopConfig, options.providerOverride ?? { provider: options.defaultProvider ?? 'claude' }) : loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source: options.loopConfig ? 'loop-role' : source, providerOverride: options.loopConfig ? undefined : options.providerOverride,
     })
     config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
     if (definitionEngine) completeHostChecks(config, admittedContext.repositories)
-    if (!options.loopConfig) config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts(), ...config.rolePrompts }
+    if (!loopConfig) config.rolePrompts = { ...effectiveRolePrompts, ...config.rolePrompts }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.
     const runtime = await loadCoreAgentRuntime()

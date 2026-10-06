@@ -27,6 +27,12 @@ import {
   type Profile
 } from './profile-manager'
 import { resolveProjectExecution } from '../../../workspace-resolution'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
+import {
+  loadRuntimeRolePrompts,
+  type RuntimePromptRole,
+  type RuntimeRole,
+} from '../../agent-runtime/runtime/agent-runtime-settings'
 import {
   readAgentModelSelection,
   readAgentModels,
@@ -97,6 +103,35 @@ function agentsCatalogDir(project: ProviderProject, provider?: string): string {
 }
 function listAgentFiles(project: ProviderProject, provider?: string): Array<{ id: string; file: string }> {
   return listNativeAgentFiles(specRoot(project), provider ?? project.provider ?? 'claude')
+}
+
+/**
+ * The baseline roles are identifiers of runtime-defined roles: specrails-core
+ * never reads an `sr-*` file for them. Their read-only catalog body is the Core
+ * runtime definition (defaults merged with the global Settings overrides).
+ */
+const BASELINE_RUNTIME_ROLES: Record<string, RuntimeRole> = {
+  'sr-architect': 'architect',
+  'sr-developer': 'developer',
+  'sr-reviewer': 'reviewer',
+}
+const RUNTIME_DEFINED_DESCRIPTION =
+  'Runtime-defined by specrails-core: the implement pipeline runs this role from the Core runtime definition below, not from an installed file.'
+
+type RuntimeRoleDefinitions = { prompts: Partial<Record<RuntimePromptRole, string>>; error?: string }
+
+async function loadRuntimeRoleDefinitions(): Promise<RuntimeRoleDefinitions> {
+  try {
+    const runtime = await loadCoreAgentRuntime()
+    return { prompts: { ...runtime.rolePromptDefaults(), ...loadRuntimeRolePrompts() } }
+  } catch (error) {
+    return { prompts: {}, error: error instanceof Error ? error.message : 'Core role prompt catalog is unavailable' }
+  }
+}
+
+function runtimeRoleBody(definitions: RuntimeRoleDefinitions, agentId: string): string | undefined {
+  const role = BASELINE_RUNTIME_ROLES[agentId]
+  return role ? definitions.prompts[role] : undefined
 }
 
 // Request augmentation declared in project-router.ts
@@ -216,12 +251,11 @@ export function createProfilesRouter(): Router {
               .map((entry) => [entry.name, entry.model] as const),
           )
         : null
-      const agentsDir = agentsCatalogDir(project, provider)
-      if (!fs.existsSync(agentsDir)) {
-        res.status(400).json({ error: `no ${adapter.projectDirName} roles catalog found` })
-        return
-      }
+      const baseline = [...adapter.baselineAgents()]
       const agents: Array<{ id: string; model: string }> = []
+      // Role files are optional: Core >= 6.3 defines the baseline roles in its
+      // runtime. Read `model:` only from `sr-*` files that still exist (older
+      // installs); every other baseline id is seeded with the adapter default.
       for (const entry of listAgentFiles(project, provider)) {
         if (!entry.id.startsWith('sr-')) continue
         const id = entry.id
@@ -240,13 +274,9 @@ export function createProfilesRouter(): Router {
         }
         agents.push({ id, model })
       }
-      const baseline = [...adapter.baselineAgents()]
-      const missing = baseline.filter((id) => !agents.some((a) => a.id === id))
-      if (missing.length > 0) {
-        res.status(400).json({
-          error: `missing baseline agents in this project: ${missing.join(', ')}. Run 'npx specrails-core@latest update' first.`,
-        })
-        return
+      for (const id of baseline) {
+        if (agents.some((a) => a.id === id)) continue
+        agents.push({ id, model: projectedKimiModels?.get(id) ?? adapter.defaultModel() })
       }
       // Order: baseline trio first (architect, developer, reviewer), optional
       // agents in the middle. sr-merge-resolver is no longer a baseline agent;
@@ -429,44 +459,50 @@ export function createProfilesRouter(): Router {
   })
 
   // GET /api/projects/:projectId/profiles/catalog
-  // List all roles in the selected provider-native catalog (sr-* + custom-*).
-  router.get('/catalog', (req, res) => {
+  // List the selected provider's roles: the runtime-defined baseline (upstream,
+  // synthesized from the adapter) plus the native `custom-*` catalog.
+  router.get('/catalog', async (req, res) => {
     try {
       const { project } = ctx(req)
       const provider = requestedProvider(req, project)
-      const files = listAgentFiles(project, provider)
-      if (files.length === 0) {
-        res.json({ agents: [] })
-        return
-      }
+      const adapter = projectAdapter(project, provider)
       const agents: Array<{
         id: string
         kind: 'upstream' | 'custom'
         description?: string
         model?: string
+        body?: string
         roleId?: string
         runtimeRoleDefaults?: RuntimeRoleDescriptor
         runtimeRoleError?: string
       }> = []
-      for (const entry of files) {
+      // Baseline roles never depend on `sr-*` files; a missing roles directory
+      // still yields the three runtime-defined entries.
+      const definitions = await loadRuntimeRoleDefinitions()
+      for (const id of adapter.baselineAgents()) {
+        agents.push({
+          id,
+          kind: 'upstream',
+          description: RUNTIME_DEFINED_DESCRIPTION,
+          body: runtimeRoleBody(definitions, id) ?? '',
+          roleId: BASELINE_RUNTIME_ROLES[id],
+          ...(definitions.error ? { runtimeRoleError: definitions.error } : {}),
+        })
+      }
+      for (const entry of listAgentFiles(project, provider)) {
         const id = entry.id
-        const kind: 'upstream' | 'custom' | null = id.startsWith('sr-')
-          ? 'upstream'
-          : id.startsWith('custom-')
-            ? 'custom'
-            : null
-        if (!kind) continue
+        // Stale `sr-*` files from older Cores are not catalog entries anymore.
+        if (!id.startsWith('custom-')) continue
+        const kind = 'custom' as const
         let description: string | undefined
         let model: string | undefined
         let projected: { roleId?: string; runtimeRoleDefaults?: RuntimeRoleDescriptor; runtimeRoleError?: string } = {}
         try {
           const body = fs.readFileSync(entry.file, 'utf8')
-          if (kind === 'custom') {
-            try {
-              const result = projectCustomAgentRole({ id, content: body }, { provider })
-              projected = { roleId: result.id, runtimeRoleDefaults: result.role }
-            } catch (error) { projected = { runtimeRoleError: error instanceof Error ? error.message : 'Invalid Core role descriptor' } }
-          }
+          try {
+            const result = projectCustomAgentRole({ id, content: body }, { provider })
+            projected = { roleId: result.id, runtimeRoleDefaults: result.role }
+          } catch (error) { projected = { runtimeRoleError: error instanceof Error ? error.message : 'Invalid Core role descriptor' } }
           if (provider === 'kimi') {
             // Use the same js-yaml metadata parser as validation/execution so
             // folded/literal descriptions and quoted scalars render correctly.
@@ -519,8 +555,9 @@ export function createProfilesRouter(): Router {
   })
 
   // GET /api/projects/:projectId/profiles/catalog/:agentId
-  // Return the full .md body of a single agent file (read-only for sr-*, editable for custom-*)
-  router.get('/catalog/:agentId', (req, res) => {
+  // Return the full body of a single agent: the Core runtime definition for a
+  // baseline role (read-only), the native file for custom-* (editable).
+  router.get('/catalog/:agentId', async (req, res) => {
     try {
       const { project } = ctx(req)
       const provider = requestedProvider(req, project)
@@ -531,6 +568,16 @@ export function createProfilesRouter(): Router {
       }
       const file = agentFile(project, agentId, provider)
       if (!fs.existsSync(file)) {
+        if (projectAdapter(project, provider).baselineAgents().includes(agentId)) {
+          const definitions = await loadRuntimeRoleDefinitions()
+          const body = runtimeRoleBody(definitions, agentId)
+          if (body !== undefined) {
+            res.json({ id: agentId, body, runtimeDefined: true })
+            return
+          }
+          res.status(503).json({ error: definitions.error ?? 'Core role prompt catalog is unavailable' })
+          return
+        }
         res.status(404).json({ error: 'agent not found' })
         return
       }

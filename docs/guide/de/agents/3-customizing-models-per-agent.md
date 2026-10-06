@@ -15,7 +15,7 @@ Wähle unter **Agents → Profile** ein Profil aus und öffne seinen Agent-Kette
 
 Die Modellwerte sind Aliasse – für Claude sind das `opus`, `sonnet` und `haiku` (am leistungsfähigsten → am schnellsten). Setze pro Agent den gewünschten Alias:
 
-- Lass das Modell eines Agents **leer**, um auf den Standard der Agent-Datei zurückzufallen.
+- Lass das Modell eines Agents **leer**, um auf den eigenen Standard der Rolle zurückzufallen – beim Basis-Trio sind das Provider und Modell aus **Einstellungen → Agenten-Laufzeit**; ein Custom-Agent fällt auf die Frontmatter seiner Datei zurück.
 - Setze es ausdrücklich, um es nur für dieses Profil zu überschreiben.
 
 Speichere, und die nächste mit diesem Profil gestartete Rail nutzt die neuen Modelle. Bereits laufende Jobs behalten ihren Snapshot.

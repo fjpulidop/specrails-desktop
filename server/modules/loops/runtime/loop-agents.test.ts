@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { resolveInheritedRolePrompts } from '../../agent-runtime/runtime/agent-runtime-settings'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import { defaultLoopAgents } from './loop-agents'
 import { coreFactoryGraph } from './loop-core-factory'
 import { compileLoopToDefinition } from './loop-definition'
@@ -22,6 +24,30 @@ describe('loop-owned agent recipes', () => {
     first.agents.developer.provider = 'codex'
     expect(second.rolePrompts!.developer).not.toBe(first.rolePrompts!.developer)
     expect(second.agents.developer.provider).toBe('inherit')
+  })
+  it('implementation definitions follow the engine: inherit markers resolved at launch, edited text kept verbatim', () => {
+    const agents = defaultLoopAgents()
+    for (const role of ['architect', 'developer', 'reviewer', 'fixer'] as const) expect(agents.rolePrompts![role]).toBe('inherit')
+    const recipe = configurableImplementGraph().config.agents!
+    expect(recipe.roles!.plan.prompt).toBe('inherit:architect')
+    expect(recipe.roles!.correct.prompt).toBe('inherit:fixer')
+    const effective = { architect: 'Core architect', developer: 'Core developer', reviewer: 'Core reviewer', fixer: 'Core fixer' }
+    const edited = { ...recipe, rolePrompts: { ...recipe.rolePrompts, developer: 'My loop developer' }, roles: { ...recipe.roles, extra: { provider: 'inherit', access: 'read' as const, artifacts: 'none' as const, prompt: 'Custom extra role' } } }
+    const resolved = resolveInheritedRolePrompts(edited, effective)
+    expect(resolved.rolePrompts).toEqual({ architect: 'Core architect', developer: 'My loop developer', reviewer: 'Core reviewer', fixer: 'Core fixer' })
+    expect(resolved.roles!.plan.prompt).toBe('Core architect')
+    expect(resolved.roles!.correct.prompt).toBe('Core fixer')
+    expect(resolved.roles!.extra.prompt).toBe('Custom extra role')
+    // An engine without a fixer definition falls back to the developer text.
+    expect(resolveInheritedRolePrompts(recipe, { architect: 'A', developer: 'D', reviewer: 'R' }).roles!.correct.prompt).toBe('D')
+    expect(edited.rolePrompts.architect).toBe('inherit')
+  })
+  it('compiles prompt steps with the launch-resolved definitions, never the stored inherit marker', () => {
+    const graph = coreFactoryGraph('quick-sdd', true)
+    const launchAgents = { ...graph.config.agents!, rolePrompts: { ...graph.config.agents!.rolePrompts, architect: 'Resolved architect text' } }
+    const compiled = compileLoopToDefinition(graph, { provider: 'claude', constants: {}, loopAgents: launchAgents })
+    expect(compiled.nodes.prepare.params.nativeCommand).toMatchObject({ args: expect.stringContaining('Resolved architect text') })
+    expect(JSON.stringify(compiled)).not.toContain('Loop agent definition:\ninherit')
   })
   it('binds prompt engines from the recipe instead of the launch project', () => {
     const graph = coreFactoryGraph('freestyle', true)

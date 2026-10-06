@@ -15,7 +15,7 @@ En **Agentes → Perfiles**, selecciona un perfil y abre su editor de cadena de 
 
 Los valores de modelo son alias — para Claude son `opus`, `sonnet` y `haiku` (de más capaz → más rápido). Asigna el alias que quieras por agente:
 
-- Deja el modelo de un agente **en blanco** para que recurra al default propio del archivo del agente.
+- Deja el modelo de un agente **en blanco** para que recurra al default propio del rol — en el trío base son el proveedor y el modelo configurados en **Ajustes → Motor de agentes**; un agente personalizado recurre al frontmatter de su archivo.
 - Asígnalo explícitamente para sobrescribirlo solo en este perfil.
 
 Guarda, y el próximo rail lanzado con ese perfil usará los nuevos modelos. Los jobs que ya están en marcha conservan su snapshot.

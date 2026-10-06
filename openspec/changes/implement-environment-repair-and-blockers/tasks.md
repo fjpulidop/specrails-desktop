@@ -6,7 +6,7 @@
 
 ## 2. Role defaults
 
-- [x] 2.1 `loop-agent-defaults.json`: developer bypass prohibition and install-or-report rule; fixer `blocker` contract, intentional no-change statement and toolchain-install allowance; configuration prohibition kept. Parity test against the Core sentences; defaults validation test.
+- [x] 2.1 Superseded after merging main: Desktop loops inherit Core role definitions (no `loop-agent-defaults.json`); the rules and their tests live in the paired Core change.
 
 ## 3. Setup settings
 

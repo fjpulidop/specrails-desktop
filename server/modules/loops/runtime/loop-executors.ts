@@ -20,7 +20,7 @@ import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
 import { isLocalAdapterId } from '../../../providers/registry'
-import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
+import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
@@ -363,7 +363,7 @@ export function createLoopExecutors(
         ...(executionManifest ? { scopedWorkingDirectories: true } : {}),
         extraArgs,
       }
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir, ...(executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [])]) } catch { /* best-effort */ }
@@ -544,7 +544,7 @@ export function createLoopExecutors(
       const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: coreRun?.workspacePaths }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
-      if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
+      if (repoDir) { try { ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir, ...(executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [])]) } catch { /* best-effort */ }

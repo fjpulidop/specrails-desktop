@@ -142,10 +142,10 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'revision-verify',
     label: 'revision verify',
-    description: 'Read-only independent Revision gate: run sr-reviewer, ensure one full-scope pass of record, write fresh confidence evidence when available, and emit VERIFICATION: PASS|FAIL.',
+    description: 'Read-only independent Revision gate: perform an independent senior review of the diff against the OpenSpec package, ensure one full-scope pass of record, write fresh confidence evidence when available, and emit VERIFICATION: PASS|FAIL.',
     ticketScope: 'all',
     // The Revision loop's SINGLE owner of review + verification. It exists because
-    // running sr-reviewer inside `revise` and then a generic `{{cmd:verify}}` made
+    // running a review inside `revise` and then a generic `{{cmd:verify}}` made
     // two independent full gates for one one-sentence change — the exact cost the
     // Architect-less revision path was created to avoid. Kept read-only so a failed
     // gate routes to the loop's separate `fix` step instead of the grader patching
@@ -159,14 +159,14 @@ export const LOOP_COMMANDS: LoopCommand[] = [
       '',
       'Treat that briefing and the files on disk as the complete source context. Do not depend on the mutating agent remembering or summarizing it for you.',
       '',
-      'Reviewer output-format reconciliation: the installed `sr-reviewer` may require its review phase to finish with only `Score:` and `Verdict:` lines and then end. In this OUTER verification gate those two lines are an intermediate reviewer result, not the end of your turn. Preserve every reviewer rule except that terminal response-format instruction; after recording its score/verdict, continue with any missing project gates and emit the outer `VERIFICATION` sentinel required below.',
+      'Reviewer output-format reconciliation: a senior review phase conventionally finishes with only `Score:` and `Verdict:` lines and then ends. In this OUTER verification gate those two lines are an intermediate reviewer result, not the end of your turn. Keep every review rule except that terminal response-format instruction; after recording the score/verdict, continue with any missing project gates and emit the outer `VERIFICATION` sentinel required below.',
       '',
       'Work in this order:',
-      '1. Load and follow the installed `sr-reviewer` role over the resulting diff and the governing OpenSpec package (use its archived package when that is the delivery context; do not archive or re-archive anything). Produce a fresh `confidence-score.json` for this pass when the reviewer is applicable.',
+      '1. Perform an independent senior review of the resulting diff against the governing OpenSpec package: proposal, design, delta specs and tasks (use its archived package when that is the delivery context; do not archive or re-archive anything). Check correctness, scope discipline, test coverage and alignment with the spec, and record a `Score:` and `Verdict:`. Produce a fresh `confidence-score.json` for this pass when an OpenSpec package governs the candidate.',
       '2. Establish exactly ONE full-scope project gate for this candidate: the complete configured test suite plus typecheck, lint, and build when present. Inspect what the reviewer actually ran. If it already ran that full gate, treat those commands as the pass of record and DO NOT repeat them. If it ran only scoped/focused checks, run only the missing full-scope commands once.',
       '3. Independently map the user revision request and frozen spec to the real diff. A clean command exit alone is not enough when required behavior is missing or out-of-scope work was introduced.',
       '',
-      'If the reviewer is unavailable or inapplicable, run the full-scope project gate yourself exactly once, continue the semantic diff review, and report reviewer confidence as unavailable. Never infer PASS from missing reviewer evidence.',
+      'If no OpenSpec package governs this candidate, review the diff against the frozen spec alone, run the full-scope project gate yourself exactly once, and report reviewer confidence as unavailable. Never infer PASS from missing review evidence.',
       '',
       'This gate is read-only: do NOT edit source, tests, configuration, or OpenSpec contract artifacts, and do NOT fix findings. The only permitted writes are reviewer/evidence artifacts. On any defect or failed/missing required gate, report FAIL so the loop routes to its separate fix step.',
       '',

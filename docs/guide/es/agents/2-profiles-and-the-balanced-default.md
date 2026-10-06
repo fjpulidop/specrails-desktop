@@ -12,7 +12,7 @@ Encontrarás los perfiles en la sección **Agentes** de cualquier proyecto (barr
 
 Desde el primer momento, un proyecto resuelve hacia un perfil **default** sensato. Incluye el trío base — `sr-architect`, `sr-developer`, `sr-reviewer` — y enruta cada tarea al developer mediante una única regla comodín. Los modelos están equilibrados para el trabajo del día a día: un modelo capaz donde importa, sin tirar de la opción más cara en cada paso.
 
-Si tu proyecto ya tenía los modelos de los agentes configurados a la antigua usanza (en el frontmatter de los archivos de agente), el botón **Migrar** los lee y construye un perfil `default` que replica el comportamiento actual exactamente — sin pérdidas, nada cambia hasta que tú decidas ajustarlo.
+El botón **Migrar desde los agentes actuales** construye un perfil `default` a partir del trío base y de los agentes personalizados que el proyecto ya tenga — replica el comportamiento actual exactamente y no necesita que exista ningún archivo de rol. Si una instalación antigua aún conserva archivos de agente con modelos en su frontmatter, esos modelos se mantienen; nada cambia hasta que tú decidas ajustarlo.
 
 El titular: **no necesitas crear un perfil para usar Specrails.** El default simplemente funciona. Los perfiles son la forma de llegar más lejos.
 

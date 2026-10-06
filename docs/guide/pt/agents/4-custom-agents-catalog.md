@@ -4,16 +4,16 @@ Os perfis decidem *que agentes correm e com que modelos*. Mas de onde vêm os pr
 
 Abra **Agentes → Catálogo** em qualquer projeto. É um visualizador apenas de leitura de todos os agentes disponíveis para esse projeto, em dois grupos:
 
-- **Agentes upstream** — os agentes que vêm com o `specrails-core`: o trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`) e quaisquer especialistas como o `sr-merge-resolver`.
+- **Agentes upstream** — os papéis que o motor Core define em tempo de execução: o trio de base (`sr-architect`, `sr-developer`, `sr-reviewer`). Não são ficheiros do seu repositório; o catálogo mostra a definição em vigor de cada papel apenas em leitura, e edita-a em **Configurações → Motor de agentes**.
 - **Agentes personalizados** — agentes que adicionou você mesmo, com o nome `custom-*`.
 
-Cada entrada do catálogo mostra para que serve o agente e o seu modelo predefinido, para que possa ver toda a equipa antes de ligar os agentes a uma cadeia de perfil.
+Cada entrada do catálogo mostra para que serve o agente; os agentes personalizados mostram também o seu modelo predefinido, enquanto os papéis de base correm com o fornecedor e o modelo definidos em **Configurações → Motor de agentes**. Em qualquer caso, pode ver toda a equipa antes de ligar os agentes a uma cadeia de perfil.
 
 ## Adicionar um agente personalizado
 
 Como vivem no seu repositório, os agentes personalizados são **ativos de equipa que se podem committar**: faça commit do ficheiro e toda a equipa fica com o agente. Isto espelha a ideia central de toda a secção Agentes —
 
-> **As definições dos agentes são partilhadas (vivem no repositório e viajam com o `git`). A configuração dos modelos é por projeto (vive nos perfis).**
+> **As definições dos agentes personalizados são partilhadas (vivem no repositório e viajam com o `git`); os papéis de base são definidos pelo runtime do Core. A configuração dos modelos é por projeto (vive nos perfis).**
 
 ## Pôr um agente personalizado a trabalhar
 

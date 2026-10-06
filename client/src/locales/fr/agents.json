@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agents",
-    "subtitle": "Gérez les profils d'agents et le catalogue (upstream + personnalisés) de ce projet.",
+    "subtitle": "Gérez les profils d'agents et le catalogue (rôles de base définis à l'exécution + agents personnalisés) de ce projet.",
     "tabs": {
       "profiles": "Profils",
       "usage": "Utilisation",
@@ -45,8 +45,8 @@
       "generateButton": "Générer"
     },
     "empty": {
-      "title": "Aucun agent installé",
-      "body": "Exécutez <code>{{command}}</code> dans ce projet pour installer les agents upstream, ou créez un agent personnalisé dès maintenant."
+      "title": "Aucun agent personnalisé pour l'instant",
+      "body": "Les rôles de base (architect, developer, reviewer) sont définis par le runtime specrails-core et ne nécessitent aucune installation. Créez un agent personnalisé pour étendre votre équipe."
     },
     "actions": {
       "template": "Template",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "Upstream ({{count}})",
-      "upstreamDescription": "Fournis par specrails-core ; lecture seule.",
+      "upstreamDescription": "Rôles de base définis par le runtime specrails-core ; lecture seule.",
       "custom": "Personnalisés ({{count}})",
       "customDescription": "Les fichiers custom-*.md de votre projet. Utilisez Template / Générer / Vierge ci-dessus pour en créer un.",
       "noCustomAgents": "Aucun agent personnalisé pour l'instant."
@@ -72,6 +72,7 @@
       "defaultModel": "modèle par défaut : {{model}}",
       "aiEdit": "Édition IA",
       "aiEditTitle": "Affiner cet agent de manière itérative avec l'IA",
+      "runtimeDefinition": "définition du runtime specrails-core",
       "readOnly": "lecture seule",
       "editableHint": "modifiable — utilisez Modifier ci-dessus"
     },
@@ -129,7 +130,7 @@
       "body": "Les profils vous permettent d'enregistrer des combinaisons orchestrateur + agents + routage et d'en choisir une par rail.",
       "migrateButton": "Migrer depuis les agents actuels",
       "blankButton": "Profil vierge",
-      "migrateExplainer": "« Migrer » lit les modèles du frontmatter de vos <code>.claude/agents/</code> existants et crée un profil <code>default</code> reproduisant le comportement actuel — sans aucune perte."
+      "migrateExplainer": "« Migrer » crée un profil <code>default</code> avec les rôles de base sur le modèle par défaut du fournisseur, en conservant tout modèle trouvé dans le frontmatter existant de <code>.claude/agents/</code> — sans aucune perte."
     },
     "sidebar": {
       "title": "Profils",

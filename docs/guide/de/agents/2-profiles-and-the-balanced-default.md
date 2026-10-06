@@ -12,7 +12,7 @@ Du findest Profile im Bereich **Agents** jedes Projekts (rechte Seitenleiste →
 
 Von Haus aus löst ein Projekt auf ein sinnvolles **default**-Profil auf. Es enthält das Basis-Trio – `sr-architect`, `sr-developer`, `sr-reviewer` – und routet über eine einzige Auffangregel jede Aufgabe an den Developer. Die Modelle sind für den Alltag ausgewogen: ein leistungsfähiges Modell dort, wo es zählt, ohne bei jedem Schritt zur teuersten Option zu greifen.
 
-Falls dein Projekt die Agent-Modelle bereits auf die alte Weise konfiguriert hatte (in der Frontmatter der Agent-Dateien), liest der **Migrieren**-Button diese aus und baut ein `default`-Profil, das das heutige Verhalten exakt abbildet – verlustfrei, nichts ändert sich, bis du dich entscheidest, daran zu drehen.
+Der Button **Aus aktuellen Agents migrieren** baut ein `default`-Profil aus dem Basis-Trio und den Custom-Agents, die das Projekt bereits hat – es bildet das heutige Verhalten exakt ab und braucht keine einzige Rollendatei. Trägt eine ältere Installation noch Agent-Dateien mit Modellen in der Frontmatter, bleiben diese Modelle erhalten; nichts ändert sich, bis du dich entscheidest, daran zu drehen.
 
 Die Kernaussage: **Du musst kein Profil erstellen, um Specrails zu nutzen.** Der Standard funktioniert einfach. Profile sind der Weg, weiterzugehen.
 

@@ -171,11 +171,34 @@ describe('checkCoreCompat', () => {
   })
 
   it('keeps schema 5.1 engine metadata informational and preserves the Desktop command surface', async () => {
-    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.1')
+    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.2')
     setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, schemaVersion: '5.1', coreVersion: '6.0.1',
       agentRuntime: { engine: { version: 2, nodeKindsVersion: 0 }, nodeKinds: [], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }] },
     }, tmpDir)
     expect(await checkCoreCompat()).toMatchObject({ compatible: true, contractSchemaVersion: '5.1', missingCommands: [], extraCommands: [] })
+  })
+
+  it('accepts the 5.2 contract that drops the agent_generation checkpoint', async () => {
+    const providers = Object.fromEntries(['claude', 'codex', 'gemini', 'kimi'].map(provider => [provider, {
+      initCommand: 'init',
+      cli: { initArgs: ['init', '--yes', '--provider', provider],
+        ...(provider === 'kimi' ? { providerBinary: 'kimi', skillRunner: '.kimi-code/specrails/run-skill.mjs', workflowArgs: ['.kimi-code/specrails/run-skill.mjs', '--skill', '<id>'] } : {}) },
+      workflows: { implement: 'implement', retry: 'retry' },
+    }]))
+    setupContractInTmpDir({ schemaVersion: '5.2', coreVersion: '6.3.0', lifecycle: { mode: 'deterministic', requiresEnrich: false },
+      providers, checkpoints: { base_install: 'Installed', command_generation: 'Verified' } }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, contractSchemaVersion: '5.2', missingCheckpoints: [], extraCheckpoints: [], supportedProviders: ['claude', 'codex', 'gemini', 'kimi'] })
+  })
+
+  it('still accepts the 5.1 contract whose agent_generation checkpoint Desktop retired', async () => {
+    const providers = Object.fromEntries(['claude', 'codex'].map(provider => [provider, {
+      initCommand: 'init',
+      cli: { initArgs: ['init', '--yes', '--provider', provider] },
+      workflows: { implement: 'implement', retry: 'retry' },
+    }]))
+    setupContractInTmpDir({ schemaVersion: '5.1', coreVersion: '6.2.2', lifecycle: { mode: 'deterministic', requiresEnrich: false },
+      providers, checkpoints: { base_install: 'Installed', agent_generation: 'Placed', command_generation: 'Verified' } }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, contractSchemaVersion: '5.1', missingCheckpoints: [], extraCheckpoints: [] })
   })
 
   it('rejects empty or runner-less Kimi provider declarations', async () => {

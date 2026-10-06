@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Agenti",
-    "subtitle": "Gestisci i profili agente e il catalogo (upstream + custom) di questo progetto.",
+    "subtitle": "Gestisci i profili agente e il catalogo (ruoli base definiti dal runtime + agenti custom) di questo progetto.",
     "tabs": {
       "profiles": "Profili",
       "usage": "Utilizzo",
@@ -45,8 +45,8 @@
       "generateButton": "Genera"
     },
     "empty": {
-      "title": "Nessun agente installato",
-      "body": "Esegui <code>{{command}}</code> in questo progetto per installare gli agenti upstream, oppure crea subito un agente custom."
+      "title": "Nessun agente custom ancora",
+      "body": "I ruoli base (architect, developer, reviewer) sono definiti dal runtime di specrails-core e non richiedono installazione. Crea un agente custom per ampliare il tuo team."
     },
     "actions": {
       "template": "Template",
@@ -63,7 +63,7 @@
     },
     "sections": {
       "upstream": "Upstream ({{count}})",
-      "upstreamDescription": "Forniti da specrails-core; sola lettura.",
+      "upstreamDescription": "Ruoli base definiti dal runtime di specrails-core; sola lettura.",
       "custom": "Custom ({{count}})",
       "customDescription": "I file custom-*.md del tuo progetto. Usa Template / Genera / Vuoto qui sopra per crearne uno.",
       "noCustomAgents": "Ancora nessun agente custom."
@@ -72,6 +72,7 @@
       "defaultModel": "modello predefinito: {{model}}",
       "aiEdit": "Modifica AI",
       "aiEditTitle": "Raffina iterativamente questo agente con l'AI",
+      "runtimeDefinition": "definizione del runtime di specrails-core",
       "readOnly": "sola lettura",
       "editableHint": "modificabile — usa Modifica qui sopra"
     },
@@ -129,7 +130,7 @@
       "body": "I profili permettono di salvare combinazioni di orchestratore + agenti + routing e sceglierne una per rail.",
       "migrateButton": "Migra dagli agenti attuali",
       "blankButton": "Profilo vuoto",
-      "migrateExplainer": "\"Migra\" legge i modelli dal frontmatter dei tuoi <code>.claude/agents/</code> esistenti e crea un profilo <code>default</code> che rispecchia il comportamento attuale — senza perdite."
+      "migrateExplainer": "\"Migra\" crea un profilo <code>default</code> con i ruoli base sul modello predefinito del provider, conservando i modelli trovati nel frontmatter esistente di <code>.claude/agents/</code> — senza perdite."
     },
     "sidebar": {
       "title": "Profili",

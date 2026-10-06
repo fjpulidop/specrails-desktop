@@ -212,7 +212,6 @@ export const CHECKPOINTS: CheckpointDefinition[] = [
   { key: 'agent_selection', name: 'Agent selection' },
   { key: 'codebase_analysis', name: 'Codebase analysis' },
   { key: 'vpc_discovery', name: 'VPC discovery' },
-  { key: 'agent_generation', name: 'Agent generation' },
   { key: 'persona_synthesis', name: 'Persona synthesis' },
   { key: 'command_generation', name: 'Command generation' },
 ]
@@ -247,10 +246,7 @@ function checkFilesystem(
     existsSync(join(projectPath, '.specrails-version'))
   const hasSetupTemplates = existsSync(join(projectPath, '.specrails', 'setup-templates')) ||
     existsSync(join(projectPath, dir, 'setup-templates'))
-  const hasRules = existsSync(join(projectPath, dir, 'rules')) &&
-    hasFiles(join(projectPath, dir, 'rules'), /\.md$/)
   const hasPersonas = artifactState.hasPersonas
-  const hasAgents = artifactState.hasAgents
   const hasCommands = artifactState.hasCommands
   const instructionCandidates = [join(projectPath, adapter.instructionsFilename)]
   // Older Core releases sometimes placed a top-level instructions filename
@@ -271,20 +267,13 @@ function checkFilesystem(
     base_install: hasBaseInstall,
     // Back-compat filesystem signals from older cores are translated to the
     // current integration-contract checkpoint keys.
-    agent_selection: hasInstallConfig || hasAgentConfig || hasBacklogConfig || hasAgents || hasCommands,
+    agent_selection: hasInstallConfig || hasAgentConfig || hasBacklogConfig || hasCommands,
     codebase_analysis: hasBaseInstall && (hasInstructions || hasSetupTemplates),
     vpc_discovery: hasPersonas,
     persona_synthesis: hasPersonas,
-    agent_generation: hasAgents,
-    command_generation: hasCommands || (hasAgents && hasRules),
-  }
-}
-
-function hasFiles(dir: string, pattern: RegExp): boolean {
-  try {
-    return readdirSync(dir).some((f) => pattern.test(f as string))
-  } catch {
-    return false
+    // Role agents are runtime-defined by specrails-core; only the workflow
+    // commands (and provider skills) prove a complete installation.
+    command_generation: hasCommands,
   }
 }
 
@@ -336,9 +325,6 @@ export function detectCheckpointFromText(
   if (/phase\s*3|configuration|agent\s*selection|backlog\s*provider/i.test(text)) {
     hits.push({ key: 'agent_selection', detail: 'Configuring agents...' })
   }
-  if (/generating\s*all\s*files|writing.*agent|sr-architect|sr-developer|sr-reviewer/i.test(text)) {
-    hits.push({ key: 'agent_generation', detail: 'Generating agents...' })
-  }
   if (/command\s*selection|installing.*commands|\.claude\/commands\/(sr|specrails)/i.test(text)) {
     hits.push({ key: 'command_generation', detail: 'Configuring commands...' })
   }
@@ -352,7 +338,7 @@ export function detectCheckpointFromText(
     hits.push({ key: 'config_written' })
   }
   if (/installing\s*specrails|phase\s*2\s*&\s*3|placing\s*agents/i.test(text)) {
-    hits.push({ key: 'agent_generation', detail: 'Installing specrails artefacts...' })
+    hits.push({ key: 'command_generation', detail: 'Installing specrails artefacts...' })
   }
   if (/writing\s*manifest|wrote\s+.*specrails-manifest/i.test(text)) {
     hits.push({ key: 'command_generation' })
@@ -366,18 +352,8 @@ export function detectCheckpointFromText(
   if (text.includes('/agents/personas/') && text.includes('.md')) {
     hits.push({ key: 'persona_synthesis', detail: 'Writing personas...' })
   }
-  // Claude path: .claude/agents/sr-<name>.md
-  if (/\/agents\/sr-[^/]+\.md/.test(text)) {
-    hits.push({ key: 'agent_generation', detail: 'Writing agents...' })
-  }
-  // Provider-native rail skills. Kimi's upstream discovery contract scans only
-  // direct children of `.kimi-code/skills`, so its roles are top-level
-  // `.kimi-code/skills/sr-*/SKILL.md` entries. Codex may also use `rails/`.
-  if (
-    /\.(?:codex|kimi-code)\/skills\/(?:rails\/)?sr-[^/]+\/SKILL\.md/.test(text)
-  ) {
-    hits.push({ key: 'agent_generation', detail: 'Writing agent skills...' })
-  }
+  // Role agents (`sr-*`) are no longer installed files: Core defines them in
+  // its runtime, so role paths carry no checkpoint signal.
   if ((text.includes('/commands/sr/') || text.includes('/commands/specrails/')) && text.includes('.md')) {
     hits.push({ key: 'command_generation', detail: 'Writing commands...' })
   }
@@ -510,10 +486,11 @@ export function computeSummary(
     if (provider === 'codex' || provider === 'kimi') {
       // Codex/Kimi layout: every artefact ships as a SKILL under the provider's
       // `skills/` root.
-      // - agents  = rail personas (`skills/rails/sr-*/SKILL.md`) + orchestrator
-      //             skills at the root with an `sr-` prefix. Kimi roles MUST be
-      //             direct children (`skills/sr-*/SKILL.md`) because upstream
-      //             Kimi discovery is intentionally one level deep.
+      // - agents  = custom roles only: codex `skills/rails/custom-*/SKILL.md`,
+      //             kimi direct children `skills/custom-*/SKILL.md` (upstream
+      //             Kimi discovery is intentionally one level deep). Baseline
+      //             `sr-*` roles are runtime-defined and never counted; stale
+      //             `sr-*` skills from older Cores are ignored.
       // - opsxCommands     = `skills/openspec-*/SKILL.md`
       // - specrailsCommands = everything else under `skills/` (ported claude
       //   slash commands like propose-spec, explore-spec, retry, doctor,
@@ -536,7 +513,7 @@ export function computeSummary(
               personas = (readdirSync(personasDir) as string[]).filter((persona) =>
                 existsSync(join(personasDir, persona, 'SKILL.md')),
               ).length
-            } else if (existsSync(join(railsDir, entry, 'SKILL.md'))) {
+            } else if (/^custom-/.test(entry) && existsSync(join(railsDir, entry, 'SKILL.md'))) {
               agents++
             }
           }
@@ -545,7 +522,8 @@ export function computeSummary(
         for (const entry of readdirSync(skillsDir) as string[]) {
           if (entry === 'rails') continue
           if (!existsSync(join(skillsDir, entry, 'SKILL.md'))) continue
-          if (/^sr-/.test(entry)) agents++
+          if (/^sr-/.test(entry)) continue
+          else if (/^custom-/.test(entry)) agents++
           else if (/^openspec-/.test(entry)) opsxCommands++
           else specrailsCommands++
         }
@@ -559,7 +537,8 @@ export function computeSummary(
         }
       }
     } else {
-      // Claude / Gemini layout: agents at `<dir>/agents/sr-*.md`, slash commands
+      // Claude / Gemini layout: custom roles at `<dir>/agents/custom-*.md`
+      // (baseline roles are runtime-defined, stale `sr-*` files are ignored), slash commands
       // at `<dir>/commands/{specrails,opsx}/*.<ext>`. Gemini installs into
       // `.gemini/` and its commands are TOML (`.gemini/commands/specrails/*.toml`);
       // claude installs into `.claude/` with Markdown commands. Without the
@@ -570,7 +549,7 @@ export function computeSummary(
       const agentsDir = join(projectPath, dir, 'agents')
       if (existsSync(agentsDir)) {
         const files = readdirSync(agentsDir) as string[]
-        agents = files.filter((f) => /^sr-.*\.md$/.test(f)).length
+        agents = files.filter((f) => /^custom-.*\.md$/.test(f)).length
         const personasDir = join(agentsDir, 'personas')
         if (existsSync(personasDir)) {
           personas = (readdirSync(personasDir) as string[]).filter((f) => f.endsWith('.md')).length
@@ -602,7 +581,6 @@ export function computeSummary(
 
 interface SetupArtifactState {
   summary: SetupSummary
-  hasAgents: boolean
   hasCommands: boolean
   hasPersonas: boolean
   complete: boolean
@@ -610,6 +588,8 @@ interface SetupArtifactState {
 
 /**
  * Resolve completion against the selected provider's real filesystem layout.
+ * Completion is decided by the workflow commands Core places; role agents are
+ * runtime-defined and never required.
  * A legacy `.claude` fallback remains intentional only for Codex/Gemini:
  * older Core releases scaffolded Claude artefacts for those selections.
  * Kimi never had such a released legacy Core target; accepting a mixed
@@ -630,15 +610,14 @@ function setupArtifactState(
     nativeSummary.specrailsCommands + nativeSummary.opsxCommands > 0
   const legacyHasCommands =
     legacySummary.specrailsCommands + legacySummary.opsxCommands > 0
-  const nativeComplete = nativeSummary.agents > 0 && nativeHasCommands
-  const legacyComplete = legacySummary.agents > 0 && legacyHasCommands
+  const nativeComplete = nativeHasCommands
+  const legacyComplete = legacyHasCommands
   const selected = nativeComplete || !legacyComplete ? nativeSummary : legacySummary
 
   return {
     // Preserve the actual selected provider for UI labels even when the
     // artefacts came from the legacy Claude compatibility tree.
     summary: { ...selected, provider },
-    hasAgents: nativeSummary.agents > 0 || legacySummary.agents > 0,
     hasCommands: nativeHasCommands || legacyHasCommands,
     hasPersonas: nativeSummary.personas > 0 || legacySummary.personas > 0,
     complete: nativeComplete || legacyComplete,
@@ -1168,7 +1147,9 @@ export class SetupManager {
     const validation = validateInstalledCore(root)
     const selectedProvider = provider ?? this._projectProviders.get(projectId) ?? 'claude'
     const summary = computeSummary(root, 'quick', selectedProvider)
-    if (!validation.ok || !installedVersion || summary.agents < 3 || summary.specrailsCommands < 1) {
+    // Role agents are runtime-defined: a Core install is complete when its
+    // workflow commands are in place, regardless of custom role count.
+    if (!validation.ok || !installedVersion || summary.specrailsCommands < 1) {
       this._broadcast({ type: 'setup_error', projectId, error: 'Core 5 uses deterministic installation. Run project installation to repair its framework; enrichment is no longer supported.' })
       return true
     }
@@ -1493,9 +1474,9 @@ export class SetupManager {
         case 'tool-use': {
           this._broadcast({ type: 'setup_log', projectId, line: `[tool] ${ev.name}`, stream: 'stdout' })
           // Tool inputs commonly mention the paths being written — feed the
-          // input preview into the checkpoint detector so writes to
-          // .claude/agents/sr-*.md or .codex/skills/sr-*/SKILL.md advance
-          // the checkpoint state immediately.
+          // input preview into the checkpoint detector so writes to workflow
+          // commands (`commands/specrails/*.md`) or provider command skills
+          // advance the checkpoint state immediately.
           const hits = detectCheckpointFromText(ev.inputPreview)
           for (const hit of hits) {
             this._advanceCheckpoint(projectId, hit.key, hit.detail)

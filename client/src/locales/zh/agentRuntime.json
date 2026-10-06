@@ -590,7 +590,7 @@
     "legacy": "This saved loop still uses historical project agents. Import them or enable loop agents before changing its configuration.",
     "enable": "Use loop agents",
     "import": "Import current project agents",
-    "restoreDefinition": "Restore default definition",
+    "restoreDefinition": "使用 Core 定义",
     "default": "Provider default",
     "effort": "Reasoning effort",
     "escalationModel": "Escalation model",
@@ -604,6 +604,9 @@
     "showUnused": "Also show agents not used in this loop",
     "stepTitle": "Step agent and options",
     "stepHint": "Edit this step’s agent definition and engine. Steps using the same role in this loop share these settings.",
-    "inheritProvider": "继承任务的提供商"
+    "inheritProvider": "继承任务的提供商",
+    "inheritDefinition": "跟随 Core 定义：每次升级 Core 都会自动更新。",
+    "customizeDefinition": "为此循环自定义",
+    "coreDefinitionUnavailable": "安装 Core 运行时后才能预览。"
   }
 }
