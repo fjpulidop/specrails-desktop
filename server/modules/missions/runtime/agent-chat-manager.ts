@@ -655,7 +655,7 @@ export class AgentChatManager {
 
         console.log(
           `[agent-chat] turn start conv=${conversationId} provider=${adapter.id} binary=${adapter.binary} ` +
-            `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
+            `action=${action} model=${model} cwd=${cwd} mcp=${coreContext ? `core-session:${coreContext.mcpServers.map((server) => server.name).join(',') || 'none'}` : mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
         )
 
         const buildOpts = {
