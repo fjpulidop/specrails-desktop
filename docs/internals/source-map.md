@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1030 source/build files. Nearby tests are linked where names
+Includes 1031 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1339,6 +1339,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-spec-framing.ts](../../server/modules/missions/runtime/agent-spec-framing.ts) · [test](../../server/modules/missions/runtime/agent-spec-framing.test.ts)
 - [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
 - [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
+- [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 
 ## server/modules/project-settings

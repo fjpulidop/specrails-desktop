@@ -1771,6 +1771,13 @@
       "runtime/agent-tier.ts": [
         "../../../mcp/mcp-tiers"
       ],
+      "runtime/core-session-runner.ts": [
+        "../../../providers/live-session-types",
+        "../../../providers/types",
+        "../../agent-sessions",
+        "../../execution/runtime/spawn-lifecycle",
+        "node:crypto"
+      ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
         "../../../types",

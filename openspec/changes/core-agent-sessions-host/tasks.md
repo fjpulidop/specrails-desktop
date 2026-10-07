@@ -31,7 +31,7 @@
 
 - [x] 5.1 Accounting: extract `finaliseNormalisedResult` from `finaliseInvocationResult` (same estimation/null semantics) and let a turn outcome carry Core's normalized usage
 - [x] 5.2 MCP: the bridge reads the capability file per request; `prepareAgentMcpSpec` builds structured specs (specrails + external) for Core sessions; per-turn capability rotation by rewriting the conversation's capability file
-- [ ] 5.3 `CoreSessionTurnRunner` implementing the existing runner hook contract (open/resume Core session, send prepared input, map user-turn events to AdapterEvents, native steer sink, receipts, normalized usage, `TurnHandle` for Stop)
+- [x] 5.3 `CoreSessionTurnRunner` implementing the existing runner hook contract (open/resume Core session, send prepared input, map user-turn events to AdapterEvents, native steer sink, receipts, normalized usage, `TurnHandle` for Stop)
 - [ ] 5.4 Runner selection at composition (Core sessions available for the scope + driver listed for the provider) without provider-id branches; Stop/delete through `TurnHandle`/`session.close`
 - [ ] 5.5 `MissionSessionProjector` (missions ProjectionSink): continuation/system turns as messages with intent `subagent_continuation`, invocations with origin, sub-agents and outputs, resident phase; WS broadcast after commit
 - [ ] 5.6 Integration tests with a scripted Core host: two turns on one session, background sub-agents surviving turn end, continuation turns, steer, Stop, host crash + resume, project removal isolation, legacy fallback
