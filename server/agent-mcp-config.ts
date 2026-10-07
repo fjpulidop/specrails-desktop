@@ -251,6 +251,8 @@ export interface AgentMcpServerSpec {
   env?: Record<string, string>
   url?: string
   headers?: Record<string, string>
+  /** Desktop authorizes each call itself (capability-bound bridge): providers must not gate it. */
+  autoApprove?: boolean
 }
 
 function stringRecord(value: unknown): Record<string, string> | undefined {
@@ -274,7 +276,8 @@ export function prepareAgentMcpSpec(opts: {
 }): AgentMcpServerSpec[] {
   const entry = buildAgentTurnEntry({ conversationId: opts.conversationId, port: opts.port, capability: opts.capability })
   if (!entry) throw new Error('The bundled Specrails MCP bridge is unavailable.')
-  const specs: AgentMcpServerSpec[] = [{ name: 'specrails', command: entry.command, args: [...entry.args], env: { ...entry.env } }]
+  // Specrails authorizes every action against the mission tier; never auto-approve external servers.
+  const specs: AgentMcpServerSpec[] = [{ name: 'specrails', command: entry.command, args: [...entry.args], env: { ...entry.env }, autoApprove: true }]
   for (const server of opts.external ?? []) {
     if (server.name === 'specrails') continue
     const config = server.config

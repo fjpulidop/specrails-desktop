@@ -26,9 +26,30 @@ export function authenticatedFetch(agentHeaders: Record<string, string> | (() =>
   }
 }
 
-/** Reinitialize only after a protocol 404 confirms the old session rejected the
- * request before dispatch. Network errors never replay a possibly-started tool. */
+/** The server rejected the request before dispatch because the session is not
+ * usable any more: expired (404), or bound to a previous turn's capability (403
+ * asking to reinitialize; a resident agent session rotates capabilities per turn). */
+function rejectsStaleSession(err: unknown): boolean {
+  const failure = err as { code?: unknown; message?: unknown } | null
+  if (failure?.code === 404) return true
+  return failure?.code === 403 && typeof failure.message === 'string' && /reinitiali[sz]e/i.test(failure.message)
+}
+
+/** SDK errors meaning the session's SSE stream is gone for good. */
+export function isLostStream(error: Error): boolean {
+  return /SSE stream disconnected|Maximum reconnection attempts|Failed to reconnect/i.test(error.message)
+}
+
+/** Lifecycle notes for diagnosing a bridge that a client reports as closed. */
+export type BridgeLog = (event: string, detail?: string) => void
+
+/** Reinitialize only after the server confirms the old session rejected the
+ * request before dispatch. Network errors never replay a possibly-started tool.
+ * A failed recovery fails that request but keeps the bridge open: the next
+ * request tries again, so one bad moment never ends the client's MCP server. */
 export class RecoveringHttpTransport implements Transport {
+  /** connectBridge keeps the client side open when the app side can recover. */
+  readonly recoverable = true
   onmessage?: Transport['onmessage']
   onerror?: Transport['onerror']
   onclose?: Transport['onclose']
@@ -36,8 +57,10 @@ export class RecoveringHttpTransport implements Transport {
   private initializeMessage?: JSONRPCMessage
   private recovery?: Promise<void>
   private closed = false
+  /** The last recovery failed; the next request must reinitialize first. */
+  private stale = false
 
-  constructor(private readonly create: () => SessionTransport) {
+  constructor(private readonly create: () => SessionTransport, private readonly log: BridgeLog = () => {}) {
     this.current = this.attach(create())
   }
 
@@ -46,7 +69,11 @@ export class RecoveringHttpTransport implements Transport {
       if (transport === this.current && !this.closed) this.onmessage?.(message, extra)
     }
     transport.onerror = (error) => {
-      if (transport === this.current && !this.closed) this.onerror?.(error)
+      if (transport !== this.current || this.closed) return
+      // The server ended this session's stream (e.g. the turn that owned it ended):
+      // the next request starts a fresh session instead of the bridge giving up.
+      if (isLostStream(error)) { this.stale = true; this.log('stream-lost', error.message) }
+      this.onerror?.(error)
     }
     transport.onclose = () => {
       if (transport === this.current && !this.closed) this.onclose?.()
@@ -59,18 +86,29 @@ export class RecoveringHttpTransport implements Transport {
   async send(message: JSONRPCMessage): Promise<void> {
     if (this.closed) throw new Error('MCP bridge is closed')
     if ('method' in message && message.method === 'initialize') this.initializeMessage = message
+    if (this.stale && this.initializeMessage && message !== this.initializeMessage) this.recovery ??= this.recover('retry after a failed recovery')
     if (this.recovery) await this.recovery
     const attempted = this.current
     try {
       await attempted.send(message)
     } catch (err) {
-      if ((err as { code?: unknown } | null)?.code !== 404 || !this.initializeMessage || message === this.initializeMessage) throw err
-      if (attempted === this.current) {
-        this.recovery ??= this.reinitialize().finally(() => { this.recovery = undefined })
-      }
+      if (!rejectsStaleSession(err) || !this.initializeMessage || message === this.initializeMessage) throw err
+      if (attempted === this.current) this.recovery ??= this.recover(`session rejected (${(err as { code?: unknown }).code})`)
       if (this.recovery) await this.recovery
       await this.current.send(message)
     }
+  }
+
+  private recover(reason: string): Promise<void> {
+    this.log('recover', reason)
+    return this.reinitialize()
+      .then(() => { this.stale = false; this.log('recovered') })
+      .catch((error: unknown) => {
+        this.stale = true
+        this.log('recover-failed', error instanceof Error ? error.message : String(error))
+        throw error
+      })
+      .finally(() => { this.recovery = undefined })
   }
 
   private async reinitialize(): Promise<void> {
@@ -94,9 +132,6 @@ export class RecoveringHttpTransport implements Transport {
         void next.send({ ...this.initializeMessage!, id } as JSONRPCMessage).catch(reject)
       })
       await next.send({ jsonrpc: '2.0', method: 'notifications/initialized' })
-    } catch (err) {
-      await this.close()
-      throw err
     } finally {
       if (timer) clearTimeout(timer)
       next.onmessage = relay

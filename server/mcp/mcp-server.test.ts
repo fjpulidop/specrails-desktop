@@ -9,7 +9,9 @@ import type { ProjectRegistry } from '../project-registry'
 import { McpServerManager } from './mcp-server'
 import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
-import { RecoveringHttpTransport } from '../../mcp-bridge/src/http-transport'
+import { RecoveringHttpTransport, authenticatedFetch } from '../../mcp-bridge/src/http-transport'
+import { connectBridge } from '../../mcp-bridge/src/bridge'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { registerAgentSteering, notifyAgentSteering } from '../modules/missions/runtime/agent-steering'
 
 // A minimal ProjectRegistry stub: the MCP core only needs desktopDb + the
@@ -154,6 +156,73 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(manager.status().activeSessions).toBe(1)
     await client.close()
     expect(manager.status().activeSessions).toBe(0)
+  })
+
+  describe('resident agent sessions (one bridge across turns)', () => {
+    // Desktop rotates the capability file per turn; the bridge re-reads it on every request.
+    function residentBridge(initial: string) {
+      const file = { capability: initial }
+      const transport = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(url, { fetch: authenticatedFetch(() => ({ [AGENT_CAPABILITY_HEADER]: file.capability })) }))
+      const client = new Client({ name: 'resident-bridge', version: '1' })
+      let closed = false
+      transport.onclose = () => { closed = true }
+      return { file, transport, client, closed: () => closed }
+    }
+
+    it('keeps working when the next turn writes a new capability and then revokes the old one', async () => {
+      const turn1 = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      const bridge = residentBridge(turn1)
+      await bridge.client.connect(bridge.transport)
+      expect((await bridge.client.listTools()).tools.length).toBeGreaterThan(1)
+      // prepareTurn order: rewrite the file, then revoke the previous capability.
+      const turn2 = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      bridge.file.capability = turn2
+      revokeAgentCapability(turn1)
+      expect((await bridge.client.listTools()).tools.length).toBeGreaterThan(1)
+      expect(bridge.closed()).toBe(false)
+      await bridge.client.close()
+    })
+
+    it('survives the old session\'s stream ending when the next turn revokes its capability (whole bridge)', async () => {
+      const turn1 = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      const file = { capability: turn1 }
+      const appFacing = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(url, {
+        fetch: authenticatedFetch(() => ({ [AGENT_CAPABILITY_HEADER]: file.capability })),
+        reconnectionOptions: { initialReconnectionDelay: 20, maxReconnectionDelay: 50, reconnectionDelayGrowFactor: 1, maxRetries: 2 },
+      }))
+      const [providerSide, bridgeSide] = InMemoryTransport.createLinkedPair()
+      let bridgeClosed = false
+      connectBridge(bridgeSide, appFacing)
+      const previousOnClose = bridgeSide.onclose
+      bridgeSide.onclose = () => { bridgeClosed = true; previousOnClose?.() }
+      await appFacing.start()
+      await bridgeSide.start()
+      const provider = new Client({ name: 'codex-like', version: '1' })
+      await provider.connect(providerSide)
+      expect((await provider.listTools()).tools.length).toBeGreaterThan(1)
+      // Let the SDK open its standalone SSE stream for the session.
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Turn 2: rotate the capability file, revoke turn 1 (its session and SSE stream end).
+      file.capability = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      revokeAgentCapability(turn1)
+      // The SDK retries the dead stream and gives up; the bridge must stay open.
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      expect(bridgeClosed).toBe(false)
+      expect((await provider.listTools()).tools.length).toBeGreaterThan(1)
+      await provider.close()
+    })
+
+    it('keeps working when the file changes before the old session is gone', async () => {
+      const turn1 = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      const bridge = residentBridge(turn1)
+      await bridge.client.connect(bridge.transport)
+      await bridge.client.listTools()
+      bridge.file.capability = mintAgentCapability({ conversationId: 'resident', tierLevel: 3 })
+      // The old session still exists, bound to turn 1: the server answers 403.
+      expect((await bridge.client.listTools()).tools.length).toBeGreaterThan(1)
+      expect(bridge.closed()).toBe(false)
+      await bridge.client.close()
+    })
   })
 
   it('does not share the selected project across independent client sessions', async () => {

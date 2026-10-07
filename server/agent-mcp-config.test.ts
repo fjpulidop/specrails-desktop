@@ -123,6 +123,8 @@ describe('agent MCP capability transport', () => {
       ],
     })
     expect(specs.map((spec) => spec.name)).toEqual(['specrails', 'docs', 'local'])
+    // Only the capability-bound bridge skips provider approval; external servers never do.
+    expect(specs.map((spec) => spec.autoApprove === true)).toEqual([true, false, false])
     expect(specs[1]).toEqual({ name: 'docs', url: 'https://example.test/mcp', headers: { Authorization: 'Bearer ext' } })
     expect(specs[2]).toEqual({ name: 'local', command: 'node', args: ['srv.js'], env: { A: '1' } })
     const file = specs[0]!.env!.SPECRAILS_AGENT_CAPABILITY_FILE!

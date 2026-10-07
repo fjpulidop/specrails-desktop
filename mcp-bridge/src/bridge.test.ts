@@ -75,6 +75,17 @@ describe('connectBridge', () => {
     await Promise.resolve()
     expect(client.sent).toEqual([expect.objectContaining({ id: 9, error: expect.objectContaining({ message: expect.stringContaining('inspect current state') }) })])
     expect(app.sent).toHaveLength(1)
+    // A plain app transport cannot recover: the bridge closes.
+    expect(client.closed).toBe(true)
+  })
+
+  it('keeps the client side open when the app side can start a new session', async () => {
+    Object.assign(app, { recoverable: true })
+    await client.onmessage!({ jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'mutate' } })
+    app.onerror!(new Error('Maximum reconnection attempts (2) exceeded.'))
+    await Promise.resolve()
+    expect(client.sent).toEqual([expect.objectContaining({ id: 10, error: expect.anything() })])
+    expect(client.closed).toBe(false)
   })
 })
 

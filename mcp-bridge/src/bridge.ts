@@ -111,7 +111,9 @@ export function connectBridge(clientFacing: Transport, appFacing: Transport): vo
       } }).catch(() => {})
     }
     pending.clear()
-    closeBoth()
+    // A recovering app side starts a new session on the next request; closing
+    // here would end the client's MCP server for good (Codex never restarts it).
+    if (!(appFacing as { recoverable?: boolean }).recoverable) closeBoth()
   }
 }
 

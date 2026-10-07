@@ -110,6 +110,8 @@ export interface McpServerSpec {
   env?: Record<string, string>
   url?: string
   headers?: Record<string, string>
+  /** The host authorizes each call itself; providers must not gate this server's tools. */
+  autoApprove?: boolean
 }
 
 export interface SessionPolicyInput {
