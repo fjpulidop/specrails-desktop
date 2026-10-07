@@ -35,6 +35,8 @@ export interface CoreSessionTurnContext {
 /** InvocationResult plus Core's normalized per-turn usage (already a delta). */
 export interface CoreInvocationResult extends InvocationResult {
   usage?: NormalisedResult
+  /** The Core session turn that settled this user turn (anchors its sub-agents). */
+  coreTurnId?: string
 }
 
 function toNormalised(usage: Usage | null | undefined): NormalisedResult | undefined {
@@ -81,7 +83,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe()
       if (extra.error) emit({ kind: 'error', message: extra.error })
       const usage = toNormalised(extra.usage)
-      resolveDone({ code, timedOut: false, spawnFailed: false, events, lastResultEvent: null, sessionId: providerRef ?? opts?.sessionId ?? null, stderrTail: '', child: null, ...(usage ? { usage } : {}) })
+      resolveDone({ code, timedOut: false, spawnFailed: false, events, lastResultEvent: null, sessionId: providerRef ?? opts?.sessionId ?? null, stderrTail: '', child: null, ...(usage ? { usage } : {}), ...(turnId ? { coreTurnId: turnId } : {}) })
     }
 
     const apply = (envelope: SessionEventEnvelope) => {

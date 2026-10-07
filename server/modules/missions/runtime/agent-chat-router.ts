@@ -317,6 +317,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   router.delete('/conversations/:id', (req: Request, res: Response) => {
     const id = String(req.params.id)
     manager.abort(id)
+    // Must run before the row is deleted: it reads the conversation's scope.
+    void manager.closeCoreSession(id).catch((e) => console.error('[agent-chat] Core session close failed:', e))
     killBackgroundProcessesForChat(id)
     purgeBackgroundProcessHistory({ chatId: id })
     deleteAgentConversation(desktopDb, id)

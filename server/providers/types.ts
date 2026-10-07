@@ -142,6 +142,9 @@ export interface ProviderCapabilities {
   /** CLI accepts a `--system-prompt`-style flag. When false, the adapter folds
    *  the system prompt into the user prompt before spawning. */
   systemPromptArg: boolean
+  /** Permission level this provider's mission sessions run with in Core agent
+   * sessions (mirrors its legacy mission flags). Omitted = workspace-write. */
+  sessionPermissions?: 'bypass' | 'workspace-write' | 'read-only'
   /**
    * Project sidebar chat must fold its dynamic app system prompt into the user
    * turn. Explore remains grounded by the provider instruction file in its

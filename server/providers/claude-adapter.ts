@@ -510,6 +510,8 @@ export const claudeAdapter = {
     nativeOtelEnv: true,
     profileEnvSupport: true,
     systemPromptArg: true,
+    // Missions already run with --dangerously-skip-permissions; Specrails tiers gate actions.
+    sessionPermissions: 'bypass',
     persistentStdin: true,
     liveInputTransport: 'claude-stream-json',
     supportsReasoningEffort: true,

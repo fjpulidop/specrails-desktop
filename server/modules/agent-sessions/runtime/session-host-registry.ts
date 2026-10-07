@@ -198,7 +198,9 @@ export class SessionHostRegistry {
       try {
         await client.request('session.open', { resume: { sessionId: tracked.sessionId } })
       } catch (error) {
-        if (!(error instanceof SessionRequestError) || error.code !== 'session_closed') throw error
+        // Closed sessions replay as history; a session Core never opened has nothing to resume.
+        if (!(error instanceof SessionRequestError) || (error.code !== 'session_closed' && error.code !== 'session_not_found')) throw error
+        if (error.code === 'session_not_found') continue
       }
       tracked.pump = new SessionEventPump(tracked.sessionId, client, tracked.sink, tracked.listener)
       await tracked.pump.attach()

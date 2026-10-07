@@ -269,7 +269,10 @@
   },
   "agent-sessions": {
     "publicEntries": [
-      "index.ts"
+      "adapters/host-process.ts",
+      "index.ts",
+      "runtime/core-sessions-availability.ts",
+      "runtime/session-host-registry.ts"
     ],
     "dependencies": {
       "adapters/host-process.ts": [
@@ -1668,6 +1671,7 @@
       "runtime/agent-spec-framing.ts",
       "runtime/agent-steering.ts",
       "runtime/agent-tier.ts",
+      "runtime/mission-core-sessions.ts",
       "runtime/mission-run-notify.ts"
     ],
     "dependencies": {
@@ -1700,6 +1704,8 @@
         "./agent-operator-prompt",
         "./agent-steering",
         "./agent-tier",
+        "./core-session-runner",
+        "./mission-core-sessions",
         "child_process",
         "crypto",
         "node:fs/promises",
@@ -1781,6 +1787,18 @@
         "../../agent-sessions",
         "../../execution/runtime/spawn-lifecycle",
         "node:crypto"
+      ],
+      "runtime/mission-core-sessions.ts": [
+        "../../../agent-mcp-config",
+        "../../../db",
+        "../../../external-mcp",
+        "../../../providers/types",
+        "../../agent-sessions",
+        "../../agent-sessions/runtime/session-host-registry",
+        "../../agents/runtime/agent-store",
+        "./agent-session-store",
+        "./core-session-runner",
+        "./mission-session-projector"
       ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",

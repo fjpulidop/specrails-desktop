@@ -203,6 +203,7 @@ export class ProjectRegistry {
   // M9: projects whose per-project DB failed to load at startup (corrupt, locked,
   // or migration-stuck). They stay registered but have no live context.
   private _failedProjects: Map<string, { project: ProjectRow; error: string }>
+  private readonly _removalListeners = new Set<(project: { id: string; slug: string }) => void>()
   private _loadRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private _shuttingDown = false
   // App-wide shared browser context for "Add Spec from a website": ONE persistent
@@ -483,6 +484,19 @@ export class ProjectRegistry {
     }
     this._failedProjects.delete(id)
     removeProjectFromDesktopDb(this._desktopDb, id)
+    if (persistedProject) {
+      for (const listener of this._removalListeners) {
+        try { listener({ id, slug: persistedProject.slug }) } catch (err) {
+          console.error('[project-registry] project removal listener failed (non-fatal):', err)
+        }
+      }
+    }
+  }
+
+  /** Observe project removal (e.g. to stop the project's Core session host). */
+  onProjectRemoved(listener: (project: { id: string; slug: string }) => void): () => void {
+    this._removalListeners.add(listener)
+    return () => { this._removalListeners.delete(listener) }
   }
 
   getContext(id: string): ProjectContext | undefined {

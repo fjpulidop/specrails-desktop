@@ -38,6 +38,12 @@ import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
+import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
+import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
+import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
+import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import { getAdapter } from './providers/registry'
+import { revokeAgentCapability } from './mcp/agent-capability'
 import { createAgentChatRouter, isAgentChatEnabled } from './modules/missions/runtime/agent-chat-router'
 import { BlueprintChatManager } from './modules/builder/runtime/blueprint-chat-manager'
 import { createBlueprintRouter } from './modules/builder/runtime/blueprint-router'
@@ -337,6 +343,7 @@ let _registry: ProjectRegistry | null = null
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
 let _agentChatManager: AgentChatManager | null = null
+let _sessionHosts: SessionHostRegistry | null = null
 let _blueprintChatManager: BlueprintChatManager | null = null
 let _headroomManager: HeadroomManager | null = null
 
@@ -702,6 +709,26 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
   _agentChatManager = agentChatManager
+  // Core agent sessions (core-agent-sessions-host): one supervised Core host per
+  // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
+  // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
+  const sessionHosts = new SessionHostRegistry({
+    launcher: new CoreHostLauncher({ host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' } }),
+    clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); timer.unref?.(); return { cancel: () => clearTimeout(timer) } } },
+    onStatus: (scope, status, detail) => console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`),
+  })
+  _sessionHosts = sessionHosts
+  agentChatManager.setCoreSessions(new MissionCoreSessions({
+    db: registry.desktopDb,
+    registry: sessionHosts,
+    port,
+    broadcast: (message) => broadcast(message as unknown as WsMessage),
+    adapterFor: getAdapter,
+    availability: () => coreSessionsAvailability(),
+    projectKey: (projectId) => registry.getProjectRow(projectId)?.slug ?? null,
+    revokeCapability: revokeAgentCapability,
+  }))
+  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
   // disabled — the rails callers are null-safe and simply skip the card.
@@ -854,6 +881,8 @@ async function shutdown(): Promise<void> {
     Promise.resolve().then(() => _mobileGateway?.stop()),
     Promise.resolve().then(() => _mcpManager?.stop()),
     Promise.resolve().then(() => _agentChatManager?.shutdown()),
+    // Core session hosts record running work as interrupted and release their journals.
+    Promise.resolve().then(() => _sessionHosts?.stopAll()),
     Promise.resolve().then(() => _blueprintChatManager?.shutdown()),
   ])
   // The shell can exit before its application descendants. Keep the event
