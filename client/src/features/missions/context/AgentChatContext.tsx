@@ -1,4 +1,5 @@
 import { MissionSplitViewsProvider } from './MissionSplitViewsContext'
+import { MissionSessionsProvider } from './MissionSessionsContext'
 import { useMissionWindows } from './MissionWindowsContext'
 import { isMissionWindowRoute } from '../lib/mission-windows'
 import {
@@ -449,6 +450,9 @@ interface WsAgentMsg {
   messageId?: string
   assistantSegment?: { id: string; content: string; created_at: string }
   messages?: AgentMessage[]
+  /** Core agent sessions: set on events of turns the agent runs after background work. */
+  turnId?: string
+  origin?: 'user' | 'subagent' | 'system'
 }
 
 let _toolSeq = 0
@@ -755,6 +759,16 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         }
         patchLive(convId, (previous) => ({ ...previous, queued: previous.queued.map((item) => item.queueId === msg.queueId
           ? { ...item, deliveryReceipt: latestReceipt(item.deliveryReceipt, msg.receipt) } : item) }))
+      } else if (msg.turnId && (msg.type === 'agent_stream' || msg.type === 'agent_tool' || msg.type === 'agent_tool_result')) {
+        // A turn the agent started after sub-agents finished: rendered by
+        // MissionSessionsContext, never mixed into the user turn's live state.
+        if (msg.type === 'agent_stream') markUnread(convId)
+      } else if (msg.type === 'agent_turn_done') {
+        markUnread(convId)
+        if (msg.messageId && msg.fullText) {
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: msg.fullText, created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.turnId ? { core_turn_id: msg.turnId } : {}), ...(msg.origin ? { turn_origin: msg.origin } : {}) }])
+        }
       } else if (msg.type === 'agent_stream') {
         markUnread(convId)
         patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
@@ -1612,7 +1626,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   return (
     <AgentChatContext.Provider value={value}>
-      {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
+      <MissionSessionsProvider>
+        {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
+      </MissionSessionsProvider>
       {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
       {/* Persistent bottom-center bubble: the single entry point when the panel
           is not open (summon from hidden AND restore from minimized). */}

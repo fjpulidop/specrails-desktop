@@ -225,6 +225,7 @@
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",
+      "context/MissionSessionsContext.tsx",
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
       "hooks/useAgentRefActions.ts",

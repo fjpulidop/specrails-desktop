@@ -45,11 +45,11 @@
 
 ## 7. Mission sub-agent UI
 
-- [ ] 7.1 `AgentChatContext` state + handlers + snapshot reconciliation (current-project ref rules)
-- [ ] 7.2 Sub-agents card, expandable stream drawer, grouped activity log, chip label "Agent · <description>"
-- [ ] 7.3 Continuation labels, unread marking, composer background pill with Stop, sidebar indicator
-- [ ] 7.4 Deferred-settings notice with "stop agents and apply now"; interrupted rows with Relaunch drafting
-- [ ] 7.5 i18n in all 8 locales; reduced motion; accessible labels; component and context tests
+- [x] 7.1 `AgentChatContext` state + handlers + snapshot reconciliation (current-project ref rules)
+- [x] 7.2 Sub-agents card, expandable stream drawer, grouped activity log, chip label "Agent · <description>"
+- [x] 7.3 Continuation labels, unread marking, composer background pill with Stop, sidebar indicator
+- [x] 7.4 Deferred-settings notice with "stop agents and apply now"; interrupted rows with Relaunch drafting
+- [x] 7.5 i18n in all 8 locales; reduced motion; accessible labels; component and context tests
 
 ## 8. Hardening and rollout
 

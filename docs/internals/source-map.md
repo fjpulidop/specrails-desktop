@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1034 source/build files. Nearby tests are linked where names
+Includes 1038 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -457,7 +457,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentRefChip.tsx](../../client/src/features/missions/components/AgentRefChip.tsx)
 - [AgentRunFailureMarker.tsx](../../client/src/features/missions/components/AgentRunFailureMarker.tsx)
 - [AgentRuntimeSelector.tsx](../../client/src/features/missions/components/AgentRuntimeSelector.tsx)
+- [AgentSessionIndicators.tsx](../../client/src/features/missions/components/AgentSessionIndicators.tsx)
 - [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
+- [AgentSubagentsCard.tsx](../../client/src/features/missions/components/AgentSubagentsCard.tsx)
 - [AgentThinkingHalo.tsx](../../client/src/features/missions/components/AgentThinkingHalo.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentThinkingHalo.test.tsx)
 - [AgentTierChip.tsx](../../client/src/features/missions/components/AgentTierChip.tsx)
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
@@ -486,6 +488,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentChatContext.tsx](../../client/src/features/missions/context/AgentChatContext.tsx) · [test](../../client/src/features/missions/context/AgentChatContext.test.tsx)
 - [AgentWorkspaceContext.tsx](../../client/src/features/missions/context/AgentWorkspaceContext.tsx) · [test](../../client/src/features/missions/context/__tests__/AgentWorkspaceContext.test.tsx)
 - [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
+- [MissionSessionsContext.tsx](../../client/src/features/missions/context/MissionSessionsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSessionsContext.test.tsx)
 - [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
 
@@ -500,6 +503,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
+- [mission-sessions.ts](../../client/src/features/missions/lib/mission-sessions.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-sessions.test.ts)
 - [mission-split-layout.ts](../../client/src/features/missions/lib/mission-split-layout.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-layout.test.ts)
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)

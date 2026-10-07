@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { MessagesSquare, ChevronDown, Check, Search, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
+import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
 import type { AgentConversation } from '../lib/agent-api'
 
@@ -29,6 +30,7 @@ export function AgentMissionSelector() {
     conversations, active, selectConversation, deleteConversation,
     startNewConversation, streamingConversationIds, liveByConversation,
   } = useAgentChat()
+  const { backgroundConversationIds } = useMissionSessions()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
@@ -241,7 +243,7 @@ export function AgentMissionSelector() {
                   index={i + 1}
                   highlighted={highlighted === i + 1}
                   activeId={active?.id ?? null}
-                  streaming={streamingConversationIds.has(c.id)}
+                  streaming={streamingConversationIds.has(c.id) || backgroundConversationIds.has(c.id)}
                   queuedCount={liveByConversation.get(c.id)?.queued.length ?? 0}
                   confirming={confirmingId === c.id}
                   onHover={() => setHighlighted(i + 1)}

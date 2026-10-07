@@ -16,6 +16,7 @@ import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
@@ -447,6 +448,12 @@ export function ArcSidebar({
   const { leftMode, cycleLeftMode } = useSidebarPin()
   const { uiMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
+  // A mission is live while a turn streams or its agents work in the background.
+  const { backgroundConversationIds } = useMissionSessions()
+  const liveConversationIds = useMemo(
+    () => backgroundConversationIds.size === 0 ? agentChat.streamingConversationIds : new Set([...agentChat.streamingConversationIds, ...backgroundConversationIds]),
+    [agentChat.streamingConversationIds, backgroundConversationIds],
+  )
   const agentMode = uiMode === 'agent'
 
   // Conversations grouped by pinned project (null → Home). A pin to a
@@ -762,7 +769,7 @@ export function ArcSidebar({
                     key={c.id}
                     conversation={c}
                     active={c.id === agentChat.active?.id}
-                    streaming={agentChat.streamingConversationIds.has(c.id)}
+                    streaming={liveConversationIds.has(c.id)}
                     unread={agentChat.unreadConversationIds.has(c.id)}
                     favorite
                     expanded={expanded}
@@ -809,7 +816,7 @@ export function ArcSidebar({
                     key={c.id}
                     conversation={c}
                     active={c.id === agentChat.active?.id}
-                    streaming={agentChat.streamingConversationIds.has(c.id)}
+                    streaming={liveConversationIds.has(c.id)}
                     unread={agentChat.unreadConversationIds.has(c.id)}
                     expanded={expanded}
                     onSelect={() => handleSelectConversation(c.id)}
@@ -837,7 +844,7 @@ export function ArcSidebar({
               onToggleTree={() => toggleTree(project.id)}
               conversations={convs}
               activeConversationId={agentChat.active?.id ?? null}
-              streamingConversationIds={agentChat.streamingConversationIds}
+              streamingConversationIds={liveConversationIds}
               unreadConversationIds={agentChat.unreadConversationIds}
               onSelectConversation={handleSelectConversation}
               onToggleConversationFavorite={handleToggleFavoriteConversation}

@@ -52,6 +52,8 @@ import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
+import { AgentBackgroundAgentsPill } from './AgentSessionIndicators'
+import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
 import { BackgroundProcessLogsModal } from '../../background/components/BackgroundProcessLogsModal'
 import { BackgroundProcessHistoryModal } from '../../background/components/BackgroundProcessHistoryModal'
@@ -260,6 +262,11 @@ export function AgentComposer({
   const backgroundAccentVariants: BackgroundProcessAccent[] = ['accent-primary', 'accent-info', 'accent-highlight']
 
   const activeId = active?.id ?? null
+  // Core sessions: sub-agents still working after the turn settled.
+  const missionSession = useMissionSession(activeId)
+  const { stopSubagents } = useMissionSessions()
+  const sessionSubagents = useMemo(() => Object.values(missionSession?.subagents ?? {}), [missionSession?.subagents])
+  const hasLiveSubagents = sessionSubagents.some((node) => node.phase === 'running')
   useEffect(() => { setSelectedProcess(null); setProcessHistoryScope(null) }, [activeId, backgroundProjectId])
   // The composer survives conversation switches (no key/remount): pending chips
   // are keyed to the conversation they were uploaded to (foreign ids silently
@@ -727,8 +734,11 @@ export function AgentComposer({
           ))}
         </div>
       )}
-      {(compactProcesses.length > 0) && (
+      {(compactProcesses.length > 0 || hasLiveSubagents) && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          {activeId && hasLiveSubagents && (
+            <AgentBackgroundAgentsPill subagents={sessionSubagents} onStop={async () => { await stopSubagents(activeId) }} />
+          )}
 
           {compactProcesses.map((process, index) => (
             <BackgroundProcessChip
