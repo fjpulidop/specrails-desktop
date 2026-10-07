@@ -10,6 +10,7 @@ import { formatElapsed } from '../../../lib/format-duration'
 import { getMissionSubagentEvents, type AgentSubagent, type AgentSubagentEvent } from '../lib/agent-api'
 import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
 import { resultPreview } from '../lib/subagent-result'
+import { providerLabel } from '../../providers/lib/provider-capabilities'
 
 /** Live elapsed time while running; the final duration once it ended. */
 export function useElapsed(node: AgentSubagent): string {
@@ -133,7 +134,12 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           {shell ? <Terminal className="h-3.5 w-3.5 shrink-0 text-foreground/45" aria-hidden /> : <Bot className="h-3.5 w-3.5 shrink-0 text-foreground/45" aria-hidden />}
           <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
           <span className="sr-only">{phaseLabel}{reason ? ` — ${reason}` : ''}</span>
-          {node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[10px] text-foreground/50 sm:inline">{node.agentType}</span>}
+          {node.delegated ? (
+            <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-[10px] text-accent-primary/80"
+              title={t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })} data-testid="agent-subagent-delegated">
+              {providerLabel(node.delegated.driver)} · {node.delegated.model}
+            </span>
+          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[10px] text-foreground/50 sm:inline">{node.agentType}</span>}
           <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-foreground/45" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
         </button>
         {live && (

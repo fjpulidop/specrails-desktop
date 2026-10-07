@@ -22,6 +22,18 @@ function mockEvents(pages: Array<{ events: unknown[]; hasMore: boolean }>) {
 }
 
 describe('AgentSubagentsCard', () => {
+  it('marks sub-agents Specrails launched on another provider', () => {
+    render(<AgentSubagentsCard conversationId="c1" liveEvents={{}} onStop={vi.fn()} onRelaunch={vi.fn()} subagents={[
+      node({ agentType: 'claude:sonnet', delegated: { driver: 'claude', model: 'sonnet' } }),
+      node({ subagentId: 'native', description: 'Native one' }),
+    ]} />)
+    const badges = screen.getAllByTestId('agent-subagent-delegated')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toHaveTextContent('Claude · sonnet')
+    expect(badges[0]).toHaveAttribute('title', expect.stringContaining('its cost is counted separately'))
+    expect(screen.queryByText('claude:sonnet')).not.toBeInTheDocument()
+  })
+
   it('renders nothing without sub-agents', () => {
     const { container } = render(<AgentSubagentsCard conversationId="c1" subagents={[]} liveEvents={{}} onStop={vi.fn()} onRelaunch={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
@@ -186,6 +198,12 @@ describe('AgentActivityChip with sub-agents', () => {
 
 describe('AgentSessionNotices', () => {
   const hostNotice = { id: 'n1', code: 'journal_locked', level: 'warning' as const, message: 'raw', scope: 'acme' }
+
+  it('names the provider when a sub-agent choice cannot be honoured, without a host retry', () => {
+    render(<AgentSessionNotices notices={[{ id: 'n3', code: 'subagents.delegation_unsupported', level: 'warning', message: 'raw', scope: null, provider: 'claude' }]} onDismiss={vi.fn()} />)
+    expect(screen.getByText(/Claude sub-agents need a newer Specrails Core/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
 
   it('explains known notices, retries the host and dismisses on success', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ host: { scope: 'acme', status: 'ready', detail: null, code: null } }), { status: 200, headers: { 'content-type': 'application/json' } }))

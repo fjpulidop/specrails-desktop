@@ -815,7 +815,8 @@
     "result": "Ergebnis",
     "count_one": "{{count}} Agent",
     "count_other": "{{count}} Agenten",
-    "finishedIn": "fertig in {{elapsed}}"
+    "finishedIn": "fertig in {{elapsed}}",
+    "delegatedHint": "Von Specrails auf {{provider}} ({{model}}) gestartet; seine Kosten werden separat gezählt."
   },
   "sessionNotice": {
     "host_degraded": "Core-Sitzungen sind für dieses Projekt nach wiederholten Fehlern nicht verfügbar, daher lief dieser Zug über den klassischen Transport (keine Sub-Agenten im Hintergrund). Versuche es erneut, sobald die Ursache behoben ist.",
@@ -825,6 +826,10 @@
     },
     "retry": "Erneut versuchen",
     "retryFailed": "Weiterhin nicht verfügbar. Die Ursache steht im App-Log.",
-    "dismiss": "Schließen"
+    "dismiss": "Schließen",
+    "subagents": {
+      "delegation_unsupported": "{{provider}}-Sub-Agenten benötigen einen neueren Specrails Core, daher startet der Agent dieser Mission seine eigenen Sub-Agenten.",
+      "driver_unavailable": "{{provider}} ist für die Sitzungs-Runtime nicht verfügbar, daher startet der Agent dieser Mission seine eigenen Sub-Agenten."
+    }
   }
 }

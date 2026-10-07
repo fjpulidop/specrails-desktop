@@ -815,7 +815,8 @@
     "result": "结果",
     "count_one": "{{count}} 个代理",
     "count_other": "{{count}} 个代理",
-    "finishedIn": "{{elapsed}} 内完成"
+    "finishedIn": "{{elapsed}} 内完成",
+    "delegatedHint": "由 Specrails 在 {{provider}}（{{model}}）上启动；其费用单独计算。"
   },
   "sessionNotice": {
     "host_degraded": "由于多次失败，此项目的 Core 会话不可用，因此本轮使用了经典方式运行（没有后台子代理）。解决原因后请重试。",
@@ -825,6 +826,10 @@
     },
     "retry": "重试",
     "retryFailed": "仍不可用。请查看应用日志了解原因。",
-    "dismiss": "关闭"
+    "dismiss": "关闭",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} 子代理需要更新版本的 Specrails Core，因此此任务的代理将自行启动子代理。",
+      "driver_unavailable": "{{provider}} 在会话运行时中不可用，因此此任务的代理将自行启动子代理。"
+    }
   }
 }

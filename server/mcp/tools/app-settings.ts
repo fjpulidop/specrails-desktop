@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { getDesktopSetting, getGlobalAllowSubagents, setDesktopSetting } from '../../desktop-db'
+import { getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setDesktopSetting } from '../../desktop-db'
 import type { McpToolSpec } from './types'
 import { isMcpEnabled, isTierEnabled } from '../mcp-tiers'
 import { apiCall } from './types'
@@ -24,7 +24,7 @@ export function appTools(): McpToolSpec[] {
         'Read or update app-level Specrails settings (theme, language, daily budget, cost-alert threshold, Code Explorer summary language + monthly summary budget). ' +
         'Actions: get, set, runtime_providers.list (connections + live status), runtime_providers.test (probe an OpenAI-compatible baseUrl without saving), runtime_providers.save (replace the connections list — local AI engines re-register live). ' +
         'The MCP enable flag and permission tiers are read-only here (user-controlled in the app). ' +
-        '"Allow sub-agents" is also read-only here (an agent must not grant itself sub-agents): get reports allowSubagentsWithoutProject, and with projectId the project setting. ' +
+        '"Allow sub-agents" and "Run sub-agents with" are also read-only here (an agent must not grant itself sub-agents): get reports allowSubagentsWithoutProject and subagentRuntimeWithoutProject, and with projectId the project settings (null runtime = same as the mission agent). ' +
         'dailyBudgetUsd here is APP-WIDE (all projects combined); per-project caps live in specrails_analytics(budget_set).',
       hintTier: 'read',
       tier: (args) => (args.action === 'set' || args.action === 'runtime_providers.save' ? 'write' : 'read'),
@@ -85,8 +85,9 @@ export function appTools(): McpToolSpec[] {
             summaryLanguage: getDesktopSetting(db, 'summary_language') === 'es' ? 'es' : 'en',
             summaryMonthlyBudgetUsd: nonNegNum(getDesktopSetting(db, 'summary_monthly_budget_usd')) ?? 5.0,
             allowSubagentsWithoutProject: getGlobalAllowSubagents(db),
+            subagentRuntimeWithoutProject: getGlobalSubagentRuntime(db),
             ...(typeof args.projectId === 'string' && args.projectId
-              ? { projectAllowSubagents: ((await apiCall(ctx, 'GET', `/projects/${encodeURIComponent(args.projectId)}/settings`)) as { allowSubagents?: boolean }).allowSubagents === true }
+              ? await projectSubagentSettings(ctx, args.projectId)
               : {}),
             mcp: {
               enabled: isMcpEnabled(db),
@@ -167,4 +168,9 @@ function nonNegNum(v: string | undefined): number | null {
 function writeNumOrClear(db: Parameters<typeof setDesktopSetting>[0], key: string, value: number | null): void {
   if (value === null) setDesktopSetting(db, key, '')
   else setDesktopSetting(db, key, String(value))
+}
+
+async function projectSubagentSettings(ctx: Parameters<typeof apiCall>[0], projectId: string) {
+  const settings = (await apiCall(ctx, 'GET', `/projects/${encodeURIComponent(projectId)}/settings`)) as { allowSubagents?: boolean; subagentRuntime?: unknown }
+  return { projectAllowSubagents: settings.allowSubagents === true, projectSubagentRuntime: settings.subagentRuntime ?? null }
 }

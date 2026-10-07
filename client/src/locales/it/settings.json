@@ -325,6 +325,27 @@
       "description": "Consente alle missioni senza progetto di usare sotto-agenti. Disattivato per impostazione predefinita.",
       "toggleLabel": "Consenti sotto-agenti nelle missioni senza progetto",
       "explainScope": "Ogni progetto ha la propria impostazione nelle impostazioni del progetto. Le missioni con sotto-agenti attivi applicano la modifica quando questi finiscono."
+    },
+    "runtime": {
+      "label": "Esegui i sub-agenti con",
+      "same": "Come l'agente della missione",
+      "sameHint": "I sub-agenti usano provider, modello ed effort dell'agente della missione, avviati nativamente dal suo CLI.",
+      "chosenHint": "Le missioni su {{provider}} avviano i propri sub-agenti con questo modello. Con qualsiasi altro provider, Specrails li avvia su {{provider}}.",
+      "providerLabel": "Provider dei sub-agenti",
+      "modelLabel": "Modello dei sub-agenti",
+      "effortLabel": "Effort dei sub-agenti",
+      "claudeEffortHint": "I sub-agenti nativi di Claude ignorano l'effort; si applica quando li avvia Specrails.",
+      "saved": "I sub-agenti ora vengono eseguiti con {{provider}}",
+      "reset": "I sub-agenti seguono di nuovo l'agente della missione",
+      "confirm": {
+        "title": "Eseguire i sub-agenti con {{provider}}?",
+        "body": "Nelle missioni con un altro provider, i sub-agenti non sono più nativi: Specrails avvia ciascuno come sessione {{provider}} propria invece del CLI della missione.",
+        "cost": "Più lento e forse più costoso: ogni sub-agente parte a freddo, senza la cache del prompt che condividerebbe con l'agente della missione.",
+        "control": "Più controllo e flessibilità: combina provider, scegli modello ed effort, vedi il costo reale di ogni sub-agente e lasciali lavorare dopo la risposta della missione.",
+        "native": "Le missioni che usano già {{provider}} mantengono sub-agenti nativi, ora con questo modello ed effort.",
+        "cancel": "Lascia come la missione",
+        "accept": "Usa {{provider}}"
+      }
     }
   }
 }

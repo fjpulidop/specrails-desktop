@@ -325,6 +325,27 @@
       "description": "Erlaubt Missionen ohne Projekt, Sub-Agenten zu nutzen. Standardmäßig aus.",
       "toggleLabel": "Sub-Agenten in Missionen ohne Projekt erlauben",
       "explainScope": "Jedes Projekt hat eine eigene Einstellung in den Projekteinstellungen. Missionen mit laufenden Sub-Agenten übernehmen die Änderung, sobald diese fertig sind."
+    },
+    "runtime": {
+      "label": "Sub-Agenten ausführen mit",
+      "same": "Wie der Missions-Agent",
+      "sameHint": "Sub-Agenten nutzen Anbieter, Modell und Aufwand des Missions-Agenten und werden nativ von dessen CLI gestartet.",
+      "chosenHint": "Missionen auf {{provider}} starten ihre eigenen Sub-Agenten mit diesem Modell. Bei jedem anderen Anbieter startet Specrails sie auf {{provider}}.",
+      "providerLabel": "Anbieter der Sub-Agenten",
+      "modelLabel": "Modell der Sub-Agenten",
+      "effortLabel": "Aufwand der Sub-Agenten",
+      "claudeEffortHint": "Claudes eigene Sub-Agenten ignorieren den Aufwand; er gilt, wenn Specrails sie startet.",
+      "saved": "Sub-Agenten laufen jetzt mit {{provider}}",
+      "reset": "Sub-Agenten folgen wieder dem Missions-Agenten",
+      "confirm": {
+        "title": "Sub-Agenten mit {{provider}} ausführen?",
+        "body": "In Missionen mit einem anderen Anbieter sind Sub-Agenten nicht mehr nativ: Specrails startet jeden als eigene {{provider}}-Sitzung statt im CLI der Mission.",
+        "cost": "Langsamer und möglicherweise teurer: Jeder Sub-Agent startet kalt, ohne den Prompt-Cache, den er mit dem Missions-Agenten teilen würde.",
+        "control": "Mehr Kontrolle und Flexibilität: Anbieter kombinieren, Modell und Aufwand wählen, die echten Kosten jedes Sub-Agenten sehen und sie nach der Antwort der Mission weiterarbeiten lassen.",
+        "native": "Missionen, die bereits {{provider}} nutzen, behalten native Sub-Agenten, jetzt mit diesem Modell und Aufwand.",
+        "cancel": "Wie die Mission belassen",
+        "accept": "{{provider}} verwenden"
+      }
     }
   }
 }

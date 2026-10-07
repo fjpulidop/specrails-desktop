@@ -146,7 +146,7 @@ export class MissionCoreSessions {
     const choice = this.deps.subagentRuntime?.(conversation) ?? null
     const resolution = resolveSubagentRuntime({ choice, missionProvider: provider, drivers, delegation })
     if (resolution.unavailable && choice && this.subagentPolicy(conversation) === 'enabled') {
-      this.deps.broadcast({ type: 'agent_session_notice', conversationId: conversation.id, level: 'warning', code: resolution.unavailable, message: `${choice.provider} sub-agents are not available here; the mission agent runs its own.`, timestamp: new Date().toISOString() })
+      this.deps.broadcast({ type: 'agent_session_notice', conversationId: conversation.id, level: 'warning', code: `subagents.${resolution.unavailable}`, provider: choice.provider, message: `${choice.provider} sub-agents are not available here; the mission agent runs its own.`, timestamp: new Date().toISOString() })
     }
     return resolution.runtime
   }

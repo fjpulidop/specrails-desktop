@@ -325,6 +325,27 @@
       "description": "Let missions that are not attached to a project use sub-agents. Off by default.",
       "toggleLabel": "Allow sub-agents in missions without a project",
       "explainScope": "Each project has its own setting in its project settings. Missions with sub-agents running apply a change once those finish."
+    },
+    "runtime": {
+      "label": "Run sub-agents with",
+      "same": "Same as the mission agent",
+      "sameHint": "Sub-agents use the mission agent's provider, model and effort, launched natively by its own CLI.",
+      "chosenHint": "Missions on {{provider}} launch their own sub-agents with this model. On any other provider, Specrails launches them on {{provider}}.",
+      "providerLabel": "Sub-agent provider",
+      "modelLabel": "Sub-agent model",
+      "effortLabel": "Sub-agent effort",
+      "claudeEffortHint": "Claude's own sub-agents ignore effort; it applies when Specrails launches them.",
+      "saved": "Sub-agents now run with {{provider}}",
+      "reset": "Sub-agents follow the mission agent again",
+      "confirm": {
+        "title": "Run sub-agents with {{provider}}?",
+        "body": "In missions on another provider, sub-agents stop being native: Specrails launches each one as its own {{provider}} session instead of the mission's CLI.",
+        "cost": "Slower and possibly more expensive: each sub-agent starts cold, without the prompt cache it would share with the mission agent.",
+        "control": "More control and flexibility: mix providers, choose model and effort, see each sub-agent's real cost, and keep them working after the mission's reply.",
+        "native": "Missions that already run on {{provider}} keep native sub-agents, now with this model and effort.",
+        "cancel": "Keep same as mission",
+        "accept": "Use {{provider}}"
+      }
     }
   }
 }

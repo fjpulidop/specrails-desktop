@@ -815,7 +815,8 @@
     "result": "Résultat",
     "count_one": "{{count}} agent",
     "count_other": "{{count}} agents",
-    "finishedIn": "terminés en {{elapsed}}"
+    "finishedIn": "terminés en {{elapsed}}",
+    "delegatedHint": "Lancé par Specrails sur {{provider}} ({{model}}) ; son coût est compté à part."
   },
   "sessionNotice": {
     "host_degraded": "Les sessions Core sont indisponibles pour ce projet après plusieurs échecs : ce tour est passé par le transport classique (sans sous-agents en arrière-plan). Réessayez une fois la cause corrigée.",
@@ -825,6 +826,10 @@
     },
     "retry": "Réessayer",
     "retryFailed": "Toujours indisponible. Consultez le journal de l'app pour la cause.",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "subagents": {
+      "delegation_unsupported": "Les sous-agents {{provider}} nécessitent un Specrails Core plus récent ; l'agent de cette mission lance donc ses propres sous-agents.",
+      "driver_unavailable": "{{provider}} n'est pas disponible pour le runtime de sessions ; l'agent de cette mission lance donc ses propres sous-agents."
+    }
   }
 }

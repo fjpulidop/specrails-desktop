@@ -21,6 +21,8 @@ export interface SessionNotice {
   message: string
   /** Host scope the notice is about, when it concerns the session host. */
   scope: string | null
+  /** Provider the notice is about (sub-agent runtime notices). */
+  provider?: string | null
 }
 
 export const MAX_NOTICES = 5
@@ -68,6 +70,8 @@ export interface SessionWsMessage {
   code?: string | null
   message?: string
   scope?: string
+  /** Provider a sub-agent notice is about. */
+  provider?: string
   status?: string
   timestamp?: string
 }
@@ -131,6 +135,7 @@ export function applySessionMessage(state: MissionSessionsState, message: Sessio
         level: message.level ?? 'warning',
         message: message.message ?? message.code,
         scope: message.scope ?? null,
+        ...(message.provider ? { provider: message.provider } : {}),
       }
       return update(state, conversationId, (view) => {
         // One notice per code: a repeat refreshes it instead of stacking.

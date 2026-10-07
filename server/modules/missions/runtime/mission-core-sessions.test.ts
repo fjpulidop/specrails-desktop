@@ -423,7 +423,7 @@ describe('missions on Core agent sessions', () => {
       await manager.sendMessage(conversation.id, 'hello')
       await waitFor(() => doneCount() === 1)
       expect(openPolicy()).toMatchObject({ subagentRuntime: { mode: 'native' } })
-      expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'delegation_unsupported' })
+      expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'subagents.delegation_unsupported' })
     })
   })
 })

@@ -815,7 +815,8 @@
     "result": "結果",
     "count_one": "エージェント {{count}} 件",
     "count_other": "エージェント {{count}} 件",
-    "finishedIn": "{{elapsed}} で完了"
+    "finishedIn": "{{elapsed}} で完了",
+    "delegatedHint": "Specrails が {{provider}}（{{model}}）で起動しました。コストは別に集計されます。"
   },
   "sessionNotice": {
     "host_degraded": "繰り返しの失敗により、このプロジェクトでは Core セッションを利用できません。このターンは従来の方式で実行されました（バックグラウンドのサブエージェントなし）。原因を解消したら再試行してください。",
@@ -825,6 +826,10 @@
     },
     "retry": "再試行",
     "retryFailed": "まだ利用できません。原因はアプリのログを確認してください。",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} のサブエージェントには新しい Specrails Core が必要なため、このミッションのエージェントが自身のサブエージェントを起動します。",
+      "driver_unavailable": "{{provider}} はセッションランタイムで利用できないため、このミッションのエージェントが自身のサブエージェントを起動します。"
+    }
   }
 }

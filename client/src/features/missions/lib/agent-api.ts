@@ -216,6 +216,8 @@ export interface AgentSubagent {
   resultSummary: string | null
   /** Core turn whose activity launched it. */
   launchedInTurnId: string | null
+  /** Set when Specrails launched it on another provider (delegated runtime). */
+  delegated?: { driver: string; model: string } | null
 }
 
 export interface AgentSessionState {

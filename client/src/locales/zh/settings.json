@@ -325,6 +325,27 @@
       "description": "允许不属于任何项目的任务使用子代理。默认关闭。",
       "toggleLabel": "在无项目的任务中允许子代理",
       "explainScope": "每个项目在其项目设置中有独立的设置。正在运行子代理的任务会在子代理完成后应用更改。"
+    },
+    "runtime": {
+      "label": "子代理运行方式",
+      "same": "与任务代理相同",
+      "sameHint": "子代理使用任务代理的提供方、模型和推理强度，由其自身 CLI 原生启动。",
+      "chosenHint": "使用 {{provider}} 的任务会以此模型启动自己的子代理。使用其他提供方时，由 Specrails 在 {{provider}} 上启动它们。",
+      "providerLabel": "子代理提供方",
+      "modelLabel": "子代理模型",
+      "effortLabel": "子代理推理强度",
+      "claudeEffortHint": "Claude 自身的子代理会忽略推理强度；由 Specrails 启动时才会生效。",
+      "saved": "子代理现在使用 {{provider}} 运行",
+      "reset": "子代理重新跟随任务代理",
+      "confirm": {
+        "title": "使用 {{provider}} 运行子代理？",
+        "body": "在使用其他提供方的任务中，子代理不再是原生的：Specrails 会将每个子代理作为独立的 {{provider}} 会话启动，而不是由任务的 CLI 启动。",
+        "cost": "更慢，可能更贵：每个子代理都冷启动，无法共享与任务代理的提示缓存。",
+        "control": "更多控制和灵活性：混用提供方、选择模型和推理强度、查看每个子代理的真实成本，并在任务回复后继续工作。",
+        "native": "已经使用 {{provider}} 的任务会保留原生子代理，并使用此模型和推理强度。",
+        "cancel": "保持与任务相同",
+        "accept": "使用 {{provider}}"
+      }
     }
   }
 }

@@ -325,6 +325,27 @@
       "description": "Permite que las misiones sin proyecto usen sub-agentes. Desactivado por defecto.",
       "toggleLabel": "Permitir sub-agentes en misiones sin proyecto",
       "explainScope": "Cada proyecto tiene su propio ajuste en la configuración del proyecto. Las misiones con sub-agentes en marcha aplican el cambio cuando estos terminan."
+    },
+    "runtime": {
+      "label": "Ejecutar sub-agentes con",
+      "same": "Igual que el agente de la misión",
+      "sameHint": "Los sub-agentes usan el proveedor, modelo y esfuerzo del agente de la misión, lanzados de forma nativa por su propio CLI.",
+      "chosenHint": "Las misiones en {{provider}} lanzan sus propios sub-agentes con este modelo. Con cualquier otro proveedor, Specrails los lanza en {{provider}}.",
+      "providerLabel": "Proveedor de los sub-agentes",
+      "modelLabel": "Modelo de los sub-agentes",
+      "effortLabel": "Esfuerzo de los sub-agentes",
+      "claudeEffortHint": "Los sub-agentes propios de Claude ignoran el esfuerzo; se aplica cuando los lanza Specrails.",
+      "saved": "Los sub-agentes ahora se ejecutan con {{provider}}",
+      "reset": "Los sub-agentes vuelven a seguir al agente de la misión",
+      "confirm": {
+        "title": "¿Ejecutar los sub-agentes con {{provider}}?",
+        "body": "En misiones con otro proveedor, los sub-agentes dejan de ser nativos: Specrails lanza cada uno como su propia sesión de {{provider}} en lugar del CLI de la misión.",
+        "cost": "Más lento y posiblemente más caro: cada sub-agente arranca en frío, sin la caché de prompt que compartiría con el agente de la misión.",
+        "control": "Más control y flexibilidad: combina proveedores, elige modelo y esfuerzo, ve el coste real de cada sub-agente y deja que sigan trabajando tras la respuesta de la misión.",
+        "native": "Las misiones que ya usan {{provider}} mantienen los sub-agentes nativos, ahora con este modelo y esfuerzo.",
+        "cancel": "Mantener igual que la misión",
+        "accept": "Usar {{provider}}"
+      }
     }
   }
 }

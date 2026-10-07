@@ -815,7 +815,8 @@
     "result": "Result",
     "count_one": "{{count}} agent",
     "count_other": "{{count}} agents",
-    "finishedIn": "done in {{elapsed}}"
+    "finishedIn": "done in {{elapsed}}",
+    "delegatedHint": "Launched by Specrails on {{provider}} ({{model}}); its cost is counted separately."
   },
   "sessionNotice": {
     "host_degraded": "Core sessions are unavailable for this project after repeated failures, so this turn ran on the classic transport (no background sub-agents). Retry once the cause is fixed.",
@@ -825,6 +826,10 @@
     },
     "retry": "Retry",
     "retryFailed": "Still unavailable. Check the app log for the cause.",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} sub-agents need a newer Specrails Core, so this mission's agent launches its own sub-agents.",
+      "driver_unavailable": "{{provider}} is not available to the agent session runtime, so this mission's agent launches its own sub-agents."
+    }
   }
 }
