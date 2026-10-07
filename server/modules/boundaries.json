@@ -268,7 +268,9 @@
     }
   },
   "agent-sessions": {
-    "publicEntries": [],
+    "publicEntries": [
+      "index.ts"
+    ],
     "dependencies": {
       "adapters/host-process.ts": [
         "../../../core-node-runtime",
@@ -291,6 +293,7 @@
         "../domain/protocol",
         "../ports"
       ],
+      "domain/availability.ts": [],
       "domain/errors.ts": [
         "./protocol"
       ],
@@ -301,6 +304,7 @@
       "domain/protocol.ts": [],
       "index.ts": [
         "./application/session-event-pump",
+        "./domain/availability",
         "./domain/errors",
         "./domain/host-state",
         "./domain/projection",
@@ -310,6 +314,13 @@
       "ports.ts": [
         "./domain/projection",
         "./domain/protocol"
+      ],
+      "runtime/core-sessions-availability.ts": [
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../domain/availability",
+        "../domain/protocol",
+        "node:fs",
+        "node:path"
       ],
       "runtime/session-host-registry.ts": [
         "../application/session-event-pump",

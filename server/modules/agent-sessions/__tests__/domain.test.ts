@@ -134,3 +134,20 @@ describe('host supervision policy', () => {
     expect(() => onReady(INITIAL_HOST_STATE)).toThrow(/absent → ready/)
   })
 })
+
+describe('Core sessions availability', () => {
+  it('parses the rollout flag with a safe default', async () => {
+    const { parseCoreSessionsFlag } = await import('../domain/availability')
+    expect([undefined, '', 'nonsense', 'off', '0', 'false'].map((value) => parseCoreSessionsFlag(value))).toEqual(['off', 'off', 'off', 'off', 'off', 'off'])
+    expect([' AUTO ', 'on', '1', 'true'].map((value) => parseCoreSessionsFlag(value))).toEqual(['auto', 'on', 'on', 'on'])
+  })
+
+  it('enables sessions only when allowed, advertised and contract-compatible', async () => {
+    const { resolveCoreSessionsAvailability } = await import('../domain/availability')
+    expect(resolveCoreSessionsAvailability('off', { sessions: 1 }).enabled).toBe(false)
+    expect(resolveCoreSessionsAvailability('auto', { engineV2: 1 })).toMatchObject({ enabled: false, reason: expect.stringContaining('does not advertise') })
+    expect(resolveCoreSessionsAvailability('on', null).enabled).toBe(false)
+    expect(resolveCoreSessionsAvailability('auto', { sessions: 1 }, false)).toMatchObject({ enabled: false, reason: expect.stringContaining('not compatible') })
+    expect(resolveCoreSessionsAvailability('auto', { sessions: 1 })).toEqual({ enabled: true, flag: 'auto', reason: 'Core sessions available' })
+  })
+})

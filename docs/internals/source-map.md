@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1028 source/build files. Nearby tests are linked where names
+Includes 1030 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1114,6 +1114,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/agent-sessions/domain
 
+- [availability.ts](../../server/modules/agent-sessions/domain/availability.ts)
 - [errors.ts](../../server/modules/agent-sessions/domain/errors.ts)
 - [host-state.ts](../../server/modules/agent-sessions/domain/host-state.ts)
 - [projection.ts](../../server/modules/agent-sessions/domain/projection.ts)
@@ -1121,6 +1122,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/agent-sessions/runtime
 
+- [core-sessions-availability.ts](../../server/modules/agent-sessions/runtime/core-sessions-availability.ts)
 - [session-host-registry.ts](../../server/modules/agent-sessions/runtime/session-host-registry.ts)
 
 ## server/modules/agents/runtime

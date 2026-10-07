@@ -178,6 +178,16 @@ describe('checkCoreCompat', () => {
     expect(await checkCoreCompat()).toMatchObject({ compatible: true, contractSchemaVersion: '5.1', missingCommands: [], extraCommands: [] })
   })
 
+  it('reports the agent session contract without making older or newer Cores incompatible', async () => {
+    const { KNOWN_EVENT_TYPES } = await import('./modules/agent-sessions')
+    setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, agentRuntime: { sessions: { version: 1, protocolVersions: [1], capability: 'sessions', cliOperation: 'host', eventTypes: [...KNOWN_EVENT_TYPES, 'session.future'] } } }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, sessions: { compatible: true, protocolVersion: 1, unknownEventTypes: ['session.future'] } })
+    setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, agentRuntime: { sessions: { version: 2, protocolVersions: [2], capability: 'sessions', cliOperation: 'host', eventTypes: [] } } }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, sessions: { compatible: false, protocolVersion: null } })
+    setupContractInTmpDir(COMPATIBLE_CONTRACT, tmpDir)
+    expect((await checkCoreCompat()).sessions).toBeNull()
+  })
+
   it('accepts the 5.2 contract that drops the agent_generation checkpoint', async () => {
     const providers = Object.fromEntries(['claude', 'codex', 'gemini', 'kimi'].map(provider => [provider, {
       initCommand: 'init',

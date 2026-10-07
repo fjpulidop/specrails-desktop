@@ -205,6 +205,18 @@ its native key/config, and Kimi via `kimi login` or user-managed
 `~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
 [Gemini](../gemini.md).
 
+### Core agent sessions (rollout)
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_CORE_SESSIONS` | `off` (default during rollout) keeps conversational features on their legacy transports. `auto` uses Core's agent session host (`specrails-core runtime host`) when the selected Core advertises the `sessions` capability and its session contract is compatible. `on` behaves like `auto` but is reported as forced. It cannot enable sessions on a Core that lacks them, and Desktop logs the reason. |
+
+With sessions enabled, Desktop runs one Core host per project, plus one for
+project-less missions. Session journals live in
+`~/.specrails/sessions/<project>/sessions.sqlite`, owned by Core. Desktop
+stores only a rebuildable projection. See
+[agent sessions](../../server/modules/agent-sessions/README.md).
+
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---

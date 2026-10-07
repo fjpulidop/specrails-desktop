@@ -17,8 +17,8 @@
 - [x] 3.1 `rpc-client.ts`: NDJSON JSON-RPC client (ids, timeouts, line limit, backpressure, notification stream) with duplex-stream tests
 - [x] 3.2 `host-process.ts`: launch `runtime host --stdio --scope` through existing Core resolution, `resolveBundledNodeExe`, `windowsSpawnEnv`, cross-spawn; tree-kill via transient-children ownership
 - [x] 3.3 `session-host-registry.ts`: one host per scope, lazy start, health pings, restart with resume + cursor replay, degraded fallback, project-removal and shutdown paths, `journal_locked` handling
-- [ ] 3.4 Capability detection via the runtime loader (`sessions`) and `initialize` negotiation; `SPECRAILS_CORE_SESSIONS` (`off` default during rollout, `auto`, `on`) documented in configuration
-- [ ] 3.5 Extend `server/core-compat.ts` / `check-core-compat` for the sessions contract; extend `scripts/smoke-agent-runtime-pair.mjs` to drive a host with a fake driver
+- [x] 3.4 Capability detection via the runtime loader (`sessions`) and `initialize` negotiation; `SPECRAILS_CORE_SESSIONS` (`off` default during rollout, `auto`, `on`) documented in configuration
+- [x] 3.5 Extend `server/core-compat.ts` / `check-core-compat` for the sessions contract (informational `sessions` check); the paired launch is covered by the agent-sessions launcher test against the local Core build (Core itself has no fake driver in production by design)
 
 ## 4. Persistence and accounting
 
