@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.61.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.60.0...v2.61.0) (2026-10-07)
+
+
+### Features
+
+* **loops:** route host blockers, add setup commands and structured fixer blockers ([#730](https://github.com/fjpulidop/specrails-desktop/issues/730)) ([54462e3](https://github.com/fjpulidop/specrails-desktop/commit/54462e353eb7daf1e5265321c30acd9ae3525cba))
+
 ## [2.60.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.59.3...v2.60.0) (2026-10-06)
 
 
