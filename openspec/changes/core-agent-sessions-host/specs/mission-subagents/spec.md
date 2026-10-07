@@ -85,3 +85,20 @@ When a mission's model, effort, tier or sub-agent policy changes while sub-agent
 #### Scenario: Deferred model change
 - **WHEN** Core reports a mission update as deferred
 - **THEN** the UI MUST show a deferred notice with a "stop agents and apply now" action
+
+### Requirement: Delegated sub-agents are launched through the Specrails MCP
+When a mission's sub-agent runtime is delegated, the mission agent SHALL delegate through `specrails_mission` actions backed by Core, and Desktop SHALL account for delegated spend separately.
+
+#### Scenario: Delegate and collect
+- **WHEN** the mission agent calls `subagent_start` with a description and instructions
+- **THEN** Core MUST launch the sub-agent on the configured provider and it MUST appear in the mission's agents line
+- **AND** `subagent_wait` MUST return the finished results, or Core MUST deliver them in a continuation turn when nobody waits
+
+#### Scenario: Actions only when delegated
+- **WHEN** a mission runs native sub-agents or none
+- **THEN** the delegation actions MUST be refused with an explanation
+
+#### Scenario: Delegated spend
+- **WHEN** a delegated sub-agent completes a turn
+- **THEN** its usage MUST be recorded once as its own invocation with origin `subagent` and its provider, and included in totals
+

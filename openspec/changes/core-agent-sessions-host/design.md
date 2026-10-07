@@ -165,6 +165,27 @@ Mission product rules are built on that contract: queue and steer, segment check
 - Turning the toggle off while sub-agents run applies through `session.update`. It is reported as deferred, and the UI offers "Stop agents and apply now".
 - Until this phase ships, the resolver returns `enabled`, which keeps current behaviour without any protocol change.
 
+### D9. Who runs sub-agents (hybrid, decided with the user on 2026-10-07)
+
+The Sub-agents settings (project and app) gain "Run sub-agents with":
+
+- **Same as the mission agent** (default): native sub-agents with the provider's defaults. Nothing changes when the user only enables sub-agents.
+- **A specific provider, model and effort.** Selecting it opens a confirmation dialog. It explains that when that provider differs from a mission's, Specrails launches the sub-agents itself instead of the provider. This costs prompt-cache reuse and start-up speed, and buys mixing providers, real per-agent cost, limits and agents that survive their parent.
+
+A pure resolver maps `(mission provider, setting)` to Core's `subagentRuntime`:
+
+| Setting | Mission provider | Runtime sent to Core |
+| --- | --- | --- |
+| Same as the mission agent | any | `{ mode: 'native' }` |
+| Provider P, model M, effort E | P | `{ mode: 'native', model: M, effort: E }`; effort only when the driver declares `subagentEffort` |
+| Provider P, model M, effort E | not P | `{ mode: 'delegated', driver: P, model: M, effort: E }` |
+
+- The UI reads each driver's `subagentModel` / `subagentEffort` capabilities from `initialize`, so it never offers an override a provider cannot apply (no effort for Claude sub-agents).
+- **Delegated tools.** The agent delegates through new actions of the capability-bound Specrails MCP `specrails_mission` tool: `subagent_start`, `subagent_wait`, `subagent_stop`, `subagent_list`. They map to Core's `session.delegate`, `session.waitSubagents` and `session.stopSubagents`. They are offered only when the mission's runtime is delegated, and the mission prompt explains them. The provider's native sub-agent tool is disabled then.
+- **Accounting.** Native sub-agent usage stays a breakdown of the parent's cost. A delegated child's usage (`billing: 'separate'`) is recorded as its own invocation (origin `subagent`, the child's provider), so analytics totals include it exactly once.
+- **UI.** Delegated agents use the same compact line and rows; the type badge shows the provider (e.g. "Claude · sonnet").
+- Changing the runtime follows D7: `refreshSubagentPolicy` sends the complete policy; running sessions apply it when idle and report a deferred change while sub-agents run.
+
 ### D8. Compatibility, packaging and rollout
 
 - **Capability detection** through the existing loader (`runtime api` capability `sessions`) and `initialize` negotiation. `check-core-compat` validates the `agentRuntime.sessions` contract block and event types.

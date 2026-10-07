@@ -46,3 +46,28 @@ The setting SHALL appear in project settings, and the global setting in app sett
 - **THEN** the response MUST report the app-wide setting and, when a project is given, that project's setting
 - **AND** no MCP action MUST be able to change either setting
 
+### Requirement: Users choose who runs sub-agents
+The Sub-agents settings SHALL let the user keep sub-agents native ("Same as the mission agent", the default) or choose a provider, model and effort. A choice that differs from a mission's provider SHALL make Specrails launch that mission's sub-agents itself.
+
+#### Scenario: Untouched configuration
+- **WHEN** sub-agents are allowed and the runtime setting was never changed
+- **THEN** missions MUST run native sub-agents with the provider's defaults
+
+#### Scenario: Same provider as the mission
+- **WHEN** the chosen provider equals the mission's provider
+- **THEN** the mission MUST run native sub-agents with the chosen model and effort
+
+#### Scenario: Different provider
+- **WHEN** the chosen provider differs from the mission's provider
+- **THEN** the mission MUST run delegated sub-agents on the chosen provider, model and effort
+- **AND** the mission agent's native sub-agent tool MUST be disabled
+
+#### Scenario: Confirmation before leaving native launching
+- **WHEN** the user selects a specific provider for sub-agents
+- **THEN** a confirmation dialog MUST explain that launching stops being native when the providers differ, with its cache and speed cost, in exchange for more control
+- **AND** cancelling MUST keep the previous setting
+
+#### Scenario: Only applicable overrides are offered
+- **WHEN** a provider cannot apply a sub-agent effort (e.g. Claude)
+- **THEN** the settings MUST NOT offer an effort for it in native mode
+

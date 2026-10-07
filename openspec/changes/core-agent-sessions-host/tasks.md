@@ -66,6 +66,15 @@
 - [x] 9.4 Settings UI (project + app modal) with cost/behaviour explanation in 8 locales; Specrails MCP settings surface
 - [x] 9.5 Tests and docs for the toggle
 
+## 11. Who runs sub-agents (D9)
+
+- [ ] 11.1 Settings: project `subagentRuntime` (`provider`, `model`, `effort`; null = same as the mission agent) and the app-wide equivalent through domain, SQLite, HTTP and MCP (read-only)
+- [ ] 11.2 Pure resolver `(mission provider, setting) → subagentRuntime` with capability checks; wired into prepareTurn and refreshSubagentPolicy
+- [ ] 11.3 `specrails_mission` delegation actions (`subagent_start/wait/stop/list`) mapped to Core RPCs; refused unless delegated; mission prompt guidance when delegated
+- [ ] 11.4 Accounting: delegated child usage recorded once as its own `subagent` invocation (separate billing); native breakdown unchanged
+- [ ] 11.5 Settings UI: provider/model/effort pickers from Core driver capabilities, confirmation dialog, 8 locales; provider badge on delegated rows
+- [ ] 11.6 Tests and docs; live: Codex mission with Claude sub-agents and the reverse
+
 ## 10. Follow-up changes (tracked, not in this change)
 
 - [x] 10.1 Open follow-up OpenSpec changes to migrate explore, blueprint, agent refine, interactive jobs and one-shot features onto the transport port, then remove `server/providers/*`
