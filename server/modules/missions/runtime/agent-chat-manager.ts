@@ -26,8 +26,8 @@ import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
 import { buildOperatorSystemPrompt } from './agent-operator-prompt'
-import { prepareAgentMcp, removeAgentCapabilityFile } from '../../../agent-mcp-config'
-import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
+import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
+import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { resolveExternalEntries } from '../../../external-mcp'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
@@ -295,6 +295,14 @@ export class AgentChatManager {
     const conversation = getAgentConversation(this._db, conversationId)
     if (!conversation || !this._coreSessions) return []
     return this._coreSessions.stopSubagents(conversation, subagentIds)
+  }
+
+  /** Plugin MCP servers for a project-pinned mission (empty for providers without plugin MCP entries). */
+  private _pluginMcpServers(providerId: string, projectId: string | null): AgentMcpServerSpec[] {
+    const project = projectId ? this._registry?.getProjectRow?.(projectId) : null
+    if (!project) return []
+    const execution = resolveProjectExecution(project)
+    return resolveCodexPluginMcpServers({ providerId, stateRoot: execution.cwd, repositoryPath: project.path, legacyProviderId: project.provider })
   }
 
   /** Rebuild a mission's session projection from Core's journal (operator repair). */
@@ -617,7 +625,7 @@ export class AgentChatManager {
         // Core agent sessions: a resident session presents this turn's capability
         // through structured MCP specs (no provider-specific argv).
         const coreContext = this._coreSessions
-          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db) })
+          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id) })
           : null
         if (!coreContext) try {
           const wiring = prepareAgentMcp({

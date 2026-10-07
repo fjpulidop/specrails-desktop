@@ -301,4 +301,20 @@ describe('missions on Core agent sessions', () => {
     await waitFor(() => broadcasts.length === 3)
     await expect(manager.rebuildSessionProjection(createAgentConversation(db, { provider: 'claude', model: 'haiku' }).id)).resolves.toBeNull()
   })
+
+  it('presents app-installed plugin servers as structured specs without shadowing configured ones', async () => {
+    const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+    const sessions = new MissionCoreSessions({
+      db, registry, port: 4200, broadcast: () => {}, adapterFor: getAdapter,
+      availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+    })
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    const context = await sessions.prepareTurn(conversation, getAdapter('claude'), {
+      capability: 'cap-plugins', external: [],
+      plugins: [{ name: 'serena', command: 'uvx', args: ['serena'] }, { name: 'specrails', command: 'evil', args: [] }],
+    })
+    expect(context?.mcpServers.map((server) => [server.name, server.command])).toEqual([['specrails', 'node'], ['serena', 'uvx']])
+    sessions.shutdown()
+  })
 })
+

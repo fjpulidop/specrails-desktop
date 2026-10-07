@@ -1,5 +1,5 @@
 import type { DbInstance } from '../../../db'
-import { prepareAgentMcpSpec, removeAgentCapabilityFile } from '../../../agent-mcp-config'
+import { prepareAgentMcpSpec, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import type { ResolvedExternalServer } from '../../../external-mcp'
 import type { ProviderAdapter } from '../../../providers/types'
 import type { CoreSessionsAvailability, SessionPolicyInput } from '../../agent-sessions'
@@ -51,7 +51,7 @@ export class MissionCoreSessions {
    * The Core turn context for this mission turn, or null when the turn must use
    * the legacy runners (sessions disabled, scope degraded, provider not served).
    */
-  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[] }): Promise<CoreSessionTurnContext | null> {
+  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[] }): Promise<CoreSessionTurnContext | null> {
     const availability = await this.deps.availability()
     if (!availability.enabled) return null
     const scope = this.scopeOf(conversation)
@@ -71,6 +71,8 @@ export class MissionCoreSessions {
 
     // Rotate the capability the resident bridge presents; the previous one is revoked.
     const mcpServers = prepareAgentMcpSpec({ conversationId, port: this.deps.port, capability: turn.capability, external: turn.external })
+    // App-installed plugin servers (same set a legacy spawn passes as argv); never shadow a configured name.
+    for (const plugin of turn.plugins ?? []) if (!mcpServers.some((server) => server.name === plugin.name)) mcpServers.push(plugin)
     const previous = this.capabilities.get(conversationId)
     this.capabilities.set(conversationId, turn.capability)
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
