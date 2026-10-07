@@ -1,7 +1,7 @@
 ## 1. Preconditions
 
 - [ ] 1.1 Core change `agent-session-runtime` released with `sessions: 1`, `runtime host` and the `agentRuntime.sessions` contract block; record the minimum Core version
-- [ ] 1.2 Write `docs/internals/agent-sessions.md` (Desktop/Core split, module layout, transport port, projection, host supervision, rollout flag) and link it from the internals index and AGENTS.md feature map
+- [x] 1.2 Write `docs/internals/agent-sessions.md` (Desktop/Core split, module layout, transport port, projection, host supervision, rollout flag) and link it from the internals index and AGENTS.md feature map
 
 ## 2. agent-sessions module (no production wiring)
 
