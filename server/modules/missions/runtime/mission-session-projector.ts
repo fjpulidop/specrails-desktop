@@ -1,12 +1,10 @@
-import { randomUUID } from 'node:crypto'
-
 import type { DbInstance } from '../../../db'
 import { recordAgentInvocation } from '../../../desktop-db'
 import type { ProviderAdapter } from '../../../providers/types'
 import { finaliseNormalisedResult } from '../../accounting/runtime/result-event'
 import type { ProjectionOp, ProjectionSink, TurnOrigin, Usage } from '../../agent-sessions'
 import { addAgentMessage, getAgentConversation } from '../../agents/runtime/agent-store'
-import { advanceSessionCursor, appendSubagentEvent, getSessionCursor, setResidentState, upsertSubagent } from './agent-session-store'
+import { advanceSessionCursor, appendSubagentEvent, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
 
 type Broadcast = (message: Record<string, unknown>) => void
 
@@ -75,10 +73,15 @@ export class MissionSessionProjector implements ProjectionSink {
             this.background.delete(op.turnId)
             const conversation = getAgentConversation(this.deps.db, conversationId)
             if (!conversation) break
+            // A journal replay (projection rebuild) must not record a turn twice.
+            if (isCoreTurnRecorded(this.deps.db, conversationId, op.turnId)) {
+              outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, timestamp })
+              break
+            }
             const message = op.text.trim()
               ? addAgentMessage(this.deps.db, { conversationId, role: 'assistant', content: op.text, turnOrigin: turn.origin, coreTurnId: op.turnId })
               : null
-            this.recordInvocation(conversation, op.usage, op.status, turn, op.at)
+            this.recordInvocation(conversation, op.turnId, op.usage, op.status, turn, op.at)
             outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), timestamp })
             if (conversation.pinned_project_id) outbox.push({ type: 'spending.invalidated', projectId: conversation.pinned_project_id })
             break
@@ -115,7 +118,7 @@ export class MissionSessionProjector implements ProjectionSink {
     return !!this.deps.db.prepare('SELECT 1 FROM agent_subagents WHERE conversation_id = ? AND subagent_id = ?').get(this.conversationId, subagentId)
   }
 
-  private recordInvocation(conversation: NonNullable<ReturnType<typeof getAgentConversation>>, usage: Usage, status: string, turn: BackgroundTurn, finishedAt: string): void {
+  private recordInvocation(conversation: NonNullable<ReturnType<typeof getAgentConversation>>, turnId: string, usage: Usage, status: string, turn: BackgroundTurn, finishedAt: string): void {
     const adapter = this.deps.adapterFor(conversation.provider)
     const normalised = {
       ...(usage.inputTokens !== null ? { tokens_in: usage.inputTokens } : {}),
@@ -130,7 +133,7 @@ export class MissionSessionProjector implements ProjectionSink {
       durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(turn.startedAt)),
     })
     recordAgentInvocation(this.deps.db, {
-      id: randomUUID(),
+      id: coreTurnInvocationId(conversation.id, turnId),
       conversation_id: conversation.id,
       project_id: conversation.pinned_project_id ?? null,
       provider: adapter.id,

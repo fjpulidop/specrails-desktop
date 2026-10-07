@@ -112,4 +112,20 @@ describe('MissionSessionProjector', () => {
     ])).not.toThrow()
     expect(listAgentMessages(db, conversationId)).toEqual([])
   })
+
+  it('records a replayed continuation turn once', () => {
+    const turn: Array<Omit<SessionEvent, 'at'>> = [
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'turn.started', turnId: 'bg', origin: 'subagent', inputIds: [], trigger: { subagentIds: [] } },
+      { type: 'turn.completed', turnId: 'bg', status: 'completed', text: '', usage: usage(0.01) },
+    ]
+    feed(turn)
+    state = initialProjection(conversationId)
+    broadcasts = []
+    feed(turn)
+    expect(listAgentMessages(db, conversationId)).toHaveLength(0)
+    expect(db.prepare('SELECT id FROM agent_invocations WHERE conversation_id = ?').all(conversationId)).toEqual([{ id: `core-turn:${conversationId}:bg` }])
+    // Clients still see the replayed turn close (no message to append).
+    expect(broadcasts.find((message) => message.type === 'agent_turn_done')).toEqual(expect.not.objectContaining({ messageId: expect.anything() }))
+  })
 })

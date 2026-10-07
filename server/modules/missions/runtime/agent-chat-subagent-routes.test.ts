@@ -6,7 +6,7 @@ import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { createAgentConversation } from '../../agents/runtime/agent-store'
 import { appendSubagentEvent, ensureSessionCursor, setResidentState, upsertSubagent } from './agent-session-store'
-import type { AgentChatManager } from './agent-chat-manager'
+import { SessionRebuildBusyError, type AgentChatManager } from './agent-chat-manager'
 import { createAgentChatRouter } from './agent-chat-router'
 
 const node = (subagentId: string, phase: 'running' | 'idle') => ({
@@ -18,6 +18,7 @@ describe('mission sub-agent routes', () => {
   let db: DbInstance
   let conversationId: string
   let stop: ReturnType<typeof vi.fn>
+  let rebuild: ReturnType<typeof vi.fn>
 
   function app() {
     const server = express()
@@ -28,6 +29,7 @@ describe('mission sub-agent routes', () => {
       conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
       sessionState: () => ({ residentPhase: 'background', processAlive: true, liveSubagents: 1, subagents: [] }),
       stopSubagents: stop,
+      rebuildSessionProjection: rebuild,
     } as unknown as AgentChatManager, desktopDb: db }))
     return server
   }
@@ -41,6 +43,7 @@ describe('mission sub-agent routes', () => {
     upsertSubagent(db, conversationId, node('a2', 'idle'))
     for (let seq = 1; seq <= 5; seq++) appendSubagentEvent(db, conversationId, 'a1', seq, 'text', `chunk ${seq}`, null)
     stop = vi.fn(async () => ['a1'])
+    rebuild = vi.fn(async () => ({ lastSeq: 12, subagents: 2 }))
   })
 
   it('lists sub-agents with the projected session state', async () => {
@@ -73,5 +76,18 @@ describe('mission sub-agent routes', () => {
   it('includes the session state in the conversation payload', async () => {
     const response = await request(app()).get(`/api/agent/conversations/${conversationId}`)
     expect(response.body.session).toMatchObject({ residentPhase: 'background' })
+  })
+
+  it('rebuilds the session projection on request', async () => {
+    const url = `/api/agent/conversations/${conversationId}/session/rebuild`
+    expect((await request(app()).post(url)).body).toEqual({ lastSeq: 12, subagents: 2 })
+    expect(rebuild).toHaveBeenCalledWith(conversationId)
+    rebuild.mockResolvedValueOnce(null)
+    expect((await request(app()).post(url)).status).toBe(409)
+    rebuild.mockRejectedValueOnce(new SessionRebuildBusyError('busy'))
+    expect((await request(app()).post(url)).status).toBe(409)
+    rebuild.mockRejectedValueOnce(new Error('host down'))
+    expect((await request(app()).post(url))).toMatchObject({ status: 502, body: { error: 'host down' } })
+    expect((await request(app()).post('/api/agent/conversations/ghost/session/rebuild')).status).toBe(404)
   })
 })

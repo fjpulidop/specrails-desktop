@@ -1816,8 +1816,7 @@
         "../../accounting/runtime/result-event",
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
-        "./agent-session-store",
-        "node:crypto"
+        "./agent-session-store"
       ]
     }
   },

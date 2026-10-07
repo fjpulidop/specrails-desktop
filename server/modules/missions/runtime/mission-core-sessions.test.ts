@@ -252,4 +252,53 @@ describe('missions on Core agent sessions', () => {
     expect(host.requests).toEqual([])
     expect(mockSpawn).toHaveBeenCalled()
   })
+
+  it('rebuilds the projection from the journal without duplicating turns', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    host.script = (inputId, turnId) => [
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+      { type: 'subagent.started', subagentId: 'a1', parentId: null, kind: 'background', agentType: 'Explore', description: 'Scan' },
+      { type: 'turn.completed', turnId, status: 'completed', text: 'LAUNCHED', usage: usage(0.02) },
+      { type: 'session.phase', phase: 'background' },
+    ]
+    await manager.sendMessage(conversation.id, 'scan in the background')
+    await waitFor(() => doneCount() === 1)
+    host.emit(conversation.id, [
+      { type: 'subagent.output', subagentId: 'a1', channel: 'text', delta: 'found 3 files' },
+      { type: 'subagent.result', subagentId: 'a1', summary: 'Three files' },
+      { type: 'subagent.phase', subagentId: 'a1', phase: 'idle' },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId: 'bg1', origin: 'subagent', inputIds: [], trigger: { subagentIds: ['a1'] } },
+      { type: 'turn.completed', turnId: 'bg1', status: 'completed', text: 'Scan done.', usage: usage(0.03) },
+      { type: 'session.phase', phase: 'idle' },
+    ])
+    await waitFor(() => broadcasts.some((message) => message.type === 'agent_turn_done'))
+
+    const snapshot = () => ({
+      cursor: getSessionCursor(db, conversation.id),
+      subagents: db.prepare('SELECT * FROM agent_subagents WHERE conversation_id = ? ORDER BY subagent_id').all(conversation.id).map((row) => ({ ...(row as Record<string, unknown>), updated_at: null })),
+      events: db.prepare('SELECT subagent_id, seq, channel, delta, tool_json FROM agent_subagent_events WHERE conversation_id = ? ORDER BY seq').all(conversation.id),
+      messages: listAgentMessages(db, conversation.id).map((message) => message.id),
+      invocations: db.prepare('SELECT id, origin, total_cost_usd FROM agent_invocations WHERE conversation_id = ? ORDER BY id').all(conversation.id),
+    })
+    const live = snapshot()
+    expect(live.events).toHaveLength(1)
+    // Corrupt the projection to prove the rebuild restores it from Core.
+    db.prepare('DELETE FROM agent_subagent_events WHERE conversation_id = ?').run(conversation.id)
+    db.prepare("UPDATE agent_subagents SET phase = 'running' WHERE conversation_id = ?").run(conversation.id)
+
+    broadcasts.length = 0
+    await expect(manager.rebuildSessionProjection(conversation.id)).resolves.toEqual({ lastSeq: live.cursor!.lastSeq, subagents: 1 })
+    expect(snapshot()).toEqual(live)
+    // The replay is silent; clients get the rebuilt state once.
+    expect(broadcasts.map((message) => message.type)).toEqual(['agent_resident_state', 'agent_subagent'])
+    expect(broadcasts[1]).toMatchObject({ subagent: { subagentId: 'a1', phase: 'idle', resultSummary: 'Three files' } })
+
+    // Live events keep flowing to clients after the rebuild.
+    host.emit(conversation.id, [{ type: 'session.phase', phase: 'idle' }])
+    await waitFor(() => broadcasts.length === 3)
+    await expect(manager.rebuildSessionProjection(createAgentConversation(db, { provider: 'claude', model: 'haiku' }).id)).resolves.toBeNull()
+  })
 })

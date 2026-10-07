@@ -5,7 +5,7 @@ import type { ProviderAdapter } from '../../../providers/types'
 import type { CoreSessionsAvailability, SessionPolicyInput } from '../../agent-sessions'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import type { AgentConversation } from '../../agents/runtime/agent-store'
-import { ensureSessionCursor } from './agent-session-store'
+import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
 import type { CoreSessionTurnContext, TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 
@@ -67,22 +67,7 @@ export class MissionCoreSessions {
     if (!drivers.some((driver) => driver.id === adapter.id)) return null
 
     const conversationId = conversation.id
-    if (!this.tracked.has(conversationId)) {
-      ensureSessionCursor(this.deps.db, conversationId, conversationId, scope)
-      const projector = new MissionSessionProjector(conversationId, {
-        db: this.deps.db,
-        broadcast: this.deps.broadcast,
-        adapterFor: this.deps.adapterFor,
-        onProcessEnded: (id) => this.releaseCapability(id),
-      })
-      try {
-        await this.deps.registry.track(scope, conversationId, projector, () => {})
-      } catch (error) {
-        // A session that does not exist yet has nothing to replay; tracking starts empty.
-        if ((error as { code?: string }).code !== 'session_not_found') throw error
-      }
-      this.tracked.add(conversationId)
-    }
+    if (!this.tracked.has(conversationId)) await this.track(scope, conversationId, this.deps.broadcast)
 
     // Rotate the capability the resident bridge presents; the previous one is revoked.
     const mcpServers = prepareAgentMcpSpec({ conversationId, port: this.deps.port, capability: turn.capability, external: turn.external })
@@ -123,6 +108,50 @@ export class MissionCoreSessions {
     const client = await this.deps.registry.acquire(this.scopeOf(conversation))
     const result = await client.request<{ stopped: string[] }>('session.stopSubagents', { sessionId: conversation.id, ...(subagentIds ? { subagentIds } : {}) })
     return result.stopped ?? []
+  }
+
+  /**
+   * Rebuild a mission's derived session rows (sub-agents, their output, resident
+   * state, cursor) by replaying Core's journal from the start. Turns already
+   * recorded as messages/invocations are recognized, not duplicated. The replay
+   * is silent; clients then receive the rebuilt state in one pass.
+   */
+  async rebuildProjection(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>): Promise<{ lastSeq: number; subagents: number } | null> {
+    const scope = this.scopeOf(conversation)
+    const conversationId = conversation.id
+    if (!getSessionCursor(this.deps.db, conversationId)) return null
+    this.deps.registry.untrack(scope, conversationId)
+    this.tracked.delete(conversationId)
+    resetSessionProjection(this.deps.db, conversationId)
+    let muted = true
+    try {
+      await this.track(scope, conversationId, (message) => { if (!muted) this.deps.broadcast(message) })
+    } finally {
+      muted = false
+    }
+    const cursor = getSessionCursor(this.deps.db, conversationId)
+    const subagents = listSubagents(this.deps.db, conversationId)
+    const timestamp = new Date().toISOString()
+    if (cursor) this.deps.broadcast({ type: 'agent_resident_state', conversationId, phase: cursor.residentPhase, liveSubagents: cursor.liveSubagents, processAlive: cursor.processAlive, timestamp })
+    for (const { conversationId: _owner, ...subagent } of subagents) this.deps.broadcast({ type: 'agent_subagent', conversationId, subagent, timestamp })
+    return { lastSeq: cursor?.lastSeq ?? 0, subagents: subagents.length }
+  }
+
+  private async track(scope: string, conversationId: string, broadcast: MissionCoreSessionsDeps['broadcast']): Promise<void> {
+    ensureSessionCursor(this.deps.db, conversationId, conversationId, scope)
+    const projector = new MissionSessionProjector(conversationId, {
+      db: this.deps.db,
+      broadcast,
+      adapterFor: this.deps.adapterFor,
+      onProcessEnded: (id) => this.releaseCapability(id),
+    })
+    try {
+      await this.deps.registry.track(scope, conversationId, projector, () => {})
+    } catch (error) {
+      // A session that does not exist yet has nothing to replay; tracking starts empty.
+      if ((error as { code?: string }).code !== 'session_not_found') throw error
+    }
+    this.tracked.add(conversationId)
   }
 
   /** Conversation deleted: close its Core session and drop all local state. */

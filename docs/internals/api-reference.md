@@ -160,6 +160,7 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | `GET` | `/agent/conversations/:id/subagents` | `{ subagents, session }`. Each sub-agent has id, parent, kind, agent type, description, phase (`running`/`idle`/`failed`/`stopped`/`killed`/`interrupted`), reason, restarts, launching Core turn, timestamps, usage, tool uses, duration and result summary. |
 | `GET` | `/agent/conversations/:id/subagents/:subagentId/events?after=&limit=` | Paged sub-agent transcript `{ events: [{ seq, channel, delta?, tool?, createdAt }], hasMore }`. `limit` is 1–1000. |
 | `POST` | `/agent/conversations/:id/subagents/stop` | Body `{ subagentIds? }` (all when omitted). Returns `{ stopped }`; `502` when the session host is unavailable. |
+| `POST` | `/agent/conversations/:id/session/rebuild` | Operator repair: replays the mission's Core journal into its sub-agent rows, events, resident state and cursor. Turns already recorded as messages/invocations are not duplicated; the replay is silent, then clients receive `agent_resident_state` and one `agent_subagent` per row. Returns `{ lastSeq, subagents }`; `409` while a turn runs or when the mission has no Core session; `502` when the host is unavailable. |
 
 WebSocket events for these missions:
 

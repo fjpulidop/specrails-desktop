@@ -114,6 +114,9 @@ interface QueuedTurn {
   nativeSubmitted?: boolean
 }
 
+/** A projection rebuild was requested while a turn is running. */
+export class SessionRebuildBusyError extends Error {}
+
 export class AgentChatManager {
   private readonly _broadcast: (msg: WsMessage) => void
   private readonly _db: DbInstance
@@ -292,6 +295,14 @@ export class AgentChatManager {
     const conversation = getAgentConversation(this._db, conversationId)
     if (!conversation || !this._coreSessions) return []
     return this._coreSessions.stopSubagents(conversation, subagentIds)
+  }
+
+  /** Rebuild a mission's session projection from Core's journal (operator repair). */
+  async rebuildSessionProjection(conversationId: string): Promise<{ lastSeq: number; subagents: number } | null> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) return null
+    if (this._isTurnLive(conversationId)) throw new SessionRebuildBusyError('Wait for the current turn to finish before rebuilding')
+    return this._coreSessions.rebuildProjection(conversation)
   }
 
   notifyConversationCreated(conversationId: string): void {

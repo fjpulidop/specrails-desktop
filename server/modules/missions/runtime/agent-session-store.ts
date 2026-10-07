@@ -58,6 +58,29 @@ export function setResidentState(db: DbInstance, conversationId: string, phase: 
     .run(phase, processAlive ? 1 : 0, liveSubagents, conversationId)
 }
 
+/**
+ * Drop a mission's derived session rows so the journal can be replayed into
+ * them. Messages and invocations stay: replay recognizes turns it already
+ * recorded (see `coreTurnInvocationId`).
+ */
+export function resetSessionProjection(db: DbInstance, conversationId: string): void {
+  db.transaction(() => {
+    db.prepare('DELETE FROM agent_subagent_events WHERE conversation_id = ?').run(conversationId)
+    db.prepare('DELETE FROM agent_subagents WHERE conversation_id = ?').run(conversationId)
+    db.prepare("UPDATE agent_session_cursors SET last_seq = 0, resident_phase = 'idle', process_alive = 0, live_subagents = 0, updated_at = datetime('now') WHERE conversation_id = ?").run(conversationId)
+  })()
+}
+
+/** Deterministic invocation id of a Core turn: recording it twice is a no-op. */
+export function coreTurnInvocationId(conversationId: string, turnId: string): string {
+  return `core-turn:${conversationId}:${turnId}`
+}
+
+export function isCoreTurnRecorded(db: DbInstance, conversationId: string, turnId: string): boolean {
+  return !!db.prepare('SELECT 1 FROM agent_invocations WHERE id = ?').get(coreTurnInvocationId(conversationId, turnId))
+    || !!db.prepare('SELECT 1 FROM agent_messages WHERE conversation_id = ? AND core_turn_id = ?').get(conversationId, turnId)
+}
+
 export function upsertSubagent(db: DbInstance, conversationId: string, view: SubagentView): void {
   db.prepare(`INSERT INTO agent_subagents (conversation_id, subagent_id, parent_id, kind, agent_type, description, phase, reason, restarts, launched_turn_id, started_at, ended_at, usage_json, tool_uses, duration_ms, result_summary, updated_at)
     VALUES (@conversationId, @subagentId, @parentId, @kind, @agentType, @description, @phase, @reason, @restarts, @launchedInTurnId, @startedAt, @endedAt, @usage, @toolUses, @durationMs, @resultSummary, datetime('now'))

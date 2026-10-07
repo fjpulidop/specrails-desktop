@@ -3,7 +3,7 @@ import { listSubagents, pageSubagentEvents } from './agent-session-store'
 import multer from 'multer'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { DbInstance } from '../../../db'
-import type { AgentChatManager, AgentContextReference } from './agent-chat-manager'
+import { SessionRebuildBusyError, type AgentChatManager, type AgentContextReference } from './agent-chat-manager'
 import {
   getAdapter,
   isModelAvailableForAdapter,
@@ -277,6 +277,19 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       res.json({ stopped: await manager.stopSubagents(conversation.id, ids as string[] | undefined) })
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Could not stop the sub-agents' })
+    }
+  })
+
+  router.post('/conversations/:id/session/rebuild', async (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    try {
+      const result = await manager.rebuildSessionProjection(conversation.id)
+      if (!result) { res.status(409).json({ error: 'This mission does not run in a Core session' }); return }
+      res.json(result)
+    } catch (err) {
+      if (err instanceof SessionRebuildBusyError) { res.status(409).json({ error: err.message }); return }
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Could not rebuild the session projection' })
     }
   })
 

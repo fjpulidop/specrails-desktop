@@ -25,7 +25,7 @@
 - [x] 4.1 Append migrations: `agent_session_cursors`, `agent_subagents`, `agent_subagent_events`, `agent_invocations.origin` (default `user`), core session reference on `agent_conversations`
 - [x] 4.2 `sqlite-projection.ts`: single-transaction apply with cursor, idempotent by `(sessionId, seq)`, broadcasts after commit; crash/replay tests
 - [x] 4.3 Accounting from `usage.turn`: billed vs estimated, null preservation, origin, sub-agent breakdown excluded from totals; `spending.invalidated` for pinned projects
-- [ ] 4.4 Projection rebuild command and live-vs-rebuild equality test
+- [x] 4.4 Projection rebuild command and live-vs-rebuild equality test
 
 ## 5. Missions on Core sessions
 
@@ -38,7 +38,7 @@
 
 ## 6. Wire contracts and API
 
-- [ ] 6.1 WS events `agent_resident_state`, `agent_subagent`, throttled `agent_subagent_event`, `agent_turn_started`; optional `turnId`/`subagentId` on existing events
+- [x] 6.1 WS events `agent_resident_state`, `agent_subagent`, throttled `agent_subagent_event`, `agent_turn_started`; optional `turnId`/`subagentId` on existing events (sub-agent output is coalesced by Core's OutputBuffer before it is journaled)
 - [x] 6.2 Active-turns snapshot extended with resident phase, live sub-agents, open-turn origin and live tools
 - [x] 6.3 HTTP: list sub-agents, page sub-agent output, stop sub-agents; route precedence preserved; API reference updated
 - [x] 6.4 Specrails MCP: deliberately not extended — no external missions MCP surface exists today and the mission agent controls its own sub-agents natively; the HTTP API covers roster and stop (scope decision recorded in the mission-subagents spec)
