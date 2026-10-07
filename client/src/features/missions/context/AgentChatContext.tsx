@@ -441,6 +441,8 @@ interface WsAgentMsg {
   conversationId?: string
   delta?: string
   fullText?: string
+  /** Core session turn a user turn settled (agent_done). */
+  coreTurnId?: string
   error?: string
   /** Known failure the client explains in the user's language. */
   code?: string
@@ -829,7 +831,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         markUnread(convId)
         const full = msg.fullText ?? ''
         if (msg.messageId && full) {
-          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString() }])
+          // `coreTurnId` anchors the sub-agents this turn launched under this reply.
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.coreTurnId ? { core_turn_id: msg.coreTurnId, turn_origin: 'user' as const } : {}) }])
         } else if (isActive && full) {
           setMessages((m) => {
             // A switch-back refetch can already contain this reply (it is

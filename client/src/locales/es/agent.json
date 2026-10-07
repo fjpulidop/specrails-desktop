@@ -806,10 +806,6 @@
     "relaunch": "Relanzar",
     "relaunchHint": "Redacta un mensaje pidiendo al agente que relance este trabajo",
     "relaunchDraft": "Por favor, relanza el agente en segundo plano para: {{description}}",
-    "pill_one": "{{count}} agente trabajando",
-    "pill_other": "{{count}} agentes trabajando",
-    "pillAria_one": "{{count}} agente en segundo plano trabajando desde hace {{elapsed}}",
-    "pillAria_other": "{{count}} agentes en segundo plano trabajando desde hace {{elapsed}}",
     "continuation": "Continuó tras los agentes en segundo plano",
     "continuationSystem": "Continuó tras el trabajo en segundo plano",
     "backgroundTurn": "El agente está revisando los resultados en segundo plano…",
@@ -819,8 +815,7 @@
     "result": "Resultado",
     "count_one": "{{count}} agente",
     "count_other": "{{count}} agentes",
-    "finishedIn": "terminados en {{elapsed}}",
-    "popoverTitle": "Agentes en segundo plano"
+    "finishedIn": "terminados en {{elapsed}}"
   },
   "sessionNotice": {
     "host_degraded": "Las sesiones de Core no están disponibles para este proyecto tras varios fallos, así que este turno usó el transporte clásico (sin sub-agentes en segundo plano). Reintenta cuando se resuelva la causa.",

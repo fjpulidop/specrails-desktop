@@ -806,10 +806,6 @@
     "relaunch": "Relaunch",
     "relaunchHint": "Draft a message asking the agent to relaunch this work",
     "relaunchDraft": "Please relaunch the background agent for: {{description}}",
-    "pill_one": "{{count}} agent working",
-    "pill_other": "{{count}} agents working",
-    "pillAria_one": "{{count}} background agent working for {{elapsed}}",
-    "pillAria_other": "{{count}} background agents working for {{elapsed}}",
     "continuation": "Continued after background agents",
     "continuationSystem": "Continued after background work",
     "backgroundTurn": "Agent is reviewing background results…",
@@ -819,8 +815,7 @@
     "result": "Result",
     "count_one": "{{count}} agent",
     "count_other": "{{count}} agents",
-    "finishedIn": "done in {{elapsed}}",
-    "popoverTitle": "Background agents"
+    "finishedIn": "done in {{elapsed}}"
   },
   "sessionNotice": {
     "host_degraded": "Core sessions are unavailable for this project after repeated failures, so this turn ran on the classic transport (no background sub-agents). Retry once the cause is fixed.",

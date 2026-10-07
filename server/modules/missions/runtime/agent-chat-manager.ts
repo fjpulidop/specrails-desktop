@@ -1007,14 +1007,14 @@ export class AgentChatManager {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
         }
       }
-      const settleAborted = (r: { text: string; sessionId: string | null }): void => {
+      const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string }): void => {
         if (this._disposed) return
         // Deliberate user Stop: keep any partial text (it was already streamed to
         // the client), never auto-heal, never surface an error.
         if (r.text && getAgentConversation(this._db, conversationId)) {
-          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
           persistSession(r.sessionId)
-          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, timestamp: timestamp() })
+          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         }
       }
 
@@ -1094,7 +1094,8 @@ export class AgentChatManager {
       if (r.text || r.checkpointed) {
         const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)
-        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), timestamp: timestamp() })
+        // The Core turn id anchors this turn's sub-agents under the reply in every client.
+        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         record(r, 'success')
         // AI title after the FIRST completed turn (industry standard — ChatGPT /
         // Claude.ai), on the conversation's own provider. The deterministic title

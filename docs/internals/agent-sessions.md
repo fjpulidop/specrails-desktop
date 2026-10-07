@@ -100,9 +100,11 @@ names the provider and the setting.
 
 The client keeps session state in [`MissionSessionsContext`](../../client/src/features/missions/context/MissionSessionsContext.tsx)
 over a pure reducer ([`mission-sessions.ts`](../../client/src/features/missions/lib/mission-sessions.ts)).
-Sub-agents render in a card under the message whose `core_turn_id` launched
-them; the composer shows a pill while agents work; the sidebar keeps a live dot
-for missions with background work. Details are in the
+Each launch renders as a compact line under the message whose `core_turn_id`
+started it. `agent_done` carries `coreTurnId`, so the anchor exists without a
+reload. A launch whose reply has no text sits after the message that preceded
+it. The line is expanded while agents work and folds once they finish. The
+sidebar keeps a live dot for missions with background work. Details are in the
 [missions feature guide](../../client/src/features/missions/README.md).
 
 ## Rollout

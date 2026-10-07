@@ -299,7 +299,7 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
         >
           {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/50" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
-          <span className={cn('min-w-0 truncate text-foreground/55', working > 0 && 'title-shimmer')} aria-live="polite">{status}</span>
+          <span className="min-w-0 truncate text-foreground/55" aria-live="polite">{status}</span>
           {working > 0 && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-foreground/45">{elapsed}</span>}
           <ChevronRight className={cn('h-3 w-3 shrink-0 text-foreground/40 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
         </button>

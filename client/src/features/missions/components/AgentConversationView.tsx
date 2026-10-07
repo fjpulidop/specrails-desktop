@@ -29,7 +29,7 @@ import { useRailLaunchProposals } from './useRailLaunchProposals'
 import { AgentSubagentsCard } from './AgentSubagentsCard'
 import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
 import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
-import { subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
+import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
 import type { AgentSubagent } from '../lib/agent-api'
 
@@ -166,7 +166,14 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const session = useMissionSession(active?.id)
   const { stopSubagents, dismissNotice } = useMissionSessions()
   const anchoredTurnIds = useMemo(() => new Set(messages.map((m) => m.core_turn_id).filter((id): id is string => !!id)), [messages])
-  const liveSubagentCards = useMemo(() => unanchoredSubagents(session, anchoredTurnIds), [session, anchoredTurnIds])
+  // Launches stay where they happened; only the in-flight turn's agents ride the live area.
+  // Anchors are messages rendered as bubbles (system rows and briefings render elsewhere).
+  const placement = useMemo(() => placeUnanchoredSubagents(
+    unanchoredSubagents(session, anchoredTurnIds),
+    messages.filter((m) => m.role !== 'system' && !(FEATURE_MISSION_RAIL_CARDS && systemBriefingRunId(m))),
+    isStreaming,
+  ), [session, anchoredTurnIds, messages, isStreaming])
+  const liveSubagentCards = placement.live
   const stopMissionAgents = async (ids?: string[]) => { if (active) await stopSubagents(active.id, ids) }
   const relaunchSubagent = (node: AgentSubagent) => {
     if (!active) return
@@ -346,6 +353,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 </div>
               )}
               {subagentCard(turnSubagents, `subagents:${m.id}`)}
+              {(placement.afterMessage.get(m.id) ?? []).map((group, index) => subagentCard(group, `subagents:${m.id}:${index}`))}
               </div>
             )
           })}

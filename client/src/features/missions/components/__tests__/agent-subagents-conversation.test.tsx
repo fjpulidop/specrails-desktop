@@ -77,11 +77,9 @@ describe('mission conversation with Core sub-agents', () => {
     expect(within(card).getAllByTestId('agent-subagent-row')).toHaveLength(2)
     const continuation = screen.getByText('Both agents reported back.').closest('.space-y-1') as HTMLElement
     expect(within(continuation).getByTestId('agent-turn-origin')).toHaveTextContent('Continued after background agents')
-    // Composer pill mirrors the live agent and stops through the API.
-    const pill = screen.getByTestId('agent-background-agents-pill')
-    expect(pill).toHaveTextContent('1 agent working')
-    await act(async () => { fireEvent.click(within(pill).getByRole('button', { name: 'Stop all agents' })) })
-    expect(agentApi.stopMissionSubagents).toHaveBeenCalledWith('c1', undefined)
+    // The live agent stops from its own row.
+    await act(async () => { fireEvent.click(within(card).getByRole('button', { name: 'Stop Scan the repo' })) })
+    expect(agentApi.stopMissionSubagents).toHaveBeenCalledWith('c1', ['sa-1'])
   })
 
   it('shows unanchored agents, the background turn and the deferred notice live', async () => {
@@ -116,6 +114,16 @@ describe('mission conversation with Core sub-agents', () => {
     expect(await screen.findByText(/Core sessions are unavailable for this project/)).toBeInTheDocument()
     emit({ type: 'agent_sessions_host', scope: 'global', status: 'ready' })
     await waitFor(() => expect(screen.queryByTestId('agent-session-notices')).not.toBeInTheDocument())
+  })
+
+  it('keeps a launch at its place in the timeline once the turn settles', async () => {
+    await mount([])
+    emit({ type: 'agent_stream', conversationId: 'c1', delta: 'Splitting the work' })
+    emit({ type: 'agent_subagent', conversationId: 'c1', subagent: node({ subagentId: 'sa-7', description: 'Split task', launchedInTurnId: 'turn-7' }) })
+    expect(await screen.findByText('Split task')).toBeInTheDocument()
+    emit({ type: 'agent_done', conversationId: 'c1', messageId: 'm-7', fullText: 'Work split across agents.', coreTurnId: 'turn-7' })
+    const reply = (await screen.findByText('Work split across agents.')).closest('.space-y-1') as HTMLElement
+    expect(within(reply).getByTestId('agent-subagents-card')).toHaveTextContent('1 agent')
   })
 })
 

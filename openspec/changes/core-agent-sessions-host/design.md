@@ -152,7 +152,7 @@ Mission product rules are built on that contract: queue and steer, segment check
   - **Expandable sub-agent stream**: paged HTTP history plus a throttled live feed.
   - **Activity chip and log** group tools by sub-agent.
   - **Continuation messages** carry an origin label.
-  - **Composer pill**: count, elapsed time, Stop.
+  - **Stays in the timeline**: each launch is a compact line under the reply that launched it (expanded while working, folded once finished). User testing removed the composer pill: it duplicated the line and hid which launch belonged where.
   - **Deferred-settings notice**: offers "Stop agents and apply now".
   - **Interrupted rows**: a Relaunch action that drafts a composer message.
 - Re-entrant status is rendered from Core's `phase` plus `settled`, so the card never trusts the parent's prose: the spike showed agents claiming completion early.

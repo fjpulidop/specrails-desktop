@@ -25,10 +25,12 @@ mission's sub-agents on open, applies `agent_resident_state`, `agent_subagent`,
 on mount and after a reconnect. `AgentChatContext` routes `turnId` events away
 from the user turn's live state.
 
-[AgentSubagentsCard](components/AgentSubagentsCard.tsx) renders under the message
-whose `core_turn_id` launched the agents; agents of the in-flight turn render in
-the live area. [AgentSessionIndicators](components/AgentSessionIndicators.tsx)
-holds the composer pill, the background-turn bubble, the continuation label and
+[AgentSubagentsCard](components/AgentSubagentsCard.tsx) is a compact line under
+the message whose `core_turn_id` launched the agents. It is expanded while they
+work and folds once they finish. `placeUnanchoredSubagents` keeps launches
+without a reply at their point in the timeline; only the in-flight turn's
+agents use the live area. [AgentSessionIndicators](components/AgentSessionIndicators.tsx)
+holds the background-turn bubble, the continuation label, session notices and
 the deferred-settings notice. Usage appears only after a sub-agent ends, and
 Relaunch only drafts a request — nothing is relaunched silently.
 

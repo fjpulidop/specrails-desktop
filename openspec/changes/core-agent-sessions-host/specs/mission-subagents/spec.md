@@ -30,13 +30,18 @@ Desktop SHALL include resident phase and live sub-agents in the active-turns sna
 - **THEN** the same semantics as the UI stop control MUST apply
 
 ### Requirement: Missions show sub-agents as first-class activity
-The mission UI SHALL show live and finished sub-agents next to the turn that launched them, let the user inspect each one, keep sub-agent tools out of the parent's activity, and indicate background work in the composer and sidebar.
+The mission UI SHALL show live and finished sub-agents at the point of the conversation where they were launched, let the user inspect each one, keep sub-agent tools out of the parent's activity, and indicate background work in the sidebar.
 
-#### Scenario: Agents working card
+#### Scenario: Agents line under the launching turn
 - **WHEN** a turn launches sub-agents
-- **THEN** a card under that turn MUST show counts of working and finished sub-agents
-- **AND** one row per sub-agent with status, description, agent type and live elapsed time
+- **THEN** a compact line under that turn MUST show how many are working and finished, expanded while any works
+- **AND** one single-line row per sub-agent with status, description, agent type and live elapsed time
 - **AND** usage and estimated cost MUST appear only once that sub-agent finishes
+
+#### Scenario: Finished launch folds and stays in place
+- **WHEN** every sub-agent of a launch has finished
+- **THEN** the line MUST fold to a summary of total time and tokens unless the user expanded or collapsed it
+- **AND** it MUST stay at its position in the conversation while later messages and launches are added
 
 #### Scenario: Inspect a sub-agent
 - **WHEN** the user expands a sub-agent row
@@ -49,7 +54,7 @@ The mission UI SHALL show live and finished sub-agents next to the turn that lau
 
 #### Scenario: Background indicator
 - **WHEN** a mission has live sub-agents and no open turn
-- **THEN** the composer MUST show the number of background agents, elapsed time and a stop control
+- **THEN** the launch's line MUST keep showing them as working, with per-agent and collective stop controls
 - **AND** the sidebar MUST keep the mission's working indicator
 
 #### Scenario: Continuation turn in an unfocused mission

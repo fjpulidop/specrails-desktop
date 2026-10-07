@@ -213,3 +213,49 @@ export function isLiveSubagent(node: AgentSubagent): boolean {
 export function isInterruptedSubagent(node: AgentSubagent): boolean {
   return node.phase === 'interrupted' || node.phase === 'stopped' || node.phase === 'killed'
 }
+
+/** SQLite `YYYY-MM-DD HH:MM:SS` (UTC) or ISO → epoch ms. */
+function timeOf(value: string): number {
+  return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? `${value.replace(' ', 'T')}Z` : value)
+}
+
+export interface SubagentPlacement {
+  /** Launches whose reply message is not known, placed after the message that preceded them. */
+  afterMessage: Map<string, AgentSubagent[][]>
+  /** The launch of the turn still streaming (no reply yet). */
+  live: AgentSubagent[]
+}
+
+/**
+ * Where sub-agent launches without a settled reply belong in the timeline. A
+ * launch stays where it happened: only the in-flight turn's agents follow the
+ * live area; every other launch sits after the last message that preceded it,
+ * so it never drifts to the bottom as the conversation grows.
+ */
+export function placeUnanchoredSubagents(
+  nodes: AgentSubagent[],
+  messages: ReadonlyArray<{ id: string; created_at: string }>,
+  streaming: boolean,
+): SubagentPlacement {
+  const groups = new Map<string, AgentSubagent[]>()
+  for (const node of nodes) {
+    const key = node.launchedInTurnId ?? `node:${node.subagentId}`
+    groups.set(key, [...(groups.get(key) ?? []), node])
+  }
+  const ordered = [...groups.values()].map((group) => group.sort((a, b) => a.startedAt.localeCompare(b.startedAt)))
+    .sort((a, b) => a[0]!.startedAt.localeCompare(b[0]!.startedAt))
+  const placement: SubagentPlacement = { afterMessage: new Map(), live: [] }
+  if (streaming && ordered.length > 0) placement.live = ordered.pop()!
+  for (const group of ordered) {
+    const startedAt = Date.parse(group[0]!.startedAt)
+    let anchor: string | null = null
+    for (const message of messages) {
+      if (timeOf(message.created_at) <= startedAt) anchor = message.id
+      else break
+    }
+    if (!anchor) { placement.live = [...placement.live, ...group]; continue }
+    placement.afterMessage.set(anchor, [...(placement.afterMessage.get(anchor) ?? []), group])
+  }
+  return placement
+}
+

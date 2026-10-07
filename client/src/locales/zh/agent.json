@@ -806,10 +806,6 @@
     "relaunch": "重新启动",
     "relaunchHint": "起草一条消息，请代理重新启动这项工作",
     "relaunchDraft": "请为以下任务重新启动后台代理：{{description}}",
-    "pill_one": "{{count}} 个代理工作中",
-    "pill_other": "{{count}} 个代理工作中",
-    "pillAria_one": "{{count}} 个后台代理已工作 {{elapsed}}",
-    "pillAria_other": "{{count}} 个后台代理已工作 {{elapsed}}",
     "continuation": "在后台代理完成后继续",
     "continuationSystem": "在后台工作完成后继续",
     "backgroundTurn": "代理正在查看后台结果…",
@@ -819,8 +815,7 @@
     "result": "结果",
     "count_one": "{{count}} 个代理",
     "count_other": "{{count}} 个代理",
-    "finishedIn": "{{elapsed}} 内完成",
-    "popoverTitle": "后台代理"
+    "finishedIn": "{{elapsed}} 内完成"
   },
   "sessionNotice": {
     "host_degraded": "由于多次失败，此项目的 Core 会话不可用，因此本轮使用了经典方式运行（没有后台子代理）。解决原因后请重试。",

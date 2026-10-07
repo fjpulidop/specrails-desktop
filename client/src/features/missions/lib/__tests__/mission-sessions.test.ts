@@ -8,6 +8,7 @@ import {
   dismissSessionNotice,
   isInterruptedSubagent,
   isLiveSubagent,
+  placeUnanchoredSubagents,
   settleMissingSessions,
   subagentsForTurn,
   unanchoredSubagents,
@@ -153,6 +154,32 @@ describe('session notices', () => {
     expect(ready.get('c1')!.notices.map((item) => item.code)).toEqual(['policy.subagent_blocked'])
     expect(ready.get('c2')).toBe(state.get('c2'))
     expect(applySessionMessage(ready, { type: 'agent_sessions_host', scope: 'nobody', status: 'ready' })).toBe(ready)
+  })
+})
+
+describe('placeUnanchoredSubagents', () => {
+  const messages = [
+    { id: 'u1', created_at: '2026-10-07 10:00:00' },
+    { id: 'a1', created_at: '2026-10-07T10:00:20.000Z' },
+    { id: 'u2', created_at: '2026-10-07 10:01:00' },
+  ]
+  const at = (second: number, turn: string, id: string) => node({ subagentId: id, launchedInTurnId: turn, startedAt: new Date(Date.UTC(2026, 9, 7, 10, 0, second)).toISOString() })
+
+  it('keeps past launches after the message that preceded them and the in-flight one live', () => {
+    const placement = placeUnanchoredSubagents([at(10, 't1', 'x'), at(12, 't1', 'y'), at(75, 't2', 'z')], messages, true)
+    expect([...placement.afterMessage.entries()].map(([id, groups]) => [id, groups.map((group) => group.map((item) => item.subagentId))])).toEqual([['u1', [['x', 'y']]]])
+    expect(placement.live.map((item) => item.subagentId)).toEqual(['z'])
+  })
+
+  it('places every launch in the timeline when nothing is streaming', () => {
+    const placement = placeUnanchoredSubagents([at(10, 't1', 'x'), at(75, 't2', 'z')], messages, false)
+    expect(placement.live).toEqual([])
+    expect([...placement.afterMessage.keys()]).toEqual(['u1', 'u2'])
+  })
+
+  it('keeps launches older than every message live rather than losing them', () => {
+    const placement = placeUnanchoredSubagents([node({ startedAt: '2026-10-07T09:00:00.000Z' })], messages, false)
+    expect(placement.live).toHaveLength(1)
   })
 })
 

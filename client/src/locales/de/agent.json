@@ -806,10 +806,6 @@
     "relaunch": "Neu starten",
     "relaunchHint": "Nachricht entwerfen, die den Agenten bittet, diese Arbeit neu zu starten",
     "relaunchDraft": "Bitte starte den Hintergrund-Agenten neu für: {{description}}",
-    "pill_one": "{{count}} Agent arbeitet",
-    "pill_other": "{{count}} Agenten arbeiten",
-    "pillAria_one": "{{count}} Hintergrund-Agent arbeitet seit {{elapsed}}",
-    "pillAria_other": "{{count}} Hintergrund-Agenten arbeiten seit {{elapsed}}",
     "continuation": "Nach Hintergrund-Agenten fortgesetzt",
     "continuationSystem": "Nach Hintergrundarbeit fortgesetzt",
     "backgroundTurn": "Agent prüft die Hintergrundergebnisse…",
@@ -819,8 +815,7 @@
     "result": "Ergebnis",
     "count_one": "{{count}} Agent",
     "count_other": "{{count}} Agenten",
-    "finishedIn": "fertig in {{elapsed}}",
-    "popoverTitle": "Hintergrund-Agenten"
+    "finishedIn": "fertig in {{elapsed}}"
   },
   "sessionNotice": {
     "host_degraded": "Core-Sitzungen sind für dieses Projekt nach wiederholten Fehlern nicht verfügbar, daher lief dieser Zug über den klassischen Transport (keine Sub-Agenten im Hintergrund). Versuche es erneut, sobald die Ursache behoben ist.",

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import { AgentSubagentsCard } from '../AgentSubagentsCard'
-import { AgentBackgroundAgentsPill, AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from '../AgentSessionIndicators'
+import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from '../AgentSessionIndicators'
 import type { AgentSubagent } from '../../lib/agent-api'
 
 const node = (over: Partial<AgentSubagent> = {}): AgentSubagent => ({
@@ -153,34 +153,6 @@ describe('sub-agent results', () => {
 })
 
 describe('session indicators', () => {
-  it('pill counts live agents and stops them', async () => {
-    const onStop = vi.fn().mockResolvedValue(undefined)
-    render(<AgentBackgroundAgentsPill conversationId="c1" onStop={onStop} subagents={[node(), node({ subagentId: 'b' }), node({ subagentId: 'c', phase: 'idle' })]} />)
-    expect(screen.getByTestId('agent-background-agents-pill')).toHaveTextContent('2 agents working')
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Stop all agents' })) })
-    expect(onStop).toHaveBeenCalledTimes(1)
-  })
-
-  it('pill opens a popover of live agents with per-agent stop', async () => {
-    const onStop = vi.fn().mockResolvedValue(undefined)
-    render(<AgentBackgroundAgentsPill conversationId="c1" onStop={onStop} subagents={[node(), node({ subagentId: 'b', description: 'Second' }), node({ subagentId: 'c', phase: 'idle' })]} />)
-    fireEvent.click(screen.getByRole('button', { name: /2 background agents working/ }))
-    const popover = screen.getByTestId('agent-background-agents-popover')
-    expect(within(popover).getAllByTestId('agent-live-agent-row')).toHaveLength(2)
-    await act(async () => { fireEvent.click(within(popover).getByRole('button', { name: 'Stop Second' })) })
-    expect(onStop).toHaveBeenCalledWith(['b'])
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByTestId('agent-background-agents-popover')).not.toBeInTheDocument()
-  })
-
-  it('pill hides without live agents and reports stop failures', async () => {
-    const { rerender } = render(<AgentBackgroundAgentsPill conversationId="c1" onStop={vi.fn()} subagents={[node({ phase: 'idle' })]} />)
-    expect(screen.queryByTestId('agent-background-agents-pill')).not.toBeInTheDocument()
-    rerender(<AgentBackgroundAgentsPill conversationId="c1" onStop={vi.fn().mockRejectedValue(new Error('x'))} subagents={[node()]} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Stop all agents' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not stop agents')
-  })
-
   it('background turn shows a placeholder, then the streamed text', () => {
     const { rerender } = render(<AgentBackgroundTurn turn={{ turnId: 'bg', origin: 'subagent', triggeredBy: [], text: '' }} />)
     expect(screen.getByText('Agent is reviewing background results…')).toBeInTheDocument()

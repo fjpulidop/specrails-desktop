@@ -172,6 +172,8 @@ describe('missions on Core agent sessions', () => {
 
     const [first] = listAgentMessages(db, conversation.id).filter((message) => message.role === 'assistant')
     expect(first).toMatchObject({ content: 'LAUNCHED', core_turn_id: 't1', turn_origin: 'user' })
+    // Clients anchor this turn's sub-agents under the reply without a reload.
+    expect(broadcasts.find((message) => message.type === 'agent_done')).toMatchObject({ messageId: first!.id, coreTurnId: 't1' })
     expect(host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params).toMatchObject({ sessionId: conversation.id, driver: 'claude', policy: { permissions: 'bypass', subagents: 'enabled' } })
     const firstCapability = capabilityOf(0)
     // The resident session still needs Specrails tools for its background turns.

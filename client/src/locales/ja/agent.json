@@ -806,10 +806,6 @@
     "relaunch": "再起動",
     "relaunchHint": "この作業の再実行をエージェントに依頼するメッセージを下書き",
     "relaunchDraft": "次のバックグラウンドエージェントを再起動してください: {{description}}",
-    "pill_one": "エージェント {{count}} 件作業中",
-    "pill_other": "エージェント {{count}} 件作業中",
-    "pillAria_one": "バックグラウンドエージェント {{count}} 件が {{elapsed}} 作業中",
-    "pillAria_other": "バックグラウンドエージェント {{count}} 件が {{elapsed}} 作業中",
     "continuation": "バックグラウンドエージェントの後に続行",
     "continuationSystem": "バックグラウンド作業の後に続行",
     "backgroundTurn": "エージェントがバックグラウンドの結果を確認中…",
@@ -819,8 +815,7 @@
     "result": "結果",
     "count_one": "エージェント {{count}} 件",
     "count_other": "エージェント {{count}} 件",
-    "finishedIn": "{{elapsed}} で完了",
-    "popoverTitle": "バックグラウンドエージェント"
+    "finishedIn": "{{elapsed}} で完了"
   },
   "sessionNotice": {
     "host_degraded": "繰り返しの失敗により、このプロジェクトでは Core セッションを利用できません。このターンは従来の方式で実行されました（バックグラウンドのサブエージェントなし）。原因を解消したら再試行してください。",

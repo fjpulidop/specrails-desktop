@@ -806,10 +806,6 @@
     "relaunch": "Rilancia",
     "relaunchHint": "Scrivi un messaggio che chiede all'agente di rilanciare questo lavoro",
     "relaunchDraft": "Rilancia l'agente in background per: {{description}}",
-    "pill_one": "{{count}} agente al lavoro",
-    "pill_other": "{{count}} agenti al lavoro",
-    "pillAria_one": "{{count}} agente in background al lavoro da {{elapsed}}",
-    "pillAria_other": "{{count}} agenti in background al lavoro da {{elapsed}}",
     "continuation": "Proseguito dopo gli agenti in background",
     "continuationSystem": "Proseguito dopo il lavoro in background",
     "backgroundTurn": "L'agente sta esaminando i risultati in background…",
@@ -819,8 +815,7 @@
     "result": "Risultato",
     "count_one": "{{count}} agente",
     "count_other": "{{count}} agenti",
-    "finishedIn": "completati in {{elapsed}}",
-    "popoverTitle": "Agenti in background"
+    "finishedIn": "completati in {{elapsed}}"
   },
   "sessionNotice": {
     "host_degraded": "Le sessioni Core non sono disponibili per questo progetto dopo errori ripetuti, quindi questo turno ha usato il trasporto classico (senza sotto-agenti in background). Riprova dopo aver risolto la causa.",
