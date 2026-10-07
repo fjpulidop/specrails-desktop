@@ -76,10 +76,10 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 32 and records them', () => {
+    it('applies migrations 1 through 33 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(32)
-      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 32 }, (_, i) => i + 1))
+      expect(versions).toHaveLength(33)
+      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 33 }, (_, i) => i + 1))
       const columns = db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]
       expect(columns.map((c) => c.name)).toContain('context_refs')
       // 23: durable Builder snapshots
@@ -89,11 +89,27 @@ describe('desktop-db', () => {
       expect(msgColumns).toContain('raw_content')
     })
 
+    it('migration 33 adds the Core session projection with cascading ownership', () => {
+      const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((t) => t.name)
+      expect(tables).toEqual(expect.arrayContaining(['agent_session_cursors', 'agent_subagents', 'agent_subagent_events']))
+      expect((db.prepare('PRAGMA table_info(agent_invocations)').all() as { name: string; dflt_value: string | null }[]).find((c) => c.name === 'origin')?.dflt_value).toBe("'user'")
+      expect((db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]).map((c) => c.name)).toContain('core_turn_id')
+      db.prepare("INSERT INTO agent_conversations (id, provider, model) VALUES ('c1', 'claude', 'm')").run()
+      db.prepare("INSERT INTO agent_session_cursors (conversation_id, core_session_id, scope) VALUES ('c1', 'c1', 'global')").run()
+      db.prepare("INSERT INTO agent_subagents (conversation_id, subagent_id, kind, description, phase, started_at) VALUES ('c1', 'a1', 'background', 'x', 'running', 'now')").run()
+      db.prepare("INSERT INTO agent_subagent_events (conversation_id, subagent_id, seq, channel, delta) VALUES ('c1', 'a1', 1, 'text', 'hi')").run()
+      expect(() => db.prepare("INSERT INTO agent_subagents (conversation_id, subagent_id, kind, description, phase, started_at) VALUES ('c1', 'a2', 'background', 'x', 'exploding', 'now')").run()).toThrow(/CHECK/)
+      db.prepare("DELETE FROM agent_conversations WHERE id = 'c1'").run()
+      for (const table of ['agent_session_cursors', 'agent_subagents', 'agent_subagent_events']) {
+        expect(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()).toEqual({ n: 0 })
+      }
+    })
+
     it('is idempotent — calling initDesktopDb again does not fail', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(32)
+      expect(versions).toHaveLength(33)
     })
   })
 
@@ -807,7 +823,7 @@ it('upgrades a version-29 library without converting or fabricating backups for 
     connection.close()
     connection = initDesktopDb(file)
     expect(connection.prepare("SELECT graph,status,graph_legacy,graph_legacy_saved_at FROM loops WHERE id='original'").get()).toEqual({ graph: original, status: 'published', graph_legacy: null, graph_legacy_saved_at: null })
-    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 })
   } finally { if (connection.open) connection.close(); fs.rmSync(root, { recursive: true, force: true }) }
 })
 
@@ -826,7 +842,7 @@ it('migration 31 adds built-in columns, backfills published snapshots and enforc
       { id: 'draft', builtin_id: null, builtin_default_hash: null, published_graph: null },
       { id: 'pub', builtin_id: null, builtin_default_hash: null, published_graph: graph },
     ])
-    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 32 })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 33 })
     connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('factory:implement','Implement','published',?,'factory:implement')").run(graph)
     expect(() => connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('other','Other','published',?,'factory:implement')").run(graph)).toThrow(/UNIQUE/)
     // Replaying the guarded migration on a migrated database is a no-op.

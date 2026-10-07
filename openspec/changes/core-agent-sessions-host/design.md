@@ -111,7 +111,7 @@ Mission product rules are built on that contract: queue and steer, segment check
 - **Surface part (missions now; explore and others later):** a `ProjectionSink` port maps those operations onto the surface's own tables, for missions `agent_messages`, `agent_inputs`, `agent_invocations`, `agent_subagents` and `agent_subagent_events`. `agent-sessions` therefore never knows mission tables. Each surface owns its persistence, and the same reducer serves every surface.
 - **Apply step:** the application applies the operations and advances `agent_session_cursors.last_seq` in **one transaction** owned by the sink adapter. It is idempotent by `(sessionId, seq)`, and a crash replays from the cursor.
 - **Persistence rules:**
-  - continuation turns use intent `subagent_continuation`;
+  - continuation turns use turn origin `subagent`;
   - invocations gain an `origin` column;
   - billed versus `_estimated` cost is kept exactly as reported;
   - new tables and columns are appended migrations.

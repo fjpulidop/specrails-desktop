@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1031 source/build files. Nearby tests are linked where names
+Includes 1033 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1336,11 +1336,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts)
 - [agent-input-store.ts](../../server/modules/missions/runtime/agent-input-store.ts) · [test](../../server/modules/missions/runtime/agent-input-store.test.ts)
 - [agent-operator-prompt.ts](../../server/modules/missions/runtime/agent-operator-prompt.ts) · [test](../../server/modules/missions/runtime/agent-operator-prompt.test.ts)
+- [agent-session-store.ts](../../server/modules/missions/runtime/agent-session-store.ts)
 - [agent-spec-framing.ts](../../server/modules/missions/runtime/agent-spec-framing.ts) · [test](../../server/modules/missions/runtime/agent-spec-framing.test.ts)
 - [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
 - [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
 - [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
+- [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
 
 ## server/modules/project-settings
 

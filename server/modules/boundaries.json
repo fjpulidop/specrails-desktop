@@ -1756,6 +1756,10 @@
         "../../../feature-flags",
         "../../specs/runtime/spec-contract-prompt"
       ],
+      "runtime/agent-session-store.ts": [
+        "../../../db",
+        "../../agent-sessions"
+      ],
       "runtime/agent-spec-framing.ts": [
         "../../../db",
         "../../../providers/registry",
@@ -1784,6 +1788,16 @@
         "../../agent-runtime/runtime/agent-runtime-controls",
         "./agent-chat-registry",
         "./agent-failure-briefing"
+      ],
+      "runtime/mission-session-projector.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers/types",
+        "../../accounting/runtime/result-event",
+        "../../agent-sessions",
+        "../../agents/runtime/agent-store",
+        "./agent-session-store",
+        "node:crypto"
       ]
     }
   },

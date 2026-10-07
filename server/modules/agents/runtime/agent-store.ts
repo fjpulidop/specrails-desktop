@@ -40,6 +40,10 @@ export interface AgentMessage {
   /** Decisions the user took on cards inside this message (mission-rail-cards),
    *  one per proposal index; [] for every ordinary message. */
   intents: AgentMessageIntent[]
+  /** Set when the message settles a Core session turn (Core agent sessions). */
+  core_turn_id?: string
+  /** `subagent`/`system`: a turn Core started on its own after background work. */
+  turn_origin?: 'user' | 'subagent' | 'system'
   created_at: string
 }
 
@@ -82,6 +86,8 @@ interface AgentMessageRaw {
   attachment_ids: string | null
   context_refs: string | null
   intent?: string | null
+  core_turn_id?: string | null
+  turn_origin?: string | null
   created_at: string
 }
 
@@ -116,6 +122,8 @@ function mapMessage(row: AgentMessageRaw): AgentMessage {
     attachment_ids: ids,
     context_refs: parseJsonArray(row.context_refs, isContextRef),
     intents: parseIntents(row.intent),
+    ...(row.core_turn_id ? { core_turn_id: row.core_turn_id } : {}),
+    ...(row.turn_origin === 'user' || row.turn_origin === 'subagent' || row.turn_origin === 'system' ? { turn_origin: row.turn_origin } : {}),
     created_at: row.created_at,
   }
 }
@@ -249,14 +257,18 @@ export function addAgentMessage(
     content: string
     attachmentIds?: string[]
     contextRefs?: AgentMessageContextRef[]
+    /** Who started the turn this assistant message settles (`subagent`: Core continued after sub-agents finished). */
+    turnOrigin?: 'user' | 'subagent' | 'system'
+    /** The Core session turn this message settles (anchors its sub-agents). */
+    coreTurnId?: string
   },
 ): AgentMessage {
   const id = randomUUID()
   const attachmentIds = input.attachmentIds && input.attachmentIds.length ? JSON.stringify(input.attachmentIds) : null
   const contextRefs = input.contextRefs && input.contextRefs.length ? JSON.stringify(input.contextRefs) : null
   db.prepare(
-    'INSERT INTO agent_messages (id, conversation_id, role, content, attachment_ids, context_refs) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(id, input.conversationId, input.role, input.content, attachmentIds, contextRefs)
+    'INSERT INTO agent_messages (id, conversation_id, role, content, attachment_ids, context_refs, turn_origin, core_turn_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(id, input.conversationId, input.role, input.content, attachmentIds, contextRefs, input.turnOrigin ?? null, input.coreTurnId ?? null)
   // Touch the parent so the list stays ordered by latest activity.
   db.prepare("UPDATE agent_conversations SET updated_at = datetime('now') WHERE id = ?").run(input.conversationId)
   return mapMessage(db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(id) as AgentMessageRaw)
