@@ -786,7 +786,8 @@
       "stalled": "reagiert nicht mehr",
       "limit": "Limit erreicht",
       "project_removed": "Projekt entfernt",
-      "evicted": "zur Ressourcenfreigabe beendet"
+      "evicted": "zur Ressourcenfreigabe beendet",
+      "policy": "Sub-Agenten sind deaktiviert"
     },
     "expand": "Aktivität von {{name}} anzeigen",
     "collapse": "Aktivität ausblenden",

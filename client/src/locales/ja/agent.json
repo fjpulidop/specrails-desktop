@@ -786,7 +786,8 @@
       "stalled": "応答なし",
       "limit": "上限に到達",
       "project_removed": "プロジェクト削除",
-      "evicted": "リソース節約のため解放"
+      "evicted": "リソース節約のため解放",
+      "policy": "サブエージェントは無効です"
     },
     "expand": "{{name}} のアクティビティを表示",
     "collapse": "アクティビティを隠す",

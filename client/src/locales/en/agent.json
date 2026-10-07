@@ -786,7 +786,8 @@
       "stalled": "stopped responding",
       "limit": "limit reached",
       "project_removed": "project removed",
-      "evicted": "evicted to free resources"
+      "evicted": "evicted to free resources",
+      "policy": "sub-agents are disabled"
     },
     "expand": "Show activity of {{name}}",
     "collapse": "Hide activity",

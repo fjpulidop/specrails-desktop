@@ -786,7 +786,8 @@
       "stalled": "non risponde più",
       "limit": "limite raggiunto",
       "project_removed": "progetto rimosso",
-      "evicted": "liberato per risparmiare risorse"
+      "evicted": "liberato per risparmiare risorse",
+      "policy": "i sotto-agenti sono disattivati"
     },
     "expand": "Mostra attività di {{name}}",
     "collapse": "Nascondi attività",

@@ -786,7 +786,8 @@
       "stalled": "停止响应",
       "limit": "达到上限",
       "project_removed": "项目已移除",
-      "evicted": "为节省资源而释放"
+      "evicted": "为节省资源而释放",
+      "policy": "子代理已停用"
     },
     "expand": "显示 {{name}} 的活动",
     "collapse": "隐藏活动",
