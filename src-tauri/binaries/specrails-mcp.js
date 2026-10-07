@@ -7051,7 +7051,7 @@ function connectBridge(clientFacing, appFacing) {
       });
     }
     pending.clear();
-    closeBoth();
+    if (!appFacing.recoverable) closeBoth();
   };
 }
 
@@ -7062,7 +7062,7 @@ function authenticatedFetch(agentHeaders, fetchImpl = fetch) {
     const token = readMcpToken();
     const headers = new Headers(init?.headers);
     if (token) headers.set("Authorization", `Bearer ${token}`);
-    for (const [key, value] of Object.entries(agentHeaders)) headers.set(key, value);
+    for (const [key, value] of Object.entries(typeof agentHeaders === "function" ? agentHeaders() : agentHeaders)) headers.set(key, value);
     const response = await fetchImpl(input, { ...init, headers });
     const refreshed = response.status === 401 ? readMcpToken() : null;
     if (refreshed && refreshed !== token) {
@@ -7073,12 +7073,25 @@ function authenticatedFetch(agentHeaders, fetchImpl = fetch) {
     return response;
   };
 }
+function rejectsStaleSession(err) {
+  const failure = err;
+  if (failure?.code === 404) return true;
+  return failure?.code === 403 && typeof failure.message === "string" && /reinitiali[sz]e/i.test(failure.message);
+}
+function isLostStream(error2) {
+  return /SSE stream disconnected|Maximum reconnection attempts|Failed to reconnect/i.test(error2.message);
+}
 var RecoveringHttpTransport = class {
-  constructor(create) {
+  constructor(create, log = () => {
+  }) {
     this.create = create;
+    this.log = log;
     this.current = this.attach(create());
   }
   create;
+  log;
+  /** connectBridge keeps the client side open when the app side can recover. */
+  recoverable = true;
   onmessage;
   onerror;
   onclose;
@@ -7086,12 +7099,19 @@ var RecoveringHttpTransport = class {
   initializeMessage;
   recovery;
   closed = false;
+  /** The last recovery failed; the next request must reinitialize first. */
+  stale = false;
   attach(transport) {
     transport.onmessage = (message, extra) => {
       if (transport === this.current && !this.closed) this.onmessage?.(message, extra);
     };
     transport.onerror = (error2) => {
-      if (transport === this.current && !this.closed) this.onerror?.(error2);
+      if (transport !== this.current || this.closed) return;
+      if (isLostStream(error2)) {
+        this.stale = true;
+        this.log("stream-lost", error2.message);
+      }
+      this.onerror?.(error2);
     };
     transport.onclose = () => {
       if (transport === this.current && !this.closed) this.onclose?.();
@@ -7104,20 +7124,30 @@ var RecoveringHttpTransport = class {
   async send(message) {
     if (this.closed) throw new Error("MCP bridge is closed");
     if ("method" in message && message.method === "initialize") this.initializeMessage = message;
+    if (this.stale && this.initializeMessage && message !== this.initializeMessage) this.recovery ??= this.recover("retry after a failed recovery");
     if (this.recovery) await this.recovery;
     const attempted = this.current;
     try {
       await attempted.send(message);
     } catch (err) {
-      if (err?.code !== 404 || !this.initializeMessage || message === this.initializeMessage) throw err;
-      if (attempted === this.current) {
-        this.recovery ??= this.reinitialize().finally(() => {
-          this.recovery = void 0;
-        });
-      }
+      if (!rejectsStaleSession(err) || !this.initializeMessage || message === this.initializeMessage) throw err;
+      if (attempted === this.current) this.recovery ??= this.recover(`session rejected (${err.code})`);
       if (this.recovery) await this.recovery;
       await this.current.send(message);
     }
+  }
+  recover(reason) {
+    this.log("recover", reason);
+    return this.reinitialize().then(() => {
+      this.stale = false;
+      this.log("recovered");
+    }).catch((error2) => {
+      this.stale = true;
+      this.log("recover-failed", error2 instanceof Error ? error2.message : String(error2));
+      throw error2;
+    }).finally(() => {
+      this.recovery = void 0;
+    });
   }
   async reinitialize() {
     const previous = this.current;
@@ -7141,9 +7171,6 @@ var RecoveringHttpTransport = class {
         void next.send({ ...this.initializeMessage, id }).catch(reject);
       });
       await next.send({ jsonrpc: "2.0", method: "notifications/initialized" });
-    } catch (err) {
-      await this.close();
-      throw err;
     } finally {
       if (timer) clearTimeout(timer);
       next.onmessage = relay;
@@ -7171,15 +7198,55 @@ var RecoveringHttpTransport = class {
 };
 
 // mcp-bridge/src/index.ts
+var import_node_fs = require("node:fs");
+var import_node_path = require("node:path");
+var LOG_LIMIT_BYTES = 256 * 1024;
+function lifecycleLog() {
+  const capabilityFile = process.env.SPECRAILS_AGENT_CAPABILITY_FILE?.trim();
+  if (!capabilityFile) return () => {
+  };
+  const file = (0, import_node_path.join)((0, import_node_path.dirname)(capabilityFile), "bridge.log");
+  return (event, detail) => {
+    try {
+      try {
+        if ((0, import_node_fs.statSync)(file).size > LOG_LIMIT_BYTES) (0, import_node_fs.truncateSync)(file, 0);
+      } catch {
+      }
+      (0, import_node_fs.appendFileSync)(file, `${(/* @__PURE__ */ new Date()).toISOString()} pid=${process.pid} ${event}${detail ? ` ${detail.replace(/\s+/g, " ").slice(0, 500)}` : ""}
+`, { mode: 384 });
+    } catch {
+    }
+  };
+}
 async function main() {
-  const fetchWithCredentials = authenticatedFetch(agentForwardHeaders());
-  const appFacing = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(appUrl(), { fetch: fetchWithCredentials }));
+  const log = lifecycleLog();
+  log("start", `ppid=${process.ppid}`);
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) process.once(signal, () => {
+    log("signal", signal);
+    process.exit(0);
+  });
+  process.on("exit", (code) => log("exit", `code=${code}`));
+  process.stdin.once("end", () => log("stdin-end", "the client closed its side"));
+  agentForwardHeaders();
+  const fetchWithCredentials = authenticatedFetch(() => agentForwardHeaders());
+  const appFacing = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(appUrl(), { fetch: fetchWithCredentials }), log);
   const clientFacing = new StdioServerTransport();
   connectBridge(clientFacing, appFacing);
+  const relayError = appFacing.onerror;
+  appFacing.onerror = (error2) => {
+    log("app-error", error2.message);
+    relayError?.(error2);
+  };
+  const relayClose = appFacing.onclose;
+  appFacing.onclose = () => {
+    log("close", "app side closed");
+    relayClose?.();
+  };
   await appFacing.start();
   await clientFacing.start();
 }
 main().catch((err) => {
+  lifecycleLog()("fatal", err instanceof Error ? err.message : String(err));
   process.stderr.write(`[specrails-mcp] fatal: ${err instanceof Error ? err.message : String(err)}
 `);
   process.exit(1);
