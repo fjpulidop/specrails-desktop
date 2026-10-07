@@ -33,6 +33,11 @@ the setting is turned off. The HTTP adapter reports committed changes to an
 optional observer, which the composition uses to refresh open agent sessions.
 The domain never knows about sessions.
 
+`subagentRuntime` (default `null`) is `{ provider, model, effort }` or `null`,
+validated by `parseSubagentRuntimeSetting` and stored as JSON in
+`config.subagent_runtime`. A change also reaches the observer. Who launches the
+sub-agents is resolved by the agent-sessions core, not here.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

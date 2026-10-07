@@ -228,6 +228,17 @@ sessions immediately: idle sessions apply it, and sessions with running
 sub-agents report it as deferred. The setting is read-only over the Specrails
 MCP, so an agent cannot grant itself sub-agents.
 
+**Run sub-agents with** chooses who launches them. The project setting
+`subagentRuntime` (`config.subagent_runtime`, JSON) and the app setting
+(`agent_subagent_runtime` in `desktop_settings`) hold `null` (the default: the
+mission agent's own provider launches native sub-agents) or
+`{ provider, model, effort }`. Missions on that provider keep native sub-agents
+with that model and effort; missions on another provider get sub-agents that
+Core launches on the chosen provider (delegated), at the cost of a cold start
+and no shared prompt cache. The UI asks for confirmation before leaving the
+default. The setting is read-only over the Specrails MCP. See
+[agent sessions](agent-sessions.md#sub-agent-runtime-who-launches-them).
+
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---

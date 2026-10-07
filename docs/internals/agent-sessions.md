@@ -96,6 +96,40 @@ deferred, and the mission offers "Stop agents and apply now". If Core rejects
 a policy with `policy_unenforceable`, the mission shows a localized error that
 names the provider and the setting.
 
+## Sub-agent runtime (who launches them)
+
+The hybrid runtime decides who launches sub-agents once the policy allows them.
+[`resolveSubagentRuntime`](../../server/modules/agent-sessions/domain/subagent-policy.ts)
+maps the "Run sub-agents with" choice (project setting `subagentRuntime`, or the
+app setting for missions without a project), the mission's provider and the
+Core capabilities to `policy.subagentRuntime`:
+
+| Choice | Mission provider | Runtime sent to Core |
+| --- | --- | --- |
+| `null` (same as the mission agent) | any | `{ mode: 'native' }` |
+| provider P, model M, effort E | P | `{ mode: 'native', model?, effort? }`. Only overrides the driver declares through `capabilities.subagentModel` / `subagentEffort` are sent (Claude: model only, Codex: both) |
+| provider P, model M, effort E | not P | `{ mode: 'delegated', driver: P, model: M, effort? }` |
+
+When Core lacks `capabilities.delegation`, or P is not one of its drivers, the
+mission stays native and receives an `agent_session_notice` with code
+`subagents.delegation_unsupported` or `subagents.driver_unavailable` and the
+`provider`. A setting change refreshes open sessions like the policy does.
+
+In a delegated session Core disables the provider's own sub-agent tool and the
+mission agent launches sub-agents through the Specrails MCP: `specrails_mission`
+actions `subagent_start`, `subagent_wait`, `subagent_list` and `subagent_stop`
+call `AgentChatManager.delegateSubagent` / `waitSubagents` / `stopSubagents`,
+which map to Core's `session.delegate`, `session.waitSubagents` and
+`session.stopSubagents`. `MissionCoreSessions` adds a short system prompt
+addendum that tells the agent how to delegate. Each delegated sub-agent is a
+Core child session (its own process, no shared prompt cache), mirrored into the
+mission's tree with `delegated: { driver, model }`; results nobody waited for
+arrive as a system continuation turn. Its usage is billed separately
+(`subagent.usage` with `billing: 'separate'`): the projector records it as its
+own invocation (`core-subagent:<conversation>:<subagent>:<seq>`, origin
+`subagent`, the child's provider) on top of the parent's cost. Migration 34
+adds `delegated_driver` / `delegated_model` to `agent_subagents`.
+
 ## UI
 
 The client keeps session state in [`MissionSessionsContext`](../../client/src/features/missions/context/MissionSessionsContext.tsx)

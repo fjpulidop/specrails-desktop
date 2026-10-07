@@ -68,11 +68,11 @@
 
 ## 11. Who runs sub-agents (D9)
 
-- [ ] 11.1 Settings: project `subagentRuntime` (`provider`, `model`, `effort`; null = same as the mission agent) and the app-wide equivalent through domain, SQLite, HTTP and MCP (read-only)
-- [ ] 11.2 Pure resolver `(mission provider, setting) → subagentRuntime` with capability checks; wired into prepareTurn and refreshSubagentPolicy
-- [ ] 11.3 `specrails_mission` delegation actions (`subagent_start/wait/stop/list`) mapped to Core RPCs; refused unless delegated; mission prompt guidance when delegated
-- [ ] 11.4 Accounting: delegated child usage recorded once as its own `subagent` invocation (separate billing); native breakdown unchanged
-- [ ] 11.5 Settings UI: provider/model/effort pickers from Core driver capabilities, confirmation dialog, 8 locales; provider badge on delegated rows
+- [x] 11.1 Settings: project `subagentRuntime` (`provider`, `model`, `effort`; null = same as the mission agent) and the app-wide equivalent through domain, SQLite, HTTP and MCP (read-only)
+- [x] 11.2 Pure resolver `(mission provider, setting) → subagentRuntime` with capability checks; wired into prepareTurn and refreshSubagentPolicy
+- [x] 11.3 `specrails_mission` delegation actions (`subagent_start/wait/stop/list`) mapped to Core RPCs; refused unless delegated; mission prompt guidance when delegated
+- [x] 11.4 Accounting: delegated child usage recorded once as its own `subagent` invocation (separate billing); native breakdown unchanged
+- [x] 11.5 Settings UI: provider/model/effort pickers (Core session providers the app detects; the server re-checks Core capabilities and explains a fallback in the mission), confirmation dialog, 8 locales; provider badge on delegated rows
 - [ ] 11.6 Tests and docs; live: Codex mission with Claude sub-agents and the reverse
 
 ## 10. Follow-up changes (tracked, not in this change)
