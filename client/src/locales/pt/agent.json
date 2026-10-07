@@ -815,7 +815,8 @@
     "backgroundTurn": "O agente está revisando os resultados em segundo plano…",
     "deferred": "A alteração de configurações será aplicada quando os agentes em segundo plano terminarem.",
     "applyNow": "Parar agentes e aplicar agora",
-    "policyUnenforceable": "{{provider}} não consegue desativar os subagentes. Ative “Permitir subagentes” nas configurações do projeto ou use outro provedor nesta missão."
+    "policyUnenforceable": "{{provider}} não consegue desativar os subagentes. Ative “Permitir subagentes” nas configurações do projeto ou use outro provedor nesta missão.",
+    "result": "Resultado"
   },
   "sessionNotice": {
     "host_degraded": "As sessões do Core estão indisponíveis para este projeto após falhas repetidas, então este turno usou o transporte clássico (sem subagentes em segundo plano). Tente de novo quando a causa for resolvida.",

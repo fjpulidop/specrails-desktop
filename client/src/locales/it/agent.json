@@ -815,7 +815,8 @@
     "backgroundTurn": "L'agente sta esaminando i risultati in background…",
     "deferred": "La modifica alle impostazioni verrà applicata al termine degli agenti in background.",
     "applyNow": "Ferma gli agenti e applica ora",
-    "policyUnenforceable": "{{provider}} non può disattivare i sotto-agenti. Attiva «Consenti sotto-agenti» nelle impostazioni del progetto o usa un altro provider per questa missione."
+    "policyUnenforceable": "{{provider}} non può disattivare i sotto-agenti. Attiva «Consenti sotto-agenti» nelle impostazioni del progetto o usa un altro provider per questa missione.",
+    "result": "Risultato"
   },
   "sessionNotice": {
     "host_degraded": "Le sessioni Core non sono disponibili per questo progetto dopo errori ripetuti, quindi questo turno ha usato il trasporto classico (senza sotto-agenti in background). Riprova dopo aver risolto la causa.",

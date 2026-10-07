@@ -112,6 +112,21 @@ describe('AgentSubagentsCard', () => {
   })
 })
 
+describe('sub-agent results', () => {
+  it('previews without markdown and renders the full result when expanded', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ events: [], hasMore: false }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    render(<AgentSubagentsCard conversationId="c1" liveEvents={{}} onStop={vi.fn()} onRelaunch={vi.fn()}
+      subagents={[node({ phase: 'idle', endedAt: new Date().toISOString(), resultSummary: '**No backend yet.**\n\n- One commit\n- `openspec/` empty' })]} />)
+    expect(screen.getByTestId('agent-subagent-result-preview')).toHaveTextContent('No backend yet. One commit openspec/ empty')
+    expect(screen.getByTestId('agent-subagent-result-preview').textContent).not.toContain('**')
+    fireEvent.click(screen.getByRole('button', { name: 'Show activity of Scan the repo' }))
+    const result = await screen.findByTestId('agent-subagent-result')
+    expect(within(result).getByText('No backend yet.').tagName).toBe('STRONG')
+    expect(within(result).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByTestId('agent-subagent-result-preview')).not.toBeInTheDocument()
+  })
+})
+
 describe('session indicators', () => {
   it('pill counts live agents and stops them', async () => {
     const onStop = vi.fn().mockResolvedValue(undefined)

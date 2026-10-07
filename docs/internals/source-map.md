@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1041 source/build files. Nearby tests are linked where names
+Includes 1042 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -508,6 +508,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
+- [subagent-result.ts](../../client/src/features/missions/lib/subagent-result.ts) · [test](../../client/src/features/missions/lib/__tests__/subagent-result.test.ts)
 
 ## client/src/features/plugins/lib
 

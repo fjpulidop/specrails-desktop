@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { AlertCircle, Bot, CheckCircle2, ChevronRight, CircleSlash, Loader2, RotateCcw, Square, Terminal } from 'lucide-react'
@@ -7,6 +9,7 @@ import { cn } from '../../../lib/utils'
 import { formatElapsed } from '../../../lib/format-duration'
 import { getMissionSubagentEvents, type AgentSubagent, type AgentSubagentEvent } from '../lib/agent-api'
 import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
+import { resultPreview } from '../lib/subagent-result'
 
 /** Live elapsed time while running; the final duration once it ended. */
 function useElapsed(node: AgentSubagent): string {
@@ -148,7 +151,8 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
       {!live && (reason || node.resultSummary || tokens !== null) && (
         <div className="space-y-0.5 pb-2 pr-3 text-[11px] text-foreground/55" style={{ paddingLeft: `${2.6 + depth * 1.1}rem` }}>
           {reason && <p className="text-foreground/50">{phaseLabel} · {reason}</p>}
-          {node.resultSummary && <p className="line-clamp-2 text-foreground/70">{node.resultSummary}</p>}
+          {/* Collapsed: a clean two-line preview; expanded rows render the full markdown below. */}
+          {node.resultSummary && !open && <p className="line-clamp-2 text-foreground/70" data-testid="agent-subagent-result-preview">{resultPreview(node.resultSummary)}</p>}
           {/* Usage is revealed once the sub-agent finished (no approximate live numbers). */}
           {tokens !== null && (
             <p className="font-mono text-[10.5px] text-foreground/45">
@@ -168,11 +172,41 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="overflow-hidden border-t border-border/20 bg-background/40"
           >
+            {node.resultSummary && (
+              <section className="border-b border-border/20 px-3 py-2.5" aria-label={t('subagents.result')} data-testid="agent-subagent-result">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/40">{t('subagents.result')}</p>
+                <SubagentResultMarkdown text={node.resultSummary} />
+              </section>
+            )}
             <SubagentActivity conversationId={conversationId} node={node} liveEvents={liveEvents} />
           </motion.div>
         )}
       </AnimatePresence>
     </li>
+  )
+}
+
+const RESULT_MARKDOWN_COMPONENTS = {
+  a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+    <a href={href} target="_blank" rel="noreferrer" className="text-accent-primary underline decoration-accent-primary/40 underline-offset-2 hover:decoration-accent-primary">{children}</a>
+  ),
+  img: () => null,
+  code: ({ className, children }: { className?: string; children?: ReactNode }) => className
+    ? <code className={className}>{children}</code>
+    : <code className="rounded border border-border/50 bg-background-deep/60 px-1 py-px font-mono text-[0.9em] text-accent-info">{children}</code>,
+}
+
+/** A sub-agent's final answer, rendered like the agent's own messages but quieter. */
+function SubagentResultMarkdown({ text }: { text: string }) {
+  return (
+    <div className={cn(
+      'prose prose-invert prose-sm max-w-none text-[12px] leading-relaxed text-foreground/80',
+      'prose-p:my-1 prose-headings:mb-1 prose-headings:mt-2 prose-headings:text-[12.5px] prose-headings:font-semibold',
+      'prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-li:marker:text-accent-primary/70',
+      'prose-pre:my-1.5 prose-pre:rounded-md prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-[11px]',
+    )}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={RESULT_MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
+    </div>
   )
 }
 
