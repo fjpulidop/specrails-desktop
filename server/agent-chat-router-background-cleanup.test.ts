@@ -30,7 +30,7 @@ it('kills background chip processes when deleting their owning agent conversatio
   const app = express()
   app.use(express.json())
   app.use('/api/agent', createAgentChatRouter({
-    manager: { abort } as unknown as AgentChatManager,
+    manager: { abort, closeCoreSession: async () => {} } as unknown as AgentChatManager,
     desktopDb: db,
   }))
 

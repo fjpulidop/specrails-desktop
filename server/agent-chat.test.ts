@@ -417,6 +417,7 @@ describe('agent-chat-router', () => {
         sent.push({ id, text })
       },
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => false,
     }
     app = makeApp(db, manager)
@@ -606,6 +607,7 @@ describe('agent-chat-router', () => {
         captured.push(options)
       },
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => true,
     }
     const busyApp = makeApp(db, busyManager)
@@ -625,6 +627,7 @@ describe('agent-chat-router', () => {
     const mgr: Partial<AgentChatManager> = {
       sendMessage: async () => {},
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => true,
       editQueued: (id: string, queueId: string, text: string) => {
         if (!inQueue) return false
