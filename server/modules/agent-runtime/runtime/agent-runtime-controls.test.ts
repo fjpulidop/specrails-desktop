@@ -228,6 +228,24 @@ describe('agent runtime lifecycle', () => {
     expect(execute).not.toHaveBeenCalled()
   })
 
+  it('reports the launch error of a run rejected before Core started', async () => {
+    fs.unlinkSync(contextPath)
+    db.prepare("UPDATE loop_runs SET final_outcome = 'failed' WHERE id = 'run-1'").run()
+    const log = (seq: number, line: string) => db.prepare("INSERT INTO events (job_id, seq, event_type, source, payload) VALUES ('run-1', ?, 'log', 'stdout', ?)").run(seq, JSON.stringify({ line }))
+    log(0, '▶ Loop "Implement" started')
+    log(1, "error: architect (base): effort 'low' is not confirmed for codex-cli. Select provider default or a supported effort.")
+    log(2, '■ Loop execution finished: failed')
+    expect(await service.diagnose('run-1')).toMatchObject({
+      recommendation: 'fix_launch_precondition',
+      launchError: "architect (base): effort 'low' is not confirmed for codex-cli. Select provider default or a supported effort.",
+      summary: { error: expect.stringContaining('is not confirmed for codex-cli') },
+    })
+    // A run that reached Core keeps the evidence-first recommendation.
+    db.prepare('UPDATE loop_runs SET iteration_count = 1 WHERE id = ?').run('run-1')
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_saved_evidence' })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('forwards optional metrics without altering admission or trusting unknown fields', async () => {
     const total = { attempts: 1, measuredAttempts: 1, durationMs: 10, agentDurationMs: 8, providerCalls: 1, toolCalls: 1, inputTokens: 20, outputTokens: 5, costUsd: null, uncachedInputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null }
     const metrics = { schemaVersion: 1, total, phases: [{ ...total, stepId: 'developer', providers: ['local'], models: [] }] }
