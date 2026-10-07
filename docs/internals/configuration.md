@@ -74,6 +74,8 @@ Project settings apply to a single project. Open them from the project's **Setti
 | **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (Claude and Kimi advertise this autonomous rail mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
+| **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. |
+| **Setup commands** | Idempotent commands Core runs inside the repository checkout before every verification plan, for example `npx playwright install chromium`. Same entry shape as `verification` (`repositoryId`, `command`, `args`, optional `cwd`, `env`, `timeoutMs`, `key`, `label`), stored under `setup`, no auto-detection. Credential-like `env` keys are refused and `key` values must be unique across `setup` and `verification`. A failing setup command ends the run as blocked by the host environment. The list reaches Core only when the installed Core advertises the `setupCommands` capability; older cores receive the configuration without it and the run log records a one-line note. |
 
 > The project's **provider(s)** — **Claude, Codex, Gemini, Kimi, or any
 > compatible combination** — are chosen when you add the project and are

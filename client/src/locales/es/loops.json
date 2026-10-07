@@ -315,7 +315,22 @@
     "approveContinue": "Aprobar y continuar",
     "paused": "En pausa",
     "acceptance": "Aceptación",
-    "verified": "Verificado"
+    "verified": "Verificado",
+    "hostBlocked": "Bloqueado por el entorno del host",
+    "blockerKind": {
+      "network": "Red",
+      "credential": "Credenciales",
+      "environment-variable": "Variable de entorno",
+      "toolchain": "Herramientas",
+      "setup": "Comando de preparación",
+      "environment": "Entorno",
+      "scope": "Fuera de alcance"
+    },
+    "failingCommand": "Comando que falla",
+    "inDirectory": "en {{cwd}}",
+    "requiredAction": "Acción requerida",
+    "copyCommand": "Copiar comando",
+    "copiedCommand": "Copiado"
   },
   "conversion": {
     "title": "Convertir {{name}} a Core",

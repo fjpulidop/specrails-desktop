@@ -142,4 +142,67 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(screen.queryByLabelText('Provider')).not.toBeInTheDocument()
     expect(screen.getByText(/Agent definitions, models and workflow policy are configured in the loop editor/)).toBeInTheDocument()
   })
+
+  it('edits setup commands below verification with the same row editor, no detection, and saves them as `setup`', async () => {
+    const user = userEvent.setup()
+    mockServer({ configured: true })
+    render(<AgentRuntimeSettingsSection />)
+    await screen.findByRole('button', { name: 'Save runtime settings' })
+    const setup = screen.getByTestId('setup-commands')
+    expect(screen.getByRole('heading', { name: 'Setup commands' })).toBeInTheDocument()
+    expect(setup).toHaveTextContent('Idempotent commands Core runs before every verification')
+    expect(setup).toHaveTextContent('No setup commands')
+    // Detection belongs to verification only: one detect button, outside the setup editor.
+    expect(screen.getAllByRole('button', { name: 'Detect project checks' })).toHaveLength(1)
+    expect(setup.querySelector('button[aria-label]')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Add setup command' }))
+    await user.click(screen.getByRole('button', { name: 'Add setup command' }))
+    const lines = screen.getAllByLabelText('Setup command')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toHaveAttribute('placeholder', 'npx playwright install chromium')
+    fireEvent.change(lines[0], { target: { value: 'npx playwright install "chromium' } })
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Setup command is empty or has an unterminated quote')
+    expect(putBodies()).toHaveLength(0)
+
+    fireEvent.change(lines[0], { target: { value: 'npx playwright install chromium' } })
+    fireEvent.change(lines[1], { target: { value: 'npm ci' } })
+    const labels = screen.getAllByLabelText('Setup label (optional)')
+    await user.type(labels[1], 'Dependencies')
+    await user.click(screen.getByRole('button', { name: 'Move setup command up 2' }))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    const saved = putBodies().at(-1)!
+    expect(saved.setup).toEqual([
+      { repositoryId: 'primary-p1', label: 'Dependencies', command: 'npm', args: ['ci'] },
+      { repositoryId: 'primary-p1', command: 'npx', args: ['playwright', 'install', 'chromium'] },
+    ])
+    expect(saved.verification).toEqual([])
+    expect(screen.getByTestId('runtime-save-pill')).toHaveAttribute('data-unsaved', 'false')
+
+    await user.click(setup.querySelectorAll('button')[2] as HTMLButtonElement) // first row's Remove
+    expect(screen.getAllByLabelText('Setup command')).toHaveLength(1)
+    expect(screen.getByDisplayValue('npx playwright install chromium')).toBeInTheDocument()
+    expect(screen.getByTestId('runtime-save-pill')).toHaveAttribute('data-unsaved', 'true')
+  })
+
+  it('loads saved setup rows without touching verification rows and keeps per-entry metadata on save', async () => {
+    const user = userEvent.setup()
+    const config = defaults()
+    config.verification = [{ repositoryId: 'primary-p1', command: 'npm', args: ['test'] }]
+    config.setup = [{ repositoryId: 'primary-p1', key: 'browsers', label: 'Browsers', command: 'npx', args: ['playwright', 'install'], timeoutMs: 600000 }]
+    mockServer({ config, configured: true })
+    render(<AgentRuntimeSettingsSection />)
+    expect(await screen.findByDisplayValue('npx playwright install')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Command')).toHaveLength(1)
+    expect(screen.getAllByLabelText('Setup command')).toHaveLength(1)
+    expect(screen.queryByText('No setup commands', { exact: false })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Setup command'), { target: { value: 'npx playwright install chromium' } })
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    const saved = putBodies().at(-1)!
+    expect(saved.setup).toEqual([{ repositoryId: 'primary-p1', key: 'browsers', label: 'Browsers', command: 'npx', args: ['playwright', 'install', 'chromium'], timeoutMs: 600000 }])
+    expect(saved.verification).toEqual(config.verification)
+  })
 })

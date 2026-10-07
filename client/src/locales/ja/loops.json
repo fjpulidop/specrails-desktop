@@ -315,7 +315,22 @@
     "approveContinue": "承認して続行",
     "paused": "一時停止中",
     "acceptance": "受け入れ",
-    "verified": "検証済み"
+    "verified": "検証済み",
+    "hostBlocked": "ホスト環境によりブロックされました",
+    "blockerKind": {
+      "network": "ネットワーク",
+      "credential": "認証情報",
+      "environment-variable": "環境変数",
+      "toolchain": "ツールチェーン",
+      "setup": "セットアップコマンド",
+      "environment": "環境",
+      "scope": "スコープ外"
+    },
+    "failingCommand": "失敗したコマンド",
+    "inDirectory": "{{cwd}} で実行",
+    "requiredAction": "必要な対応",
+    "copyCommand": "コマンドをコピー",
+    "copiedCommand": "コピーしました"
   },
   "conversion": {
     "title": "{{name}}をCoreに変換",

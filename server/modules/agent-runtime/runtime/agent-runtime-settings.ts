@@ -115,6 +115,8 @@ export interface RuntimeCheckPolicy {
   independentGroup?: string
   resources?: string[]
 }
+/** One host-run command entry, shared by `verification` and `setup`. */
+export interface RuntimeHostCommand { key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }
 export interface RuntimeConfig {
   efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
@@ -126,7 +128,9 @@ export interface RuntimeConfig {
   /** Optional engine for correction rounds (failed verification / rejected review); unset ⇒ the developer corrects. */
   fixer?: { provider: string; model?: string; maxTurns?: number; effort?: string; thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string } }
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
-  verification: Array<{ key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }>
+  verification: RuntimeHostCommand[]
+  /** Idempotent commands Core runs inside the repository checkout before every verification plan (same entry shape as `verification`). Forwarded to Core only when it advertises `setupCommands`. */
+  setup?: RuntimeHostCommand[]
   approvalBeforeArchive?: boolean
   review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
   architect?: { onLowConfidence?: 'ask' | 'proceed' }
@@ -140,7 +144,7 @@ export const REVIEW_THRESHOLD_FLOORS: { minScore: number; aspects: Record<Review
   aspects: { type_correctness: 60, pattern_adherence: 60, test_coverage: 60, security: 75, architectural_alignment: 60 },
 }
 export interface RuntimeConfigProject { path: string; slug?: string; provider?: string }
-export type LoopRuntimeSettings = Omit<RuntimeConfig, 'enabled' | 'providers' | 'verification'>
+export type LoopRuntimeSettings = Omit<RuntimeConfig, 'enabled' | 'providers' | 'verification' | 'setup'>
 
 /** Validate a portable recipe without accepting host-owned fields or project fallbacks. */
 export function validateLoopRuntimeSettings(input: unknown, providers = loadRuntimeProviders()): LoopRuntimeSettings {
@@ -151,17 +155,18 @@ export function validateLoopRuntimeSettings(input: unknown, providers = loadRunt
   const portableProviders = [...providers, { id: 'inherit', kind: 'cli' as const, cli: 'claude' as const }]
   const config = validateAgentRuntimeConfig({ ...input, enabled: true, providers: portableProviders, verification: [] })
   if (['architect', 'developer', 'reviewer', 'fixer'].some(role => !config.rolePrompts?.[role]?.trim())) throw new AgentRuntimeConfigError('Loop agents require an explicit definition for architect, developer, reviewer and fixer')
-  const { enabled: _enabled, providers: _providers, verification: _checks, ...settings } = config
+  const { enabled: _enabled, providers: _providers, verification: _checks, setup: _setup, ...settings } = config
   return settings
 }
 
 /** Read only repository checks from the old project file. Role migration is explicit. */
 export function loadLoopRuntimeConfig(file: string, input: LoopRuntimeSettings, selection: RuntimeProviderOverride = { provider: 'claude' }): RuntimeConfig {
-  let verification: unknown = []
+  let verification: unknown = [], setup: unknown = undefined
   try {
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new AgentRuntimeConfigError('Saved runtime configuration must be an object')
     verification = saved.verification ?? []
+    setup = saved.setup
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   const providers = loadRuntimeProviders()
   const settings = validateLoopRuntimeSettings(input, providers)
@@ -171,7 +176,7 @@ export function loadLoopRuntimeConfig(file: string, input: LoopRuntimeSettings, 
   for (const role of ROLES) settings.agents[role] = inherit(settings.agents[role])
   if (settings.fixer) settings.fixer = inherit(settings.fixer)
   for (const [role, agent] of Object.entries(settings.roles ?? {})) settings.roles![role] = inherit(agent)
-  return validateAgentRuntimeConfig({ ...settings, providers, enabled: true, verification })
+  return validateAgentRuntimeConfig({ ...settings, providers, enabled: true, verification, ...(setup !== undefined ? { setup } : {}) })
 }
 const CLI_PROVIDERS: RuntimeCli[] = ['claude', 'codex', 'gemini', 'kimi']
 const ROLES: RuntimeRole[] = ['architect', 'developer', 'reviewer']
@@ -246,9 +251,11 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
   for (const [key, value] of Object.entries(config.limits ?? {})) {
     if (!Number.isFinite(value) || (key !== 'maxCostUsd' && !Number.isSafeInteger(value))) throw new AgentRuntimeConfigError('Workflow limits must be finite, safe numbers')
   }
-  const keys = config.verification.flatMap(command => command.key ? [command.key] : [])
+  // `setup` entries share the verification entry shape and rules (Core validates both with one validator; keys are unique across the two lists).
+  const hostCommands = [...config.verification, ...(config.setup ?? [])]
+  const keys = hostCommands.flatMap(command => command.key ? [command.key] : [])
   if (new Set(keys).size !== keys.length) throw new AgentRuntimeConfigError('Verification check keys must be unique')
-  for (const command of config.verification) {
+  for (const command of hostCommands) {
     for (const value of [command.label, ...(command.policy?.inputs ?? []), ...(command.policy?.toolchainInputs ?? []), ...(command.policy?.resources ?? [])]) if (value !== undefined && (!value.trim() || value.includes('\0'))) throw new AgentRuntimeConfigError('Invalid verification label or policy input')
     if (![command.command, ...command.args, ...(command.cwd === undefined ? [] : [command.cwd])].every((value) => !value.includes('\0')) || !command.command.trim() || (command.cwd !== undefined && !command.cwd.trim())) throw new AgentRuntimeConfigError('Verification command contains an empty or invalid value')
     if (command.timeoutMs !== undefined && !Number.isSafeInteger(command.timeoutMs)) throw new AgentRuntimeConfigError('Verification timeout must be a safe integer')
@@ -436,18 +443,24 @@ export function validateRuntimeProviderOverride(value: unknown): RuntimeProvider
   return structuredClone(raw) as unknown as RuntimeProviderOverride
 }
 
-/** Older Core runtimes reject unknown top-level keys: drop `guardrails` unless the loaded Core advertises `configurableGuardrails`. */
-export function forCoreRuntime<T extends { guardrails?: unknown; agents?: Record<string, { thinking?: unknown }>; roles?: Record<string, { thinking?: unknown }>; fixer?: { thinking?: unknown } }>(config: T, capabilities: Record<string, number> | undefined): T {
+/** Older Core runtimes reject unknown top-level keys: drop `guardrails` unless the loaded Core advertises `configurableGuardrails`, and `setup` unless it advertises `setupCommands`. */
+export function forCoreRuntime<T extends { guardrails?: unknown; setup?: unknown; agents?: Record<string, { thinking?: unknown }>; roles?: Record<string, { thinking?: unknown }>; fixer?: { thinking?: unknown } }>(config: T, capabilities: Record<string, number> | undefined): T {
   let out: T = config
   if (capabilities?.openRoles !== 1 && out.roles !== undefined) {
     if (Object.keys(out.roles).length) throw new AgentRuntimeConfigError('Update the paired Core runtime to use custom roles')
     const { roles: _roles, ...rest } = out; out = rest as T
   }
   if (capabilities?.configurableGuardrails !== 1 && out.guardrails !== undefined) { const { guardrails: _dropped, ...rest } = out; out = rest as T }
+  if (!coreSupportsSetupCommands(capabilities) && out.setup !== undefined) { const { setup: _dropped, ...rest } = out; out = rest as T }
   // The per-role thinking switch is known only to cores advertising `roleThinkingControl`.
   if (capabilities?.roleThinkingControl !== 1 && ([...Object.values(out.agents ?? {}), ...Object.values(out.roles ?? {})].some(agent => agent?.thinking !== undefined) || out.fixer?.thinking !== undefined)) {
     const strip = <A extends { thinking?: unknown }>(agent: A): A => { const { thinking: _t, ...rest } = agent; return rest as A }
     out = { ...out, ...(out.agents ? { agents: Object.fromEntries(Object.entries(out.agents).map(([role, agent]) => [role, strip(agent)])) } : {}), ...(out.fixer ? { fixer: strip(out.fixer) } : {}), ...(out.roles ? { roles: Object.fromEntries(Object.entries(out.roles).map(([id, role]) => [id, strip(role)])) } : {}) }
   }
   return out
+}
+
+/** Core advertises `setupCommands: 1` when its verify piece runs `RuntimeConfig.setup` before each verification plan. */
+export function coreSupportsSetupCommands(capabilities: Record<string, number> | undefined): boolean {
+  return (capabilities?.setupCommands ?? 0) >= 1
 }

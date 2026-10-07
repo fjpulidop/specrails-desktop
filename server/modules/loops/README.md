@@ -58,6 +58,24 @@ definitions. With `implementationSteps: 1`, Implement expands into independent
 architect/developer/fixer/verify/reviewer/archive operations and all three recipes
 carry loop-owned agents. Older Core packages retain the native implementation
 wrapper. See [Desktop workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
+With `hostBlockers: 1` (paired Core `engine-environment-repair-and-host-blockers`),
+`loop-implement-recipe.ts` compiles both `verify` nodes with `hostBlockers: true` and
+`setup: 'configured'`: Core repairs a missing dependency or Playwright browser once
+on the host (`[environment] …` lines on the verification channel), runs the project's
+`setup` commands before every verification, and routes a precondition it cannot satisfy
+to the `blocked` outcome. The recipe maps `blocked` to the `host-blocked` /
+`host-blocked-archive` end nodes (`blockerFrom`), whose reason renders the structured
+blocker (`kind`, `reason`, `requiredAction`) and whose completion carries
+`completion.blocker` for the loop log. The fixer structured output accepts an optional
+`blocker`; the `correction-blocker` condition routes it to `fixer-blocked` before the
+candidate-hash progress check, so an intentionally unchanged candidate is no longer
+reported as `correction-stalled`. Developer and fixer turns receive
+`verificationProposalsFrom: 'architect'` so write roles see the complete host plan.
+`configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
+and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
+(and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.
+`loop-agent-defaults.json` shares the developer/fixer environment sentences with Core's
+builtin prompts (`loop-agent-defaults-environment.test.ts`).
 Quick SDD and Freestyle prompts explicitly pause on `LOOP_BLOCKED` questions;
 resume forwards the answer without replaying completed phases.
 Quick SDD uses two native skill prompts plus real validation, archive and host

@@ -98,6 +98,7 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
                 : {}),
               ...(typeof node.data?.exit === 'string' ? { exit: node.data.exit } : {}),
               ...(typeof node.data?.reason === 'string' ? { reason: node.data.reason } : {}),
+              ...(typeof node.data?.blockerFrom === 'string' ? { blockerFrom: node.data.blockerFrom } : {}),
             }
           : node.data!.params!
       const promptRole = node.id === 'fix' ? 'fixer' : node.id === 'prepare' ? 'architect' : rawParams.access === 'read' ? 'reviewer' : 'developer'

@@ -11,7 +11,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
-import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates } from './agent-runtime-settings'
+import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, resolveInheritedRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates, coreSupportsSetupCommands } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
@@ -189,6 +189,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const runtime = await loadCoreAgentRuntime()
     config.providers = stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities))
     if (runtime.api?.capabilities?.configurableGuardrails !== 1) delete (config as { guardrails?: unknown }).guardrails
+    // Setup commands are a `setupCommands` capability: an older Core rejects the unknown key, so strip it and say so once in the run log.
+    if (config.setup !== undefined && !coreSupportsSetupCommands(runtime.api?.capabilities)) {
+      if (config.setup.length) { try { options.onLine?.(`[runtime] setup commands ignored: the installed Core does not advertise setupCommands (${config.setup.length} configured)\n`) } catch { /* Advisory log observer. */ } }
+      delete config.setup
+    } else if (config.setup) config.setup = scopedHostChecks(config.setup, admittedContext.repositories)
     if (definitionEngine && (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1)) throw new Error('engine_unsupported: Update Core to run workflow definitions')
     const compilationConfig = structuredClone(config)
     if (options.workflowRoleBindings) {

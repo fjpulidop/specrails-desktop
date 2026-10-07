@@ -71,7 +71,8 @@
       "archive": "A arquivar a alteração revista",
       "stopped": "O motor parou: {{target}}",
       "corrections": "A continuar as tarefas restantes (developer)",
-      "resumed": "Retomando a execução guardada"
+      "resumed": "Retomando a execução guardada",
+      "blocked": "O ambiente do host bloqueou a execução: {{target}}"
     },
     "check": {
       "started": "A verificar {{target}}",

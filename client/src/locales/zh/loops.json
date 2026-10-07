@@ -315,7 +315,22 @@
     "approveContinue": "批准并继续",
     "paused": "已暂停",
     "acceptance": "验收",
-    "verified": "已验证"
+    "verified": "已验证",
+    "hostBlocked": "被主机环境阻止",
+    "blockerKind": {
+      "network": "网络",
+      "credential": "凭据",
+      "environment-variable": "环境变量",
+      "toolchain": "工具链",
+      "setup": "设置命令",
+      "environment": "环境",
+      "scope": "超出范围"
+    },
+    "failingCommand": "失败的命令",
+    "inDirectory": "在 {{cwd}} 中",
+    "requiredAction": "需要的操作",
+    "copyCommand": "复制命令",
+    "copiedCommand": "已复制"
   },
   "conversion": {
     "title": "将{{name}}转换为Core",

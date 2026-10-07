@@ -5,7 +5,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
-import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, saveRuntimeProviders, loadRuntimeProviders, type RuntimeConfig } from './agent-runtime-settings'
+import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, saveRuntimeProviders, loadRuntimeProviders, forCoreRuntime, loadLoopRuntimeConfig, type RuntimeConfig } from './agent-runtime-settings'
+import { defaultLoopAgents } from '../../loops/runtime/loop-agents'
 
 const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false, apiCapabilities: {} as Record<string, number>, capabilities: vi.fn(async (input: unknown) => ({ type: 'runtime-capabilities', schemaVersion: 1, roles: [], seen: input })) }))
 const layout = vi.hoisted(() => ({ suffix: '.specrails' }))
@@ -86,12 +87,47 @@ describe('runtime project configuration', () => {
     payload.approvalBeforeArchive = true
     saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
-    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, efficiencyAvailable: false, openRolesAvailable: false, config: payload })
+    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, efficiencyAvailable: false, openRolesAvailable: false, config: { ...payload, setup: [] } })
     expect(loader.validate).toHaveBeenCalledWith(payload)
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)
     expect(fs.readdirSync(path.dirname(agentRuntimeConfigPath(project())))).toEqual(['agent-runtime.json'])
     const read = await request(app).get(url).expect(200)
-    expect(read.body.config).toEqual(payload)
+    expect(read.body.config).toEqual({ ...payload, setup: [] })
+  })
+
+  it('persists setup commands next to verification and answers them as an array even when absent', async () => {
+    const payload = enabledConfig()
+    payload.setup = [{ repositoryId: 'primary-example', command: 'npx', args: ['playwright', 'install', 'chromium'], label: 'Browsers' }]
+    loader.apiCapabilities = { setupCommands: 1 }
+    const response = await request(app).put(url).send(payload).expect(200)
+    expect(response.body.config.setup).toEqual(payload.setup)
+    expect(response.body.config.verification).toEqual(payload.verification)
+    expect(loader.validate).toHaveBeenCalledWith(expect.objectContaining({ setup: payload.setup }))
+    expect(JSON.parse(fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')).setup).toEqual(payload.setup)
+    expect((await request(app).get(url).expect(200)).body.config).toEqual(payload)
+    // An older Core never sees the key, yet the file keeps it for the day it is updated.
+    loader.apiCapabilities = {}
+    await request(app).put(url).send(payload).expect(200)
+    expect(loader.validate).toHaveBeenLastCalledWith(expect.not.objectContaining({ setup: expect.anything() }))
+    expect(loadAgentRuntimeConfig(project())?.setup).toEqual(payload.setup)
+    const { setup: _setup, ...withoutSetup } = payload
+    await request(app).put(url).send(withoutSetup).expect(200)
+    expect((await request(app).get(url).expect(200)).body.config.setup).toEqual([])
+    expect(loadAgentRuntimeConfig(project())).not.toHaveProperty('setup')
+  })
+
+  it('forwards setup to Core only behind the setupCommands capability and reads it into loop runs', () => {
+    const config = { ...enabledConfig(), setup: [{ repositoryId: 'primary-example', command: 'npx', args: ['playwright', 'install'] }] }
+    expect(forCoreRuntime(config, { setupCommands: 1 })).toEqual(config)
+    expect(forCoreRuntime(config, { setupCommands: 2 }).setup).toEqual(config.setup)
+    expect(forCoreRuntime(config, {})).not.toHaveProperty('setup')
+    expect(forCoreRuntime(config, undefined)).not.toHaveProperty('setup')
+    const file = agentRuntimeConfigPath(project())
+    saveAgentRuntimeConfig(project(), config)
+    const loop = loadLoopRuntimeConfig(file, defaultLoopAgents(), { provider: 'claude' })
+    expect(loop.setup).toEqual(config.setup)
+    expect(loop.verification).toEqual(config.verification)
+    expect(() => loadLoopRuntimeConfig(file, { ...defaultLoopAgents(), setup: [] } as never)).toThrow('Invalid loop agent configuration')
   })
 
   it('requires a compatible runtime and never falls back to legacy execution', async () => {
@@ -178,6 +214,10 @@ describe('runtime project configuration', () => {
     ['NUL argument', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: ['\0'] }] }],
     ['saved verification secret', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: [], env: { API_KEY: 'sensitive-submitted-value' } }] }],
     ['NUL environment', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: [], env: { CI: '\0' } }] }],
+    ['setup without repository', (c: any) => { c.setup = [{ command: 'npx', args: ['playwright', 'install'] }] }],
+    ['empty setup command', (c: any) => { c.setup = [{ repositoryId: 'primary', command: ' ', args: [] }] }],
+    ['saved setup secret', (c: any) => { c.setup = [{ repositoryId: 'primary', command: 'npx', args: [], env: { NPM_TOKEN: 'sensitive-submitted-value' } }] }],
+    ['setup key colliding with a check key', (c: any) => { c.verification = [{ repositoryId: 'primary', key: 'tests', command: 'npm', args: [] }]; c.setup = [{ repositoryId: 'primary', key: 'tests', command: 'npx', args: [] }] }],
     ['loosened review score', (c: any) => { c.review = { minScore: 69 } }],
     ['loosened security aspect', (c: any) => { c.review = { aspects: { security: 74 } } }],
     ['loosened coverage aspect', (c: any) => { c.review = { aspects: { test_coverage: 59.5 } } }],
@@ -218,7 +258,7 @@ describe('runtime project configuration', () => {
     const payload: RuntimeConfig = { ...config(), review: { minScore: 70, aspects: { security: 75, type_correctness: 60, pattern_adherence: 80, test_coverage: 60, architectural_alignment: 100 } }, architect: { onLowConfidence: 'proceed' } }
     saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
-    expect(response.body.config).toEqual(payload)
+    expect(response.body.config).toEqual({ ...payload, setup: [] })
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)
     expect(validateAgentRuntimeConfig({ ...config(), review: {}, architect: {} })).toMatchObject({ review: {}, architect: {} })
     expect(() => validateAgentRuntimeConfig({ ...config(), review: { minScore: 69.9 } })).toThrow('review.minScore must be at least 70 (Core\'s own review gate)')

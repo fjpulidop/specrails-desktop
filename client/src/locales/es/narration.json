@@ -71,7 +71,8 @@
       "archive": "Archivando el cambio revisado",
       "stopped": "El motor se detuvo: {{target}}",
       "corrections": "Continuando las tareas pendientes (desarrollador)",
-      "resumed": "Reanudando la ejecución guardada"
+      "resumed": "Reanudando la ejecución guardada",
+      "blocked": "El entorno del host bloqueó la ejecución: {{target}}"
     },
     "check": {
       "started": "Comprobando {{target}}",

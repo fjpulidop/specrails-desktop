@@ -180,6 +180,9 @@ function pushActivity(
 /** Phase ids Core's programmatic runtime emits; each has copy under `activity.phase.*`. */
 const RUNTIME_PHASES = new Set(['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive'])
 
+/** Reasons the Implement recipe's `host-blocked` and `fixer-blocked` end nodes render. */
+const HOST_BLOCKER_REASON = /^(?:Host blocker|Fixer reported a host blocker)\b/
+
 /** How many example file names a folded file-activity line names. */
 const FILE_EXAMPLES = 3
 
@@ -390,7 +393,12 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       }
       else if ((type === 'step_succeeded' && stepId === 'verify' && typeof inner.message !== 'string') || type === 'step_blocked') { /* covered by the next phase start or the workflow outcome */ }
       else if (type === 'workflow_failed' || type === 'workflow_blocked' || type === 'workflow_cancelled') {
-        milestones.push({ seq: event.seq, kind: 'activity', code: 'activity.phase.stopped', values: { action: 'intent', target: asString(inner.message) ?? type, repeats: 1 }, stepIndex: currentStep, tone: 'bad' })
+        // Core reports a host-blocked end (`host-blocked` / `fixer-blocked`) as a failed workflow whose
+        // reason starts with the recipe's blocker prefix: the environment stopped the run, not the change.
+        const reasons = Array.isArray(inner.reasons) ? inner.reasons.filter((reason): reason is string => typeof reason === 'string') : []
+        const message = asString(inner.message) ?? reasons[0] ?? type
+        const hostBlocked = type === 'workflow_failed' && HOST_BLOCKER_REASON.test(message)
+        milestones.push({ seq: event.seq, kind: 'activity', code: hostBlocked ? 'activity.phase.blocked' : 'activity.phase.stopped', values: { action: 'intent', target: message, repeats: 1 }, stepIndex: currentStep, tone: 'bad' })
       }
       continue
     }

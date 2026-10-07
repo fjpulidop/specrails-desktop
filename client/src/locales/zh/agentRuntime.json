@@ -150,6 +150,19 @@
     "moveUp": "上移",
     "moveDown": "下移"
   },
+  "setup": {
+    "title": "环境准备命令",
+    "hint": "Core 在每次验证之前于仓库检出目录中运行的幂等命令（例如 `npx playwright install chromium`）。",
+    "add": "添加准备命令",
+    "invalidLine": "准备命令为空或引号未闭合：{{line}}",
+    "repository": "仓库",
+    "command": "准备命令",
+    "label": "准备命令标签（可选）",
+    "remove": "移除",
+    "moveUp": "上移准备命令",
+    "moveDown": "下移准备命令",
+    "empty": "没有准备命令。验证将直接在检出目录中运行。"
+  },
   "runs": {
     "title": "已保存的执行",
     "refresh": "刷新",

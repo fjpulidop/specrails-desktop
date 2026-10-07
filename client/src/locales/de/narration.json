@@ -71,7 +71,8 @@
       "archive": "Archivierung der geprüften Änderung",
       "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
       "corrections": "Setzt die verbleibenden Aufgaben fort (Entwickler)",
-      "resumed": "Gespeicherte Ausführung wird fortgesetzt"
+      "resumed": "Gespeicherte Ausführung wird fortgesetzt",
+      "blocked": "Die Host-Umgebung hat den Lauf blockiert: {{target}}"
     },
     "check": {
       "started": "Prüfe {{target}}",

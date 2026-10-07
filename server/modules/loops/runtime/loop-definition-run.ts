@@ -1,10 +1,22 @@
 import type { ChildProcess } from 'node:child_process'
 import type { AiStepResult, LoopRunRequest } from './loop-run-manager'
 
+/** Core `HostBlocker`: structured precondition the host must act on (environment repair refused, setup failed, fixer-declared). */
+export interface DefinitionHostBlocker {
+  kind: 'network' | 'credential' | 'environment-variable' | 'toolchain' | 'setup' | 'environment' | 'scope'
+  reason: string
+  command: string
+  args: string[]
+  cwd: string
+  requiredAction: string
+  evidenceId?: string
+}
 export interface DefinitionCompletion {
   ok: boolean
   verified: boolean
   reasons: string[]
+  /** Present when the run ended through an `end` node with `blockerFrom`; absent on older Core and on ordinary ends. */
+  blocker?: DefinitionHostBlocker
 }
 export interface DefinitionInterrupt {
   id: string

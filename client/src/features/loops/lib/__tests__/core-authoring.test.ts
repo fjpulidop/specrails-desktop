@@ -26,6 +26,12 @@ describe('Core authoring catalog', () => {
     expect(effectiveOutcomes(prompt, { sentinel: 'blocked' })).toEqual(['next', 'blocked', 'failed'])
     expect(effectiveOutcomes(undefined, {})).toEqual([])
   })
+  it('exposes the verify blocked outcome only when the node opts into host blockers', () => {
+    const verify: WorkflowPieceDescriptor = { ...prompt, kind: 'verify', outcomes: ['pass', 'fail', 'failed', 'blocked'], requiresAI: false }
+    expect(effectiveOutcomes(verify, { commands: 'configured' })).toEqual(['pass', 'fail', 'failed'])
+    expect(effectiveOutcomes(verify, { commands: 'configured', hostBlockers: true })).toEqual(['pass', 'fail', 'failed', 'blocked'])
+    expect(effectiveOutcomes({ ...verify, outcomes: ['pass', 'fail', 'failed'] }, { hostBlockers: true })).toEqual(['pass', 'fail', 'failed'])
+  })
   it('starts an explicit read-only prompt without filling optional policies', () => {
     expect(coreNodeData(prompt)).toMatchObject({
       kind: 'core',

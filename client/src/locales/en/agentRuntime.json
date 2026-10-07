@@ -150,6 +150,19 @@
     "moveUp": "Move up",
     "moveDown": "Move down"
   },
+  "setup": {
+    "title": "Setup commands",
+    "hint": "Idempotent commands Core runs before every verification, in the repository checkout (for example `npx playwright install chromium`).",
+    "add": "Add setup command",
+    "invalidLine": "Setup command is empty or has an unterminated quote: {{line}}",
+    "repository": "Repository",
+    "command": "Setup command",
+    "label": "Setup label (optional)",
+    "remove": "Remove",
+    "moveUp": "Move setup command up",
+    "moveDown": "Move setup command down",
+    "empty": "No setup commands. Verification runs directly in the checkout."
+  },
   "runs": {
     "title": "Saved executions",
     "refresh": "Refresh",

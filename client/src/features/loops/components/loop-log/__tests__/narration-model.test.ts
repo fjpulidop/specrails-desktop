@@ -688,6 +688,31 @@ describe('buildNarration — Specrails Core agent runtime', () => {
     const stopped = model.milestones.find((m) => m.code === 'activity.phase.stopped')
     expect(stopped).toMatchObject({ tone: 'bad', values: { target: 'Implementation correction limit reached' } })
   })
+  it.each([
+    'Host blocker (network): the Playwright browser download cannot reach its CDN. Required action: Run `npx playwright install chromium` in ticket-1 with network access, then retry the run',
+    'Fixer reported a host blocker (toolchain): Install Playwright browsers. Evidence: browserType.launch: Executable doesn\'t exist',
+  ])('narrates a host-blocked end as blocked rather than as a plain failure: %s', (reason) => {
+    const model = buildNarration({
+      events: [step(1, 'Implement'), runtime('step_started', { stepId: 'developer' }), runtime('step_started', { stepId: 'verify' }), runtime('workflow_failed', { reasons: [reason] }), stepEnd(1, { status: 'blocked' })],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toContain('activity.phase.blocked')
+    expect(codes(model.milestones)).not.toContain('activity.phase.stopped')
+    expect(model.milestones.find((m) => m.code === 'activity.phase.blocked')).toMatchObject({ tone: 'bad', values: { target: reason } })
+  })
+  it('keeps ordinary failures and environment repair lines out of the blocked narration', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'Implement'),
+        runtime('step_started', { stepId: 'verify' }),
+        ev('verification-output', { text: '[environment] npx playwright install chromium (ticket-1)\n' }),
+        runtime('workflow_failed', { message: 'Automatic correction made no candidate changes.' }),
+        stepEnd(1, { status: 'failed' }),
+      ],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.phase.verify', 'activity.phase.stopped', 'step.failed'])
+  })
 })
 
  it('keeps identical file activity in separate repository groups', () => {

@@ -3,8 +3,8 @@ import { defaultLoopAgents } from './loop-agents'
 import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 
 /** App-owned definition graphs. Core supplies schemas, execution and canonical versions. */
-export function coreFactoryGraph(mode: 'implement' | 'freestyle' | 'quick-sdd', independent = false, configurable = false): LoopGraph {
-  if (mode === 'implement' && configurable) return configurableImplementGraph()
+export function coreFactoryGraph(mode: 'implement' | 'freestyle' | 'quick-sdd', independent = false, configurable = false, capabilities?: Record<string, number>): LoopGraph {
+  if (mode === 'implement' && configurable) return configurableImplementGraph(capabilities)
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }]
   const edges: LoopGraph['edges'] = []
   const config: LoopGraph['config'] = { maxIterations: 12, maxTransitions: 120, timeoutMinutes: 0, aiStepTimeoutMinutes: 0,

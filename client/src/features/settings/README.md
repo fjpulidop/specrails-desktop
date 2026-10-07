@@ -53,7 +53,10 @@ Validate navigation with `node scripts/audit-client-features.mjs --check`.
 
 ## Repository verification
 
-Project runtime settings edit repository verification commands. Agent definitions,
+Project runtime settings edit repository verification commands and, below them,
+the idempotent setup commands Core runs before every verification (same row
+editor, `CommandListEditor` in `AgentRuntimeSettingsSection.tsx`, without
+auto-detection). Agent definitions,
 engine selection and workflow policy belong to the loop builder. Saving checks
 preserves historical configuration for legacy graphs; frozen executions retain
 their admission snapshot. The focused runtime forms exported above are also used

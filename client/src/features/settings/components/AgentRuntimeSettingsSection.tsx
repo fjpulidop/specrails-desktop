@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { repositoryApiBase, projectRepositories } from '../../projects/lib/project-repositories'
@@ -9,7 +9,56 @@ import { Button } from '../../../components/ui/button'
 
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 interface VerificationRow { label?: string; original?: RuntimeVerificationCommand; repositoryId: string; line: string; reason?: string }
-function rowsFrom(commands: RuntimeVerificationCommand[]): VerificationRow[] { return commands.map(command => ({ original: command, label: command.label, repositoryId: command.repositoryId, line: formatVerificationCommand(command) })) }
+function rowsFrom(commands: RuntimeVerificationCommand[] | undefined): VerificationRow[] { return (commands ?? []).map(command => ({ original: command, label: command.label, repositoryId: command.repositoryId, line: formatVerificationCommand(command) })) }
+/** Rows → saved entries; the first invalid line is reported through `onInvalid` (null result). */
+function readRows(rows: VerificationRow[], onInvalid: (line: string) => void): RuntimeVerificationCommand[] | null {
+  const commands: RuntimeVerificationCommand[] = []
+  for (const row of rows) {
+    if (!row.line.trim() && !row.repositoryId) continue
+    const parsed = parseVerificationCommand(row.line)
+    if (!parsed || !row.repositoryId) { onInvalid(row.line || '∅'); return null }
+    commands.push({ ...row.original, ...(row.label !== undefined ? { label: row.label.trim() || undefined } : {}), repositoryId: row.repositoryId, ...parsed })
+  }
+  return commands
+}
+
+/** One repository-scoped command list (verification checks or setup commands): repository, command line, label, reorder, remove, add.
+ *  `keys` selects the i18n namespace branch so every visible string and accessible name stays distinct per list. */
+export function CommandListEditor({ rows, repositories, onChange, keys, placeholder, toolbar, testId }: {
+  rows: VerificationRow[]; repositories: Array<{ id: string; name: string }>; onChange: (rows: VerificationRow[]) => void
+  keys: 'verification' | 'setup'; placeholder: string; toolbar?: ReactNode; testId: string
+}) {
+  const { t } = useTranslation('agentRuntime')
+  const update = (index: number, patch: Partial<VerificationRow>) => onChange(rows.map((item, i) => i === index ? { ...item, ...patch } : item))
+  const swap = (index: number, other: number) => { const moved = [...rows]; [moved[other], moved[index]] = [moved[index], moved[other]]; onChange(moved) }
+  return <div className="space-y-3" data-testid={testId}>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs text-muted-foreground">{t(`${keys}.hint`)}</p>
+      {toolbar}
+    </div>
+    {keys === 'setup' && rows.length === 0 && <p className="text-xs text-muted-foreground">{t('setup.empty')}</p>}
+    {rows.map((row, index) => <div key={index} className="grid gap-2 sm:grid-cols-[minmax(8rem,1fr)_2fr_auto]">
+      <label className="space-y-1 text-xs">{t(`${keys}.repository`)}
+        {repositories.length
+          ? <select className={selectClass} value={row.repositoryId} onChange={(event) => update(index, { repositoryId: event.target.value })}>
+            {!repositories.some((repository) => repository.id === row.repositoryId) && <option value={row.repositoryId}>{row.repositoryId || '—'}</option>}
+            {repositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}
+          </select>
+          : <Input value={row.repositoryId} onChange={(event) => update(index, { repositoryId: event.target.value })} />}
+      </label>
+      <div className="space-y-1 text-xs">
+        <label className="block space-y-1">{t(`${keys}.command`)}<Input className="font-mono" spellCheck={false} placeholder={placeholder} value={row.line} onChange={(event) => update(index, { line: event.target.value, reason: undefined })} /></label>
+        <label className="block space-y-1">{t(`${keys}.label`)}<Input maxLength={256} value={row.label ?? ''} onChange={event => update(index, { label: event.target.value })} /></label>
+        {row.reason && <span className="block text-[11px] text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
+      </div>
+      <div className="flex items-end gap-1">
+        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveUp`)} ${index + 1}`} disabled={index === 0} onClick={() => swap(index, index - 1)}>↑</Button>
+        <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveDown`)} ${index + 1}`} disabled={index === rows.length - 1} onClick={() => swap(index, index + 1)}>↓</Button>
+        <Button size="sm" variant="ghost" onClick={() => onChange(rows.filter((_, i) => i !== index))}>{t(`${keys}.remove`)}</Button></div>
+    </div>)}
+    <Button size="sm" variant="ghost" onClick={() => onChange([...rows, { repositoryId: repositories[0]?.id ?? '', line: '' }])}>{t(`${keys}.add`)}</Button>
+  </div>
+}
 function rowsFromSuggestions(suggestions: VerificationSuggestion[]): VerificationRow[] { return suggestions.map(suggestion => ({ repositoryId: suggestion.repositoryId, line: formatVerificationCommand(suggestion), reason: suggestion.reason })) }
 
 export function AgentRuntimeSettingsSection() {
@@ -23,13 +72,15 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
   const { t } = useTranslation('agentRuntime')
   const cached = cache.get(projectId)
   const [config, setConfig] = useState<AgentRuntimeConfig | null>(cached?.config ?? null)
-  const [rows, setRows] = useState<VerificationRow[]>(rowsFrom(cached?.config.verification ?? []))
+  const [rows, setRows] = useState<VerificationRow[]>(rowsFrom(cached?.config.verification))
+  const [setupRows, setSetupRows] = useState<VerificationRow[]>(rowsFrom(cached?.config.setup))
   const [busy, setBusy] = useState(false), [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState<'none' | 'some' | null>(null)
   const [loading, setLoading] = useState(!cached), [error, setError] = useState(''), [saved, setSaved] = useState(false), [unsaved, setUnsaved] = useState(false), [reload, setReload] = useState(0)
   const dirty = useRef(false), mounted = useRef(true)
   const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/config`
   function updateRows(next: VerificationRow[]) { dirty.current = true; setUnsaved(true); setSaved(false); setRows(next) }
+  function updateSetupRows(next: VerificationRow[]) { dirty.current = true; setUnsaved(true); setSaved(false); setSetupRows(next) }
   const suggestionsEndpoint = `${repositoryApiBase(projectId)}/agent-runtime/verification-suggestions`
 
   async function detect(): Promise<VerificationSuggestion[] | null> {
@@ -53,6 +104,7 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
       if (!dirty.current) {
         setConfig(data.config)
         setRows(rowsFrom(data.config.verification))
+        setSetupRows(rowsFrom(data.config.setup))
         // A project that never saved runtime settings starts from its own
         // detected checks, so nothing has to be typed to get a verified run.
         if (!data.configured && data.config.verification.length === 0) {
@@ -69,16 +121,8 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, projectId, cache, reload, t])
 
-  function readVerification(): RuntimeVerificationCommand[] | null {
-    const commands: RuntimeVerificationCommand[] = []
-    for (const row of rows) {
-      if (!row.line.trim() && !row.repositoryId) continue
-      const parsed = parseVerificationCommand(row.line)
-      if (!parsed || !row.repositoryId) { setError(t('verification.invalidLine', { line: row.line || '∅' })); return null }
-      commands.push({ ...row.original, ...(row.label !== undefined ? { label: row.label.trim() || undefined } : {}), repositoryId: row.repositoryId, ...parsed })
-    }
-    return commands
-  }
+  const readVerification = () => readRows(rows, (line) => setError(t('verification.invalidLine', { line })))
+  const readSetup = () => readRows(setupRows, (line) => setError(t('setup.invalidLine', { line })))
 
   async function detectNow() {
     setDetecting(true); setError('')
@@ -99,49 +143,37 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
     setSaved(false)
     const commands = readVerification()
     if (!commands) return
+    const setup = readSetup()
+    if (!setup) return
     setBusy(true)
     try {
-      const response = await fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, verification: commands }) })
+      const response = await fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, verification: commands, setup }) })
       const data = await response.json() as AgentRuntimeSettingsResponse & { error?: string; message?: string }
       if (!response.ok) throw new Error(data.message ?? data.error ?? t('saveFailed'))
       if (!isAgentRuntimeSettingsResponse(data)) throw new Error(t('saveFailed'))
       cache.set(projectId, data)
       if (!mounted.current) return
       dirty.current = false; setUnsaved(false)
-      setConfig(data.config); setRows(rowsFrom(data.config.verification)); setSaved(true)
+      setConfig(data.config); setRows(rowsFrom(data.config.verification)); setSetupRows(rowsFrom(data.config.setup)); setSaved(true)
     } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : t('saveFailed')) }
     finally { if (mounted.current) setBusy(false) }
   }
 
   function renderVerification() {
-    return <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">{t('verification.hint')}</p>
+    return <CommandListEditor rows={rows} repositories={repositories} onChange={updateRows} keys="verification" placeholder="npm test" testId="verification-commands"
+      toolbar={<>
         <Button size="sm" variant="secondary" disabled={detecting} onClick={() => void detectNow()}>{detecting ? t('verification.detecting') : t('verification.detect')}</Button>
-      </div>
-      {detected === 'some' && !rows.some((row) => !row.reason) && <p role="status" className="text-xs text-accent-success">{t('verification.detected')}</p>}
-      {detected === 'none' && rows.length === 0 && <p role="status" className="text-xs text-muted-foreground">{t('verification.nothingDetected')}</p>}
-      {rows.map((row, index) => <div key={index} className="grid gap-2 sm:grid-cols-[minmax(8rem,1fr)_2fr_auto]">
-        <label className="space-y-1 text-xs">{t('verification.repository')}
-          {repositories.length
-            ? <select className={selectClass} value={row.repositoryId} onChange={(event) => updateRows(rows.map((item, i) => i === index ? { ...item, repositoryId: event.target.value } : item))}>
-              {!repositories.some((repository) => repository.id === row.repositoryId) && <option value={row.repositoryId}>{row.repositoryId || '—'}</option>}
-              {repositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}
-            </select>
-            : <Input value={row.repositoryId} onChange={(event) => updateRows(rows.map((item, i) => i === index ? { ...item, repositoryId: event.target.value } : item))} />}
-        </label>
-        <div className="space-y-1 text-xs">
-          <label className="block space-y-1">{t('verification.command')}<Input className="font-mono" spellCheck={false} placeholder="npm test" value={row.line} onChange={(event) => updateRows(rows.map((item, i) => i === index ? { ...item, line: event.target.value, reason: undefined } : item))} /></label>
-          <label className="block space-y-1">{t('verification.label')}<Input maxLength={256} value={row.label ?? ''} onChange={event => updateRows(rows.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} /></label>
-          {row.reason && <span className="block text-[11px] text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
-        </div>
-        <div className="flex items-end gap-1">
-          <Button size="sm" variant="ghost" aria-label={`${t('verification.moveUp')} ${index + 1}`} disabled={index === 0} onClick={() => { const moved = [...rows]; [moved[index - 1], moved[index]] = [moved[index], moved[index - 1]]; updateRows(moved) }}>↑</Button>
-          <Button size="sm" variant="ghost" aria-label={`${t('verification.moveDown')} ${index + 1}`} disabled={index === rows.length - 1} onClick={() => { const moved = [...rows]; [moved[index + 1], moved[index]] = [moved[index], moved[index + 1]]; updateRows(moved) }}>↓</Button>
-          <Button size="sm" variant="ghost" onClick={() => updateRows(rows.filter((_, i) => i !== index))}>{t('verification.remove')}</Button></div>
-      </div>)}
-      <Button size="sm" variant="ghost" onClick={() => updateRows([...rows, { repositoryId: repositories[0]?.id ?? '', line: '' }])}>{t('verification.add')}</Button>
-    </>
+        {detected === 'some' && !rows.some((row) => !row.reason) && <p role="status" className="basis-full text-xs text-accent-success">{t('verification.detected')}</p>}
+        {detected === 'none' && rows.length === 0 && <p role="status" className="basis-full text-xs text-muted-foreground">{t('verification.nothingDetected')}</p>}
+      </>} />
+  }
+
+  /** Setup commands: same editor, no detection — nothing in a repository says which browser build or toolchain a check needs. */
+  function renderSetup() {
+    return <section className="space-y-3 border-t pt-4" aria-labelledby="runtime-setup-title">
+      <h3 id="runtime-setup-title" className="text-sm font-medium">{t('setup.title')}</h3>
+      <CommandListEditor rows={setupRows} repositories={repositories} onChange={updateSetupRows} keys="setup" placeholder="npx playwright install chromium" testId="setup-commands" />
+    </section>
   }
 
   return <Card id="agent-runtime-settings">
@@ -150,7 +182,7 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
       {loading && <p role="status">{t('loading')}</p>}
       {error && <p role="alert" className="text-destructive">{error}</p>}
       {!config && !loading && <Button onClick={() => { setLoading(true); setReload(value => value + 1) }}>{t('retry')}</Button>}
-      {config && <fieldset disabled={busy} className="space-y-3">{renderVerification()}
+      {config && <fieldset disabled={busy} className="space-y-3">{renderVerification()}{renderSetup()}
         <div className="sticky bottom-3 flex items-center justify-end gap-3 rounded border bg-card p-2" data-testid="runtime-save-pill" data-unsaved={unsaved}>
           {unsaved && <span>{t('unsavedChanges')}</span>}
           {saved && <p role="status">{t('saved')}</p>}

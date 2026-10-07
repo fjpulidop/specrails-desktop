@@ -414,9 +414,9 @@ const CORE_STARTER_SHAPES: Record<CoreStarterTemplateId, CoreStarterShape> = {
 
 /** Core definition graph for one of the eight starters. Deterministic: same id ⇒
  *  structurally identical graph (positions included). */
-export function coreStarterGraph(id: CoreStarterTemplateId, independent = false, configurable = false): LoopGraph {
+export function coreStarterGraph(id: CoreStarterTemplateId, independent = false, configurable = false, capabilities?: Record<string, number>): LoopGraph {
   const shape = CORE_STARTER_SHAPES[id]
-  if (shape === 'ship' && configurable) return coreFactoryGraph('implement', true, true)
+  if (shape === 'ship' && configurable) return coreFactoryGraph('implement', true, true, capabilities)
   const { prompt, goal, maxIterations } = STARTER_TEXT[id]
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: COL_X, y: 0 } }]
   const edges: LoopGraph['edges'] = []
@@ -506,7 +506,7 @@ export function loopTemplatesForCapabilities(capabilities?: Record<string, numbe
       ...template,
       description: CORE_STARTER_DESCRIPTIONS[template.id],
       ...(readOnly ? { readOnly: true } : {}),
-      graph: coreStarterGraph(template.id, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1),
+      graph: coreStarterGraph(template.id, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1, capabilities),
     }
   })
 }
