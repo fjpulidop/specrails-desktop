@@ -73,7 +73,9 @@ Ports exist only where there are real substitutes:
 - `HostProcessLauncher`: fake process versus real spawn.
 - `ProjectionStore`: in-memory versus SQLite.
 
-`architecture.test.ts` gains the fixed allowlist for `domain/` and `application/`, and the module is added to `boundaries.json` after review. The protocol types are imported from Core's exported package types, `specrails-core/agent-runtime/session`. Where packaging forbids a runtime import, they are vendored as a generated `.d.ts` checked by `check-core-compat`. Desktop never re-declares them by hand.
+`architecture.test.ts` gains the fixed allowlist for `domain/` and `application/`, and the module is added to `boundaries.json` after review.
+
+**Wire types are mirrored, not imported.** Desktop runs Core out of process and does not depend on Core's TypeScript package, as it already works for implementation runs. `domain/protocol.ts` declares the protocol v1 wire types Desktop consumes, acting as the host-side anti-corruption layer. Drift is guarded mechanically: `check-core-compat` and a contract test compare the mirrored event types, protocol versions and CLI operation against the resolved Core's `integration-contract.json` (`agentRuntime.sessions`). Unknown event types from a newer Core are ignored, as the protocol requires.
 
 *Alternative rejected:* embedding Core's session runtime in-process. Core is ESM with `node:sqlite`, while Desktop's sidecar is a CommonJS/pkg build. The existing runtime bridge already avoids dynamic ESM imports for this reason. A separate process also isolates provider crashes from the sidecar.
 
@@ -99,17 +101,16 @@ interface ConversationTransport {          // owned by the missions application 
 
 ### D3. Projection: Core journal is the execution source of truth; Desktop DB is a rebuildable read model
 
-- Each Core `session.event` is applied by one pure reducer (`domain/projection.ts`) that yields projection operations.
-- `sqlite-projection.ts` applies them in **one transaction** together with `agent_session_cursors.last_seq`. A crash replays from the cursor, and application is idempotent by `(sessionId, seq)`.
-- Projected state:
-  - assistant messages, with intent `subagent_continuation` for continuation turns;
-  - input receipts, mapped onto `agent_inputs.receipt`;
-  - `agent_invocations` from `usage.turn` events, with a new `origin` column and billed vs `_estimated` kept as reported;
-  - `agent_subagents` and the bounded `agent_subagent_events`, which hold the projection only;
-  - resident phase.
-- New tables and columns are appended migrations.
-- WS broadcasts are emitted **after** the projection commit, mirroring Core's commit-before-notify.
-- Rebuild: an operator command replays a session from seq 0 into an empty projection. A test asserts that live and rebuilt projections are equal.
+- **Generic part (agent-sessions):** a pure reducer (`domain/projection.ts`) turns each Core `session.event` into surface-neutral projection operations: user/continuation turn opened, assistant text completed, input receipt changed, invocation usage, sub-agent upsert/output, resident phase.
+- **Surface part (missions now; explore and others later):** a `ProjectionSink` port maps those operations onto the surface's own tables, for missions `agent_messages`, `agent_inputs`, `agent_invocations`, `agent_subagents` and `agent_subagent_events`. `agent-sessions` therefore never knows mission tables. Each surface owns its persistence, and the same reducer serves every surface.
+- **Apply step:** the application applies the operations and advances `agent_session_cursors.last_seq` in **one transaction** owned by the sink adapter. It is idempotent by `(sessionId, seq)`, and a crash replays from the cursor.
+- **Persistence rules:**
+  - continuation turns use intent `subagent_continuation`;
+  - invocations gain an `origin` column;
+  - billed versus `_estimated` cost is kept exactly as reported;
+  - new tables and columns are appended migrations.
+- **Broadcasting:** WS events are emitted **after** the sink commit, mirroring Core's commit-before-notify.
+- **Rebuild:** an operator command replays a session from seq 0 into an empty projection. A test asserts that live and rebuilt projections are equal.
 
 ### D4. Mapping product rules onto Core sessions
 

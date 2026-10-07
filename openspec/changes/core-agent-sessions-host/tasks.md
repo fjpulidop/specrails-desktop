@@ -5,18 +5,18 @@
 
 ## 2. agent-sessions module (no production wiring)
 
-- [ ] 2.1 Scaffold `server/modules/agent-sessions/` (domain, application, ports, adapters, runtime, index, README); add allowlists to `server/modules/architecture.test.ts` and review `boundaries.json`
-- [ ] 2.2 Protocol types from Core's exported session types (or vendored generated `.d.ts` validated by `check-core-compat`)
-- [ ] 2.3 Pure host state machine and backoff policy with fake-clock tests
-- [ ] 2.4 Pure projection reducer (events → projection ops) with fixture-driven tests from Core's recorded sessions
-- [ ] 2.5 Ports and in-memory fakes (`SessionHostClient`, `HostProcessLauncher`, `ProjectionStore`, `Clock`) honouring production contracts
-- [ ] 2.6 Application use cases (ensureHost, open, send, interrupt, stopSubagents, update, close, replayFrom, applyEvent) tested against fakes
+- [x] 2.1 Scaffold `server/modules/agent-sessions/` (domain, application, ports, adapters, runtime, index, README); add allowlists to `server/modules/architecture.test.ts` and review `boundaries.json`
+- [x] 2.2 Mirror protocol v1 wire types in `domain/protocol.ts`; contract test and `check-core-compat` compare event types, protocol versions and CLI operation with Core's `agentRuntime.sessions` block
+- [x] 2.3 Pure host state machine and backoff policy with fake-clock tests
+- [x] 2.4 Pure, surface-neutral projection reducer (events → projection ops) and the `ProjectionSink` port; tests with event sequences mirroring Core's recorded sessions
+- [x] 2.5 Ports and in-memory fakes (`SessionHostClient`, `HostProcessLauncher`, `ProjectionSink`, `Clock`) honouring production contracts
+- [x] 2.6 Application use cases (ensureHost, open, send, interrupt, stopSubagents, update, close, replayFrom, applyEvent) tested against fakes
 
 ## 3. Adapters and host supervision
 
-- [ ] 3.1 `rpc-client.ts`: NDJSON JSON-RPC client (ids, timeouts, line limit, backpressure, notification stream) with duplex-stream tests
-- [ ] 3.2 `host-process.ts`: launch `runtime host --stdio --scope` through existing Core resolution, `resolveBundledNodeExe`, `windowsSpawnEnv`, cross-spawn; tree-kill via transient-children ownership
-- [ ] 3.3 `session-host-registry.ts`: one host per scope, lazy start, health pings, restart with resume + cursor replay, degraded fallback, project-removal and shutdown paths, `journal_locked` handling
+- [x] 3.1 `rpc-client.ts`: NDJSON JSON-RPC client (ids, timeouts, line limit, backpressure, notification stream) with duplex-stream tests
+- [x] 3.2 `host-process.ts`: launch `runtime host --stdio --scope` through existing Core resolution, `resolveBundledNodeExe`, `windowsSpawnEnv`, cross-spawn; tree-kill via transient-children ownership
+- [x] 3.3 `session-host-registry.ts`: one host per scope, lazy start, health pings, restart with resume + cursor replay, degraded fallback, project-removal and shutdown paths, `journal_locked` handling
 - [ ] 3.4 Capability detection via the runtime loader (`sessions`) and `initialize` negotiation; `SPECRAILS_CORE_SESSIONS` (`off` default during rollout, `auto`, `on`) documented in configuration
 - [ ] 3.5 Extend `server/core-compat.ts` / `check-core-compat` for the sessions contract; extend `scripts/smoke-agent-runtime-pair.mjs` to drive a host with a fake driver
 

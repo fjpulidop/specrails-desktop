@@ -267,6 +267,59 @@
       ]
     }
   },
+  "agent-sessions": {
+    "publicEntries": [],
+    "dependencies": {
+      "adapters/host-process.ts": [
+        "../../../core-node-runtime",
+        "../../../util/win-spawn",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../domain/errors",
+        "../domain/protocol",
+        "../ports",
+        "./rpc-client",
+        "node:child_process"
+      ],
+      "adapters/rpc-client.ts": [
+        "../domain/errors",
+        "../domain/protocol",
+        "../ports",
+        "node:string_decoder"
+      ],
+      "application/session-event-pump.ts": [
+        "../domain/projection",
+        "../domain/protocol",
+        "../ports"
+      ],
+      "domain/errors.ts": [
+        "./protocol"
+      ],
+      "domain/host-state.ts": [],
+      "domain/projection.ts": [
+        "./protocol"
+      ],
+      "domain/protocol.ts": [],
+      "index.ts": [
+        "./application/session-event-pump",
+        "./domain/errors",
+        "./domain/host-state",
+        "./domain/projection",
+        "./domain/protocol",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain/projection",
+        "./domain/protocol"
+      ],
+      "runtime/session-host-registry.ts": [
+        "../application/session-event-pump",
+        "../domain/errors",
+        "../domain/host-state",
+        "../domain/protocol",
+        "../ports"
+      ]
+    }
+  },
   "agents": {
     "publicEntries": [
       "runtime/agent-catalog.ts",

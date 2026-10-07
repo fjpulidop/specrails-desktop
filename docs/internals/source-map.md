@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1018 source/build files. Nearby tests are linked where names
+Includes 1028 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1097,6 +1097,31 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
 - [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
+
+## server/modules/agent-sessions
+
+- [index.ts](../../server/modules/agent-sessions/index.ts)
+- [ports.ts](../../server/modules/agent-sessions/ports.ts)
+
+## server/modules/agent-sessions/adapters
+
+- [host-process.ts](../../server/modules/agent-sessions/adapters/host-process.ts)
+- [rpc-client.ts](../../server/modules/agent-sessions/adapters/rpc-client.ts)
+
+## server/modules/agent-sessions/application
+
+- [session-event-pump.ts](../../server/modules/agent-sessions/application/session-event-pump.ts)
+
+## server/modules/agent-sessions/domain
+
+- [errors.ts](../../server/modules/agent-sessions/domain/errors.ts)
+- [host-state.ts](../../server/modules/agent-sessions/domain/host-state.ts)
+- [projection.ts](../../server/modules/agent-sessions/domain/projection.ts)
+- [protocol.ts](../../server/modules/agent-sessions/domain/protocol.ts)
+
+## server/modules/agent-sessions/runtime
+
+- [session-host-registry.ts](../../server/modules/agent-sessions/runtime/session-host-registry.ts)
 
 ## server/modules/agents/runtime
 
