@@ -101,6 +101,28 @@ describe('bridge credentials on reconnect', () => {
     } finally { fs.rmSync(home, { recursive: true, force: true }) }
   })
 
+  it('presents the current agent capability on every request when headers are dynamic', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-bridge-capability-'))
+    const capabilityFile = path.join(home, 'capability')
+    fs.writeFileSync(capabilityFile, 'a'.repeat(40))
+    const seen: Array<string | null> = []
+    const { agentForwardHeaders } = await import('./bridge')
+    const send = authenticatedFetch(() => agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: capabilityFile }), vi.fn(async (_input, init) => {
+      seen.push(new Headers(init?.headers).get('x-specrails-agent-capability'))
+      return new Response('ok')
+    }))
+    try {
+      await send('http://127.0.0.1/api/mcp')
+      // Desktop rotates the per-turn capability while the resident session keeps this bridge alive.
+      fs.writeFileSync(capabilityFile, 'b'.repeat(40))
+      await send('http://127.0.0.1/api/mcp')
+      expect(seen).toEqual(['a'.repeat(40), 'b'.repeat(40)])
+      // A removed capability (session ended) refuses the request instead of connecting unrestricted.
+      fs.rmSync(capabilityFile)
+      await expect(send('http://127.0.0.1/api/mcp')).rejects.toThrow('refusing to connect')
+    } finally { fs.rmSync(home, { recursive: true, force: true }) }
+  })
+
   it('does not replay an unchanged unauthorized credential', async () => {
     const implementation = vi.fn(async () => new Response('revoked capability', { status: 401 }))
     const send = authenticatedFetch({ 'x-specrails-agent-capability': 'revoked' }, implementation)

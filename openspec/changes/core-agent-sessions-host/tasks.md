@@ -29,13 +29,12 @@
 
 ## 5. Missions on Core sessions
 
-- [ ] 5.1 Introduce `ConversationTransport` port in missions; `LegacyTransport` wraps the current live-session/one-shot path with zero behaviour change (existing mission tests green)
-- [ ] 5.2 `CoreSessionTransport`: open/resume, send with queue ids as input ids, interrupt, stopSubagents, update (applied/deferred), retire
-- [ ] 5.3 Composition-root selection per provider (Core driver listed + flag) without provider-id branches in mission code
-- [ ] 5.4 Receipt mapping (Core input events → sent/received; read stays explicit) and steering paths in background/continuation phases; no-replay guarantees on host loss
-- [ ] 5.5 Specrails MCP capability bound to Core session + host epoch; external MCP registry resolved into `policy.mcp`; retired-epoch rejection tests
-- [ ] 5.6 Continuation turns persisted with intent `subagent_continuation`; titles, PR/rail cards and run-failure rows unchanged
-- [ ] 5.7 Integration tests: two turns on one session, background sub-agents surviving turn end, continuation turns, stop, host crash + resume, project removal isolation, legacy fallback
+- [x] 5.1 Accounting: extract `finaliseNormalisedResult` from `finaliseInvocationResult` (same estimation/null semantics) and let a turn outcome carry Core's normalized usage
+- [x] 5.2 MCP: the bridge reads the capability file per request; `prepareAgentMcpSpec` builds structured specs (specrails + external) for Core sessions; per-turn capability rotation by rewriting the conversation's capability file
+- [ ] 5.3 `CoreSessionTurnRunner` implementing the existing runner hook contract (open/resume Core session, send prepared input, map user-turn events to AdapterEvents, native steer sink, receipts, normalized usage, `TurnHandle` for Stop)
+- [ ] 5.4 Runner selection at composition (Core sessions available for the scope + driver listed for the provider) without provider-id branches; Stop/delete through `TurnHandle`/`session.close`
+- [ ] 5.5 `MissionSessionProjector` (missions ProjectionSink): continuation/system turns as messages with intent `subagent_continuation`, invocations with origin, sub-agents and outputs, resident phase; WS broadcast after commit
+- [ ] 5.6 Integration tests with a scripted Core host: two turns on one session, background sub-agents surviving turn end, continuation turns, steer, Stop, host crash + resume, project removal isolation, legacy fallback
 
 ## 6. Wire contracts and API
 

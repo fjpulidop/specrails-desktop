@@ -243,6 +243,57 @@ function buildAgentTurnEntry(opts: {
   return entry
 }
 
+/** Structured MCP server spec for Core's session runtime (protocol McpServerSpec). */
+export interface AgentMcpServerSpec {
+  name: string
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  headers?: Record<string, string>
+}
+
+function stringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const entries = Object.entries(value as Record<string, unknown>).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+
+/**
+ * MCP servers for a resident Core agent session. The `specrails` bridge reads
+ * the conversation's capability file on every request, and this call
+ * atomically (re)writes that file with the CURRENT turn's capability — so a
+ * long-lived provider process always acts under the latest turn's tier.
+ * External servers are passed through as structured specs.
+ */
+export function prepareAgentMcpSpec(opts: {
+  conversationId: string
+  port: number
+  capability: string
+  external?: ResolvedExternalServer[]
+}): AgentMcpServerSpec[] {
+  const entry = buildAgentTurnEntry({ conversationId: opts.conversationId, port: opts.port, capability: opts.capability })
+  if (!entry) throw new Error('The bundled Specrails MCP bridge is unavailable.')
+  const specs: AgentMcpServerSpec[] = [{ name: 'specrails', command: entry.command, args: [...entry.args], env: { ...entry.env } }]
+  for (const server of opts.external ?? []) {
+    if (server.name === 'specrails') continue
+    const config = server.config
+    if (typeof config.url === 'string') {
+      const headers = stringRecord(config.headers)
+      specs.push({ name: server.name, url: config.url, ...(headers ? { headers } : {}) })
+    } else if (typeof config.command === 'string') {
+      const env = stringRecord(config.env)
+      specs.push({ name: server.name, command: config.command, args: Array.isArray(config.args) ? config.args.filter((arg): arg is string => typeof arg === 'string') : [], ...(env ? { env } : {}) })
+    }
+  }
+  return specs
+}
+
+/** Rotate the resident session's capability for a new turn (atomic rewrite). */
+export function rotateAgentSessionCapability(conversationId: string, port: number, capability: string): void {
+  if (!buildAgentTurnEntry({ conversationId, port, capability })) throw new Error('The bundled Specrails MCP bridge is unavailable.')
+}
+
 /** Delete the on-disk bearer as soon as its owning agent turn settles. */
 export function removeAgentCapabilityFile(conversationId: string, invocationId?: string): void {
   if (!AGENT_CONVERSATION_ID_RE.test(conversationId) ||

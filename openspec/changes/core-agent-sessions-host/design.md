@@ -79,25 +79,31 @@ Ports exist only where there are real substitutes:
 
 *Alternative rejected:* embedding Core's session runtime in-process. Core is ESM with `node:sqlite`, while Desktop's sidecar is a CommonJS/pkg build. The existing runtime bridge already avoids dynamic ESM imports for this reason. A separate process also isolates provider crashes from the sidecar.
 
-### D2. Conversation transport port (Strategy chosen at composition)
+### D2. Transport seam: adapt Core sessions to the existing turn-runner contract
 
-```ts
-interface ConversationTransport {          // owned by the missions application layer
-  readonly kind: 'core-session' | 'legacy'
-  capabilities(provider): TransportCapabilities  // resident, subagents, steer, continuation
-  startTurn(ctx: TurnContext, sink: TurnSink): Promise<TurnHandle>
-  send(input: QueuedInput): Promise<DeliveryReceipt>
-  interrupt(conversationId): Promise<void>
-  stopSubagents(conversationId, ids?): Promise<void>
-  retire(conversationId, reason): Promise<void>
-}
-```
+Mission turns already run through one seam: `nativeLiveSessionRunner(adapter) ?? runAiCliInvocation`. Its hook contract carries:
 
-- `CoreSessionTransport` adapts the agent-sessions API.
-- `LegacyTransport` wraps today's `nativeLiveSessionRunner ?? runAiCliInvocation` path unchanged.
-- The composition root picks per provider: Core when the installed Core advertises `sessions` and lists a driver for that provider, unless `SPECRAILS_CORE_SESSIONS=off`. Otherwise it picks legacy.
-- `AgentChatManager` keeps queue, steering, receipts, MCP capability, persistence ownership and WS broadcasting, and talks only to the port. This is the seam through which later changes migrate the other surfaces.
-- The port carries narrow, use-case-owned methods. It is not a mirror of every class method.
+- prompt, system prompt and model in `buildOpts`;
+- normalized `AdapterEvent`s in `onEvent`;
+- native steering through `onInputReady(sink)`;
+- receipts through `onInitialInputAccepted`;
+- an `InvocationResult`.
+
+Mission product rules are built on that contract: queue and steer, segment checkpoints, receipts, the MCP steering broker, stale-session healing and settlement. Replacing the contract would put all of them at risk. Desktop adds a **Core session runner**: a third implementation of the same contract, an Adapter that satisfies Liskov substitution against the existing runners.
+
+- **Selection:** made once per turn by the composition. The Core runner is used when Core sessions are available for the scope (D8) and Core lists a driver for the conversation's provider. Otherwise the existing native or one-shot runner is used. Mission code never branches on provider ids.
+- **User turn:** the runner ensures the conversation's Core session (open, or `resume` of the stored Core session id), sends the prepared prompt as one input, and maps Core's user-turn events to `AdapterEvent`s:
+  - `turn.output` → `text-delta`;
+  - `turn.tool` → `tool-use` / `tool-result`;
+  - `session.provider-ref` → `session-started`;
+  - `input.state` → receipts.
+- **Turn end and steering:** the runner resolves when that user turn completes. The session, its sub-agents and the provider process stay alive in Core. Native steering delivers through `session.send { delivery: 'steer' }`.
+- **Turn handle instead of a child process:** the runner registers a `TurnHandle { interrupt(): Promise<void> }`. Stop calls `session.interrupt`, never a PID kill, and deleting the conversation calls `session.close`. The existing `ChildProcess` path is untouched for other runners.
+- **Usage:** the runner returns Core's normalized `Usage`, already a per-turn delta. Accounting records it through a shared `finaliseNormalisedResult` step, the same estimation and null semantics as today, instead of reparsing provider frames.
+- **MCP:** the Core session receives structured MCP specs built by `prepareAgentMcpSpec`: the `specrails` bridge entry plus external servers. The capability stays per turn. Desktop mints one each turn and rewrites the conversation's 0600 capability file, and the bridge reads the file on every request instead of once at start. A resident provider therefore always presents the current turn's capability, and tier changes apply on the next turn without restarting the session.
+- **Background work:** continuation and system turns, sub-agents and resident phase arrive outside any user turn. A `MissionSessionProjector` (the missions `ProjectionSink`) persists them and broadcasts the new WS events (D3).
+
+*Alternative rejected:* a new `ConversationTransport` interface replacing the runner contract inside the 1.5k-line mission manager. That would mean the same behaviour behind a second abstraction, with a much larger blast radius. The runner contract already is the port.
 
 ### D3. Projection: Core journal is the execution source of truth; Desktop DB is a rebuildable read model
 

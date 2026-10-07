@@ -6,13 +6,15 @@ import { readMcpToken } from './bridge'
 type SessionTransport = Transport & { terminateSession?: () => Promise<void> }
 
 /** Read the current scoped token for every request, including SDK reconnects.
- * A 401 is safe to retry only when the file actually contains a new token. */
-export function authenticatedFetch(agentHeaders: Record<string, string>, fetchImpl: typeof fetch = fetch): typeof fetch {
+ * A 401 is safe to retry only when the file actually contains a new token.
+ * Agent headers may be a function so a long-lived bridge (resident agent
+ * session) presents the capability of the CURRENT turn on every request. */
+export function authenticatedFetch(agentHeaders: Record<string, string> | (() => Record<string, string>), fetchImpl: typeof fetch = fetch): typeof fetch {
   return async (input, init) => {
     const token = readMcpToken()
     const headers = new Headers(init?.headers)
     if (token) headers.set('Authorization', `Bearer ${token}`)
-    for (const [key, value] of Object.entries(agentHeaders)) headers.set(key, value)
+    for (const [key, value] of Object.entries(typeof agentHeaders === 'function' ? agentHeaders() : agentHeaders)) headers.set(key, value)
     const response = await fetchImpl(input, { ...init, headers })
     const refreshed = response.status === 401 ? readMcpToken() : null
     if (refreshed && refreshed !== token) {

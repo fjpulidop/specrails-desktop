@@ -14,7 +14,11 @@ async function main(): Promise<void> {
   // The in-app agent chat gives this bridge a path to its 0600 per-turn
   // capability. The server validates it and derives tier/project/conversation
   // from its own in-memory binding; no caller-authored context header is trusted.
-  const fetchWithCredentials = authenticatedFetch(agentForwardHeaders())
+  // Validate it once at startup (refuse to run unrestricted), then re-read it on
+  // every request: a resident agent session keeps this bridge alive across
+  // turns while Desktop rotates the capability file per turn.
+  agentForwardHeaders()
+  const fetchWithCredentials = authenticatedFetch(() => agentForwardHeaders())
   const appFacing = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(appUrl(), { fetch: fetchWithCredentials }))
   const clientFacing = new StdioServerTransport()
 

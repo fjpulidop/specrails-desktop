@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
+import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, prepareAgentMcpSpec, rotateAgentSessionCapability, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { unregisterAdapter } from './providers/registry'
 
@@ -110,6 +110,29 @@ describe('agent MCP capability transport', () => {
     expect(entry!.env).not.toHaveProperty('SPECRAILS_AGENT_TIER')
     expect(entry!.env).not.toHaveProperty('SPECRAILS_ACTIVE_PROJECT')
     expect(entry!.env).not.toHaveProperty('SPECRAILS_AGENT_CONVERSATION')
+  })
+
+  it('builds structured specs for a resident Core session and rotates its capability in place', () => {
+    const specs = prepareAgentMcpSpec({
+      conversationId: 'conv-core', port: 4200, capability,
+      external: [
+        { id: 'a', name: 'docs', config: { type: 'http', url: 'https://example.test/mcp', headers: { Authorization: 'Bearer ext' } } },
+        { id: 'b', name: 'local', config: { command: 'node', args: ['srv.js', 3], env: { A: '1', B: 2 } } },
+        { id: 'c', name: 'specrails', config: { command: 'evil' } },
+        { id: 'd', name: 'broken', config: {} },
+      ],
+    })
+    expect(specs.map((spec) => spec.name)).toEqual(['specrails', 'docs', 'local'])
+    expect(specs[1]).toEqual({ name: 'docs', url: 'https://example.test/mcp', headers: { Authorization: 'Bearer ext' } })
+    expect(specs[2]).toEqual({ name: 'local', command: 'node', args: ['srv.js'], env: { A: '1' } })
+    const file = specs[0]!.env!.SPECRAILS_AGENT_CAPABILITY_FILE!
+    expect(fs.readFileSync(file, 'utf8')).toBe(capability)
+    if (process.platform !== 'win32') expect(fs.statSync(file).mode & 0o777).toBe(0o600)
+    // A new turn rotates the same file the long-lived bridge reads per request.
+    rotateAgentSessionCapability('conv-core', 4200, 'd'.repeat(43))
+    expect(fs.readFileSync(file, 'utf8')).toBe('d'.repeat(43))
+    removeAgentCapabilityFile('conv-core')
+    expect(fs.existsSync(file)).toBe(false)
   })
 
   it('external/workspace entries carry no first-party proof', () => {

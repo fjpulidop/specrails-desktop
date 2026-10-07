@@ -56,7 +56,19 @@ export function finaliseInvocationResult(
   events: readonly AdapterEvent[],
   opts: FinaliseOptions = {},
 ): FinalisedInvocation {
-  const result = adapter.extractResult(events) as NormalisedResult & { __dontFreeze?: never }
+  return finaliseNormalisedResult(adapter, adapter.extractResult(events), opts)
+}
+
+/**
+ * Same finalisation for a result that is already normalised (e.g. a turn
+ * reported by Core's session runtime): model/duration stamping and the
+ * native-cost-absent estimation rules, with identical null semantics.
+ */
+export function finaliseNormalisedResult(
+  adapter: ProviderAdapter,
+  result: NormalisedResult,
+  opts: FinaliseOptions = {},
+): FinalisedInvocation {
   const cloned: NormalisedResult = { ...result }
 
   // Stamp the model from the caller when the adapter did not derive one. The
