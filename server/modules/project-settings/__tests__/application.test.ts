@@ -3,7 +3,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
-  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false,
+  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -73,6 +73,19 @@ describe('allowSubagents', () => {
     expect(repository.update).toHaveBeenCalledExactlyOnceWith({ allowSubagents: true })
     expect(() => service.updateSettings({ allowSubagents: 'yes' })).toThrow(SettingsValidationError)
     expect(() => service.updateSettings({ allowSubagents: 1 })).toThrow('allowSubagents must be a boolean')
+  })
+})
+
+describe('subagentRuntime', () => {
+  it('validates the provider, model and effort, and accepts null to clear', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ subagentRuntime: { provider: 'claude', model: ' sonnet ', effort: null } })
+    expect(repository.update).toHaveBeenLastCalledWith({ subagentRuntime: { provider: 'claude', model: 'sonnet', effort: null } })
+    service.updateSettings({ subagentRuntime: null })
+    expect(repository.update).toHaveBeenLastCalledWith({ subagentRuntime: null })
+    for (const bad of [{ provider: 'Claude!', model: 'x' }, { provider: 'claude', model: '' }, { provider: 'claude', model: 'x', effort: 5 }, 'claude']) {
+      expect(() => service.updateSettings({ subagentRuntime: bad })).toThrow(SettingsValidationError)
+    }
   })
 })
 

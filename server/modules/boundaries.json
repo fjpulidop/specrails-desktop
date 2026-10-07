@@ -310,7 +310,9 @@
         "./protocol"
       ],
       "domain/protocol.ts": [],
-      "domain/subagent-policy.ts": [],
+      "domain/subagent-policy.ts": [
+        "./protocol"
+      ],
       "index.ts": [
         "./application/session-event-pump",
         "./domain/availability",

@@ -24,6 +24,8 @@ export interface SubagentView {
   resultSummary: string | null
   /** The turn whose activity launched it (for anchoring UI). */
   launchedInTurnId: string | null
+  /** Set when Core launched it on another provider (delegated runtime). */
+  delegated: { driver: string; model: string } | null
 }
 
 export type ProjectionOp =
@@ -34,6 +36,8 @@ export type ProjectionOp =
   | { kind: 'input.state'; inputId: string; state: 'accepted' | 'queued' | 'started' | 'completed' | 'rejected' | 'interrupted'; turnId: string | null; reason: string | null }
   | { kind: 'subagent.upsert'; subagent: SubagentView }
   | { kind: 'subagent.output'; subagentId: string; channel: 'text' | 'tool'; delta: string | null; tool: ToolActivity | null; seq: number }
+  /** Spend of a delegated sub-agent: its own provider's, billed on top of the parent's. */
+  | { kind: 'subagent.billed'; subagentId: string; driver: string; model: string; usage: Usage; seq: number; at: string }
   | { kind: 'resident.phase'; phase: SessionPhase; liveSubagents: number; processAlive: boolean }
   | { kind: 'provider.ref'; providerSessionRef: string }
   | { kind: 'session.updated'; changes: Record<string, unknown>; outcome: 'applied' | 'deferred' }
@@ -135,6 +139,7 @@ export function reduceEnvelope(state: ProjectionState, envelope: SessionEventEnv
             durationMs: null,
             resultSummary: null,
             launchedInTurnId: next.openTurn?.turnId ?? null,
+            delegated: event.delegated ?? null,
           }
       next.subagents = { ...next.subagents, [node.subagentId]: node }
       ops.push({ kind: 'subagent.upsert', subagent: node })
@@ -155,6 +160,7 @@ export function reduceEnvelope(state: ProjectionState, envelope: SessionEventEnv
       const updated: SubagentView = { ...node, usage: event.usage, toolUses: event.toolUses ?? node.toolUses, durationMs: event.durationMs ?? node.durationMs }
       next.subagents = { ...next.subagents, [node.subagentId]: updated }
       ops.push({ kind: 'subagent.upsert', subagent: updated })
+      if (event.billing === 'separate' && node.delegated) ops.push({ kind: 'subagent.billed', subagentId: node.subagentId, driver: node.delegated.driver, model: event.usage.model ?? node.delegated.model, usage: event.usage, seq: envelope.seq, at: event.at })
       break
     }
     case 'subagent.result': {

@@ -71,10 +71,10 @@ export type SessionEvent = { at: string } & (
   | { type: 'turn.output'; turnId: string; channel: 'text' | 'thinking'; delta: string }
   | ({ type: 'turn.tool'; turnId: string } & ToolActivity)
   | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage }
-  | { type: 'subagent.started'; subagentId: string; parentId: string | null; kind: 'foreground' | 'background'; agentType?: string; description: string; prompt?: string }
+  | { type: 'subagent.started'; subagentId: string; parentId: string | null; kind: 'foreground' | 'background'; agentType?: string; description: string; prompt?: string; delegated?: { driver: string; model: string } }
   | { type: 'subagent.phase'; subagentId: string; phase: SubagentPhase; reason?: string }
   | { type: 'subagent.output'; subagentId: string; channel: 'text' | 'tool'; delta?: string; tool?: ToolActivity }
-  | { type: 'subagent.usage'; subagentId: string; usage: Usage; toolUses?: number; durationMs?: number }
+  | { type: 'subagent.usage'; subagentId: string; usage: Usage; toolUses?: number; durationMs?: number; billing?: 'included' | 'separate' }
   | { type: 'subagent.result'; subagentId: string; summary: string }
   | { type: 'subagents.settled'; settled: boolean; live: number }
   | { type: 'output.truncated'; scope: { turnId: string } | { subagentId: string }; droppedEvents: number; droppedBytes: number }
@@ -96,6 +96,10 @@ export interface DriverDescriptor {
     nativeInputQueue: boolean
     subagents: 'supported' | 'unsupported'
     subagentDisable: boolean
+    /** Native sub-agents can run on another model (absent on Cores before the hybrid runtime). */
+    subagentModel?: boolean
+    /** Native sub-agents can run at another effort. */
+    subagentEffort?: boolean
     autonomousContinuation: boolean
     steer: boolean
     toolFiltering: boolean
@@ -121,13 +125,20 @@ export interface SessionPolicyInput {
   permissions?: 'bypass' | 'workspace-write' | 'read-only'
   mcp?: { servers?: McpServerSpec[]; inheritUserScope?: boolean }
   limits?: Partial<Record<'idleMs' | 'stallMs' | 'backgroundMaxMs' | 'turnInactivityMs' | 'maxSettleHandoffs' | 'settleDebounceMs', number>>
+  /** Who launches sub-agents: the provider (native) or Core (delegated child sessions). */
+  subagentRuntime?: SubagentRuntimeInput
 }
+
+export type SubagentRuntimeInput =
+  | { mode: 'native'; model?: string; effort?: string }
+  | { mode: 'delegated'; driver: string; model: string; effort?: string; maxConcurrent?: number }
 
 export interface InitializeResult {
   protocolVersion: number
   scope: string
   runtime: Record<string, unknown>
-  capabilities: { sessions?: number }
+  /** `delegation`: Core can launch sub-agents itself (session.delegate / waitSubagents). */
+  capabilities: { sessions?: number; delegation?: number }
   drivers: DriverDescriptor[]
 }
 

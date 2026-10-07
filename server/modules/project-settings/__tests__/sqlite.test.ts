@@ -46,3 +46,15 @@ describe('allowSubagents persistence', () => {
   })
 })
 
+describe('subagentRuntime persistence', () => {
+  it('stores the choice, clears it with null and reads a corrupt value as unset', () => {
+    const { db, service } = setup()
+    expect(service.getSettings().subagentRuntime).toBeNull()
+    expect(service.updateSettings({ subagentRuntime: { provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' } }).subagentRuntime).toEqual({ provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' })
+    service.updateSettings({ subagentRuntime: null })
+    expect(db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.subagent_runtime'").get()).toBeUndefined()
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.subagent_runtime', '{bad')").run()
+    expect(service.getSettings().subagentRuntime).toBeNull()
+  })
+})
+

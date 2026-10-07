@@ -16,6 +16,7 @@ export {
   type SessionEventEnvelope,
   type SessionPhase,
   type SessionPolicyInput,
+  type SubagentRuntimeInput,
   type SubagentPhase,
   type ToolActivity,
   type TurnOrigin,
@@ -24,7 +25,7 @@ export {
 } from './domain/protocol'
 export { SessionRequestError, isSessionRequestError } from './domain/errors'
 export { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState, type SubagentView } from './domain/projection'
-export { resolveSubagentPolicy, type ConversationalSurface, type SubagentPolicy, type SubagentPolicyInput } from './domain/subagent-policy'
+export { resolveSubagentPolicy, resolveSubagentRuntime, type ConversationalSurface, type SubagentPolicy, type SubagentPolicyInput, type SubagentRuntimeChoice, type SubagentRuntimeResolution } from './domain/subagent-policy'
 export { DEFAULT_SUPERVISION, acceptsSessions, type HostStatus, type HostSupervisionPolicy } from './domain/host-state'
 export { DEFAULT_CORE_SESSIONS_FLAG, parseCoreSessionsFlag, resolveCoreSessionsAvailability, type CoreSessionsAvailability, type CoreSessionsFlag } from './domain/availability'
 export { SessionEventPump, type PumpListener } from './application/session-event-pump'

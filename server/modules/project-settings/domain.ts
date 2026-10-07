@@ -37,6 +37,28 @@ export interface ProjectSettings {
   /** Conversational agents of this project (missions, explore, refinements) may
    *  use sub-agents. Off by default; Implement pipelines are never affected. */
   allowSubagents: boolean
+  /** Who runs sub-agents. null = the mission agent's own provider (native, its defaults). */
+  subagentRuntime: SubagentRuntimeSetting | null
+}
+
+/** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
+export interface SubagentRuntimeSetting {
+  provider: string
+  model: string
+  effort: string | null
+}
+
+const PROVIDER_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+/** Strict shape check shared by project and app settings; null clears the choice. */
+export function parseSubagentRuntimeSetting(value: unknown): SubagentRuntimeSetting | null {
+  if (value === null) return null
+  const input = value as Record<string, unknown>
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new SettingsValidationError('subagentRuntime must be an object or null')
+  if (typeof input.provider !== 'string' || !PROVIDER_ID_RE.test(input.provider)) throw new SettingsValidationError('subagentRuntime.provider must be a provider id')
+  if (typeof input.model !== 'string' || !input.model.trim() || input.model.length > 200) throw new SettingsValidationError('subagentRuntime.model must be a model name')
+  if (input.effort !== undefined && input.effort !== null && (typeof input.effort !== 'string' || !input.effort.trim() || input.effort.length > 50)) throw new SettingsValidationError('subagentRuntime.effort must be an effort level or null')
+  return { provider: input.provider, model: input.model.trim(), effort: typeof input.effort === 'string' ? input.effort.trim() : null }
 }
 
 export const WORKTREE_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -99,6 +121,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
       throw new SettingsValidationError(error instanceof Error ? error.message : 'invalid worktreeEnvPassthrough')
     }
   }
+  if (values.subagentRuntime !== undefined) patch.subagentRuntime = parseSubagentRuntimeSetting(values.subagentRuntime)
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents

@@ -16,7 +16,7 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
 import { setDetectedProvidersSupplier } from './provider-selection'
-import { getGlobalAllowSubagents, setProjectProvidersMirror } from './desktop-db'
+import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
 import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
 import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
@@ -745,6 +745,12 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       projectAllows: conversation.pinned_project_id ? projectAllowsSubagents(conversation.pinned_project_id) : null,
       globalAllows: getGlobalAllowSubagents(registry.desktopDb),
     }),
+    // "Run sub-agents with": the project's choice, or the app-wide one without a project.
+    subagentRuntime: (conversation) => {
+      if (!conversation.pinned_project_id) return getGlobalSubagentRuntime(registry.desktopDb)
+      const context = registry.getContext(conversation.pinned_project_id)
+      return context ? getProjectSettings(context.db).subagentRuntime : null
+    },
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })

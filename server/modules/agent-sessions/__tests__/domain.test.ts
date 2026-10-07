@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_SUPERVISION, INITIAL_HOST_STATE, acceptsSessions, canTransition, onDemand, onFailure, onReady, onRestartDue, onRetry, onStop } from '../domain/host-state'
 import { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState } from '../domain/projection'
 import { KNOWN_EVENT_TYPES, checkSessionContract, type SessionEvent, type Usage } from '../domain/protocol'
-import { resolveSubagentPolicy } from '../domain/subagent-policy'
+import { resolveSubagentPolicy, resolveSubagentRuntime } from '../domain/subagent-policy'
 
 const usage = (costUsd: number | null): Usage => ({ inputTokens: null, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd, costEstimated: false, model: 'm' })
 const at = '2026-10-07T10:00:00.000Z'
@@ -163,6 +163,30 @@ describe('sub-agent policy resolution', () => {
     for (const surface of ['mission', 'explore', 'refinement'] as const) {
       expect(resolveSubagentPolicy({ surface, projectAllows, globalAllows })).toBe(expected)
     }
+  })
+})
+
+describe('sub-agent runtime resolution (hybrid)', () => {
+  const caps = (id: string, model: boolean, effort: boolean) => ({ id, displayName: id, capabilities: { resident: true, nativeInputQueue: true, subagents: 'supported' as const, subagentDisable: true, subagentModel: model, subagentEffort: effort, autonomousContinuation: true, steer: true, toolFiltering: true, usage: { costUsd: 'per-turn' as const, tokens: 'per-turn' as const } } })
+  const drivers = [caps('claude', true, false), caps('codex', true, true)]
+  const choice = (provider: string) => ({ provider, model: 'm', effort: 'low' })
+
+  it('keeps native sub-agents when nothing was chosen', () => {
+    expect(resolveSubagentRuntime({ choice: null, missionProvider: 'codex', drivers, delegation: true })).toEqual({ runtime: { mode: 'native' } })
+  })
+
+  it('stays native with the overrides the mission provider supports when providers match', () => {
+    expect(resolveSubagentRuntime({ choice: choice('codex'), missionProvider: 'codex', drivers, delegation: true }).runtime).toEqual({ mode: 'native', model: 'm', effort: 'low' })
+    expect(resolveSubagentRuntime({ choice: choice('claude'), missionProvider: 'claude', drivers, delegation: true }).runtime).toEqual({ mode: 'native', model: 'm' })
+  })
+
+  it('delegates to Core when the providers differ', () => {
+    expect(resolveSubagentRuntime({ choice: choice('claude'), missionProvider: 'codex', drivers, delegation: true })).toEqual({ runtime: { mode: 'delegated', driver: 'claude', model: 'm', effort: 'low' } })
+  })
+
+  it('falls back to native and says why when the Core cannot honour the choice', () => {
+    expect(resolveSubagentRuntime({ choice: choice('claude'), missionProvider: 'codex', drivers, delegation: false })).toEqual({ runtime: { mode: 'native' }, unavailable: 'delegation_unsupported' })
+    expect(resolveSubagentRuntime({ choice: choice('gemini'), missionProvider: 'codex', drivers, delegation: true })).toEqual({ runtime: { mode: 'native' }, unavailable: 'driver_unavailable' })
   })
 })
 

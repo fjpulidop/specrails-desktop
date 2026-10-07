@@ -128,4 +128,22 @@ describe('MissionSessionProjector', () => {
     // Clients still see the replayed turn close (no message to append).
     expect(broadcasts.find((message) => message.type === 'agent_turn_done')).toEqual(expect.not.objectContaining({ messageId: expect.anything() }))
   })
+
+  it('records a delegated sub-agent spend once, on its own provider', () => {
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: ['u1'] },
+      { type: 'subagent.started', subagentId: 'child-1', parentId: null, kind: 'background', agentType: 'codex:gpt-5.6-terra', description: 'Review', delegated: { driver: 'codex', model: 'gpt-5.6-terra' } },
+      { type: 'subagent.usage', subagentId: 'child-1', usage: { ...usage(null), model: null }, billing: 'separate' },
+      // Native breakdowns are never recorded as spend.
+      { type: 'subagent.started', subagentId: 'native-1', parentId: null, kind: 'background', description: 'Native' },
+      { type: 'subagent.usage', subagentId: 'native-1', usage: usage(0.5), billing: 'included' },
+    ])
+    const rows = db.prepare("SELECT id, origin, provider, status FROM agent_invocations WHERE conversation_id = ?").all(conversationId) as Array<{ id: string; origin: string; provider: string; status: string }>
+    expect(rows).toEqual([{ id: `core-subagent:${conversationId}:child-1:5`, origin: 'subagent', provider: 'codex', status: 'success' }])
+    expect(listSubagents(db, conversationId).find((node) => node.subagentId === 'child-1')?.delegated).toEqual({ driver: 'codex', model: 'gpt-5.6-terra' })
+    expect(broadcasts.some((message) => message.type === 'spending.invalidated')).toBe(false)
+  })
 })
+

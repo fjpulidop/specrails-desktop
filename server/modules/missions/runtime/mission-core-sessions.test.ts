@@ -41,7 +41,7 @@ type Body = Omit<SessionEvent, 'at'>
 /** Protocol-faithful Core host for one scope. */
 class FakeCoreHost implements SessionHostClient {
   closed = false
-  readonly initialize: InitializeResult = {
+  initialize: InitializeResult = {
     protocolVersion: 1, scope: 'global', runtime: {}, capabilities: { sessions: 1 },
     drivers: [{ id: 'claude', displayName: 'Claude Code', capabilities: { resident: true, nativeInputQueue: true, subagents: 'supported', subagentDisable: true, autonomousContinuation: true, steer: true, toolFiltering: true, usage: { costUsd: 'session-cumulative', tokens: 'per-turn' } } }],
   }
@@ -380,6 +380,51 @@ describe('missions on Core agent sessions', () => {
     expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'journal_locked', scope: 'global', level: 'warning' })
     // The turn itself ran on the legacy transport.
     expect(mockSpawn).toHaveBeenCalled()
+  })
+
+  describe('who runs sub-agents (hybrid runtime)', () => {
+    function withRuntime(choice: { provider: string; model: string; effort: string | null } | null) {
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      manager.setCoreSessions(new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+        availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+        subagentPolicy: () => 'enabled',
+        subagentRuntime: () => choice,
+      }))
+    }
+    const openPolicy = () => host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params.policy as Record<string, unknown>
+    const claude = { id: 'claude', displayName: 'Claude Code', capabilities: { resident: true, nativeInputQueue: true, subagents: 'supported' as const, subagentDisable: true, subagentModel: true, subagentEffort: false, autonomousContinuation: true, steer: true, toolFiltering: true, usage: { costUsd: 'session-cumulative' as const, tokens: 'per-turn' as const } } }
+    const codex = { ...claude, id: 'codex', displayName: 'Codex', capabilities: { ...claude.capabilities, subagentEffort: true } }
+
+    it('lets Core launch them when the chosen provider differs from the mission', async () => {
+      host.initialize = { ...host.initialize, capabilities: { sessions: 1, delegation: 1 }, drivers: [claude, codex] }
+      withRuntime({ provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      expect(openPolicy()).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5.6-terra', effort: 'low' } })
+    })
+
+    it('keeps them native with the supported overrides when the providers match', async () => {
+      host.initialize = { ...host.initialize, capabilities: { sessions: 1, delegation: 1 }, drivers: [claude, codex] }
+      withRuntime({ provider: 'claude', model: 'sonnet', effort: 'high' })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      // Claude cannot set a sub-agent effort: only the model travels.
+      expect(openPolicy()).toMatchObject({ subagentRuntime: { mode: 'native', model: 'sonnet' } })
+      expect((openPolicy().subagentRuntime as Record<string, unknown>).effort).toBeUndefined()
+    })
+
+    it('stays native and tells the mission when this Core cannot delegate', async () => {
+      host.initialize = { ...host.initialize, capabilities: { sessions: 1 }, drivers: [claude] }
+      withRuntime({ provider: 'codex', model: 'gpt-5.6-terra', effort: null })
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      expect(openPolicy()).toMatchObject({ subagentRuntime: { mode: 'native' } })
+      expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'delegation_unsupported' })
+    })
   })
 })
 

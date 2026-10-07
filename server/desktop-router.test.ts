@@ -1196,6 +1196,17 @@ describe('desktop-router', () => {
       expect(registry.notifySettingsChanged).toHaveBeenCalledOnce()
     })
 
+    it('reads and writes the app-wide sub-agent runtime and validates it', async () => {
+      const { app, registry } = createApp()
+      expect((await request(app).get('/api/settings')).body.subagentRuntime).toBeNull()
+      expect((await request(app).put('/api/settings').send({ subagentRuntime: { provider: 'claude', model: 'sonnet' } })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.subagentRuntime).toEqual({ provider: 'claude', model: 'sonnet', effort: null })
+      expect(registry.notifySettingsChanged).toHaveBeenLastCalledWith({ projectId: null })
+      expect((await request(app).put('/api/settings').send({ subagentRuntime: { provider: '', model: 'x' } })).status).toBe(400)
+      expect((await request(app).put('/api/settings').send({ subagentRuntime: null })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.subagentRuntime).toBeNull()
+    })
+
     it('rejects a non-boolean allowSubagents without writing anything', async () => {
       const { app } = createApp()
       const res = await request(app).put('/api/settings').send({ allowSubagents: 'yes', port: 4300 })

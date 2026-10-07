@@ -82,8 +82,8 @@ export function isCoreTurnRecorded(db: DbInstance, conversationId: string, turnI
 }
 
 export function upsertSubagent(db: DbInstance, conversationId: string, view: SubagentView): void {
-  db.prepare(`INSERT INTO agent_subagents (conversation_id, subagent_id, parent_id, kind, agent_type, description, phase, reason, restarts, launched_turn_id, started_at, ended_at, usage_json, tool_uses, duration_ms, result_summary, updated_at)
-    VALUES (@conversationId, @subagentId, @parentId, @kind, @agentType, @description, @phase, @reason, @restarts, @launchedInTurnId, @startedAt, @endedAt, @usage, @toolUses, @durationMs, @resultSummary, datetime('now'))
+  db.prepare(`INSERT INTO agent_subagents (conversation_id, subagent_id, parent_id, kind, agent_type, description, phase, reason, restarts, launched_turn_id, started_at, ended_at, usage_json, tool_uses, duration_ms, result_summary, delegated_driver, delegated_model, updated_at)
+    VALUES (@conversationId, @subagentId, @parentId, @kind, @agentType, @description, @phase, @reason, @restarts, @launchedInTurnId, @startedAt, @endedAt, @usage, @toolUses, @durationMs, @resultSummary, @delegatedDriver, @delegatedModel, datetime('now'))
     ON CONFLICT(conversation_id, subagent_id) DO UPDATE SET
       phase = excluded.phase, reason = excluded.reason, restarts = excluded.restarts, ended_at = excluded.ended_at,
       usage_json = excluded.usage_json, tool_uses = excluded.tool_uses, duration_ms = excluded.duration_ms,
@@ -104,6 +104,8 @@ export function upsertSubagent(db: DbInstance, conversationId: string, view: Sub
     toolUses: view.toolUses,
     durationMs: view.durationMs,
     resultSummary: view.resultSummary,
+    delegatedDriver: view.delegated?.driver ?? null,
+    delegatedModel: view.delegated?.model ?? null,
   })
 }
 
@@ -130,6 +132,7 @@ function mapSubagent(row: Record<string, unknown>): SubagentRow {
     durationMs: row.duration_ms === null ? null : Number(row.duration_ms),
     resultSummary: (row.result_summary as string | null) ?? null,
     launchedInTurnId: (row.launched_turn_id as string | null) ?? null,
+    delegated: row.delegated_driver ? { driver: String(row.delegated_driver), model: String(row.delegated_model ?? '') } : null,
   }
 }
 

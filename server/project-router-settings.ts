@@ -53,7 +53,8 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     req => createProjectSettingsService(createSqliteProjectSettingsRepository(ctx(req).db)),
     // Open agent sessions of this project re-read their sub-agent policy.
     (req, settings, previous) => {
-      if (settings.allowSubagents !== previous.allowSubagents) registry.notifySettingsChanged({ projectId: String(req.params.projectId) })
+      const runtimeChanged = JSON.stringify(settings.subagentRuntime) !== JSON.stringify(previous.subagentRuntime)
+      if (settings.allowSubagents !== previous.allowSubagents || runtimeChanged) registry.notifySettingsChanged({ projectId: String(req.params.projectId) })
     },
   )
 

@@ -81,7 +81,7 @@ export class MissionSessionProjector implements ProjectionSink {
             const message = op.text.trim()
               ? addAgentMessage(this.deps.db, { conversationId, role: 'assistant', content: op.text, turnOrigin: turn.origin, coreTurnId: op.turnId })
               : null
-            this.recordInvocation(conversation, op.turnId, op.usage, op.status, turn, op.at)
+            this.recordInvocation(conversation, { id: coreTurnInvocationId(conversation.id, op.turnId), providerId: conversation.provider, model: null, usage: op.usage, status: op.status, origin: turn.origin, startedAt: turn.startedAt, finishedAt: op.at })
             outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), timestamp })
             if (conversation.pinned_project_id) outbox.push({ type: 'spending.invalidated', projectId: conversation.pinned_project_id })
             break
@@ -95,6 +95,17 @@ export class MissionSessionProjector implements ProjectionSink {
             appendSubagentEvent(this.deps.db, conversationId, op.subagentId, op.seq, op.channel, op.delta, op.tool)
             outbox.push({ type: 'agent_subagent_event', conversationId, subagentId: op.subagentId, seq: op.seq, channel: op.channel, ...(op.delta !== null ? { delta: op.delta } : {}), ...(op.tool ? { tool: op.tool } : {}), timestamp })
             break
+          case 'subagent.billed': {
+            // A delegated sub-agent's own spend: recorded once (deterministic id), on top of the parent's.
+            const conversation = getAgentConversation(this.deps.db, conversationId)
+            if (!conversation) break
+            const invocationId = `core-subagent:${conversationId}:${op.subagentId}:${op.seq}`
+            if (this.deps.db.prepare('SELECT 1 FROM agent_invocations WHERE id = ?').get(invocationId)) break
+            const startedAt = this.subagentStartedAt(op.subagentId) ?? op.at
+            this.recordInvocation(conversation, { id: invocationId, providerId: op.driver, model: op.model, usage: op.usage, status: 'completed', origin: 'subagent', startedAt, finishedAt: op.at })
+            if (conversation.pinned_project_id) outbox.push({ type: 'spending.invalidated', projectId: conversation.pinned_project_id })
+            break
+          }
           case 'session.updated':
             outbox.push({ type: 'agent_session_updated', conversationId, outcome: op.outcome, changes: op.changes, timestamp })
             break
@@ -118,30 +129,47 @@ export class MissionSessionProjector implements ProjectionSink {
     return !!this.deps.db.prepare('SELECT 1 FROM agent_subagents WHERE conversation_id = ? AND subagent_id = ?').get(this.conversationId, subagentId)
   }
 
-  private recordInvocation(conversation: NonNullable<ReturnType<typeof getAgentConversation>>, turnId: string, usage: Usage, status: string, turn: BackgroundTurn, finishedAt: string): void {
-    const adapter = this.deps.adapterFor(conversation.provider)
+  private subagentStartedAt(subagentId: string): string | null {
+    const row = this.deps.db.prepare('SELECT started_at FROM agent_subagents WHERE conversation_id = ? AND subagent_id = ?').get(this.conversationId, subagentId) as { started_at: string } | undefined
+    return row?.started_at ?? null
+  }
+
+  private recordInvocation(conversation: NonNullable<ReturnType<typeof getAgentConversation>>, invocation: {
+    id: string
+    providerId: string
+    model: string | null
+    usage: Usage
+    status: string
+    origin: TurnOrigin
+    startedAt: string
+    finishedAt: string
+  }): void {
+    let adapter: ProviderAdapter
+    try { adapter = this.deps.adapterFor(invocation.providerId) } catch { return }
+    const usage = invocation.usage
     const normalised = {
       ...(usage.inputTokens !== null ? { tokens_in: usage.inputTokens } : {}),
       ...(usage.outputTokens !== null ? { tokens_out: usage.outputTokens } : {}),
       ...(usage.cacheReadTokens !== null ? { tokens_cache_read: usage.cacheReadTokens } : {}),
       ...(usage.cacheWriteTokens !== null ? { tokens_cache_create: usage.cacheWriteTokens } : {}),
       ...(usage.costUsd !== null && !usage.costEstimated ? { total_cost_usd: usage.costUsd } : {}),
-      ...(usage.model ? { model: usage.model } : {}),
+      ...(usage.model ?? invocation.model ? { model: usage.model ?? invocation.model! } : {}),
     }
+    const fallbackModel = invocation.model ?? (invocation.providerId === conversation.provider ? conversation.model : null)
     const { result, estimated } = finaliseNormalisedResult(adapter, normalised, {
-      ...(conversation.model ? { fallbackModel: conversation.model } : {}),
-      durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(turn.startedAt)),
+      ...(fallbackModel ? { fallbackModel } : {}),
+      durationMs: Math.max(0, Date.parse(invocation.finishedAt) - Date.parse(invocation.startedAt)),
     })
     recordAgentInvocation(this.deps.db, {
-      id: coreTurnInvocationId(conversation.id, turnId),
+      id: invocation.id,
       conversation_id: conversation.id,
       project_id: conversation.pinned_project_id ?? null,
       provider: adapter.id,
-      status: status === 'completed' ? 'success' : status === 'stopped' || status === 'interrupted' ? 'aborted' : 'failed',
-      started_at: turn.startedAt,
-      finished_at: finishedAt,
+      status: invocation.status === 'completed' ? 'success' : invocation.status === 'stopped' || invocation.status === 'interrupted' ? 'aborted' : 'failed',
+      started_at: invocation.startedAt,
+      finished_at: invocation.finishedAt,
       total_cost_usd_estimated: estimated,
-      origin: turn.origin,
+      origin: invocation.origin,
       ...result,
     })
   }

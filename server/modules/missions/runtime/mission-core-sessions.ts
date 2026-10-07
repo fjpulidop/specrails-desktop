@@ -2,7 +2,7 @@ import type { DbInstance } from '../../../db'
 import { prepareAgentMcpSpec, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import type { ResolvedExternalServer } from '../../../external-mcp'
 import type { ProviderAdapter } from '../../../providers/types'
-import type { CoreSessionsAvailability, SessionPolicyInput } from '../../agent-sessions'
+import { resolveSubagentRuntime, type CoreSessionsAvailability, type DriverDescriptor, type SessionPolicyInput, type SubagentRuntimeChoice } from '../../agent-sessions'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { getAgentConversation, type AgentConversation } from '../../agents/runtime/agent-store'
 import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
@@ -19,8 +19,10 @@ export interface MissionCoreSessionsDeps {
   /** Project key Core uses for the session scope (the project slug). */
   projectKey: (projectId: string) => string | null
   revokeCapability: (capability: string) => void
-  /** Sub-agent policy for a conversation (the project toggle lands here later). */
+  /** Sub-agent policy for a conversation (project / app "Allow sub-agents"). */
   subagentPolicy?: (conversation: AgentConversation) => SessionPolicyInput['subagents']
+  /** "Run sub-agents with" for a conversation; null = the mission agent's own provider. */
+  subagentRuntime?: (conversation: AgentConversation) => SubagentRuntimeChoice | null
 }
 
 export const GLOBAL_SCOPE = 'global'
@@ -37,7 +39,7 @@ export class MissionCoreSessions {
   private readonly handles = new Map<string, TurnHandle>()
   private readonly tracked = new Set<string>()
   /** Last turn context per mission: the policy its session runs with. */
-  private readonly contexts = new Map<string, Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { projectId: string | null; scope: string }>()
+  private readonly contexts = new Map<string, Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { projectId: string | null; scope: string; provider: string; drivers: DriverDescriptor[]; delegation: boolean }>()
 
   constructor(private readonly deps: MissionCoreSessionsDeps) {}
 
@@ -84,8 +86,14 @@ export class MissionCoreSessions {
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
 
     // Parity with legacy missions: the adapter declares its permission level; user-scope MCP servers stay inherited.
-    const policy: SessionPolicyInput = { subagents: this.subagentPolicy(conversation), permissions: adapter.capabilities.sessionPermissions ?? 'workspace-write', mcp: { inheritUserScope: true } }
-    this.contexts.set(conversationId, { policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope })
+    const delegation = client.initialize?.capabilities?.delegation === 1
+    const policy: SessionPolicyInput = {
+      subagents: this.subagentPolicy(conversation),
+      permissions: adapter.capabilities.sessionPermissions ?? 'workspace-write',
+      mcp: { inheritUserScope: true },
+      subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation),
+    }
+    this.contexts.set(conversationId, { policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope, provider: adapter.id, drivers, delegation })
     return {
       sessionId: conversationId,
       client,
@@ -110,8 +118,9 @@ export class MissionCoreSessions {
       const conversation = getAgentConversation(this.deps.db, conversationId)
       if (!conversation) continue
       const subagents = this.subagentPolicy(conversation)
-      if (subagents === context.policy.subagents) continue
-      const next = { ...context, policy: { ...context.policy, subagents } }
+      const subagentRuntime = this.subagentRuntime(conversation, context.provider, context.drivers, context.delegation)
+      if (subagents === context.policy.subagents && JSON.stringify(subagentRuntime) === JSON.stringify(context.policy.subagentRuntime)) continue
+      const next = { ...context, policy: { ...context.policy, subagents, subagentRuntime } }
       this.contexts.set(conversationId, next)
       try {
         const client = await this.deps.registry.acquire(context.scope)
@@ -129,6 +138,16 @@ export class MissionCoreSessions {
     const code = this.deps.registry.degradedCode(scope) === 'journal_locked' ? 'journal_locked' : 'host_degraded'
     const detail = this.deps.registry.hosts().find((host) => host.scope === scope)?.detail ?? null
     this.deps.broadcast({ type: 'agent_session_notice', conversationId, level: 'warning', code, scope, message: detail ?? code, timestamp: new Date().toISOString() })
+  }
+
+  /** The hybrid runtime for this mission; says so in the mission when a choice cannot be honoured. */
+  private subagentRuntime(conversation: AgentConversation, provider: string, drivers: DriverDescriptor[], delegation: boolean): NonNullable<SessionPolicyInput['subagentRuntime']> {
+    const choice = this.deps.subagentRuntime?.(conversation) ?? null
+    const resolution = resolveSubagentRuntime({ choice, missionProvider: provider, drivers, delegation })
+    if (resolution.unavailable && choice && this.subagentPolicy(conversation) === 'enabled') {
+      this.deps.broadcast({ type: 'agent_session_notice', conversationId: conversation.id, level: 'warning', code: resolution.unavailable, message: `${choice.provider} sub-agents are not available here; the mission agent runs its own.`, timestamp: new Date().toISOString() })
+    }
+    return resolution.runtime
   }
 
   private subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {

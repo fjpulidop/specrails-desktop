@@ -1,3 +1,4 @@
+import { parseSubagentRuntimeSetting, type SubagentRuntimeSetting } from './modules/project-settings'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -752,6 +753,13 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!messageColumns.includes('turn_origin')) db.exec(`ALTER TABLE agent_messages ADD COLUMN turn_origin TEXT CHECK (turn_origin IS NULL OR turn_origin IN ('user', 'subagent', 'system'));`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_messages_core_turn ON agent_messages(conversation_id, core_turn_id) WHERE core_turn_id IS NOT NULL;`)
     },
+    // 34: hybrid sub-agent runtime — sub-agents Core launched on another
+    // provider record which driver and model ran them. Column-guarded.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(agent_subagents)').all() as { name: string }[]).map((c) => c.name)
+      if (!columns.includes('delegated_driver')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_driver TEXT')
+      if (!columns.includes('delegated_model')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_model TEXT')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)
@@ -912,6 +920,20 @@ export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
 
 export function getGlobalAllowSubagents(db: DbInstance): boolean {
   return getDesktopSetting(db, GLOBAL_ALLOW_SUBAGENTS_KEY) === 'true'
+}
+
+/** App-wide "Run sub-agents with" for missions without a project; null = the mission agent's provider. */
+export const GLOBAL_SUBAGENT_RUNTIME_KEY = 'agent_subagent_runtime'
+
+export function getGlobalSubagentRuntime(db: DbInstance): SubagentRuntimeSetting | null {
+  const raw = getDesktopSetting(db, GLOBAL_SUBAGENT_RUNTIME_KEY)
+  if (!raw) return null
+  try { return parseSubagentRuntimeSetting(JSON.parse(raw)) } catch { return null }
+}
+
+export function setGlobalSubagentRuntime(db: DbInstance, value: SubagentRuntimeSetting | null): void {
+  if (value === null) db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(GLOBAL_SUBAGENT_RUNTIME_KEY)
+  else setDesktopSetting(db, GLOBAL_SUBAGENT_RUNTIME_KEY, JSON.stringify(value))
 }
 
 export function getDesktopSetting(db: DbInstance, key: string): string | undefined {
