@@ -52,6 +52,8 @@ describe.skipIf(!enabled)('missions on a live Core host', () => {
   let registry: SessionHostRegistry
   const broadcasts: Array<Record<string, unknown>> = []
 
+  const allow = { value: true }
+
   beforeAll(() => {
     home = mkdtempSync(path.join(tmpdir(), 'desktop live sessions '))
     dirs.cwd = mkdtempSync(path.join(tmpdir(), 'desktop live cwd '))
@@ -64,6 +66,7 @@ describe.skipIf(!enabled)('missions on a live Core host', () => {
     manager.setCoreSessions(new MissionCoreSessions({
       db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
       availability: async () => ({ enabled: true, flag: 'on', reason: 'live smoke' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+      subagentPolicy: () => (allow.value ? 'enabled' : 'disabled'),
     }))
   })
 
@@ -119,4 +122,28 @@ describe.skipIf(!enabled)('missions on a live Core host', () => {
       expect(continued()).toBe(true)
     }, 600_000)
   }
+
+  for (const provider of providers) {
+    it(`${provider}: with "Allow sub-agents" off, no sub-agent keeps running`, async () => {
+      allow.value = false
+      try {
+        const conversation = createAgentConversation(db, { provider, model: models[provider] ?? null })
+        const settled = () => broadcasts.some((message) => (message.type === 'agent_done' || message.type === 'agent_error') && message.conversationId === conversation.id)
+        manager.sendMessage(conversation.id, [
+          'This is an infrastructure smoke test: Specrails tools are intentionally unavailable, do not use or wait for them.',
+          'If you can, launch one sub-agent in the background to run `sleep 30 && echo SUBDONE`.',
+          'If you cannot launch sub-agents, run `echo DIRECT` yourself instead. Then reply with one word: LAUNCHED or DIRECT.',
+        ].join(' '))
+        await until(settled, 180_000, 'the user turn').catch(async (error) => { await dumpJournal(conversation.id, provider); throw error })
+        await until(() => listSubagents(db, conversation.id).every((node) => node.phase !== 'running'), 60_000, 'no running sub-agents').catch(async (error) => { await dumpJournal(conversation.id, provider); throw error })
+        const nodes = listSubagents(db, conversation.id)
+        console.log(`[live:${provider}:disabled]`, JSON.stringify(nodes.map((node) => ({ phase: node.phase, reason: node.reason, type: node.agentType }))))
+        // Either the provider never offered sub-agents, or Core stopped the ones it started.
+        expect(nodes.every((node) => node.phase === 'stopped' && node.reason === 'policy')).toBe(true)
+      } finally {
+        allow.value = true
+      }
+    }, 600_000)
+  }
 })
+
