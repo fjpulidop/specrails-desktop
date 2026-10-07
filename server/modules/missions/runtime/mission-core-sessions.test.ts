@@ -221,6 +221,39 @@ describe('missions on Core agent sessions', () => {
     expect(mcp.remove).toHaveBeenCalledWith(conversation.id)
   })
 
+  it('keeps the turn capability when Core restarts the provider for a config change', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    mcp.spec.mockClear()
+    mcp.remove.mockClear()
+    // A new effort retires the running process (config_change) and Core starts the next one for this turn.
+    host.script = (inputId, turnId) => [
+      { type: 'session.process', state: 'retired', generation: 1, reason: 'config_change' },
+      { type: 'session.process', state: 'started', generation: 2 },
+      { type: 'input.state', inputId, state: 'started' },
+      { type: 'session.phase', phase: 'turn' },
+      { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+    ]
+    const sending = manager.sendMessage(conversation.id, 'try with effort medium')
+    await waitFor(() => getSessionCursor(db, conversation.id)?.residentPhase === 'turn')
+    const capability = capabilityOf(0)
+    // The new process presents this turn's capability: Specrails tools must keep working.
+    expect(verifyAgentCapability(capability)).not.toBeNull()
+    expect(mcp.remove).not.toHaveBeenCalled()
+
+    host.emit(conversation.id, [
+      { type: 'turn.completed', turnId: 't1', status: 'completed', text: 'relaunched', usage: usage(0.01) },
+      { type: 'session.phase', phase: 'idle' },
+    ])
+    await sending
+    await waitFor(() => doneCount() === 1)
+    expect(verifyAgentCapability(capability)).not.toBeNull()
+
+    // Without a turn, a retired process releases it as before.
+    host.emit(conversation.id, [{ type: 'session.process', state: 'retired', generation: 2, reason: 'idle' }])
+    await waitFor(() => verifyAgentCapability(capability) === null)
+    expect(mcp.remove).toHaveBeenCalledWith(conversation.id)
+  })
+
   it('stops a running turn through Core instead of killing a process', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     host.script = (inputId, turnId) => [

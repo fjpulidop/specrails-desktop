@@ -37,6 +37,8 @@ export const GLOBAL_SCOPE = 'global'
 export class MissionCoreSessions {
   private readonly capabilities = new Map<string, string>()
   private readonly handles = new Map<string, TurnHandle>()
+  /** Missions with a turn being prepared or running: their capability belongs to that turn. */
+  private readonly activeTurns = new Set<string>()
   private readonly tracked = new Set<string>()
   /** Last turn context per mission: the policy its session runs with. */
   private readonly contexts = new Map<string, Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { projectId: string | null; scope: string; provider: string; drivers: DriverDescriptor[]; delegation: boolean }>()
@@ -83,6 +85,7 @@ export class MissionCoreSessions {
     for (const plugin of turn.plugins ?? []) if (!mcpServers.some((server) => server.name === plugin.name)) mcpServers.push(plugin)
     const previous = this.capabilities.get(conversationId)
     this.capabilities.set(conversationId, turn.capability)
+    this.activeTurns.add(conversationId)
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
 
     // Parity with legacy missions: the adapter declares its permission level; user-scope MCP servers stay inherited.
@@ -103,7 +106,11 @@ export class MissionCoreSessions {
       ...(policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
       legacyProviderSessionRef: conversation.session_id ?? null,
       metadata: { conversationId, surface: 'mission' },
-      onHandle: (handle) => { if (handle) this.handles.set(conversationId, handle); else this.handles.delete(conversationId) },
+      onHandle: (handle) => {
+        if (handle) { this.handles.set(conversationId, handle); return }
+        this.handles.delete(conversationId)
+        this.activeTurns.delete(conversationId)
+      },
     }
   }
 
@@ -160,8 +167,14 @@ export class MissionCoreSessions {
     return this.capabilities.get(conversationId) === capability
   }
 
-  /** Core retired the provider process: nothing can present the capability anymore. */
-  releaseCapability(conversationId: string): void {
+  /**
+   * Core retired the provider process: nothing can present the capability anymore.
+   * While a turn is prepared or running the capability is that turn's: a process
+   * retired by its own config change (model, effort, policy) is replaced at once
+   * and the new process presents the same capability, so it must stay valid.
+   */
+  releaseCapability(conversationId: string, options: { force?: boolean } = {}): void {
+    if (!options.force && this.activeTurns.has(conversationId)) return
     const capability = this.capabilities.get(conversationId)
     if (!capability) return
     this.capabilities.delete(conversationId)
@@ -250,8 +263,9 @@ export class MissionCoreSessions {
   async close(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>): Promise<void> {
     const scope = this.scopeOf(conversation)
     this.handles.delete(conversation.id)
+    this.activeTurns.delete(conversation.id)
     this.contexts.delete(conversation.id)
-    this.releaseCapability(conversation.id)
+    this.releaseCapability(conversation.id, { force: true })
     if (!this.tracked.delete(conversation.id)) return
     this.deps.registry.untrack(scope, conversation.id)
     try {
@@ -263,8 +277,9 @@ export class MissionCoreSessions {
   }
 
   shutdown(): void {
-    for (const conversationId of [...this.capabilities.keys()]) this.releaseCapability(conversationId)
+    for (const conversationId of [...this.capabilities.keys()]) this.releaseCapability(conversationId, { force: true })
     this.handles.clear()
+    this.activeTurns.clear()
     this.contexts.clear()
     this.tracked.clear()
   }
