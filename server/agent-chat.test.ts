@@ -375,6 +375,7 @@ function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
     notifyConversationCreated: vi.fn(),
     pendingMessages: () => [],
     conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
+    sessionState: () => null,
     ...manager,
   } as AgentChatManager, desktopDb: db }))
   return app

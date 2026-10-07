@@ -117,6 +117,14 @@ export class MissionCoreSessions {
     removeAgentCapabilityFile(conversationId)
   }
 
+  /** Stop sub-agents of a mission's Core session (all when `subagentIds` is omitted). */
+  async stopSubagents(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, subagentIds?: string[]): Promise<string[]> {
+    if (!this.tracked.has(conversation.id)) return []
+    const client = await this.deps.registry.acquire(this.scopeOf(conversation))
+    const result = await client.request<{ stopped: string[] }>('session.stopSubagents', { sessionId: conversation.id, ...(subagentIds ? { subagentIds } : {}) })
+    return result.stopped ?? []
+  }
+
   /** Conversation deleted: close its Core session and drop all local state. */
   async close(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>): Promise<void> {
     const scope = this.scopeOf(conversation)

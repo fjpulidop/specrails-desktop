@@ -38,6 +38,12 @@ export function getSessionCursor(db: DbInstance, conversationId: string): Sessio
   }
 }
 
+/** Missions whose Core session still has work in flight (non-idle or live sub-agents). */
+export function listActiveSessionCursors(db: DbInstance): SessionCursorRow[] {
+  const rows = db.prepare("SELECT conversation_id FROM agent_session_cursors WHERE resident_phase != 'idle' OR live_subagents > 0").all() as Array<{ conversation_id: string }>
+  return rows.map((row) => getSessionCursor(db, row.conversation_id)).filter((row): row is SessionCursorRow => row !== null)
+}
+
 export function ensureSessionCursor(db: DbInstance, conversationId: string, coreSessionId: string, scope: string): void {
   db.prepare(`INSERT INTO agent_session_cursors (conversation_id, core_session_id, scope) VALUES (?, ?, ?)
     ON CONFLICT(conversation_id) DO UPDATE SET core_session_id = excluded.core_session_id, scope = excluded.scope`).run(conversationId, coreSessionId, scope)

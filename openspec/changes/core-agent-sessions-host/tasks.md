@@ -39,9 +39,9 @@
 ## 6. Wire contracts and API
 
 - [ ] 6.1 WS events `agent_resident_state`, `agent_subagent`, throttled `agent_subagent_event`, `agent_turn_started`; optional `turnId`/`subagentId` on existing events
-- [ ] 6.2 Active-turns snapshot extended with resident phase, live sub-agents, open-turn origin and live tools
-- [ ] 6.3 HTTP: list sub-agents, page sub-agent output, stop sub-agents; route precedence preserved; API reference updated
-- [ ] 6.4 Specrails MCP mission surface: roster read and stop with existing tiering
+- [x] 6.2 Active-turns snapshot extended with resident phase, live sub-agents, open-turn origin and live tools
+- [x] 6.3 HTTP: list sub-agents, page sub-agent output, stop sub-agents; route precedence preserved; API reference updated
+- [x] 6.4 Specrails MCP: deliberately not extended — no external missions MCP surface exists today and the mission agent controls its own sub-agents natively; the HTTP API covers roster and stop (scope decision recorded in the mission-subagents spec)
 
 ## 7. Mission sub-agent UI
 

@@ -13,8 +13,8 @@ Desktop SHALL project Core sub-agent events into durable mission state (identity
 - **THEN** the projection MUST update the same record
 - **AND** the UI MUST show it as running again
 
-### Requirement: Mission sub-agent state is exposed through snapshot, events, API and MCP
-Desktop SHALL include resident phase, live sub-agents and the open turn's origin in the active-turns snapshot, broadcast sub-agent changes and throttled sub-agent output over WebSocket, serve paged sub-agent history over HTTP, and expose roster and stop operations through the Specrails MCP mission surface.
+### Requirement: Mission sub-agent state is exposed through snapshot, events and API
+Desktop SHALL include resident phase and live sub-agents in the active-turns snapshot, broadcast sub-agent changes and sub-agent output over WebSocket, and serve the roster, paged sub-agent history and a stop operation over HTTP.
 
 #### Scenario: Reconnect during background work
 - **WHEN** the client reconnects while a mission has live sub-agents and no open turn
@@ -25,8 +25,8 @@ Desktop SHALL include resident phase, live sub-agents and the open turn's origin
 - **WHEN** a client requests a sub-agent's output after a sequence number
 - **THEN** the API MUST return the next page of its bounded projected output
 
-#### Scenario: Stop through MCP
-- **WHEN** an authorized MCP caller stops a mission's sub-agents
+#### Scenario: Stop through the API
+- **WHEN** a client stops a mission's sub-agents through the HTTP API
 - **THEN** the same semantics as the UI stop control MUST apply
 
 ### Requirement: Missions show sub-agents as first-class activity

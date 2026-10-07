@@ -67,6 +67,7 @@ import {
 import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteering } from './agent-steering'
 import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
 import type { MissionCoreSessions } from './mission-core-sessions'
+import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -267,7 +268,30 @@ export class AgentChatManager {
         pendingMessages: this.pendingMessages(conversationId),
         streamingText: this._streamingText.get(conversationId) ?? '',
       })),
+      // Core agent sessions with background work: the client restores the
+      // background indicator and live sub-agent rows from this after reconnecting.
+      sessions: listActiveSessionCursors(this._db).map((cursor) => ({
+        conversationId: cursor.conversationId,
+        residentPhase: cursor.residentPhase,
+        processAlive: cursor.processAlive,
+        liveSubagents: cursor.liveSubagents,
+        subagents: listSubagents(this._db, cursor.conversationId).filter((node) => node.phase === 'running'),
+      })),
     }
+  }
+
+  /** Projected Core session state of one mission (null when it never ran in Core). */
+  sessionState(conversationId: string) {
+    const cursor = getSessionCursor(this._db, conversationId)
+    if (!cursor) return null
+    return { residentPhase: cursor.residentPhase, processAlive: cursor.processAlive, liveSubagents: cursor.liveSubagents, subagents: listSubagents(this._db, conversationId) }
+  }
+
+  /** Stop a mission's background sub-agents through its Core session. */
+  async stopSubagents(conversationId: string, subagentIds?: string[]): Promise<string[]> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) return []
+    return this._coreSessions.stopSubagents(conversation, subagentIds)
   }
 
   notifyConversationCreated(conversationId: string): void {

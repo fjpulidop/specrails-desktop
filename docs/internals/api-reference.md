@@ -149,6 +149,26 @@ Proxies the external specrails-tech agents service (base URL from `desktop_setti
 | `POST` | `/agents` | Create an agent entry |
 | `PATCH` | `/agents/:id` | Update |
 
+### Missions: Core agent session sub-agents (`/api/agent/*`)
+
+These routes are available when a mission ran in a Core agent session (`SPECRAILS_CORE_SESSIONS`, see [agent sessions](../../server/modules/agent-sessions/README.md)). Rows are Desktop's rebuildable projection of Core's session journal.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/agent/active-turns` | Reconnect snapshot. Besides `turns`, the response includes `sessions[]`: `{ conversationId, residentPhase, processAlive, liveSubagents, subagents }` for missions with background work. |
+| `GET` | `/agent/conversations/:id` | Includes `session`: `{ residentPhase, processAlive, liveSubagents, subagents }`, or `null` when the mission never ran in Core. |
+| `GET` | `/agent/conversations/:id/subagents` | `{ subagents, session }`. Each sub-agent has id, parent, kind, agent type, description, phase (`running`/`idle`/`failed`/`stopped`/`killed`/`interrupted`), reason, restarts, launching Core turn, timestamps, usage, tool uses, duration and result summary. |
+| `GET` | `/agent/conversations/:id/subagents/:subagentId/events?after=&limit=` | Paged sub-agent transcript `{ events: [{ seq, channel, delta?, tool?, createdAt }], hasMore }`. `limit` is 1–1000. |
+| `POST` | `/agent/conversations/:id/subagents/stop` | Body `{ subagentIds? }` (all when omitted). Returns `{ stopped }`; `502` when the session host is unavailable. |
+
+WebSocket events for these missions:
+
+- `agent_resident_state`, `agent_subagent`, `agent_subagent_event`;
+- `agent_turn_started` / `agent_turn_done` for turns Core starts after sub-agents finish (origin `subagent` or `system`);
+- `agent_session_updated` (`applied` / `deferred`) and `agent_session_notice`.
+
+Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result` with a `turnId`.
+
 ### Webhooks
 
 | Method | Path | Notes |
