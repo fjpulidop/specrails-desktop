@@ -816,7 +816,11 @@
     "deferred": "Settings change will apply when background agents finish.",
     "applyNow": "Stop agents and apply now",
     "policyUnenforceable": "{{provider}} can't turn sub-agents off. Enable “Allow sub-agents” in this project's settings, or use another provider for this mission.",
-    "result": "Result"
+    "result": "Result",
+    "count_one": "{{count}} agent",
+    "count_other": "{{count}} agents",
+    "finishedIn": "done in {{elapsed}}",
+    "popoverTitle": "Background agents"
   },
   "sessionNotice": {
     "host_degraded": "Core sessions are unavailable for this project after repeated failures, so this turn ran on the classic transport (no background sub-agents). Retry once the cause is fixed.",

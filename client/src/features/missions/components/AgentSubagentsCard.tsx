@@ -12,7 +12,7 @@ import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
 import { resultPreview } from '../lib/subagent-result'
 
 /** Live elapsed time while running; the final duration once it ended. */
-function useElapsed(node: AgentSubagent): string {
+export function useElapsed(node: AgentSubagent): string {
   const [now, setNow] = useState(() => Date.now())
   const live = isLiveSubagent(node)
   useEffect(() => {
@@ -24,7 +24,7 @@ function useElapsed(node: AgentSubagent): string {
   return formatElapsed(Math.max(0, end - Date.parse(node.startedAt)))
 }
 
-function PhaseGlyph({ node }: { node: AgentSubagent }) {
+export function PhaseGlyph({ node }: { node: AgentSubagent }) {
   if (isLiveSubagent(node)) {
     return (
       <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
@@ -42,11 +42,11 @@ function lastSeqOf(events: AgentSubagentEvent[] | null): number {
   return events && events.length > 0 ? events[events.length - 1].seq : 0
 }
 
-function formatTokens(value: number): string {
+export function formatTokens(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k` : String(value)
 }
 
-function SubagentActivity({ conversationId, node, liveEvents }: { conversationId: string; node: AgentSubagent; liveEvents: AgentSubagentEvent[] }) {
+export function SubagentActivity({ conversationId, node, liveEvents }: { conversationId: string; node: AgentSubagent; liveEvents: AgentSubagentEvent[] }) {
   const { t } = useTranslation('agent')
   const [history, setHistory] = useState<AgentSubagentEvent[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
@@ -118,13 +118,14 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
   const tokens = node.usage?.totalTokens ?? ((node.usage?.inputTokens ?? 0) + (node.usage?.outputTokens ?? 0) || null)
 
   return (
-    <li className={cn('border-t border-border/30 first:border-t-0', depth > 0 && 'bg-background/30')} data-testid="agent-subagent-row" data-phase={node.phase}>
-      <div className="flex items-center gap-2 px-3 py-2" style={depth > 0 ? { paddingLeft: `${0.75 + depth * 1.1}rem` } : undefined}>
+    <li className={cn('border-t border-border/20 first:border-t-0', depth > 0 && 'bg-background/30')} data-testid="agent-subagent-row" data-phase={node.phase}>
+      <div className="flex items-center gap-2 px-2.5 py-1.5" style={depth > 0 ? { paddingLeft: `${0.625 + depth * 1.1}rem` } : undefined}>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-label={open ? t('subagents.collapse') : t('subagents.expand', { name: node.description })}
+          title={node.resultSummary && !open ? resultPreview(node.resultSummary).slice(0, 280) : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
         >
           <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-foreground/40 transition-transform', open && 'rotate-90')} aria-hidden />
@@ -148,21 +149,6 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           </button>
         )}
       </div>
-      {!live && (reason || node.resultSummary || tokens !== null) && (
-        <div className="space-y-0.5 pb-2 pr-3 text-[11px] text-foreground/55" style={{ paddingLeft: `${2.6 + depth * 1.1}rem` }}>
-          {reason && <p className="text-foreground/50">{phaseLabel} · {reason}</p>}
-          {/* Collapsed: a clean two-line preview; expanded rows render the full markdown below. */}
-          {node.resultSummary && !open && <p className="line-clamp-2 text-foreground/70" data-testid="agent-subagent-result-preview">{resultPreview(node.resultSummary)}</p>}
-          {/* Usage is revealed once the sub-agent finished (no approximate live numbers). */}
-          {tokens !== null && (
-            <p className="font-mono text-[10.5px] text-foreground/45">
-              {t('subagents.tokens', { tokens: formatTokens(tokens) })}
-              {node.toolUses ? ` · ${t('subagents.toolUses', { count: node.toolUses })}` : ''}
-              {node.usage?.costUsd != null ? ` · ${node.usage.costEstimated ? '≈ ' : ''}$${node.usage.costUsd.toFixed(2)}` : ''}
-            </p>
-          )}
-        </div>
-      )}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -172,6 +158,17 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="overflow-hidden border-t border-border/20 bg-background/40"
           >
+            {(reason || tokens !== null) && (
+              <p className="border-b border-border/20 px-3 py-1.5 font-mono text-[10.5px] text-foreground/45" data-testid="agent-subagent-meta">
+                {[
+                  reason && `${phaseLabel} · ${reason}`,
+                  // Usage is revealed once the sub-agent finished (no approximate live numbers).
+                  !live && tokens !== null && t('subagents.tokens', { tokens: formatTokens(tokens) }),
+                  !live && node.toolUses ? t('subagents.toolUses', { count: node.toolUses }) : null,
+                  !live && node.usage?.costUsd != null ? `${node.usage.costEstimated ? '≈ ' : ''}$${node.usage.costUsd.toFixed(2)}` : null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            )}
             {node.resultSummary && (
               <section className="border-b border-border/20 px-3 py-2.5" aria-label={t('subagents.result')} data-testid="agent-subagent-result">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/40">{t('subagents.result')}</p>
@@ -229,9 +226,23 @@ function ordered(nodes: AgentSubagent[]): Array<{ node: AgentSubagent; depth: nu
   return result
 }
 
+/** Wall time from the first start to the last end (or now while any runs). */
+function groupElapsed(nodes: AgentSubagent[], now: number): number {
+  const start = Math.min(...nodes.map((node) => Date.parse(node.startedAt)))
+  const live = nodes.some(isLiveSubagent)
+  const end = live ? now : Math.max(...nodes.map((node) => (node.endedAt ? Date.parse(node.endedAt) : Date.parse(node.startedAt))))
+  return Math.max(0, end - start)
+}
+
+function nodeTokens(node: AgentSubagent): number | null {
+  return node.usage?.totalTokens ?? ((node.usage?.inputTokens ?? 0) + (node.usage?.outputTokens ?? 0) || null)
+}
+
 /**
- * The agents a turn launched: who is working, on what, for how long, and what
- * each returned. Status comes from Core, never from the agent's prose.
+ * The agents a turn launched, as one compact line under the reply: expanded
+ * while they work, folded to a summary once they all finished (unless the
+ * user chose otherwise). Each row expands to its result and activity. Status
+ * comes from Core, never from the agent's prose.
  */
 export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onStop, onRelaunch }: {
   conversationId: string
@@ -243,10 +254,23 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const [stopError, setStopError] = useState(false)
-  if (subagents.length === 0) return null
+  const [chosen, setChosen] = useState<boolean | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const working = subagents.filter(isLiveSubagent).length
+  useEffect(() => {
+    if (working === 0) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [working])
+  if (subagents.length === 0) return null
   const done = subagents.filter((node) => node.phase === 'idle').length
   const ended = subagents.length - working - done
+  const open = chosen ?? working > 0
+  const elapsed = formatElapsed(groupElapsed(subagents, now))
+  const tokens = working === 0 ? subagents.reduce((sum, node) => sum + (nodeTokens(node) ?? 0), 0) : 0
+  const status = working > 0
+    ? [t('subagents.working', { count: working }), done > 0 && t('subagents.done', { count: done }), ended > 0 && t('subagents.ended', { count: ended })].filter(Boolean).join(' · ')
+    : [t('subagents.finishedIn', { elapsed }), ended > 0 && t('subagents.ended', { count: ended }), tokens > 0 && t('subagents.tokens', { tokens: formatTokens(tokens) })].filter(Boolean).join(' · ')
   const stop = async (ids?: string[]) => {
     setStopError(false)
     try { await onStop(ids) } catch { setStopError(true) }
@@ -254,34 +278,55 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
 
   return (
     <motion.section
-      initial={reduced ? false : { opacity: 0, y: 6 }}
+      initial={reduced ? false : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       data-testid="agent-subagents-card"
+      data-open={open}
       aria-label={t('subagents.title')}
-      className="my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg backdrop-blur"
+      className="my-0.5"
     >
-      <header className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
-          <Bot className="h-3 w-3" aria-hidden />
-          {t('subagents.title')}
-        </span>
-        <span className={cn('min-w-0 flex-1 truncate text-[11px] text-foreground/60', working > 0 && 'title-shimmer')} aria-live="polite">
-          {[working > 0 && t('subagents.working', { count: working }), done > 0 && t('subagents.done', { count: done }), ended > 0 && t('subagents.ended', { count: ended })].filter(Boolean).join(' · ')}
-        </span>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setChosen(!open)}
+          aria-expanded={open}
+          data-testid="agent-subagents-summary"
+          className={cn(
+            'inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+            working > 0 ? 'border-accent-primary/40 bg-accent-primary/[0.07] text-foreground/85' : 'border-border/50 bg-surface/60 text-foreground/70 hover:border-border hover:text-foreground/85',
+          )}
+        >
+          {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/50" aria-hidden />}
+          <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
+          <span className={cn('min-w-0 truncate text-foreground/55', working > 0 && 'title-shimmer')} aria-live="polite">{status}</span>
+          {working > 0 && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-foreground/45">{elapsed}</span>}
+          <ChevronRight className={cn('h-3 w-3 shrink-0 text-foreground/40 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
+        </button>
         {working > 1 && (
-          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-md px-1.5 py-0.5 text-[10.5px] text-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
+          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-full px-2 py-1 text-[10.5px] text-foreground/45 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
             {t('subagents.stopAll')}
           </button>
         )}
-      </header>
-      {stopError && <p role="alert" className="border-b border-border/30 px-3.5 py-1.5 text-[11px] text-destructive">{t('subagents.stopFailed')}</p>}
-      <ul>
-        {ordered(subagents).map(({ node, depth }) => (
-          <SubagentRow key={node.subagentId} conversationId={conversationId} node={node} liveEvents={liveEvents[node.subagentId] ?? []} depth={depth}
-            onStop={(item) => void stop([item.subagentId])} onRelaunch={onRelaunch} />
-        ))}
-      </ul>
+      </div>
+      {stopError && <p role="alert" className="mt-1 px-1 text-[11px] text-destructive">{t('subagents.stopFailed')}</p>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.ul
+            initial={reduced ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="ml-3 mt-1 overflow-hidden rounded-lg border border-border/40 bg-card/50"
+            data-testid="agent-subagents-list"
+          >
+            {ordered(subagents).map(({ node, depth }) => (
+              <SubagentRow key={node.subagentId} conversationId={conversationId} node={node} liveEvents={liveEvents[node.subagentId] ?? []} depth={depth}
+                onStop={(item) => void stop([item.subagentId])} onRelaunch={onRelaunch} />
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
     </motion.section>
   )
 }

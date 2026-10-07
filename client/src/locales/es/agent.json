@@ -816,7 +816,11 @@
     "deferred": "El cambio de ajustes se aplicará cuando terminen los agentes en segundo plano.",
     "applyNow": "Detener agentes y aplicar ya",
     "policyUnenforceable": "{{provider}} no puede desactivar los sub-agentes. Activa «Permitir sub-agentes» en los ajustes del proyecto o usa otro proveedor para esta misión.",
-    "result": "Resultado"
+    "result": "Resultado",
+    "count_one": "{{count}} agente",
+    "count_other": "{{count}} agentes",
+    "finishedIn": "terminados en {{elapsed}}",
+    "popoverTitle": "Agentes en segundo plano"
   },
   "sessionNotice": {
     "host_degraded": "Las sesiones de Core no están disponibles para este proyecto tras varios fallos, así que este turno usó el transporte clásico (sin sub-agentes en segundo plano). Reintenta cuando se resuelva la causa.",

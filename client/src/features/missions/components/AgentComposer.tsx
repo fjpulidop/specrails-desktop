@@ -737,7 +737,7 @@ export function AgentComposer({
       {(compactProcesses.length > 0 || hasLiveSubagents) && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
           {activeId && hasLiveSubagents && (
-            <AgentBackgroundAgentsPill subagents={sessionSubagents} onStop={async () => { await stopSubagents(activeId) }} />
+            <AgentBackgroundAgentsPill conversationId={activeId} subagents={sessionSubagents} liveEvents={missionSession?.liveEvents ?? {}} onStop={async (ids) => { await stopSubagents(activeId, ids) }} />
           )}
 
           {compactProcesses.map((process, index) => (

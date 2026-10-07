@@ -27,7 +27,7 @@ describe('AgentSubagentsCard', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('summarises phases and nests children under their parent', () => {
+  it('stays open while agents work, nests children and keeps usage for finished rows', () => {
     render(
       <AgentSubagentsCard conversationId="c1" liveEvents={{}} onStop={vi.fn()} onRelaunch={vi.fn()} subagents={[
         node(),
@@ -37,16 +37,39 @@ describe('AgentSubagentsCard', () => {
         node({ subagentId: 'gone', description: 'Lint', phase: 'interrupted', reason: 'restart', endedAt: new Date().toISOString() }),
       ]} />,
     )
-    const card = screen.getByTestId('agent-subagents-card')
-    expect(within(card).getByText('2 working · 1 done · 1 ended')).toBeInTheDocument()
+    const summary = screen.getByTestId('agent-subagents-summary')
+    expect(summary).toHaveTextContent('4 agents')
+    expect(summary).toHaveTextContent('2 working · 1 done · 1 ended')
+    // No usage totals while anything runs.
+    expect(summary).not.toHaveTextContent('tokens')
     const rows = screen.getAllByTestId('agent-subagent-row')
     expect(rows.map((row) => row.getAttribute('data-phase'))).toEqual(['running', 'running', 'idle', 'interrupted'])
     expect(within(rows[1]).getByText('Child task')).toBeInTheDocument()
+    // Rows are one line: results and usage appear when a row is expanded.
+    expect(within(rows[2]).queryByText('All green')).not.toBeInTheDocument()
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ events: [], hasMore: false }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    fireEvent.click(within(rows[2]).getByRole('button', { name: 'Show activity of Write tests' }))
     expect(within(rows[2]).getByText('All green')).toBeInTheDocument()
-    expect(within(rows[2]).getByText('12k tokens · 3 tool calls · ≈ $0.42')).toBeInTheDocument()
-    expect(within(rows[3]).getByText('Interrupted · lost on restart')).toBeInTheDocument()
-    // Live rows show elapsed time, never usage numbers.
-    expect(within(rows[0]).queryByText(/tokens/)).not.toBeInTheDocument()
+    expect(within(rows[2]).getByTestId('agent-subagent-meta')).toHaveTextContent('12k tokens · 3 tool calls · ≈ $0.42')
+    fireEvent.click(within(rows[3]).getByRole('button', { name: 'Show activity of Lint' }))
+    expect(within(rows[3]).getByTestId('agent-subagent-meta')).toHaveTextContent('Interrupted · lost on restart')
+  })
+
+  it('folds to one line once every agent finished, and remembers the user choice', async () => {
+    const finished = [
+      node({ phase: 'idle', startedAt: '2026-10-07T10:00:00.000Z', endedAt: '2026-10-07T10:00:57.000Z', usage: { inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: 40_000, costUsd: null, costEstimated: false, model: null } }),
+      node({ subagentId: 'b', phase: 'idle', startedAt: '2026-10-07T10:00:05.000Z', endedAt: '2026-10-07T10:00:44.000Z', usage: { inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: 98_000, costUsd: null, costEstimated: false, model: null } }),
+    ]
+    const props = { conversationId: 'c1', liveEvents: {}, onStop: vi.fn(), onRelaunch: vi.fn() }
+    const { rerender } = render(<AgentSubagentsCard {...props} subagents={[node({ startedAt: '2026-10-07T10:00:00.000Z' }), finished[1]!]} />)
+    expect(screen.getByTestId('agent-subagents-card')).toHaveAttribute('data-open', 'true')
+    rerender(<AgentSubagentsCard {...props} subagents={finished} />)
+    expect(screen.getByTestId('agent-subagents-card')).toHaveAttribute('data-open', 'false')
+    expect(screen.getByTestId('agent-subagents-summary')).toHaveTextContent('2 agents')
+    expect(screen.getByTestId('agent-subagents-summary')).toHaveTextContent('done in 57s · 138k tokens')
+    await waitFor(() => expect(screen.queryAllByTestId('agent-subagent-row')).toHaveLength(0))
+    fireEvent.click(screen.getByTestId('agent-subagents-summary'))
+    expect(screen.getAllByTestId('agent-subagent-row')).toHaveLength(2)
   })
 
   it('stops one, stops all and surfaces a stop failure', async () => {
@@ -68,6 +91,7 @@ describe('AgentSubagentsCard', () => {
       node({ subagentId: 'shell', agentType: 'shell', description: 'npm test', phase: 'killed', endedAt: new Date().toISOString() }),
       node({ subagentId: 'ok', phase: 'idle', endedAt: new Date().toISOString() }),
     ]} />)
+    fireEvent.click(screen.getByTestId('agent-subagents-summary'))
     const buttons = screen.getAllByRole('button', { name: 'Relaunch' })
     expect(buttons).toHaveLength(1)
     fireEvent.click(buttons[0])
@@ -113,33 +137,46 @@ describe('AgentSubagentsCard', () => {
 })
 
 describe('sub-agent results', () => {
-  it('previews without markdown and renders the full result when expanded', async () => {
+  it('renders the full result as markdown when a row is expanded', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ events: [], hasMore: false }), { status: 200, headers: { 'content-type': 'application/json' } }))
     render(<AgentSubagentsCard conversationId="c1" liveEvents={{}} onStop={vi.fn()} onRelaunch={vi.fn()}
       subagents={[node({ phase: 'idle', endedAt: new Date().toISOString(), resultSummary: '**No backend yet.**\n\n- One commit\n- `openspec/` empty' })]} />)
-    expect(screen.getByTestId('agent-subagent-result-preview')).toHaveTextContent('No backend yet. One commit openspec/ empty')
-    expect(screen.getByTestId('agent-subagent-result-preview').textContent).not.toContain('**')
-    fireEvent.click(screen.getByRole('button', { name: 'Show activity of Scan the repo' }))
+    fireEvent.click(screen.getByTestId('agent-subagents-summary'))
+    const toggle = screen.getByRole('button', { name: 'Show activity of Scan the repo' })
+    // The folded row hints the result without raw markdown.
+    expect(toggle).toHaveAttribute('title', 'No backend yet. One commit openspec/ empty')
+    fireEvent.click(toggle)
     const result = await screen.findByTestId('agent-subagent-result')
     expect(within(result).getByText('No backend yet.').tagName).toBe('STRONG')
     expect(within(result).getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.queryByTestId('agent-subagent-result-preview')).not.toBeInTheDocument()
   })
 })
 
 describe('session indicators', () => {
   it('pill counts live agents and stops them', async () => {
     const onStop = vi.fn().mockResolvedValue(undefined)
-    render(<AgentBackgroundAgentsPill onStop={onStop} subagents={[node(), node({ subagentId: 'b' }), node({ subagentId: 'c', phase: 'idle' })]} />)
+    render(<AgentBackgroundAgentsPill conversationId="c1" onStop={onStop} subagents={[node(), node({ subagentId: 'b' }), node({ subagentId: 'c', phase: 'idle' })]} />)
     expect(screen.getByTestId('agent-background-agents-pill')).toHaveTextContent('2 agents working')
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Stop all agents' })) })
     expect(onStop).toHaveBeenCalledTimes(1)
   })
 
+  it('pill opens a popover of live agents with per-agent stop', async () => {
+    const onStop = vi.fn().mockResolvedValue(undefined)
+    render(<AgentBackgroundAgentsPill conversationId="c1" onStop={onStop} subagents={[node(), node({ subagentId: 'b', description: 'Second' }), node({ subagentId: 'c', phase: 'idle' })]} />)
+    fireEvent.click(screen.getByRole('button', { name: /2 background agents working/ }))
+    const popover = screen.getByTestId('agent-background-agents-popover')
+    expect(within(popover).getAllByTestId('agent-live-agent-row')).toHaveLength(2)
+    await act(async () => { fireEvent.click(within(popover).getByRole('button', { name: 'Stop Second' })) })
+    expect(onStop).toHaveBeenCalledWith(['b'])
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('agent-background-agents-popover')).not.toBeInTheDocument()
+  })
+
   it('pill hides without live agents and reports stop failures', async () => {
-    const { rerender } = render(<AgentBackgroundAgentsPill onStop={vi.fn()} subagents={[node({ phase: 'idle' })]} />)
+    const { rerender } = render(<AgentBackgroundAgentsPill conversationId="c1" onStop={vi.fn()} subagents={[node({ phase: 'idle' })]} />)
     expect(screen.queryByTestId('agent-background-agents-pill')).not.toBeInTheDocument()
-    rerender(<AgentBackgroundAgentsPill onStop={vi.fn().mockRejectedValue(new Error('x'))} subagents={[node()]} />)
+    rerender(<AgentBackgroundAgentsPill conversationId="c1" onStop={vi.fn().mockRejectedValue(new Error('x'))} subagents={[node()]} />)
     fireEvent.click(screen.getByRole('button', { name: 'Stop all agents' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not stop agents')
   })

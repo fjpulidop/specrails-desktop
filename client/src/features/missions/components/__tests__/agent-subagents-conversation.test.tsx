@@ -98,6 +98,7 @@ describe('mission conversation with Core sub-agents', () => {
 
   it('drafts a relaunch request for an interrupted agent', async () => {
     await mount([node({ phase: 'interrupted', reason: 'restart', endedAt: new Date().toISOString() })])
+    fireEvent.click(await screen.findByTestId('agent-subagents-summary'))
     fireEvent.click(await screen.findByRole('button', { name: 'Relaunch' }))
     await waitFor(() => expect(composerDrafts.get('c1')).toBe('Please relaunch the background agent for: Scan the repo'))
   })

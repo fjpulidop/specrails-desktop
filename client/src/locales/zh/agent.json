@@ -816,7 +816,11 @@
     "deferred": "设置更改将在后台代理完成后应用。",
     "applyNow": "停止代理并立即应用",
     "policyUnenforceable": "{{provider}} 无法关闭子代理。请在项目设置中启用“允许子代理”，或为此任务改用其他提供商。",
-    "result": "结果"
+    "result": "结果",
+    "count_one": "{{count}} 个代理",
+    "count_other": "{{count}} 个代理",
+    "finishedIn": "{{elapsed}} 内完成",
+    "popoverTitle": "后台代理"
   },
   "sessionNotice": {
     "host_degraded": "由于多次失败，此项目的 Core 会话不可用，因此本轮使用了经典方式运行（没有后台子代理）。解决原因后请重试。",

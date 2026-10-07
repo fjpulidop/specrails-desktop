@@ -816,7 +816,11 @@
     "deferred": "Die Einstellungsänderung wird übernommen, sobald die Hintergrund-Agenten fertig sind.",
     "applyNow": "Agenten stoppen und jetzt übernehmen",
     "policyUnenforceable": "{{provider}} kann Sub-Agenten nicht deaktivieren. Aktiviere „Sub-Agenten erlauben“ in den Projekteinstellungen oder nutze für diese Mission einen anderen Anbieter.",
-    "result": "Ergebnis"
+    "result": "Ergebnis",
+    "count_one": "{{count}} Agent",
+    "count_other": "{{count}} Agenten",
+    "finishedIn": "fertig in {{elapsed}}",
+    "popoverTitle": "Hintergrund-Agenten"
   },
   "sessionNotice": {
     "host_degraded": "Core-Sitzungen sind für dieses Projekt nach wiederholten Fehlern nicht verfügbar, daher lief dieser Zug über den klassischen Transport (keine Sub-Agenten im Hintergrund). Versuche es erneut, sobald die Ursache behoben ist.",
