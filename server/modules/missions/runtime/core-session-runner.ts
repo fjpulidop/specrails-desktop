@@ -29,6 +29,8 @@ export interface CoreSessionTurnContext {
   /** Provider session to continue when the Core session does not exist yet (pre-Core missions). */
   legacyProviderSessionRef?: string | null
   metadata?: Record<string, unknown>
+  /** Appended to the system prompt (e.g. how to delegate sub-agents in this mission). */
+  systemPromptAddendum?: string
   onHandle?: (handle: TurnHandle | null) => void
 }
 
@@ -163,7 +165,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
 
     try {
       // Open or resume the conversation's Core session, then align its configuration.
-      const config = { model: opts?.model, ...(opts?.reasoning_effort ? { effort: String(opts.reasoning_effort) } : {}), ...(opts?.systemPrompt ? { systemPrompt: opts.systemPrompt } : {}), policy: sessionPolicyFor(context) }
+      const config = { model: opts?.model, ...(opts?.reasoning_effort ? { effort: String(opts.reasoning_effort) } : {}), ...(opts?.systemPrompt || context.systemPromptAddendum ? { systemPrompt: [opts?.systemPrompt, context.systemPromptAddendum].filter(Boolean).join('\n\n') } : {}), policy: sessionPolicyFor(context) }
       let snapshot: { lastSeq?: number }
       try {
         snapshot = (await client.request<{ snapshot: { lastSeq: number } }>('session.open', { resume: { sessionId } })).snapshot

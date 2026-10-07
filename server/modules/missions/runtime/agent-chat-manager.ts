@@ -297,6 +297,20 @@ export class AgentChatManager {
     return this._coreSessions.stopSubagents(conversation, subagentIds)
   }
 
+  /** Delegated runtime: launch a sub-agent on the mission's configured provider. */
+  async delegateSubagent(conversationId: string, params: { description: string; prompt: string; agentType?: string; contextTurns?: number }): Promise<{ subagentId: string }> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) throw new Error('This mission does not run in a Core session.')
+    return this._coreSessions.delegate(conversation, params)
+  }
+
+  /** Delegated runtime: wait for sub-agents (results are delivered to the agent once). */
+  async waitSubagents(conversationId: string, subagentIds: string[] | undefined, timeoutMs: number) {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) throw new Error('This mission does not run in a Core session.')
+    return this._coreSessions.waitSubagents(conversation, subagentIds, timeoutMs)
+  }
+
   /** Plugin MCP servers for a project-pinned mission (empty for providers without plugin MCP entries). */
   private _pluginMcpServers(providerId: string, projectId: string | null): AgentMcpServerSpec[] {
     const project = projectId ? this._registry?.getProjectRow?.(projectId) : null

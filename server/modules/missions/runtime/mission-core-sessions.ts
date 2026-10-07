@@ -100,6 +100,7 @@ export class MissionCoreSessions {
       driver: adapter.id,
       policy,
       mcpServers,
+      ...(policy.subagentRuntime?.mode === 'delegated' ? { systemPromptAddendum: delegationGuidance(policy.subagentRuntime) } : {}),
       legacyProviderSessionRef: conversation.session_id ?? null,
       metadata: { conversationId, surface: 'mission' },
       onHandle: (handle) => { if (handle) this.handles.set(conversationId, handle); else this.handles.delete(conversationId) },
@@ -166,6 +167,31 @@ export class MissionCoreSessions {
     this.capabilities.delete(conversationId)
     this.deps.revokeCapability(capability)
     removeAgentCapabilityFile(conversationId)
+  }
+
+  /** True when this mission's sub-agents are launched by Core (another provider). */
+  delegates(conversationId: string): boolean {
+    return this.contexts.get(conversationId)?.policy.subagentRuntime?.mode === 'delegated'
+  }
+
+  /** Launch a sub-agent on the configured provider (delegated runtime only). */
+  async delegate(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, params: { description: string; prompt: string; agentType?: string; contextTurns?: number }): Promise<{ subagentId: string }> {
+    this.assertDelegates(conversation.id)
+    const client = await this.deps.registry.acquire(this.scopeOf(conversation))
+    return client.request<{ subagentId: string }>('session.delegate', { sessionId: conversation.id, ...params })
+  }
+
+  /** Results of delegated sub-agents that finished (or what still runs at the timeout). */
+  async waitSubagents(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, subagentIds: string[] | undefined, timeoutMs: number): Promise<{ results: Array<{ subagentId: string; description: string; status: string; result: string }>; running: string[] }> {
+    this.assertDelegates(conversation.id)
+    const client = await this.deps.registry.acquire(this.scopeOf(conversation))
+    return client.request('session.waitSubagents', { sessionId: conversation.id, ...(subagentIds ? { subagentIds } : {}), timeoutMs })
+  }
+
+  private assertDelegates(conversationId: string): void {
+    if (!this.tracked.has(conversationId) || !this.delegates(conversationId)) {
+      throw new Error('This mission does not delegate sub-agents: its agent launches them with its own tool, or sub-agents are off.')
+    }
   }
 
   /** Stop sub-agents of a mission's Core session (all when `subagentIds` is omitted). */
@@ -243,3 +269,14 @@ export class MissionCoreSessions {
     this.tracked.clear()
   }
 }
+
+/** What the mission agent needs to know when Core launches its sub-agents. */
+function delegationGuidance(runtime: { driver: string; model: string }): string {
+  return [
+    '## Sub-agents',
+    `In this mission, sub-agents run on ${runtime.driver} (${runtime.model}) and are launched by Specrails, not by your own sub-agent tool (it is unavailable).`,
+    'To delegate a self-contained task, call `specrails_mission` with `action: "subagent_start"`, a short `description` and complete `instructions`; set `contextTurns` when it needs this conversation.',
+    'Start several to work in parallel. Collect results with `subagent_wait`; results you do not wait for arrive later as a message. Use `subagent_list` to see them and `subagent_stop` to stop them.',
+  ].join('\n')
+}
+
