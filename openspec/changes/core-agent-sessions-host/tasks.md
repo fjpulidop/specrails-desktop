@@ -68,4 +68,4 @@
 
 ## 10. Follow-up changes (tracked, not in this change)
 
-- [ ] 10.1 Open follow-up OpenSpec changes to migrate explore, blueprint, agent refine, interactive jobs and one-shot features onto the transport port, then remove `server/providers/*`
+- [x] 10.1 Open follow-up OpenSpec changes to migrate explore, blueprint, agent refine, interactive jobs and one-shot features onto the transport port, then remove `server/providers/*`
