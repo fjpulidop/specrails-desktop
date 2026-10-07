@@ -56,6 +56,25 @@ describe('host blockers', () => {
     }
     for (const id of ['developer', 'fixer']) expect(compile(configurableImplementGraph(paired)).nodes[id].params.verificationProposalsFrom).toBe('architect')
   })
+  it('bounds the developer loop: a declared blocker ends the run, and incomplete tasks retry only with progress and budget', () => {
+    for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
+      const definition = compile(configurableImplementGraph(capabilities))
+      expect(definition.nodes.developer.ends.next).toBe('developer-blocker')
+      expect(definition.nodes.developer.params.prompt).toContain('return the structured blocker')
+      expect(definition.nodes['developer-blocker'].ends).toEqual({ true: 'developer-blocked', false: 'tasks' })
+      // Incomplete tasks never route straight back to the developer.
+      expect(definition.nodes.tasks.ends).toMatchObject({ pass: 'verify', fail: 'implementation-budget' })
+      expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { implementationAttempts: 0, implementationLimit: 3 } })
+      expect(definition.nodes['implementation-budget'].ends).toEqual({ true: 'implementation-progress', false: 'implementation-exhausted' })
+      expect(definition.nodes['implementation-progress'].params.expr).toBe('!exists($vars.lastImplementationHash) || $outputs.developer.candidateHash != $vars.lastImplementationHash')
+      expect(definition.nodes['implementation-progress'].ends).toEqual({ true: 'begin-implementation', false: 'implementation-stalled' })
+      expect(definition.nodes['begin-implementation'].params).toMatchObject({ increment: { implementationAttempts: 1 }, set: { lastImplementationHash: '{{outputs.developer.candidateHash}}' } })
+      expect(definition.nodes['begin-implementation'].ends).toMatchObject({ next: 'developer' })
+      for (const end of ['implementation-stalled', 'implementation-exhausted']) expect(definition.nodes[end].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.incomplete}}') })
+      expect(definition.nodes['developer-blocked'].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.blocker.requiredAction}}') })
+    }
+    expect(compile(configurableImplementGraph(paired)).nodes['developer-blocked'].params).toMatchObject({ blockerFrom: 'developer' })
+  })
   it('compiles the pre-blocker shape when the installed Core does not advertise hostBlockers', () => {
     const definition = compile(configurableImplementGraph({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }))
     for (const id of ['verify', 'verify-archive']) {
@@ -65,6 +84,7 @@ describe('host blockers', () => {
     for (const id of ['developer', 'fixer']) expect(definition.nodes[id].params).not.toHaveProperty('verificationProposalsFrom')
     expect(definition.nodes).not.toHaveProperty('host-blocked')
     expect(definition.nodes['fixer-blocked'].params).not.toHaveProperty('blockerFrom')
+    expect(definition.nodes['developer-blocked'].params).not.toHaveProperty('blockerFrom')
     expect(compile(configurableImplementGraph())).toEqual(definition)
   })
 })
