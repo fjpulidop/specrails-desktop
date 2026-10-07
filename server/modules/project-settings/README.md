@@ -28,6 +28,11 @@ overlay with a 30-second cache, including retries for failed lookups; it never
 adds those recovered values to the global process environment. Runtime controls
 use the same resolution when restoring a retained run.
 
+`allowSubagents` (default `false`) is a strict boolean. Its row is removed when
+the setting is turned off. The HTTP adapter reports committed changes to an
+optional observer, which the composition uses to refresh open agent sessions.
+The domain never knows about sessions.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

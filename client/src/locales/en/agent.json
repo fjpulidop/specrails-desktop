@@ -814,6 +814,7 @@
     "continuationSystem": "Continued after background work",
     "backgroundTurn": "Agent is reviewing background results…",
     "deferred": "Settings change will apply when background agents finish.",
-    "applyNow": "Stop agents and apply now"
+    "applyNow": "Stop agents and apply now",
+    "policyUnenforceable": "{{provider}} can't turn sub-agents off. Enable “Allow sub-agents” in this project's settings, or use another provider for this mission."
   }
 }

@@ -316,5 +316,53 @@ describe('missions on Core agent sessions', () => {
     expect(context?.mcpServers.map((server) => [server.name, server.command])).toEqual([['specrails', 'node'], ['serena', 'uvx']])
     sessions.shutdown()
   })
+
+  describe('"Allow sub-agents" policy', () => {
+    function withPolicy(allow: { value: boolean }) {
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      const sessions = new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+        availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+        subagentPolicy: () => (allow.value ? 'enabled' : 'disabled'),
+      })
+      manager.setCoreSessions(sessions)
+      return sessions
+    }
+    const updates = () => host.requests.filter((request) => request.method === 'session.update' && (request.params.policy as { subagents?: string } | undefined) && !request.params.model)
+
+    it('opens with the resolved policy and refreshes open sessions of the changed scope only', async () => {
+      const allow = { value: false }
+      const sessions = withPolicy(allow)
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      expect(host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params).toMatchObject({ policy: { subagents: 'disabled' } })
+
+      await sessions.refreshSubagentPolicy({ projectId: null })
+      expect(updates()).toHaveLength(0) // nothing changed
+      allow.value = true
+      await sessions.refreshSubagentPolicy({ projectId: 'another-project' })
+      expect(updates()).toHaveLength(0) // other scope
+      await sessions.refreshSubagentPolicy({ projectId: null })
+      expect(updates()).toHaveLength(1)
+      // The whole policy travels (Core replaces it), MCP servers included.
+      expect(updates()[0]!.params).toMatchObject({ sessionId: conversation.id, policy: { subagents: 'enabled', permissions: 'bypass', mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } } })
+      await sessions.refreshSubagentPolicy({ projectId: null })
+      expect(updates()).toHaveLength(1)
+    })
+
+    it('explains a policy the provider cannot enforce', async () => {
+      withPolicy({ value: false })
+      const original = host.request.bind(host)
+      host.request = (async (method: string, params: Record<string, unknown> = {}) => {
+        if (method === 'session.open' && !params.resume) throw new SessionRequestError('Codex cannot disable sub-agents', { code: 'policy_unenforceable', retryable: false })
+        return original(method, params)
+      }) as typeof host.request
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => broadcasts.some((message) => message.type === 'agent_error'))
+      expect(broadcasts.find((message) => message.type === 'agent_error')).toMatchObject({ conversationId: conversation.id, code: 'policy_unenforceable', provider: 'claude' })
+    })
+  })
 })
 

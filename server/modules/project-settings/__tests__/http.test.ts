@@ -23,3 +23,36 @@ describe('project settings HTTP error mapping', () => {
     expect(response.body).toEqual({ error: message })
   })
 })
+
+describe('project settings HTTP observer', () => {
+  it('reports committed changes with the previous settings, never failed ones', async () => {
+    const app = express()
+    app.use(express.json())
+    let current = { allowSubagents: false } as unknown as ReturnType<ProjectSettingsService['getSettings']>
+    const service: ProjectSettingsService = {
+      getSettings: () => current,
+      updateSettings: (input) => {
+        if ((input as { allowSubagents?: unknown }).allowSubagents === 'bad') throw new SettingsValidationError('bad')
+        current = { ...current, ...(input as object) }
+        return current
+      },
+    }
+    const observed: Array<[unknown, unknown]> = []
+    registerProjectSettingsHttp(app, () => service, (_req, settings, previous) => observed.push([previous.allowSubagents, settings.allowSubagents]))
+    expect((await request(app).patch('/p1/settings').send({ allowSubagents: true })).status).toBe(200)
+    expect((await request(app).patch('/p1/settings').send({ allowSubagents: 'bad' })).status).toBe(400)
+    expect(observed).toEqual([[false, true]])
+  })
+
+  it('keeps the response when an observer throws', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const app = express()
+    app.use(express.json())
+    const settings = { allowSubagents: true } as unknown as ReturnType<ProjectSettingsService['getSettings']>
+    registerProjectSettingsHttp(app, () => ({ getSettings: () => settings, updateSettings: () => settings }), () => { throw new Error('observer down') })
+    const response = await request(app).patch('/p1/settings').send({})
+    expect(response.status).toBe(200)
+    expect(response.body.ok).toBe(true)
+  })
+})
+

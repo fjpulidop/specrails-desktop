@@ -32,11 +32,18 @@ export interface CoreSessionTurnContext {
   onHandle?: (handle: TurnHandle | null) => void
 }
 
+/** The complete session policy sent to Core (`session.update` replaces policy as a whole). */
+export function sessionPolicyFor(context: Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'>): SessionPolicyInput {
+  return { ...context.policy, mcp: { servers: context.mcpServers, inheritUserScope: context.policy.mcp?.inheritUserScope ?? false } }
+}
+
 /** InvocationResult plus Core's normalized per-turn usage (already a delta). */
 export interface CoreInvocationResult extends InvocationResult {
   usage?: NormalisedResult
   /** The Core session turn that settled this user turn (anchors its sub-agents). */
   coreTurnId?: string
+  /** A Core error a host can explain to the user (e.g. `policy_unenforceable`). */
+  errorCode?: string
 }
 
 function toNormalised(usage: Usage | null | undefined): NormalisedResult | undefined {
@@ -76,14 +83,14 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
     const unsubscribers: Array<() => void> = []
     let resolveDone!: (value: CoreInvocationResult) => void
     const done = new Promise<CoreInvocationResult>((resolve) => { resolveDone = resolve })
-    const finish = (code: number | null, extra: { error?: string; usage?: Usage } = {}) => {
+    const finish = (code: number | null, extra: { error?: string; errorCode?: string; usage?: Usage } = {}) => {
       if (settled) return
       settled = true
       context.onHandle?.(null)
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe()
       if (extra.error) emit({ kind: 'error', message: extra.error })
       const usage = toNormalised(extra.usage)
-      resolveDone({ code, timedOut: false, spawnFailed: false, events, lastResultEvent: null, sessionId: providerRef ?? opts?.sessionId ?? null, stderrTail: '', child: null, ...(usage ? { usage } : {}), ...(turnId ? { coreTurnId: turnId } : {}) })
+      resolveDone({ code, timedOut: false, spawnFailed: false, events, lastResultEvent: null, sessionId: providerRef ?? opts?.sessionId ?? null, stderrTail: '', child: null, ...(usage ? { usage } : {}), ...(turnId ? { coreTurnId: turnId } : {}), ...(extra.errorCode ? { errorCode: extra.errorCode } : {}) })
     }
 
     const apply = (envelope: SessionEventEnvelope) => {
@@ -156,7 +163,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
 
     try {
       // Open or resume the conversation's Core session, then align its configuration.
-      const config = { model: opts?.model, ...(opts?.reasoning_effort ? { effort: String(opts.reasoning_effort) } : {}), ...(opts?.systemPrompt ? { systemPrompt: opts.systemPrompt } : {}), policy: { ...context.policy, mcp: { servers: context.mcpServers, inheritUserScope: context.policy.mcp?.inheritUserScope ?? false } } }
+      const config = { model: opts?.model, ...(opts?.reasoning_effort ? { effort: String(opts.reasoning_effort) } : {}), ...(opts?.systemPrompt ? { systemPrompt: opts.systemPrompt } : {}), policy: sessionPolicyFor(context) }
       let snapshot: { lastSeq?: number }
       try {
         snapshot = (await client.request<{ snapshot: { lastSeq: number } }>('session.open', { resume: { sessionId } })).snapshot
@@ -187,7 +194,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       })
       await catchUp()
     } catch (error) {
-      finish(1, { error: error instanceof Error ? error.message : String(error) })
+      finish(1, { error: error instanceof Error ? error.message : String(error), ...(isSessionRequestError(error) && error.code ? { errorCode: error.code } : {}) })
     }
     return done
   }

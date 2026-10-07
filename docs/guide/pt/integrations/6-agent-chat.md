@@ -67,6 +67,16 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 - **Sem git, sem fase de PR.** Um projeto sem repositório git (ou sem commits) também recebe um card de execução — progresso, log, falha e recuperação — mas não há branch nem etapa de PR; o card avisa.
 - **`@rail-N`.** Digite `@` e escolha um rail para referenciá-lo na mensagem, com suas specs e se está livre, ocupado ou aguardando decisão.
 
+## Subagentes
+
+Alguns provedores podem distribuir partes de uma tarefa para **subagentes**: ajudantes que trabalham em paralelo e continuam depois que o agente responde. Os subagentes vêm **desativados por padrão** porque multiplicam o custo de um pedido.
+
+- **Ative por projeto.** Abra **Configurações → Subagentes** do projeto e ative **Permitir subagentes neste projeto**. Vale para missões, exploração e refinamentos do projeto; os pipelines de Implement nunca são afetados. Missões sem projeto seguem **Configurações do app → Provedores de IA → Permitir subagentes em missões sem projeto**.
+- **Acompanhe o trabalho.** Os agentes iniciados por uma resposta aparecem num cartão abaixo dela: o que cada um faz, há quanto tempo e, ao terminar, o resultado e quanto custou. Expanda uma linha para acompanhar a atividade ao vivo. Uma pílula ao lado da caixa de mensagem conta os agentes ainda trabalhando e para todos.
+- **O agente continua sozinho.** Quando os agentes em segundo plano terminam, o agente continua e publica o que encontraram, marcado como *Continuou após os agentes em segundo plano*.
+- **Mudar a configuração é seguro.** Uma missão com agentes em execução aplica a mudança quando eles terminam; ela avisa e oferece **Parar agentes e aplicar agora**.
+- **Nada reinicia escondido.** Agentes interrompidos por um reinício ficam marcados como interrompidos; **Relançar** só rascunha uma mensagem pedindo ao agente que refaça esse trabalho.
+
 ## Algumas coisas para saber
 
 - **Opera e Autônomo custam dinheiro** porque executam IA. O agente destaca as ações que geram custo antes de fazê-las; mantenha o nível em Observa ou Edita se você só quer olhar e organizar.

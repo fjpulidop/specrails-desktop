@@ -907,6 +907,13 @@ export function touchProject(db: DbInstance, id: string): void {
   ).run(id)
 }
 
+/** App-global "Allow sub-agents" for missions without a project (default off). */
+export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
+
+export function getGlobalAllowSubagents(db: DbInstance): boolean {
+  return getDesktopSetting(db, GLOBAL_ALLOW_SUBAGENTS_KEY) === 'true'
+}
+
 export function getDesktopSetting(db: DbInstance, key: string): string | undefined {
   const row = db.prepare('SELECT value FROM desktop_settings WHERE key = ?').get(key) as { value: string } | undefined
   return row?.value

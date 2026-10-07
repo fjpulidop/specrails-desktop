@@ -67,6 +67,16 @@ Las respuestas llegan fluidas y ya formateadas (encabezados, tablas, listas), ca
 - **Sin git no hay fase de PR.** Un proyecto sin repositorio git (o sin commits) también tiene card de ejecución — progreso, log, fallo y recuperación — pero no hay rama ni paso de PR; la card lo indica.
 - **`@rail-N`.** Escribe `@` y elige un rail para referenciarlo en tu mensaje, con sus specs y si está libre, ocupado o pendiente de decisión.
 
+## Sub-agentes
+
+Algunos proveedores pueden repartir partes de una tarea entre **sub-agentes**: ayudantes que trabajan en paralelo y siguen después de que el agente responda. Los sub-agentes vienen **desactivados por defecto** porque multiplican lo que cuesta una petición.
+
+- **Actívalos por proyecto.** Abre **Configuración → Sub-agentes** del proyecto y activa **Permitir sub-agentes en este proyecto**. Cubre las misiones, la exploración y los refinamientos de ese proyecto; los pipelines de Implement nunca se ven afectados. Las misiones sin proyecto siguen **Ajustes de la app → Proveedores de IA → Permitir sub-agentes en misiones sin proyecto**.
+- **Míralos trabajar.** Los agentes que lanza una respuesta aparecen en una tarjeta bajo esa respuesta: qué hace cada uno, cuánto lleva y, al terminar, su resultado y lo que costó. Despliega una fila para seguir su actividad en directo. Una píldora junto al cuadro de mensaje cuenta los agentes que siguen trabajando y los detiene todos.
+- **El agente retoma solo.** Cuando terminan los agentes en segundo plano, el agente continúa y publica lo que encontraron, marcado como *Continuó tras los agentes en segundo plano*.
+- **Cambiar el ajuste es seguro.** Una misión con agentes en marcha aplica el cambio cuando terminan; te lo indica y ofrece **Detener agentes y aplicar ya**.
+- **Nada se relanza a tus espaldas.** Los agentes interrumpidos por un reinicio quedan marcados como interrumpidos; **Relanzar** solo redacta un mensaje pidiendo al agente que rehaga ese trabajo.
+
 ## Algunas cosas que conviene saber
 
 - **Opera y Autónomo cuestan dinero** porque ejecutan IA. El agente saca a la luz las acciones que generan coste antes de hacerlas; mantén el nivel en Observa o Edita si solo quieres mirar y ordenar.

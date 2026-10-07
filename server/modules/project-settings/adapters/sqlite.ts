@@ -12,12 +12,13 @@ function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
 }
 
 export function getProjectSettings(db: DbInstance): ProjectSettings {
-  // Read the settings as one snapshot instead of preparing six separate queries.
+  // Read the settings as one snapshot instead of preparing separate queries.
   const rows = db.prepare(`
     SELECT key, value FROM queue_state WHERE key IN (
       'config.pipeline_telemetry_enabled', 'config.orchestrator_model',
       'config.pre_prompt', 'config.freestyle_pre_prompt',
-      'config.integration_branch', 'config.worktree_env_passthrough'
+      'config.integration_branch', 'config.worktree_env_passthrough',
+      'config.allow_subagents'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -35,6 +36,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
+    allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
   }
 }
 
@@ -81,6 +83,13 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
       db.prepare(
         `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.integration_branch', ?)`
       ).run(patch.integrationBranch.trim())
+    }
+  }
+  if (patch.allowSubagents !== undefined) {
+    if (patch.allowSubagents) {
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.allow_subagents', 'true')`).run()
+    } else {
+      db.prepare(`DELETE FROM queue_state WHERE key = 'config.allow_subagents'`).run()
     }
   }
   if (patch.worktreeEnvPassthrough !== undefined) {

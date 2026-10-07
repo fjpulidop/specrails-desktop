@@ -814,6 +814,7 @@
     "continuationSystem": "Nach Hintergrundarbeit fortgesetzt",
     "backgroundTurn": "Agent prüft die Hintergrundergebnisse…",
     "deferred": "Die Einstellungsänderung wird übernommen, sobald die Hintergrund-Agenten fertig sind.",
-    "applyNow": "Agenten stoppen und jetzt übernehmen"
+    "applyNow": "Agenten stoppen und jetzt übernehmen",
+    "policyUnenforceable": "{{provider}} kann Sub-Agenten nicht deaktivieren. Aktiviere „Sub-Agenten erlauben“ in den Projekteinstellungen oder nutze für diese Mission einen anderen Anbieter."
   }
 }

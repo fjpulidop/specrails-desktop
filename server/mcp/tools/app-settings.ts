@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { getDesktopSetting, setDesktopSetting } from '../../desktop-db'
+import { getDesktopSetting, getGlobalAllowSubagents, setDesktopSetting } from '../../desktop-db'
 import type { McpToolSpec } from './types'
 import { isMcpEnabled, isTierEnabled } from '../mcp-tiers'
 import { apiCall } from './types'
@@ -24,6 +24,7 @@ export function appTools(): McpToolSpec[] {
         'Read or update app-level Specrails settings (theme, language, daily budget, cost-alert threshold, Code Explorer summary language + monthly summary budget). ' +
         'Actions: get, set, runtime_providers.list (connections + live status), runtime_providers.test (probe an OpenAI-compatible baseUrl without saving), runtime_providers.save (replace the connections list — local AI engines re-register live). ' +
         'The MCP enable flag and permission tiers are read-only here (user-controlled in the app). ' +
+        '"Allow sub-agents" is also read-only here (an agent must not grant itself sub-agents): get reports allowSubagentsWithoutProject, and with projectId the project setting. ' +
         'dailyBudgetUsd here is APP-WIDE (all projects combined); per-project caps live in specrails_analytics(budget_set).',
       hintTier: 'read',
       tier: (args) => (args.action === 'set' || args.action === 'runtime_providers.save' ? 'write' : 'read'),
@@ -44,6 +45,7 @@ export function appTools(): McpToolSpec[] {
           .optional()
           .describe('APP-WIDE daily budget cap USD across all projects; null clears it. Per-project caps live in specrails_analytics(budget_set).'),
         costAlertThresholdUsd: z.number().min(0).nullable().optional(),
+        projectId: z.string().optional().describe('get: also report this project\'s "Allow sub-agents" setting'),
         summaryLanguage: z
           .enum(['en', 'es'])
           .optional()
@@ -82,6 +84,10 @@ export function appTools(): McpToolSpec[] {
             // Code Explorer settings (same keys + defaults as GET /api/code-explorer-settings)
             summaryLanguage: getDesktopSetting(db, 'summary_language') === 'es' ? 'es' : 'en',
             summaryMonthlyBudgetUsd: nonNegNum(getDesktopSetting(db, 'summary_monthly_budget_usd')) ?? 5.0,
+            allowSubagentsWithoutProject: getGlobalAllowSubagents(db),
+            ...(typeof args.projectId === 'string' && args.projectId
+              ? { projectAllowSubagents: ((await apiCall(ctx, 'GET', `/projects/${encodeURIComponent(args.projectId)}/settings`)) as { allowSubagents?: boolean }).allowSubagents === true }
+              : {}),
             mcp: {
               enabled: isMcpEnabled(db),
               tierWrite: isTierEnabled(db, 'write'),

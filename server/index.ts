@@ -16,7 +16,9 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
 import { setDetectedProvidersSupplier } from './provider-selection'
-import { setProjectProvidersMirror } from './desktop-db'
+import { getGlobalAllowSubagents, setProjectProvidersMirror } from './desktop-db'
+import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
+import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
 import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
 import { createProjectRouter } from './project-router'
@@ -718,7 +720,12 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     onStatus: (scope, status, detail) => console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`),
   })
   _sessionHosts = sessionHosts
-  agentChatManager.setCoreSessions(new MissionCoreSessions({
+  const projectAllowsSubagents = (projectId: string): boolean => {
+    // A pinned project that is not loaded cannot vouch for sub-agents.
+    const context = registry.getContext(projectId)
+    return context ? getProjectSettings(context.db).allowSubagents : false
+  }
+  const missionCoreSessions = new MissionCoreSessions({
     db: registry.desktopDb,
     registry: sessionHosts,
     port,
@@ -727,7 +734,15 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     availability: () => coreSessionsAvailability(),
     projectKey: (projectId) => registry.getProjectRow(projectId)?.slug ?? null,
     revokeCapability: revokeAgentCapability,
-  }))
+    // "Allow sub-agents": the project setting decides; missions without a project use the app setting.
+    subagentPolicy: (conversation) => resolveSubagentPolicy({
+      surface: 'mission',
+      projectAllows: conversation.pinned_project_id ? projectAllowsSubagents(conversation.pinned_project_id) : null,
+      globalAllows: getGlobalAllowSubagents(registry.desktopDb),
+    }),
+  })
+  agentChatManager.setCoreSessions(missionCoreSessions)
+  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
   registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is

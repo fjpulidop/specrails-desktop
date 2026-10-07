@@ -268,7 +268,8 @@
       "budget": "Presupuesto",
       "telemetry": "Telemetría",
       "terminal": "Terminal",
-      "agentRuntime": "Comandos de verificación"
+      "agentRuntime": "Comandos de verificación",
+      "subagents": "Sub-agentes"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "Respeta el ajuste de movimiento reducido del sistema: el anillo queda como un brillo estático.",
     "preview": "Vista previa",
     "previewThinking": "Pensando…"
+  },
+  "subagents": {
+    "title": "Sub-agentes",
+    "stateOn": "Los agentes pueden lanzar sub-agentes.",
+    "stateOff": "Los agentes trabajan solos, sin sub-agentes.",
+    "explainParallel": "Los sub-agentes permiten que un agente reparta trabajo entre ayudantes que corren en paralelo y siguen después de su respuesta, informando al terminar.",
+    "explainCost": "Cada sub-agente consume sus propios tokens, así que una sola petición puede costar bastante más.",
+    "enabled": "Sub-agentes permitidos",
+    "disabled": "Sub-agentes desactivados",
+    "saveFailed": "No se pudo guardar el ajuste de sub-agentes",
+    "project": {
+      "description": "Permite que las misiones, la exploración y los refinamientos de este proyecto usen sub-agentes. Desactivado por defecto.",
+      "toggleLabel": "Permitir sub-agentes en este proyecto",
+      "explainScope": "No afecta a los pipelines de Implement. Las misiones con sub-agentes en marcha aplican el cambio cuando estos terminan."
+    },
+    "global": {
+      "description": "Permite que las misiones sin proyecto usen sub-agentes. Desactivado por defecto.",
+      "toggleLabel": "Permitir sub-agentes en misiones sin proyecto",
+      "explainScope": "Cada proyecto tiene su propio ajuste en la configuración del proyecto. Las misiones con sub-agentes en marcha aplican el cambio cuando estos terminan."
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { MissionSplitViewsProvider } from './MissionSplitViewsContext'
 import { MissionSessionsProvider } from './MissionSessionsContext'
+import i18n from '../../../lib/i18n'
 import { useMissionWindows } from './MissionWindowsContext'
 import { isMissionWindowRoute } from '../lib/mission-windows'
 import {
@@ -426,12 +427,24 @@ export interface AgentChatContextValue {
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
 
+/** A Core failure the user can act on reads in their language; others keep the server text. */
+function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
+  if (msg.code === 'policy_unenforceable') {
+    const provider = msg.provider ? msg.provider.charAt(0).toUpperCase() + msg.provider.slice(1) : ''
+    return i18n.t('agent:subagents.policyUnenforceable', { provider })
+  }
+  return msg.error || 'The agent turn failed.'
+}
+
 interface WsAgentMsg {
   type: string
   conversationId?: string
   delta?: string
   fullText?: string
   error?: string
+  /** Known failure the client explains in the user's language. */
+  code?: string
+  provider?: string
   tool?: string
   input?: string
   toolId?: string
@@ -847,7 +860,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
           queued: p.queued,
           turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
         }))
-        const err = msg.error || 'The agent turn failed.'
+        const err = describeAgentError(msg)
         if (!fixedConversationId) toast.error(err)
         // Also surface it inline so it's visible in the conversation.
         if (isActive) {

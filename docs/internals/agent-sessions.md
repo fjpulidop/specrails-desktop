@@ -77,6 +77,23 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
   derived rows and replays the journal silently (see the
   [API reference](api-reference.md)).
 
+## Sub-agent policy
+
+[`resolveSubagentPolicy`](../../server/modules/agent-sessions/domain/subagent-policy.ts)
+maps `(surface, project setting, app setting)` to `policy.subagents`. A
+conversation with a project follows the project's "Allow sub-agents" setting.
+A conversation without a project follows the app setting. Both default to off.
+Implement pipelines are not a surface, so they never resolve a policy. The
+composition root wires the resolver into `MissionCoreSessions`. Settings
+routes call `ProjectRegistry.notifySettingsChanged`, and
+`MissionCoreSessions.refreshSubagentPolicy` then sends the complete policy to
+each open session of that scope. Core's `session.update` replaces the policy as
+a whole and ignores unchanged configurations, so the resident process is not
+restarted for nothing. A session with running sub-agents reports the change as
+deferred, and the mission offers "Stop agents and apply now". If Core rejects
+a policy with `policy_unenforceable`, the mission shows a localized error that
+names the provider and the setting.
+
 ## UI
 
 The client keeps session state in [`MissionSessionsContext`](../../client/src/features/missions/context/MissionSessionsContext.tsx)

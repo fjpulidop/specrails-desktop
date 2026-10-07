@@ -305,6 +305,7 @@
         "./protocol"
       ],
       "domain/protocol.ts": [],
+      "domain/subagent-policy.ts": [],
       "index.ts": [
         "./application/session-event-pump",
         "./domain/availability",
@@ -312,6 +313,7 @@
         "./domain/host-state",
         "./domain/projection",
         "./domain/protocol",
+        "./domain/subagent-policy",
         "./ports"
       ],
       "ports.ts": [

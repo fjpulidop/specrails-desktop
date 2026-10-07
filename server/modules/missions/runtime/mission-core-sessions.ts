@@ -4,9 +4,9 @@ import type { ResolvedExternalServer } from '../../../external-mcp'
 import type { ProviderAdapter } from '../../../providers/types'
 import type { CoreSessionsAvailability, SessionPolicyInput } from '../../agent-sessions'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
-import type { AgentConversation } from '../../agents/runtime/agent-store'
+import { getAgentConversation, type AgentConversation } from '../../agents/runtime/agent-store'
 import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
-import type { CoreSessionTurnContext, TurnHandle } from './core-session-runner'
+import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 
 export interface MissionCoreSessionsDeps {
@@ -36,6 +36,8 @@ export class MissionCoreSessions {
   private readonly capabilities = new Map<string, string>()
   private readonly handles = new Map<string, TurnHandle>()
   private readonly tracked = new Set<string>()
+  /** Last turn context per mission: the policy its session runs with. */
+  private readonly contexts = new Map<string, Pick<CoreSessionTurnContext, 'policy' | 'mcpServers'> & { projectId: string | null; scope: string }>()
 
   constructor(private readonly deps: MissionCoreSessionsDeps) {}
 
@@ -77,17 +79,48 @@ export class MissionCoreSessions {
     this.capabilities.set(conversationId, turn.capability)
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
 
+    // Parity with legacy missions: the adapter declares its permission level; user-scope MCP servers stay inherited.
+    const policy: SessionPolicyInput = { subagents: this.subagentPolicy(conversation), permissions: adapter.capabilities.sessionPermissions ?? 'workspace-write', mcp: { inheritUserScope: true } }
+    this.contexts.set(conversationId, { policy, mcpServers, projectId: conversation.pinned_project_id ?? null, scope })
     return {
       sessionId: conversationId,
       client,
       driver: adapter.id,
-      // Parity with legacy missions: the adapter declares its permission level; user-scope MCP servers stay inherited.
-      policy: { subagents: this.deps.subagentPolicy?.(conversation) ?? 'enabled', permissions: adapter.capabilities.sessionPermissions ?? 'workspace-write', mcp: { inheritUserScope: true } },
+      policy,
       mcpServers,
       legacyProviderSessionRef: conversation.session_id ?? null,
       metadata: { conversationId, surface: 'mission' },
       onHandle: (handle) => { if (handle) this.handles.set(conversationId, handle); else this.handles.delete(conversationId) },
     }
+  }
+
+  /**
+   * The "Allow sub-agents" setting of a scope changed (`projectId: null` = missions
+   * without a project): send the new policy to each open session of that scope.
+   * Core applies it at the next idle point; with sub-agents running it reports
+   * the change as deferred, which the mission shows with "Stop agents and apply now".
+   */
+  async refreshSubagentPolicy(scope: { projectId: string | null }): Promise<void> {
+    for (const [conversationId, context] of [...this.contexts]) {
+      if (context.projectId !== scope.projectId || !this.tracked.has(conversationId)) continue
+      const conversation = getAgentConversation(this.deps.db, conversationId)
+      if (!conversation) continue
+      const subagents = this.subagentPolicy(conversation)
+      if (subagents === context.policy.subagents) continue
+      const next = { ...context, policy: { ...context.policy, subagents } }
+      this.contexts.set(conversationId, next)
+      try {
+        const client = await this.deps.registry.acquire(context.scope)
+        await client.request('session.update', { sessionId: conversationId, policy: sessionPolicyFor(next) })
+      } catch (error) {
+        // The next turn sends the policy again; nothing is lost.
+        console.warn(`[agent-chat] could not update the sub-agent policy of ${conversationId}: ${(error as Error).message}`)
+      }
+    }
+  }
+
+  private subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {
+    return this.deps.subagentPolicy?.(conversation) ?? 'enabled'
   }
 
   /** True when the capability of this turn must outlive the turn (resident session). */
@@ -160,6 +193,7 @@ export class MissionCoreSessions {
   async close(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>): Promise<void> {
     const scope = this.scopeOf(conversation)
     this.handles.delete(conversation.id)
+    this.contexts.delete(conversation.id)
     this.releaseCapability(conversation.id)
     if (!this.tracked.delete(conversation.id)) return
     this.deps.registry.untrack(scope, conversation.id)
@@ -174,6 +208,7 @@ export class MissionCoreSessions {
   shutdown(): void {
     for (const conversationId of [...this.capabilities.keys()]) this.releaseCapability(conversationId)
     this.handles.clear()
+    this.contexts.clear()
     this.tracked.clear()
   }
 }

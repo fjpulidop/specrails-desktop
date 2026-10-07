@@ -268,7 +268,8 @@
       "budget": "Budget",
       "telemetry": "Telemetry",
       "terminal": "Terminal",
-      "agentRuntime": "Verification commands"
+      "agentRuntime": "Verification commands",
+      "subagents": "Sub-agents"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "Follows your system's reduced-motion setting: the ring stays as a static glow.",
     "preview": "Preview",
     "previewThinking": "Thinking…"
+  },
+  "subagents": {
+    "title": "Sub-agents",
+    "stateOn": "Agents may launch sub-agents.",
+    "stateOff": "Agents work alone, without sub-agents.",
+    "explainParallel": "Sub-agents let an agent hand work to helpers that run in parallel and keep going after its reply, reporting back when they finish.",
+    "explainCost": "Each sub-agent uses its own tokens, so a single request can cost noticeably more.",
+    "enabled": "Sub-agents allowed",
+    "disabled": "Sub-agents turned off",
+    "saveFailed": "Could not save the sub-agent setting",
+    "project": {
+      "description": "Let this project's missions, explore and refinement agents use sub-agents. Off by default.",
+      "toggleLabel": "Allow sub-agents in this project",
+      "explainScope": "Implement pipelines are not affected. Missions with sub-agents running apply a change once those finish."
+    },
+    "global": {
+      "description": "Let missions that are not attached to a project use sub-agents. Off by default.",
+      "toggleLabel": "Allow sub-agents in missions without a project",
+      "explainScope": "Each project has its own setting in its project settings. Missions with sub-agents running apply a change once those finish."
+    }
   }
 }

@@ -56,6 +56,7 @@ function createMockRegistry(desktopDb: DbInstance) {
 
   const registry = {
     desktopDb,
+    notifySettingsChanged: vi.fn(),
     getContext: vi.fn((id: string) => contexts.get(id)),
     getContextByPath: vi.fn((projectPath: string) => {
       for (const ctx of contexts.values()) {
@@ -1183,6 +1184,24 @@ describe('desktop-router', () => {
       const res = await request(app).get('/api/settings')
       expect(res.status).toBe(200)
       expect(res.body.costAlertThresholdUsd).toBeNull()
+    })
+
+    it('reads and writes the app-wide "Allow sub-agents" and notifies only on change', async () => {
+      const { app, registry } = createApp()
+      expect((await request(app).get('/api/settings')).body.allowSubagents).toBe(false)
+      expect((await request(app).put('/api/settings').send({ allowSubagents: true })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.allowSubagents).toBe(true)
+      expect(registry.notifySettingsChanged).toHaveBeenCalledExactlyOnceWith({ projectId: null })
+      await request(app).put('/api/settings').send({ allowSubagents: true })
+      expect(registry.notifySettingsChanged).toHaveBeenCalledOnce()
+    })
+
+    it('rejects a non-boolean allowSubagents without writing anything', async () => {
+      const { app } = createApp()
+      const res = await request(app).put('/api/settings').send({ allowSubagents: 'yes', port: 4300 })
+      expect(res.status).toBe(400)
+      expect(getDesktopSetting(desktopDb, 'agent_allow_subagents')).toBeUndefined()
+      expect(getDesktopSetting(desktopDb, 'port')).toBeUndefined()
     })
   })
 

@@ -3,7 +3,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
-  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [],
+  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -65,3 +65,14 @@ describe('project settings use cases (no database or HTTP)', () => {
     expect(() => createProjectSettingsService(repository).updateSettings({})).toThrow(failure)
   })
 })
+
+describe('allowSubagents', () => {
+  it('accepts booleans only and passes them through', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ allowSubagents: true })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ allowSubagents: true })
+    expect(() => service.updateSettings({ allowSubagents: 'yes' })).toThrow(SettingsValidationError)
+    expect(() => service.updateSettings({ allowSubagents: 1 })).toThrow('allowSubagents must be a boolean')
+  })
+})
+

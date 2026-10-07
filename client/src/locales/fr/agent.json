@@ -814,6 +814,7 @@
     "continuationSystem": "Suite après le travail en arrière-plan",
     "backgroundTurn": "L'agent examine les résultats en arrière-plan…",
     "deferred": "Le changement de réglages sera appliqué quand les agents en arrière-plan auront fini.",
-    "applyNow": "Arrêter les agents et appliquer"
+    "applyNow": "Arrêter les agents et appliquer",
+    "policyUnenforceable": "{{provider}} ne peut pas désactiver les sous-agents. Activez « Autoriser les sous-agents » dans les réglages du projet ou utilisez un autre fournisseur pour cette mission."
   }
 }

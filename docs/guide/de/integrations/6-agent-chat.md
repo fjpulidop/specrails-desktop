@@ -67,6 +67,16 @@ Antworten strömen flüssig herein und landen bereits formatiert (Überschriften
 - **Ohne Git keine PR-Phase.** Ein Projekt ohne Git-Repository (oder ohne Commits) bekommt trotzdem eine Run-Karte — Fortschritt, Log, Fehler und Wiederherstellung —, aber es gibt keinen Branch und keinen PR-Schritt; die Karte sagt das.
 - **`@rail-N`.** Tippe `@` und wähle ein Rail, um es in deiner Nachricht zu referenzieren, mit seinen Specs und ob es frei, belegt oder in Entscheidung ist.
 
+## Sub-Agenten
+
+Manche Anbieter können Teile einer Aufgabe an **Sub-Agenten** abgeben – Helfer, die parallel arbeiten und weitermachen, nachdem der Agent geantwortet hat. Sub-Agenten sind **standardmäßig aus**, weil sie die Kosten einer Anfrage vervielfachen.
+
+- **Pro Projekt einschalten.** Öffne in den Projekteinstellungen den Bereich **Sub-Agenten** und aktiviere **Sub-Agenten in diesem Projekt erlauben**. Das gilt für Missionen, Explore und Verfeinerungen dieses Projekts; Implement-Pipelines sind nie betroffen. Missionen ohne Projekt folgen **App-Einstellungen → KI-Anbieter → Sub-Agenten in Missionen ohne Projekt erlauben**.
+- **Bei der Arbeit zusehen.** Die von einer Antwort gestarteten Agenten erscheinen in einer Karte unter dieser Antwort: was jeder tut, wie lange er läuft und, sobald er fertig ist, sein Ergebnis und seine Kosten. Klappe eine Zeile auf, um die Aktivität live zu verfolgen. Eine Pille neben dem Eingabefeld zählt die noch arbeitenden Agenten und stoppt sie alle.
+- **Der Agent macht selbst weiter.** Wenn Hintergrund-Agenten fertig sind, setzt der Agent fort und berichtet, was sie gefunden haben – markiert mit *Nach Hintergrund-Agenten fortgesetzt*.
+- **Die Einstellung zu ändern ist sicher.** Eine Mission mit laufenden Agenten übernimmt die Änderung, sobald diese fertig sind; sie sagt es dir und bietet **Agenten stoppen und jetzt übernehmen** an.
+- **Nichts startet heimlich neu.** Durch einen Neustart unterbrochene Agenten bleiben als unterbrochen markiert; **Neu starten** entwirft nur eine Nachricht, die den Agenten bittet, diese Arbeit erneut zu erledigen.
+
 ## Ein paar Dinge, die du wissen solltest
 
 - **Ausführen und Autonom kosten Geld**, weil sie KI laufen lassen. Der Agent hebt kostenverursachende Aktionen hervor, bevor er sie ausführt; belasse die Stufe bei Beobachten oder Bearbeiten, wenn du nur schauen und aufräumen willst.

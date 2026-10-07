@@ -268,7 +268,8 @@
       "budget": "Budget",
       "telemetry": "Telemetria",
       "terminal": "Terminale",
-      "agentRuntime": "Comandi di verifica"
+      "agentRuntime": "Comandi di verifica",
+      "subagents": "Sotto-agenti"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "Rispetta l'impostazione di sistema per la riduzione del movimento: l'anello resta un bagliore statico.",
     "preview": "Anteprima",
     "previewThinking": "Sto pensando…"
+  },
+  "subagents": {
+    "title": "Sotto-agenti",
+    "stateOn": "Gli agenti possono avviare sotto-agenti.",
+    "stateOff": "Gli agenti lavorano da soli, senza sotto-agenti.",
+    "explainParallel": "I sotto-agenti permettono a un agente di affidare lavoro ad aiutanti che girano in parallelo, proseguono dopo la sua risposta e riferiscono quando finiscono.",
+    "explainCost": "Ogni sotto-agente consuma i propri token: una singola richiesta può costare molto di più.",
+    "enabled": "Sotto-agenti consentiti",
+    "disabled": "Sotto-agenti disattivati",
+    "saveFailed": "Impossibile salvare l'impostazione dei sotto-agenti",
+    "project": {
+      "description": "Consente a missioni, esplorazione e rifiniture di questo progetto di usare sotto-agenti. Disattivato per impostazione predefinita.",
+      "toggleLabel": "Consenti sotto-agenti in questo progetto",
+      "explainScope": "Le pipeline Implement non sono interessate. Le missioni con sotto-agenti attivi applicano la modifica quando questi finiscono."
+    },
+    "global": {
+      "description": "Consente alle missioni senza progetto di usare sotto-agenti. Disattivato per impostazione predefinita.",
+      "toggleLabel": "Consenti sotto-agenti nelle missioni senza progetto",
+      "explainScope": "Ogni progetto ha la propria impostazione nelle impostazioni del progetto. Le missioni con sotto-agenti attivi applicano la modifica quando questi finiscono."
+    }
   }
 }

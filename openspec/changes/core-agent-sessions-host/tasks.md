@@ -60,11 +60,11 @@
 
 ## 9. Sub-agent policy toggle (last)
 
-- [ ] 9.1 Project settings `allowSubagents` (default false) through domain/application/SQLite/HTTP; app-global setting for project-less missions
-- [ ] 9.2 Pure resolver `(surface, project, global) → policy.subagents`, excluding Implement pipelines; wire into session open/update
-- [ ] 9.3 Deferred application to running sessions; `policy_unenforceable` error UI
-- [ ] 9.4 Settings UI (project + app modal) with cost/behaviour explanation in 8 locales; Specrails MCP settings surface
-- [ ] 9.5 Tests and docs for the toggle
+- [x] 9.1 Project settings `allowSubagents` (default false) through domain/application/SQLite/HTTP; app-global setting for project-less missions
+- [x] 9.2 Pure resolver `(surface, project, global) → policy.subagents`, excluding Implement pipelines; wire into session open/update
+- [x] 9.3 Deferred application to running sessions; `policy_unenforceable` error UI
+- [x] 9.4 Settings UI (project + app modal) with cost/behaviour explanation in 8 locales; Specrails MCP settings surface
+- [x] 9.5 Tests and docs for the toggle
 
 ## 10. Follow-up changes (tracked, not in this change)
 

@@ -611,6 +611,8 @@ export class AgentChatManager {
         usage?: NormalisedResult
         /** Core session turn id this turn settled (anchors its sub-agents). */
         coreTurnId?: string
+        /** Core error code the client can explain (e.g. `policy_unenforceable`). */
+        errorCode?: string
       }
 
       const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
@@ -989,7 +991,7 @@ export class AgentChatManager {
           console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
         }
         const coreResult = result as CoreInvocationResult
-        return { disposed: false, text, fullText: streamed.trim(), checkpointed, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt, ...(coreResult.usage ? { usage: coreResult.usage } : {}), ...(coreResult.coreTurnId ? { coreTurnId: coreResult.coreTurnId } : {}) }
+        return { disposed: false, text, fullText: streamed.trim(), checkpointed, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt, ...(coreResult.usage ? { usage: coreResult.usage } : {}), ...(coreResult.coreTurnId ? { coreTurnId: coreResult.coreTurnId } : {}), ...(coreResult.errorCode ? { errorCode: coreResult.errorCode } : {}) }
       }
 
       // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
@@ -1084,7 +1086,7 @@ export class AgentChatManager {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
           this._broadcast({ type: 'agent_partial', conversationId, fullText: r.text, messageId: message.id, error: reason, timestamp: timestamp() })
         }
-        this._emitError(conversationId, reason)
+        this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
         record(r, 'failed')
         return
       }
@@ -1576,9 +1578,10 @@ export class AgentChatManager {
     this._auxProcesses.clear()
   }
 
-  private _emitError(conversationId: string, error: string): void {
+  /** `detail.code` lets clients explain known failures (e.g. `policy_unenforceable`) in the user's language. */
+  private _emitError(conversationId: string, error: string, detail?: { code: string; provider: string }): void {
     if (this._disposed) return
-    this._broadcast({ type: 'agent_error', conversationId, error, timestamp: new Date().toISOString() })
+    this._broadcast({ type: 'agent_error', conversationId, error, ...(detail ?? {}), timestamp: new Date().toISOString() })
   }
 }
 

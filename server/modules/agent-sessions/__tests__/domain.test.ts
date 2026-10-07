@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_SUPERVISION, INITIAL_HOST_STATE, acceptsSessions, canTransition, onDemand, onFailure, onReady, onRestartDue, onRetry, onStop } from '../domain/host-state'
 import { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState } from '../domain/projection'
 import { KNOWN_EVENT_TYPES, checkSessionContract, type SessionEvent, type Usage } from '../domain/protocol'
+import { resolveSubagentPolicy } from '../domain/subagent-policy'
 
 const usage = (costUsd: number | null): Usage => ({ inputTokens: null, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd, costEstimated: false, model: 'm' })
 const at = '2026-10-07T10:00:00.000Z'
@@ -151,3 +152,17 @@ describe('Core sessions availability', () => {
     expect(resolveCoreSessionsAvailability('auto', { sessions: 1 })).toEqual({ enabled: true, flag: 'auto', reason: 'Core sessions available' })
   })
 })
+
+describe('sub-agent policy resolution', () => {
+  it.each([
+    [false, true, 'disabled'],
+    [true, false, 'enabled'],
+    [null, true, 'enabled'],
+    [null, false, 'disabled'],
+  ] as const)('project %s, global %s → %s', (projectAllows, globalAllows, expected) => {
+    for (const surface of ['mission', 'explore', 'refinement'] as const) {
+      expect(resolveSubagentPolicy({ surface, projectAllows, globalAllows })).toBe(expected)
+    }
+  })
+})
+

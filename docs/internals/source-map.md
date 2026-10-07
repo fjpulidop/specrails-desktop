@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1038 source/build files. Nearby tests are linked where names
+Includes 1040 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -604,6 +604,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeRetention.tsx](../../client/src/features/settings/components/RuntimeRetention.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRetention.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
+- [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
 
 ## client/src/features/settings/components/pickers
@@ -1123,6 +1124,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [host-state.ts](../../server/modules/agent-sessions/domain/host-state.ts)
 - [projection.ts](../../server/modules/agent-sessions/domain/projection.ts)
 - [protocol.ts](../../server/modules/agent-sessions/domain/protocol.ts)
+- [subagent-policy.ts](../../server/modules/agent-sessions/domain/subagent-policy.ts)
 
 ## server/modules/agent-sessions/runtime
 

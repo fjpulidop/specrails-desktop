@@ -268,7 +268,8 @@
       "budget": "预算",
       "telemetry": "遥测",
       "terminal": "终端",
-      "agentRuntime": "验证命令"
+      "agentRuntime": "验证命令",
+      "subagents": "子代理"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "遵循系统的减少动态效果设置：光环将保持为静态光晕。",
     "preview": "预览",
     "previewThinking": "思考中…"
+  },
+  "subagents": {
+    "title": "子代理",
+    "stateOn": "代理可以启动子代理。",
+    "stateOff": "代理独自工作，不使用子代理。",
+    "explainParallel": "子代理让代理把工作交给并行运行的助手，它们在代理回复后继续工作，完成后汇报结果。",
+    "explainCost": "每个子代理都会消耗自己的 token，因此一次请求的成本可能明显增加。",
+    "enabled": "已允许子代理",
+    "disabled": "已关闭子代理",
+    "saveFailed": "无法保存子代理设置",
+    "project": {
+      "description": "允许此项目的任务、探索和细化代理使用子代理。默认关闭。",
+      "toggleLabel": "在此项目中允许子代理",
+      "explainScope": "不影响 Implement 流水线。正在运行子代理的任务会在子代理完成后应用更改。"
+    },
+    "global": {
+      "description": "允许不属于任何项目的任务使用子代理。默认关闭。",
+      "toggleLabel": "在无项目的任务中允许子代理",
+      "explainScope": "每个项目在其项目设置中有独立的设置。正在运行子代理的任务会在子代理完成后应用更改。"
+    }
   }
 }

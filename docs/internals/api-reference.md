@@ -93,8 +93,8 @@ Example — register a project that uses both Claude and Gemini:
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | App-wide settings |
-| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd? }` |
+| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`) |
+| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents? }`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
 | `GET` | `/budget` | App-wide budget config |
 | `PATCH` | `/budget` | Update the app-wide daily budget |
 | `GET` | `/theme` | Current UI theme (defaults to `specrails`) |
@@ -169,6 +169,8 @@ WebSocket events for these missions:
 - `agent_session_updated` (`applied` / `deferred`) and `agent_session_notice`.
 
 Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result` with a `turnId`.
+
+`agent_error` may carry `code` and `provider` for failures the client explains in the user's language. One example is `policy_unenforceable`, sent when a provider cannot honour "Allow sub-agents: off".
 
 ### Webhooks
 
@@ -426,8 +428,8 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | Project settings |
-| `PATCH` | `/settings` | Update |
+| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`) |
+| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; a change refreshes the sub-agent policy of the project's open agent sessions |
 | `GET` | `/terminal-settings` | Per-project terminal overrides |
 | `PATCH` | `/terminal-settings` | Update |
 | `GET` | `/agent-models` | Per-agent model overrides |

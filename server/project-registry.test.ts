@@ -124,6 +124,18 @@ describe('ProjectRegistry', () => {
     fs.rmSync(registryHome, { recursive: true, force: true })
   })
 
+  it('notifies settings listeners, isolates a failing one and supports unsubscribe', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const seen: Array<string | null> = []
+    registry.onSettingsChanged(() => { throw new Error('listener down') })
+    const stop = registry.onSettingsChanged(({ projectId }) => seen.push(projectId))
+    registry.notifySettingsChanged({ projectId: 'p1' })
+    registry.notifySettingsChanged({ projectId: null })
+    stop()
+    registry.notifySettingsChanged({ projectId: 'p2' })
+    expect(seen).toEqual(['p1', null])
+  })
+
   describe('repository membership lifecycle', () => {
     function makeMembershipProject() {
       const primary = path.join(registryHome, 'app'), secondary = path.join(registryHome, 'api')

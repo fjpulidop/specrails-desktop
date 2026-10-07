@@ -66,6 +66,16 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 - **No git, no PR phase.** A project without a git repository (or without commits) still gets a run card — progress, log, failure and recovery — but there is no branch and no PR step; the card says so.
 - **`@rail-N`.** Type `@` and pick a rail to reference it in your message, with its specs and whether it is free, busy or awaiting a decision.
 
+## Sub-agents
+
+Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **off by default**: they multiply what one request costs.
+
+- **Turn them on per project.** Open the project's **Settings → Sub-agents** and switch on **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
+- **Watch them work.** The agents a reply launched appear in a card under that reply: what each one does, how long it has run and, once it finishes, its result and what it cost. Expand a row to follow its activity live. A pill next to the message box counts the agents still working and stops them all.
+- **The agent follows up on its own.** When background agents finish, the agent continues and posts what they found, marked *Continued after background agents*.
+- **Changing the setting is safe.** A mission with agents still running applies the change once they finish; it tells you so and offers **Stop agents and apply now**.
+- **Nothing restarts behind your back.** Agents interrupted by a restart stay marked as interrupted; **Relaunch** only drafts a message asking the agent to redo that work.
+
 ## A few things to know
 
 - **Operate and Autonomous cost money** because they run AI. The agent surfaces cost-incurring actions before doing them; keep the level at Observe or Edit if you just want to look and tidy.

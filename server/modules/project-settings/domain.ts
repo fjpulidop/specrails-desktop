@@ -34,6 +34,9 @@ export interface ProjectSettings {
    *  isolated loop worktrees. Values are read from the server process env at
    *  spawn time and are never stored in SQLite. */
   worktreeEnvPassthrough: string[]
+  /** Conversational agents of this project (missions, explore, refinements) may
+   *  use sub-agents. Off by default; Implement pipelines are never affected. */
+  allowSubagents: boolean
 }
 
 export const WORKTREE_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -95,6 +98,10 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
     } catch (error) {
       throw new SettingsValidationError(error instanceof Error ? error.message : 'invalid worktreeEnvPassthrough')
     }
+  }
+  if (values.allowSubagents !== undefined) {
+    if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
+    patch.allowSubagents = values.allowSubagents
   }
   if (values.integrationBranch !== undefined) {
     const branch = values.integrationBranch

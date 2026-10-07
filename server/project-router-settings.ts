@@ -48,8 +48,13 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx } = deps
   // ─── Project settings (pipeline telemetry) ───────────────────────────────────
 
-  registerProjectSettingsHttp(router, req =>
-    createProjectSettingsService(createSqliteProjectSettingsRepository(ctx(req).db)),
+  registerProjectSettingsHttp(
+    router,
+    req => createProjectSettingsService(createSqliteProjectSettingsRepository(ctx(req).db)),
+    // Open agent sessions of this project re-read their sub-agent policy.
+    (req, settings, previous) => {
+      if (settings.allowSubagents !== previous.allowSubagents) registry.notifySettingsChanged({ projectId: String(req.params.projectId) })
+    },
   )
 
   // ─── Per-project Quick mode Contract Refine last-used value ─────────────────

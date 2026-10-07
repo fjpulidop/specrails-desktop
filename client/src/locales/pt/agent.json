@@ -814,6 +814,7 @@
     "continuationSystem": "Continuou após o trabalho em segundo plano",
     "backgroundTurn": "O agente está revisando os resultados em segundo plano…",
     "deferred": "A alteração de configurações será aplicada quando os agentes em segundo plano terminarem.",
-    "applyNow": "Parar agentes e aplicar agora"
+    "applyNow": "Parar agentes e aplicar agora",
+    "policyUnenforceable": "{{provider}} não consegue desativar os subagentes. Ative “Permitir subagentes” nas configurações do projeto ou use outro provedor nesta missão."
   }
 }

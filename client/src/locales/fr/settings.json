@@ -268,7 +268,8 @@
       "budget": "Budget",
       "telemetry": "Télémétrie",
       "terminal": "Terminal",
-      "agentRuntime": "Commandes de vérification"
+      "agentRuntime": "Commandes de vérification",
+      "subagents": "Sous-agents"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "Respecte le réglage système de réduction des animations : l'anneau reste une lueur statique.",
     "preview": "Aperçu",
     "previewThinking": "Réflexion…"
+  },
+  "subagents": {
+    "title": "Sous-agents",
+    "stateOn": "Les agents peuvent lancer des sous-agents.",
+    "stateOff": "Les agents travaillent seuls, sans sous-agents.",
+    "explainParallel": "Les sous-agents permettent à un agent de confier du travail à des assistants qui tournent en parallèle, continuent après sa réponse et rendent compte une fois terminés.",
+    "explainCost": "Chaque sous-agent consomme ses propres jetons : une seule demande peut coûter nettement plus.",
+    "enabled": "Sous-agents autorisés",
+    "disabled": "Sous-agents désactivés",
+    "saveFailed": "Impossible d'enregistrer le réglage des sous-agents",
+    "project": {
+      "description": "Autorise les missions, l'exploration et les affinages de ce projet à utiliser des sous-agents. Désactivé par défaut.",
+      "toggleLabel": "Autoriser les sous-agents dans ce projet",
+      "explainScope": "Les pipelines Implement ne sont pas concernés. Les missions dont des sous-agents tournent appliquent le changement quand ils ont fini."
+    },
+    "global": {
+      "description": "Autorise les missions sans projet à utiliser des sous-agents. Désactivé par défaut.",
+      "toggleLabel": "Autoriser les sous-agents dans les missions sans projet",
+      "explainScope": "Chaque projet a son propre réglage dans ses paramètres. Les missions dont des sous-agents tournent appliquent le changement quand ils ont fini."
+    }
   }
 }

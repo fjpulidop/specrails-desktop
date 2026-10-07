@@ -814,6 +814,7 @@
     "continuationSystem": "在后台工作完成后继续",
     "backgroundTurn": "代理正在查看后台结果…",
     "deferred": "设置更改将在后台代理完成后应用。",
-    "applyNow": "停止代理并立即应用"
+    "applyNow": "停止代理并立即应用",
+    "policyUnenforceable": "{{provider}} 无法关闭子代理。请在项目设置中启用“允许子代理”，或为此任务改用其他提供商。"
   }
 }

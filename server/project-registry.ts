@@ -203,6 +203,8 @@ export class ProjectRegistry {
   // M9: projects whose per-project DB failed to load at startup (corrupt, locked,
   // or migration-stuck). They stay registered but have no live context.
   private _failedProjects: Map<string, { project: ProjectRow; error: string }>
+  /** Settings that running agent sessions depend on changed (`projectId: null` = app-global). */
+  private readonly _settingsListeners = new Set<(scope: { projectId: string | null }) => void>()
   private readonly _removalListeners = new Set<(project: { id: string; slug: string }) => void>()
   private _loadRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private _shuttingDown = false
@@ -494,6 +496,17 @@ export class ProjectRegistry {
   }
 
   /** Observe project removal (e.g. to stop the project's Core session host). */
+  onSettingsChanged(listener: (scope: { projectId: string | null }) => void): () => void {
+    this._settingsListeners.add(listener)
+    return () => { this._settingsListeners.delete(listener) }
+  }
+
+  notifySettingsChanged(scope: { projectId: string | null }): void {
+    for (const listener of this._settingsListeners) {
+      try { listener(scope) } catch (error) { console.error('[project-registry] settings listener failed:', error) }
+    }
+  }
+
   onProjectRemoved(listener: (project: { id: string; slug: string }) => void): () => void {
     this._removalListeners.add(listener)
     return () => { this._removalListeners.delete(listener) }

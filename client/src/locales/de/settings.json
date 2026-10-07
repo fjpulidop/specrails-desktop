@@ -268,7 +268,8 @@
       "budget": "Budget",
       "telemetry": "Telemetrie",
       "terminal": "Terminal",
-      "agentRuntime": "Verifikationsbefehle"
+      "agentRuntime": "Verifikationsbefehle",
+      "subagents": "Sub-Agenten"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,25 @@
     "reducedMotion": "Folgt der Systemeinstellung für reduzierte Bewegung: der Ring bleibt ein statisches Leuchten.",
     "preview": "Vorschau",
     "previewThinking": "Denkt nach…"
+  },
+  "subagents": {
+    "title": "Sub-Agenten",
+    "stateOn": "Agenten dürfen Sub-Agenten starten.",
+    "stateOff": "Agenten arbeiten allein, ohne Sub-Agenten.",
+    "explainParallel": "Mit Sub-Agenten verteilt ein Agent Arbeit an Helfer, die parallel laufen, nach seiner Antwort weiterarbeiten und sich melden, wenn sie fertig sind.",
+    "explainCost": "Jeder Sub-Agent verbraucht eigene Tokens – eine einzelne Anfrage kann deutlich mehr kosten.",
+    "enabled": "Sub-Agenten erlaubt",
+    "disabled": "Sub-Agenten deaktiviert",
+    "saveFailed": "Die Sub-Agenten-Einstellung konnte nicht gespeichert werden",
+    "project": {
+      "description": "Erlaubt Missionen, Explore- und Verfeinerungs-Agenten dieses Projekts, Sub-Agenten zu nutzen. Standardmäßig aus.",
+      "toggleLabel": "Sub-Agenten in diesem Projekt erlauben",
+      "explainScope": "Implement-Pipelines sind nicht betroffen. Missionen mit laufenden Sub-Agenten übernehmen die Änderung, sobald diese fertig sind."
+    },
+    "global": {
+      "description": "Erlaubt Missionen ohne Projekt, Sub-Agenten zu nutzen. Standardmäßig aus.",
+      "toggleLabel": "Sub-Agenten in Missionen ohne Projekt erlauben",
+      "explainScope": "Jedes Projekt hat eine eigene Einstellung in den Projekteinstellungen. Missionen mit laufenden Sub-Agenten übernehmen die Änderung, sobald diese fertig sind."
+    }
   }
 }

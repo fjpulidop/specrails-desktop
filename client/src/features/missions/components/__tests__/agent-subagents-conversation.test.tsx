@@ -101,4 +101,12 @@ describe('mission conversation with Core sub-agents', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Relaunch' }))
     await waitFor(() => expect(composerDrafts.get('c1')).toBe('Please relaunch the background agent for: Scan the repo'))
   })
+
+  it('explains a sub-agent policy the provider cannot enforce in the user language', async () => {
+    await mount([])
+    emit({ type: 'agent_error', conversationId: 'c1', error: 'raw Core text', code: 'policy_unenforceable', provider: 'codex' })
+    expect(await screen.findByText(/Codex can't turn sub-agents off/)).toBeInTheDocument()
+    expect(screen.queryByText(/raw Core text/)).not.toBeInTheDocument()
+  })
 })
+

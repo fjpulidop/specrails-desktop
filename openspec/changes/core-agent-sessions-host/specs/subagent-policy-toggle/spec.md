@@ -35,8 +35,14 @@ Changing the setting SHALL update open sessions of that scope through Core at a 
 - **AND** the user MUST be offered to stop the agents and apply it now
 
 ### Requirement: The setting is visible and localized
-The setting SHALL appear in project settings, and the global setting in app settings, with an explanation of cost and behaviour in all 8 locales, and SHALL be exposed through the project settings API and the Specrails MCP settings surface.
+The setting SHALL appear in project settings, and the global setting in app settings, with an explanation of cost and behaviour in all 8 locales. It SHALL be readable and writable through the project and app settings APIs, and readable (never writable) through the Specrails MCP settings surface, so that an agent cannot grant itself sub-agents.
 
 #### Scenario: Settings API
 - **WHEN** a client reads project settings
 - **THEN** the response MUST include `allowSubagents` with its effective value
+
+#### Scenario: MCP cannot grant sub-agents
+- **WHEN** an MCP client reads app settings
+- **THEN** the response MUST report the app-wide setting and, when a project is given, that project's setting
+- **AND** no MCP action MUST be able to change either setting
+
