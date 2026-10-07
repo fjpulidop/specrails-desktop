@@ -73,6 +73,12 @@ export function onFailure(state: HostState, now: number, policy: HostSupervision
   return { state: transition(state, 'restarting', failures), decision: { action: 'restart', delayMs } }
 }
 
+/** A failure no restart can fix (e.g. another host owns the scope's journal): degrade at once. */
+export function onFatal(state: HostState, reason: string): { state: HostState; decision: HostDecision } {
+  if (state.status === 'stopped' || state.status === 'degraded') return { state, decision: { action: 'none' } }
+  return { state: transition(state, 'degraded'), decision: { action: 'degrade', reason } }
+}
+
 /** The restart delay elapsed. */
 export function onRestartDue(state: HostState): { state: HostState; decision: HostDecision } {
   if (state.status !== 'restarting') return { state, decision: { action: 'none' } }

@@ -34,6 +34,29 @@ describe('StdioSessionHostClient', () => {
     expect(error).toMatchObject({ retryable: false, rpcCode: -32000 })
   })
 
+  it('turns the host\'s fatal start result into a typed close with its code', async () => {
+    const { client, reply } = pair()
+    const closes: Array<[string, string | undefined]> = []
+    client.onClose((reason, code) => closes.push([reason, code]))
+    const init = client.request('initialize')
+    await tick()
+    reply({ type: 'runtime-result', status: 'failed', error: { code: 'journal_locked', message: 'Another session host owns this scope' } })
+    await expect(init).rejects.toMatchObject({ code: 'journal_locked', retryable: false, message: 'Another session host owns this scope' })
+    expect(closes).toEqual([['Another session host owns this scope', 'journal_locked']])
+    // A late listener still learns the cause.
+    let late: string | undefined
+    client.onClose((_reason, code) => { late = code })
+    expect(late).toBe('journal_locked')
+  })
+
+  it('keeps plain-text fatal results generic', async () => {
+    const { client, reply } = pair()
+    const init = client.request('initialize')
+    await tick()
+    reply({ type: 'runtime-result', status: 'failed', error: 'boom' })
+    await expect(init).rejects.toMatchObject({ code: 'host_unavailable', message: 'boom' })
+  })
+
   it('dispatches events and lag notices, and closes on lease loss', async () => {
     const { client, reply } = pair()
     const events: unknown[] = [], lags: unknown[] = [], closes: string[] = []
@@ -49,8 +72,8 @@ describe('StdioSessionHostClient', () => {
     expect(events).toEqual([{ sessionId: 's', seq: 3, event: { type: 'session.phase', phase: 'turn', at: 'x' } }])
     expect(lags).toEqual([['s', 3]])
     expect(closes).toEqual(['Another session host took over this scope'])
-    expect(await pending).toMatchObject({ code: 'host_unavailable' })
-    await expect(client.request('host.ping')).rejects.toMatchObject({ code: 'host_unavailable' })
+    expect(await pending).toMatchObject({ code: 'journal_locked', retryable: false })
+    await expect(client.request('host.ping')).rejects.toMatchObject({ code: 'journal_locked' })
     const late: string[] = []
     client.onClose((reason) => late.push(reason))
     expect(late).toHaveLength(1)

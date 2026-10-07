@@ -816,5 +816,15 @@
     "deferred": "La modifica alle impostazioni verrà applicata al termine degli agenti in background.",
     "applyNow": "Ferma gli agenti e applica ora",
     "policyUnenforceable": "{{provider}} non può disattivare i sotto-agenti. Attiva «Consenti sotto-agenti» nelle impostazioni del progetto o usa un altro provider per questa missione."
+  },
+  "sessionNotice": {
+    "host_degraded": "Le sessioni Core non sono disponibili per questo progetto dopo errori ripetuti, quindi questo turno ha usato il trasporto classico (senza sotto-agenti in background). Riprova dopo aver risolto la causa.",
+    "journal_locked": "Un'altra istanza di Specrails Desktop sta usando le sessioni agente di questo progetto, quindi questo turno ha usato il trasporto classico. Chiudi l'altra istanza e riprova.",
+    "policy": {
+      "subagent_blocked": "Il provider ha avviato un sotto-agente anche se i sotto-agenti sono disattivati per questo progetto; è stato fermato."
+    },
+    "retry": "Riprova",
+    "retryFailed": "Ancora non disponibile. Controlla il log dell'app per la causa.",
+    "dismiss": "Ignora"
   }
 }

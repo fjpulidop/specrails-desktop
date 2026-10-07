@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1040 source/build files. Nearby tests are linked where names
+Includes 1041 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1111,6 +1111,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/agent-sessions/adapters
 
 - [host-process.ts](../../server/modules/agent-sessions/adapters/host-process.ts)
+- [http.ts](../../server/modules/agent-sessions/adapters/http.ts)
 - [rpc-client.ts](../../server/modules/agent-sessions/adapters/rpc-client.ts)
 
 ## server/modules/agent-sessions/application

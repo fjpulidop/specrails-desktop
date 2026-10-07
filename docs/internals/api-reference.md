@@ -162,11 +162,15 @@ These routes are available when a mission ran in a Core agent session (`SPECRAIL
 | `POST` | `/agent/conversations/:id/subagents/stop` | Body `{ subagentIds? }` (all when omitted). Returns `{ stopped }`; `502` when the session host is unavailable. |
 | `POST` | `/agent/conversations/:id/session/rebuild` | Operator repair: replays the mission's Core journal into its sub-agent rows, events, resident state and cursor. Turns already recorded as messages/invocations are not duplicated; the replay is silent, then clients receive `agent_resident_state` and one `agent_subagent` per row. Returns `{ lastSeq, subagents }`; `409` while a turn runs or when the mission has no Core session; `502` when the host is unavailable. |
 
+| `GET` | `/agent/session-hosts` | `{ hosts: [{ scope, status, detail, code }] }`: one entry per Core session host scope (project slug or `global`). `code` explains a degraded scope (`journal_locked`, `protocol_mismatch`, `driver_unavailable`). |
+| `POST` | `/agent/session-hosts/:scope/retry` | Starts a degraded scope again. Returns `{ host }`, or `502` with `{ error, host }` when it is still unavailable. |
+
 WebSocket events for these missions:
 
 - `agent_resident_state`, `agent_subagent`, `agent_subagent_event`;
 - `agent_turn_started` / `agent_turn_done` for turns Core starts after sub-agents finish (origin `subagent` or `system`);
-- `agent_session_updated` (`applied` / `deferred`) and `agent_session_notice`.
+- `agent_session_updated` (`applied` / `deferred`) and `agent_session_notice` (`level`, `code`, `message`, optional `scope`). The notice covers provider warnings such as `policy.subagent_blocked`, and a turn that fell back to the legacy transport (`host_degraded`, `journal_locked`);
+- `agent_sessions_host` (app-level, no `projectId`): `{ scope, status, detail, code }` on every host status change.
 
 Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result` with a `turnId`.
 

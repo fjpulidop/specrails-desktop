@@ -42,6 +42,7 @@ import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } f
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
+import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
 import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
 import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import { getAdapter } from './providers/registry'
@@ -717,7 +718,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   const sessionHosts = new SessionHostRegistry({
     launcher: new CoreHostLauncher({ host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' } }),
     clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); timer.unref?.(); return { cancel: () => clearTimeout(timer) } } },
-    onStatus: (scope, status, detail) => console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`),
+    onStatus: (scope, status, detail, code) => {
+      console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`)
+      // App-level event (no projectId): open missions show a notice when their scope degrades.
+      broadcast({ type: 'agent_sessions_host', scope, status, detail: detail ?? null, code: code ?? null, timestamp: new Date().toISOString() } as unknown as WsMessage)
+    },
   })
   _sessionHosts = sessionHosts
   const projectAllowsSubagents = (projectId: string): boolean => {
@@ -748,6 +753,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
   // disabled — the rails callers are null-safe and simply skip the card.
   setAgentChatManager(isAgentChatEnabled() ? agentChatManager : null)
+  // Before the agent router: `/api/agent/session-hosts` is not a conversation route.
+  app.use('/api/agent/session-hosts', createSessionHostsRouter(sessionHosts))
   app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
 
   // Project Builder day-0 chat + orchestrated commit (add-project-builder).

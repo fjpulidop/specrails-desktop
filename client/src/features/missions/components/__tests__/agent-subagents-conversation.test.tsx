@@ -108,5 +108,13 @@ describe('mission conversation with Core sub-agents', () => {
     expect(await screen.findByText(/Codex can't turn sub-agents off/)).toBeInTheDocument()
     expect(screen.queryByText(/raw Core text/)).not.toBeInTheDocument()
   })
+
+  it('shows session notices in the mission and dismisses them', async () => {
+    await mount([])
+    emit({ type: 'agent_session_notice', conversationId: 'c1', level: 'warning', code: 'host_degraded', scope: 'global', message: 'raw', timestamp: 't' })
+    expect(await screen.findByText(/Core sessions are unavailable for this project/)).toBeInTheDocument()
+    emit({ type: 'agent_sessions_host', scope: 'global', status: 'ready' })
+    await waitFor(() => expect(screen.queryByTestId('agent-session-notices')).not.toBeInTheDocument())
+  })
 })
 

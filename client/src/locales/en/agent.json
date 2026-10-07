@@ -816,5 +816,15 @@
     "deferred": "Settings change will apply when background agents finish.",
     "applyNow": "Stop agents and apply now",
     "policyUnenforceable": "{{provider}} can't turn sub-agents off. Enable “Allow sub-agents” in this project's settings, or use another provider for this mission."
+  },
+  "sessionNotice": {
+    "host_degraded": "Core sessions are unavailable for this project after repeated failures, so this turn ran on the classic transport (no background sub-agents). Retry once the cause is fixed.",
+    "journal_locked": "Another Specrails Desktop instance is using this project's agent sessions, so this turn ran on the classic transport. Close the other instance, then retry.",
+    "policy": {
+      "subagent_blocked": "The provider started a sub-agent even though sub-agents are off for this project; it was stopped."
+    },
+    "retry": "Retry",
+    "retryFailed": "Still unavailable. Check the app log for the cause.",
+    "dismiss": "Dismiss"
   }
 }

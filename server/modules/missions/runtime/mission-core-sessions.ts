@@ -57,12 +57,16 @@ export class MissionCoreSessions {
     const availability = await this.deps.availability()
     if (!availability.enabled) return null
     const scope = this.scopeOf(conversation)
-    if (!this.deps.registry.available(scope)) return null
+    if (!this.deps.registry.available(scope)) {
+      this.noticeFallback(conversation.id, scope)
+      return null
+    }
     let client
     try {
       client = await this.deps.registry.acquire(scope)
     } catch (error) {
       console.warn(`[agent-chat] Core sessions unavailable for ${scope}; using the legacy transport: ${(error as Error).message}`)
+      this.noticeFallback(conversation.id, scope)
       return null
     }
     const drivers = client.initialize?.drivers ?? []
@@ -117,6 +121,14 @@ export class MissionCoreSessions {
         console.warn(`[agent-chat] could not update the sub-agent policy of ${conversationId}: ${(error as Error).message}`)
       }
     }
+  }
+
+  /** The turn runs on the legacy transport because its scope is degraded: say why, once per turn. */
+  private noticeFallback(conversationId: string, scope: string): void {
+    if (this.deps.registry.status(scope) !== 'degraded') return
+    const code = this.deps.registry.degradedCode(scope) === 'journal_locked' ? 'journal_locked' : 'host_degraded'
+    const detail = this.deps.registry.hosts().find((host) => host.scope === scope)?.detail ?? null
+    this.deps.broadcast({ type: 'agent_session_notice', conversationId, level: 'warning', code, scope, message: detail ?? code, timestamp: new Date().toISOString() })
   }
 
   private subagentPolicy(conversation: AgentConversation): SessionPolicyInput['subagents'] {

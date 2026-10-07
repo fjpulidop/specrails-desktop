@@ -5,19 +5,21 @@ import { getAgentActiveTurns, getMissionSubagents, stopMissionSubagents } from '
 import {
   applySessionMessage,
   applySessionSnapshot,
+  dismissSessionNotice,
   settleMissingSessions,
   type MissionSessionView,
   type MissionSessionsState,
   type SessionWsMessage,
 } from '../lib/mission-sessions'
 
-const SESSION_EVENTS = new Set(['agent_resident_state', 'agent_subagent', 'agent_subagent_event', 'agent_turn_started', 'agent_turn_done', 'agent_session_updated', 'agent_stream'])
+const SESSION_EVENTS = new Set(['agent_resident_state', 'agent_subagent', 'agent_subagent_event', 'agent_turn_started', 'agent_turn_done', 'agent_session_updated', 'agent_session_notice', 'agent_sessions_host', 'agent_stream'])
 
 interface MissionSessionsValue {
   sessions: MissionSessionsState
   /** Load a mission's sub-agents once (conversation opened). */
   ensureLoaded: (conversationId: string) => void
   stopSubagents: (conversationId: string, subagentIds?: string[]) => Promise<string[]>
+  dismissNotice: (conversationId: string, noticeId: string) => void
   /** Missions whose agent is still working in the background (sidebar live dot). */
   backgroundConversationIds: ReadonlySet<string>
 }
@@ -80,12 +82,13 @@ function MissionSessionsRoot({ children }: { children: ReactNode }) {
 
   const stopSubagents = useCallback(async (conversationId: string, subagentIds?: string[]) => (await stopMissionSubagents(conversationId, subagentIds)).stopped, [])
 
+  const dismissNotice = useCallback((conversationId: string, noticeId: string) => setSessions((state) => dismissSessionNotice(state, conversationId, noticeId)), [])
   const backgroundConversationIds = useMemo(() => new Set([...sessions].filter(([, view]) => view.residentPhase !== 'idle' || view.liveSubagents > 0).map(([id]) => id)), [sessions])
-  const value = useMemo(() => ({ sessions, ensureLoaded, stopSubagents, backgroundConversationIds }), [sessions, ensureLoaded, stopSubagents, backgroundConversationIds])
+  const value = useMemo(() => ({ sessions, ensureLoaded, stopSubagents, dismissNotice, backgroundConversationIds }), [sessions, ensureLoaded, stopSubagents, dismissNotice, backgroundConversationIds])
   return <MissionSessionsContext.Provider value={value}>{children}</MissionSessionsContext.Provider>
 }
 
-const NOOP: MissionSessionsValue = { sessions: new Map(), ensureLoaded: () => {}, stopSubagents: async () => [], backgroundConversationIds: new Set() }
+const NOOP: MissionSessionsValue = { sessions: new Map(), ensureLoaded: () => {}, stopSubagents: async () => [], dismissNotice: () => {}, backgroundConversationIds: new Set() }
 
 export function useMissionSessions(): MissionSessionsValue {
   return useContext(MissionSessionsContext) ?? NOOP

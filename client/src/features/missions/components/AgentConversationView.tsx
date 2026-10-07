@@ -27,7 +27,7 @@ import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMar
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
 import { AgentSubagentsCard } from './AgentSubagentsCard'
-import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentTurnOriginLabel } from './AgentSessionIndicators'
+import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
 import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
 import { subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
@@ -164,7 +164,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // Core sessions: sub-agents anchor under the message of the turn that launched
   // them; the rest (turn still in flight) render in the live area.
   const session = useMissionSession(active?.id)
-  const { stopSubagents } = useMissionSessions()
+  const { stopSubagents, dismissNotice } = useMissionSessions()
   const anchoredTurnIds = useMemo(() => new Set(messages.map((m) => m.core_turn_id).filter((id): id is string => !!id)), [messages])
   const liveSubagentCards = useMemo(() => unanchoredSubagents(session, anchoredTurnIds), [session, anchoredTurnIds])
   const stopMissionAgents = async (ids?: string[]) => { if (active) await stopSubagents(active.id, ids) }
@@ -361,6 +361,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           )}
           {subagentCard(liveSubagentCards, 'subagents:live')}
           {session?.backgroundTurn && !isStreaming && <AgentBackgroundTurn turn={session.backgroundTurn} />}
+          {active && session && session.notices.length > 0 && (
+            <AgentSessionNotices notices={session.notices} onDismiss={(noticeId) => dismissNotice(active.id, noticeId)} />
+          )}
           {session?.deferredChanges && (
             <AgentDeferredChangeNotice onApplyNow={() => stopMissionAgents()} />
           )}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import { AgentSubagentsCard } from '../AgentSubagentsCard'
-import { AgentBackgroundAgentsPill, AgentBackgroundTurn, AgentDeferredChangeNotice, AgentTurnOriginLabel } from '../AgentSessionIndicators'
+import { AgentBackgroundAgentsPill, AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from '../AgentSessionIndicators'
 import type { AgentSubagent } from '../../lib/agent-api'
 
 const node = (over: Partial<AgentSubagent> = {}): AgentSubagent => ({
@@ -159,3 +159,39 @@ describe('AgentActivityChip with sub-agents', () => {
     expect(await screen.findByText('Reading')).toBeInTheDocument()
   })
 })
+
+describe('AgentSessionNotices', () => {
+  const hostNotice = { id: 'n1', code: 'journal_locked', level: 'warning' as const, message: 'raw', scope: 'acme' }
+
+  it('explains known notices, retries the host and dismisses on success', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ host: { scope: 'acme', status: 'ready', detail: null, code: null } }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    const onDismiss = vi.fn()
+    render(<AgentSessionNotices notices={[hostNotice, { id: 'n2', code: 'policy.subagent_blocked', level: 'warning', message: 'raw', scope: null }]} onDismiss={onDismiss} />)
+    expect(screen.getByText(/Another Specrails Desktop instance/)).toBeInTheDocument()
+    expect(screen.getByText(/it was stopped/)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Retry' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledWith('n1'))
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toContain('/session-hosts/acme/retry')
+  })
+
+  it('keeps the notice and says so when the retry does not help', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ host: { scope: 'acme', status: 'degraded', detail: 'x', code: 'journal_locked' } }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    const onDismiss = vi.fn()
+    render(<AgentSessionNotices notices={[hostNotice]} onDismiss={onDismiss} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText(/Still unavailable/)).toBeInTheDocument()
+    expect(onDismiss).not.toHaveBeenCalled()
+  })
+
+  it('shows unknown notices as reported and dismisses them', () => {
+    const onDismiss = vi.fn()
+    const { container, rerender } = render(<AgentSessionNotices notices={[{ id: 'n3', code: 'provider.retrying', level: 'info', message: 'Rate limited, retrying', scope: null }]} onDismiss={onDismiss} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Rate limited, retrying')
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(onDismiss).toHaveBeenCalledWith('n3')
+    rerender(<AgentSessionNotices notices={[]} onDismiss={onDismiss} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+

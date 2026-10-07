@@ -270,6 +270,7 @@
   "agent-sessions": {
     "publicEntries": [
       "adapters/host-process.ts",
+      "adapters/http.ts",
       "index.ts",
       "runtime/core-sessions-availability.ts",
       "runtime/session-host-registry.ts"
@@ -284,6 +285,10 @@
         "../ports",
         "./rpc-client",
         "node:child_process"
+      ],
+      "adapters/http.ts": [
+        "../runtime/session-host-registry",
+        "express"
       ],
       "adapters/rpc-client.ts": [
         "../domain/errors",

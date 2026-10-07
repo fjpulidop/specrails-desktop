@@ -816,5 +816,15 @@
     "deferred": "Le changement de réglages sera appliqué quand les agents en arrière-plan auront fini.",
     "applyNow": "Arrêter les agents et appliquer",
     "policyUnenforceable": "{{provider}} ne peut pas désactiver les sous-agents. Activez « Autoriser les sous-agents » dans les réglages du projet ou utilisez un autre fournisseur pour cette mission."
+  },
+  "sessionNotice": {
+    "host_degraded": "Les sessions Core sont indisponibles pour ce projet après plusieurs échecs : ce tour est passé par le transport classique (sans sous-agents en arrière-plan). Réessayez une fois la cause corrigée.",
+    "journal_locked": "Une autre instance de Specrails Desktop utilise les sessions d'agent de ce projet : ce tour est passé par le transport classique. Fermez l'autre instance, puis réessayez.",
+    "policy": {
+      "subagent_blocked": "Le fournisseur a lancé un sous-agent alors que les sous-agents sont désactivés pour ce projet ; il a été arrêté."
+    },
+    "retry": "Réessayer",
+    "retryFailed": "Toujours indisponible. Consultez le journal de l'app pour la cause.",
+    "dismiss": "Ignorer"
   }
 }

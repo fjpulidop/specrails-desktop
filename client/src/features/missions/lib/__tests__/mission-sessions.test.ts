@@ -5,6 +5,7 @@ import {
   MAX_LIVE_EVENTS_PER_SUBAGENT,
   applySessionMessage,
   applySessionSnapshot,
+  dismissSessionNotice,
   isInterruptedSubagent,
   isLiveSubagent,
   settleMissingSessions,
@@ -126,3 +127,32 @@ describe('selectors', () => {
     expect(isInterruptedSubagent(node({ phase: 'failed' }))).toBe(false)
   })
 })
+
+describe('session notices', () => {
+  const notice = (code: string, scope?: string, timestamp = 't1') => ({ type: 'agent_session_notice', conversationId: 'c1', level: 'warning' as const, code, message: `raw ${code}`, ...(scope ? { scope } : {}), timestamp })
+
+  it('keeps one notice per code, bounded, and lets the user dismiss them', () => {
+    let state = applySessionMessage(empty, notice('host_degraded', 'acme'))
+    state = applySessionMessage(state, notice('host_degraded', 'acme', 't2'))
+    expect(state.get('c1')!.notices).toEqual([{ id: 'host_degraded:t2', code: 'host_degraded', level: 'warning', message: 'raw host_degraded', scope: 'acme' }])
+    for (let index = 0; index < 8; index++) state = applySessionMessage(state, notice(`code-${index}`))
+    expect(state.get('c1')!.notices).toHaveLength(5)
+    const [first] = state.get('c1')!.notices
+    state = dismissSessionNotice(state, 'c1', first!.id)
+    expect(state.get('c1')!.notices).toHaveLength(4)
+    expect(dismissSessionNotice(state, 'c1', 'missing')).toBe(state)
+    expect(applySessionMessage(state, { type: 'agent_session_notice', conversationId: 'c1' })).toBe(state)
+  })
+
+  it('clears host notices of a scope when its host is ready again', () => {
+    let state = applySessionMessage(empty, notice('host_degraded', 'acme'))
+    state = applySessionMessage(state, { ...notice('journal_locked', 'other'), conversationId: 'c2' })
+    state = applySessionMessage(state, notice('policy.subagent_blocked'))
+    expect(applySessionMessage(state, { type: 'agent_sessions_host', scope: 'acme', status: 'degraded' })).toBe(state)
+    const ready = applySessionMessage(state, { type: 'agent_sessions_host', scope: 'acme', status: 'ready' })
+    expect(ready.get('c1')!.notices.map((item) => item.code)).toEqual(['policy.subagent_blocked'])
+    expect(ready.get('c2')).toBe(state.get('c2'))
+    expect(applySessionMessage(ready, { type: 'agent_sessions_host', scope: 'nobody', status: 'ready' })).toBe(ready)
+  })
+})
+

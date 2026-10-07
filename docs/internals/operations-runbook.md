@@ -140,6 +140,17 @@ If a single provider or feature is breaking the app, you can turn it off with an
 
 These are the most common ops escape hatches; see [Configuration → Environment variables](configuration.md#environment-variables) for the complete list of gates and flags.
 
+### Missions on Core agent sessions
+
+With `SPECRAILS_CORE_SESSIONS` at `auto` or `on`, missions run in a Core host
+process per project scope (`specrails-core runtime host --stdio --scope …`).
+The server log prefix is `[agent-sessions]`.
+
+- **Status.** The server logs each scope's transitions: `starting`, `ready`, `restarting`, `degraded`. `GET /api/agent/session-hosts` lists them. A degraded scope sends new mission turns through the legacy transport, and the mission shows why, with a **Retry** button (`POST /api/agent/session-hosts/:scope/retry`). Crashes degrade a scope after repeated failures. Some causes degrade it at once, without restart attempts: another Desktop instance holding the journal (`journal_locked`), an incompatible Core (`protocol_mismatch`), or a Core without the host (`driver_unavailable`). Close the other instance or fix Core, then retry.
+- **Session data.** Core owns the journals in `~/.specrails/sessions/<project>/sessions.sqlite`. Desktop's tables (`agent_session_cursors`, `agent_subagents`, `agent_subagent_events`) are a projection. If they look wrong, rebuild them for one mission with `POST /api/agent/conversations/:id/session/rebuild`. This never duplicates messages or spend.
+- **Turn it off.** `SPECRAILS_CORE_SESSIONS=off` returns every mission to the legacy transports. Missions keep their history; sub-agent cards remain for past turns.
+- **Live check (paid, opt-in).** `SPECRAILS_LIVE_PROVIDER_SMOKE=1 npx vitest run server/modules/missions/runtime/mission-core-sessions.live.test.ts` runs real Claude missions against the local `../specrails-core` build. Add `SPECRAILS_LIVE_PROVIDERS=claude,codex` to include Codex, and `SPECRAILS_LIVE_<PROVIDER>_MODEL` to pick a model the account can use.
+
 ### Per-project reset (keeps the registration)
 
 To clear one project's job history, invocations, and telemetry pointers while keeping it registered, delete just that project's `jobs.sqlite` with the app stopped:

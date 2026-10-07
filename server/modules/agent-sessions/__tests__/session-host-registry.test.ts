@@ -28,7 +28,7 @@ class FakeHost implements SessionHostClient {
   closed = false
   requests: string[] = []
   private events = new Set<(envelope: SessionEventEnvelope) => void>()
-  private closes = new Set<(reason: string) => void>()
+  private closes = new Set<(reason: string, code?: string) => void>()
   constructor(readonly journal: SessionEventEnvelope[]) {}
   async request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     this.requests.push(method)
@@ -41,17 +41,19 @@ class FakeHost implements SessionHostClient {
   }
   onEvent(listener: (envelope: SessionEventEnvelope) => void) { this.events.add(listener); return () => { this.events.delete(listener) } }
   onLagged() { return () => {} }
-  onClose(listener: (reason: string) => void) { this.closes.add(listener); return () => { this.closes.delete(listener) } }
+  onClose(listener: (reason: string, code?: string) => void) { this.closes.add(listener); return () => { this.closes.delete(listener) } }
   async close() { this.crash('closed') }
   emit(envelope: SessionEventEnvelope) { this.journal.push(envelope); for (const listener of this.events) listener(envelope) }
-  crash(reason = 'exit 1') { if (this.closed) return; this.closed = true; for (const listener of this.closes) listener(reason) }
+  crash(reason = 'exit 1', code?: string) { if (this.closed) return; this.closed = true; for (const listener of this.closes) listener(reason, code) }
 }
 
 class FakeLauncher implements HostProcessLauncher {
   hosts: FakeHost[] = []
   failNext = 0
+  failWith: Error | null = null
   readonly journal: SessionEventEnvelope[] = []
   async launch(): Promise<SessionHostClient> {
+    if (this.failWith) { const error = this.failWith; this.failWith = null; throw error }
     if (this.failNext > 0) { this.failNext -= 1; throw new Error('spawn failed') }
     const host = new FakeHost(this.journal)
     this.hosts.push(host)
@@ -148,3 +150,51 @@ describe('SessionHostRegistry', () => {
     registry.untrack('p1', 's1')
   })
 })
+
+describe('fatal host failures', () => {
+  function setup() {
+    const launcher = new FakeLauncher()
+    const clock = new ManualClock()
+    const statuses: Array<[string, string, string | undefined]> = []
+    const registry = new SessionHostRegistry({ launcher, clock, onStatus: (scope, status, _detail, code) => statuses.push([scope, status, code]) })
+    return { launcher, clock, registry, statuses }
+  }
+
+  it('degrades at once when another host owns the journal, without restart attempts', async () => {
+    const { launcher, clock, registry, statuses } = setup()
+    launcher.failWith = new SessionRequestError('Another session host owns this scope', { code: 'journal_locked', retryable: false })
+    await expect(registry.acquire('proj')).rejects.toMatchObject({ code: 'journal_locked' })
+    expect(registry.status('proj')).toBe('degraded')
+    expect(registry.degradedCode('proj')).toBe('journal_locked')
+    expect(registry.available('proj')).toBe(false)
+    expect(statuses.at(-1)).toEqual(['proj', 'degraded', 'journal_locked'])
+    clock.advance(60_000)
+    await tick()
+    expect(launcher.hosts).toHaveLength(0)
+    expect(registry.hosts()).toEqual([{ scope: 'proj', status: 'degraded', detail: 'Another session host owns this scope', code: 'journal_locked' }])
+  })
+
+  it('degrades when a running host loses its lease, and a retry clears the cause', async () => {
+    const { launcher, registry } = setup()
+    await registry.acquire('proj')
+    launcher.hosts[0]!.crash('Another session host took over this scope', 'journal_locked')
+    expect(registry.status('proj')).toBe('degraded')
+    await registry.retry('proj')
+    await tick()
+    expect(registry.status('proj')).toBe('ready')
+    expect(registry.degradedCode('proj')).toBeNull()
+    expect(registry.hosts()[0]).toMatchObject({ status: 'ready', code: null, detail: null })
+  })
+
+  it('keeps restarting with backoff for ordinary crashes', async () => {
+    const { launcher, clock, registry } = setup()
+    await registry.acquire('proj')
+    launcher.hosts[0]!.crash('exit 1')
+    expect(registry.status('proj')).toBe('restarting')
+    clock.advance(60_000)
+    await tick()
+    expect(registry.status('proj')).toBe('ready')
+    expect(launcher.hosts).toHaveLength(2)
+  })
+})
+

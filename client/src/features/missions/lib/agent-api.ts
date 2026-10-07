@@ -258,6 +258,11 @@ export async function stopMissionSubagents(conversationId: string, subagentIds?:
   }))
 }
 
+/** Retry a Core session host scope that degraded (e.g. after closing another Desktop instance). */
+export async function retryAgentSessionHost(scope: string): Promise<{ host: { scope: string; status: string; detail: string | null; code: string | null } }> {
+  return json(await fetch(`${base}/session-hosts/${encodeURIComponent(scope)}/retry`, { method: 'POST' }))
+}
+
 export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {
   return json(await fetch(`${base}/active-turns`))
 }

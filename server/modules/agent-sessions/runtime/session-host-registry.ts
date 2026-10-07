@@ -1,11 +1,12 @@
 import { SessionEventPump, type PumpListener } from '../application/session-event-pump'
-import { SessionRequestError } from '../domain/errors'
+import { SessionRequestError, isSessionRequestError } from '../domain/errors'
 import {
   DEFAULT_SUPERVISION,
   INITIAL_HOST_STATE,
   acceptsSessions,
   onDemand,
   onFailure,
+  onFatal,
   onReady,
   onRestartDue,
   onRetry,
@@ -32,6 +33,18 @@ interface ScopeEntry {
   tracked: Map<string, Tracked>
   unsubscribe: Array<() => void>
   degradedReason: string | null
+  /** Why the scope degraded when the cause is known (`journal_locked`, `protocol_mismatch`, …). */
+  degradedCode: string | null
+}
+
+/** Failures a restart cannot fix: the scope degrades at once instead of looping. */
+const FATAL_CODES: ReadonlySet<string> = new Set(['journal_locked', 'protocol_mismatch', 'driver_unavailable'])
+
+export interface HostStatusView {
+  scope: string
+  status: HostStatus
+  detail: string | null
+  code: string | null
 }
 
 export interface SessionHostRegistryOptions {
@@ -39,7 +52,7 @@ export interface SessionHostRegistryOptions {
   clock: Clock
   policy?: HostSupervisionPolicy
   /** Observability hook (logs, UI notices). */
-  onStatus?: (scope: string, status: HostStatus, detail?: string) => void
+  onStatus?: (scope: string, status: HostStatus, detail?: string, code?: string) => void
 }
 
 /**
@@ -56,6 +69,16 @@ export class SessionHostRegistry {
 
   status(scope: string): HostStatus {
     return this.scopes.get(scope)?.state.status ?? 'absent'
+  }
+
+  /** Every known scope with its status (operator view, UI notices). */
+  hosts(): HostStatusView[] {
+    return [...this.scopes].map(([scope, entry]) => ({ scope, status: entry.state.status, detail: entry.degradedReason, code: entry.degradedCode }))
+  }
+
+  /** Why a degraded scope is unavailable, when known. */
+  degradedCode(scope: string): string | null {
+    return this.scopes.get(scope)?.degradedCode ?? null
   }
 
   /** Whether new turns in this scope should use Core sessions now. */
@@ -117,6 +140,7 @@ export class SessionHostRegistry {
     if (result.decision.action !== 'start') return
     entry.state = result.state
     entry.degradedReason = null
+    entry.degradedCode = null
     await this.start(scope, entry)
   }
 
@@ -146,7 +170,7 @@ export class SessionHostRegistry {
   private entry(scope: string): ScopeEntry {
     let entry = this.scopes.get(scope)
     if (!entry) {
-      entry = { state: INITIAL_HOST_STATE, client: null, starting: null, restartTimer: null, tracked: new Map(), unsubscribe: [], degradedReason: null }
+      entry = { state: INITIAL_HOST_STATE, client: null, starting: null, restartTimer: null, tracked: new Map(), unsubscribe: [], degradedReason: null, degradedCode: null }
       this.scopes.set(scope, entry)
     }
     return entry
@@ -169,7 +193,10 @@ export class SessionHostRegistry {
         await this.reattach(entry, client)
         return client
       } catch (error) {
-        if (entry.state.status !== 'stopped') this.fail(scope, entry, (error as Error).message)
+        if (entry.state.status !== 'stopped') {
+          if (isSessionRequestError(error) && FATAL_CODES.has(error.code)) this.fatal(scope, entry, error.code, error.message)
+          else this.fail(scope, entry, (error as Error).message)
+        }
         throw error
       } finally {
         entry.starting = null
@@ -183,10 +210,11 @@ export class SessionHostRegistry {
     entry.unsubscribe.push(
       client.onEvent((envelope) => { void entry.tracked.get(envelope.sessionId)?.pump?.push(envelope).catch((error) => this.options.onStatus?.(scope, entry.state.status, `projection failed: ${(error as Error).message}`)) }),
       client.onLagged((sessionId) => { void entry.tracked.get(sessionId)?.pump?.catchUp().catch(() => undefined) }),
-      client.onClose((reason) => {
+      client.onClose((reason, code) => {
         if (entry.client !== client || entry.state.status === 'stopped') return
         entry.client = null
-        this.fail(scope, entry, reason)
+        if (code && FATAL_CODES.has(code)) this.fatal(scope, entry, code, reason)
+        else this.fail(scope, entry, reason)
       }),
     )
   }
@@ -205,6 +233,17 @@ export class SessionHostRegistry {
       tracked.pump = new SessionEventPump(tracked.sessionId, client, tracked.sink, tracked.listener)
       await tracked.pump.attach()
     }
+  }
+
+  private fatal(scope: string, entry: ScopeEntry, code: string, reason: string): void {
+    const result = onFatal(entry.state, reason)
+    entry.state = result.state
+    if (result.decision.action !== 'degrade') return
+    entry.restartTimer?.cancel()
+    entry.restartTimer = null
+    entry.degradedReason = reason
+    entry.degradedCode = code
+    this.options.onStatus?.(scope, 'degraded', reason, code)
   }
 
   private fail(scope: string, entry: ScopeEntry, reason: string): void {

@@ -816,5 +816,15 @@
     "deferred": "A alteração de configurações será aplicada quando os agentes em segundo plano terminarem.",
     "applyNow": "Parar agentes e aplicar agora",
     "policyUnenforceable": "{{provider}} não consegue desativar os subagentes. Ative “Permitir subagentes” nas configurações do projeto ou use outro provedor nesta missão."
+  },
+  "sessionNotice": {
+    "host_degraded": "As sessões do Core estão indisponíveis para este projeto após falhas repetidas, então este turno usou o transporte clássico (sem subagentes em segundo plano). Tente de novo quando a causa for resolvida.",
+    "journal_locked": "Outra instância do Specrails Desktop está usando as sessões de agente deste projeto, então este turno usou o transporte clássico. Feche a outra instância e tente de novo.",
+    "policy": {
+      "subagent_blocked": "O provedor iniciou um subagente embora os subagentes estejam desativados neste projeto; ele foi parado."
+    },
+    "retry": "Tentar de novo",
+    "retryFailed": "Ainda indisponível. Verifique o log do app para ver a causa.",
+    "dismiss": "Dispensar"
   }
 }

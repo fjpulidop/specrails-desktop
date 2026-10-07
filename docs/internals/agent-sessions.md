@@ -32,7 +32,9 @@ and supervises it in the [`SessionHostRegistry`](../../server/modules/agent-sess
 - pings with a timeout; unexpected exits restart with capped backoff;
 - after a restart, tracked sessions are resumed and replayed from their cursors;
 - repeated failures mark the scope `degraded`: new turns use the legacy
-  transport until a manual retry;
+  transport and the mission shows a notice with Retry;
+- causes a restart cannot fix degrade at once: another host owns the journal
+  (`journal_locked`), the protocol does not match, or Core lacks the host;
 - removing a project stops its host; app shutdown sends `host.shutdown`, then
   tree-kills.
 

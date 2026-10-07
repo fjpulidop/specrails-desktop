@@ -13,6 +13,18 @@ export interface BackgroundTurnView {
   text: string
 }
 
+/** Something the user should know about the mission's session (host trouble, policy enforcement). */
+export interface SessionNotice {
+  id: string
+  code: string
+  level: 'info' | 'warning' | 'error'
+  message: string
+  /** Host scope the notice is about, when it concerns the session host. */
+  scope: string | null
+}
+
+export const MAX_NOTICES = 5
+
 export interface MissionSessionView {
   residentPhase: 'idle' | 'turn' | 'background'
   processAlive: boolean
@@ -23,6 +35,7 @@ export interface MissionSessionView {
   backgroundTurn: BackgroundTurnView | null
   /** A settings change the session will apply once background work finishes. */
   deferredChanges: Record<string, unknown> | null
+  notices: SessionNotice[]
   loaded: boolean
 }
 
@@ -31,7 +44,7 @@ export type MissionSessionsState = ReadonlyMap<string, MissionSessionView>
 export const MAX_LIVE_EVENTS_PER_SUBAGENT = 200
 
 export function emptySession(): MissionSessionView {
-  return { residentPhase: 'idle', processAlive: false, liveSubagents: 0, subagents: {}, liveEvents: {}, backgroundTurn: null, deferredChanges: null, loaded: false }
+  return { residentPhase: 'idle', processAlive: false, liveSubagents: 0, subagents: {}, liveEvents: {}, backgroundTurn: null, deferredChanges: null, notices: [], loaded: false }
 }
 
 export interface SessionWsMessage {
@@ -51,6 +64,12 @@ export interface SessionWsMessage {
   triggeredBy?: string[]
   outcome?: 'applied' | 'deferred'
   changes?: Record<string, unknown>
+  level?: 'info' | 'warning' | 'error'
+  code?: string | null
+  message?: string
+  scope?: string
+  status?: string
+  timestamp?: string
 }
 
 function update(state: MissionSessionsState, conversationId: string, change: (view: MissionSessionView) => MissionSessionView): MissionSessionsState {
@@ -61,6 +80,11 @@ function update(state: MissionSessionsState, conversationId: string, change: (vi
 
 /** Apply one WebSocket message; unrelated messages return the same state object. */
 export function applySessionMessage(state: MissionSessionsState, message: SessionWsMessage): MissionSessionsState {
+  // App-level host status: a scope that is ready again clears its host notices everywhere.
+  if (message.type === 'agent_sessions_host') {
+    if (message.status !== 'ready' || !message.scope) return state
+    return clearScopeNotices(state, message.scope)
+  }
   const conversationId = message.conversationId
   if (!conversationId) return state
   switch (message.type) {
@@ -99,11 +123,43 @@ export function applySessionMessage(state: MissionSessionsState, message: Sessio
       })
     case 'agent_turn_done':
       return update(state, conversationId, (view) => view.backgroundTurn?.turnId === message.turnId ? { ...view, backgroundTurn: null } : view)
+    case 'agent_session_notice': {
+      if (!message.code) return state
+      const notice: SessionNotice = {
+        id: `${message.code}:${message.timestamp ?? Date.now()}`,
+        code: message.code,
+        level: message.level ?? 'warning',
+        message: message.message ?? message.code,
+        scope: message.scope ?? null,
+      }
+      return update(state, conversationId, (view) => {
+        // One notice per code: a repeat refreshes it instead of stacking.
+        const others = view.notices.filter((existing) => existing.code !== notice.code)
+        return { ...view, notices: [...others, notice].slice(-MAX_NOTICES) }
+      })
+    }
     case 'agent_session_updated':
       return update(state, conversationId, (view) => ({ ...view, deferredChanges: message.outcome === 'deferred' ? { ...(view.deferredChanges ?? {}), ...(message.changes ?? {}) } : null }))
     default:
       return state
   }
+}
+
+/** The user dismissed a notice. */
+export function dismissSessionNotice(state: MissionSessionsState, conversationId: string, noticeId: string): MissionSessionsState {
+  const view = state.get(conversationId)
+  if (!view || !view.notices.some((notice) => notice.id === noticeId)) return state
+  return update(state, conversationId, (current) => ({ ...current, notices: current.notices.filter((notice) => notice.id !== noticeId) }))
+}
+
+function clearScopeNotices(state: MissionSessionsState, scope: string): MissionSessionsState {
+  let next: Map<string, MissionSessionView> | null = null
+  for (const [conversationId, view] of state) {
+    if (!view.notices.some((notice) => notice.scope === scope)) continue
+    next ??= new Map(state)
+    next.set(conversationId, { ...view, notices: view.notices.filter((notice) => notice.scope !== scope) })
+  }
+  return next ?? state
 }
 
 /** Replace a mission's state with authoritative server state (load or reconnect). */

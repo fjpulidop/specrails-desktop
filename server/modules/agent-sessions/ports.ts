@@ -9,7 +9,8 @@ export interface SessionHostClient {
   /** Queued notifications after `deliveredSeq` were discarded; replay them. */
   onLagged(listener: (sessionId: string, deliveredSeq: number) => void): () => void
   /** The connection ended (process exit, lease lost, explicit close). */
-  onClose(listener: (reason: string) => void): () => void
+  /** `code` is set when the host ended for a known reason (e.g. `journal_locked`). */
+  onClose(listener: (reason: string, code?: string) => void): () => void
   close(): Promise<void>
 }
 

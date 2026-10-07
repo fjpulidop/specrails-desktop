@@ -816,5 +816,15 @@
     "deferred": "Die Einstellungsänderung wird übernommen, sobald die Hintergrund-Agenten fertig sind.",
     "applyNow": "Agenten stoppen und jetzt übernehmen",
     "policyUnenforceable": "{{provider}} kann Sub-Agenten nicht deaktivieren. Aktiviere „Sub-Agenten erlauben“ in den Projekteinstellungen oder nutze für diese Mission einen anderen Anbieter."
+  },
+  "sessionNotice": {
+    "host_degraded": "Core-Sitzungen sind für dieses Projekt nach wiederholten Fehlern nicht verfügbar, daher lief dieser Zug über den klassischen Transport (keine Sub-Agenten im Hintergrund). Versuche es erneut, sobald die Ursache behoben ist.",
+    "journal_locked": "Eine andere Specrails-Desktop-Instanz nutzt die Agentensitzungen dieses Projekts, daher lief dieser Zug über den klassischen Transport. Schließe die andere Instanz und versuche es erneut.",
+    "policy": {
+      "subagent_blocked": "Der Anbieter hat einen Sub-Agenten gestartet, obwohl Sub-Agenten in diesem Projekt deaktiviert sind; er wurde gestoppt."
+    },
+    "retry": "Erneut versuchen",
+    "retryFailed": "Weiterhin nicht verfügbar. Die Ursache steht im App-Log.",
+    "dismiss": "Schließen"
   }
 }

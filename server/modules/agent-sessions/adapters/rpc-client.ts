@@ -30,8 +30,9 @@ export class StdioSessionHostClient implements SessionHostClient {
   private readonly pending = new Map<number, Pending>()
   private readonly eventListeners = new Set<(envelope: SessionEventEnvelope) => void>()
   private readonly lagListeners = new Set<(sessionId: string, deliveredSeq: number) => void>()
-  private readonly closeListeners = new Set<(reason: string) => void>()
+  private readonly closeListeners = new Set<(reason: string, code?: string) => void>()
   private closedReason: string | null = null
+  private closedCode: string | null = null
 
   constructor(private readonly transport: StdioTransport, private readonly options: { timeoutMs?: number; onClose?: () => Promise<void> } = {}) {
     const decoder = new StringDecoder('utf8')
@@ -56,7 +57,7 @@ export class StdioSessionHostClient implements SessionHostClient {
   }
 
   request<T = Record<string, unknown>>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-    if (this.closedReason) return Promise.reject(new SessionRequestError(this.closedReason, { code: 'host_unavailable', retryable: true }))
+    if (this.closedReason) return Promise.reject(new SessionRequestError(this.closedReason, this.closedCode ? { code: this.closedCode, retryable: false } : { code: 'host_unavailable', retryable: true }))
     const id = this.nextId++
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -79,8 +80,8 @@ export class StdioSessionHostClient implements SessionHostClient {
     return () => { this.lagListeners.delete(listener) }
   }
 
-  onClose(listener: (reason: string) => void): () => void {
-    if (this.closedReason) { listener(this.closedReason); return () => {} }
+  onClose(listener: (reason: string, code?: string) => void): () => void {
+    if (this.closedReason) { listener(this.closedReason, this.closedCode ?? undefined); return () => {} }
     this.closeListeners.add(listener)
     return () => { this.closeListeners.delete(listener) }
   }
@@ -91,16 +92,17 @@ export class StdioSessionHostClient implements SessionHostClient {
     this.markClosed('Session host closed')
   }
 
-  /** The process ended (called by the launcher). */
-  markClosed(reason: string): void {
+  /** The process ended (called by the launcher). A known `code` (e.g. `journal_locked`) travels to pending requests and close listeners. */
+  markClosed(reason: string, code?: string): void {
     if (this.closedReason) return
     this.closedReason = reason
+    this.closedCode = code ?? null
     for (const [id, request] of this.pending) {
       clearTimeout(request.timer)
-      request.reject(new SessionRequestError(reason, { code: 'host_unavailable', retryable: true }))
+      request.reject(new SessionRequestError(reason, code ? { code, retryable: false } : { code: 'host_unavailable', retryable: true }))
       this.pending.delete(id)
     }
-    for (const listener of this.closeListeners) listener(reason)
+    for (const listener of this.closeListeners) listener(reason, code)
     this.closeListeners.clear()
   }
 
@@ -115,8 +117,15 @@ export class StdioSessionHostClient implements SessionHostClient {
       } else if (message.method === 'session.lagged') {
         for (const listener of this.lagListeners) listener(String(params.sessionId), Number(params.deliveredSeq))
       } else if (message.method === 'host.leaseLost') {
-        this.markClosed('Another session host took over this scope')
+        this.markClosed('Another session host took over this scope', 'journal_locked')
       }
+      return
+    }
+    // The host could not start and printed its fatal result (e.g. another host owns the journal).
+    if (message.type === 'runtime-result' && message.status === 'failed') {
+      const error = message.error
+      const detail = typeof error === 'object' && error !== null ? error as { code?: unknown; message?: unknown } : { message: error }
+      this.markClosed(typeof detail.message === 'string' ? detail.message : 'The session host failed to start', typeof detail.code === 'string' ? detail.code : undefined)
       return
     }
     if (typeof message.id !== 'number') return

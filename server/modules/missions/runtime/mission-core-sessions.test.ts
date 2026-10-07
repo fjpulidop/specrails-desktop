@@ -364,5 +364,20 @@ describe('missions on Core agent sessions', () => {
       expect(broadcasts.find((message) => message.type === 'agent_error')).toMatchObject({ conversationId: conversation.id, code: 'policy_unenforceable', provider: 'claude' })
     })
   })
+
+  it('tells the mission why a turn fell back when its scope is degraded', async () => {
+    const launcher = { launch: async () => { throw new SessionRequestError('Another session host owns this scope', { code: 'journal_locked', retryable: false }) } }
+    const registry = new SessionHostRegistry({ launcher, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+    manager.setCoreSessions(new MissionCoreSessions({
+      db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+      availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+    }))
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    await manager.sendMessage(conversation.id, 'first')
+    await waitFor(() => broadcasts.some((message) => message.type === 'agent_session_notice'))
+    expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'journal_locked', scope: 'global', level: 'warning' })
+    // The turn itself ran on the legacy transport.
+    expect(mockSpawn).toHaveBeenCalled()
+  })
 })
 
