@@ -2,7 +2,8 @@
  * Whether conversational features should run on Core sessions. Pure: the
  * runtime supplies the rollout flag and the selected Core's capabilities.
  *
- * SPECRAILS_CORE_SESSIONS: `off` (default during rollout) | `auto` | `on`.
+ * SPECRAILS_CORE_SESSIONS: `auto` (default) | `on` | `off`. `auto` uses sessions
+ * only when the selected Core advertises them with a compatible contract.
  * `on` cannot force a Core without the `sessions` capability; the reason says so.
  */
 export type CoreSessionsFlag = 'off' | 'auto' | 'on'
@@ -13,7 +14,7 @@ export interface CoreSessionsAvailability {
   reason: string
 }
 
-export const DEFAULT_CORE_SESSIONS_FLAG: CoreSessionsFlag = 'off'
+export const DEFAULT_CORE_SESSIONS_FLAG: CoreSessionsFlag = 'auto'
 
 export function parseCoreSessionsFlag(raw: string | undefined): CoreSessionsFlag {
   const value = raw?.trim().toLowerCase()

@@ -56,7 +56,7 @@
 - [ ] 8.1 Bundled Core pin bump; native smoke launches the host on macOS, Windows and Linux
 - [ ] 8.2 Manual smoke (Claude and Codex): background sub-agents, chat while they work, continuation turns, Stop, app restart with live sub-agents, host kill, legacy fallback
 - [x] 8.3 Gates: `npm run typecheck`, `npx vitest run server/modules server/providers`, client mission tests, root and client `test:coverage`, `npm run build`, `npm run check:package`, `npm run audit:architecture`, `npm run docs:source-map`
-- [ ] 8.4 Flip `SPECRAILS_CORE_SESSIONS` default to `auto`; update operations runbook and user docs
+- [x] 8.4 Flip `SPECRAILS_CORE_SESSIONS` default to `auto`; update operations runbook and user docs
 
 ## 9. Sub-agent policy toggle (last)
 

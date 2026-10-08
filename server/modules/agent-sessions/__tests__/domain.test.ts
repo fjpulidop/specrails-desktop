@@ -137,9 +137,10 @@ describe('host supervision policy', () => {
 })
 
 describe('Core sessions availability', () => {
-  it('parses the rollout flag with a safe default', async () => {
+  it('defaults to auto (capability-gated) and still honours an explicit off', async () => {
     const { parseCoreSessionsFlag } = await import('../domain/availability')
-    expect([undefined, '', 'nonsense', 'off', '0', 'false'].map((value) => parseCoreSessionsFlag(value))).toEqual(['off', 'off', 'off', 'off', 'off', 'off'])
+    expect([undefined, '', 'nonsense'].map((value) => parseCoreSessionsFlag(value))).toEqual(['auto', 'auto', 'auto'])
+    expect(['off', '0', 'false', ' OFF '].map((value) => parseCoreSessionsFlag(value))).toEqual(['off', 'off', 'off', 'off'])
     expect([' AUTO ', 'on', '1', 'true'].map((value) => parseCoreSessionsFlag(value))).toEqual(['auto', 'on', 'on', 'on'])
   })
 

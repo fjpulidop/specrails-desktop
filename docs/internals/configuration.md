@@ -209,7 +209,7 @@ its native key/config, and Kimi via `kimi login` or user-managed
 
 | Variable | Effect |
 |----------|--------|
-| `SPECRAILS_CORE_SESSIONS` | `off` (default during rollout) keeps conversational features on their legacy transports. `auto` uses Core's agent session host (`specrails-core runtime host`) when the selected Core advertises the `sessions` capability and its session contract is compatible. `on` behaves like `auto` but is reported as forced. It cannot enable sessions on a Core that lacks them, and Desktop logs the reason. |
+| `SPECRAILS_CORE_SESSIONS` | `auto` (default) uses Core's agent session host (`specrails-core runtime host`) when the selected Core advertises the `sessions` capability and its session contract is compatible. `on` behaves like `auto` but is reported as forced. `off` keeps conversational features on their legacy transports. It cannot enable sessions on a Core that lacks them, and Desktop logs the reason. |
 
 With sessions enabled, Desktop runs one Core host per project, plus one for
 project-less missions. Session journals live in

@@ -143,7 +143,7 @@ sidebar keeps a live dot for missions with background work. Details are in the
 
 ## Rollout
 
-`SPECRAILS_CORE_SESSIONS` (`off` | `auto` | `on`, see
+`SPECRAILS_CORE_SESSIONS` (`auto` by default, `on` or `off`, see
 [configuration](configuration.md)) gates the Core path. It only takes effect
 when the selected Core advertises `sessions` and its session contract matches
 ([`core-compat.ts`](../../server/core-compat.ts)). Otherwise, missions keep

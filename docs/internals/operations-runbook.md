@@ -142,7 +142,7 @@ These are the most common ops escape hatches; see [Configuration → Environment
 
 ### Missions on Core agent sessions
 
-With `SPECRAILS_CORE_SESSIONS` at `auto` or `on`, missions run in a Core host
+With `SPECRAILS_CORE_SESSIONS` at `auto` (the default) or `on`, missions run in a Core host
 process per project scope (`specrails-core runtime host --stdio --scope …`).
 The server log prefix is `[agent-sessions]`.
 
