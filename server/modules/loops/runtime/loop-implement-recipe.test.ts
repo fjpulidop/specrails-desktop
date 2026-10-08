@@ -56,12 +56,12 @@ describe('host blockers', () => {
     }
     for (const id of ['developer', 'fixer']) expect(compile(configurableImplementGraph(paired)).nodes[id].params.verificationProposalsFrom).toBe('architect')
   })
-  it('bounds the developer loop: a declared blocker ends the run, and incomplete tasks retry only with progress and budget', () => {
+  it('bounds the developer loop: incomplete tasks retry only with progress and budget', () => {
     for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
       const definition = compile(configurableImplementGraph(capabilities))
       expect(definition.nodes.developer.ends.next).toBe('developer-blocker')
       expect(definition.nodes.developer.params.prompt).toContain('return the structured blocker')
-      expect(definition.nodes['developer-blocker'].ends).toEqual({ true: 'developer-blocked', false: 'tasks' })
+      expect(definition.nodes['developer-blocker'].ends).toEqual({ true: 'developer-blocker-kind', false: 'tasks' })
       // Incomplete tasks never route straight back to the developer.
       expect(definition.nodes.tasks.ends).toMatchObject({ pass: 'verify', fail: 'implementation-budget' })
       expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { implementationAttempts: 0, implementationLimit: 3 } })
@@ -74,6 +74,26 @@ describe('host blockers', () => {
       expect(definition.nodes['developer-blocked'].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.blocker.requiredAction}}') })
     }
     expect(compile(configurableImplementGraph(paired)).nodes['developer-blocked'].params).toMatchObject({ blockerFrom: 'developer' })
+  })
+  it('ends on a blocker only when it needs the person or the host confirms it', () => {
+    for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
+      const nodes = compile(configurableImplementGraph(capabilities)).nodes
+      expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, or unexpected browser or tool behaviour is NOT a host blocker')
+      // Credentials, network and variables still end the run at once.
+      expect(nodes['developer-blocker-kind'].params.expr).toBe('$outputs.developer.structured.blocker.kind == "credential" || $outputs.developer.structured.blocker.kind == "network" || $outputs.developer.structured.blocker.kind == "environment-variable"')
+      expect(nodes['developer-blocker-kind'].ends).toEqual({ true: 'developer-blocked', false: 'confirm-blocker' })
+      // Anything else runs the host's verification first.
+      expect(nodes['confirm-blocker'].params).toEqual({ set: { blockerCheck: true } })
+      expect(nodes['confirm-blocker'].ends).toMatchObject({ next: 'verify' })
+      // A reproduced failure becomes a correction; passing checks return to the developer within its budget.
+      expect(nodes.verify.ends).toMatchObject({ pass: 'blocker-check', fail: 'correction-context' })
+      expect(nodes['blocker-check'].ends).toEqual({ true: 'clear-blocker-check', false: 'reviewer' })
+      expect(nodes['clear-blocker-check'].ends).toMatchObject({ next: 'implementation-budget' })
+      expect(nodes['begin-correction'].params).toMatchObject({ set: { blockerCheck: false } })
+      expect(nodes['initialize-corrections'].params).toMatchObject({ set: { blockerCheck: false } })
+    }
+    // A host precondition the verification hits still ends as a host blocker.
+    expect(compile(configurableImplementGraph(paired)).nodes.verify.ends).toMatchObject({ blocked: 'host-blocked' })
   })
   it('compiles the pre-blocker shape when the installed Core does not advertise hostBlockers', () => {
     const definition = compile(configurableImplementGraph({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }))
