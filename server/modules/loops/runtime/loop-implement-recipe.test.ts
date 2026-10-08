@@ -81,16 +81,9 @@ describe('host blockers', () => {
       expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, or unexpected browser or tool behaviour is NOT a host blocker')
       // Credentials, network and variables still end the run at once.
       expect(nodes['developer-blocker-kind'].params.expr).toBe('$outputs.developer.structured.blocker.kind == "credential" || $outputs.developer.structured.blocker.kind == "network" || $outputs.developer.structured.blocker.kind == "environment-variable"')
-      expect(nodes['developer-blocker-kind'].ends).toEqual({ true: 'developer-blocked', false: 'confirm-blocker' })
-      // Anything else runs the host's verification first.
-      expect(nodes['confirm-blocker'].params).toEqual({ set: { blockerCheck: true } })
-      expect(nodes['confirm-blocker'].ends).toMatchObject({ next: 'verify' })
-      // A reproduced failure becomes a correction; passing checks return to the developer within its budget.
-      expect(nodes.verify.ends).toMatchObject({ pass: 'blocker-check', fail: 'correction-context' })
-      expect(nodes['blocker-check'].ends).toEqual({ true: 'clear-blocker-check', false: 'reviewer' })
-      expect(nodes['clear-blocker-check'].ends).toMatchObject({ next: 'implementation-budget' })
-      expect(nodes['begin-correction'].params).toMatchObject({ set: { blockerCheck: false } })
-      expect(nodes['initialize-corrections'].params).toMatchObject({ set: { blockerCheck: false } })
+      // Anything else runs the host's own verification: failures go to the fixer, passes to the reviewer.
+      expect(nodes['developer-blocker-kind'].ends).toEqual({ true: 'developer-blocked', false: 'verify' })
+      expect(nodes.verify.ends).toMatchObject({ pass: 'reviewer', fail: 'correction-context' })
     }
     // A host precondition the verification hits still ends as a host blocker.
     expect(compile(configurableImplementGraph(paired)).nodes.verify.ends).toMatchObject({ blocked: 'host-blocked' })
