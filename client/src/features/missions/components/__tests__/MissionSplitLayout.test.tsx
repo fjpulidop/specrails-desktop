@@ -64,7 +64,7 @@ it('adds conversations without replacing the current one, isolates drafts and li
   const second = await screen.findByTestId('pane-c2')
   expect(screen.getByTestId('primary-id')).toHaveTextContent('c1')
   expect(second.dataset.layoutId).not.toBe(primary.dataset.layoutId)
-  expect(ws.handlers.size).toBe(2)
+  expect([...ws.handlers.keys()].filter((id) => !String(id).startsWith('mission-sessions:'))).toHaveLength(2)
   const secondEditor = within(second).getByRole('textbox')
   await user.type(secondEditor, 'Second input')
   await user.keyboard('{Enter}')
@@ -95,7 +95,7 @@ it('adds conversations without replacing the current one, isolates drafts and li
   expect(api.abortAgentTurn).not.toHaveBeenCalled()
   expect(api.deleteAgentConversation).not.toHaveBeenCalled()
   expect(ws.setProject).not.toHaveBeenCalled()
-  expect(ws.handlers.size).toBe(1)
+  expect([...ws.handlers.keys()].filter((id) => !String(id).startsWith('mission-sessions:'))).toHaveLength(1)
 })
 
 it('keeps the remaining split full width when the original pane is closed, then restores the original when all splits close', async () => {

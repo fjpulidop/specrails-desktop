@@ -93,8 +93,8 @@ Example — register a project that uses both Claude and Gemini:
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | App-wide settings |
-| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd? }` |
+| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
+| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime? }`. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
 | `GET` | `/budget` | App-wide budget config |
 | `PATCH` | `/budget` | Update the app-wide daily budget |
 | `GET` | `/theme` | Current UI theme (defaults to `specrails`) |
@@ -148,6 +148,35 @@ Proxies the external specrails-tech agents service (base URL from `desktop_setti
 | `GET` | `/agents/:id` | Get one agent |
 | `POST` | `/agents` | Create an agent entry |
 | `PATCH` | `/agents/:id` | Update |
+
+### Missions: Core agent session sub-agents (`/api/agent/*`)
+
+These routes are available when a mission ran in a Core agent session (`SPECRAILS_CORE_SESSIONS`, see [agent sessions](../../server/modules/agent-sessions/README.md)). Rows are Desktop's rebuildable projection of Core's session journal.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/agent/active-turns` | Reconnect snapshot. Besides `turns`, the response includes `sessions[]`: `{ conversationId, residentPhase, processAlive, liveSubagents, subagents }` for missions with background work. |
+| `GET` | `/agent/conversations/:id` | Includes `session`: `{ residentPhase, processAlive, liveSubagents, subagents }`, or `null` when the mission never ran in Core. |
+| `GET` | `/agent/conversations/:id/subagents` | `{ subagents, session }`. Each sub-agent has id, parent, kind, agent type, description, phase (`running`/`idle`/`failed`/`stopped`/`killed`/`interrupted`), reason, restarts, launching Core turn, timestamps, usage, tool uses, duration and result summary. Sub-agents Specrails launched on another provider carry `delegated: { driver, model }`; their usage is recorded as separate `subagent` invocations. |
+| `GET` | `/agent/conversations/:id/subagents/:subagentId/events?after=&limit=` | Paged sub-agent transcript `{ events: [{ seq, channel, delta?, tool?, createdAt }], hasMore }`. `limit` is 1–1000. |
+| `POST` | `/agent/conversations/:id/subagents/stop` | Body `{ subagentIds? }` (all when omitted). Returns `{ stopped }`; `502` when the session host is unavailable. |
+| `POST` | `/agent/conversations/:id/session/rebuild` | Operator repair: replays the mission's Core journal into its sub-agent rows, events, resident state and cursor. Turns already recorded as messages/invocations are not duplicated; the replay is silent, then clients receive `agent_resident_state` and one `agent_subagent` per row. Returns `{ lastSeq, subagents }`; `409` while a turn runs or when the mission has no Core session; `502` when the host is unavailable. |
+
+| `GET` | `/agent/session-hosts` | `{ hosts: [{ scope, status, detail, code }] }`: one entry per Core session host scope (project slug or `global`). `code` explains a degraded scope (`journal_locked`, `protocol_mismatch`, `driver_unavailable`). |
+| `POST` | `/agent/session-hosts/:scope/retry` | Starts a degraded scope again. Returns `{ host }`, or `502` with `{ error, host }` when it is still unavailable. |
+
+WebSocket events for these missions:
+
+- `agent_resident_state`, `agent_subagent`, `agent_subagent_event`;
+- `agent_turn_started` / `agent_turn_done` for turns Core starts after sub-agents finish (origin `subagent` or `system`);
+- `agent_session_updated` (`applied` / `deferred`) and `agent_session_notice` (`level`, `code`, `message`, optional `scope`). The notice covers provider warnings such as `policy.subagent_blocked`, and a turn that fell back to the legacy transport (`host_degraded`, `journal_locked`);
+- `agent_sessions_host` (app-level, no `projectId`): `{ scope, status, detail, code }` on every host status change.
+
+Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result` with a `turnId`.
+
+`agent_session_notice` with code `subagents.delegation_unsupported` or `subagents.driver_unavailable` (and `provider`) says a "Run sub-agents with" choice cannot be honoured, so the mission stays native. In delegated missions the agent uses the `specrails_mission` MCP actions `subagent_start`, `subagent_wait`, `subagent_list` and `subagent_stop`.
+
+`agent_error` may carry `code` and `provider` for failures the client explains in the user's language. One example is `policy_unenforceable`, sent when a provider cannot honour "Allow sub-agents: off".
 
 ### Webhooks
 
@@ -405,8 +434,8 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | Project settings |
-| `PATCH` | `/settings` | Update |
+| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
+| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions |
 | `GET` | `/terminal-settings` | Per-project terminal overrides |
 | `PATCH` | `/terminal-settings` | Update |
 | `GET` | `/agent-models` | Per-agent model overrides |

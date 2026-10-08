@@ -105,6 +105,18 @@ describe('Core definitions in Loop Manager',()=>{
     expect(manager.sendInteractiveTurn('r1','',{interruptId:'approval-id',approve:true})).toBe(true)
     expect((await running).outcome).toBe('success')
   })
+  it('announces a resumed run so cards that showed its pause follow it live', async () => {
+    // A paused run whose host went away (an app restart): the next manager resumes it from the frozen request.
+    const first = new LoopRunManager(db, () => {}, executors(async () => ({ text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] })))
+    void first.run({ ...request(), railIndex: 0, ticketId: 4 }).catch(() => undefined)
+    await vi.waitFor(() => expect(first.isPaused('r1')).toBe(true))
+    first.shutdown()
+    const broadcast = vi.fn()
+    const next = new LoopRunManager(db, broadcast, executors(async () => complete()))
+    const resumed = next.beginDefinitionResume('r1', { answer: 'go on', interruptId: 'q1' })
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'loop.run_resumed', projectId: 'p1', loopRunId: 'r1', railIndex: 0, ticketIds: [4] }))
+    expect((await resumed).outcome).toBe('success')
+  })
   it('cancels a paused run without launching a resume and preserves unavailable billing',async()=>{
     const run=vi.fn(async():Promise<DefinitionRuntimeResult>=>({text:'',runtimeStatus:'paused',pendingInterrupts:[{id:'q1',nodePath:'ask',kind:'question'}]}))
     const manager=new LoopRunManager(db,()=>{},executors(run));const running=manager.run(request());await vi.waitFor(()=>expect(manager.isPaused('r1')).toBe(true));manager.cancel('r1')

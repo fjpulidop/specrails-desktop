@@ -1,6 +1,7 @@
+import { ProjectSubagentsSection } from './SubagentsSettingsSection'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Settings, SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot } from 'lucide-react'
+import { Settings, SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot, Network } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useDesktop } from '../../../hooks/useDesktop'
 import {
@@ -24,6 +25,7 @@ import {
 const PROJECT_SETTINGS_SECTIONS = [
   { id: 'general', icon: SlidersHorizontal, labelKey: 'projectDialog.nav.general' },
   { id: 'agentRuntime', icon: Bot, labelKey: 'projectDialog.nav.agentRuntime' },
+  { id: 'subagents', icon: Network, labelKey: 'projectDialog.nav.subagents' },
   { id: 'branch', icon: GitBranch, labelKey: 'projectDialog.nav.branch' },
   { id: 'environment', icon: KeyRound, labelKey: 'projectDialog.nav.environment' },
   { id: 'budget', icon: Wallet, labelKey: 'projectDialog.nav.budget' },
@@ -91,6 +93,9 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
             </div>
             <div className={paneCls('agentRuntime')}>
               <AgentRuntimeSettingsSection />
+            </div>
+            <div className={paneCls('subagents')}>
+              <ProjectSubagentsSection />
             </div>
             <div className={paneCls('branch')}>
               <ProjectIntegrationBranchSection />

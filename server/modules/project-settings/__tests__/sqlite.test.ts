@@ -33,3 +33,28 @@ describe('SQLite settings repository contract', () => {
     expect(service.getSettings()).toEqual(before)
   })
 })
+
+describe('allowSubagents persistence', () => {
+  it('defaults to off, persists per project and clears its row when turned off', () => {
+    const first = setup(), second = setup()
+    expect(first.service.getSettings().allowSubagents).toBe(false)
+    expect(first.service.updateSettings({ allowSubagents: true }).allowSubagents).toBe(true)
+    expect(second.service.getSettings().allowSubagents).toBe(false)
+    first.service.updateSettings({ allowSubagents: false })
+    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.allow_subagents'").get()).toBeUndefined()
+    expect(first.service.getSettings().allowSubagents).toBe(false)
+  })
+})
+
+describe('subagentRuntime persistence', () => {
+  it('stores the choice, clears it with null and reads a corrupt value as unset', () => {
+    const { db, service } = setup()
+    expect(service.getSettings().subagentRuntime).toBeNull()
+    expect(service.updateSettings({ subagentRuntime: { provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' } }).subagentRuntime).toEqual({ provider: 'codex', model: 'gpt-5.6-terra', effort: 'low' })
+    service.updateSettings({ subagentRuntime: null })
+    expect(db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.subagent_runtime'").get()).toBeUndefined()
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.subagent_runtime', '{bad')").run()
+    expect(service.getSettings().subagentRuntime).toBeNull()
+  })
+})
+

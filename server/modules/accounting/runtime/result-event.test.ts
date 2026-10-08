@@ -342,3 +342,19 @@ describe('finaliseInvocationResult (new adapter-aware API)', () => {
     expect(result.session_id).toBe('S')
   })
 })
+
+describe('finaliseNormalisedResult (Core session usage)', () => {
+  it('applies the same estimation and null semantics as the event-based path', async () => {
+    const { finaliseNormalisedResult } = await import('./result-event')
+    const { getAdapter } = await import('../../../providers/registry')
+    const codex = getAdapter('codex')
+    // A billed cost passes through untouched.
+    expect(finaliseNormalisedResult(codex, { total_cost_usd: 0.02, tokens_in: 10 }, { fallbackModel: 'gpt-5.6-luna' })).toEqual({ result: { total_cost_usd: 0.02, tokens_in: 10, model: 'gpt-5.6-luna' }, estimated: false })
+    // No usage at all stays null, never an estimated zero.
+    expect(finaliseNormalisedResult(codex, {}, { fallbackModel: 'gpt-5.6-luna', durationMs: 5 })).toEqual({ result: { model: 'gpt-5.6-luna', duration_ms: 5 }, estimated: false })
+    // Tokens without a native cost are estimated exactly like extracted results.
+    const viaEvents = finaliseNormalisedResult(codex, { tokens_in: 1000, tokens_out: 500, model: 'gpt-5.6-luna' })
+    expect(viaEvents.result.tokens_in).toBe(1000)
+    expect(typeof viaEvents.estimated).toBe('boolean')
+  })
+})

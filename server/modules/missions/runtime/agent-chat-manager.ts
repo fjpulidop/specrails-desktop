@@ -15,19 +15,19 @@ import {
 } from '../../../providers'
 import { buildProviderEnv, parseStreamEvents, pureOutputToolPolicy } from '../../../providers/runtime'
 import { isLocalAdapterId } from '../../../providers/registry'
-import type { ReasoningEffort, AdapterEvent, ProviderAdapter } from '../../../providers/types'
+import type { ReasoningEffort, AdapterEvent, NormalisedResult, ProviderAdapter } from '../../../providers/types'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
 import { nativeLiveSessionRunner } from '../../../providers/live-session'
 import { LiveInputDeliveryError, type LiveInputSink } from '../../../providers/live-session-types'
 import { spawnAiCli } from '../../../util/cli-prompt'
-import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
+import { finaliseInvocationResult, finaliseNormalisedResult } from '../../accounting/runtime/result-event'
 import { recordAgentInvocation, type AgentInvocationStatus } from '../../../desktop-db'
 import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
 import { buildOperatorSystemPrompt } from './agent-operator-prompt'
-import { prepareAgentMcp, removeAgentCapabilityFile } from '../../../agent-mcp-config'
-import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
+import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
+import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { resolveExternalEntries } from '../../../external-mcp'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
@@ -65,6 +65,9 @@ import {
   setAgentInputReceipt,
 } from './agent-input-store'
 import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteering } from './agent-steering'
+import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
+import type { MissionCoreSessions } from './mission-core-sessions'
+import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -111,12 +114,17 @@ interface QueuedTurn {
   nativeSubmitted?: boolean
 }
 
+/** A projection rebuild was requested while a turn is running. */
+export class SessionRebuildBusyError extends Error {}
+
 export class AgentChatManager {
   private readonly _broadcast: (msg: WsMessage) => void
   private readonly _db: DbInstance
   private readonly _port: number
   private readonly _registry: AgentContextRegistry | null
   private readonly _active = new Map<string, ChildProcess>()
+  /** Missions' Core agent sessions (null = legacy transports only). */
+  private _coreSessions: MissionCoreSessions | null = null
   private readonly _nativeInputNotifiers = new Map<string, () => void>()
   /** Conversations with a turn in-flight but not yet spawned. Closes the TOCTOU
    *  window the attachment-extraction await opens between the busy guard and
@@ -153,6 +161,23 @@ export class AgentChatManager {
     this._registry = registry ?? null
     // A sidecar restart must retain unsent input without replaying operations.
     recoverPendingAgentInputs(db)
+  }
+
+  /** Composition-time wiring of Core agent sessions (see agent-sessions module). */
+  setCoreSessions(coreSessions: MissionCoreSessions | null): void {
+    this._coreSessions = coreSessions
+  }
+
+  /** Conversation deleted: close its Core session (reads the row before it is dropped). */
+  closeCoreSession(conversationId: string): Promise<void> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) return Promise.resolve()
+    return this._coreSessions.close(conversation)
+  }
+
+  /** A turn is live while its provider child or its Core session turn is running. */
+  private _isTurnLive(conversationId: string): boolean {
+    return this._active.has(conversationId) || !!this._coreSessions?.handle(conversationId)
   }
 
   private async _awaitWhileLive<T>(work: Promise<T>): Promise<
@@ -210,12 +235,12 @@ export class AgentChatManager {
 
   /** True while a turn is streaming for this conversation. */
   isStreaming(conversationId: string): boolean {
-    return !this._disposed && this._active.has(conversationId)
+    return !this._disposed && this._isTurnLive(conversationId)
   }
 
   /** True while a turn is in flight (spawned or reserved). */
   isBusy(conversationId: string): boolean {
-    return !this._disposed && (this._active.has(conversationId) || this._reserved.has(conversationId))
+    return !this._disposed && (this._isTurnLive(conversationId) || this._reserved.has(conversationId))
   }
 
   pendingMessages(conversationId: string) {
@@ -246,7 +271,60 @@ export class AgentChatManager {
         pendingMessages: this.pendingMessages(conversationId),
         streamingText: this._streamingText.get(conversationId) ?? '',
       })),
+      // Core agent sessions with background work: the client restores the
+      // background indicator and live sub-agent rows from this after reconnecting.
+      sessions: listActiveSessionCursors(this._db).map((cursor) => ({
+        conversationId: cursor.conversationId,
+        residentPhase: cursor.residentPhase,
+        processAlive: cursor.processAlive,
+        liveSubagents: cursor.liveSubagents,
+        subagents: listSubagents(this._db, cursor.conversationId).filter((node) => node.phase === 'running'),
+      })),
     }
+  }
+
+  /** Projected Core session state of one mission (null when it never ran in Core). */
+  sessionState(conversationId: string) {
+    const cursor = getSessionCursor(this._db, conversationId)
+    if (!cursor) return null
+    return { residentPhase: cursor.residentPhase, processAlive: cursor.processAlive, liveSubagents: cursor.liveSubagents, subagents: listSubagents(this._db, conversationId) }
+  }
+
+  /** Stop a mission's background sub-agents through its Core session. */
+  async stopSubagents(conversationId: string, subagentIds?: string[]): Promise<string[]> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) return []
+    return this._coreSessions.stopSubagents(conversation, subagentIds)
+  }
+
+  /** Delegated runtime: launch a sub-agent on the mission's configured provider. */
+  async delegateSubagent(conversationId: string, params: { description: string; prompt: string; agentType?: string; contextTurns?: number }): Promise<{ subagentId: string }> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) throw new Error('This mission does not run in a Core session.')
+    return this._coreSessions.delegate(conversation, params)
+  }
+
+  /** Delegated runtime: wait for sub-agents (results are delivered to the agent once). */
+  async waitSubagents(conversationId: string, subagentIds: string[] | undefined, timeoutMs: number) {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) throw new Error('This mission does not run in a Core session.')
+    return this._coreSessions.waitSubagents(conversation, subagentIds, timeoutMs)
+  }
+
+  /** Plugin MCP servers for a project-pinned mission (empty for providers without plugin MCP entries). */
+  private _pluginMcpServers(providerId: string, projectId: string | null): AgentMcpServerSpec[] {
+    const project = projectId ? this._registry?.getProjectRow?.(projectId) : null
+    if (!project) return []
+    const execution = resolveProjectExecution(project)
+    return resolveCodexPluginMcpServers({ providerId, stateRoot: execution.cwd, repositoryPath: project.path, legacyProviderId: project.provider })
+  }
+
+  /** Rebuild a mission's session projection from Core's journal (operator repair). */
+  async rebuildSessionProjection(conversationId: string): Promise<{ lastSeq: number; subagents: number } | null> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation || !this._coreSessions) return null
+    if (this._isTurnLive(conversationId)) throw new SessionRebuildBusyError('Wait for the current turn to finish before rebuilding')
+    return this._coreSessions.rebuildProjection(conversation)
   }
 
   notifyConversationCreated(conversationId: string): void {
@@ -543,6 +621,12 @@ export class AgentChatManager {
         events: AdapterEvent[]
         /** ISO instant this spawn started, for the ai-invocation row. */
         startedAt: string
+        /** Core-reported normalized usage (Core agent sessions); preferred over events. */
+        usage?: NormalisedResult
+        /** Core session turn id this turn settled (anchors its sub-agents). */
+        coreTurnId?: string
+        /** Core error code the client can explain (e.g. `policy_unenforceable`). */
+        errorCode?: string
       }
 
       const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
@@ -552,9 +636,14 @@ export class AgentChatManager {
         const invocationId = randomUUID()
         currentCapability = agentCapability
         currentInvocationId = invocationId
-        let mcpArgs: string[]
-        let mcpEnv: Record<string, string>
-        try {
+        let mcpArgs: string[] = []
+        let mcpEnv: Record<string, string> = {}
+        // Core agent sessions: a resident session presents this turn's capability
+        // through structured MCP specs (no provider-specific argv).
+        const coreContext = this._coreSessions
+          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id) })
+          : null
+        if (!coreContext) try {
           const wiring = prepareAgentMcp({
             adapterId: adapter.id, conversationId, invocationId, cwd,
             port: this._port, capability: agentCapability,
@@ -580,7 +669,7 @@ export class AgentChatManager {
 
         console.log(
           `[agent-chat] turn start conv=${conversationId} provider=${adapter.id} binary=${adapter.binary} ` +
-            `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
+            `action=${action} model=${model} cwd=${cwd} mcp=${coreContext ? `core-session:${coreContext.mcpServers.map((server) => server.name).join(',') || 'none'}` : mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
         )
 
         const buildOpts = {
@@ -592,7 +681,7 @@ export class AgentChatManager {
           imagePaths: spawnImagePaths,
           reasoning_effort: reasoningEffort,
         }
-        const nativeRunner = nativeLiveSessionRunner(adapter)
+        const nativeRunner = coreContext ? createCoreSessionRunner(coreContext) : nativeLiveSessionRunner(adapter)
         let invocationLive = true
         let nativeSink: LiveInputSink | undefined
         let nativeDrain: Promise<void> = Promise.resolve()
@@ -821,13 +910,13 @@ export class AgentChatManager {
                 // A killed child (abort / conversation DELETE) keeps flushing its
                 // buffered stdout — suppress the broadcasts once it left _active
                 // so stragglers can't resurrect client-side streaming state.
-                if (this._active.has(conversationId)) {
+                if (this._isTurnLive(conversationId)) {
                   this._streamingText.set(conversationId, streamed.slice(segmentStart))
                   this._broadcast({ type: 'agent_stream', conversationId, delta: ev.text, timestamp: timestamp() })
                 }
                 break
               case 'tool-use':
-                if (this._active.has(conversationId)) {
+                if (this._isTurnLive(conversationId)) {
                   this._broadcast({
                     type: 'agent_tool',
                     conversationId,
@@ -841,7 +930,7 @@ export class AgentChatManager {
               case 'tool-result':
                 // Feeds the activity-log modal's output column. Claude-only
                 // today; other adapters never emit this kind.
-                if (this._active.has(conversationId)) {
+                if (this._isTurnLive(conversationId)) {
                   this._broadcast({
                     type: 'agent_tool_result',
                     conversationId,
@@ -881,7 +970,9 @@ export class AgentChatManager {
           this._nativeInputNotifiers.delete(conversationId)
           stopSteering()
           this._steeringCapabilities.delete(conversationId)
-          revokeAgentCapability(agentCapability)
+          // A resident Core session keeps presenting this capability for its
+          // background turns until the next turn rotates it or Core retires it.
+          if (!this._coreSessions?.retains(conversationId, agentCapability)) revokeAgentCapability(agentCapability)
           removeAgentCapabilityFile(conversationId, invocationId)
           currentCapability = null
           currentInvocationId = undefined
@@ -913,7 +1004,8 @@ export class AgentChatManager {
         if (result.stderrTail && (result.spawnFailed || (result.code ?? 0) !== 0 || !text)) {
           console.error(`[agent-chat] ${adapter.id} stderr:\n${result.stderrTail}`)
         }
-        return { disposed: false, text, fullText: streamed.trim(), checkpointed, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt }
+        const coreResult = result as CoreInvocationResult
+        return { disposed: false, text, fullText: streamed.trim(), checkpointed, sessionId: capturedSessionId, error: capturedError, code: result.code, spawnFailed: result.spawnFailed, stderrTail: result.stderrTail, events: result.events, startedAt, ...(coreResult.usage ? { usage: coreResult.usage } : {}), ...(coreResult.coreTurnId ? { coreTurnId: coreResult.coreTurnId } : {}), ...(coreResult.errorCode ? { errorCode: coreResult.errorCode } : {}) }
       }
 
       // Conversation CONFIG (provider/model/tier) is owned by the PATCH route —
@@ -929,14 +1021,14 @@ export class AgentChatManager {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
         }
       }
-      const settleAborted = (r: { text: string; sessionId: string | null }): void => {
+      const settleAborted = (r: { text: string; sessionId: string | null; coreTurnId?: string }): void => {
         if (this._disposed) return
         // Deliberate user Stop: keep any partial text (it was already streamed to
         // the client), never auto-heal, never surface an error.
         if (r.text && getAgentConversation(this._db, conversationId)) {
-          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+          const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) })
           persistSession(r.sessionId)
-          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, timestamp: timestamp() })
+          this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, messageId: message.id, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         }
       }
 
@@ -1008,15 +1100,16 @@ export class AgentChatManager {
           const message = addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
           this._broadcast({ type: 'agent_partial', conversationId, fullText: r.text, messageId: message.id, error: reason, timestamp: timestamp() })
         }
-        this._emitError(conversationId, reason)
+        this._emitError(conversationId, reason, r.errorCode ? { code: r.errorCode, provider: adapter.id } : undefined)
         record(r, 'failed')
         return
       }
 
       if (r.text || r.checkpointed) {
-        const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text }) : undefined
+        const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)
-        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), timestamp: timestamp() })
+        // The Core turn id anchors this turn's sub-agents under the reply in every client.
+        this._broadcast({ type: 'agent_done', conversationId, fullText: r.text, ...(message ? { messageId: message.id } : {}), ...(r.coreTurnId ? { coreTurnId: r.coreTurnId } : {}), timestamp: timestamp() })
         record(r, 'success')
         // AI title after the FIRST completed turn (industry standard — ChatGPT /
         // Claude.ai), on the conversation's own provider. The deterministic title
@@ -1035,7 +1128,7 @@ export class AgentChatManager {
       record(r, 'failed')
     } finally {
       this._steeringCapabilities.delete(conversationId)
-      if (currentCapability) revokeAgentCapability(currentCapability)
+      if (currentCapability && !this._coreSessions?.retains(conversationId, currentCapability)) revokeAgentCapability(currentCapability)
       if (currentInvocationId) removeAgentCapabilityFile(conversationId, currentInvocationId)
     }
   }
@@ -1053,16 +1146,17 @@ export class AgentChatManager {
     conversation: NonNullable<ReturnType<typeof getAgentConversation>>,
     adapter: ProviderAdapter,
     model: string,
-    outcome: { events: AdapterEvent[]; startedAt: string; sessionId: string | null },
+    outcome: { events: AdapterEvent[]; startedAt: string; sessionId: string | null; usage?: NormalisedResult },
     status: AgentInvocationStatus,
   ): void {
     if (this._disposed) return
     try {
       const finishedAt = new Date().toISOString()
-      const { result, estimated } = finaliseInvocationResult(adapter, outcome.events, {
-        fallbackModel: model,
-        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(outcome.startedAt)),
-      })
+      const finaliseOptions = { fallbackModel: model, durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(outcome.startedAt)) }
+      // Core sessions report a normalized per-turn delta; never reparse provider frames for them.
+      const { result, estimated } = outcome.usage
+        ? finaliseNormalisedResult(adapter, outcome.usage, finaliseOptions)
+        : finaliseInvocationResult(adapter, outcome.events, finaliseOptions)
       recordAgentInvocation(this._db, {
         id: randomUUID(),
         conversation_id: conversation.id,
@@ -1443,6 +1537,12 @@ export class AgentChatManager {
     if (capability) revokeAgentCapability(capability)
     this._steeringCapabilities.delete(conversationId)
     this._nativeInputNotifiers.delete(conversationId)
+    const coreTurn = this._coreSessions?.handle(conversationId)
+    if (coreTurn) {
+      // Stop the turn inside the resident session; never kill a process by PID.
+      void coreTurn.interrupt()
+      return true
+    }
     const child = this._active.get(conversationId)
     if (!child) return false
     this._terminate(child)
@@ -1482,6 +1582,7 @@ export class AgentChatManager {
       this._closeChildIo(child)
     }
     this._active.clear()
+    this._coreSessions?.shutdown()
     for (const child of this._auxProcesses) {
       const reader = this._auxReaders.get(child)
       try { reader?.close() } catch { /* best-effort */ }
@@ -1492,9 +1593,10 @@ export class AgentChatManager {
     this._auxProcesses.clear()
   }
 
-  private _emitError(conversationId: string, error: string): void {
+  /** `detail.code` lets clients explain known failures (e.g. `policy_unenforceable`) in the user's language. */
+  private _emitError(conversationId: string, error: string, detail?: { code: string; provider: string }): void {
     if (this._disposed) return
-    this._broadcast({ type: 'agent_error', conversationId, error, timestamp: new Date().toISOString() })
+    this._broadcast({ type: 'agent_error', conversationId, error, ...(detail ?? {}), timestamp: new Date().toISOString() })
   }
 }
 

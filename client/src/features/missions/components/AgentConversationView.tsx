@@ -26,6 +26,12 @@ import { parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
+import { AgentSubagentsCard } from './AgentSubagentsCard'
+import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
+import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
+import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
+import { writeComposerDraft } from '../lib/agent-composer-drafts'
+import type { AgentSubagent } from '../lib/agent-api'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -155,6 +161,27 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const prCards = useMemo(() => derivePrCards(messages), [messages])
   // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
   const railProposals = useRailLaunchProposals(messages)
+  // Core sessions: sub-agents anchor under the message of the turn that launched
+  // them; the rest (turn still in flight) render in the live area.
+  const session = useMissionSession(active?.id)
+  const { stopSubagents, dismissNotice } = useMissionSessions()
+  const anchoredTurnIds = useMemo(() => new Set(messages.map((m) => m.core_turn_id).filter((id): id is string => !!id)), [messages])
+  // Launches stay where they happened; only the in-flight turn's agents ride the live area.
+  // Anchors are messages rendered as bubbles (system rows and briefings render elsewhere).
+  const placement = useMemo(() => placeUnanchoredSubagents(
+    unanchoredSubagents(session, anchoredTurnIds),
+    messages.filter((m) => m.role !== 'system' && !(FEATURE_MISSION_RAIL_CARDS && systemBriefingRunId(m))),
+    isStreaming,
+  ), [session, anchoredTurnIds, messages, isStreaming])
+  const liveSubagentCards = placement.live
+  const stopMissionAgents = async (ids?: string[]) => { if (active) await stopSubagents(active.id, ids) }
+  const relaunchSubagent = (node: AgentSubagent) => {
+    if (!active) return
+    writeComposerDraft(active.id, t('subagents.relaunchDraft', { description: node.description }), [])
+  }
+  const subagentCard = (nodes: AgentSubagent[], key: string) => active && nodes.length > 0 ? (
+    <AgentSubagentsCard key={key} conversationId={active.id} subagents={nodes} liveEvents={session?.liveEvents ?? {}} onStop={stopMissionAgents} onRelaunch={relaunchSubagent} />
+  ) : null
 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
   const savedScroll = active ? readMissionScroll(active.id) : null
@@ -285,8 +312,11 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               return <AgentSystemBriefing key={m.id} content={m.content} contextRefs={m.context_refs} />
             }
             const railPinned = railProposals.pinnedMessageIds.has(m.id)
+            const turnSubagents = m.role === 'assistant' ? subagentsForTurn(session, m.core_turn_id) : []
+            const continuation = m.role === 'assistant' && (m.turn_origin === 'subagent' || m.turn_origin === 'system') ? m.turn_origin : null
             return (
               <div key={m.id} className="space-y-1">
+              {continuation && <AgentTurnOriginLabel origin={continuation} />}
               <AgentMessage
                 role={m.role}
                 content={m.content}
@@ -322,6 +352,8 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                   <span className="min-w-0 flex-1 truncate">{t('railCard.pinnedMarker')}</span>
                 </div>
               )}
+              {subagentCard(turnSubagents, `subagents:${m.id}`)}
+              {(placement.afterMessage.get(m.id) ?? []).map((group, index) => subagentCard(group, `subagents:${m.id}:${index}`))}
               </div>
             )
           })}
@@ -330,9 +362,18 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               {smoothed && <AgentMessage role="assistant" content={smoothed} streaming tolerantFences={isLocalEngineId(active?.provider)} />}
               <AgentActivityChip
                 tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null}
+                agentDescription={[...liveSubagentCards].reverse().find((node) => node.phase === 'running')?.description ?? null}
                 onClick={() => setActivityOpen(true)}
               />
             </div>
+          )}
+          {subagentCard(liveSubagentCards, 'subagents:live')}
+          {session?.backgroundTurn && !isStreaming && <AgentBackgroundTurn turn={session.backgroundTurn} />}
+          {active && session && session.notices.length > 0 && (
+            <AgentSessionNotices notices={session.notices} onDismiss={(noticeId) => dismissNotice(active.id, noticeId)} />
+          )}
+          {session?.deferredChanges && (
+            <AgentDeferredChangeNotice onApplyNow={() => stopMissionAgents()} />
           )}
           {/* Messages parked behind the in-flight turn — dimmed user-style chips
               pinned below the stream; each becomes a real bubble on dequeue. */}

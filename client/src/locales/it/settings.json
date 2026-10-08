@@ -268,7 +268,8 @@
       "budget": "Budget",
       "telemetry": "Telemetria",
       "terminal": "Terminale",
-      "agentRuntime": "Comandi di verifica"
+      "agentRuntime": "Comandi di verifica",
+      "subagents": "Sotto-agenti"
     }
   },
   "integrationBranch": {
@@ -305,5 +306,46 @@
     "reducedMotion": "Rispetta l'impostazione di sistema per la riduzione del movimento: l'anello resta un bagliore statico.",
     "preview": "Anteprima",
     "previewThinking": "Sto pensando…"
+  },
+  "subagents": {
+    "title": "Sotto-agenti",
+    "stateOn": "Gli agenti possono avviare sotto-agenti.",
+    "stateOff": "Gli agenti lavorano da soli, senza sotto-agenti.",
+    "explainParallel": "I sotto-agenti permettono a un agente di affidare lavoro ad aiutanti che girano in parallelo, proseguono dopo la sua risposta e riferiscono quando finiscono.",
+    "explainCost": "Ogni sotto-agente consuma i propri token: una singola richiesta può costare molto di più.",
+    "enabled": "Sotto-agenti consentiti",
+    "disabled": "Sotto-agenti disattivati",
+    "saveFailed": "Impossibile salvare l'impostazione dei sotto-agenti",
+    "project": {
+      "description": "Consente a missioni, esplorazione e rifiniture di questo progetto di usare sotto-agenti. Disattivato per impostazione predefinita.",
+      "toggleLabel": "Consenti sotto-agenti in questo progetto",
+      "explainScope": "Le pipeline Implement non sono interessate. Le missioni con sotto-agenti attivi applicano la modifica quando questi finiscono."
+    },
+    "global": {
+      "description": "Consente alle missioni senza progetto di usare sotto-agenti. Disattivato per impostazione predefinita.",
+      "toggleLabel": "Consenti sotto-agenti nelle missioni senza progetto",
+      "explainScope": "Ogni progetto ha la propria impostazione nelle impostazioni del progetto. Le missioni con sotto-agenti attivi applicano la modifica quando questi finiscono."
+    },
+    "runtime": {
+      "label": "Esegui i sub-agenti con",
+      "same": "Come l'agente della missione",
+      "sameHint": "I sub-agenti usano provider, modello ed effort dell'agente della missione, avviati nativamente dal suo CLI.",
+      "chosenHint": "Le missioni su {{provider}} avviano i propri sub-agenti con questo modello. Con qualsiasi altro provider, Specrails li avvia su {{provider}}.",
+      "providerLabel": "Provider dei sub-agenti",
+      "modelLabel": "Modello dei sub-agenti",
+      "effortLabel": "Effort dei sub-agenti",
+      "claudeEffortHint": "I sub-agenti nativi di Claude ignorano l'effort; si applica quando li avvia Specrails.",
+      "saved": "I sub-agenti ora vengono eseguiti con {{provider}}",
+      "reset": "I sub-agenti seguono di nuovo l'agente della missione",
+      "confirm": {
+        "title": "Eseguire i sub-agenti con {{provider}}?",
+        "body": "Nelle missioni con un altro provider, i sub-agenti non sono più nativi: Specrails avvia ciascuno come sessione {{provider}} propria invece del CLI della missione.",
+        "cost": "Più lento e forse più costoso: ogni sub-agente parte a freddo, senza la cache del prompt che condividerebbe con l'agente della missione.",
+        "control": "Più controllo e flessibilità: combina provider, scegli modello ed effort, vedi il costo reale di ogni sub-agente e lasciali lavorare dopo la risposta della missione.",
+        "native": "Le missioni che usano già {{provider}} mantengono sub-agenti nativi, ora con questo modello ed effort.",
+        "cancel": "Lascia come la missione",
+        "accept": "Usa {{provider}}"
+      }
+    }
   }
 }

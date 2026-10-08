@@ -15,7 +15,7 @@ export const LOOP_RUN_MODELS: Record<string, LoopRunModel[]> = {
     { value: 'sonnet', label: 'Sonnet 5.5' },
     { value: 'fable', label: 'Fable 5.1' },
     { value: 'opus', label: 'Claude Opus 5.5' },
-    { value: 'haiku', label: 'Claude Haiku' },
+    { value: 'haiku', label: 'Claude Haiku 5.5' },
   ],
   codex: [
     { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },

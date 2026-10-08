@@ -1178,6 +1178,10 @@ export class LoopRunManager {
     if (frozen.row.status === 'completed') throw new Error('runtime_run_completed: Fork a completed workflow to continue')
     this._cancelled.delete(runId)
     this.claimDefinition({ ...frozen.request, runId })
+    // Cards and chips that showed the restart/interruption pause follow the resumed run live.
+    const request = frozen.request
+    this._emit({ type: 'loop.run_resumed', projectId: request.projectId, loopRunId: runId, railIndex: request.railIndex ?? null,
+      ticketIds: request.spec?.ticketIds ?? (request.ticketId == null ? [] : [request.ticketId]) })
     const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
     this._definitionTasks.set(runId,task)
     return task

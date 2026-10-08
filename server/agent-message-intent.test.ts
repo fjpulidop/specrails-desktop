@@ -14,7 +14,7 @@ afterEach(() => { db.close(); delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
 function app() {
   const a = express()
   a.use(express.json())
-  a.use('/api/agent', createAgentChatRouter({ manager: { pendingMessages: () => [], conversationLive: () => null } as unknown as AgentChatManager, desktopDb: db }))
+  a.use('/api/agent', createAgentChatRouter({ manager: { pendingMessages: () => [], conversationLive: () => null, sessionState: () => null } as unknown as AgentChatManager, desktopDb: db }))
   return a
 }
 

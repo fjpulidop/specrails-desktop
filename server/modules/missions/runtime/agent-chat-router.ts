@@ -1,8 +1,9 @@
 import fs from 'fs'
+import { listSubagents, pageSubagentEvents } from './agent-session-store'
 import multer from 'multer'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { DbInstance } from '../../../db'
-import type { AgentChatManager, AgentContextReference } from './agent-chat-manager'
+import { SessionRebuildBusyError, type AgentChatManager, type AgentContextReference } from './agent-chat-manager'
 import {
   getAdapter,
   isModelAvailableForAdapter,
@@ -241,7 +242,55 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       messages: decorateAgentInputMessages(desktopDb, listAgentMessages(desktopDb, conversation.id)),
       pendingMessages: manager.pendingMessages(conversation.id),
       live: manager.conversationLive(conversation.id),
+      session: manager.sessionState(conversation.id),
     })
+  })
+
+  // ── Sub-agents of a mission's Core agent session (core-agent-sessions-host) ──
+  router.get('/conversations/:id/subagents', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ subagents: listSubagents(desktopDb, conversation.id), session: manager.sessionState(conversation.id) })
+  })
+
+  router.get('/conversations/:id/subagents/:subagentId/events', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    const after = Number.parseInt(String(req.query.after ?? '0'), 10)
+    const limit = Number.parseInt(String(req.query.limit ?? '200'), 10)
+    if (!Number.isSafeInteger(after) || after < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 1000) {
+      res.status(400).json({ error: 'after must be ≥ 0 and limit between 1 and 1000' })
+      return
+    }
+    res.json(pageSubagentEvents(desktopDb, conversation.id, String(req.params.subagentId), after, limit))
+  })
+
+  router.post('/conversations/:id/subagents/stop', async (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    const ids = (req.body as { subagentIds?: unknown } | undefined)?.subagentIds
+    if (ids !== undefined && (!Array.isArray(ids) || ids.length > 500 || !ids.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 200))) {
+      res.status(400).json({ error: 'subagentIds must be an array of ids' })
+      return
+    }
+    try {
+      res.json({ stopped: await manager.stopSubagents(conversation.id, ids as string[] | undefined) })
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Could not stop the sub-agents' })
+    }
+  })
+
+  router.post('/conversations/:id/session/rebuild', async (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    try {
+      const result = await manager.rebuildSessionProjection(conversation.id)
+      if (!result) { res.status(409).json({ error: 'This mission does not run in a Core session' }); return }
+      res.json(result)
+    } catch (err) {
+      if (err instanceof SessionRebuildBusyError) { res.status(409).json({ error: err.message }); return }
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Could not rebuild the session projection' })
+    }
   })
 
   router.patch('/conversations/:id', (req: Request, res: Response) => {
@@ -317,6 +366,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   router.delete('/conversations/:id', (req: Request, res: Response) => {
     const id = String(req.params.id)
     manager.abort(id)
+    // Must run before the row is deleted: it reads the conversation's scope.
+    void manager.closeCoreSession(id).catch((e) => console.error('[agent-chat] Core session close failed:', e))
     killBackgroundProcessesForChat(id)
     purgeBackgroundProcessHistory({ chatId: id })
     deleteAgentConversation(desktopDb, id)

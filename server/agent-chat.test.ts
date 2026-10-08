@@ -375,6 +375,7 @@ function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
     notifyConversationCreated: vi.fn(),
     pendingMessages: () => [],
     conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
+    sessionState: () => null,
     ...manager,
   } as AgentChatManager, desktopDb: db }))
   return app
@@ -417,6 +418,7 @@ describe('agent-chat-router', () => {
         sent.push({ id, text })
       },
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => false,
     }
     app = makeApp(db, manager)
@@ -606,6 +608,7 @@ describe('agent-chat-router', () => {
         captured.push(options)
       },
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => true,
     }
     const busyApp = makeApp(db, busyManager)
@@ -625,6 +628,7 @@ describe('agent-chat-router', () => {
     const mgr: Partial<AgentChatManager> = {
       sendMessage: async () => {},
       abort: () => true,
+      closeCoreSession: async () => {},
       isBusy: () => true,
       editQueued: (id: string, queueId: string, text: string) => {
         if (!inQueue) return false

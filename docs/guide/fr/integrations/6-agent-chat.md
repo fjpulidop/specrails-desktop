@@ -67,6 +67,17 @@ Les réponses arrivent en flux fluide et s'affichent déjà mises en forme (titr
 - **Sans git, pas de phase PR.** Un projet sans dépôt git (ou sans commits) a quand même une carte d'exécution — progression, log, échec et récupération — mais il n'y a ni branche ni étape PR ; la carte le dit.
 - **`@rail-N`.** Tapez `@` et choisissez un rail pour le référencer dans votre message, avec ses specs et son état : libre, occupé ou en attente de décision.
 
+## Sous-agents
+
+Certains fournisseurs peuvent confier des parties d'une tâche à des **sous-agents** : des assistants qui travaillent en parallèle et continuent après la réponse de l'agent. Les sous-agents sont **désactivés par défaut** car ils multiplient le coût d'une demande.
+
+- **Activez-les par projet.** Ouvrez **Réglages → Sous-agents** du projet et activez **Autoriser les sous-agents dans ce projet**. Cela couvre les missions, l'exploration et les affinages du projet ; les pipelines Implement ne sont jamais concernés. Les missions sans projet suivent **Réglages de l'app → Fournisseurs d'IA → Autoriser les sous-agents dans les missions sans projet**.
+- **Choisissez qui les exécute.** Sous **Exécuter les sous-agents avec**, l'option par défaut **Comme l'agent de la mission** laisse le CLI de la mission les lancer nativement : c'est le plus rapide, et ils partagent son cache de prompt. Choisissez plutôt un fournisseur, un modèle et un effort pour mélanger les fournisseurs — par exemple une mission Codex avec des sous-agents Claude. Les missions déjà sur ce fournisseur restent natives avec ce modèle ; sur un autre fournisseur, Specrails lance lui-même chaque sous-agent, qui démarre à froid et peut coûter plus, mais vous donne plus de contrôle et affiche le coût réel de chacun. Specrails demande une confirmation avant le changement, et ces sous-agents portent un badge de fournisseur dans la mission.
+- **Suivez leur travail.** Les agents lancés par une réponse apparaissent sur une ligne compacte sous cette réponse. Elle reste ouverte pendant qu'ils travaillent et se replie en un résumé avec la durée et les jetons totaux une fois qu'ils ont tous fini. Dépliez une ligne pour lire son résultat et son coût, ou suivre son activité en direct. Chaque lancement reste à sa place dans la conversation : les suivants ne se mélangent jamais aux précédents. Arrêtez un agent en cours depuis sa ligne, ou tous depuis la ligne de résumé.
+- **L'agent reprend tout seul.** Quand les agents en arrière-plan ont fini, l'agent continue et publie ce qu'ils ont trouvé, marqué *Suite après les agents en arrière-plan*.
+- **Changer le réglage est sans risque.** Une mission dont des agents tournent applique le changement quand ils ont fini ; elle vous l'indique et propose **Arrêter les agents et appliquer**.
+- **Rien ne redémarre dans votre dos.** Les agents interrompus par un redémarrage restent marqués interrompus ; **Relancer** rédige seulement un message demandant à l'agent de refaire ce travail.
+
 ## Quelques points à savoir
 
 - **Opérer et Autonome coûtent de l'argent** car ils exécutent de l'IA. L'agent met en avant les actions génératrices de coût avant de les réaliser ; gardez le niveau sur Observer ou Modifier si vous voulez juste regarder et ranger.

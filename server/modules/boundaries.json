@@ -267,6 +267,82 @@
       ]
     }
   },
+  "agent-sessions": {
+    "publicEntries": [
+      "adapters/host-process.ts",
+      "adapters/http.ts",
+      "index.ts",
+      "runtime/core-sessions-availability.ts",
+      "runtime/session-host-registry.ts"
+    ],
+    "dependencies": {
+      "adapters/host-process.ts": [
+        "../../../core-node-runtime",
+        "../../../util/win-spawn",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../domain/errors",
+        "../domain/protocol",
+        "../ports",
+        "./rpc-client",
+        "node:child_process"
+      ],
+      "adapters/http.ts": [
+        "../runtime/session-host-registry",
+        "express"
+      ],
+      "adapters/rpc-client.ts": [
+        "../domain/errors",
+        "../domain/protocol",
+        "../ports",
+        "node:string_decoder"
+      ],
+      "application/session-event-pump.ts": [
+        "../domain/projection",
+        "../domain/protocol",
+        "../ports"
+      ],
+      "domain/availability.ts": [],
+      "domain/errors.ts": [
+        "./protocol"
+      ],
+      "domain/host-state.ts": [],
+      "domain/projection.ts": [
+        "./protocol"
+      ],
+      "domain/protocol.ts": [],
+      "domain/subagent-policy.ts": [
+        "./protocol"
+      ],
+      "index.ts": [
+        "./application/session-event-pump",
+        "./domain/availability",
+        "./domain/errors",
+        "./domain/host-state",
+        "./domain/projection",
+        "./domain/protocol",
+        "./domain/subagent-policy",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain/projection",
+        "./domain/protocol"
+      ],
+      "runtime/core-sessions-availability.ts": [
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../domain/availability",
+        "../domain/protocol",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/session-host-registry.ts": [
+        "../application/session-event-pump",
+        "../domain/errors",
+        "../domain/host-state",
+        "../domain/protocol",
+        "../ports"
+      ]
+    }
+  },
   "agents": {
     "publicEntries": [
       "runtime/agent-catalog.ts",
@@ -1604,6 +1680,7 @@
       "runtime/agent-spec-framing.ts",
       "runtime/agent-steering.ts",
       "runtime/agent-tier.ts",
+      "runtime/mission-core-sessions.ts",
       "runtime/mission-run-notify.ts"
     ],
     "dependencies": {
@@ -1634,8 +1711,11 @@
         "./agent-cwd-manager",
         "./agent-input-store",
         "./agent-operator-prompt",
+        "./agent-session-store",
         "./agent-steering",
         "./agent-tier",
+        "./core-session-runner",
+        "./mission-core-sessions",
         "child_process",
         "crypto",
         "node:fs/promises",
@@ -1656,6 +1736,7 @@
         "../../agents/runtime/agent-store",
         "./agent-chat-manager",
         "./agent-input-store",
+        "./agent-session-store",
         "./agent-tier",
         "express",
         "fs",
@@ -1692,6 +1773,10 @@
         "../../../feature-flags",
         "../../specs/runtime/spec-contract-prompt"
       ],
+      "runtime/agent-session-store.ts": [
+        "../../../db",
+        "../../agent-sessions"
+      ],
       "runtime/agent-spec-framing.ts": [
         "../../../db",
         "../../../providers/registry",
@@ -1707,12 +1792,40 @@
       "runtime/agent-tier.ts": [
         "../../../mcp/mcp-tiers"
       ],
+      "runtime/core-session-runner.ts": [
+        "../../../providers/live-session-types",
+        "../../../providers/types",
+        "../../agent-sessions",
+        "../../execution/runtime/spawn-lifecycle",
+        "node:crypto"
+      ],
+      "runtime/mission-core-sessions.ts": [
+        "../../../agent-mcp-config",
+        "../../../db",
+        "../../../external-mcp",
+        "../../../providers/types",
+        "../../agent-sessions",
+        "../../agent-sessions/runtime/session-host-registry",
+        "../../agents/runtime/agent-store",
+        "./agent-session-store",
+        "./core-session-runner",
+        "./mission-session-projector"
+      ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
         "../../../types",
         "../../agent-runtime/runtime/agent-runtime-controls",
         "./agent-chat-registry",
         "./agent-failure-briefing"
+      ],
+      "runtime/mission-session-projector.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers/types",
+        "../../accounting/runtime/result-event",
+        "../../agent-sessions",
+        "../../agents/runtime/agent-store",
+        "./agent-session-store"
       ]
     }
   },

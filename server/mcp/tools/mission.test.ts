@@ -10,6 +10,8 @@ import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHan
 import { missionTools } from './mission'
 import { watchTool } from './watch'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
+import { setAgentChatManager } from '../../modules/missions/runtime/agent-chat-registry'
+import type { AgentChatManager } from '../../modules/missions/runtime/agent-chat-manager'
 
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'mission-tool-test-token' }))
 
@@ -337,3 +339,52 @@ describe('Specrails mission update MCP dispatch', () => {
     expect(consumer).toHaveBeenCalledOnce()
   })
 })
+
+describe('specrails_mission delegation actions', () => {
+  afterEach(() => setAgentChatManager(null))
+  function manager(overrides: Partial<Record<'delegateSubagent' | 'waitSubagents' | 'stopSubagents' | 'sessionState', unknown>> = {}) {
+    const fake = {
+      delegateSubagent: vi.fn(async () => ({ subagentId: 'child-1' })),
+      waitSubagents: vi.fn(async () => ({ results: [], running: ['child-1'] })),
+      stopSubagents: vi.fn(async () => ['child-1']),
+      sessionState: vi.fn(() => ({ residentPhase: 'background', processAlive: true, liveSubagents: 1, subagents: [
+        { subagentId: 'child-1', description: 'Review', phase: 'running', delegated: { driver: 'claude', model: 'sonnet' }, resultSummary: null },
+        { subagentId: 'native-1', description: 'Native', phase: 'idle', delegated: null, resultSummary: 'x' },
+      ] })),
+      ...overrides,
+    }
+    setAgentChatManager(fake as unknown as AgentChatManager)
+    return fake
+  }
+
+  it('acts on the capability\'s own mission only', async () => {
+    const { ack, extra } = setup()
+    const fake = manager()
+    expect(jsonBlocks(await ack({ action: 'subagent_start', description: 'Review', instructions: 'Review api.ts', contextTurns: 2 }, extra))[0]).toEqual({ subagentId: 'child-1' })
+    expect(fake.delegateSubagent).toHaveBeenCalledWith('mission-1', { description: 'Review', prompt: 'Review api.ts', contextTurns: 2 })
+    await ack({ action: 'subagent_wait', subagentIds: ['child-1'], timeoutSeconds: 5 }, extra)
+    expect(fake.waitSubagents).toHaveBeenCalledWith('mission-1', ['child-1'], 5_000)
+    expect(jsonBlocks(await ack({ action: 'subagent_stop' }, extra))[0]).toEqual({ stopped: ['child-1'] })
+    expect(jsonBlocks(await ack({ action: 'subagent_list' }, extra))[0]).toEqual({ subagents: [{ subagentId: 'child-1', description: 'Review', phase: 'running', provider: 'claude', model: 'sonnet', result: null }] })
+  })
+
+  it('waits 60 seconds by default and explains refusals', async () => {
+    const { ack, extra } = setup()
+    const fake = manager({ delegateSubagent: vi.fn(async () => { throw new Error('This mission does not delegate sub-agents') }) })
+    await ack({ action: 'subagent_wait' }, extra)
+    expect(fake.waitSubagents).toHaveBeenCalledWith('mission-1', undefined, 60_000)
+    const refused = await ack({ action: 'subagent_start', description: 'x', instructions: 'y' }, extra)
+    expect(refused.isError).toBe(true)
+    expect(allText(refused)).toContain('does not delegate')
+    expect(allText(await ack({ action: 'subagent_start', description: 'x' }, extra))).toContain('needs a description and instructions')
+  })
+
+  it('refuses external clients without a mission capability', async () => {
+    const { ack } = setup()
+    manager()
+    const reply = await ack({ action: 'subagent_list' })
+    expect(reply.isError).toBe(true)
+    expect(allText(reply)).toContain('first-party mission turn')
+  })
+})
+

@@ -300,6 +300,7 @@
       "superseded": "新しい実行に置き換えられました",
       "existing_pr_updated": "既存の PR を更新しました",
       "building": "分離されたワークツリーで実装中…",
+      "buildingInPlace": "プロジェクトフォルダーで実装中…",
       "buildingExistingPr": "既存の PR に変更を適用中…",
       "paused": "人の判断が必要です",
       "on_review": "実装のレビュー準備完了",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "統合できません：{{base}} のローカル変更が実装と重なっています。該当する変更をコミットまたはスタッシュしてから再試行してください。",
     "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
     "mergedLocally": "ローカルで {{base}} に統合しました",
-    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
+    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
+    "resumeFromStep": "{{step}} から再開",
+    "resumeFromStepHint": "中断された {{step}} ステップを最初から再実行します。ディスク上の作業内容は保持されます。"
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -759,5 +762,77 @@
     "17": "このミッションで何を解決しましょうか？",
     "18": "このミッションの成功条件は何ですか？",
     "19": "新しいミッションの準備ができました。始めましょうか？"
+  },
+  "subagents": {
+    "title": "エージェント",
+    "working_one": "{{count}} 件作業中",
+    "working_other": "{{count}} 件作業中",
+    "done_one": "{{count}} 件完了",
+    "done_other": "{{count}} 件完了",
+    "ended_one": "{{count}} 件停止",
+    "ended_other": "{{count}} 件停止",
+    "phase": {
+      "running": "作業中",
+      "idle": "完了",
+      "failed": "失敗",
+      "stopped": "停止",
+      "killed": "強制終了",
+      "interrupted": "中断"
+    },
+    "reason": {
+      "user_stop": "あなたが停止",
+      "host_request": "アプリが停止",
+      "restart": "再起動で失われました",
+      "shutdown": "アプリ終了",
+      "host_lost": "エージェントホストが失われました",
+      "crashed": "プロセスがクラッシュ",
+      "stalled": "応答なし",
+      "limit": "上限に到達",
+      "project_removed": "プロジェクト削除",
+      "evicted": "リソース節約のため解放",
+      "policy": "サブエージェントは無効です"
+    },
+    "expand": "{{name}} のアクティビティを表示",
+    "collapse": "アクティビティを隠す",
+    "elapsedAria": "{{elapsed}} 実行中",
+    "loadingActivity": "アクティビティを読み込み中…",
+    "noActivity": "まだアクティビティはありません",
+    "activityFailed": "アクティビティを読み込めませんでした",
+    "moreActivity": "さらに読み込む",
+    "tokens": "{{tokens}} トークン",
+    "toolUses_one": "ツール呼び出し {{count}} 回",
+    "toolUses_other": "ツール呼び出し {{count}} 回",
+    "stop": "停止",
+    "stopOne": "{{name}} を停止",
+    "stopAll": "すべてのエージェントを停止",
+    "stopFailed": "エージェントを停止できませんでした",
+    "relaunch": "再起動",
+    "relaunchHint": "この作業の再実行をエージェントに依頼するメッセージを下書き",
+    "relaunchDraft": "次のバックグラウンドエージェントを再起動してください: {{description}}",
+    "continuation": "バックグラウンドエージェントの後に続行",
+    "continuationSystem": "バックグラウンド作業の後に続行",
+    "backgroundTurn": "エージェントがバックグラウンドの結果を確認中…",
+    "deferred": "設定の変更はバックグラウンドエージェントの完了後に適用されます。",
+    "applyNow": "エージェントを停止して今すぐ適用",
+    "policyUnenforceable": "{{provider}} はサブエージェントを無効にできません。プロジェクト設定で「サブエージェントを許可」を有効にするか、このミッションでは別のプロバイダーを使ってください。",
+    "result": "結果",
+    "count_one": "エージェント {{count}} 件",
+    "count_other": "エージェント {{count}} 件",
+    "finishedIn": "{{elapsed}} で完了",
+    "delegatedHint": "Specrails が {{provider}}（{{model}}）で起動しました。コストは別に集計されます。"
+  },
+  "sessionNotice": {
+    "host_degraded": "繰り返しの失敗により、このプロジェクトでは Core セッションを利用できません。このターンは従来の方式で実行されました（バックグラウンドのサブエージェントなし）。原因を解消したら再試行してください。",
+    "journal_locked": "別の Specrails Desktop インスタンスがこのプロジェクトのエージェントセッションを使用しているため、このターンは従来の方式で実行されました。もう一方のインスタンスを閉じてから再試行してください。",
+    "policy": {
+      "subagent_blocked": "このプロジェクトではサブエージェントが無効ですが、プロバイダーがサブエージェントを起動したため停止しました。"
+    },
+    "retry": "再試行",
+    "retryFailed": "まだ利用できません。原因はアプリのログを確認してください。",
+    "dismiss": "閉じる",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} のサブエージェントには新しい Specrails Core が必要なため、このミッションのエージェントが自身のサブエージェントを起動します。",
+      "driver_unavailable": "{{provider}} はセッションランタイムで利用できないため、このミッションのエージェントが自身のサブエージェントを起動します。"
+    }
   }
 }

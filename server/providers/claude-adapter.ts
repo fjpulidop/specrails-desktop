@@ -24,7 +24,7 @@ const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Sonnet 5.5', default: true as const },
   { value: 'fable', label: 'Fable 5.1' },
   { value: 'opus', label: 'Claude Opus 5.5' },
-  { value: 'haiku', label: 'Claude Haiku' },
+  { value: 'haiku', label: 'Claude Haiku 5.5' },
 ] as const
 
 /** Mirror of ChatManager.normalizeClaudeCodeModel — pinned model strings the
@@ -47,6 +47,8 @@ function normaliseModel(model: string | null | undefined): string {
     case 'claude-opus-4-1-20250805':
     case 'claude-opus-4-20250514':
       return 'opus'
+    case 'claude-haiku-5-5':
+    case 'claude-haiku-5':
     case 'claude-haiku-4-5-20251001':
     case 'claude-3-5-haiku-20241022':
     case 'claude-3-5-haiku-latest':
@@ -69,6 +71,7 @@ function normaliseModel(model: string | null | undefined): string {
 const PINNED_ALIAS_MODEL_IDS: Readonly<Record<string, string>> = {
   sonnet: 'claude-sonnet-5-5',
   opus: 'claude-opus-5-5',
+  haiku: 'claude-haiku-5-5',
 }
 
 /** Catalog value (or concrete id) in, spawn model id out. */
@@ -510,6 +513,8 @@ export const claudeAdapter = {
     nativeOtelEnv: true,
     profileEnvSupport: true,
     systemPromptArg: true,
+    // Missions already run with --dangerously-skip-permissions; Specrails tiers gate actions.
+    sessionPermissions: 'bypass',
     persistentStdin: true,
     liveInputTransport: 'claude-stream-json',
     supportsReasoningEffort: true,

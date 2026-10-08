@@ -66,6 +66,17 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 - **No git, no PR phase.** A project without a git repository (or without commits) still gets a run card — progress, log, failure and recovery — but there is no branch and no PR step; the card says so.
 - **`@rail-N`.** Type `@` and pick a rail to reference it in your message, with its specs and whether it is free, busy or awaiting a decision.
 
+## Sub-agents
+
+Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **off by default**: they multiply what one request costs.
+
+- **Turn them on per project.** Open the project's **Settings → Sub-agents** and switch on **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
+- **Choose who runs them.** Under **Run sub-agents with**, the default **Same as the mission agent** lets the mission's own CLI launch them natively: fastest, and they share its prompt cache. Pick a provider, model and effort instead to mix providers — for example a Codex mission with Claude sub-agents. Missions already on that provider stay native with that model; on another provider Specrails launches each sub-agent itself, which starts colder and can cost more, but gives you more control and shows each one's real cost. Specrails asks you to confirm before switching, and those sub-agents carry a provider badge in the mission.
+- **Watch them work.** The agents a reply launched appear as one compact line under that reply. It stays open while they work, and once they all finish it folds into a summary with the total time and tokens. Expand a row to read its result and what it cost, or to follow its activity live. Each launch stays at its point in the conversation, so later launches never mix with earlier ones. Stop a running agent from its row, or stop them all from the line.
+- **The agent follows up on its own.** When background agents finish, the agent continues and posts what they found, marked *Continued after background agents*.
+- **Changing the setting is safe.** A mission with agents still running applies the change once they finish; it tells you so and offers **Stop agents and apply now**.
+- **Nothing restarts behind your back.** Agents interrupted by a restart stay marked as interrupted; **Relaunch** only drafts a message asking the agent to redo that work.
+
 ## A few things to know
 
 - **Operate and Autonomous cost money** because they run AI. The agent surfaces cost-incurring actions before doing them; keep the level at Observe or Edit if you just want to look and tidy.

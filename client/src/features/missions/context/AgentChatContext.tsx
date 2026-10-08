@@ -1,4 +1,6 @@
 import { MissionSplitViewsProvider } from './MissionSplitViewsContext'
+import { MissionSessionsProvider } from './MissionSessionsContext'
+import i18n from '../../../lib/i18n'
 import { useMissionWindows } from './MissionWindowsContext'
 import { isMissionWindowRoute } from '../lib/mission-windows'
 import {
@@ -425,12 +427,26 @@ export interface AgentChatContextValue {
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
 
+/** A Core failure the user can act on reads in their language; others keep the server text. */
+function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
+  if (msg.code === 'policy_unenforceable') {
+    const provider = msg.provider ? msg.provider.charAt(0).toUpperCase() + msg.provider.slice(1) : ''
+    return i18n.t('agent:subagents.policyUnenforceable', { provider })
+  }
+  return msg.error || 'The agent turn failed.'
+}
+
 interface WsAgentMsg {
   type: string
   conversationId?: string
   delta?: string
   fullText?: string
+  /** Core session turn a user turn settled (agent_done). */
+  coreTurnId?: string
   error?: string
+  /** Known failure the client explains in the user's language. */
+  code?: string
+  provider?: string
   tool?: string
   input?: string
   toolId?: string
@@ -449,6 +465,9 @@ interface WsAgentMsg {
   messageId?: string
   assistantSegment?: { id: string; content: string; created_at: string }
   messages?: AgentMessage[]
+  /** Core agent sessions: set on events of turns the agent runs after background work. */
+  turnId?: string
+  origin?: 'user' | 'subagent' | 'system'
 }
 
 let _toolSeq = 0
@@ -755,6 +774,16 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         }
         patchLive(convId, (previous) => ({ ...previous, queued: previous.queued.map((item) => item.queueId === msg.queueId
           ? { ...item, deliveryReceipt: latestReceipt(item.deliveryReceipt, msg.receipt) } : item) }))
+      } else if (msg.turnId && (msg.type === 'agent_stream' || msg.type === 'agent_tool' || msg.type === 'agent_tool_result')) {
+        // A turn the agent started after sub-agents finished: rendered by
+        // MissionSessionsContext, never mixed into the user turn's live state.
+        if (msg.type === 'agent_stream') markUnread(convId)
+      } else if (msg.type === 'agent_turn_done') {
+        markUnread(convId)
+        if (msg.messageId && msg.fullText) {
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: msg.fullText, created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.turnId ? { core_turn_id: msg.turnId } : {}), ...(msg.origin ? { turn_origin: msg.origin } : {}) }])
+        }
       } else if (msg.type === 'agent_stream') {
         markUnread(convId)
         patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
@@ -802,7 +831,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         markUnread(convId)
         const full = msg.fullText ?? ''
         if (msg.messageId && full) {
-          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString() }])
+          // `coreTurnId` anchors the sub-agents this turn launched under this reply.
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString(),
+            ...(msg.coreTurnId ? { core_turn_id: msg.coreTurnId, turn_origin: 'user' as const } : {}) }])
         } else if (isActive && full) {
           setMessages((m) => {
             // A switch-back refetch can already contain this reply (it is
@@ -833,7 +864,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
           queued: p.queued,
           turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
         }))
-        const err = msg.error || 'The agent turn failed.'
+        const err = describeAgentError(msg)
         if (!fixedConversationId) toast.error(err)
         // Also surface it inline so it's visible in the conversation.
         if (isActive) {
@@ -1612,7 +1643,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   return (
     <AgentChatContext.Provider value={value}>
-      {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
+      <MissionSessionsProvider>
+        {fixedConversationId ? children : <MissionSplitViewsProvider primaryId={active?.id ?? null}>{children}</MissionSplitViewsProvider>}
+      </MissionSessionsProvider>
       {floatingAllowed && visibility === 'open' && <AgentChatPanel />}
       {/* Persistent bottom-center bubble: the single entry point when the panel
           is not open (summon from hidden AND restore from minimized). */}

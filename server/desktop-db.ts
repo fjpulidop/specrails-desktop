@@ -1,3 +1,4 @@
+import { parseSubagentRuntimeSetting, type SubagentRuntimeSetting } from './modules/project-settings'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -695,6 +696,70 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!columns.includes('workspace_path')) db.exec('ALTER TABLE project_repositories ADD COLUMN workspace_path TEXT')
       if (!columns.includes('workspace_paths')) db.exec('ALTER TABLE project_repositories ADD COLUMN workspace_paths TEXT')
     },
+    // 33: core-agent-sessions-host — Desktop's rebuildable projection of Core
+    // agent sessions. Core's journal (~/.specrails/sessions/<scope>/) is the
+    // source of truth; these rows are re-derivable by replaying it. Cursor and
+    // projected rows are always written in one transaction. Column-guarded for
+    // migration replay fixtures.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_session_cursors (
+          conversation_id TEXT PRIMARY KEY REFERENCES agent_conversations(id) ON DELETE CASCADE,
+          core_session_id TEXT NOT NULL,
+          scope TEXT NOT NULL,
+          last_seq INTEGER NOT NULL DEFAULT 0,
+          resident_phase TEXT NOT NULL DEFAULT 'idle' CHECK (resident_phase IN ('idle', 'turn', 'background')),
+          process_alive INTEGER NOT NULL DEFAULT 0,
+          live_subagents INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS agent_subagents (
+          conversation_id TEXT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+          subagent_id TEXT NOT NULL,
+          parent_id TEXT,
+          kind TEXT NOT NULL CHECK (kind IN ('foreground', 'background')),
+          agent_type TEXT,
+          description TEXT NOT NULL,
+          phase TEXT NOT NULL CHECK (phase IN ('running', 'idle', 'failed', 'stopped', 'killed', 'interrupted')),
+          reason TEXT,
+          restarts INTEGER NOT NULL DEFAULT 0,
+          launched_turn_id TEXT,
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          usage_json TEXT,
+          tool_uses INTEGER,
+          duration_ms INTEGER,
+          result_summary TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (conversation_id, subagent_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_subagents_turn ON agent_subagents(conversation_id, launched_turn_id);
+        CREATE TABLE IF NOT EXISTS agent_subagent_events (
+          conversation_id TEXT NOT NULL,
+          subagent_id TEXT NOT NULL,
+          seq INTEGER NOT NULL,
+          channel TEXT NOT NULL CHECK (channel IN ('text', 'tool')),
+          delta TEXT,
+          tool_json TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (conversation_id, subagent_id, seq),
+          FOREIGN KEY (conversation_id, subagent_id) REFERENCES agent_subagents(conversation_id, subagent_id) ON DELETE CASCADE
+        );
+      `)
+      const invocationColumns = (db.prepare('PRAGMA table_info(agent_invocations)').all() as { name: string }[]).map((c) => c.name)
+      if (!invocationColumns.includes('origin')) db.exec(`ALTER TABLE agent_invocations ADD COLUMN origin TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user', 'subagent', 'system'));`)
+      const messageColumns = (db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]).map((c) => c.name)
+      if (!messageColumns.includes('core_turn_id')) db.exec(`ALTER TABLE agent_messages ADD COLUMN core_turn_id TEXT;`)
+      if (!messageColumns.includes('turn_origin')) db.exec(`ALTER TABLE agent_messages ADD COLUMN turn_origin TEXT CHECK (turn_origin IS NULL OR turn_origin IN ('user', 'subagent', 'system'));`)
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_messages_core_turn ON agent_messages(conversation_id, core_turn_id) WHERE core_turn_id IS NOT NULL;`)
+    },
+    // 34: hybrid sub-agent runtime — sub-agents Core launched on another
+    // provider record which driver and model ran them. Column-guarded.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(agent_subagents)').all() as { name: string }[]).map((c) => c.name)
+      if (!columns.includes('delegated_driver')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_driver TEXT')
+      if (!columns.includes('delegated_model')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_model TEXT')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)
@@ -850,6 +915,27 @@ export function touchProject(db: DbInstance, id: string): void {
   ).run(id)
 }
 
+/** App-global "Allow sub-agents" for missions without a project (default off). */
+export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
+
+export function getGlobalAllowSubagents(db: DbInstance): boolean {
+  return getDesktopSetting(db, GLOBAL_ALLOW_SUBAGENTS_KEY) === 'true'
+}
+
+/** App-wide "Run sub-agents with" for missions without a project; null = the mission agent's provider. */
+export const GLOBAL_SUBAGENT_RUNTIME_KEY = 'agent_subagent_runtime'
+
+export function getGlobalSubagentRuntime(db: DbInstance): SubagentRuntimeSetting | null {
+  const raw = getDesktopSetting(db, GLOBAL_SUBAGENT_RUNTIME_KEY)
+  if (!raw) return null
+  try { return parseSubagentRuntimeSetting(JSON.parse(raw)) } catch { return null }
+}
+
+export function setGlobalSubagentRuntime(db: DbInstance, value: SubagentRuntimeSetting | null): void {
+  if (value === null) db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(GLOBAL_SUBAGENT_RUNTIME_KEY)
+  else setDesktopSetting(db, GLOBAL_SUBAGENT_RUNTIME_KEY, JSON.stringify(value))
+}
+
 export function getDesktopSetting(db: DbInstance, key: string): string | undefined {
   const row = db.prepare('SELECT value FROM desktop_settings WHERE key = ?').get(key) as { value: string } | undefined
   return row?.value
@@ -902,6 +988,8 @@ export interface AgentInvocationInput {
   total_cost_usd_estimated?: boolean
   num_turns?: number | null
   session_id?: string | null
+  /** Who started the turn: the user, Core after sub-agents finished, or a policy handoff. */
+  origin?: 'user' | 'subagent' | 'system'
 }
 
 export interface AgentInvocationRow {
@@ -933,8 +1021,8 @@ export function recordAgentInvocation(db: DbInstance, input: AgentInvocationInpu
       id, conversation_id, project_id, provider, surface, model, status,
       started_at, finished_at, duration_ms, duration_api_ms,
       tokens_in, tokens_out, tokens_cache_read, tokens_cache_create,
-      total_cost_usd, total_cost_usd_estimated, num_turns, session_id
-    ) VALUES (?, ?, ?, ?, 'agent-chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      total_cost_usd, total_cost_usd_estimated, num_turns, session_id, origin
+    ) VALUES (?, ?, ?, ?, 'agent-chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     input.id,
     input.conversation_id,
@@ -954,6 +1042,7 @@ export function recordAgentInvocation(db: DbInstance, input: AgentInvocationInpu
     input.total_cost_usd_estimated ? 1 : 0,
     input.num_turns ?? null,
     input.session_id ?? null,
+    input.origin ?? 'user',
   )
 }
 

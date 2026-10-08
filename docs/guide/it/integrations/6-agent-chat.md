@@ -67,6 +67,17 @@ Le risposte arrivano fluide e già formattate (titoli, tabelle, elenchi), ciascu
 - **Senza git niente fase PR.** Un progetto senza repository git (o senza commit) ha comunque una card di esecuzione — progresso, log, fallimento e recupero — ma non c'è branch né passaggio PR; la card lo dice.
 - **`@rail-N`.** Digita `@` e scegli un rail per citarlo nel messaggio, con le sue spec e se è libero, occupato o in attesa di decisione.
 
+## Sotto-agenti
+
+Alcuni provider possono affidare parti di un compito a **sotto-agenti**: aiutanti che lavorano in parallelo e proseguono dopo la risposta dell'agente. I sotto-agenti sono **disattivati per impostazione predefinita** perché moltiplicano il costo di una richiesta.
+
+- **Attivali per progetto.** Apri **Impostazioni → Sotto-agenti** del progetto e attiva **Consenti sotto-agenti in questo progetto**. Vale per missioni, esplorazione e rifiniture del progetto; le pipeline Implement non sono mai interessate. Le missioni senza progetto seguono **Impostazioni dell'app → Provider di IA → Consenti sotto-agenti nelle missioni senza progetto**.
+- **Scegli chi li esegue.** In **Esegui i sotto-agenti con**, l'opzione predefinita **Come l'agente della missione** lascia che il CLI della missione li avvii nativamente: è la più veloce e condividono la sua cache del prompt. Scegli invece provider, modello ed effort per combinare provider — ad esempio una missione Codex con sotto-agenti Claude. Le missioni che usano già quel provider restano native con quel modello; con un altro provider Specrails avvia da sé ogni sotto-agente, che parte a freddo e può costare di più, ma ti dà più controllo e mostra il costo reale di ciascuno. Specrails chiede conferma prima del cambio, e quei sotto-agenti mostrano un badge del provider nella missione.
+- **Guardali lavorare.** Gli agenti avviati da una risposta compaiono come una riga compatta sotto quella risposta. Resta aperta mentre lavorano e, quando finiscono tutti, si chiude in un riepilogo con tempo e token totali. Espandi una riga per leggerne il risultato e il costo, o seguirne l'attività dal vivo. Ogni avvio resta al suo punto della conversazione, quindi i successivi non si mescolano mai ai precedenti. Ferma un agente in corso dalla sua riga, o tutti dalla riga di riepilogo.
+- **L'agente riprende da solo.** Quando gli agenti in background finiscono, l'agente prosegue e pubblica ciò che hanno trovato, con l'etichetta *Proseguito dopo gli agenti in background*.
+- **Cambiare l'impostazione è sicuro.** Una missione con agenti attivi applica la modifica quando finiscono; te lo segnala e offre **Ferma gli agenti e applica ora**.
+- **Niente si riavvia di nascosto.** Gli agenti interrotti da un riavvio restano segnati come interrotti; **Rilancia** si limita a preparare un messaggio che chiede all'agente di rifare quel lavoro.
+
 ## Alcune cose da sapere
 
 - **Opera e Autonomo costano denaro** perché eseguono IA. L'agente mette in evidenza le azioni che generano costi prima di eseguirle; tieni il livello su Osserva o Modifica se vuoi solo guardare e mettere in ordine.

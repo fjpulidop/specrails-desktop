@@ -17,6 +17,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |
+| [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |
 | [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |
 | [programmatic-agent-runtime-validation.md](programmatic-agent-runtime-validation.md) | Paired implementation test results, packaging evidence and release limitations |
 | [openspec-workflow.md](openspec-workflow.md) | `opsx:*` change lifecycle — used by the app itself for structured change management |

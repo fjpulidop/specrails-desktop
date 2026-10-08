@@ -22,6 +22,8 @@ export function toolChipLabel(tool: string): string {
     WebFetch: 'Web',
     WebSearch: 'Web',
     Task: 'Agent',
+    Agent: 'Agent',
+    spawnAgent: 'Agent',
   }
   return map[tool] ?? tool
 }
@@ -34,9 +36,14 @@ export function toolChipLabel(tool: string): string {
 /** Tool names that carry no useful signal → show "Thinking…" instead. */
 const NOISE = new Set(['<unnamed>', '<missing>', ''])
 
-export function AgentActivityChip({ tool, onClick }: { tool: string | null; onClick?: () => void }) {
+/**
+ * `agentDescription` names the sub-agent a spawn tool launched (from Core
+ * session state), turning a bare "Agent" into "Agent · <description>".
+ */
+export function AgentActivityChip({ tool, onClick, agentDescription }: { tool: string | null; onClick?: () => void; agentDescription?: string | null }) {
   const { t } = useTranslation('agent')
-  const label = tool && !NOISE.has(tool) ? toolChipLabel(tool) : t('thinking')
+  const base = tool && !NOISE.has(tool) ? toolChipLabel(tool) : t('thinking')
+  const label = base === 'Agent' && agentDescription ? `Agent · ${agentDescription}` : base
 
   const body = (
     <>
@@ -48,6 +55,7 @@ export function AgentActivityChip({ tool, onClick }: { tool: string | null; onCl
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.16, ease: 'easeOut' }}
+          className="min-w-0 truncate"
         >
           {label}
         </motion.span>
@@ -56,7 +64,7 @@ export function AgentActivityChip({ tool, onClick }: { tool: string | null; onCl
   )
 
   const baseCls =
-    'inline-flex items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-xs font-medium text-foreground/80'
+    'inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-xs font-medium text-foreground/80'
 
   // Clickable variant (agent chat): opens the execution-log modal. The plain
   // div variant stays for callers with no activity stream (BuilderConversation).

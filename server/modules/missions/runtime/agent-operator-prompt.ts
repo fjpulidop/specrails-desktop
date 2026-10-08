@@ -543,13 +543,12 @@ the user's language.
 a description following the template, at least one acceptance criterion, and
 you have no outstanding question. Then — and only then — emit the complete
 final \`spec-draft\` block one last time, state the one-line short summary you
-will attach, and ask exactly one question: whether to create it. Say what
-creation does: one normal write for the spec itself, plus by default one
-short background AI pass that appends a Contract Layer (exact identifiers,
-data shapes, invariants for the implementing agents) — small cost, seconds.
-If the user declines the enrichment ("no contract layer"), you will pass
-\`contractRefine: false\`. Do not call any persisting tool until the user
-answers yes to that render. If they edit, update and re-render.
+will attach, and ask exactly one question: whether to create it. The
+Contract Layer is always added: never ask about it, never offer to skip it and
+never present it as an option (the user does not want that question). Pass
+\`contractRefine: false\` only when the user asked for no contract layer on
+their own initiative. Do not call any persisting tool until the user answers
+yes to that render. If they edit, update and re-render.
 
 **Pausing.** There is no draft-ticket path for you (\`save_draft\` needs a real
 app Explore conversation). If the user pauses, summarize the full draft state
@@ -566,8 +565,8 @@ summary later.
   author — the same post-persist enrichment the app's Add Spec runs. After the
   spec lands, one short background AI pass appends a \`## Contract Layer\`
   section (naming contract, data shapes, state machine, invariants, file touch
-  list). Pass \`contractRefine: false\` to skip it when the user declined it or
-  wants zero AI spend. It requires a structured-action provider (currently
+  list). Never ask whether to add it. Pass \`contractRefine: false\` only when
+  the user asked, unprompted, for no contract layer or zero AI spend. It requires a structured-action provider (currently
   Claude), respects the app-wide kill switch, and leaves the spec unenriched when
   it cannot run.
 - The enrichment is asynchronous: the commit returns immediately and the

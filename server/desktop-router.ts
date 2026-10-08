@@ -1,3 +1,4 @@
+import { parseSubagentRuntimeSetting } from './modules/project-settings'
 import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
@@ -11,7 +12,7 @@ import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
-import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook } from './desktop-db'
+import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
@@ -837,12 +838,24 @@ export function createDesktopRouter(
       'http://localhost:3000'
     const costAlertThresholdRaw = getDesktopSetting(registry.desktopDb, 'cost_alert_threshold_usd')
     const costAlertThresholdUsd = costAlertThresholdRaw != null ? parseFloat(costAlertThresholdRaw) : null
-    res.json({ port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd })
+    const allowSubagents = getGlobalAllowSubagents(registry.desktopDb)
+    res.json({ port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents, subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb) })
   })
 
   // PUT /api/settings — update app-level settings
   router.put('/settings', (req, res) => {
-    const { port, specrailsTechUrl, costAlertThresholdUsd } = req.body ?? {}
+    const { port, specrailsTechUrl, costAlertThresholdUsd, allowSubagents } = req.body ?? {}
+    if (allowSubagents !== undefined && typeof allowSubagents !== 'boolean') {
+      res.status(400).json({ error: 'allowSubagents must be a boolean' })
+      return
+    }
+    let subagentRuntime: ReturnType<typeof parseSubagentRuntimeSetting> | undefined
+    if (req.body?.subagentRuntime !== undefined) {
+      try { subagentRuntime = parseSubagentRuntimeSetting(req.body.subagentRuntime) } catch (error) {
+        res.status(400).json({ error: (error as Error).message })
+        return
+      }
+    }
     if (port !== undefined) {
       const n = Number(port)
       if (!Number.isInteger(n) || n < 1 || n > 65535) {
@@ -868,6 +881,17 @@ export function createDesktopRouter(
       } else if (typeof costAlertThresholdUsd === 'number' && costAlertThresholdUsd > 0) {
         setDesktopSetting(registry.desktopDb, 'cost_alert_threshold_usd', String(costAlertThresholdUsd))
       }
+    }
+    if (allowSubagents !== undefined) {
+      const previous = getGlobalAllowSubagents(registry.desktopDb)
+      setDesktopSetting(registry.desktopDb, GLOBAL_ALLOW_SUBAGENTS_KEY, allowSubagents ? 'true' : 'false')
+      // Project-less missions re-read their sub-agent policy.
+      if (previous !== allowSubagents) registry.notifySettingsChanged({ projectId: null })
+    }
+    if (subagentRuntime !== undefined) {
+      const previous = JSON.stringify(getGlobalSubagentRuntime(registry.desktopDb))
+      setGlobalSubagentRuntime(registry.desktopDb, subagentRuntime)
+      if (previous !== JSON.stringify(subagentRuntime)) registry.notifySettingsChanged({ projectId: null })
     }
     res.json({ ok: true })
   })

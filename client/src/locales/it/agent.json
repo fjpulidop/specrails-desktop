@@ -300,6 +300,7 @@
       "superseded": "Sostituita da un’esecuzione più recente",
       "existing_pr_updated": "PR esistente aggiornata",
       "building": "Implementazione in un worktree isolato…",
+      "buildingInPlace": "Implementazione nella cartella del progetto…",
       "buildingExistingPr": "Applicazione delle modifiche su una PR esistente…",
       "paused": "Serve una decisione umana",
       "on_review": "Implementazione pronta per la revisione",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "Impossibile integrare: le modifiche locali su {{base}} si sovrappongono alla consegna. Esegui il commit o lo stash di queste modifiche e riprova.",
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
     "mergedLocally": "Integrato in {{base}} in locale",
-    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
+    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
+    "resumeFromStep": "Riprendi da {{step}}",
+    "resumeFromStepHint": "Il passaggio {{step}} interrotto riparte dall'inizio; il lavoro già su disco viene conservato."
   },
   "specDraft": {
     "heading": "Bozza della spec",
@@ -759,5 +762,77 @@
     "17": "Cosa risolviamo in questa missione?",
     "18": "Cosa renderebbe questa missione un successo?",
     "19": "Tutto pronto per una nuova missione. Iniziamo?"
+  },
+  "subagents": {
+    "title": "Agenti",
+    "working_one": "{{count}} al lavoro",
+    "working_other": "{{count}} al lavoro",
+    "done_one": "{{count}} completato",
+    "done_other": "{{count}} completati",
+    "ended_one": "{{count}} fermato",
+    "ended_other": "{{count}} fermati",
+    "phase": {
+      "running": "Al lavoro",
+      "idle": "Completato",
+      "failed": "Fallito",
+      "stopped": "Fermato",
+      "killed": "Terminato",
+      "interrupted": "Interrotto"
+    },
+    "reason": {
+      "user_stop": "fermato da te",
+      "host_request": "fermato dall'app",
+      "restart": "perso al riavvio",
+      "shutdown": "app chiusa",
+      "host_lost": "host degli agenti perso",
+      "crashed": "processo andato in crash",
+      "stalled": "non risponde più",
+      "limit": "limite raggiunto",
+      "project_removed": "progetto rimosso",
+      "evicted": "liberato per risparmiare risorse",
+      "policy": "i sotto-agenti sono disattivati"
+    },
+    "expand": "Mostra attività di {{name}}",
+    "collapse": "Nascondi attività",
+    "elapsedAria": "In corso da {{elapsed}}",
+    "loadingActivity": "Caricamento attività…",
+    "noActivity": "Ancora nessuna attività",
+    "activityFailed": "Impossibile caricare l'attività",
+    "moreActivity": "Carica altro",
+    "tokens": "{{tokens}} token",
+    "toolUses_one": "{{count}} chiamata a strumento",
+    "toolUses_other": "{{count}} chiamate a strumenti",
+    "stop": "Ferma",
+    "stopOne": "Ferma {{name}}",
+    "stopAll": "Ferma tutti gli agenti",
+    "stopFailed": "Impossibile fermare gli agenti",
+    "relaunch": "Rilancia",
+    "relaunchHint": "Scrivi un messaggio che chiede all'agente di rilanciare questo lavoro",
+    "relaunchDraft": "Rilancia l'agente in background per: {{description}}",
+    "continuation": "Proseguito dopo gli agenti in background",
+    "continuationSystem": "Proseguito dopo il lavoro in background",
+    "backgroundTurn": "L'agente sta esaminando i risultati in background…",
+    "deferred": "La modifica alle impostazioni verrà applicata al termine degli agenti in background.",
+    "applyNow": "Ferma gli agenti e applica ora",
+    "policyUnenforceable": "{{provider}} non può disattivare i sotto-agenti. Attiva «Consenti sotto-agenti» nelle impostazioni del progetto o usa un altro provider per questa missione.",
+    "result": "Risultato",
+    "count_one": "{{count}} agente",
+    "count_other": "{{count}} agenti",
+    "finishedIn": "completati in {{elapsed}}",
+    "delegatedHint": "Avviato da Specrails su {{provider}} ({{model}}); il suo costo è conteggiato a parte."
+  },
+  "sessionNotice": {
+    "host_degraded": "Le sessioni Core non sono disponibili per questo progetto dopo errori ripetuti, quindi questo turno ha usato il trasporto classico (senza sotto-agenti in background). Riprova dopo aver risolto la causa.",
+    "journal_locked": "Un'altra istanza di Specrails Desktop sta usando le sessioni agente di questo progetto, quindi questo turno ha usato il trasporto classico. Chiudi l'altra istanza e riprova.",
+    "policy": {
+      "subagent_blocked": "Il provider ha avviato un sotto-agente anche se i sotto-agenti sono disattivati per questo progetto; è stato fermato."
+    },
+    "retry": "Riprova",
+    "retryFailed": "Ancora non disponibile. Controlla il log dell'app per la causa.",
+    "dismiss": "Ignora",
+    "subagents": {
+      "delegation_unsupported": "I sub-agenti {{provider}} richiedono uno Specrails Core più recente, quindi l'agente di questa missione avvia i propri sub-agenti.",
+      "driver_unavailable": "{{provider}} non è disponibile per il runtime delle sessioni, quindi l'agente di questa missione avvia i propri sub-agenti."
+    }
   }
 }

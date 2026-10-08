@@ -16,7 +16,9 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
 import { setDetectedProvidersSupplier } from './provider-selection'
-import { setProjectProvidersMirror } from './desktop-db'
+import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
+import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
+import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
 import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
 import { createProjectRouter } from './project-router'
@@ -38,6 +40,13 @@ import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
+import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
+import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
+import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
+import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
+import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import { getAdapter } from './providers/registry'
+import { revokeAgentCapability } from './mcp/agent-capability'
 import { createAgentChatRouter, isAgentChatEnabled } from './modules/missions/runtime/agent-chat-router'
 import { BlueprintChatManager } from './modules/builder/runtime/blueprint-chat-manager'
 import { createBlueprintRouter } from './modules/builder/runtime/blueprint-router'
@@ -337,6 +346,7 @@ let _registry: ProjectRegistry | null = null
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
 let _agentChatManager: AgentChatManager | null = null
+let _sessionHosts: SessionHostRegistry | null = null
 let _blueprintChatManager: BlueprintChatManager | null = null
 let _headroomManager: HeadroomManager | null = null
 
@@ -702,10 +712,55 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
   _agentChatManager = agentChatManager
+  // Core agent sessions (core-agent-sessions-host): one supervised Core host per
+  // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
+  // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
+  const sessionHosts = new SessionHostRegistry({
+    launcher: new CoreHostLauncher({ host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' } }),
+    clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); timer.unref?.(); return { cancel: () => clearTimeout(timer) } } },
+    onStatus: (scope, status, detail, code) => {
+      console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`)
+      // App-level event (no projectId): open missions show a notice when their scope degrades.
+      broadcast({ type: 'agent_sessions_host', scope, status, detail: detail ?? null, code: code ?? null, timestamp: new Date().toISOString() } as unknown as WsMessage)
+    },
+  })
+  _sessionHosts = sessionHosts
+  const projectAllowsSubagents = (projectId: string): boolean => {
+    // A pinned project that is not loaded cannot vouch for sub-agents.
+    const context = registry.getContext(projectId)
+    return context ? getProjectSettings(context.db).allowSubagents : false
+  }
+  const missionCoreSessions = new MissionCoreSessions({
+    db: registry.desktopDb,
+    registry: sessionHosts,
+    port,
+    broadcast: (message) => broadcast(message as unknown as WsMessage),
+    adapterFor: getAdapter,
+    availability: () => coreSessionsAvailability(),
+    projectKey: (projectId) => registry.getProjectRow(projectId)?.slug ?? null,
+    revokeCapability: revokeAgentCapability,
+    // "Allow sub-agents": the project setting decides; missions without a project use the app setting.
+    subagentPolicy: (conversation) => resolveSubagentPolicy({
+      surface: 'mission',
+      projectAllows: conversation.pinned_project_id ? projectAllowsSubagents(conversation.pinned_project_id) : null,
+      globalAllows: getGlobalAllowSubagents(registry.desktopDb),
+    }),
+    // "Run sub-agents with": the project's choice, or the app-wide one without a project.
+    subagentRuntime: (conversation) => {
+      if (!conversation.pinned_project_id) return getGlobalSubagentRuntime(registry.desktopDb)
+      const context = registry.getContext(conversation.pinned_project_id)
+      return context ? getProjectSettings(context.db).subagentRuntime : null
+    },
+  })
+  agentChatManager.setCoreSessions(missionCoreSessions)
+  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
+  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
   // disabled — the rails callers are null-safe and simply skip the card.
   setAgentChatManager(isAgentChatEnabled() ? agentChatManager : null)
+  // Before the agent router: `/api/agent/session-hosts` is not a conversation route.
+  app.use('/api/agent/session-hosts', createSessionHostsRouter(sessionHosts))
   app.use('/api/agent', createAgentChatRouter({ manager: agentChatManager, desktopDb: registry.desktopDb }))
 
   // Project Builder day-0 chat + orchestrated commit (add-project-builder).
@@ -854,6 +909,8 @@ async function shutdown(): Promise<void> {
     Promise.resolve().then(() => _mobileGateway?.stop()),
     Promise.resolve().then(() => _mcpManager?.stop()),
     Promise.resolve().then(() => _agentChatManager?.shutdown()),
+    // Core session hosts record running work as interrupted and release their journals.
+    Promise.resolve().then(() => _sessionHosts?.stopAll()),
     Promise.resolve().then(() => _blueprintChatManager?.shutdown()),
   ])
   // The shell can exit before its application descendants. Keep the event

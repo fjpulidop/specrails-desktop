@@ -66,6 +66,7 @@ import {
   rmSync,
   writeFileSync,
   realpathSync,
+  renameSync,
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -86,36 +87,99 @@ const repoRoot = path.resolve(__dirname, '..')
  * stated intent of the assembly (see the symlink note in the file header).
  */
 /**
- * Recursively remove every `node_modules/.pnpm` directory under `root` — a
- * pnpm VIRTUAL STORE that leaked into a published tarball (observed:
- * `@langchain/langgraph-sdk@0.3.x` ships `dist/node_modules/.pnpm/<pkg>@<v>/
- * node_modules/<pkg>/…`). Node never resolves through `.pnpm/` (it only looks
- * at `node_modules/<name>`), and npm installs the real dependencies next to the
- * package, so the store is dead weight — and its 130-char-deep paths made
- * msiexec fail the v2.48.0 MSI with `Error 1304. Error writing to file` while
- * NSIS installed the same tree fine (the MSI FileCopy path budget is well
- * below MAX_PATH once the install dir is added). Pruned BEFORE the path guard
- * below so a future leak fails loudly here instead of in the release build.
+ * Move every pnpm VIRTUAL STORE that leaked into a published tarball to a short
+ * path, rewriting the relative imports that cross it. Observed:
+ * `@langchain/langgraph-sdk` (every release through 1.12.x) ships a rolldown
+ * build whose `dist/utils/async_caller.js` imports
+ * `../node_modules/.pnpm/p-retry@7.1.1/node_modules/p-retry/index.js`, and the
+ * store's own files import each other and `../../../../../_virtual/…` with
+ * fixed depths. Deleting the store (the v2.48.1 fix) left those imports
+ * dangling; keeping it in place breaks the MSI: its 124–130-char paths made
+ * msiexec fail v2.48.0 with `Error 1304. Error writing to file`. Each package
+ * directory moves from `<base>/node_modules/.pnpm/<entry>/node_modules/<name>`
+ * to `<base>/_pnpm/<entry>` (`<base>/_pnpm/<entry>/<name>` when an entry holds
+ * several), and every relative specifier in the owning package's JS that
+ * points into, out of or across a moved directory is recomputed. Returns the
+ * number of stores relocated.
  */
-export function prunePnpmStores(root) {
-  let removed = 0
-  const walk = (dir) => {
+export function relocatePnpmStores(root) {
+  const stores = []
+  const find = (dir) => {
     if (!existsSync(dir)) return
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name)
       if (entry.isSymbolicLink() || !entry.isDirectory()) continue
-      if (entry.name === '.pnpm' && path.basename(dir) === 'node_modules') {
-        rmSync(full, { recursive: true, force: true })
-        removed += 1
-        // A node_modules that held ONLY the store is now empty: drop it too.
-        if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true })
-        continue
-      }
-      walk(full)
+      const full = path.join(dir, entry.name)
+      if (entry.name === '.pnpm' && path.basename(dir) === 'node_modules') { stores.push(full); continue }
+      find(full)
     }
   }
-  walk(root)
-  return removed
+  find(root)
+  for (const store of stores) relocateStore(store)
+  return stores.length
+}
+
+const RELATIVE_SPECIFIER = /(\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)(['"])(\.{1,2}\/[^'"\n]+)\2/g
+
+function relocateStore(store) {
+  const modules = path.dirname(store)
+  const base = path.dirname(modules)
+  const moves = []
+  for (const entry of readdirSync(store, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue
+    const inner = path.join(store, entry.name, 'node_modules')
+    if (!existsSync(inner)) continue
+    const packages = []
+    for (const child of readdirSync(inner, { withFileTypes: true })) {
+      if (child.isSymbolicLink() || !child.isDirectory()) continue
+      if (child.name.startsWith('@')) {
+        for (const scoped of readdirSync(path.join(inner, child.name), { withFileTypes: true })) {
+          if (scoped.isDirectory() && !scoped.isSymbolicLink()) packages.push(path.join(child.name, scoped.name))
+        }
+      } else packages.push(child.name)
+    }
+    for (const name of packages) {
+      const target = packages.length === 1 ? path.join(base, '_pnpm', entry.name) : path.join(base, '_pnpm', entry.name, name)
+      moves.push([path.join(inner, name), target])
+    }
+  }
+  const relocated = (file) => {
+    for (const [from, to] of moves) if (file === from || file.startsWith(from + path.sep)) return to + file.slice(from.length)
+    return file
+  }
+  // The owning package: the nearest directory above the store with a package.json.
+  let owner = base
+  while (!existsSync(path.join(owner, 'package.json')) && path.dirname(owner) !== owner) owner = path.dirname(owner)
+  const scripts = []
+  const collect = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue
+      const full = path.join(dir, entry.name)
+      // Other dependencies stay untouched; the store itself (and the node_modules holding it) is walked.
+      if (entry.isDirectory()) { if (entry.name !== 'node_modules' || full === modules || full.startsWith(store + path.sep)) collect(full) }
+      else if (/\.(?:c|m)?js$/.test(entry.name)) scripts.push(full)
+    }
+  }
+  collect(owner)
+  for (const file of scripts) {
+    const source = readFileSync(file, 'utf8')
+    const moved = relocated(file)
+    const rewritten = source.replace(RELATIVE_SPECIFIER, (match, lead, quote, specifier) => {
+      const target = path.resolve(path.dirname(file), specifier)
+      const next = relocated(target)
+      if (next === target && moved === file) return match
+      let relative = path.relative(path.dirname(moved), next).split(path.sep).join('/')
+      if (!relative.startsWith('.')) relative = './' + relative
+      return `${lead}${quote}${relative}${quote}`
+    })
+    if (rewritten !== source) writeFileSync(file, rewritten)
+  }
+  for (const [from, to] of moves) {
+    mkdirSync(path.dirname(to), { recursive: true })
+    renameSync(from, to)
+  }
+  rmSync(store, { recursive: true, force: true })
+  // A node_modules that held ONLY the store is now empty: drop it too.
+  if (existsSync(modules) && readdirSync(modules).length === 0) rmSync(modules, { recursive: true, force: true })
 }
 
 /**
@@ -341,8 +405,8 @@ async function main() {
     // Drop the npm `.bin` shims — they are dangling after the copy and Tauri
     // refuses to bundle a non-existent resource path. Never used at runtime.
     pruneBinDirs(path.join(dest, 'node_modules'))
-    const stores = prunePnpmStores(path.join(dest, 'node_modules'))
-    if (stores) console.log(`[assemble-bundled-core] pruned ${stores} leaked pnpm store(s) (node_modules/.pnpm)`)
+    const stores = relocatePnpmStores(path.join(dest, 'node_modules'))
+    if (stores) console.log(`[assemble-bundled-core] relocated ${stores} leaked pnpm store(s) (node_modules/.pnpm → _pnpm)`)
     assertStagedPathBudget(dest)
     // The staged node_modules must not contain the package itself referencing
     // its own stale copy — but cpSync of the hoisted tree already includes

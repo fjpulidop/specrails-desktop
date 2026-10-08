@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1018 source/build files. Nearby tests are linked where names
+Includes 1042 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -457,7 +457,9 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentRefChip.tsx](../../client/src/features/missions/components/AgentRefChip.tsx)
 - [AgentRunFailureMarker.tsx](../../client/src/features/missions/components/AgentRunFailureMarker.tsx)
 - [AgentRuntimeSelector.tsx](../../client/src/features/missions/components/AgentRuntimeSelector.tsx)
+- [AgentSessionIndicators.tsx](../../client/src/features/missions/components/AgentSessionIndicators.tsx)
 - [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
+- [AgentSubagentsCard.tsx](../../client/src/features/missions/components/AgentSubagentsCard.tsx)
 - [AgentThinkingHalo.tsx](../../client/src/features/missions/components/AgentThinkingHalo.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentThinkingHalo.test.tsx)
 - [AgentTierChip.tsx](../../client/src/features/missions/components/AgentTierChip.tsx)
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
@@ -486,6 +488,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentChatContext.tsx](../../client/src/features/missions/context/AgentChatContext.tsx) · [test](../../client/src/features/missions/context/AgentChatContext.test.tsx)
 - [AgentWorkspaceContext.tsx](../../client/src/features/missions/context/AgentWorkspaceContext.tsx) · [test](../../client/src/features/missions/context/__tests__/AgentWorkspaceContext.test.tsx)
 - [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
+- [MissionSessionsContext.tsx](../../client/src/features/missions/context/MissionSessionsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSessionsContext.test.tsx)
 - [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
 
@@ -500,10 +503,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
+- [mission-sessions.ts](../../client/src/features/missions/lib/mission-sessions.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-sessions.test.ts)
 - [mission-split-layout.ts](../../client/src/features/missions/lib/mission-split-layout.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-split-layout.test.ts)
 - [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
 - [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
 - [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
+- [subagent-result.ts](../../client/src/features/missions/lib/subagent-result.ts) · [test](../../client/src/features/missions/lib/__tests__/subagent-result.test.ts)
 
 ## client/src/features/plugins/lib
 
@@ -600,6 +605,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeRetention.tsx](../../client/src/features/settings/components/RuntimeRetention.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRetention.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
+- [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
 
 ## client/src/features/settings/components/pickers
@@ -1098,6 +1104,35 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
 
+## server/modules/agent-sessions
+
+- [index.ts](../../server/modules/agent-sessions/index.ts)
+- [ports.ts](../../server/modules/agent-sessions/ports.ts)
+
+## server/modules/agent-sessions/adapters
+
+- [host-process.ts](../../server/modules/agent-sessions/adapters/host-process.ts)
+- [http.ts](../../server/modules/agent-sessions/adapters/http.ts)
+- [rpc-client.ts](../../server/modules/agent-sessions/adapters/rpc-client.ts)
+
+## server/modules/agent-sessions/application
+
+- [session-event-pump.ts](../../server/modules/agent-sessions/application/session-event-pump.ts)
+
+## server/modules/agent-sessions/domain
+
+- [availability.ts](../../server/modules/agent-sessions/domain/availability.ts)
+- [errors.ts](../../server/modules/agent-sessions/domain/errors.ts)
+- [host-state.ts](../../server/modules/agent-sessions/domain/host-state.ts)
+- [projection.ts](../../server/modules/agent-sessions/domain/projection.ts)
+- [protocol.ts](../../server/modules/agent-sessions/domain/protocol.ts)
+- [subagent-policy.ts](../../server/modules/agent-sessions/domain/subagent-policy.ts)
+
+## server/modules/agent-sessions/runtime
+
+- [core-sessions-availability.ts](../../server/modules/agent-sessions/runtime/core-sessions-availability.ts)
+- [session-host-registry.ts](../../server/modules/agent-sessions/runtime/session-host-registry.ts)
+
 ## server/modules/agents/runtime
 
 - [agent-catalog.ts](../../server/modules/agents/runtime/agent-catalog.ts)
@@ -1309,10 +1344,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts)
 - [agent-input-store.ts](../../server/modules/missions/runtime/agent-input-store.ts) · [test](../../server/modules/missions/runtime/agent-input-store.test.ts)
 - [agent-operator-prompt.ts](../../server/modules/missions/runtime/agent-operator-prompt.ts) · [test](../../server/modules/missions/runtime/agent-operator-prompt.test.ts)
+- [agent-session-store.ts](../../server/modules/missions/runtime/agent-session-store.ts)
 - [agent-spec-framing.ts](../../server/modules/missions/runtime/agent-spec-framing.ts) · [test](../../server/modules/missions/runtime/agent-spec-framing.test.ts)
 - [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
 - [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
+- [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
+- [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
+- [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
 
 ## server/modules/project-settings
 

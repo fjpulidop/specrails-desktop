@@ -283,6 +283,7 @@
     "existingPr": "Existing PR",
     "title": {
       "building": "Implementing in an isolated worktree…",
+      "buildingInPlace": "Implementing in the project folder…",
       "buildingExistingPr": "Applying changes to an existing PR…",
       "paused": "Needs a human decision",
       "on_review": "Implementation ready for review",
@@ -434,7 +435,9 @@
       "refineTitle": "Refine these specs?",
       "refineBody": "The no-change result will be closed and the specs will return to the backlog so you can refine them. The run logs remain available."
     },
-    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
+    "resumeFromStep": "Resume from {{step}}",
+    "resumeFromStepHint": "The interrupted {{step}} step runs again from its start; the work already on disk is kept."
   },
   "specDraft": {
     "heading": "Spec draft",
@@ -759,5 +762,77 @@
     "17": "What shall we solve in this mission?",
     "18": "What would make this mission a success?",
     "19": "Ready for a new mission. Shall we begin?"
+  },
+  "subagents": {
+    "title": "Agents",
+    "working_one": "{{count}} working",
+    "working_other": "{{count}} working",
+    "done_one": "{{count}} done",
+    "done_other": "{{count}} done",
+    "ended_one": "{{count}} ended",
+    "ended_other": "{{count}} ended",
+    "phase": {
+      "running": "Working",
+      "idle": "Done",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "killed": "Killed",
+      "interrupted": "Interrupted"
+    },
+    "reason": {
+      "user_stop": "stopped by you",
+      "host_request": "stopped by the app",
+      "restart": "lost on restart",
+      "shutdown": "app closed",
+      "host_lost": "agent host lost",
+      "crashed": "process crashed",
+      "stalled": "stopped responding",
+      "limit": "limit reached",
+      "project_removed": "project removed",
+      "evicted": "evicted to free resources",
+      "policy": "sub-agents are disabled"
+    },
+    "expand": "Show activity of {{name}}",
+    "collapse": "Hide activity",
+    "elapsedAria": "Running for {{elapsed}}",
+    "loadingActivity": "Loading activity…",
+    "noActivity": "No activity yet",
+    "activityFailed": "Could not load activity",
+    "moreActivity": "Load more",
+    "tokens": "{{tokens}} tokens",
+    "toolUses_one": "{{count}} tool call",
+    "toolUses_other": "{{count}} tool calls",
+    "stop": "Stop",
+    "stopOne": "Stop {{name}}",
+    "stopAll": "Stop all agents",
+    "stopFailed": "Could not stop agents",
+    "relaunch": "Relaunch",
+    "relaunchHint": "Draft a message asking the agent to relaunch this work",
+    "relaunchDraft": "Please relaunch the background agent for: {{description}}",
+    "continuation": "Continued after background agents",
+    "continuationSystem": "Continued after background work",
+    "backgroundTurn": "Agent is reviewing background results…",
+    "deferred": "Settings change will apply when background agents finish.",
+    "applyNow": "Stop agents and apply now",
+    "policyUnenforceable": "{{provider}} can't turn sub-agents off. Enable “Allow sub-agents” in this project's settings, or use another provider for this mission.",
+    "result": "Result",
+    "count_one": "{{count}} agent",
+    "count_other": "{{count}} agents",
+    "finishedIn": "done in {{elapsed}}",
+    "delegatedHint": "Launched by Specrails on {{provider}} ({{model}}); its cost is counted separately."
+  },
+  "sessionNotice": {
+    "host_degraded": "Core sessions are unavailable for this project after repeated failures, so this turn ran on the classic transport (no background sub-agents). Retry once the cause is fixed.",
+    "journal_locked": "Another Specrails Desktop instance is using this project's agent sessions, so this turn ran on the classic transport. Close the other instance, then retry.",
+    "policy": {
+      "subagent_blocked": "The provider started a sub-agent even though sub-agents are off for this project; it was stopped."
+    },
+    "retry": "Retry",
+    "retryFailed": "Still unavailable. Check the app log for the cause.",
+    "dismiss": "Dismiss",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} sub-agents need a newer Specrails Core, so this mission's agent launches its own sub-agents.",
+      "driver_unavailable": "{{provider}} is not available to the agent session runtime, so this mission's agent launches its own sub-agents."
+    }
   }
 }

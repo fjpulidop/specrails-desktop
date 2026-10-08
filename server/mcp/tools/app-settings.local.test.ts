@@ -42,3 +42,27 @@ describe('specrails_settings runtime_providers.* actions', () => {
     await expect(tool.handler(ctx, { action: 'runtime_providers.save', providers: [] })).rejects.toThrow('non-empty providers list')
   })
 })
+
+describe('specrails_settings get — sub-agents (read-only)', () => {
+  it('reports the app-wide setting and, with projectId, the project setting', async () => {
+    const { initDesktopDb, setDesktopSetting } = await import('../../desktop-db')
+    const desktopDb = initDesktopDb(':memory:')
+    setDesktopSetting(desktopDb, 'agent_allow_subagents', 'true')
+    setDesktopSetting(desktopDb, 'agent_subagent_runtime', JSON.stringify({ provider: 'claude', model: 'sonnet', effort: null }))
+    const tool = appTools()[0]
+    const ctx = { desktopDb } as unknown as McpToolContext
+    vi.mocked(apiCall).mockResolvedValueOnce({ allowSubagents: false, subagentRuntime: { provider: 'codex', model: 'gpt-5.6-luna', effort: 'low' } })
+    const result = await tool.handler(ctx, { action: 'get', projectId: 'p 1' }) as Record<string, unknown>
+    expect(result).toMatchObject({
+      allowSubagentsWithoutProject: true, projectAllowSubagents: false,
+      subagentRuntimeWithoutProject: { provider: 'claude', model: 'sonnet', effort: null },
+      projectSubagentRuntime: { provider: 'codex', model: 'gpt-5.6-luna', effort: 'low' },
+    })
+    expect(apiCall).toHaveBeenLastCalledWith(ctx, 'GET', '/projects/p%201/settings')
+    expect(await tool.handler(ctx, { action: 'get' })).not.toHaveProperty('projectAllowSubagents')
+    // Not writable: `set` has no such field.
+    await expect(tool.handler(ctx, { action: 'set', allowSubagents: true })).rejects.toThrow('set requires at least one field')
+    await expect(tool.handler(ctx, { action: 'set', subagentRuntime: null })).rejects.toThrow('set requires at least one field')
+  })
+})
+

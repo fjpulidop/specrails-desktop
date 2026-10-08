@@ -45,6 +45,10 @@ export interface AgentMessage {
   /** Decisions taken on cards inside this message (mission-rail-cards), one per
    *  proposal index. Absent/[] for ordinary rows. */
   intents?: AgentMessageIntent[]
+  /** Core agent sessions: the session turn this message settles (anchors its sub-agents). */
+  core_turn_id?: string
+  /** `subagent`/`system`: a turn the agent started on its own after background work. */
+  turn_origin?: 'user' | 'subagent' | 'system'
   created_at: string
 }
 
@@ -176,6 +180,89 @@ export interface AgentActiveTurnsSnapshot {
   snapshotVersion: number
   capturedAt: string
   turns: Array<{ conversationId: string; startedAt: string; pendingMessages?: AgentPendingMessage[]; streamingText?: string }>
+  /** Missions whose Core agent session still has background work. */
+  sessions?: Array<AgentSessionState & { conversationId: string }>
+}
+
+// ── Core agent session sub-agents ───────────────────────────────────────────
+
+export type AgentSubagentPhase = 'running' | 'idle' | 'failed' | 'stopped' | 'killed' | 'interrupted'
+
+export interface AgentUsage {
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+  totalTokens: number | null
+  costUsd: number | null
+  costEstimated: boolean
+  model: string | null
+}
+
+export interface AgentSubagent {
+  subagentId: string
+  parentId: string | null
+  kind: 'foreground' | 'background'
+  agentType: string | null
+  description: string
+  phase: AgentSubagentPhase
+  reason: string | null
+  restarts: number
+  startedAt: string
+  endedAt: string | null
+  usage: AgentUsage | null
+  toolUses: number | null
+  durationMs: number | null
+  resultSummary: string | null
+  /** Core turn whose activity launched it. */
+  launchedInTurnId: string | null
+  /** Set when Specrails launched it on another provider (delegated runtime). */
+  delegated?: { driver: string; model: string } | null
+}
+
+export interface AgentSessionState {
+  residentPhase: 'idle' | 'turn' | 'background'
+  processAlive: boolean
+  liveSubagents: number
+  subagents: AgentSubagent[]
+}
+
+export interface AgentSubagentTool {
+  toolUseId: string
+  name: string
+  phase: 'started' | 'completed'
+  input?: unknown
+  output?: string
+  isError?: boolean
+}
+
+export interface AgentSubagentEvent {
+  seq: number
+  channel: 'text' | 'tool'
+  delta: string | null
+  tool: AgentSubagentTool | null
+  createdAt?: string
+}
+
+export async function getMissionSubagents(conversationId: string): Promise<{ subagents: AgentSubagent[]; session: AgentSessionState | null }> {
+  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents`))
+}
+
+export async function getMissionSubagentEvents(conversationId: string, subagentId: string, after = 0, limit = 500): Promise<{ events: AgentSubagentEvent[]; hasMore: boolean }> {
+  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/${encodeURIComponent(subagentId)}/events?after=${after}&limit=${limit}`))
+}
+
+export async function stopMissionSubagents(conversationId: string, subagentIds?: string[]): Promise<{ stopped: string[] }> {
+  return json(await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/subagents/stop`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(subagentIds ? { subagentIds } : {}),
+  }))
+}
+
+/** Retry a Core session host scope that degraded (e.g. after closing another Desktop instance). */
+export async function retryAgentSessionHost(scope: string): Promise<{ host: { scope: string; status: string; detail: string | null; code: string | null } }> {
+  return json(await fetch(`${base}/session-hosts/${encodeURIComponent(scope)}/retry`, { method: 'POST' }))
 }
 
 export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {

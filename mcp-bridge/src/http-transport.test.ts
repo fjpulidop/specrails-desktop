@@ -52,6 +52,57 @@ describe('RecoveringHttpTransport', () => {
     expect(fresh.terminateSession).toHaveBeenCalledOnce()
   })
 
+  it('recovers from a session bound to a previous turn (403) and logs it', async () => {
+    const old = new FakeHttpTransport()
+    const fresh = new FakeHttpTransport()
+    const log = vi.fn()
+    const transport = new RecoveringHttpTransport(vi.fn().mockReturnValueOnce(old).mockReturnValueOnce(fresh), log)
+    await transport.start()
+    await transport.send(initialize)
+    old.fail = Object.assign(new Error('MCP session belongs to a different agent turn or client. Reinitialize.'), { code: 403 })
+    await transport.send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+    expect(fresh.sent.map((message) => (message as { method: string }).method)).toEqual(['initialize', 'notifications/initialized', 'tools/list'])
+    expect(log.mock.calls.map(([event]) => event)).toEqual(['recover', 'recovered'])
+    // Other 403s (e.g. a tier refusal) are not session problems.
+    fresh.fail = Object.assign(new Error('Forbidden'), { code: 403 })
+    await expect(transport.send({ jsonrpc: '2.0', id: 3, method: 'tools/list' })).rejects.toThrow('Forbidden')
+    await transport.close()
+  })
+
+  it('keeps the bridge open when a recovery fails and retries on the next request', async () => {
+    const old = new FakeHttpTransport()
+    const broken = new FakeHttpTransport()
+    const fresh = new FakeHttpTransport()
+    broken.fail = new Error('app restarting')
+    const transport = new RecoveringHttpTransport(vi.fn().mockReturnValueOnce(old).mockReturnValueOnce(broken).mockReturnValueOnce(fresh))
+    const closed = vi.fn()
+    transport.onclose = closed
+    await transport.start()
+    await transport.send(initialize)
+    old.fail = Object.assign(new Error('expired'), { code: 404 })
+    await expect(transport.send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).rejects.toThrow('app restarting')
+    expect(closed).not.toHaveBeenCalled()
+    await transport.send({ jsonrpc: '2.0', id: 3, method: 'tools/list' })
+    expect(fresh.sent.map((message) => (message as { method: string }).method)).toEqual(['initialize', 'notifications/initialized', 'tools/list'])
+    await transport.close()
+  })
+
+  it('starts a fresh session on the next request after the stream is lost', async () => {
+    const old = new FakeHttpTransport()
+    const fresh = new FakeHttpTransport()
+    const transport = new RecoveringHttpTransport(vi.fn().mockReturnValueOnce(old).mockReturnValueOnce(fresh))
+    const errors = vi.fn()
+    transport.onerror = errors
+    await transport.start()
+    await transport.send(initialize)
+    old.onerror?.(new Error('Maximum reconnection attempts (2) exceeded.'))
+    expect(errors).toHaveBeenCalledOnce()
+    await transport.send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+    expect(old.sent).toHaveLength(1)
+    expect(fresh.sent.map((message) => (message as { method: string }).method)).toEqual(['initialize', 'notifications/initialized', 'tools/list'])
+    await transport.close()
+  })
+
   it('never replays a mutation after an ambiguous network failure', async () => {
     const app = new FakeHttpTransport()
     const create = vi.fn(() => app)
@@ -98,6 +149,28 @@ describe('bridge credentials on reconnect', () => {
       fs.writeFileSync(tokenFile, 'rotated-token')
       await send('http://127.0.0.1/api/mcp')
       expect(seen).toEqual([null, 'Bearer fresh-token', 'Bearer rotated-token'])
+    } finally { fs.rmSync(home, { recursive: true, force: true }) }
+  })
+
+  it('presents the current agent capability on every request when headers are dynamic', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-bridge-capability-'))
+    const capabilityFile = path.join(home, 'capability')
+    fs.writeFileSync(capabilityFile, 'a'.repeat(40))
+    const seen: Array<string | null> = []
+    const { agentForwardHeaders } = await import('./bridge')
+    const send = authenticatedFetch(() => agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: capabilityFile }), vi.fn(async (_input, init) => {
+      seen.push(new Headers(init?.headers).get('x-specrails-agent-capability'))
+      return new Response('ok')
+    }))
+    try {
+      await send('http://127.0.0.1/api/mcp')
+      // Desktop rotates the per-turn capability while the resident session keeps this bridge alive.
+      fs.writeFileSync(capabilityFile, 'b'.repeat(40))
+      await send('http://127.0.0.1/api/mcp')
+      expect(seen).toEqual(['a'.repeat(40), 'b'.repeat(40)])
+      // A removed capability (session ended) refuses the request instead of connecting unrestricted.
+      fs.rmSync(capabilityFile)
+      await expect(send('http://127.0.0.1/api/mcp')).rejects.toThrow('refusing to connect')
     } finally { fs.rmSync(home, { recursive: true, force: true }) }
   })
 

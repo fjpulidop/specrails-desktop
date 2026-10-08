@@ -67,6 +67,17 @@ Antworten strömen flüssig herein und landen bereits formatiert (Überschriften
 - **Ohne Git keine PR-Phase.** Ein Projekt ohne Git-Repository (oder ohne Commits) bekommt trotzdem eine Run-Karte — Fortschritt, Log, Fehler und Wiederherstellung —, aber es gibt keinen Branch und keinen PR-Schritt; die Karte sagt das.
 - **`@rail-N`.** Tippe `@` und wähle ein Rail, um es in deiner Nachricht zu referenzieren, mit seinen Specs und ob es frei, belegt oder in Entscheidung ist.
 
+## Sub-Agenten
+
+Manche Anbieter können Teile einer Aufgabe an **Sub-Agenten** abgeben – Helfer, die parallel arbeiten und weitermachen, nachdem der Agent geantwortet hat. Sub-Agenten sind **standardmäßig aus**, weil sie die Kosten einer Anfrage vervielfachen.
+
+- **Pro Projekt einschalten.** Öffne in den Projekteinstellungen den Bereich **Sub-Agenten** und aktiviere **Sub-Agenten in diesem Projekt erlauben**. Das gilt für Missionen, Explore und Verfeinerungen dieses Projekts; Implement-Pipelines sind nie betroffen. Missionen ohne Projekt folgen **App-Einstellungen → KI-Anbieter → Sub-Agenten in Missionen ohne Projekt erlauben**.
+- **Wählen Sie, wer sie ausführt.** Unter **Sub-Agenten ausführen mit** lässt die Standardoption **Wie der Missions-Agent** das CLI der Mission sie nativ starten: am schnellsten, und sie teilen dessen Prompt-Cache. Wählen Sie stattdessen Anbieter, Modell und Aufwand, um Anbieter zu kombinieren – etwa eine Codex-Mission mit Claude-Sub-Agenten. Missionen, die bereits diesen Anbieter nutzen, bleiben mit diesem Modell nativ; bei einem anderen Anbieter startet Specrails jeden Sub-Agenten selbst, was kälter startet und mehr kosten kann, Ihnen aber mehr Kontrolle gibt und die echten Kosten jedes einzelnen zeigt. Specrails fragt vor dem Wechsel nach einer Bestätigung, und diese Sub-Agenten tragen in der Mission ein Anbieter-Badge.
+- **Bei der Arbeit zusehen.** Die von einer Antwort gestarteten Agenten erscheinen als eine kompakte Zeile unter dieser Antwort. Sie bleibt offen, solange sie arbeiten, und klappt sich zu einer Zusammenfassung mit Gesamtzeit und Tokens zusammen, sobald alle fertig sind. Klappe eine Zeile auf, um Ergebnis und Kosten zu lesen oder die Aktivität live zu verfolgen. Jeder Start bleibt an seiner Stelle im Gespräch, spätere Starts vermischen sich also nie mit früheren. Stoppe einen laufenden Agenten in seiner Zeile oder alle über die Zeile.
+- **Der Agent macht selbst weiter.** Wenn Hintergrund-Agenten fertig sind, setzt der Agent fort und berichtet, was sie gefunden haben – markiert mit *Nach Hintergrund-Agenten fortgesetzt*.
+- **Die Einstellung zu ändern ist sicher.** Eine Mission mit laufenden Agenten übernimmt die Änderung, sobald diese fertig sind; sie sagt es dir und bietet **Agenten stoppen und jetzt übernehmen** an.
+- **Nichts startet heimlich neu.** Durch einen Neustart unterbrochene Agenten bleiben als unterbrochen markiert; **Neu starten** entwirft nur eine Nachricht, die den Agenten bittet, diese Arbeit erneut zu erledigen.
+
 ## Ein paar Dinge, die du wissen solltest
 
 - **Ausführen und Autonom kosten Geld**, weil sie KI laufen lassen. Der Agent hebt kostenverursachende Aktionen hervor, bevor er sie ausführt; belasse die Stufe bei Beobachten oder Bearbeiten, wenn du nur schauen und aufräumen willst.

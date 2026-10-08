@@ -300,6 +300,7 @@
       "superseded": "已被较新的运行取代",
       "existing_pr_updated": "现有 PR 已更新",
       "building": "正在隔离的 worktree 中实现…",
+      "buildingInPlace": "正在项目文件夹中实现…",
       "buildingExistingPr": "正在向现有 PR 应用更改…",
       "paused": "需要人工决策",
       "on_review": "实现已完成，待评审",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "无法集成：{{base}} 上的本地更改与交付内容重叠。请先提交或暂存这些更改，然后重试。",
     "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
     "mergedLocally": "已在本地集成到 {{base}}",
-    "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。"
+    "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
+    "resumeFromStep": "从 {{step}} 继续",
+    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。"
   },
   "specDraft": {
     "heading": "规格草稿",
@@ -759,5 +762,77 @@
     "17": "这次任务要解决什么？",
     "18": "怎样才算这次任务成功？",
     "19": "新任务已准备就绪。开始吧？"
+  },
+  "subagents": {
+    "title": "代理",
+    "working_one": "{{count}} 个工作中",
+    "working_other": "{{count}} 个工作中",
+    "done_one": "{{count}} 个已完成",
+    "done_other": "{{count}} 个已完成",
+    "ended_one": "{{count}} 个已停止",
+    "ended_other": "{{count}} 个已停止",
+    "phase": {
+      "running": "工作中",
+      "idle": "已完成",
+      "failed": "失败",
+      "stopped": "已停止",
+      "killed": "已强制终止",
+      "interrupted": "已中断"
+    },
+    "reason": {
+      "user_stop": "由你停止",
+      "host_request": "由应用停止",
+      "restart": "重启时丢失",
+      "shutdown": "应用已关闭",
+      "host_lost": "代理主机丢失",
+      "crashed": "进程崩溃",
+      "stalled": "停止响应",
+      "limit": "达到上限",
+      "project_removed": "项目已移除",
+      "evicted": "为节省资源而释放",
+      "policy": "子代理已停用"
+    },
+    "expand": "显示 {{name}} 的活动",
+    "collapse": "隐藏活动",
+    "elapsedAria": "已运行 {{elapsed}}",
+    "loadingActivity": "正在加载活动…",
+    "noActivity": "暂无活动",
+    "activityFailed": "无法加载活动",
+    "moreActivity": "加载更多",
+    "tokens": "{{tokens}} 个 token",
+    "toolUses_one": "{{count}} 次工具调用",
+    "toolUses_other": "{{count}} 次工具调用",
+    "stop": "停止",
+    "stopOne": "停止 {{name}}",
+    "stopAll": "停止所有代理",
+    "stopFailed": "无法停止代理",
+    "relaunch": "重新启动",
+    "relaunchHint": "起草一条消息，请代理重新启动这项工作",
+    "relaunchDraft": "请为以下任务重新启动后台代理：{{description}}",
+    "continuation": "在后台代理完成后继续",
+    "continuationSystem": "在后台工作完成后继续",
+    "backgroundTurn": "代理正在查看后台结果…",
+    "deferred": "设置更改将在后台代理完成后应用。",
+    "applyNow": "停止代理并立即应用",
+    "policyUnenforceable": "{{provider}} 无法关闭子代理。请在项目设置中启用“允许子代理”，或为此任务改用其他提供商。",
+    "result": "结果",
+    "count_one": "{{count}} 个代理",
+    "count_other": "{{count}} 个代理",
+    "finishedIn": "{{elapsed}} 内完成",
+    "delegatedHint": "由 Specrails 在 {{provider}}（{{model}}）上启动；其费用单独计算。"
+  },
+  "sessionNotice": {
+    "host_degraded": "由于多次失败，此项目的 Core 会话不可用，因此本轮使用了经典方式运行（没有后台子代理）。解决原因后请重试。",
+    "journal_locked": "另一个 Specrails Desktop 实例正在使用此项目的代理会话，因此本轮使用了经典方式运行。请关闭另一个实例后重试。",
+    "policy": {
+      "subagent_blocked": "尽管此项目已关闭子代理，提供商仍启动了一个子代理；它已被停止。"
+    },
+    "retry": "重试",
+    "retryFailed": "仍不可用。请查看应用日志了解原因。",
+    "dismiss": "关闭",
+    "subagents": {
+      "delegation_unsupported": "{{provider}} 子代理需要更新版本的 Specrails Core，因此此任务的代理将自行启动子代理。",
+      "driver_unavailable": "{{provider}} 在会话运行时中不可用，因此此任务的代理将自行启动子代理。"
+    }
   }
 }

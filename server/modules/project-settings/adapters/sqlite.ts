@@ -1,5 +1,5 @@
 import type { DbInstance } from '../../../db/types'
-import { DEFAULT_FREESTYLE_PRE_PROMPT, normalizeWorktreeEnvPassthrough, type ProjectSettings } from '../domain'
+import { DEFAULT_FREESTYLE_PRE_PROMPT, normalizeWorktreeEnvPassthrough, parseSubagentRuntimeSetting, type ProjectSettings, type SubagentRuntimeSetting } from '../domain'
 import type { ProjectSettingsRepository } from '../ports'
 
 function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
@@ -11,13 +11,20 @@ function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
   }
 }
 
+/** A stored value that no longer parses (hand-edited, older shape) reads as "same as the mission agent". */
+function readSubagentRuntime(raw: string | undefined): SubagentRuntimeSetting | null {
+  if (!raw) return null
+  try { return parseSubagentRuntimeSetting(JSON.parse(raw)) } catch { return null }
+}
+
 export function getProjectSettings(db: DbInstance): ProjectSettings {
-  // Read the settings as one snapshot instead of preparing six separate queries.
+  // Read the settings as one snapshot instead of preparing separate queries.
   const rows = db.prepare(`
     SELECT key, value FROM queue_state WHERE key IN (
       'config.pipeline_telemetry_enabled', 'config.orchestrator_model',
       'config.pre_prompt', 'config.freestyle_pre_prompt',
-      'config.integration_branch', 'config.worktree_env_passthrough'
+      'config.integration_branch', 'config.worktree_env_passthrough',
+      'config.allow_subagents', 'config.subagent_runtime'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -35,6 +42,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
+    allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
+    subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
   }
 }
 
@@ -82,6 +91,17 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
         `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.integration_branch', ?)`
       ).run(patch.integrationBranch.trim())
     }
+  }
+  if (patch.allowSubagents !== undefined) {
+    if (patch.allowSubagents) {
+      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.allow_subagents', 'true')`).run()
+    } else {
+      db.prepare(`DELETE FROM queue_state WHERE key = 'config.allow_subagents'`).run()
+    }
+  }
+  if (patch.subagentRuntime !== undefined) {
+    if (patch.subagentRuntime === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.subagent_runtime'`).run()
+    else db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.subagent_runtime', ?)`).run(JSON.stringify(patch.subagentRuntime))
   }
   if (patch.worktreeEnvPassthrough !== undefined) {
     const names = normalizeWorktreeEnvPassthrough(patch.worktreeEnvPassthrough)

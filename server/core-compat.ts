@@ -1,4 +1,5 @@
 import { execSync } from 'child_process'
+import { checkSessionContract, type SessionContractBlock, type SessionContractCheck } from './modules/agent-sessions'
 import fs from 'fs'
 import path from 'path'
 import { CHECKPOINTS } from './setup-manager'
@@ -36,6 +37,7 @@ const DESKTOP_TOLERATED_LEGACY_CHECKPOINTS = new Set(['agent_generation'])
 //       runtime-defined, no `sr-*` files); `configSchema.agents` is optional.
 interface IntegrationContract {
   schemaVersion: string
+  agentRuntime?: { sessions?: SessionContractBlock }
   lifecycle?: { mode?: string; requiresEnrich?: boolean }
   coreVersion?: string
   // Legacy field name frozen in the external specrails-core contract file —
@@ -130,6 +132,8 @@ export interface CoreCompatResult {
   contractFound: boolean
   contractSchemaVersion?: string
   supportedProviders: string[]
+  /** Agent session host contract (optional capability; never makes the pair incompatible). */
+  sessions?: SessionContractCheck | null
 }
 
 export async function findCoreContract(): Promise<string | null> {
@@ -330,6 +334,7 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
     contractFound: true,
     contractSchemaVersion: contract.schemaVersion,
     supportedProviders,
+    sessions: contract.agentRuntime?.sessions ? checkSessionContract(contract.agentRuntime.sessions) : null,
   }
 }
 

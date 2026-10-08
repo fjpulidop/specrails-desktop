@@ -205,6 +205,40 @@ its native key/config, and Kimi via `kimi login` or user-managed
 `~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
 [Gemini](../gemini.md).
 
+### Core agent sessions (rollout)
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_CORE_SESSIONS` | `auto` (default) uses Core's agent session host (`specrails-core runtime host`) when the selected Core advertises the `sessions` capability and its session contract is compatible. `on` behaves like `auto` but is reported as forced. `off` keeps conversational features on their legacy transports. It cannot enable sessions on a Core that lacks them, and Desktop logs the reason. |
+
+With sessions enabled, Desktop runs one Core host per project, plus one for
+project-less missions. Session journals live in
+`~/.specrails/sessions/<project>/sessions.sqlite`, owned by Core. Desktop
+stores only a rebuildable projection. See
+[agent sessions](../../server/modules/agent-sessions/README.md).
+
+**Allow sub-agents** is a setting, not a flag, and it is off by default. The
+project setting `allowSubagents` (`config.allow_subagents`) applies to that
+project's conversational agents (missions, explore, refinements). The app
+setting (`agent_allow_subagents` in `desktop_settings`) covers missions without
+a project. Implement pipelines never read it. Desktop sends the resolved value
+to Core as `policy.subagents`. Core enforces it through the provider switch, and
+it also stops any sub-agent a provider starts anyway. A change reaches open
+sessions immediately: idle sessions apply it, and sessions with running
+sub-agents report it as deferred. The setting is read-only over the Specrails
+MCP, so an agent cannot grant itself sub-agents.
+
+**Run sub-agents with** chooses who launches them. The project setting
+`subagentRuntime` (`config.subagent_runtime`, JSON) and the app setting
+(`agent_subagent_runtime` in `desktop_settings`) hold `null` (the default: the
+mission agent's own provider launches native sub-agents) or
+`{ provider, model, effort }`. Missions on that provider keep native sub-agents
+with that model and effort; missions on another provider get sub-agents that
+Core launches on the chosen provider (delegated), at the cost of a cold start
+and no shared prompt cache. The UI asks for confirmation before leaving the
+default. The setting is read-only over the Specrails MCP. See
+[agent sessions](agent-sessions.md#sub-agent-runtime-who-launches-them).
+
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---

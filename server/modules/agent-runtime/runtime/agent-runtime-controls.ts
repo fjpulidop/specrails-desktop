@@ -359,9 +359,31 @@ export class AgentRuntimeControls {
     } finally { clearTimeout(active.forceKillTimer); this.active.delete(runId); this.ctx.railLoopRuns?.delete(runId); this.statusCache.delete(runId) }
   }
 
+  /** The error a run logged when it failed before any Core step ran; null otherwise. */
+  private launchFailure(runId: string): string | null {
+    const run = this.ctx.db.prepare('SELECT final_outcome, iteration_count, core_revision FROM loop_runs WHERE id = ?').get(runId) as { final_outcome?: string | null; iteration_count?: number; core_revision?: number | null } | undefined
+    if (!run || run.final_outcome !== 'failed' || run.iteration_count || run.core_revision != null) return null
+    const rows = this.ctx.db.prepare("SELECT payload FROM events WHERE job_id = ? AND event_type = 'log' ORDER BY seq DESC LIMIT 20").all(runId) as Array<{ payload: string }>
+    for (const row of rows) {
+      try {
+        const line = (JSON.parse(row.payload) as { line?: unknown }).line
+        if (typeof line === 'string' && /^error:/i.test(line.trim())) return line.trim().replace(/^error:\s*/i, '').slice(0, 2000)
+      } catch { /* not a log line */ }
+    }
+    return null
+  }
+
   /** Read-only recovery assessment. canResume is admission, not a repair claim. */
   async diagnose(runId: string): Promise<unknown> {
     const summary = await this.summary(runId)
+    // Rejected before Core started (e.g. an unsupported model/effort): no runtime
+    // scope was ever written, so the launch error is the whole diagnosis.
+    const launchError = summary.status === 'unavailable' ? this.launchFailure(runId) : null
+    if (launchError) return {
+      runId, summary: { ...summary, error: launchError }, recommendation: 'fix_launch_precondition',
+      reason: 'The run was rejected before Core started, so there is no runtime state or evidence. Fix the reported precondition (or change the launch settings) before launching again; Resume is not possible.',
+      launchError, repeatFailureCount: null, recentFailures: [],
+    }
     if (summary.historical || summary.status === 'unavailable') return {
       runId, summary, recommendation: 'inspect_saved_evidence',
       reason: 'Live original runtime scope is unavailable. Preserve saved work and inspect the missing scope before proposing a fresh run.',

@@ -13,6 +13,27 @@ Launch-card repository edits project workspace overrides onto the remaining
 repositories. An empty projection omits `workspaceSelection` so the server uses
 registered defaults; retained entries remain subject to normal validation.
 
+## Core session sub-agents
+
+Missions that run in a Core agent session (`SPECRAILS_CORE_SESSIONS`) get their
+live session state from [MissionSessionsContext](context/MissionSessionsContext.tsx),
+a thin provider over the pure reducer in [mission-sessions.ts](lib/mission-sessions.ts).
+One provider serves every pane (nested providers reuse the outermost); it loads a
+mission's sub-agents on open, applies `agent_resident_state`, `agent_subagent`,
+`agent_subagent_event`, background `agent_turn_*`/`agent_stream` (those carry a
+`turnId`) and `agent_session_updated`, and reconciles from `GET /active-turns`
+on mount and after a reconnect. `AgentChatContext` routes `turnId` events away
+from the user turn's live state.
+
+[AgentSubagentsCard](components/AgentSubagentsCard.tsx) is a compact line under
+the message whose `core_turn_id` launched the agents. It is expanded while they
+work and folds once they finish. `placeUnanchoredSubagents` keeps launches
+without a reply at their point in the timeline; only the in-flight turn's
+agents use the live area. [AgentSessionIndicators](components/AgentSessionIndicators.tsx)
+holds the background-turn bubble, the continuation label, session notices and
+the deferred-settings notice. Usage appears only after a sub-agent ends, and
+Relaunch only drafts a request — nothing is relaunched silently.
+
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -36,6 +57,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)
 - [context/MinimizedChatsContext.tsx](context/MinimizedChatsContext.tsx)
+- [context/MissionSessionsContext.tsx](context/MissionSessionsContext.tsx)
 - [context/MissionWindowsContext.tsx](context/MissionWindowsContext.tsx)
 - [hooks/useAgentRefActions.ts](hooks/useAgentRefActions.ts)
 - [lib/agent-api.ts](lib/agent-api.ts)

@@ -63,7 +63,7 @@ export function specsTools(): McpToolSpec[] {
         'assignee, prerequisites, metadata. THE canonical way to persist a spec refined in conversation — do NOT route ' +
         'a finished spec through create/generate, which re-generate the content with AI and lossily rewrite it. ' +
         'Agent-authored inserts (use b) are enriched with a Contract Layer BY DEFAULT via one short background AI pass ' +
-        '— pass contractRefine: false to skip it, e.g. when the user declined it), ' +
+        '— never ask the user about it; pass contractRefine: false only when they asked for no contract layer unprompted), ' +
         'generate (same as create but takes a pre-formed idea string; both accept contextScope/attachments/createLocal), ' +
         'ai_edit (ai-spawn, AI-edit a ticket title+description), ' +
         'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append/re-fire a Contract Layer — Claude or Codex; ' +
@@ -183,7 +183,7 @@ export function specsTools(): McpToolSpec[] {
         contractRefine: z
           .boolean()
           .optional()
-          .describe('create/generate/commit_draft: enrich the spec with a Contract Layer post-persist (Claude or Codex). DEFAULTS TO TRUE — pass false to opt out (e.g. the user asked for no contract layer)'),
+          .describe('create/generate/commit_draft: enrich the spec with a Contract Layer post-persist (Claude or Codex). DEFAULTS TO TRUE and is never asked about — pass false only when the user asked for no contract layer unprompted'),
         attachmentIds: z.array(z.string()).optional().describe('create/generate/ai_edit: attachment ids (create/generate require pendingSpecId)'),
 
         // ── ai_edit ──────────────────────────────────────────────────────

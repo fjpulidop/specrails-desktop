@@ -12,7 +12,7 @@ vi.mock('../workspace-manager', async (original) => ({
 import { PluginManager } from '../plugin-manager'
 import { BUNDLED_PLUGINS } from './index'
 import { setPluginManagerForTesting } from './manager'
-import { buildCodexPluginArgs } from './codex-spawn'
+import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from './codex-spawn'
 import { codexAdapter } from '../providers/codex-adapter'
 import { createLoopExecutors } from '../modules/loops/runtime/loop-executors'
 
@@ -100,3 +100,22 @@ describe('installed Codex plugins reach the real provider invocation', () => {
     expect(build()).toEqual([])
   })
 })
+
+describe('structured plugin MCP servers (Core agent sessions)', () => {
+  it('resolves the same servers the argv encoding carries', () => {
+    state({ serena: { providers: { codex: { active: true } } } })
+    const servers = resolveCodexPluginMcpServers({ providerId: 'codex', stateRoot, repositoryPath, legacyProviderId: 'claude' })
+    expect(servers).toHaveLength(1)
+    expect(servers[0]).toMatchObject({ name: 'serena', command: 'uvx' })
+    expect(servers[0]!.args[servers[0]!.args.indexOf('--project') + 1]).toBe(repositoryPath)
+    expect(build('claude')).toContain(`mcp_servers.serena.args=${JSON.stringify(servers[0]!.args)}`)
+  })
+
+  it('is empty for other providers and inactive plugins', () => {
+    state({ serena: { providers: { codex: { active: false } } } })
+    expect(resolveCodexPluginMcpServers({ providerId: 'codex', stateRoot, repositoryPath })).toEqual([])
+    state({ serena: { providers: { codex: { active: true } } } })
+    expect(resolveCodexPluginMcpServers({ providerId: 'claude', stateRoot, repositoryPath })).toEqual([])
+  })
+})
+
