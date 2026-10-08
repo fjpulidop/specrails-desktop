@@ -283,6 +283,7 @@
     "existingPr": "PR existente",
     "title": {
       "building": "Implementando en un worktree aislado…",
+      "buildingInPlace": "Implementando en la carpeta del proyecto…",
       "buildingExistingPr": "Aplicando cambios sobre una PR existente…",
       "paused": "Necesita decisión humana",
       "on_review": "Implementación lista para revisar",
@@ -434,7 +435,9 @@
       "refineTitle": "¿Refinar estas specs?",
       "refineBody": "Se cerrará el resultado sin cambios y las specs volverán al backlog para que puedas refinarlas. Los registros de ejecución seguirán disponibles."
     },
-    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "resumeFromStep": "Reanudar desde {{step}}",
+    "resumeFromStepHint": "El paso {{step}} interrumpido se vuelve a ejecutar desde el principio; se conserva el trabajo ya guardado en disco."
   },
   "specDraft": {
     "heading": "Borrador de spec",

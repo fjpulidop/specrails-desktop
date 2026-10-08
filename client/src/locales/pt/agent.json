@@ -300,6 +300,7 @@
       "superseded": "Substituída por uma execução mais recente",
       "existing_pr_updated": "PR existente atualizada",
       "building": "A implementar num worktree isolado…",
+      "buildingInPlace": "Implementando na pasta do projeto…",
       "buildingExistingPr": "A aplicar alterações numa PR existente…",
       "paused": "Precisa de decisão humana",
       "on_review": "Implementação pronta para revisão",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "Não é possível integrar: as alterações locais em {{base}} sobrepõem-se à entrega. Faça commit ou stash dessas alterações e tente novamente.",
     "mergeLocalBlockedBranch": "Não é possível integrar: seu checkout está em {{current}}, não em {{base}}. Mude para {{base}} e tente de novo.",
     "mergedLocally": "Integrado em {{base}} localmente",
-    "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
+    "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
+    "resumeFromStep": "Retomar a partir de {{step}}",
+    "resumeFromStepHint": "A etapa {{step}} interrompida é executada novamente desde o início; o trabalho já salvo em disco é mantido."
   },
   "specDraft": {
     "heading": "Rascunho da spec",

@@ -300,6 +300,7 @@
       "superseded": "新しい実行に置き換えられました",
       "existing_pr_updated": "既存の PR を更新しました",
       "building": "分離されたワークツリーで実装中…",
+      "buildingInPlace": "プロジェクトフォルダーで実装中…",
       "buildingExistingPr": "既存の PR に変更を適用中…",
       "paused": "人の判断が必要です",
       "on_review": "実装のレビュー準備完了",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "統合できません：{{base}} のローカル変更が実装と重なっています。該当する変更をコミットまたはスタッシュしてから再試行してください。",
     "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
     "mergedLocally": "ローカルで {{base}} に統合しました",
-    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
+    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
+    "resumeFromStep": "{{step}} から再開",
+    "resumeFromStepHint": "中断された {{step}} ステップを最初から再実行します。ディスク上の作業内容は保持されます。"
   },
   "specDraft": {
     "heading": "スペック下書き",

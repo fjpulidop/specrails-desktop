@@ -300,6 +300,7 @@
       "superseded": "Durch einen neueren Lauf ersetzt",
       "existing_pr_updated": "Bestehender PR aktualisiert",
       "building": "Implementierung in einem isolierten Worktree…",
+      "buildingInPlace": "Implementierung im Projektordner…",
       "buildingExistingPr": "Änderungen werden auf einen bestehenden PR angewendet…",
       "paused": "Benötigt eine menschliche Entscheidung",
       "on_review": "Implementierung bereit zur Prüfung",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "Integration nicht möglich: Lokale Änderungen auf {{base}} überschneiden sich mit der Lieferung. Committe oder stashe diese Änderungen und versuche es erneut.",
     "mergeLocalBlockedBranch": "Integration nicht möglich: dein Checkout steht auf {{current}}, nicht auf {{base}}. Wechsle zu {{base}} und versuche es erneut.",
     "mergedLocally": "Lokal in {{base}} integriert",
-    "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
+    "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
+    "resumeFromStep": "Ab {{step}} fortsetzen",
+    "resumeFromStepHint": "Der unterbrochene Schritt {{step}} läuft erneut von vorn; die bereits gespeicherte Arbeit bleibt erhalten."
   },
   "specDraft": {
     "heading": "Spec-Entwurf",

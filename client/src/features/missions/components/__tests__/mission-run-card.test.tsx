@@ -8,8 +8,9 @@ vi.mock('../../../browser/context/WebViewModalContext', () => ({ useWebViewModal
 vi.mock('../../context/AgentChatContext', () => ({ useAgentChat: () => ({ applyPrDecisionSnapshot: () => 'applied' }) }))
 vi.mock('../../../builder/hooks/useMilestoneProgress', () => ({ useStackedHeadDeliveryIds: () => new Set() }))
 vi.mock('../../hooks/useAgentRefActions', () => ({ useAgentRefActions: () => ({ openRef: vi.fn() }) }))
+const vitals = vi.hoisted(() => ({ paused: false, pausedReason: null as string | null }))
 vi.mock('../../../jobs/hooks/useRunVitals', () => ({
-  useRunVitals: () => ({ status: null, paused: false, pausedReason: null, running: false, elapsedMs: 61_000, costUsd: null, numTurns: null, loaded: true }),
+  useRunVitals: () => ({ status: null, paused: vitals.paused, pausedReason: vitals.pausedReason, running: false, elapsedMs: 61_000, costUsd: null, numTurns: null, loaded: true }),
   formatRunElapsed: (ms: number) => `${Math.floor(ms / 1000)}s`,
 }))
 const toast = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn() }))
@@ -39,6 +40,7 @@ const failed = { status: 'failed' as const, currentStep: null, canResume: true, 
 beforeEach(() => {
   runtime.state.runs = []; runtime.state.error = ''; runtime.state.busy = null; runtime.calls.length = 0
   runtime.state.act.mockClear(); Object.values(toast).forEach((f) => f.mockClear())
+  vitals.paused = false; vitals.pausedReason = null
 })
 
 describe('deriveMissionRunStatus', () => {
@@ -53,6 +55,47 @@ describe('deriveMissionRunStatus', () => {
     expect(deriveMissionRunStatus(env({ decision: 'discarded' }), null, false)).toBe('cancelled')
     expect(deriveMissionRunStatus(env({ decision: 'completed' }), null, false)).toBe('succeeded')
     expect(deriveMissionRunStatus(env({ decision: 'pr_closed' }), null, false)).toBe('unknown')
+  })
+})
+
+describe('paused building card', () => {
+  const live = { runId: 'r1', status: 'interrupted', nextStep: 'developer', recoverableSteps: ['attempt-1'], active: false, canResume: true, canCancel: true }
+
+  it('resumes an interrupted run in place, from the interrupted step', async () => {
+    vitals.paused = true; vitals.pausedReason = 'restart'
+    runtime.state.runs = [live]
+    render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
+    const resume = screen.getByTestId('pr-run-paused-resume')
+    expect(resume.textContent).toContain('Resume from developer')
+    expect(resume.getAttribute('title')).toContain('runs again from its start')
+    fireEvent.click(resume)
+    await act(async () => {})
+    expect(runtime.state.act).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r1' }), 'recover')
+  })
+
+  it('says a run without git works in the project folder, not in an isolated worktree', () => {
+    render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
+    expect(screen.getByText('Implementing in the project folder…')).toBeInTheDocument()
+    expect(screen.queryByText('Implementing in an isolated worktree…')).toBeNull()
+  })
+
+  it('resumes as is when nothing must be re-run', async () => {
+    vitals.paused = true
+    runtime.state.runs = [{ ...live, recoverableSteps: [] }]
+    render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
+    expect(screen.getByTestId('pr-run-paused-resume').textContent).toBe('Resume')
+    fireEvent.click(screen.getByTestId('pr-run-paused-resume'))
+    await act(async () => {})
+    expect(runtime.state.act).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r1' }), 'resume')
+  })
+
+  it('leaves a pause that awaits an answer to the run log', async () => {
+    vitals.paused = true
+    runtime.state.runs = [{ ...live, recoverableSteps: [], pendingQuestion: { stepId: 'ask', question: 'Which?' } }]
+    render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
+    fireEvent.click(screen.getByTestId('pr-run-paused-resume'))
+    await act(async () => {})
+    expect(runtime.state.act).not.toHaveBeenCalled()
   })
 })
 

@@ -300,6 +300,7 @@
       "superseded": "已被较新的运行取代",
       "existing_pr_updated": "现有 PR 已更新",
       "building": "正在隔离的 worktree 中实现…",
+      "buildingInPlace": "正在项目文件夹中实现…",
       "buildingExistingPr": "正在向现有 PR 应用更改…",
       "paused": "需要人工决策",
       "on_review": "实现已完成，待评审",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "无法集成：{{base}} 上的本地更改与交付内容重叠。请先提交或暂存这些更改，然后重试。",
     "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
     "mergedLocally": "已在本地集成到 {{base}}",
-    "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。"
+    "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
+    "resumeFromStep": "从 {{step}} 继续",
+    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。"
   },
   "specDraft": {
     "heading": "规格草稿",

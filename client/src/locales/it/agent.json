@@ -300,6 +300,7 @@
       "superseded": "Sostituita da un’esecuzione più recente",
       "existing_pr_updated": "PR esistente aggiornata",
       "building": "Implementazione in un worktree isolato…",
+      "buildingInPlace": "Implementazione nella cartella del progetto…",
       "buildingExistingPr": "Applicazione delle modifiche su una PR esistente…",
       "paused": "Serve una decisione umana",
       "on_review": "Implementazione pronta per la revisione",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "Impossibile integrare: le modifiche locali su {{base}} si sovrappongono alla consegna. Esegui il commit o lo stash di queste modifiche e riprova.",
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
     "mergedLocally": "Integrato in {{base}} in locale",
-    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
+    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
+    "resumeFromStep": "Riprendi da {{step}}",
+    "resumeFromStepHint": "Il passaggio {{step}} interrotto riparte dall'inizio; il lavoro già su disco viene conservato."
   },
   "specDraft": {
     "heading": "Bozza della spec",

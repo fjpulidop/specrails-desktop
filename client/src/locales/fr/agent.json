@@ -300,6 +300,7 @@
       "superseded": "Remplacée par une exécution plus récente",
       "existing_pr_updated": "PR existante mise à jour",
       "building": "Implémentation dans un worktree isolé…",
+      "buildingInPlace": "Implémentation dans le dossier du projet…",
       "buildingExistingPr": "Application des changements sur une PR existante…",
       "paused": "Décision humaine requise",
       "on_review": "Implémentation prête pour la revue",
@@ -434,7 +435,9 @@
     "mergeLocalBlockedDirty": "Intégration impossible : les modifications locales sur {{base}} chevauchent la livraison. Commitez ou remisez ces modifications, puis réessayez.",
     "mergeLocalBlockedBranch": "Impossible d'intégrer : votre checkout est sur {{current}}, pas sur {{base}}. Passez sur {{base}}, puis réessayez.",
     "mergedLocally": "Intégré dans {{base}} en local",
-    "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail."
+    "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
+    "resumeFromStep": "Reprendre depuis {{step}}",
+    "resumeFromStepHint": "L'étape {{step}} interrompue est relancée depuis son début ; le travail déjà sur le disque est conservé."
   },
   "specDraft": {
     "heading": "Brouillon de spec",

@@ -726,6 +726,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   )
   const buildingPaused = decision === 'building' && pausedRunId !== null
   const pausedRunLabel = pausedRunId ? runTicketLabel(runIds.indexOf(pausedRunId)) ?? pausedRunId.slice(0, 8) : null
+  // A pause that awaits the person (a question or an approval) is answered in
+  // the run's log. Any other pause (an interruption, an app restart) resumes
+  // here: from the interrupted step when one must be re-run, else as is.
+  const pausedLive = pausedRunId && liveRun?.runId === pausedRunId && !liveRun.pendingQuestion && !liveRun.pendingApproval
+    && (liveRun.recoverableSteps.length > 0 || liveRun.canResume) ? liveRun : null
+  const pausedResumeStep = pausedLive?.recoverableSteps.length ? pausedLive.nextStep : null
 
   // ── mission-rail-cards: recovery + relaunch actions ──────────────────────
   // Rendered wherever the run needs a decision (failed / stalled / run-only).
@@ -812,7 +818,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
               ? t('prCard.title.paused')
               : existingPrContinuation
                 ? t('prCard.title.buildingExistingPr')
-                : t('prCard.title.building')}
+                : runOnly ? t('prCard.title.buildingInPlace') : t('prCard.title.building')}
           </span>
           {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
           {FEATURE_MISSION_RAIL_CARDS && (
@@ -866,14 +872,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             <button
               type="button"
               data-agent-interactive
+              data-testid="pr-run-paused-resume"
+              disabled={runtimeBusy}
+              title={pausedResumeStep ? t('prCard.resumeFromStepHint', { step: pausedResumeStep }) : undefined}
               onClick={(e) => {
                 e.stopPropagation()
-                setLogRunId(pausedRunId)
+                if (pausedLive) void runtime.act(pausedLive, pausedLive.recoverableSteps.length ? 'recover' : 'resume')
+                else setLogRunId(pausedRunId)
               }}
-              className="inline-flex items-center gap-1 rounded-md border border-accent-warning/40 bg-surface/70 px-2 py-0.5 font-medium text-accent-warning transition-colors hover:bg-accent-warning/15"
+              className="inline-flex items-center gap-1 rounded-md border border-accent-warning/40 bg-surface/70 px-2 py-0.5 font-medium text-accent-warning transition-colors hover:bg-accent-warning/15 disabled:pointer-events-none disabled:opacity-50"
             >
-              <Play className="h-3 w-3" />
-              {t('prCard.resume')}
+              {runtime.busy === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+              {pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume')}
             </button>
             <button
               type="button"
