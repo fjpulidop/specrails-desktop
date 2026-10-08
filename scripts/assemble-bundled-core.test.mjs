@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { MAX_STAGED_RELATIVE_PATH, assertStagedPathBudget, relocatePnpmStores } from './assemble-bundled-core.mjs'
 
@@ -38,7 +39,7 @@ test('relocatePnpmStores moves a leaked store to short paths and keeps every imp
     assert.ok(fs.existsSync(path.join(pkg, 'node_modules/p-queue/index.js')), 'real dependency untouched')
     assert.ok(fs.existsSync(path.join(nm, 'some-pkg/.pnpm/keep.txt')), 'a .pnpm outside node_modules is untouched')
     // Imports into, across and out of the store resolve after the move.
-    const out = execFileSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(path.join(pkg, 'dist/index.js'))}); console.log(m.call())`], { encoding: 'utf8' })
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(pathToFileURL(path.join(pkg, 'dist/index.js')).href)}); console.log(m.call())`], { encoding: 'utf8' })
     assert.equal(out.trim(), 'true:rt')
     assert.equal(relocatePnpmStores(nm), 0)
   } finally { fs.rmSync(root, { recursive: true, force: true }) }
