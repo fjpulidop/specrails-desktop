@@ -78,6 +78,12 @@ describe('OPERATOR_INSTRUCTIONS — super-spec refinement mode', () => {
     expect(OPERATOR_INSTRUCTIONS).not.toContain('Contract Refine is not\n  available for agent-authored specs')
     expect(OPERATOR_INSTRUCTIONS).not.toContain('Contract Refine is not available for agent-authored specs')
   })
+  it('never asks the user about the Contract Layer: it is always added', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('The\nContract Layer is always added: never ask about it, never offer to skip it')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never ask whether to add it.')
+    // The confirmation no longer invites declining the enrichment.
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('If the user declines the enrichment')
+  })
 
   it('keeps the confirmation-gate discipline (one question, no tool call before yes)', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('The confirmation gate (mandatory)')
