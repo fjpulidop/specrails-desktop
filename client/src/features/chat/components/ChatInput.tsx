@@ -13,7 +13,7 @@ const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Opus' },
   { value: 'sonnet', label: 'Sonnet 5.5' },
   { value: 'fable', label: 'Fable 5.1' },
-  { value: 'haiku', label: 'Haiku' },
+  { value: 'haiku', label: 'Haiku 5.5' },
 ]
 
 const CODEX_MODEL_OPTIONS = [

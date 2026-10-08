@@ -15,7 +15,7 @@ export const CLAUDE_MODELS: SpecModelOption[] = [
   { value: 'sonnet', label: 'Sonnet 5.5' },
   { value: 'fable', label: 'Fable 5.1' },
   { value: 'opus', label: 'Claude Opus' },
-  { value: 'haiku', label: 'Claude Haiku' },
+  { value: 'haiku', label: 'Claude Haiku 5.5' },
 ]
 
 export const CODEX_MODELS: SpecModelOption[] = [
