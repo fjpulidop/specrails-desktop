@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.62.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.61.0...v2.62.0) (2026-10-08)
+
+
+### Features
+
+* **agent-sessions:** host Core agent sessions in missions, with hybrid sub-agents ([#732](https://github.com/fjpulidop/specrails-desktop/issues/732)) ([cf4f5db](https://github.com/fjpulidop/specrails-desktop/commit/cf4f5db2a28256654656ca2dd57e8a239a647f9c))
+
 ## [2.61.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.60.0...v2.61.0) (2026-10-07)
 
 
