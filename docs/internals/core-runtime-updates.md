@@ -20,6 +20,13 @@ implement and retry workflows (Batch was folded into implement; Desktop no
 longer requires `batch-implement` but stays compatible with Cores that still ship it). Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
 
+`scripts/assemble-bundled-core.mjs` relocates any pnpm virtual store a
+dependency leaks into its tarball (today `@langchain/langgraph-sdk` ships
+`dist/node_modules/.pnpm/…` and imports it by relative path) to
+`<dir>/_pnpm/<entry>`, rewriting the relative imports that cross it, so the
+module still loads while every staged path stays inside the MSI budget
+(`MAX_STAGED_RELATIVE_PATH`, 120 characters).
+
 The paired CI checkout uses the immutable Core 6.5.0 release commit
 `187f9d24533a99fb1f37c7805b3c5b1375040d25`. Bundle smoke checks use Node 22.22.3,
 matching Core's minimum supported Node version and the Desktop release runtime.

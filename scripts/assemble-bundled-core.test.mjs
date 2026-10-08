@@ -3,31 +3,44 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { MAX_STAGED_RELATIVE_PATH, assertStagedPathBudget, prunePnpmStores } from './assemble-bundled-core.mjs'
+import { execFileSync } from 'node:child_process'
+import { MAX_STAGED_RELATIVE_PATH, assertStagedPathBudget, relocatePnpmStores } from './assemble-bundled-core.mjs'
 
 function scratch() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'bundled-core-test-'))
 }
 
-test('prunePnpmStores removes a leaked pnpm virtual store and the node_modules it emptied, nothing else', () => {
+test('relocatePnpmStores moves a leaked store to short paths and keeps every import working', () => {
   const root = scratch()
   try {
     const nm = path.join(root, 'node_modules')
-    // The v2.48.0 shape: a real dependency next to the package, plus a store leaked inside dist/.
-    fs.mkdirSync(path.join(nm, '@langchain/langgraph-sdk/node_modules/p-queue'), { recursive: true })
-    fs.writeFileSync(path.join(nm, '@langchain/langgraph-sdk/node_modules/p-queue/index.js'), 'ok')
-    const store = path.join(nm, '@langchain/langgraph-sdk/dist/node_modules/.pnpm/is-network-error@1.3.1/node_modules/is-network-error')
-    fs.mkdirSync(store, { recursive: true })
-    fs.writeFileSync(path.join(store, 'index.cjs.map'), '{}')
-    // A directory merely NAMED .pnpm outside node_modules is not a store.
+    const pkg = path.join(nm, '@langchain/langgraph-sdk')
+    const write = (rel, text) => { fs.mkdirSync(path.dirname(path.join(pkg, rel)), { recursive: true }); fs.writeFileSync(path.join(pkg, rel), text) }
+    // The real @langchain/langgraph-sdk shape: a rolldown build importing into, out of and across its leaked store.
+    write('package.json', JSON.stringify({ name: '@langchain/langgraph-sdk', type: 'module' }))
+    write('dist/_virtual/_rolldown/runtime.js', 'export const runtime = "rt"\n')
+    write('dist/node_modules/.pnpm/is-network-error@1.3.1/node_modules/is-network-error/index.js', 'export default (e) => e === "net"\n')
+    write('dist/node_modules/.pnpm/is-network-error@1.3.1/node_modules/is-network-error/index.js.map', '{}')
+    write('dist/node_modules/.pnpm/p-retry@7.1.1/node_modules/p-retry/index.js',
+      'import isNetworkError from "../../../is-network-error@1.3.1/node_modules/is-network-error/index.js"\nimport { runtime } from "../../../../../_virtual/_rolldown/runtime.js"\nexport const retry = () => `${isNetworkError("net")}:${runtime}`\n')
+    write('dist/utils/async_caller.js', 'import { retry } from "../node_modules/.pnpm/p-retry@7.1.1/node_modules/p-retry/index.js"\nexport const call = () => retry()\n')
+    write('dist/index.js', 'export { call } from "./utils/async_caller.js"\n')
+    // A real dependency next to the package and a .pnpm outside node_modules stay untouched.
+    fs.mkdirSync(path.join(pkg, 'node_modules/p-queue'), { recursive: true })
+    fs.writeFileSync(path.join(pkg, 'node_modules/p-queue/index.js'), 'export default 1\n')
     fs.mkdirSync(path.join(nm, 'some-pkg/.pnpm'), { recursive: true })
     fs.writeFileSync(path.join(nm, 'some-pkg/.pnpm/keep.txt'), 'keep')
 
-    assert.equal(prunePnpmStores(nm), 1)
-    assert.ok(!fs.existsSync(path.join(nm, '@langchain/langgraph-sdk/dist/node_modules')), 'emptied node_modules is dropped')
-    assert.ok(fs.existsSync(path.join(nm, '@langchain/langgraph-sdk/node_modules/p-queue/index.js')), 'real dependency untouched')
+    assert.equal(relocatePnpmStores(nm), 1)
+    assert.ok(!fs.existsSync(path.join(pkg, 'dist/node_modules')), 'the store and the node_modules it emptied are gone')
+    assert.ok(fs.existsSync(path.join(pkg, 'dist/_pnpm/p-retry@7.1.1/index.js')))
+    assert.ok(fs.existsSync(path.join(pkg, 'dist/_pnpm/is-network-error@1.3.1/index.js')))
+    assert.ok(fs.existsSync(path.join(pkg, 'node_modules/p-queue/index.js')), 'real dependency untouched')
     assert.ok(fs.existsSync(path.join(nm, 'some-pkg/.pnpm/keep.txt')), 'a .pnpm outside node_modules is untouched')
-    assert.equal(prunePnpmStores(nm), 0)
+    // Imports into, across and out of the store resolve after the move.
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(path.join(pkg, 'dist/index.js'))}); console.log(m.call())`], { encoding: 'utf8' })
+    assert.equal(out.trim(), 'true:rt')
+    assert.equal(relocatePnpmStores(nm), 0)
   } finally { fs.rmSync(root, { recursive: true, force: true }) }
 })
 
