@@ -13,15 +13,15 @@ framework is rejected rather than silently replacing an update.
 
 ## Persistence and publication
 
-The release bundle pins Core 6.4.0 in `desktop-release.yml` and
+The release bundle pins Core 6.5.0 in `desktop-release.yml` and
 `scripts/assemble-bundled-core.lock.json`. Core 6 is the Desktop-only engine: it
 publishes integration contract 5.1 (no standalone `update`) and ships only the
 implement and retry workflows (Batch was folded into implement; Desktop no
 longer requires `batch-implement` but stays compatible with Cores that still ship it). Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
 
-The paired CI checkout uses the immutable Core 6.4.0 release commit
-`aa00781e962a30c22bbcdecc632bc2abcf3c97d2`. Bundle smoke checks use Node 22.22.3,
+The paired CI checkout uses the immutable Core 6.5.0 release commit
+`187f9d24533a99fb1f37c7805b3c5b1375040d25`. Bundle smoke checks use Node 22.22.3,
 matching Core's minimum supported Node version and the Desktop release runtime.
 
 Desktop updates retain the complete npm installation, including dependencies,

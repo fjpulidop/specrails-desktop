@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: aa00781e962a30c22bbcdecc632bc2abcf3c97d2  # Core v6.4.0: host-owned environment repair, setup commands and structured blockers
+          ref: 187f9d24533a99fb1f37c7805b3c5b1375040d25  # Core v6.5.0: agent sessions, delegated sub-agents, writer environment preparation
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
