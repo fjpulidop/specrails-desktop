@@ -1,13 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
+import { moduleReferences } from '../scripts/module-references.mjs'
 import { expect, it } from 'vitest'
 
 it('keeps CLI policy independent and command modules acyclic', () => {
   const graph: Record<string, string[]> = {}
   for (const file of fs.readdirSync(__dirname).filter(name => name.endsWith('.ts') && !name.endsWith('.test.ts') && name !== 'specrails-desktop.ts')) {
-    const ast = ts.createSourceFile(file, fs.readFileSync(path.join(__dirname, file), 'utf8'), ts.ScriptTarget.Latest, true)
-    const imports = ast.statements.filter(ts.isImportDeclaration).map(node => (node.moduleSpecifier as ts.StringLiteral).text)
+    const imports = moduleReferences(file, fs.readFileSync(path.join(__dirname, file), 'utf8'))
+      .filter(ref => ref.kind === 'import')
+      .map(ref => ref.specifier as string)
     if (file === 'args.ts' || file === 'format.ts') expect(imports).toEqual([])
     expect(imports).not.toContain('./specrails-desktop')
     graph[file] = imports.filter(ref => ref.startsWith('./')).map(ref => `${ref.slice(2)}.ts`)

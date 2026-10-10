@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1042 source/build files. Nearby tests are linked where names
+Includes 1043 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -848,6 +848,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
 - [generate-source-map.mjs](../../scripts/generate-source-map.mjs) · [test](../../scripts/generate-source-map.test.mjs)
+- [module-references.mjs](../../scripts/module-references.mjs) · [test](../../scripts/module-references.test.mjs)
 - [obfuscate-chromium.mjs](../../scripts/obfuscate-chromium.mjs)
 - [patch-node-pty.mjs](../../scripts/patch-node-pty.mjs) · [test](../../scripts/patch-node-pty.test.mjs)
 - [recover-desktop-channel.mjs](../../scripts/recover-desktop-channel.mjs) · [test](../../scripts/recover-desktop-channel.test.mjs)

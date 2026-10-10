@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
+import { moduleReferences } from '../../scripts/module-references.mjs'
 import { execFileSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import manifest from './boundaries.json'
@@ -41,19 +41,10 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
 }
 function imports(file: string): string[] {
-  const source = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
-  const result: string[] = []
-  function visit(node: ts.Node) {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) result.push((node.moduleSpecifier as ts.StringLiteral).text)
-    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
-      const argument = node.arguments[0]
-      result.push(argument && ts.isStringLiteral(argument) ? argument.text : '<dynamic dependency>')
-    }
-    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) result.push(node.argument.literal.text)
-    ts.forEachChild(node, visit)
-  }
-  visit(source)
-  return result
+  return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>
+    ref.kind === 'dynamic-import' || ref.kind === 'require'
+      ? ref.literal === 'string' ? ref.specifier as string : '<dynamic dependency>'
+      : ref.specifier as string)
 }
 describe('module contracts', () => {
   it('matches the reviewed source, dependency and public-entry inventory', () => {

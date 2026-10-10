@@ -4,7 +4,7 @@
     "outDir": "cli/dist",
     "rootDir": "cli",
     "module": "commonjs",
-    "moduleResolution": "node"
+    "moduleResolution": "bundler"
   },
   "include": ["cli/**/*.ts"],
   "exclude": ["node_modules", "client", "cli/**/*.test.ts"]

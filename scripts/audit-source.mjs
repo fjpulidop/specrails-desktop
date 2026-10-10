@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
+import { moduleReferences } from './module-references.mjs'
 
 // A conservative import inventory, not an automatic deletion tool. Include both
 // shipping and demo entry points. Tests are reported separately, never as proof
@@ -24,23 +24,13 @@ function resolve(from, specifier) {
   return [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`, base.replace(/\.js$/, '.ts')].find(f => known.has(f))
 }
 for (const file of files) {
-  const source = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
   const edges = new Set()
-  function visit(node) {
-    let specifier
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) specifier = node.moduleSpecifier
-    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
-      specifier = node.arguments[0]
-      if (!specifier || !ts.isStringLiteralLike(specifier)) dynamic.push(`${file}:${source.getLineAndCharacterOfPosition(node.pos).line + 1}`)
-    }
-    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) specifier = node.argument.literal
-    if (specifier && ts.isStringLiteralLike(specifier)) {
-      const target = resolve(file, specifier.text)
-      if (target) edges.add(target)
-    }
-    ts.forEachChild(node, visit)
+  for (const ref of moduleReferences(file, fs.readFileSync(file, 'utf8'))) {
+    if ((ref.kind === 'dynamic-import' || ref.kind === 'require') && ref.specifier === null) dynamic.push(`${file}:${ref.line}`)
+    if (ref.specifier === null) continue
+    const target = resolve(file, ref.specifier)
+    if (target) edges.add(target)
   }
-  visit(source)
   graph.set(file, edges)
 }
 const entryPoints = ['server/index.ts', 'client/src/main.tsx', 'client/src/demo-mode/demo-entry.tsx', 'cli/specrails-desktop.ts', 'local-runner/src/index.ts', 'mcp-bridge/src/index.ts']

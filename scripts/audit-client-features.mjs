@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
+import { moduleReferences } from './module-references.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const source = path.join(root, 'client/src')
@@ -32,14 +32,10 @@ function resolve(file, specifier) {
 const violations = []
 for (const file of sources) {
   const from = owner(file)
-  const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
-  const specifiers = []
-  function visit(node) {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) specifiers.push(node.moduleSpecifier.text)
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && ts.isStringLiteral(node.arguments[0])) specifiers.push(node.arguments[0].text)
-    ts.forEachChild(node, visit)
-  }
-  visit(ast)
+  // Static import/export declarations and import() with a plain string literal.
+  const specifiers = moduleReferences(file, fs.readFileSync(file, 'utf8'))
+    .filter(ref => ref.literal === 'string' && (ref.kind === 'import' || ref.kind === 'export' || ref.kind === 'dynamic-import'))
+    .map(ref => ref.specifier)
   for (const specifier of specifiers) {
     const target = resolve(file, specifier)
     if (!target) continue
