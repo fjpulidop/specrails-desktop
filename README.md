@@ -26,7 +26,7 @@ The native application provides separate mission windows and OS webviews: WebVie
 
 ### npm application in your browser
 
-Requires Node.js **20.19.0+**, Git and an authenticated provider CLI. Use a current Node 22 release if your provider CLI requires a newer runtime.
+Requires Node.js **22.14.0+** (better-sqlite3 13 loads as a Node-API 10 addon), Git and an authenticated provider CLI.
 
 ```sh
 npm install -g specrails-desktop
@@ -86,7 +86,7 @@ Settings reports these versions separately. A partially refreshed workspace rema
 
 ## Develop from source
 
-Use **Node 22.22.3** to match the native CI runtime, plus npm and Git. The root package accepts Node 20.19+, but the current Vite client specifically requires **20.19+ on Node 20 or 22.12+ on Node 22 and later**. Node 21 and early Node 22 releases do not satisfy that requirement. Native builds also require Rust and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/).
+Use **Node 22.22.3** to match the native CI runtime, plus npm and Git. The root package requires Node 22.14+ (better-sqlite3 13 needs Node-API 10); Node 20, Node 21 and early Node 22 releases do not satisfy that requirement. Native builds also require Rust and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
 git clone https://github.com/fjpulidop/specrails-desktop.git
