@@ -23,20 +23,19 @@ export const PAIRED_COMPANIONS = [
   'server/modules/loops/runtime/loop-definition-recovery.test.ts',
 ]
 
-// Seconds on windows-latest (CI run 37821194686). The factory split shares
-// were measured locally and scaled to the former 665 s single-file total.
+// Seconds on windows-latest, from the per-shard JUnit of CI run 38090035612.
 export const WEIGHTS = {
-  'server/modules/loops/runtime/loop-factory-corrections-paired.test.ts': 277,
-  'server/modules/loops/runtime/loop-compat-paired.test.ts': 250,
-  'server/modules/loops/runtime/loop-definition-crash-paired.test.ts': 234,
-  'server/modules/loops/runtime/loop-factory-implement-paired.test.ts': 220,
-  'server/modules/loops/runtime/loop-factory-paired.test.ts': 168,
-  'server/modules/delivery/runtime/definition-fork-paired.test.ts': 130,
+  'server/modules/loops/runtime/loop-factory-corrections-paired.test.ts': 381,
+  'server/modules/loops/runtime/loop-compat-paired.test.ts': 333,
+  'server/modules/loops/runtime/loop-factory-implement-paired.test.ts': 309,
+  'server/modules/loops/runtime/loop-factory-paired.test.ts': 208,
+  'server/modules/loops/runtime/loop-definition-crash-paired.test.ts': 172,
   'server/modules/agent-runtime/runtime/agent-runtime-retention-paired.test.ts': 110,
-  'server/modules/loops/runtime/loop-definition-recovery.test.ts': 43,
-  'server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts': 12,
-  'server/modules/loops/runtime/loop-core-factory.test.ts': 7,
-  'server/modules/agent-runtime/runtime/agent-studio-paired.test.ts': 5,
+  'server/modules/delivery/runtime/definition-fork-paired.test.ts': 87,
+  'server/modules/loops/runtime/loop-definition-recovery.test.ts': 63,
+  'server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts': 17,
+  'server/modules/loops/runtime/loop-core-factory.test.ts': 11,
+  'server/modules/agent-runtime/runtime/agent-studio-paired.test.ts': 9,
   'server/modules/loops/runtime/loop-legacy-engine-paired.test.ts': 1,
   'server/modules/loops/runtime/loop-definition-schema.test.ts': 1,
 }
