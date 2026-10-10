@@ -5,11 +5,13 @@ import { render } from '../../test-utils'
 
 // Ensure IntersectionObserver is always available (vi.restoreAllMocks can wipe setup mocks)
 beforeEach(() => {
-  global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  }))
+  global.IntersectionObserver = vi.fn().mockImplementation(function () {
+    return {
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    }
+  })
 })
 
 // ─── Shared mocks ─────────────────────────────────────────────────────────────

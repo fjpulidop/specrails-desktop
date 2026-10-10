@@ -71,11 +71,13 @@ describe('ActivityFeedPage', () => {
     mockLoading = false
     mockHasMore = false
     // Re-apply IntersectionObserver mock (vi.restoreAllMocks() in afterEach removes it)
-    global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    }))
+    global.IntersectionObserver = vi.fn().mockImplementation(function () {
+      return {
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+      }
+    })
   })
 
   it('renders Activity heading', () => {
@@ -205,11 +207,13 @@ describe('ActivityFeedPage - formatRelativeTime edge cases', () => {
     vi.clearAllMocks()
     mockLoading = false
     mockHasMore = false
-    global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    }))
+    global.IntersectionObserver = vi.fn().mockImplementation(function () {
+      return {
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+      }
+    })
   })
 
   it('shows exact seconds for sub-minute timestamps', () => {
