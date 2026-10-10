@@ -48,7 +48,7 @@ reading one description. The tools are:
 | `specrails_loops` | Saved loop workflows |
 | `specrails_code` | File discovery, literal content search, bounded line reads, summaries and provenance; AI summary regeneration is capability-gated |
 | `specrails_git` | Repository/branch/worktree information, status, diffs and PR lookup |
-| `specrails_env` | Project environment readiness and environment-file management |
+| `specrails_env` | Project environment readiness and environment-file management; `get`/`status`/`recheck` report each configured name's value-free resolution status |
 | `specrails_support` | Support triage, local diagnostics and specrails-core update workflows |
 | `specrails_setup` | Add-project setup wizard surface |
 | `specrails_analytics` | Per-project spending analytics + budget |

@@ -467,3 +467,12 @@ describe('loop-executors — idle watchdog (loop-step-idle)', () => {
     expect(none?.idleTimeoutMs).toBeUndefined()
   })
 })
+
+describe('environment notice', () => {
+  it('exposes the project-bound notice only when one is supplied', () => {
+    const notice = vi.fn(() => '[environment] NODE_AUTH_TOKEN not available (not-defined); configure it in the login shell or launch from a terminal')
+    expect(createLoopExecutors({ env: {}, environmentNotice: notice }).environmentNotice?.()).toContain('NODE_AUTH_TOKEN')
+    expect(notice).toHaveBeenCalledTimes(1)
+    expect(createLoopExecutors({ env: {} }).environmentNotice).toBeUndefined()
+  })
+})

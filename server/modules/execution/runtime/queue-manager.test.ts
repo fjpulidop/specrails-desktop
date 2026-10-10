@@ -4,7 +4,7 @@ import { Readable } from 'stream'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { initDb, updateProjectSettings, createJob } from '../../../db'
+import { initDb, updateProjectSettings, createJob, getJobEvents } from '../../../db'
 import {
   claimIdempotentJob,
   fingerprintJobSpawn,
@@ -497,6 +497,47 @@ describe('QueueManager', () => {
       const line = buf.find((l) => l.line === 'hello from stdout')
       expect(line).toBeDefined()
       expect(line?.source).toBe('stdout')
+    })
+
+    it('writes one value-free warning when a configured env name is unresolved, and the job still runs', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.mocked(mockUuidV4).mockReturnValue('env-warning-job' as any)
+      vi.stubEnv('SR_QM_MISSING_TOKEN', undefined)
+      vi.stubEnv('SR_QM_PRESENT_TOKEN', 'fixture-secret-queue-value')
+      try {
+        const db = initDb(':memory:')
+        updateProjectSettings(db, { worktreeEnvPassthrough: ['SR_QM_MISSING_TOKEN', 'SR_QM_PRESENT_TOKEN'] })
+        const qmEnv = new QueueManager(broadcast, db, [], undefined, { provider: 'claude', projectId: 'p1', projectSlug: 'acme' })
+        qmEnv.enqueue('/implement #1')
+
+        const opts = vi.mocked(mockSpawn).mock.calls[0][2] as { env: NodeJS.ProcessEnv }
+        expect(opts.env.SR_QM_PRESENT_TOKEN).toBe('fixture-secret-queue-value')
+        const warnings = qmEnv.getLogBuffer().filter((l) => l.line.startsWith('[environment]'))
+        expect(warnings).toEqual([expect.objectContaining({ source: 'stderr', processId: 'env-warning-job' })])
+        expect(warnings[0].line).toBe('[environment] SR_QM_MISSING_TOKEN not available (not-defined); configure it in the login shell or launch from a terminal')
+        const persisted = getJobEvents(db, 'env-warning-job').map((e) => e.payload).filter((p) => p.includes('[environment]'))
+        expect(persisted).toHaveLength(1)
+        expect(JSON.stringify(qmEnv.getLogBuffer())).not.toContain('fixture-secret-queue-value')
+        expect(persisted.join('\n')).not.toContain('fixture-secret-queue-value')
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('writes no environment warning when every configured name resolves', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockSpawn).mockReturnValue(createMockChildProcess() as any)
+      vi.stubEnv('SR_QM_PRESENT_TOKEN', 'fixture-secret-queue-value')
+      try {
+        const db = initDb(':memory:')
+        updateProjectSettings(db, { worktreeEnvPassthrough: ['SR_QM_PRESENT_TOKEN'] })
+        const qmEnv = new QueueManager(broadcast, db, [], undefined, { provider: 'claude', projectId: 'p1', projectSlug: 'acme' })
+        qmEnv.enqueue('/implement #1')
+        expect(qmEnv.getLogBuffer().some((l) => l.line.startsWith('[environment]'))).toBe(false)
+      } finally {
+        vi.unstubAllEnvs()
+      }
     })
 
     it('returns a copy, not a reference', () => {

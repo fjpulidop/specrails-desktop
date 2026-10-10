@@ -23,10 +23,18 @@ Unknown PATCH fields remain ignored; the historical boolean coercion remains
 compatible. Read-only `orchestratorModelExplicit` cannot be written through the
 application API. Environment configuration stores names, never secret values.
 The owning project's names apply to all repositories in a rail. Spawn-time
-resolution in `server/project-env.ts` recovers missing values into a project-owned
-overlay with a 30-second cache, including retries for failed lookups; it never
-adds those recovered values to the global process environment. Runtime controls
-use the same resolution when restoring a retained run.
+resolution in `server/project-env.ts` reads a project-owned, asynchronously warmed
+login-shell cache (successes valid 10 minutes, failures retried after 30 seconds,
+short synchronous probe only when cold); it never adds recovered values to the
+global process environment. Runtime controls use the same resolution when
+restoring a retained run.
+
+`registerEnvPassthroughStatusHttp` in the HTTP adapter serves
+`GET /:projectId/env-passthrough/status` and `POST /:projectId/env-passthrough/recheck`
+through a port bound by the composition to `server/project-env.ts`. The payload is
+value-free (names, statuses, shell, check time). A committed change to
+`worktreeEnvPassthrough` re-warms the cache through the settings observer. See
+[configuration](../../../docs/internals/configuration.md#login-shell-recovery-and-resolution-status).
 
 `allowSubagents` (default `false`) is a strict boolean. Its row is removed when
 the setting is turned off. The HTTP adapter reports committed changes to an
@@ -51,7 +59,7 @@ concerns still wired in the legacy settings router.
 
 ```bash
 npx vitest run server/modules
-npx vitest run server/project-router.test.ts server/db.test.ts server/project-env.test.ts server/integration-branch.test.ts
+npx vitest run server/project-router.test.ts server/db.test.ts server/project-env.test.ts server/path-resolver.test.ts server/integration-branch.test.ts
 npm run typecheck
 ```
 

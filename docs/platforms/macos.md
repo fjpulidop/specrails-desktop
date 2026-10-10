@@ -77,6 +77,8 @@ When the app runs without an active bundle (a runtimes-less build, or `npm run d
 
 2. **Login-shell merge (async)** — right after the HTTP server starts listening, `augmentPathFromLoginShell()` spawns `$SHELL -l -i` once (1500 ms timeout) and merges whatever `PATH` that login + interactive shell exposes. This recovers the segments that Volta, nvm, fnm, asdf, etc. add only inside your interactive shell — whatever your `$SHELL` produces, no specific rc file is assumed. On timeout or non-zero exit, the fast-path `PATH` stays in effect and a single warning is logged.
 
+Project environment names configured in Project Settings (for example `NODE_AUTH_TOKEN`) use a separate, per-project login-shell probe with a 10 s budget (`SPECRAILS_LOGIN_SHELL_TIMEOUT_MS`). It runs in the background, never writes to `process.env`, and reports a status per name. See [configuration](../internals/configuration.md#login-shell-recovery-and-resolution-status).
+
 The resolved `PATH` is stored on `process.env.PATH`, so every downstream spawn inherits it (`QueueManager` → provider CLI, `SetupManager` → `npx specrails-core`, `terminalManager` PTYs, etc.).
 
 ## Broken-symlink detection
