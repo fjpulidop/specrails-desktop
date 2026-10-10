@@ -1,12 +1,19 @@
 import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Github, Rocket } from 'lucide-react'
+import { createLucideIcon, Rocket } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
 import { Input } from '../../../../components/ui/input'
 import { cn } from '../../../../lib/utils'
 import { usePrerequisites } from '../../../projects/hooks/usePrerequisites'
 import type { Blueprint } from '../../lib/blueprint-draft'
+
+// lucide-react 1.0 dropped brand icons. Keep the exact Lucide GitHub glyph
+// (ISC, lucide-react 0.577 icons/github) so the checkbox renders unchanged.
+const Github = createLucideIcon('github', [
+  ['path', { d: 'M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4', key: 'tonef' }],
+  ['path', { d: 'M9 18c-4.51 2-5-2-7-2', key: '9comsn' }],
+])
 
 // Commit mini-form (add-project-builder D3/D8): the LAST screen before any
 // disk mutation. Name prefilled from the blueprint, location defaulting to

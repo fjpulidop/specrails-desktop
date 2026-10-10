@@ -2683,6 +2683,17 @@ describe('launchIsolatedRail — warm node_modules reuse', () => {
     }))
   })
 
+  it('a freshness skip (stale base lockfile) reaches rail.overlay_degraded and the launch continues cold', async () => {
+    const { ctx, run, broadcast } = fakeCtx()
+    const warning = 'apps/busuu-courses: yarn.lock differs from the base checkout; dependencies will be installed in the worktree'
+    const linkNodeModules = vi.fn(() => ({ linked: [], authenticated: [], evidence: [], warnings: [warning] }))
+    const ids = await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay(), linkNodeModules })
+
+    expect(ids).toHaveLength(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.overlay_degraded', warnings: [warning] }))
+  })
+
   it('a THROWING linker (defensive) degrades the same way instead of failing the launch', async () => {
     const { ctx, run, broadcast } = fakeCtx()
     const linkNodeModules = vi.fn(() => { throw new Error('nm boom') })

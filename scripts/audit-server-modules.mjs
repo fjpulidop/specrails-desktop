@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import ts from 'typescript'
+import { moduleReferences } from './module-references.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const server = path.join(root, 'server')
 const modules = path.join(server, 'modules')
@@ -14,18 +14,11 @@ function sources(dir) {
   })
 }
 function imports(file) {
-  const ast = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
   const refs = new Set()
-  function visit(node) {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) refs.add(node.moduleSpecifier.text)
-    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
-      const argument = node.arguments[0]
-      refs.add(argument && ts.isStringLiteral(argument) ? argument.text : '<dynamic dependency>')
-    }
-    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) refs.add(node.argument.literal.text)
-    ts.forEachChild(node, visit)
+  for (const ref of moduleReferences(file, fs.readFileSync(file, 'utf8'))) {
+    if (ref.kind === 'dynamic-import' || ref.kind === 'require') refs.add(ref.literal === 'string' ? ref.specifier : '<dynamic dependency>')
+    else refs.add(ref.specifier)
   }
-  visit(ast)
   return [...refs].sort()
 }
 const files = sources(server), existing = new Set(files)

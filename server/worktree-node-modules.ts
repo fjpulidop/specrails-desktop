@@ -8,7 +8,14 @@
  * Cleanup authority covers individual source-anchored links, never the entire
  * writable directory. Replaced packages and newly created files therefore keep
  * the existing ignored-artifact / recoverable-work settlement guarantees.
+ *
+ * Freshness guard: a package directory is linked only when its dependency inputs
+ * (nearest lockfile up to the Git top level + the manifest's dependency fields)
+ * match between the base checkout and the worktree. Otherwise the directory is
+ * left without node_modules so the runtime installs it cold from the worktree's
+ * own lockfile. The base checkout is only ever read.
  */
+import { createHash } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
 import { fingerprintOverlayCleanupPath, type OverlayCleanupEvidence } from './worktree-overlay'
@@ -85,6 +92,86 @@ export function discoverPackageDirs(baseRepo: string): string[] {
   }
   walk('', 0)
   return found
+}
+
+/** Lockfiles in lookup priority order; the first one found in a directory wins. */
+export const DEPENDENCY_LOCKFILES = ['pnpm-lock.yaml', 'yarn.lock', 'package-lock.json', 'npm-shrinkwrap.json', 'bun.lock'] as const
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
+
+export interface DependencyInputs {
+  /** Nearest lockfile between the package directory and the Git top level.
+   *  `location` is its directory relative to the package directory, so both
+   *  checkouts must find it at the same relative position. `digest` is null
+   *  when the file exists but cannot be read. */
+  lockfile: { name: string; location: string; digest: string | null } | null
+  /** Digest of the canonical dependency fields; null when package.json is
+   *  missing or unreadable (null never compares equal). */
+  manifestDigest: string | null
+}
+
+function sha256(data: string | Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+/** Git top level of a checkout: nearest ancestor holding a `.git` entry (dir
+ *  for a clone, file for a linked worktree). Outside Git, the checkout itself
+ *  bounds the lockfile search so it never escapes into unrelated parents. */
+function gitTopLevel(checkoutRoot: string): string {
+  const start = path.resolve(checkoutRoot)
+  for (let current = start; ; current = path.dirname(current)) {
+    if (exists(path.join(current, '.git'))) return current
+    if (path.dirname(current) === current) return start
+  }
+}
+
+/**
+ * Fingerprint the inputs that decide what a package directory installs. Never
+ * throws: unreadable inputs yield null digests, which compare as different.
+ */
+export function dependencyInputs(checkoutRoot: string, pkgRel: string): DependencyInputs {
+  const top = gitTopLevel(checkoutRoot)
+  const pkgDir = pkgRel === '' ? path.resolve(checkoutRoot) : path.resolve(checkoutRoot, ...pkgRel.split('/'))
+  let lockfile: DependencyInputs['lockfile'] = null
+  for (let current = pkgDir; lockfile === null; current = path.dirname(current)) {
+    for (const name of DEPENDENCY_LOCKFILES) {
+      const file = path.join(current, name)
+      if (!exists(file)) continue
+      let digest: string | null = null
+      try { digest = sha256(fs.readFileSync(file)) } catch { /* unreadable: never equal */ }
+      lockfile = { name, location: path.relative(pkgDir, current).split(path.sep).join('/'), digest }
+      break
+    }
+    if (current === top || path.dirname(current) === current) break
+  }
+  let manifestDigest: string | null = null
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')) as Record<string, unknown>
+    const fields: Record<string, unknown> = {}
+    for (const field of DEPENDENCY_FIELDS) if (manifest?.[field] !== undefined) fields[field] = manifest[field]
+    manifestDigest = sha256(canonicalJson(fields))
+  } catch { /* missing or unparsable manifest: never equal */ }
+  return { lockfile, manifestDigest }
+}
+
+/** Name of the first dependency input that differs, or null when warm reuse is safe. */
+export function differingDependencyInput(base: DependencyInputs, worktree: DependencyInputs): string | null {
+  const a = base.lockfile, b = worktree.lockfile
+  if (a || b) {
+    if (!a || !b || a.name !== b.name || a.location !== b.location || a.digest === null || a.digest !== b.digest) {
+      return (a ?? b)!.name
+    }
+  }
+  if (base.manifestDigest === null || base.manifestDigest !== worktree.manifestDigest) return 'package.json'
+  return null
 }
 
 /** Resolve a path through symlinks when possible; the literal path otherwise
@@ -265,6 +352,19 @@ export function linkNodeModulesIntoWorktree(baseRepo: string, worktreePath: stri
     }
     const dest = path.join(worktreePath, ...rel.split('/'))
     const legacy = authenticateWarmLink(baseRepo, worktreePath, rel, sourceRel)
+    if (!exists(dest)) {
+      // Freshness guard, only when a NEW link would be prepared: an existing
+      // (resumed or legacy) link keeps its authentication below.
+      const differing = differingDependencyInput(
+        dependencyInputs(baseRepo, pkgRel),
+        dependencyInputs(prefix ? path.join(worktreePath, ...prefix.split('/')) : worktreePath, pkgRel),
+      )
+      if (differing) {
+        const pkgDir = [prefix, pkgRel].filter(Boolean).join('/') || '.'
+        result.warnings.push(`${pkgDir}: ${differing} differs from the base checkout; dependencies will be installed in the worktree`)
+        continue
+      }
+    }
     if (!exists(dest) || legacy) {
       let staging: string | undefined
       let removedLegacy = false

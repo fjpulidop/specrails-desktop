@@ -133,6 +133,21 @@ Both temporary checkouts use non-force cleanup, including after a Git runner exc
   including proofs for historical misplaced links; symlinked destination ancestors confer no
   authority. Registration paths, frozen manifests and Core scope remain unchanged. A failed run
   keeps its old checkout; after updating Desktop, a fresh Relaunch receives the corrected layout.
+- Warm reuse is gated by dependency freshness. Before preparing a new link for a package
+  directory, Desktop compares its dependency inputs in the base checkout and in the worktree: the
+  nearest lockfile found walking up to the Git top level (first of `pnpm-lock.yaml`, `yarn.lock`,
+  `package-lock.json`, `npm-shrinkwrap.json`, `bun.lock`, at the same relative position) and a
+  canonical digest of the `package.json` dependency, devDependency, optionalDependency and
+  peerDependency fields (scripts and other metadata are ignored). If either input differs, or one
+  cannot be read, the directory gets no `node_modules` and the run reports, on the
+  `rail.overlay_degraded` channel, for example
+  `apps/catalog: yarn.lock differs from the base checkout; dependencies will be installed in the worktree`.
+  Core's environment preparation then installs that directory cold from the worktree's own lockfile.
+  This prevents a base checkout on another branch, or behind the remote, from supplying packages
+  the run's code does not declare. Desktop never checks out, pulls or installs anything in the
+  user's checkout to make warm reuse possible. Links already present for a resumed run keep their
+  authentication; the guard only applies when a link is prepared. `SPECRAILS_WORKTREE_NODE_MODULES=false`
+  still disables warm reuse entirely.
 - Per-unit settlement returns structured execution + delivery results. `onLoopRunFinished` receives
   the engine outcome only; commit/status/ref/provenance/push failures cannot rewrite it.
 - Before staging, settlement blocks active OpenSpec change directories introduced relative to

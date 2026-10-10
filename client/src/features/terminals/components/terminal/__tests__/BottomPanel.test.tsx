@@ -266,8 +266,13 @@ describe('BottomPanel', () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/terminal-settings'))).toBe(true)
     })
-    fireEvent.click(getByLabelText('Open in browser'))
-    expect(openExternalUrl).toHaveBeenLastCalledWith('https://old.example')
+    // Same race as the refetch below: the initial fetch being issued does not
+    // mean its response has reached state, so retry the click until the loaded
+    // shortcut (not the default URL) is what opens.
+    await waitFor(() => {
+      fireEvent.click(getByLabelText('Open in browser'))
+      expect(openExternalUrl).toHaveBeenLastCalledWith('https://old.example')
+    })
     expect(getByLabelText('No active terminal to paste into')).toBeDisabled()
 
     resolved = newSettings

@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
       - name: Admit exact-source validation or publication after successful CI
@@ -92,7 +92,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
           cache: npm
@@ -122,7 +122,7 @@ jobs:
           npm run build --prefix client
       - name: Stage the shared release frontend
         run: node scripts/verified-client.mjs stage '${{ runner.temp }}/release-client'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/release-client
@@ -143,7 +143,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
           cache: npm
@@ -475,7 +475,7 @@ jobs:
 
       - name: Upload Chromium signing and notarization diagnostics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: chromium-signing-macos
           path: artifacts/chromium-signing/
@@ -483,7 +483,7 @@ jobs:
           retention-days: 14
 
       - name: Upload .dmg artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: dmg-aarch64
           path: |
@@ -514,7 +514,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
           cache: npm
@@ -770,7 +770,7 @@ jobs:
 
       - name: Upload installed package smoke log
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: installed-smoke-${{ runner.arch }}
           path: |
@@ -778,7 +778,7 @@ jobs:
             ${{ runner.temp }}/msi-install.log
 
       - name: Upload Windows installer artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: windows-x64
           # Tauri emits NSIS under bundle/nsis/*.exe and MSI under bundle/msi/*.msi.
@@ -808,7 +808,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
           cache: npm
@@ -1035,7 +1035,7 @@ jobs:
 
       - name: Upload installed package smoke log
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: installed-smoke-${{ runner.arch }}
           path: |
@@ -1043,7 +1043,7 @@ jobs:
             ${{ runner.temp }}/msi-install.log
 
       - name: Upload Windows ARM64 installer artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: windows-arm64
           path: |
@@ -1073,7 +1073,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.3
       - name: Download all build artifacts
@@ -1289,7 +1289,7 @@ jobs:
       # per-job subdirectories with raw Tauri filenames stay out so the
       # versioned folder mirrors what consumers expect.
       - name: Deploy versioned installers to Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@a51268f67f6605236975928ae28b0f7e9971d50a  # v4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287  # v4.4.0
         with:
           server: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}

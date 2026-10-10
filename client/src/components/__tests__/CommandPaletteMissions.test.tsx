@@ -10,11 +10,13 @@ import type { AgentConversation, MissionSearchHit } from '../../features/mission
 // the agent chat context, the UI mode and the search endpoint.
 
 beforeEach(() => {
-  global.ResizeObserver = vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  }))
+  global.ResizeObserver = vi.fn().mockImplementation(function () {
+    return {
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    }
+  })
 })
 
 vi.mock('../../hooks/useDesktop', () => ({
