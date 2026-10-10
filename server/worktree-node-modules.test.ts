@@ -7,19 +7,28 @@ import {
   linkNodeModulesIntoWorktree,
   isWorktreeNodeModulesEnabled,
   authenticateWarmNodeModulesLinks,
+  dependencyInputs,
+  differingDependencyInput,
   WORKTREE_DEPENDENCY_CACHES,
 } from './worktree-node-modules'
 
 let baseRepo: string
 let worktree: string
 
+/** Build the base checkout. Tracked-looking files (outside dependency trees and
+ *  dot-dirs) are mirrored into the worktree, as `git worktree add` would, so the
+ *  freshness guard sees matching dependency inputs by default. */
 function mkRepo(structure: string[]): void {
   for (const rel of structure) {
-    const abs = path.join(baseRepo, ...rel.split('/'))
-    if (rel.endsWith('/')) fs.mkdirSync(abs, { recursive: true })
-    else {
-      fs.mkdirSync(path.dirname(abs), { recursive: true })
-      fs.writeFileSync(abs, '{}')
+    const segments = rel.split('/').filter(Boolean)
+    const tracked = !segments.some(segment => segment === 'node_modules' || segment.startsWith('.'))
+    for (const root of tracked ? [baseRepo, worktree] : [baseRepo]) {
+      const abs = path.join(root, ...rel.split('/'))
+      if (rel.endsWith('/')) fs.mkdirSync(abs, { recursive: true })
+      else {
+        fs.mkdirSync(path.dirname(abs), { recursive: true })
+        fs.writeFileSync(abs, '{}')
+      }
     }
   }
 }
@@ -105,6 +114,7 @@ describe('linkNodeModulesIntoWorktree', () => {
   it('reports a warning (not a throw) when the link cannot be created', () => {
     mkRepo(['client/package.json', 'client/node_modules/x.js'])
     // Occupy the parent path with a FILE so mkdir/symlink of client/... fails.
+    fs.rmSync(path.join(worktree, 'client'), { recursive: true, force: true })
     fs.writeFileSync(path.join(worktree, 'client'), 'not a dir')
     const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
     expect(res.linked).toEqual([])
@@ -346,5 +356,165 @@ describe('warm dependencies for a registered Git subdirectory', () => {
     expect(result.authenticated).toEqual([])
     expect(authenticateWarmNodeModulesLinks(selected, worktree)).toEqual([])
     expect(snapshot(foreign)).toBe(before)
+  })
+})
+
+describe('dependencyInputs', () => {
+  function put(root: string, relative: string, content: string): void {
+    const file = path.join(root, ...relative.split('/'))
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, content)
+  }
+
+  it('finds the lockfile at the package directory before any parent lockfile', () => {
+    put(baseRepo, 'package.json', '{}')
+    put(baseRepo, 'yarn.lock', 'root')
+    put(baseRepo, 'client/package.json', '{}')
+    put(baseRepo, 'client/package-lock.json', 'client')
+    expect(dependencyInputs(baseRepo, 'client').lockfile).toMatchObject({ name: 'package-lock.json', location: '' })
+  })
+
+  it('walks to a parent directory when the package directory has no lockfile', () => {
+    put(baseRepo, 'yarn.lock', 'root')
+    put(baseRepo, 'packages/tool/package.json', '{}')
+    expect(dependencyInputs(baseRepo, 'packages/tool').lockfile).toMatchObject({ name: 'yarn.lock', location: '../..' })
+  })
+
+  it('prefers pnpm-lock.yaml over yarn.lock in the same directory', () => {
+    put(baseRepo, 'package.json', '{}')
+    put(baseRepo, 'yarn.lock', 'y')
+    put(baseRepo, 'pnpm-lock.yaml', 'p')
+    expect(dependencyInputs(baseRepo, '').lockfile?.name).toBe('pnpm-lock.yaml')
+  })
+
+  it('reaches the git top level for a subdirectory project, and no further', () => {
+    put(baseRepo, 'outside/yarn.lock', 'not part of this repository')
+    const top = path.join(baseRepo, 'outside', 'repo')
+    fs.mkdirSync(path.join(top, '.git'), { recursive: true })
+    put(top, 'yarn.lock', 'monorepo')
+    put(top, 'apps/courses/package.json', '{}')
+    const inputs = dependencyInputs(path.join(top, 'apps/courses'), '')
+    expect(inputs.lockfile).toMatchObject({ name: 'yarn.lock', location: '../..' })
+    fs.rmSync(path.join(top, 'yarn.lock'))
+    expect(dependencyInputs(path.join(top, 'apps/courses'), '').lockfile).toBeNull()
+  })
+
+  it('treats a lockfile present on only one side as different', () => {
+    put(baseRepo, 'package.json', '{}')
+    put(worktree, 'package.json', '{}')
+    put(baseRepo, 'yarn.lock', 'x')
+    expect(differingDependencyInput(dependencyInputs(baseRepo, ''), dependencyInputs(worktree, ''))).toBe('yarn.lock')
+    expect(differingDependencyInput(dependencyInputs(worktree, ''), dependencyInputs(baseRepo, ''))).toBe('yarn.lock')
+  })
+
+  it('treats no lockfile on either side with equal manifests as equal', () => {
+    put(baseRepo, 'package.json', '{"dependencies":{"a":"1"}}')
+    put(worktree, 'package.json', '{"dependencies":{"a":"1"}}')
+    expect(differingDependencyInput(dependencyInputs(baseRepo, ''), dependencyInputs(worktree, ''))).toBeNull()
+  })
+
+  it('compares dependency fields canonically: reordering is equal, a changed range differs', () => {
+    put(baseRepo, 'package.json', JSON.stringify({ devDependencies: { z: '1', a: '2' }, dependencies: { x: '^5.23.0', b: '1' } }))
+    put(worktree, 'package.json', JSON.stringify({ dependencies: { b: '1', x: '^5.23.0' }, devDependencies: { a: '2', z: '1' } }, null, 2))
+    expect(dependencyInputs(baseRepo, '').manifestDigest).toBe(dependencyInputs(worktree, '').manifestDigest)
+    put(worktree, 'package.json', JSON.stringify({ dependencies: { b: '1', x: '^5.24.0' }, devDependencies: { a: '2', z: '1' } }))
+    expect(differingDependencyInput(dependencyInputs(baseRepo, ''), dependencyInputs(worktree, ''))).toBe('package.json')
+  })
+
+  it('ignores scripts, version and other metadata', () => {
+    put(baseRepo, 'package.json', JSON.stringify({ version: '1.0.0', scripts: { test: 'vitest' }, peerDependencies: { react: '*' } }))
+    put(worktree, 'package.json', JSON.stringify({ version: '2.0.0', scripts: { test: 'jest' }, peerDependencies: { react: '*' } }))
+    expect(differingDependencyInput(dependencyInputs(baseRepo, ''), dependencyInputs(worktree, ''))).toBeNull()
+  })
+
+  it('never throws: missing or unparsable manifests compare as different', () => {
+    put(baseRepo, 'package.json', '{ not json')
+    put(worktree, 'package.json', '{ not json')
+    const broken = dependencyInputs(baseRepo, '')
+    expect(broken.manifestDigest).toBeNull()
+    expect(differingDependencyInput(broken, dependencyInputs(worktree, ''))).toBe('package.json')
+    expect(() => dependencyInputs(path.join(baseRepo, 'missing'), 'nope')).not.toThrow()
+  })
+})
+
+describe('linkNodeModulesIntoWorktree freshness guard', () => {
+  function put(root: string, relative: string, content: string): void {
+    const file = path.join(root, ...relative.split('/'))
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, content)
+  }
+  function tree(root: string): string {
+    return JSON.stringify(fs.readdirSync(root, { recursive: true }).map(String).sort().map(entry => {
+      const file = path.join(root, entry)
+      const stat = fs.lstatSync(file)
+      return [entry, stat.isFile() ? fs.readFileSync(file, 'utf8') : stat.isSymbolicLink() ? fs.readlinkSync(file) : 'dir']
+    }))
+  }
+
+  it('skips a stale base lockfile with an exact warning and leaves the base checkout untouched', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    put(baseRepo, 'yarn.lock', '@busuu/experiments@5.23.0')
+    put(worktree, 'yarn.lock', '@busuu/experiments@5.24.0')
+    const before = tree(baseRepo)
+    const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(res).toEqual({
+      linked: [], authenticated: [], evidence: [],
+      warnings: ['.: yarn.lock differs from the base checkout; dependencies will be installed in the worktree'],
+    })
+    expect(fs.existsSync(path.join(worktree, 'node_modules'))).toBe(false)
+    expect(tree(baseRepo)).toBe(before)
+  })
+
+  it('skips only the package directory whose manifest differs', () => {
+    mkRepo(['package.json', 'node_modules/a.js', 'client/package.json', 'client/node_modules/b.js'])
+    put(worktree, 'client/package.json', '{"dependencies":{"x":"^2.0.0"}}')
+    const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(res.linked).toEqual(['node_modules'])
+    expect(res.authenticated).toEqual(['node_modules/a.js'])
+    expect(res.warnings).toEqual(['client: package.json differs from the base checkout; dependencies will be installed in the worktree'])
+    expect(fs.existsSync(path.join(worktree, 'client', 'node_modules'))).toBe(false)
+  })
+
+  it('links as before when lockfile and dependency fields match', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    put(baseRepo, 'package-lock.json', 'same')
+    put(worktree, 'package-lock.json', 'same')
+    const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(res.linked).toEqual(['node_modules'])
+    expect(res.warnings).toEqual([])
+  })
+
+  it('keeps an existing authenticated link on resume after the base lockfile changes', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    put(baseRepo, 'yarn.lock', 'v1')
+    put(worktree, 'yarn.lock', 'v1')
+    const first = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(first.authenticated).toEqual(['node_modules/a.js'])
+    put(baseRepo, 'yarn.lock', 'v2')
+    const resumed = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(resumed).toMatchObject({ linked: [], authenticated: ['node_modules/a.js'], warnings: [] })
+    expect(resumed.evidence).toEqual(first.evidence)
+  })
+
+  it('skips a monorepo subdirectory project whose root yarn.lock differs', () => {
+    const registration = 'apps/busuu-courses'
+    fs.mkdirSync(path.join(baseRepo, '.git'))
+    fs.writeFileSync(path.join(worktree, '.git'), 'gitdir: elsewhere\n')
+    for (const root of [baseRepo, worktree]) put(root, `${registration}/package.json`, '{"dependencies":{"@busuu/experiments":"^5.24.0"}}')
+    put(baseRepo, 'yarn.lock', 'experiments 5.23.0')
+    put(worktree, 'yarn.lock', 'experiments 5.24.0')
+    put(baseRepo, `${registration}/node_modules/@busuu/experiments/index.js`, 'old')
+    const selected = path.join(baseRepo, registration)
+    const before = tree(selected)
+    const res = linkNodeModulesIntoWorktree(selected, worktree)
+    expect(res).toEqual({
+      linked: [], authenticated: [], evidence: [],
+      warnings: [`${registration}: yarn.lock differs from the base checkout; dependencies will be installed in the worktree`],
+    })
+    expect(fs.existsSync(path.join(worktree, registration, 'node_modules'))).toBe(false)
+    expect(tree(selected)).toBe(before)
+    // Same root lockfile: the warm link is prepared at the projected position.
+    put(worktree, 'yarn.lock', 'experiments 5.23.0')
+    expect(linkNodeModulesIntoWorktree(selected, worktree).linked).toEqual([`${registration}/node_modules`])
   })
 })

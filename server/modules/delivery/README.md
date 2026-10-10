@@ -76,6 +76,11 @@ source proofs at those worktree-relative paths after restart and also recognizes
 authenticated historical links without moving them. Replaced packages, foreign
 links and paths beneath symlinked destination ancestors confer no new cleanup
 authority. Registration identity and Core's execution scope remain unchanged.
+A new link is prepared only when the package directory's lockfile (nearest up
+to the Git top level) and manifest dependency fields match between the base
+checkout and the worktree; otherwise the directory is left for a cold install
+and a `rail.overlay_degraded` warning names the differing input. The user's
+checkout is never modified.
 
 Settlement blocks new active OpenSpec change directories against the frozen base
 and deliverable external absolute symlinks with an actionable `commit_failed`
