@@ -3,5 +3,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "commonjs"
-  }
+  },
+  "//exclude": "Test-only harnesses under __fixtures__ stay type-checked by the root config but are never emitted into the published server/dist.",
+  "exclude": ["node_modules", "client", "server/**/*.test.ts", "server/**/__fixtures__/**"]
 }

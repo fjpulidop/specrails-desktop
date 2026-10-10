@@ -107,15 +107,25 @@ jobs:
 
   # Pinned integration evidence: these tests must not silently skip because a
   # runner lacks a Core checkout. Advance the pin only with paired acceptance.
+  # Suites are discovered and time-balanced by scripts/paired-core-shards.mjs;
+  # each shard still runs its files serially. Windows is ~2.5x slower, so it
+  # gets more shards to keep every runner near the rest of CI (~8 min).
   paired-core-engine:
-    name: Paired Core engine (${{ matrix.os }})
+    name: Paired Core engine (${{ matrix.os }} ${{ matrix.part }}/${{ matrix.count }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - { os: ubuntu-latest, part: 1, count: 2 }
+          - { os: ubuntu-latest, part: 2, count: 2 }
+          - { os: macos-latest, part: 1, count: 2 }
+          - { os: macos-latest, part: 2, count: 2 }
+          - { os: windows-latest, part: 1, count: 4 }
+          - { os: windows-latest, part: 2, count: 4 }
+          - { os: windows-latest, part: 3, count: 4 }
+          - { os: windows-latest, part: 4, count: 4 }
     runs-on: ${{ matrix.os }}
-    # Windows runs every real-Core crash, fork and factory suite serially (~20 min).
-    timeout-minutes: 40
+    timeout-minutes: 25
     env:
       SPECRAILS_CORE_SOURCE_DIR: ${{ github.workspace }}/.paired/core
       SPECRAILS_EFFICIENCY_CORE_ROOT: ${{ github.workspace }}/.paired/core
@@ -142,25 +152,12 @@ jobs:
       - run: npm run build --prefix .paired/core
       - run: npm run check-core-compat
       - name: Verify real CLI authoring, roles, factories, fork, settlement, retention and steering
-        run: >-
-          npx vitest run --maxWorkers=1 --reporter=default --reporter=junit
-          --outputFile.junit=paired-core-results.xml
-          server/modules/loops/runtime/loop-definition-schema.test.ts
-          server/modules/loops/runtime/loop-core-factory.test.ts
-          server/modules/loops/runtime/loop-definition-recovery.test.ts
-          server/modules/loops/runtime/loop-definition-crash-paired.test.ts
-          server/modules/loops/runtime/loop-factory-paired.test.ts
-          server/modules/loops/runtime/loop-compat-paired.test.ts
-          server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
-          server/modules/delivery/runtime/definition-fork-paired.test.ts
-          server/modules/agent-runtime/runtime/agent-runtime-retention-paired.test.ts
-          server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts
-          server/modules/loops/runtime/loop-legacy-engine-paired.test.ts
+        run: node scripts/paired-core-shards.mjs run '${{ matrix.part }}/${{ matrix.count }}' paired-core-results.xml
       - name: Retain paired acceptance results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: paired-core-${{ matrix.os }}
+          name: paired-core-${{ matrix.os }}-${{ matrix.part }}
           path: paired-core-results.xml
           if-no-files-found: error
           retention-days: 14

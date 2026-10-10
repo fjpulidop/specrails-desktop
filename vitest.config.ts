@@ -20,6 +20,8 @@ export default defineConfig({
       include: ['server/**/*.ts', 'cli/**/*.ts', 'local-runner/src/**/*.ts'],
       exclude: [
         '**/*.test.ts',
+        // Test-only harnesses shared by several suites (e.g. the real-Core factory pairing).
+        'server/**/__fixtures__/**',
         'server/vitest-setup.ts',
         'server/dist/**',
         'server/index.ts',

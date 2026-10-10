@@ -8,7 +8,7 @@ import { buildUpdaterManifest } from './build-updater-manifest.mjs'
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails update release '))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
-  const inputs = ['dmg-aarch64/Specrails.app.tar.gz', 'windows-x64/nsis/Specrails-setup.exe', 'windows-x64/msi/Specrails.msi', 'windows-arm64/nsis/Specrails-setup.exe', 'windows-arm64/msi/Specrails.msi']
+  const inputs = ['dmg-aarch64/Specrails.app.tar.gz', 'windows-x64/nsis/Specrails-setup.exe', 'windows-arm64/nsis/Specrails-setup.exe']
   for (const file of inputs) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
     fs.writeFileSync(path.join(root, file), `artifact: ${file}`)
@@ -17,16 +17,17 @@ function fixture(t) {
   return { root, inputs, args: { artifacts: root, output: path.join(root, 'output'), version: '2.40.0', releaseUrl: 'https://example.com/v2.40.0' } }
 }
 
-test('retains both installer families and architecture, copies exact paired artifacts', t => {
+test('publishes NSIS for every architecture and routes legacy MSI installs to it, copying exact paired artifacts', t => {
   const { root, args } = fixture(t)
   const result = buildUpdaterManifest(args)
   for (const arch of ['x86_64', 'aarch64']) {
-    assert.match(result.platforms[`windows-${arch}-msi`].url, /\.msi$/)
     assert.match(result.platforms[`windows-${arch}-nsis`].url, /-setup\.exe$/)
+    // No MSI entry: tauri-plugin-updater falls back from windows-<arch>-msi to windows-<arch>.
+    assert.equal(result.platforms[`windows-${arch}-msi`], undefined)
     assert.deepEqual(result.platforms[`windows-${arch}`], result.platforms[`windows-${arch}-nsis`])
   }
-  assert.equal(Object.keys(result.platforms).length, 7)
-  assert.equal(fs.readFileSync(path.join(args.output, 'specrails-desktop-2.40.0-windows-aarch64.msi'), 'utf8'), fs.readFileSync(path.join(root, 'windows-arm64/msi/Specrails.msi'), 'utf8'))
+  assert.equal(Object.keys(result.platforms).length, 5)
+  assert.equal(fs.readFileSync(path.join(args.output, 'specrails-desktop-2.40.0-windows-aarch64-setup.exe'), 'utf8'), fs.readFileSync(path.join(root, 'windows-arm64/nsis/Specrails-setup.exe'), 'utf8'))
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(args.output, 'latest.json'), 'utf8')), result)
 })
 

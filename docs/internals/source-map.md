@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1043 source/build files. Nearby tests are linked where names
+Includes 1044 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -850,6 +850,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [generate-source-map.mjs](../../scripts/generate-source-map.mjs) · [test](../../scripts/generate-source-map.test.mjs)
 - [module-references.mjs](../../scripts/module-references.mjs) · [test](../../scripts/module-references.test.mjs)
 - [obfuscate-chromium.mjs](../../scripts/obfuscate-chromium.mjs)
+- [paired-core-shards.mjs](../../scripts/paired-core-shards.mjs) · [test](../../scripts/paired-core-shards.test.mjs)
 - [patch-node-pty.mjs](../../scripts/patch-node-pty.mjs) · [test](../../scripts/patch-node-pty.test.mjs)
 - [recover-desktop-channel.mjs](../../scripts/recover-desktop-channel.mjs) · [test](../../scripts/recover-desktop-channel.test.mjs)
 - [release-policy.mjs](../../scripts/release-policy.mjs) · [test](../../scripts/release-policy.test.mjs)

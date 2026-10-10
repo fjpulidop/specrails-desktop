@@ -162,6 +162,10 @@ jobs:
         uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
+          # Restore what release-rust-cache.yml compiled on main; tag-scoped
+          # saves are unreachable from every later release, so never upload.
+          shared-key: desktop-release-macos
+          save-if: false
 
       - name: Install dependencies
         run: npm ci
@@ -533,6 +537,10 @@ jobs:
         uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
+          # Restore what release-rust-cache.yml compiled on main; tag-scoped
+          # saves are unreachable from every later release, so never upload.
+          shared-key: desktop-release-windows-x64
+          save-if: false
 
       - name: Install dependencies
         shell: bash
@@ -761,7 +769,7 @@ jobs:
           if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
-      - name: Smoke installed NSIS and MSI packages
+      - name: Smoke installed NSIS package
         timeout-minutes: 20
         shell: pwsh
         env:
@@ -773,20 +781,16 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: installed-smoke-${{ runner.arch }}
-          path: |
-            ${{ runner.temp }}/specrails-installed-smoke.log
-            ${{ runner.temp }}/msi-install.log
+          path: ${{ runner.temp }}/specrails-installed-smoke.log
 
       - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: windows-x64
-          # Tauri emits NSIS under bundle/nsis/*.exe and MSI under bundle/msi/*.msi.
-          # We upload both patterns; the deploy job renames them to the canonical
-          # specrails-desktop-<version>-x64-setup.exe / specrails-desktop-<version>-x64.msi.
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe*
-            src-tauri/target/release/bundle/msi/*.msi*
+          # Tauri emits the NSIS installer (and its updater signature) under
+          # bundle/nsis/. The deploy job renames it to the canonical
+          # specrails-desktop-<version>-x64-setup.exe.
+          path: src-tauri/target/release/bundle/nsis/*.exe*
           if-no-files-found: error
 
   # ---------------------------------------------------------------
@@ -828,7 +832,10 @@ jobs:
         uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
-          key: arm64
+          # Restore what release-rust-cache.yml compiled on main; tag-scoped
+          # saves are unreachable from every later release, so never upload.
+          shared-key: desktop-release-windows-arm64
+          save-if: false
 
       - name: Install dependencies
         shell: bash
@@ -1026,7 +1033,7 @@ jobs:
           if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
-      - name: Smoke installed NSIS and MSI packages
+      - name: Smoke installed NSIS package
         timeout-minutes: 20
         shell: pwsh
         env:
@@ -1038,17 +1045,13 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: installed-smoke-${{ runner.arch }}
-          path: |
-            ${{ runner.temp }}/specrails-installed-smoke.log
-            ${{ runner.temp }}/msi-install.log
+          path: ${{ runner.temp }}/specrails-installed-smoke.log
 
       - name: Upload Windows ARM64 installer artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: windows-arm64
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe*
-            src-tauri/target/release/bundle/msi/*.msi*
+          path: src-tauri/target/release/bundle/nsis/*.exe*
           if-no-files-found: error
 
   deploy:
@@ -1134,7 +1137,7 @@ jobs:
             echo "  ${src} -> ${out_dir}/${dest}"
           }
 
-          # Tauri preserves the bundle/{dmg,nsis,msi}/ subdir structure inside
+          # Tauri preserves the bundle/{dmg,nsis}/ subdir structure inside
           # each artifact zip, so we use `find` to locate the binary regardless
           # of where exactly upload-artifact preserved the prefix.
           find_one() {
@@ -1146,34 +1149,22 @@ jobs:
           dmg_canonical="specrails-desktop-${VERSION}-aarch64.dmg"
           rename_one "${dmg_src}" "${dmg_canonical}"
 
-          # Windows x64 from windows-x64/ artifact dir (nested in nsis/ + msi/).
+          # Windows x64 from windows-x64/ artifact dir (nested in nsis/).
           exe_x64_src="$(find_one artifacts/windows-x64 '*.exe')"
           exe_x64_canonical="specrails-desktop-${VERSION}-x64-setup.exe"
           rename_one "${exe_x64_src}" "${exe_x64_canonical}"
 
-          msi_x64_src="$(find_one artifacts/windows-x64 '*.msi')"
-          msi_x64_canonical="specrails-desktop-${VERSION}-x64.msi"
-          rename_one "${msi_x64_src}" "${msi_x64_canonical}"
-
-          # Windows ARM64 from windows-arm64/ artifact dir (nested in nsis/ + msi/).
+          # Windows ARM64 from windows-arm64/ artifact dir (nested in nsis/).
           exe_arm64_src="$(find_one artifacts/windows-arm64 '*.exe')"
           exe_arm64_canonical="specrails-desktop-${VERSION}-arm64-setup.exe"
           rename_one "${exe_arm64_src}" "${exe_arm64_canonical}"
-
-          msi_arm64_src="$(find_one artifacts/windows-arm64 '*.msi')"
-          msi_arm64_canonical="specrails-desktop-${VERSION}-arm64.msi"
-          rename_one "${msi_arm64_src}" "${msi_arm64_canonical}"
 
           echo "dmg_filename=${dmg_canonical}" >> "$GITHUB_OUTPUT"
           echo "dmg_path=${out_dir}/${dmg_canonical}" >> "$GITHUB_OUTPUT"
           echo "exe_x64_filename=${exe_x64_canonical}" >> "$GITHUB_OUTPUT"
           echo "exe_x64_path=${out_dir}/${exe_x64_canonical}" >> "$GITHUB_OUTPUT"
-          echo "msi_x64_filename=${msi_x64_canonical}" >> "$GITHUB_OUTPUT"
-          echo "msi_x64_path=${out_dir}/${msi_x64_canonical}" >> "$GITHUB_OUTPUT"
           echo "exe_arm64_filename=${exe_arm64_canonical}" >> "$GITHUB_OUTPUT"
           echo "exe_arm64_path=${out_dir}/${exe_arm64_canonical}" >> "$GITHUB_OUTPUT"
-          echo "msi_arm64_filename=${msi_arm64_canonical}" >> "$GITHUB_OUTPUT"
-          echo "msi_arm64_path=${out_dir}/${msi_arm64_canonical}" >> "$GITHUB_OUTPUT"
           ls -la "${out_dir}/"
 
       - name: Compute sha256 and byte size for each manifest-referenced binary
@@ -1204,8 +1195,6 @@ jobs:
           echo "exe_arm64_sha256=${exe_arm64_sha}" >> "$GITHUB_OUTPUT"
           echo "exe_arm64_size=${exe_arm64_size}" >> "$GITHUB_OUTPUT"
           echo "exe arm64: sha256=${exe_arm64_sha} size=${exe_arm64_size}"
-
-          # MSI is not referenced by manifest.json, so no sha/size required here.
 
       - name: Build manifest.json
         run: |
@@ -1305,7 +1294,7 @@ jobs:
       #
       # Ordering matters (spec: desktop-release-channel) — ATOMIC CUTOVER (BUG-CI-01):
       #   1. SNAPSHOT the prior installer filenames in latest/ (do NOT delete yet).
-      #   2. Upload the new .dmg, .exe, and .msi.
+      #   2. Upload the new .dmg and .exe installers.
       #   3. HEAD-verify every binary referenced by manifest.json is HTTP-reachable.
       #   4. Upload manifest.json.
       #   5. HEAD-verify manifest.json is HTTP-reachable and valid JSON.
@@ -1333,7 +1322,8 @@ jobs:
           set -euo pipefail
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
           # List the directory. Returns just filenames when using --list-only.
-          # Match .dmg (mac), .exe (Windows NSIS), .msi (Windows MSI). Do NOT
+          # Match .dmg (mac), .exe (Windows NSIS) and legacy .msi files (Windows
+          # no longer ships MSI; the first NSIS-only cutover retires them). Do NOT
           # ever touch manifest.json or .htaccess (server-managed). We only RECORD
           # the current installers here — the actual DELE runs in the final step,
           # after the new binaries + manifest are published and verified, so the
@@ -1395,9 +1385,7 @@ jobs:
           for file in \
             "${{ steps.rename.outputs.dmg_path }}" \
             "${{ steps.rename.outputs.exe_x64_path }}" \
-            "${{ steps.rename.outputs.msi_x64_path }}" \
-            "${{ steps.rename.outputs.exe_arm64_path }}" \
-            "${{ steps.rename.outputs.msi_arm64_path }}"; do
+            "${{ steps.rename.outputs.exe_arm64_path }}"; do
             upload "${file}"
             echo "Uploaded $(basename "${file}") to ${remote}"
           done
@@ -1405,9 +1393,7 @@ jobs:
       - name: Verify manifest-referenced binaries are HTTP-reachable
         run: |
           set -euo pipefail
-          # HEAD every URL that manifest.json will reference. The MSI is NOT in
-          # manifest.json (consumers reach it via the versioned folder) so we
-          # don't gate the manifest upload on it here.
+          # HEAD every URL that manifest.json will reference.
           for filename in \
             "${{ steps.rename.outputs.dmg_filename }}" \
             "${{ steps.rename.outputs.exe_x64_filename }}" \
@@ -1492,9 +1478,7 @@ jobs:
           # Canonical filenames the new release just published — never delete these.
           KEEP_DMG: ${{ steps.rename.outputs.dmg_filename }}
           KEEP_EXE_X64: ${{ steps.rename.outputs.exe_x64_filename }}
-          KEEP_MSI_X64: ${{ steps.rename.outputs.msi_x64_filename }}
           KEEP_EXE_ARM64: ${{ steps.rename.outputs.exe_arm64_filename }}
-          KEEP_MSI_ARM64: ${{ steps.rename.outputs.msi_arm64_filename }}
         run: |
           set -euo pipefail
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
@@ -1505,9 +1489,7 @@ jobs:
           # Filenames the new release published; matching ones are NOT stale.
           keep="${KEEP_DMG}
           ${KEEP_EXE_X64}
-          ${KEEP_MSI_X64}
-          ${KEEP_EXE_ARM64}
-          ${KEEP_MSI_ARM64}"
+          ${KEEP_EXE_ARM64}"
           deleted=0
           while IFS= read -r f; do
             f="$(echo "${f}" | tr -d '[:space:]')"

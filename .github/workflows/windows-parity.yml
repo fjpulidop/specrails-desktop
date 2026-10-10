@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Source-level Windows regressions on every PR; installed NSIS/MSI tests
+  # Source-level Windows regressions on every PR; installed NSIS tests
   # also run in Desktop Release before its artifacts can reach publication.
   # The jsdom client suite is not repeated here: it runs on Linux in CI.
   windows-parity:

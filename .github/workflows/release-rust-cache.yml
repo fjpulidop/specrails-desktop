@@ -1,0 +1,69 @@
+name: Release Rust cache
+
+# Desktop Release runs on tag refs, which can only restore caches saved on the
+# default branch. Nothing on main compiled the optimized (LTO) release profile,
+# so every release rebuilt all Rust dependencies from scratch. This workflow
+# compiles the same `tauri build` cargo invocation on main and saves it under
+# the shared keys the release jobs restore (they never save on tags).
+#
+# Daily runs keep the caches inside GitHub's 7-day eviction window and pick up
+# new stable toolchains before the next release needs them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src-tauri/**"
+      - ".github/workflows/release-rust-cache.yml"
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-rust-cache
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    name: Warm ${{ matrix.cache }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, cache: desktop-release-macos }
+          - { os: windows-latest, cache: desktop-release-windows-x64 }
+          - { os: windows-11-arm, cache: desktop-release-windows-arm64, target: aarch64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      # Only the app crate's build script sees this config; dependency builds,
+      # features and profile stay identical to the packaged release.
+      TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        with:
+          workspaces: "./src-tauri -> target"
+          shared-key: ${{ matrix.cache }}
+      - run: npm ci
+      - run: npm ci --prefix client
+      # generate_context! embeds the frontend; any build of it satisfies the app crate.
+      - run: npm run build --prefix client
+      - name: Compile the release profile exactly as tauri build does
+        run: npx tauri build --no-bundle --ci

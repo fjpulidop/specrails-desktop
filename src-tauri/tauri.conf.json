@@ -52,7 +52,7 @@
       "../docs/guide/**/*"
     ],
     "windows": {
-      "webviewInstallMode": { "type": "offlineInstaller", "silent": true }
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true }
     },
     "macOS": {
       "entitlements": "./entitlements.plist"

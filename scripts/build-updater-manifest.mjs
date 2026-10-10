@@ -1,4 +1,11 @@
-/** Build a complete, installer-aware Tauri update release. No fallback across installer families. */
+/**
+ * Build a complete, installer-aware Tauri update release.
+ *
+ * Windows ships only NSIS. Earlier MSI installs request `windows-<arch>-msi`,
+ * find no entry and fall back to `windows-<arch>` (tauri-plugin-updater 2.x
+ * resolves [os-arch-installer, os-arch] in order), which is the NSIS release;
+ * Tauri's NSIS installer detects the WiX installation and uninstalls it first.
+ */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,8 +39,7 @@ export function buildUpdaterManifest({ artifacts, output, version, releaseUrl, p
   for (const [arch, directory] of [['x86_64', 'windows-x64'], ['aarch64', 'windows-arm64']]) {
     const base = `windows-${arch}`
     add(`${base}-nsis`, directory, '-setup.exe', `specrails-desktop-${version}-${base}-setup.exe`)
-    add(`${base}-msi`, directory, '.msi', `specrails-desktop-${version}-${base}.msi`)
-    // Compatibility for earlier clients that only understand OS-ARCH keys.
+    // OS-ARCH serves earlier clients and migrates MSI installs to NSIS.
     platforms[base] = platforms[`${base}-nsis`]
   }
   // Validate all inputs before touching the publish directory.
