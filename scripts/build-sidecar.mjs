@@ -8,7 +8,7 @@
  * Steps:
  *   1. Bundle server/index.ts → build/server-bundle.js  (via esbuild, CJS)
  *   2. Package with @yao-pkg/pkg → native binary (downloads pre-patched Node)
- *   3. Copy the better-sqlite3 N-API prebuild alongside the binary
+ *   3. Copy better-sqlite3 .node prebuilt addon alongside the binary
  *
  * Environment variables:
  *   TARGET_TRIPLE — override the Rust target triple (default: auto-detect via rustc)
@@ -110,11 +110,6 @@ if (typeof process !== "undefined" && process.pkg !== undefined) {
       } catch (_e) { /* keep probing */ }
     }
     var _sqliteReal = _p.resolve(_resourcesDir, "better_sqlite3.node");
-    function _isSqliteAddon(req) {
-      if (typeof req !== "string") return false;
-      if (req.indexOf("better_sqlite3") !== -1) return true;
-      return /better-sqlite3[\\\\/]+prebuilds[\\\\/]+[^\\\\/]+\\.node$/.test(req);
-    }
     var _ptyReal = _p.resolve(_resourcesDir, "pty.node");
     var _ptyDirReal = _p.resolve(_resourcesDir, "node-pty");
     var _ptyModuleCached = null;
@@ -156,10 +151,8 @@ if (typeof process !== "undefined" && process.pkg !== undefined) {
     _Module._resolveFilename = function () {
       var req = arguments[0];
       if (typeof req === "string") {
-        // Redirect better-sqlite3's addon lookups to the extracted copy:
-        // build/Release/better_sqlite3.node (node-gyp layout) and, since
-        // better-sqlite3 13, prebuilds/<platform>-<arch>.node (N-API layout).
-        if (_isSqliteAddon(req)) return _sqliteReal;
+        // Redirect better-sqlite3's addon lookups to the extracted copy.
+        if (req.indexOf("better_sqlite3") !== -1) return _sqliteReal;
         // NOTE: intentionally NOT intercepting pty.node lookups here.
         // node-pty's loadNativeModule probes build/Release, build/Debug, then
         // prebuilds/<plat>-<arch> and relies on MODULE_NOT_FOUND to advance
@@ -184,7 +177,7 @@ if (typeof process !== "undefined" && process.pkg !== undefined) {
     };
     var _origDlopen = process.dlopen.bind(process);
     process.dlopen = function (mod, filename, flags) {
-      if (_isSqliteAddon(filename)) {
+      if (filename && filename.indexOf("better_sqlite3") !== -1) {
         return _origDlopen(mod, _sqliteReal, flags == null ? 1 : flags);
       }
       // Windows: pty.node has co-located DLL deps (winpty.dll, conpty.node, ...)
@@ -272,36 +265,62 @@ function prebuildPlatformArch(triple) {
   }
 }
 
-// ─── better-sqlite3 N-API prebuild ───────────────────────────────────────────
-// better-sqlite3 >= 13 is an N-API addon and ships one prebuild per
-// platform/arch inside the npm package (prebuilds/<platform>-<arch>.node);
-// GitHub releases no longer carry per-Node-ABI tarballs. N-API binaries are
-// ABI-stable, so the prebuild works with pkg's bundled Node 22 regardless of
-// the Node version that ran `npm ci`. Pick the target's prebuild (not the
-// host's) so cross-target sidecar builds still embed the right binary.
+// ─── Download better-sqlite3 Node 22 compatible prebuild ─────────────────────
+// pkg uses Node 22 (MODULE_VERSION 127). The locally compiled .node may target
+// a different Node version. Always download the matching prebuild from GitHub.
 
-function resolveSqliteAddonForTarget(triple) {
+async function downloadSqliteAddonForNode22(triple) {
+  // Map Rust triple → better-sqlite3 prebuild platform-arch
   const platformMap = {
-    'aarch64-apple-darwin':       'darwin-arm64',
-    'x86_64-apple-darwin':        'darwin-x64',
-    'x86_64-pc-windows-msvc':     'win32-x64',
-    'aarch64-pc-windows-msvc':    'win32-arm64',
-    'x86_64-unknown-linux-gnu':   'linux-x64',
-    'aarch64-unknown-linux-gnu':  'linux-arm64',
+    'aarch64-apple-darwin':       { platform: 'darwin', arch: 'arm64' },
+    'x86_64-apple-darwin':        { platform: 'darwin', arch: 'x64' },
+    'x86_64-pc-windows-msvc':     { platform: 'win32',  arch: 'x64' },
+    'aarch64-pc-windows-msvc':    { platform: 'win32',  arch: 'arm64' },
+    'x86_64-unknown-linux-gnu':   { platform: 'linux',  arch: 'x64' },
+    'aarch64-unknown-linux-gnu':  { platform: 'linux',  arch: 'arm64' },
   }
-  const target = platformMap[triple]
-  if (!target) throw new Error(`No better-sqlite3 prebuild mapping for triple: ${triple}`)
+  const plat = platformMap[triple]
+  if (!plat) throw new Error(`No platform mapping for triple: ${triple}`)
 
-  const pkgDir = path.join(ROOT, 'node_modules', 'better-sqlite3')
-  const { version } = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'))
-  const addonPath = path.join(pkgDir, 'prebuilds', `${target}.node`)
-  if (!fs.existsSync(addonPath)) {
-    throw new Error(
-      `better-sqlite3 v${version} has no N-API prebuild for ${target} at ${addonPath}. ` +
-      'better-sqlite3 >= 13 ships prebuilds inside the npm package; reinstall dependencies.',
-    )
+  // better-sqlite3 version from package.json
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules', 'better-sqlite3', 'package.json'), 'utf8'))
+  const bsVersion = pkgJson.version  // e.g. "12.8.0"
+  // Node 22 MODULE_VERSION = 127
+  const nodeModuleVersion = 127
+  const fileName = `better-sqlite3-v${bsVersion}-node-v${nodeModuleVersion}-${plat.platform}-${plat.arch}.tar.gz`
+  const url = `https://github.com/WiseLibs/better-sqlite3/releases/download/v${bsVersion}/${fileName}`
+
+  const destDir = path.join(BUILD_DIR, 'sqlite-prebuild')
+  const tarPath = path.join(destDir, fileName)
+  const addonPath = path.join(destDir, 'better_sqlite3.node')
+
+  // Return cached download if present
+  if (fs.existsSync(addonPath)) {
+    console.log(`  Cached prebuild: ${addonPath}`)
+    return addonPath
   }
-  console.log(`  better-sqlite3 v${version} N-API prebuild: ${addonPath}`)
+
+  fs.mkdirSync(destDir, { recursive: true })
+
+  console.log(`  Downloading ${url}`)
+  // Use curl (available on all target platforms in CI)
+  execSync(`curl -fsSL "${url}" -o "${tarPath}"`, { stdio: 'inherit' })
+
+  // Extract: the .node file is at build/Release/better_sqlite3.node inside the tarball
+  // --strip-components=2 removes "build/Release/" prefix → file lands as better_sqlite3.node
+  //
+  // cwd=destDir with a relative tar filename sidesteps a GNU-tar-on-Windows
+  // quirk where a Windows absolute path like "D:\a\..." is interpreted as a
+  // remote-host spec ("host:path") and fails with "Cannot connect to D:".
+  execSync(`tar -xzf "${fileName}" --strip-components=2 build/Release/better_sqlite3.node`, {
+    stdio: 'inherit',
+    cwd: destDir,
+  })
+
+  if (!fs.existsSync(addonPath)) {
+    throw new Error(`Extraction failed — ${addonPath} not found after tar`)
+  }
+  console.log(`  Extracted to ${addonPath}`)
   return addonPath
 }
 
@@ -355,15 +374,17 @@ async function main() {
   const outputName = `specrails-server-${triple}${binaryExt}`
   const outputPath = path.join(BINARIES_DIR, outputName)
 
-  // better-sqlite3's N-API prebuild for the target. It is NOT embedded in the
-  // snapshot: the runtime hijack in PKG_RUNTIME_PATCHES redirects every addon
-  // lookup (prebuilds/<plat>-<arch>.node or build/Release/better_sqlite3.node)
-  // to the external binaries/better_sqlite3.node copied in step 3.
-  const sqliteAddon = resolveSqliteAddonForTarget(triple)
+  // Download Node 22 compatible better-sqlite3 prebuild (MODULE_VERSION 127)
+  // pkg bundles Node 22 — we must use a .node compiled for that ABI, not the
+  // locally installed one which may target a different Node version.
+  const sqliteAddon = await downloadSqliteAddonForNode22(triple)
 
+  // Write a pkg config so the .node addon lands at the virtual path
+  // that node-gyp-build expects: /snapshot/node_modules/better-sqlite3/build/Release/
   const pkgConfigPath = path.join(ROOT, 'pkg.config.json')
   const pkgConfig = {
     assets: [
+      'node_modules/better-sqlite3/build/Release/better_sqlite3.node',
       'docs/**/*',
     ],
   }
@@ -376,7 +397,7 @@ async function main() {
   console.log(`  Binary: ${outputPath}`)
 
   // Step 3: Copy better-sqlite3 .node addon alongside binary (runtime fallback)
-  console.log('\n[3/3] Copying better-sqlite3 native addon (N-API prebuild)...')
+  console.log('\n[3/3] Copying better-sqlite3 native addon (Node 22 compatible)...')
   const addonDest = path.join(BINARIES_DIR, 'better_sqlite3.node')
   fs.copyFileSync(sqliteAddon, addonDest)
   console.log(`  ${sqliteAddon} → ${addonDest}`)

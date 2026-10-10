@@ -4,7 +4,7 @@ Thank you for your interest in contributing to specrails-desktop. This document 
 
 ## Prerequisites
 
-- **Node.js** >= 22.14 (declared in `package.json` engines; CI runs Node 22.22.3)
+- **Node.js** >= 20 (declared in `package.json` engines; CI runs Node 20)
 - **npm** 9+
 - **claude** CLI on your PATH ([Claude Code](https://claude.com/claude-code)) — needed to test job spawning
 - **codex** CLI on your PATH (optional) — second supported provider; needed only to test the multi-provider paths. See [docs/codex.md](docs/codex.md) and the internals guide [docs/internals/adding-a-provider.md](docs/internals/adding-a-provider.md).
