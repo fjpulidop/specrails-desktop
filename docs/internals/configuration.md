@@ -175,17 +175,58 @@ shell when a GUI launch does not supply it. A zsh login shell reads `~/.zprofile
 adding it to tracked repository files. Windows uses its inherited environment.
 
 Recovered values stay in a project-owned in-memory overlay, not the server's global
-environment, SQLite or runtime snapshots. Each project's lookup cache expires after
-30 seconds, including failed/empty results, so a repaired profile or rotated shell
-credential can be picked up without restarting Desktop. Removing a configured name
-drops its recovered value immediately. A missing value remains absent: Desktop never
-substitutes a dummy credential or treats a blocked package-manager command as passed.
+environment, SQLite or runtime snapshots. Removing a configured name drops its
+recovered value and status immediately. A missing value remains absent: Desktop
+never substitutes a dummy credential or treats a blocked package-manager command as passed.
+
+#### Login-shell recovery and resolution status
+
+The login-shell probe runs `$SHELL -l -i -c 'printf …'` and reads only the requested
+names from a block bracketed by sentinels. Text a profile prints outside that block
+(banners, instant prompts) is ignored. A complete block is accepted **whatever the
+shell's exit status**; a non-zero exit is kept only as a diagnostic.
+
+- **Asynchronous warm cache.** Desktop probes in the background when a project opens,
+  when its configured names change, and about a minute before a successful result
+  expires. The probe never blocks the server's event loop. Its budget is 10 seconds by
+  default; set `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` (milliseconds, capped at 120000) to
+  change it. The refresh stops when the project is removed.
+- **Spawn-time reads.** Rail jobs, loop steps and retained runtime controls read the
+  warm cache synchronously. Only a name that was never checked (or whose success
+  expired) gets the short synchronous fallback, bounded at 1.5 seconds. When that
+  fallback fails, the asynchronous probe is started immediately so the next spawn can
+  use its result.
+- **Lifetimes.** Recovered values stay valid for 10 minutes and are refreshed before
+  then; a failed refresh keeps a still-valid value. Failed or empty lookups are retried
+  after 30 seconds. Changing `SHELL`, `HOME` or `ZDOTDIR` discards cached results.
+
+Each configured name has a value-free status, kept in the owning project's memory
+together with the shell used and the time of the check:
+
+| Status | Meaning |
+|--------|---------|
+| `inherited` | Present in the environment Desktop started with. |
+| `recovered` | Read from the login shell. |
+| `not-defined` | The probe succeeded but the shell does not export the name (also used on Windows, where there is no login-shell recovery). |
+| `probe-timeout` | The shell did not print the block within the budget. |
+| `probe-failed` | The shell could not be started, or its output had no complete sentinel block. |
+
+`GET /api/projects/:projectId/env-passthrough/status` returns these statuses
+(`pending` appears only for a name that has never been checked), and
+`POST /api/projects/:projectId/env-passthrough/recheck` probes immediately. The
+Project Settings environment card shows them as chips with a **Check again** action,
+and the MCP `specrails_env` tool exposes them through `get`, `status` and `recheck`.
+When a rail, loop or queued job starts with a configured name unresolved, its run log
+receives one aggregated warning, for example
+`[environment] NODE_AUTH_TOKEN not available (probe-timeout); configure it in the login shell or launch from a terminal`.
+Statuses, logs and MCP output contain names and states only, never values.
 
 A few env vars are read directly by the app. The two most useful operational ones:
 
 | Variable | Description |
 |----------|-------------|
 | `SPECRAILS_TECH_URL` | Fallback specrails-tech base URL. Resolution order is the `specrails_tech_url` app setting **first**, then this env var, then `http://localhost:3000` — so a stored app setting takes precedence over this var. |
+| `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for the asynchronous login-shell probe that recovers configured project environment names (default `10000`, capped at `120000`). The synchronous cold fallback keeps its 1.5 s bound. See [Login-shell recovery](#login-shell-recovery-and-resolution-status). |
 | `WM_ZOMBIE_TIMEOUT_MS` | Zombie-job detection timeout in milliseconds (default `1800000` = 30 min). This is a stuck-job watchdog, **not** a hard "kill after N minutes" cap. |
 
 ### Provider rollback gates

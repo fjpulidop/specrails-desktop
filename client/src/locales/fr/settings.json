@@ -294,7 +294,30 @@
     "saved": "Environnement des worktrees enregistré",
     "saveFailed": "Impossible d'enregistrer l'environnement des worktrees",
     "invalidName": "{{name}} n'est pas un nom de variable d'environnement valide",
-    "noValues": "Ajoutez uniquement des noms de variables, pas de secrets KEY=value."
+    "noValues": "Ajoutez uniquement des noms de variables, pas de secrets KEY=value.",
+    "status": {
+      "inherited": "Héritée",
+      "recovered": "Du shell de connexion",
+      "notDefined": "Non définie",
+      "probeTimeout": "Délai du shell dépassé",
+      "probeFailed": "Échec de lecture du shell",
+      "pending": "Vérification…"
+    },
+    "hint": {
+      "defaultShell": "votre shell de connexion",
+      "inherited": "Disponible dans l'environnement avec lequel Specrails a démarré.",
+      "recovered": "Récupérée depuis {{shell}}. Les exécutions la reçoivent automatiquement ; la valeur n'est jamais affichée.",
+      "notDefined": "{{shell}} n'exporte pas {{name}}. Ajoutez un export dans le profil du shell, puis vérifiez de nouveau.",
+      "notDefinedInherited": "{{name}} n'est pas définie dans l'environnement avec lequel Specrails a démarré. Définissez-la puis redémarrez Specrails.",
+      "probeTimeout": "{{shell}} a mis plus de {{seconds}} s à démarrer. Allégez le profil ou augmentez SPECRAILS_LOGIN_SHELL_TIMEOUT_MS, puis vérifiez de nouveau.",
+      "probeFailed": "Specrails n'a pas pu lire {{shell}}. Corrigez le profil ou lancez Specrails depuis un terminal, puis vérifiez de nouveau.",
+      "pending": "Specrails lit votre shell de connexion."
+    },
+    "recheck": "Vérifier à nouveau",
+    "checking": "Vérification…",
+    "lastChecked": "Dernière vérification à {{time}}",
+    "statusUnavailable": "Impossible de lire l'état de l'environnement.",
+    "unresolvedTitle": "Les exécutions démarrent sans ces variables :"
   },
   "effects": {
     "heading": "Effets",

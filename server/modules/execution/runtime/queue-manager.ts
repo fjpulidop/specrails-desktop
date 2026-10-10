@@ -56,7 +56,7 @@ import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
 import { resolveProjectExecution, type ProjectExecution } from '../../../workspace-resolution'
-import { applyWorktreeEnvPassthrough } from '../../../project-env'
+import { applyWorktreeEnvPassthrough, worktreeEnvPassthroughWarning } from '../../../project-env'
 import { readCurrentFrameworkVersion } from '../../../framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from '../../../openspec-shim'
 import { resolveHome } from '../../../artifact-registry'
@@ -2556,8 +2556,12 @@ export class QueueManager {
     // values are read from the server env (with login-shell recovery for missing
     // names) at spawn time. Apply this before Specrails' own env overlays so
     // internal SPECRAILS_* control-plane values always win.
+    let environmentNotice: string | null = null
     if (this._db) {
       spawnEnv = applyWorktreeEnvPassthrough(this._db, spawnEnv)
+      // One value-free line naming unresolved configured names (written to the
+      // job log once the readers exist). The run proceeds without them.
+      environmentNotice = worktreeEnvPassthroughWarning(this._db, spawnEnv)
     }
     const telemetryEnabled = !!(this._projectId && this._db && getProjectSettings(this._db).pipelineTelemetryEnabled)
     // Resolve the framework version ONCE at spawn time — `framework/current`
@@ -2957,6 +2961,11 @@ export class QueueManager {
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     const stderrReader = createInterface({ input: child.stderr!, crlfDelay: Infinity })
     this._jobReaders.set(jobId, { stdout: stdoutReader, stderr: stderrReader })
+
+    if (environmentNotice) {
+      persistEvent({ event_type: 'log', source: 'stderr', payload: JSON.stringify({ line: environmentNotice }) }, false)
+      emitLine('stderr', environmentNotice)
+    }
 
     stdoutReader.on('line', (line) => {
       if (this._disposed) return

@@ -294,7 +294,30 @@
     "saved": "Worktree 環境を保存しました",
     "saveFailed": "Worktree 環境を保存できませんでした",
     "invalidName": "{{name}} は有効な環境変数名ではありません",
-    "noValues": "ここには変数名だけを追加してください。KEY=value のシークレットは入力しないでください。"
+    "noValues": "ここには変数名だけを追加してください。KEY=value のシークレットは入力しないでください。",
+    "status": {
+      "inherited": "継承",
+      "recovered": "ログインシェルから取得",
+      "notDefined": "未定義",
+      "probeTimeout": "シェルがタイムアウト",
+      "probeFailed": "シェルの読み取りに失敗",
+      "pending": "確認中…"
+    },
+    "hint": {
+      "defaultShell": "ログインシェル",
+      "inherited": "Specrails の起動時の環境で利用できます。",
+      "recovered": "{{shell}} から取得しました。実行には自動的に渡され、値が表示されることはありません。",
+      "notDefined": "{{shell}} は {{name}} を export していません。シェルのプロファイルに export を追加してから、再確認してください。",
+      "notDefinedInherited": "{{name}} は Specrails の起動時の環境に設定されていません。そこで設定してから Specrails を再起動してください。",
+      "probeTimeout": "{{shell}} の起動に {{seconds}} 秒以上かかりました。プロファイルを軽くするか SPECRAILS_LOGIN_SHELL_TIMEOUT_MS を増やしてから、再確認してください。",
+      "probeFailed": "Specrails は {{shell}} を読み取れませんでした。プロファイルを修正するか、ターミナルから Specrails を起動してから、再確認してください。",
+      "pending": "Specrails がログインシェルを読み取っています。"
+    },
+    "recheck": "再確認",
+    "checking": "確認中…",
+    "lastChecked": "最終確認: {{time}}",
+    "statusUnavailable": "環境のステータスを読み取れませんでした。",
+    "unresolvedTitle": "次の変数なしで実行が開始されます:"
   },
   "effects": {
     "heading": "エフェクト",

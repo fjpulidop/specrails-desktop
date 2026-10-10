@@ -2,7 +2,8 @@
 // The project-settings module owns its validation, use cases and HTTP adapter.
 import { createProjectSettingsService } from './modules/project-settings'
 import { createSqliteProjectSettingsRepository } from './modules/project-settings/adapters/sqlite'
-import { registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
+import { registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
+import { ensureProjectEnvFresh, getProjectEnvStatus, refreshProjectEnv } from './project-env'
 import fs from 'fs'
 import path from 'path'
 import { Request, Response } from 'express'
@@ -55,8 +56,24 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     (req, settings, previous) => {
       const runtimeChanged = JSON.stringify(settings.subagentRuntime) !== JSON.stringify(previous.subagentRuntime)
       if (settings.allowSubagents !== previous.allowSubagents || runtimeChanged) registry.notifySettingsChanged({ projectId: String(req.params.projectId) })
+      // Configured env names changed: re-warm this project's login-shell cache.
+      if (JSON.stringify(settings.worktreeEnvPassthrough) !== JSON.stringify(previous.worktreeEnvPassthrough)) void refreshProjectEnv(ctx(req).db)
     },
   )
+
+  // Value-free resolution status of the configured env names (+ recheck).
+  registerEnvPassthroughStatusHttp(router, {
+    read: async req => {
+      const { db } = ctx(req)
+      await ensureProjectEnvFresh(db)
+      return getProjectEnvStatus(db)
+    },
+    recheck: async req => {
+      const { db } = ctx(req)
+      await refreshProjectEnv(db)
+      return getProjectEnvStatus(db)
+    },
+  })
 
   // ─── Per-project Quick mode Contract Refine last-used value ─────────────────
 

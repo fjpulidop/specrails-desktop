@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { SettingsValidationError, type ProjectSettingsService } from '..'
-import { registerProjectSettingsHttp } from '../adapters/http'
+import { registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from '../adapters/http'
 
 afterEach(() => vi.restoreAllMocks())
 describe('project settings HTTP error mapping', () => {
@@ -56,3 +56,34 @@ describe('project settings HTTP observer', () => {
   })
 })
 
+
+describe('env passthrough status HTTP', () => {
+  it('serves the status and the recheck from the bound port', async () => {
+    const app = express()
+    const calls: string[] = []
+    registerEnvPassthroughStatusHttp(app, {
+      read: async (req) => { calls.push(`read:${req.params.projectId}`); return { names: [{ name: 'NODE_AUTH_TOKEN', status: 'probe-timeout' }] } },
+      recheck: async (req) => { calls.push(`recheck:${req.params.projectId}`); return { names: [{ name: 'NODE_AUTH_TOKEN', status: 'recovered' }] } },
+    })
+    const status = await request(app).get('/p1/env-passthrough/status')
+    expect(status.body).toEqual({ names: [{ name: 'NODE_AUTH_TOKEN', status: 'probe-timeout' }] })
+    const recheck = await request(app).post('/p1/env-passthrough/recheck')
+    expect(recheck.body.names[0].status).toBe('recovered')
+    expect(calls).toEqual(['read:p1', 'recheck:p1'])
+  })
+
+  it('maps port failures to a generic 500', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const app = express()
+    registerEnvPassthroughStatusHttp(app, {
+      read: async () => { throw new Error('private detail') },
+      recheck: async () => { throw new Error('private detail') },
+    })
+    const status = await request(app).get('/p1/env-passthrough/status')
+    expect(status.status).toBe(500)
+    expect(status.body).toEqual({ error: 'Failed to read environment status' })
+    const recheck = await request(app).post('/p1/env-passthrough/recheck')
+    expect(recheck.status).toBe(500)
+    expect(recheck.body).toEqual({ error: 'Failed to recheck environment' })
+  })
+})

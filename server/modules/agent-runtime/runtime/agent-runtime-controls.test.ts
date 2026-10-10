@@ -18,7 +18,12 @@ const loader = vi.hoisted(() => ({ cli: null as string | null }))
 const loginShell = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
 vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => loader.cli }))
-vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath, readEnvFromLoginShellSync: loginShell.read }))
+vi.mock('../../../path-resolver', () => ({
+  resolveBundledNodeExe: () => process.execPath,
+  readEnvFromLoginShellSyncDetailed: (names: string[]) => ({ values: loginShell.read(names) ?? {}, status: 'ok', exitCode: 0, shell: '/bin/zsh', names }),
+  readEnvFromLoginShell: async (names: string[]) => ({ values: {}, status: 'skipped', exitCode: null, shell: null, names }),
+  resolveLoginShellProbeTimeoutMs: () => 10_000,
+}))
 vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: (_project: unknown, _home?: string, baseEnv: NodeJS.ProcessEnv = process.env) => ({ ...baseEnv, SPECRAILS_GIT_AUTO: 'true', SPECRAILS_REPO_MAP_PATH: 'new-map', SPECRAILS_PROFILE_PATH: 'legacy-profile.json' }) }))
 
 let directory: string, runDirectory: string, contextPath: string, db: DbInstance, ctx: ProjectContext
