@@ -6,8 +6,8 @@ This audit covers the `codex/multi-repo-projects` branch, including mission stee
 
 | Feature | Windows implementation and checks |
 | --- | --- |
-| Installation, native runtimes | Native x64/ARM64 NSIS and MSI builds; embedded WebView2 offline provisioning; bundled Node/Git/core/OpenSpec; staged SQLite and full ConPTY/WinPTY dependency validation. |
-| Desktop updates | Installer-specific Tauri targets keep NSIS and MSI separate. Missing, empty or ambiguous artifact/signature pairs fail manifest generation. Generic NSIS entries remain for older clients. Publication is serialized, and previous download installers are retained until the remote manifest matches the new release. |
+| Installation, native runtimes | Native x64/ARM64 NSIS builds; WebView2 provisioning through the embedded bootstrapper; bundled Node/Git/core/OpenSpec; staged SQLite and full ConPTY/WinPTY dependency validation. |
+| Desktop updates | NSIS-specific and generic Tauri targets both reference the NSIS installer; earlier MSI installs fall back to the generic entry and the NSIS installer removes the WiX installation. Missing, empty or ambiguous artifact/signature pairs fail manifest generation. Publication is serialized, and previous download installers are retained until the remote manifest matches the new release. |
 | Startup and project catalog | Recover the actual Windows profile rather than inventing `C:\Users\Default`; SQLite catalog/repository IDs reopen under the same Unicode/spaced profile. |
 | Projects and multi-repo | Repository membership and canonical identity use real paths; junction and case aliases cannot add the same repository twice. Shared backlog and per-repository jobs retain their existing regression coverage. |
 | Core setup and updates | Offline assembly from the shipped core; preserve and restore the previous active framework if Windows junction replacement fails. Installed-package smoke waits for the real workspace marker. |
@@ -28,7 +28,7 @@ This audit covers the `codex/multi-repo-projects` branch, including mission stee
 
 `.github/workflows/windows-parity.yml` runs a `windows-parity` job on `windows-latest` (x64) for every pull request and push to `main`, adding `windows-11-arm` on the `main` pushes. It installs dependencies, checks TypeScript, runs release/PTY helper regression tests, native filesystem/process tests (retried once, they drive real processes), the application build, native host build/tests, and four real native fixtures: WebView2 capture/selection, authentication popups, mission window handoff, and browser multiwindow transfer/parking. It is deliberately a separate workflow from `ci.yml`: `release.yml` waits for CI only, so a slow or flaky Windows run never delays the release PR, while Desktop Release still builds and installs on Windows before publication. The jsdom client suite is not repeated on Windows; it runs on Linux in CI. The bundled-core matrix in `ci.yml` exercises Windows junction/copy relocation for providers.
 
-`.github/workflows/desktop-release.yml` builds the real installers and runs `scripts/smoke-windows-installers.ps1` before publishing artifacts. For each NSIS and MSI package, the script installs into a temporary path containing spaces and drives `scripts/smoke-installed-windows.mjs` with the installed Node runtime. The driver uses an isolated user profile and tests:
+`.github/workflows/desktop-release.yml` builds the real installers and runs `scripts/smoke-windows-installers.ps1` before publishing artifacts. The script fails on any MSI bundle, then installs the NSIS package into a temporary path containing spaces and drives `scripts/smoke-installed-windows.mjs` with the installed Node runtime. The driver uses an isolated user profile and tests:
 
 1. The installed pkg sidecar boots with bundled resources and authenticates API access.
 2. A temporary Git repository is registered and core assembly completes offline.
@@ -53,7 +53,7 @@ The detachable-window implementation has passed native macOS fixtures locally, i
 
 Before claiming complete Windows parity, record successful x64 and ARM64 CI/release runs and exercise the actual installed UI on supported Windows versions:
 
-- Clean NSIS and MSI installs, in-place upgrades from the previous release, relaunch, tray quit and uninstall. Verify one installation entry and preserved projects/logs.
+- Clean NSIS installs, in-place upgrades from the previous release (including an MSI-installed release migrating through the updater), relaunch, tray quit and uninstall. Verify one installation entry and preserved projects/logs.
 - Native browsing and capture at 100%, 150% and 200% display scaling; resize, maximize, multi-monitor movement, keyboard/clipboard, popup/self-close, and the relevant Okta/SSO tenant. Detach two active missions, minimize main independently, move them between monitors, and reattach into a window with its own open browser; verify both sessions and pending inputs remain intact.
 - Provider authentication and one real mission/rail per enabled provider; steering during a tool call; cancellation; multi-repo integration/checkout with clean and conflicting working trees.
 - Long-running frontend/backend processes, immediate startup failure, stopping nested processes, app quit/update during execution, and persisted logs after restart.

@@ -15,14 +15,14 @@ Installers are published on every release under:
 
 > 📥 `https://specrails.dev/downloads/specrails-desktop/latest/`
 
-Pick the pair that matches your CPU architecture:
+Pick the installer that matches your CPU architecture:
 
-| Architecture | NSIS installer (recommended) | MSI installer (enterprise/group-policy) |
-| --- | --- | --- |
-| x64 | `specrails-desktop-<version>-x64-setup.exe` | `specrails-desktop-<version>-x64.msi` |
-| ARM64 | `specrails-desktop-<version>-arm64-setup.exe` | `specrails-desktop-<version>-arm64.msi` |
+| Architecture | Installer |
+| --- | --- |
+| x64 | `specrails-desktop-<version>-x64-setup.exe` |
+| ARM64 | `specrails-desktop-<version>-arm64-setup.exe` |
 
-If you are unsure which to use, the NSIS `-setup.exe` is the right choice for individual installs; the MSI exists for enterprise deployment. Versioned copies live at `downloads/specrails-desktop/v<version>/` for archival and deep-linking.
+Windows ships only the NSIS installer. For unattended or managed deployment, run it silently with `/S` (optionally `/D=<install dir>` as the last argument). Releases up to 2.62 also published an `.msi`; see [Updates](#updates) for how those installations migrate. The installer provisions Microsoft Edge WebView2 when it is missing, downloading it through a small embedded bootstrapper (Windows 11 and current Windows 10 already include it). Versioned copies live at `downloads/specrails-desktop/v<version>/` for archival and deep-linking.
 
 A machine-readable `manifest.json` in `latest/` describes the current release (version, sha256, size) per platform, including `windows-x64` and `windows-arm64` entries — consumers can read it to build download links without hardcoding a version.
 
@@ -59,7 +59,7 @@ When the bundle is present, the Tauri host sets `SPECRAILS_IS_DESKTOP=1` and `SP
 
 The desktop app self-updates via the Tauri updater plugin. It checks a GitHub Releases `latest.json` endpoint and, on Windows, applies updates with `installMode: "passive"` — the update runs with a minimal progress UI and the app relaunches into the new version.
 
-Updates preserve the installation format: NSIS installs receive a signed `-setup.exe` updater artifact, and MSI installs receive a signed `.msi` artifact for the same architecture. The signatures are Tauri/minisign integrity signatures, separate from Authenticode signing. An incomplete installer/signature pair blocks publication; the release no longer silently substitutes MSI for NSIS.
+Updates use the signed NSIS `-setup.exe` for the same architecture. Installations made from an earlier `.msi` receive that NSIS update too: the installer detects the MSI installation and removes it before installing, so a single installation remains (Windows may ask for administrator approval to remove the machine-wide MSI). The signatures are Tauri/minisign integrity signatures, separate from Authenticode signing. An incomplete installer/signature pair blocks publication.
 
 Normal quit and updates request an authenticated graceful shutdown of the owned sidecar first, giving processes and persistent logs time to close before a bounded force-stop fallback.
 
@@ -73,8 +73,8 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 
 ## Uninstall
 
-- NSIS: use the **Start Menu → Specrails → Uninstall** entry, or *Settings → Apps*.
-- MSI: use *Settings → Apps* or `msiexec /x <msi-path>`.
+- Use the **Start Menu → Specrails → Uninstall** entry, or *Settings → Apps*.
+- An installation from an earlier `.msi` release that has not updated yet: *Settings → Apps* or `msiexec /x <msi-path>`.
 
 ## Known limitations
 

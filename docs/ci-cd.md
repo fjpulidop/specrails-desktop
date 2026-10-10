@@ -11,11 +11,18 @@ Desktop distributes an npm package and native installers. Their publication work
 | `npm run build` then `npm run check:package` | A real npm tarball, isolated production install with lifecycle scripts disabled, CLI help/version, MCP and required runtime resources |
 | Windows x64 and ARM64 jobs | Native filesystem/process regressions, terminal/background containment, client tests, bundled Core and native browser/mission window fixtures |
 | macOS native job | Native Rust tests and browser, popup, multiwindow and mission window fixtures |
-| Native release builds | Packaged resources and installer validation; Windows additionally exercises installed NSIS/MSI artifacts |
+| Paired Core engine | Real Core acceptance suites, discovered as `*-paired.test.ts` and time-balanced across runners by `scripts/paired-core-shards.mjs` (2 shards on Linux/macOS, 4 on Windows) |
+| Native release builds | Packaged resources and installer validation; Windows additionally exercises the installed NSIS artifact |
 
 The npm package check does not start a server or exercise native postinstall rebuilds. Native platform jobs and installed application smoke tests provide separate evidence. Defining a Windows or signing job is not evidence that it has passed: inspect the corresponding GitHub run before claiming platform or release acceptance.
 
 Actions are pinned to commit SHAs. Downloaded actionlint and gitleaks binaries have fixed checksums verified before execution. Actionlint checks workflow structure, expressions and action inputs; its ShellCheck integration is disabled, so it does not claim complete shell-script analysis. Dependabot covers root/client/MCP npm dependencies, GitHub Actions and Cargo.
+
+## Pipeline speed
+
+The CI critical path is kept near the slowest ordinary job (~8 min) rather than one long serial suite. Add a paired suite by naming it `*-paired.test.ts`; it is assigned automatically, and `scripts/paired-core-shards.test.mjs` fails if any suite is unassigned, duplicated or has a stale timing weight. Refresh `WEIGHTS` from a CI JUnit artifact when suites grow.
+
+Tag builds can only restore caches saved on `main`, so `Release Rust cache` compiles the release profile on `main` (on `src-tauri/**` changes, daily, or manually) under the `desktop-release-*` shared keys that `Desktop Release` restores without saving. A cache miss only costs time: the release still compiles from scratch. Windows ships only NSIS, which removes a second compression pass, smoke install and upload per architecture.
 
 ## Release flow
 

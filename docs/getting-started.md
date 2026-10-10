@@ -19,7 +19,7 @@ Two options:
 Download a signed build for your OS from `https://specrails.dev/downloads/specrails-desktop/latest/`:
 
 - **macOS** — `specrails-desktop-<version>-aarch64.dmg` (Apple Silicon, notarised)
-- **Windows** — `specrails-desktop-<version>-x64-setup.exe` (NSIS) or `.msi`
+- **Windows** — `specrails-desktop-<version>-x64-setup.exe` (NSIS; `-arm64-setup.exe` on ARM64)
 
 Open the installer, drag to Applications (macOS) or click through the wizard (Windows). The app bundles the server, so you don't need a separate process. The desktop app resolves your PATH for you at startup — no manual Homebrew/Volta/nvm setup needed — see [platforms/macos.md](platforms/macos.md) if anything looks off.
 

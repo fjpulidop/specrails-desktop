@@ -8,7 +8,7 @@ Thank you for your interest in contributing to specrails-desktop. This document 
 - **npm** 9+
 - **claude** CLI on your PATH ([Claude Code](https://claude.com/claude-code)) — needed to test job spawning
 - **codex** CLI on your PATH (optional) — second supported provider; needed only to test the multi-provider paths. See [docs/codex.md](docs/codex.md) and the internals guide [docs/internals/adding-a-provider.md](docs/internals/adding-a-provider.md).
-- **OS:** macOS, Linux, or Windows 10/11 (1809+). The app is cross-platform; the desktop build ships as `.dmg` (macOS) and `.exe`/`.msi` (Windows). See [docs/platforms/windows.md](docs/platforms/windows.md) for Windows-specific notes.
+- **OS:** macOS, Linux, or Windows 10/11 (1809+). The app is cross-platform; the desktop build ships as `.dmg` (macOS) and `.exe` (Windows, NSIS). See [docs/platforms/windows.md](docs/platforms/windows.md) for Windows-specific notes.
 
 ## Local Setup
 
