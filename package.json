@@ -77,7 +77,6 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
     "@types/better-sqlite3": "^7.6.0",
-    "@types/chokidar": "^1.7.5",
     "@types/cross-spawn": "^6.0.6",
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",
