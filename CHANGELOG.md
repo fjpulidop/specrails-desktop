@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.62.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.62.0...v2.62.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **worktrees:** fresh warm dependencies + fold in Dependabot updates ([#736](https://github.com/fjpulidop/specrails-desktop/issues/736)) ([64707d9](https://github.com/fjpulidop/specrails-desktop/commit/64707d95ed3755596adb23a705761288eb410def))
+
 ## [2.62.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.61.0...v2.62.0) (2026-10-08)
 
 
