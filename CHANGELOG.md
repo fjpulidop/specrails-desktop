@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.63.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.62.0...v2.63.0) (2026-10-11)
+
+
+### Features
+
+* **project-env:** recover login-shell credentials reliably and show their status ([#735](https://github.com/fjpulidop/specrails-desktop/issues/735)) ([59566f8](https://github.com/fjpulidop/specrails-desktop/commit/59566f81f43b260abaffe16840223700fe0ea74b))
+
+
+### Bug Fixes
+
+* **worktrees:** fresh warm dependencies + fold in Dependabot updates ([#736](https://github.com/fjpulidop/specrails-desktop/issues/736)) ([64707d9](https://github.com/fjpulidop/specrails-desktop/commit/64707d95ed3755596adb23a705761288eb410def))
+
 ## [2.62.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.61.0...v2.62.0) (2026-10-08)
 
 
