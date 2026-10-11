@@ -59,10 +59,8 @@ If native builds and GitHub publication succeed but Hostinger installer uploads 
 
 No secret, registry authorization, signing certificate, hosting permission or branch protection is configured by these source changes. Dependency installation is separated from npm publishing credentials. Candidate Core packages and publication tarballs use `--ignore-scripts` at the relevant installation/publication boundaries. [npm installation lifecycle options](https://docs.npmjs.com/cli/v11/commands/npm-ci/).
 
-## Core compatibility dispatch
+## Core compatibility
 
-After publishing Core, its workflow dispatches `specrails-core-released` to Desktop with `client_payload.core_version` set to a bare stable version such as `5.0.0`. Desktop validates this value before using it as an npm package selector, installs that exact candidate in a temporary directory without running package scripts, and reads that candidate's contract explicitly.
-
-A missing package, malformed version, registry failure or missing contract fails the check without claiming compatibility or opening a misleading drift issue. A measured contract mismatch or unsupported Core major opens one issue per version, using a separate `issues: write` job. The compatibility check does not upgrade the pinned native Core bundle; that remains a reviewed source change.
+Core does not notify Desktop when it publishes. Desktop pins Core deliberately (`CORE_BUNDLE_VERSION` in Desktop Release and the paired-engine commit in CI), so compatibility is checked in the pull request that advances those pins: `npm run check-core-compat` and the paired Core engine suites run against the new Core there.
 
 For local checks, run `npm run test:scripts` and actionlint 1.7.12 with `-shellcheck=`. For a reusable npm artifact, run `npm run build` followed by `npm run check:package -- --output artifacts/npm`; retain both the tarball and `package-verification.json` together. These commands do not publish anything.

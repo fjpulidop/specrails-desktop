@@ -183,8 +183,6 @@ async function main(command) {
     const expected = JSON.parse(fs.readFileSync('package.json', 'utf8'))
     const receipt = verifiedNpmPackage('artifacts/npm', expected)
     output('published', await npmPackageStatus(receipt) ? 'true' : 'false')
-  } else if (command === 'core-version') {
-    output('version', stableVersion(process.env.CORE_VERSION))
-  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|client-artifact|main-current|latest|npm-status|core-version')
+  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|client-artifact|main-current|latest|npm-status')
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv[2]).catch(error => { console.error(error.message); process.exitCode = 1 })
