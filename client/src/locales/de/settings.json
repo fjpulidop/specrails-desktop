@@ -294,7 +294,30 @@
     "saved": "Worktree-Umgebung gespeichert",
     "saveFailed": "Worktree-Umgebung konnte nicht gespeichert werden",
     "invalidName": "{{name}} ist kein gültiger Name für eine Umgebungsvariable",
-    "noValues": "Fügen Sie hier nur Variablennamen hinzu, keine KEY=value-Geheimnisse."
+    "noValues": "Fügen Sie hier nur Variablennamen hinzu, keine KEY=value-Geheimnisse.",
+    "status": {
+      "inherited": "Geerbt",
+      "recovered": "Aus Login-Shell",
+      "notDefined": "Nicht definiert",
+      "probeTimeout": "Shell-Zeitüberschreitung",
+      "probeFailed": "Shell-Prüfung fehlgeschlagen",
+      "pending": "Wird geprüft…"
+    },
+    "hint": {
+      "defaultShell": "deine Login-Shell",
+      "inherited": "In der Umgebung verfügbar, mit der Specrails gestartet wurde.",
+      "recovered": "Aus {{shell}} wiederhergestellt. Läufe erhalten sie automatisch; der Wert wird nie angezeigt.",
+      "notDefined": "{{shell}} exportiert {{name}} nicht. Füge einen Export in dein Shell-Profil ein und prüfe erneut.",
+      "notDefinedInherited": "{{name}} ist in der Umgebung, mit der Specrails gestartet wurde, nicht gesetzt. Setze sie dort und starte Specrails neu.",
+      "probeTimeout": "{{shell}} brauchte länger als {{seconds}} s zum Starten. Beschleunige das Profil oder erhöhe SPECRAILS_LOGIN_SHELL_TIMEOUT_MS und prüfe erneut.",
+      "probeFailed": "Specrails konnte {{shell}} nicht lesen. Korrigiere das Profil oder starte Specrails aus einem Terminal und prüfe erneut.",
+      "pending": "Specrails liest deine Login-Shell."
+    },
+    "recheck": "Erneut prüfen",
+    "checking": "Wird geprüft…",
+    "lastChecked": "Zuletzt geprüft um {{time}}",
+    "statusUnavailable": "Der Umgebungsstatus konnte nicht gelesen werden.",
+    "unresolvedTitle": "Läufe starten ohne diese Variablen:"
   },
   "effects": {
     "heading": "Effekte",

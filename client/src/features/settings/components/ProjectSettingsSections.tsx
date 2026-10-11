@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
-import { Plus, X } from 'lucide-react'
+import { Plus, RefreshCw, X } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
+import { Badge, type BadgeProps } from '../../../components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
@@ -206,22 +208,120 @@ function splitEnvDraft(value: string): string[] {
     .filter(Boolean)
 }
 
-/** Project-level env passthrough names for rail jobs and isolated loop worktrees.
- *  Stores NAMES ONLY. Values are read from the server process env at spawn time. */
-export function ProjectWorktreeEnvSection() {
+/** Value-free resolution status of one configured name (server/project-env.ts). */
+export type EnvResolutionStatus = 'inherited' | 'recovered' | 'not-defined' | 'probe-timeout' | 'probe-failed' | 'pending'
+
+interface EnvNameStatus {
+  name: string
+  status: EnvResolutionStatus
+  shell: string | null
+  checkedAt: string | null
+}
+
+interface EnvStatusReport {
+  loginShellRecovery: boolean
+  timeoutMs: number
+  checking: boolean
+  names: EnvNameStatus[]
+}
+
+const ENV_STATUS_KEY: Record<EnvResolutionStatus, string> = {
+  inherited: 'inherited',
+  recovered: 'recovered',
+  'not-defined': 'notDefined',
+  'probe-timeout': 'probeTimeout',
+  'probe-failed': 'probeFailed',
+  pending: 'pending',
+}
+
+const ENV_STATUS_VARIANT: Record<EnvResolutionStatus, BadgeProps['variant']> = {
+  inherited: 'success',
+  recovered: 'success',
+  'not-defined': 'warning',
+  'probe-timeout': 'failed',
+  'probe-failed': 'failed',
+  pending: 'queued',
+}
+
+const isUnresolved = (status: EnvResolutionStatus) => status === 'not-defined' || status === 'probe-timeout' || status === 'probe-failed'
+
+/** Status chip + localized explanation for one configured name. Never shows a value. */
+function EnvStatusChip({ entry, report }: { entry: EnvNameStatus; report: EnvStatusReport }) {
   const { t } = useTranslation('settings')
+  const key = ENV_STATUS_KEY[entry.status]
+  const hint = envStatusHint(t, entry, report)
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Badge
+            variant={ENV_STATUS_VARIANT[entry.status]}
+            className="font-normal"
+            data-testid={`worktree-env-status-${entry.name}`}
+            data-status={entry.status}
+            aria-label={`${entry.name}: ${t(`worktreeEnv.status.${key}`)}`}
+          >
+            {t(`worktreeEnv.status.${key}`)}
+          </Badge>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs leading-relaxed">{hint}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function envStatusHint(t: ReturnType<typeof useTranslation>['t'], entry: EnvNameStatus, report: EnvStatusReport): string {
+  const values = { name: entry.name, shell: entry.shell ?? t('worktreeEnv.hint.defaultShell'), seconds: Math.round(report.timeoutMs / 1000) }
+  if (entry.status === 'not-defined' && !report.loginShellRecovery) return t('worktreeEnv.hint.notDefinedInherited', values)
+  return t(`worktreeEnv.hint.${ENV_STATUS_KEY[entry.status]}`, values)
+}
+
+/** Project-level env passthrough names for rail jobs and isolated loop worktrees.
+ *  Stores NAMES ONLY. Values are read from the server process env at spawn time;
+ *  each saved name shows its value-free resolution status with a recheck action. */
+export function ProjectWorktreeEnvSection() {
+  const { t, i18n } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
   const [names, setNames] = useState<string[]>([])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [report, setReport] = useState<EnvStatusReport | null>(null)
+  const [statusError, setStatusError] = useState(false)
+  const [isRechecking, setIsRechecking] = useState(false)
+  // Every status request carries a sequence number; a response is applied only
+  // if it is still the latest request for the still-active project, so a slow
+  // probe for a previous project (or an older recheck) never overwrites state.
+  const statusSeq = useRef(0)
+  const activeProjectRef = useRef(activeProjectId)
+  activeProjectRef.current = activeProjectId
+
+  async function loadStatus(method: 'GET' | 'POST') {
+    const seq = ++statusSeq.current
+    const projectId = activeProjectRef.current
+    const path = method === 'POST' ? 'env-passthrough/recheck' : 'env-passthrough/status'
+    try {
+      const res = await fetch(`${getApiBase()}/${path}`, method === 'POST' ? { method: 'POST' } : undefined)
+      if (!res.ok) throw new Error(String(res.status))
+      const data = await res.json() as EnvStatusReport
+      if (seq !== statusSeq.current || projectId !== activeProjectRef.current) return
+      setReport(data && Array.isArray(data.names) ? data : null)
+      setStatusError(false)
+    } catch {
+      if (seq !== statusSeq.current || projectId !== activeProjectRef.current) return
+      setStatusError(true)
+    }
+  }
 
   useEffect(() => {
     if (!activeProjectId) return
     let cancelled = false
     setLoaded(false)
     setError('')
+    setReport(null)
+    setStatusError(false)
+    setIsRechecking(false)
     fetch(`${getApiBase()}/settings`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: ProjectSettingsPayload | null) => {
@@ -229,10 +329,33 @@ export function ProjectWorktreeEnvSection() {
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true) })
-    return () => { cancelled = true }
+    void loadStatus('GET')
+    return () => {
+      cancelled = true
+      statusSeq.current += 1
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadStatus reads refs only
   }, [activeProjectId])
 
   if (!loaded) return <SectionSkeleton />
+
+  async function recheck() {
+    setIsRechecking(true)
+    const projectId = activeProjectRef.current
+    try {
+      await loadStatus('POST')
+    } finally {
+      if (projectId === activeProjectRef.current) setIsRechecking(false)
+    }
+  }
+
+  const statusByName = new Map((report?.names ?? []).map((entry) => [entry.name, entry]))
+  const unresolved = (report?.names ?? []).filter((entry) => names.includes(entry.name) && isUnresolved(entry.status))
+  const lastChecked = (report?.names ?? [])
+    .map((entry) => entry.checkedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .pop()
 
   function addNames(raw: string) {
     const entries = splitEnvDraft(raw)
@@ -269,6 +392,8 @@ export function ProjectWorktreeEnvSection() {
       const data = await res.json() as { settings?: ProjectSettingsPayload }
       setNames(data.settings?.worktreeEnvPassthrough ?? names)
       toast.success(t('worktreeEnv.saved'))
+      // Saved names are re-warmed on the server; refresh their statuses.
+      void loadStatus('GET')
     } catch (err) {
       toast.error(t('worktreeEnv.saveFailed'), { description: (err as Error).message })
     } finally {
@@ -336,34 +461,77 @@ export function ProjectWorktreeEnvSection() {
         </div>
 
         {names.length > 0 ? (
-          <div className="flex flex-wrap gap-2" data-testid="worktree-env-list">
-            {names.map((name) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px]"
-              >
-                {name}
-                <button
-                  type="button"
-                  onClick={() => setNames(names.filter((n) => n !== name))}
-                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label={t('worktreeEnv.remove', { name })}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="flex flex-wrap gap-2" data-testid="worktree-env-list">
+              {names.map((name) => {
+                const entry = statusByName.get(name)
+                return (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-2 pr-1 font-mono text-[11px]"
+                  >
+                    {name}
+                    {entry && report && <EnvStatusChip entry={entry} report={report} />}
+                    <button
+                      type="button"
+                      onClick={() => setNames(names.filter((n) => n !== name))}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={t('worktreeEnv.remove', { name })}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          </TooltipProvider>
         ) : (
           <p className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
             {t('worktreeEnv.empty')}
           </p>
         )}
 
-        <div className="flex justify-end">
-          <Button size="sm" onClick={save} disabled={isSaving} data-testid="worktree-env-save">
-            {isSaving ? t('common:states.saving') : t('worktreeEnv.save')}
-          </Button>
+        {report && unresolved.length > 0 && (
+          <ul
+            className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground aurora-light:border-accent-warning/30 aurora-light:bg-accent-warning/5"
+            data-testid="worktree-env-unresolved"
+          >
+            <li className="font-medium text-foreground">{t('worktreeEnv.unresolvedTitle')}</li>
+            {unresolved.map((entry) => (
+              <li key={entry.name}>
+                <span className="font-mono text-foreground">{entry.name}</span>
+                {' — '}
+                {envStatusHint(t, entry, report)}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] text-muted-foreground" data-testid="worktree-env-status-meta" aria-live="polite">
+            {statusError
+              ? t('worktreeEnv.statusUnavailable')
+              : isRechecking || report?.checking
+                ? t('worktreeEnv.checking')
+                : lastChecked
+                  ? t('worktreeEnv.lastChecked', { time: new Date(lastChecked).toLocaleTimeString(i18n.language) })
+                  : null}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => { void recheck() }}
+              disabled={isRechecking || names.length === 0}
+              data-testid="worktree-env-recheck"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRechecking ? 'animate-spin' : ''}`} />
+              {isRechecking ? t('worktreeEnv.checking') : t('worktreeEnv.recheck')}
+            </Button>
+            <Button size="sm" onClick={save} disabled={isSaving} data-testid="worktree-env-save">
+              {isSaving ? t('common:states.saving') : t('worktreeEnv.save')}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

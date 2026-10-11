@@ -3006,6 +3006,31 @@ describe('project-router', () => {
       expect(get.body.worktreeEnvPassthrough).toEqual(['NODE_AUTH_TOKEN', 'AWS_PROFILE'])
     })
 
+    it('reports value-free env resolution statuses and rechecks on demand', async () => {
+      vi.stubEnv('SR_FIXTURE_INHERITED_TOKEN', 'fixture-secret-route-value')
+      vi.stubEnv('SR_FIXTURE_MISSING_TOKEN', undefined)
+      try {
+        const ctx = makeContext(db)
+        const { app } = createApp(new Map([['proj-1', ctx]]))
+        await request(app)
+          .patch('/api/projects/proj-1/settings')
+          .send({ worktreeEnvPassthrough: ['SR_FIXTURE_INHERITED_TOKEN', 'SR_FIXTURE_MISSING_TOKEN'] })
+        const status = await request(app).get('/api/projects/proj-1/env-passthrough/status')
+        expect(status.status).toBe(200)
+        expect(status.body.names.map((n: { name: string; status: string }) => [n.name, n.status])).toEqual([
+          ['SR_FIXTURE_INHERITED_TOKEN', 'inherited'],
+          ['SR_FIXTURE_MISSING_TOKEN', 'not-defined'],
+        ])
+        expect(typeof status.body.timeoutMs).toBe('number')
+        const recheck = await request(app).post('/api/projects/proj-1/env-passthrough/recheck')
+        expect(recheck.status).toBe(200)
+        expect(recheck.body.names).toHaveLength(2)
+        for (const body of [status.body, recheck.body]) expect(JSON.stringify(body)).not.toContain('fixture-secret-route-value')
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
     it('rejects invalid worktree env passthrough names', async () => {
       const ctx = makeContext(db)
       const { app } = createApp(new Map([['proj-1', ctx]]))

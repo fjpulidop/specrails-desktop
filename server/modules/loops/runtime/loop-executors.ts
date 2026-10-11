@@ -179,6 +179,8 @@ export function createLoopExecutors(
      *  package inside a larger git checkout, an isolated worktree run passes it to Core as scope. */
     workspacePaths?: () => string[] | undefined
     sourcePath?: () => string | undefined
+    /** Value-free run-log warning for unresolved project environment names. */
+    environmentNotice?: () => string | null
   } = {},
 ): LoopExecutors {
   const resolveEnv = (): NodeJS.ProcessEnv =>
@@ -209,6 +211,7 @@ export function createLoopExecutors(
   const completionContexts = new Map<string, { cwd: string; contextPath: string; env: NodeJS.ProcessEnv; runId: string }>()
   const runtimeConfigPath = (cwd: string): string => join(opts.pluginScope?.().stateRoot ?? cwd, '.specrails', 'agent-runtime.json')
   return {
+    ...(opts.environmentNotice ? { environmentNotice: opts.environmentNotice } : {}),
     async cancelDefinition({ runId, contextPath, requestId }) {
       const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })

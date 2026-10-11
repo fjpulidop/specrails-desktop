@@ -280,12 +280,44 @@ describe('specrails_env tool', () => {
   it('is registered with read actions and write actions at the correct tiers', () => {
     const spec = envSpec()
     expect(spec).toBeTruthy()
-    expect(actionOptions(spec)).toEqual(['get', 'scan', 'set', 'auto_configure'])
+    expect(actionOptions(spec)).toEqual(['get', 'status', 'recheck', 'scan', 'set', 'auto_configure'])
     const tier = spec.tier as (a: Record<string, unknown>) => string
     expect(tier({ action: 'get' })).toBe('read')
+    expect(tier({ action: 'status' })).toBe('read')
+    expect(tier({ action: 'recheck' })).toBe('read')
     expect(tier({ action: 'scan' })).toBe('read')
     expect(tier({ action: 'set' })).toBe('write')
     expect(tier({ action: 'auto_configure' })).toBe('write')
+  })
+
+  it('get, status and recheck return names and states only, never values', async () => {
+    const leaky = {
+      loginShellRecovery: true, timeoutMs: 10000, checking: false,
+      names: [{ name: 'NODE_AUTH_TOKEN', status: 'recovered', shell: '/bin/zsh', checkedAt: '2026-10-09T00:00:00.000Z', exitCode: 1, value: 'fixture-secret-mcp-value' }],
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (String(url).endsWith('/settings')) return { ok: true, status: 200, text: async () => JSON.stringify({ worktreeEnvPassthrough: ['NODE_AUTH_TOKEN'] }) }
+      if (String(url).endsWith('/env-passthrough/status') && method === 'GET') return { ok: true, status: 200, text: async () => JSON.stringify(leaky) }
+      if (String(url).endsWith('/env-passthrough/recheck') && method === 'POST') return { ok: true, status: 200, text: async () => JSON.stringify(leaky) }
+      return { ok: false, status: 404, text: async () => JSON.stringify({ error: 'not found' }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const expected = { name: 'NODE_AUTH_TOKEN', status: 'recovered', shell: '/bin/zsh', checkedAt: '2026-10-09T00:00:00.000Z', exitCode: 1 }
+
+    const get = await envSpec().handler(ctx, { action: 'get', projectId: 'p1' })
+    expect(get).toEqual({ names: ['NODE_AUTH_TOKEN'], statuses: [expected] })
+    const status = await envSpec().handler(ctx, { action: 'status', projectId: 'p1' })
+    expect(status).toEqual({ checking: false, loginShellRecovery: true, timeoutMs: 10000, statuses: [expected] })
+    const recheck = await envSpec().handler(ctx, { action: 'recheck', projectId: 'p1' })
+    expect(recheck).toEqual(status)
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/env-passthrough/recheck') && (init as RequestInit | undefined)?.method === 'POST')).toBe(true)
+    for (const output of [get, status, recheck]) expect(JSON.stringify(output)).not.toContain('fixture-secret-mcp-value')
+  })
+
+  it('get still answers names when the status route is unavailable', async () => {
+    mockSettingsFetch(['AWS_PROFILE'])
+    await expect(envSpec().handler(ctx, { action: 'get', projectId: 'p1' })).resolves.toEqual({ names: ['AWS_PROFILE'] })
   })
 
   it('set merges requested names with existing settings and writes names only', async () => {

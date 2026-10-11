@@ -138,6 +138,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 |----------|--------|
 | `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@^5.1.0` — the 5.1.0 floor is the release that quotes the command path in its Windows shell runner, so OpenSpec init works from an install directory with spaces; it is also the version bundled with the app) |
 | `SPECRAILS_TECH_URL` | Override the specrails-tech proxy base URL |
+| `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for reading configured project environment names from your login shell (default `10000`, max `120000`). Raise it when the Environment card shows **Shell timed out**. See the [project environment guide](guide/en/settings/5-project-environment.md) |
 | `SPECRAILS_AGENTS_SECTION=false` | Hide the Agents section from every project |
 | `SPECRAILS_PLUGINS_SECTION=false` | Hide the Integrations section from every project |
 | `SPECRAILS_JIRA_SECTION=false` | Hide the Jira integration and 404 its routes |

@@ -217,6 +217,9 @@ export interface InteractiveAiStepPlan {
 }
 
 export interface LoopExecutors {
+  /** OPTIONAL: one value-free warning written to the run log at start when
+   *  configured project environment names are unresolved; null when none. */
+  environmentNotice?(): string | null
   assertDefinitionSupport?(graph?: LoopRunRequest['graph']): Promise<void>
   /** Rejects a legacy traversal when the active Core has no engine 1 (Core 7). */
   assertLegacyEngineSupport?(): Promise<void>
@@ -1424,6 +1427,9 @@ export class LoopRunManager {
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
     if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
+    let environmentNotice: string | null = null
+    try { environmentNotice = this.executors.environmentNotice?.() ?? null } catch { /* diagnostic only */ }
+    if (environmentNotice) logLine(environmentNotice, 'stderr')
     if (!definitionEngine && !usageTelemetryAvailable) {
       logLine(
         `⚠️ ${adapter.displayName} does not report token/cost usage in headless mode; usage totals will remain unavailable.` +

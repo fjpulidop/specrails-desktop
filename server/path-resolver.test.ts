@@ -10,6 +10,11 @@ import {
   augmentEnvFromLoginShell,
   augmentEnvFromLoginShellSync,
   readEnvFromLoginShellSync,
+  readEnvFromLoginShellSyncDetailed,
+  readEnvFromLoginShell,
+  resolveLoginShellProbeTimeoutMs,
+  hasCompleteLoginShellEnvBlock,
+  LOGIN_SHELL_PROBE_TIMEOUT_MS,
   parseLoginShellOutput,
   parseLoginShellEnv,
   getPathDiagnostic,
@@ -647,8 +652,8 @@ describe('readEnvFromLoginShellSync', () => {
   it.each(['timeout', 'nonzero', 'throw', 'empty'])('allows a subsequent read to recover after %s', (failure) => {
     const spawnSyncFn = vi.fn().mockImplementationOnce(() => {
       if (failure === 'throw') throw new Error('spawn failed')
-      if (failure === 'timeout') return { ...success(), error: new Error('ETIMEDOUT'), status: null }
-      if (failure === 'nonzero') return { ...success(), status: 1 }
+      if (failure === 'timeout') return { ...success(''), error: new Error('ETIMEDOUT'), status: null }
+      if (failure === 'nonzero') return { ...success('profile error without sentinels'), status: 1 }
       return success('__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=\n__SRH_ENV_END__')
     }).mockReturnValue(success())
     expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { timeoutMs: 25, spawnSyncFn: spawnSyncFn as any })).toEqual({})
@@ -659,7 +664,7 @@ describe('readEnvFromLoginShellSync', () => {
   })
 
   it('does not cache failed compatibility backfills forever', () => {
-    const spawnSyncFn = vi.fn().mockReturnValueOnce({ ...success(), status: 1 }).mockReturnValue(success())
+    const spawnSyncFn = vi.fn().mockReturnValueOnce({ ...success(''), status: 1 }).mockReturnValue(success())
     augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
     expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
     augmentEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })
@@ -674,6 +679,160 @@ describe('readEnvFromLoginShellSync', () => {
     const spawnSyncFn = vi.fn()
     expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toEqual({})
     expect(spawnSyncFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('login-shell env probe: sentinel acceptance and async budget', () => {
+  const BLOCK = '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=fixture-token\n__SRH_ENV_END__'
+  const syncResult = (over: Record<string, unknown> = {}) => ({ stdout: BLOCK, stderr: '', status: 0, signal: null, pid: 1, output: [], ...over })
+
+  /** Fake child that prints `stdout` after `delayMs`, then exits with `exitCode`. */
+  function delayedSpawn(opts: { stdout: string; exitCode: number | null; delayMs: number; hang?: boolean }) {
+    return vi.fn(() => {
+      const child: any = new EventEmitter()
+      child.stdout = new EventEmitter()
+      child.stderr = new EventEmitter()
+      child.kill = vi.fn(() => { setTimeout(() => child.emit('close', null), 0) })
+      setTimeout(() => {
+        if (opts.stdout) child.stdout.emit('data', Buffer.from(opts.stdout, 'utf-8'))
+        if (!opts.hang) child.emit('close', opts.exitCode)
+      }, opts.delayMs)
+      return child
+    })
+  }
+
+  beforeEach(() => {
+    __resetPathResolverForTest()
+    setPlatform('darwin')
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('VITEST', undefined)
+    vi.stubEnv('NODE_AUTH_TOKEN', undefined)
+    vi.stubEnv('SHELL', '/bin/zsh')
+    vi.stubEnv('SPECRAILS_LOGIN_SHELL_TIMEOUT_MS', undefined)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    setPlatform(ORIGINAL_PLATFORM)
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('defaults the async budget to 10 s and honours SPECRAILS_LOGIN_SHELL_TIMEOUT_MS', () => {
+    expect(LOGIN_SHELL_PROBE_TIMEOUT_MS).toBe(10_000)
+    expect(resolveLoginShellProbeTimeoutMs({})).toBe(10_000)
+    expect(resolveLoginShellProbeTimeoutMs({ SPECRAILS_LOGIN_SHELL_TIMEOUT_MS: '4000' })).toBe(4000)
+    expect(resolveLoginShellProbeTimeoutMs({ SPECRAILS_LOGIN_SHELL_TIMEOUT_MS: '0' })).toBe(10_000)
+    expect(resolveLoginShellProbeTimeoutMs({ SPECRAILS_LOGIN_SHELL_TIMEOUT_MS: 'abc' })).toBe(10_000)
+    expect(resolveLoginShellProbeTimeoutMs({ SPECRAILS_LOGIN_SHELL_TIMEOUT_MS: '99999999' })).toBe(120_000)
+  })
+
+  it('detects only a complete sentinel block', () => {
+    expect(hasCompleteLoginShellEnvBlock(BLOCK)).toBe(true)
+    expect(hasCompleteLoginShellEnvBlock('__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=x')).toBe(false)
+    expect(hasCompleteLoginShellEnvBlock('__SRH_ENV_END____SRH_ENV_BEGIN__')).toBe(false)
+  })
+
+  it('recovers a slow profile asynchronously where the 1.5 s sync budget times out', async () => {
+    vi.useFakeTimers()
+    const spawnFn = delayedSpawn({ stdout: BLOCK, exitCode: 0, delayMs: 4000 })
+    const pending = readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })
+    await vi.advanceTimersByTimeAsync(4000)
+    const probe = await pending
+    expect(probe).toEqual({ values: { NODE_AUTH_TOKEN: 'fixture-token' }, status: 'ok', exitCode: 0, shell: '/bin/zsh', names: ['NODE_AUTH_TOKEN'] })
+    expect(spawnFn).toHaveBeenCalledWith('/bin/zsh', ['-l', '-i', '-c', expect.stringContaining('NODE_AUTH_TOKEN')], expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }))
+    expect(process.env.NODE_AUTH_TOKEN).toBeUndefined()
+
+    // The same 4 s profile through the synchronous fallback is a timeout.
+    const timeoutError = Object.assign(new Error('spawnSync /bin/zsh ETIMEDOUT'), { code: 'ETIMEDOUT' })
+    const spawnSyncFn = vi.fn(() => syncResult({ stdout: '', status: null, signal: 'SIGTERM', error: timeoutError }))
+    expect(readEnvFromLoginShellSyncDetailed(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toMatchObject({ status: 'timeout', values: {} })
+    expect(spawnSyncFn.mock.calls[0]?.[2]).toMatchObject({ timeout: 1500, killSignal: 'SIGKILL' })
+  })
+
+  it('accepts a complete block from a profile that exits non-zero (async and sync)', async () => {
+    const spawnFn = vi.fn(makeFakeSpawn({ stdout: BLOCK, exitCode: 1 }))
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })).resolves.toMatchObject({
+      status: 'ok', exitCode: 1, values: { NODE_AUTH_TOKEN: 'fixture-token' },
+    })
+    const spawnSyncFn = vi.fn(() => syncResult({ status: 1 }))
+    expect(readEnvFromLoginShellSyncDetailed(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toMatchObject({
+      status: 'ok', exitCode: 1, values: { NODE_AUTH_TOKEN: 'fixture-token' },
+    })
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toEqual({ NODE_AUTH_TOKEN: 'fixture-token' })
+  })
+
+  it('reports a missing or truncated sentinel block as failed', async () => {
+    const missing = vi.fn(makeFakeSpawn({ stdout: 'zsh: compinit: insecure directories', exitCode: 0 }))
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: missing as any })).resolves.toMatchObject({ status: 'failed', values: {} })
+    const truncated = vi.fn(makeFakeSpawn({ stdout: '__SRH_ENV_BEGIN__NODE_AUTH_TOKEN=fixture-token\n', exitCode: 0 }))
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: truncated as any })).resolves.toMatchObject({ status: 'failed', values: {} })
+    const spawnSyncFn = vi.fn(() => syncResult({ stdout: 'no block' }))
+    expect(readEnvFromLoginShellSyncDetailed(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toMatchObject({ status: 'failed' })
+  })
+
+  it('reports a spawn error as failed', async () => {
+    const throwing = vi.fn(() => { throw new Error('ENOENT') })
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: throwing as any })).resolves.toMatchObject({ status: 'failed', shell: '/bin/zsh' })
+    const erroring = vi.fn(() => {
+      const child: any = new EventEmitter()
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.kill = vi.fn()
+      setImmediate(() => child.emit('error', new Error('EACCES')))
+      return child
+    })
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: erroring as any })).resolves.toMatchObject({ status: 'failed' })
+    const syncThrow = vi.fn(() => { throw new Error('ENOENT') })
+    expect(readEnvFromLoginShellSyncDetailed(['NODE_AUTH_TOKEN'], { spawnSyncFn: syncThrow as any })).toMatchObject({ status: 'failed' })
+  })
+
+  it('kills a hung probe at the timeout and reports probe timeout', async () => {
+    vi.useFakeTimers()
+    const spawnFn = delayedSpawn({ stdout: '', exitCode: null, delayMs: 0, hang: true })
+    const pending = readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any, timeoutMs: 250 })
+    await vi.advanceTimersByTimeAsync(300)
+    await expect(pending).resolves.toMatchObject({ status: 'timeout', values: {}, exitCode: null })
+    const child = spawnFn.mock.results[0]?.value as { kill: ReturnType<typeof vi.fn> }
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+  })
+
+  it('accepts a block printed before a hung exit hook when the timeout fires', async () => {
+    vi.useFakeTimers()
+    const spawnFn = delayedSpawn({ stdout: BLOCK, exitCode: null, delayMs: 10, hang: true })
+    const pending = readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any, timeoutMs: 250 })
+    await vi.advanceTimersByTimeAsync(300)
+    await expect(pending).resolves.toMatchObject({ status: 'ok', values: { NODE_AUTH_TOKEN: 'fixture-token' } })
+  })
+
+  it('ignores banners printed before the block', async () => {
+    const stdout = 'Welcome back!\n\u001b[32mpowerlevel10k\u001b[0m instant prompt\n' + BLOCK + '\ntrailing prompt %'
+    const spawnFn = vi.fn(makeFakeSpawn({ stdout, exitCode: 0 }))
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })).resolves.toMatchObject({ status: 'ok', values: { NODE_AUTH_TOKEN: 'fixture-token' } })
+    const spawnSyncFn = vi.fn(() => syncResult({ stdout }))
+    expect(readEnvFromLoginShellSync(['NODE_AUTH_TOKEN'], { spawnSyncFn: spawnSyncFn as any })).toEqual({ NODE_AUTH_TOKEN: 'fixture-token' })
+  })
+
+  it('caps captured output at 1 MiB and kills a runaway profile', async () => {
+    const huge = 'x'.repeat(1024 * 1024 + 10)
+    const spawnFn = vi.fn(() => {
+      const child: any = new EventEmitter()
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter()
+      child.kill = vi.fn(() => setImmediate(() => child.emit('close', null)))
+      setImmediate(() => { child.stdout.emit('data', Buffer.from(huge)); child.stdout.emit('data', Buffer.from(BLOCK)) })
+      return child
+    })
+    const probe = await readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })
+    expect(probe.status).toBe('failed')
+    expect((spawnFn.mock.results[0]?.value as { kill: ReturnType<typeof vi.fn> }).kill).toHaveBeenCalled()
+  })
+
+  it('skips without spawning on Windows, in tests or when nothing is missing', async () => {
+    const spawnFn = vi.fn()
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { env: { NODE_AUTH_TOKEN: 'explicit' }, spawnFn: spawnFn as any })).resolves.toMatchObject({ status: 'skipped', shell: null })
+    setPlatform('win32')
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })).resolves.toMatchObject({ status: 'skipped' })
+    setPlatform('darwin')
+    vi.stubEnv('VITEST', 'true')
+    await expect(readEnvFromLoginShell(['NODE_AUTH_TOKEN'], { spawnFn: spawnFn as any })).resolves.toMatchObject({ status: 'skipped' })
+    expect(spawnFn).not.toHaveBeenCalled()
   })
 })
 

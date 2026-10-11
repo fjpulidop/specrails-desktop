@@ -294,7 +294,30 @@
     "saved": "Ambiente dos worktrees guardado",
     "saveFailed": "Não foi possível guardar o ambiente dos worktrees",
     "invalidName": "{{name}} não é um nome válido de variável de ambiente",
-    "noValues": "Adicione apenas nomes de variáveis, não segredos KEY=value."
+    "noValues": "Adicione apenas nomes de variáveis, não segredos KEY=value.",
+    "status": {
+      "inherited": "Herdada",
+      "recovered": "Do login shell",
+      "notDefined": "Não definida",
+      "probeTimeout": "Tempo do shell esgotado",
+      "probeFailed": "Falha ao ler o shell",
+      "pending": "Verificando…"
+    },
+    "hint": {
+      "defaultShell": "seu login shell",
+      "inherited": "Disponível no ambiente com que o Specrails foi iniciado.",
+      "recovered": "Recuperada de {{shell}}. As execuções a recebem automaticamente; o valor nunca é exibido.",
+      "notDefined": "{{shell}} não exporta {{name}}. Adicione um export no perfil do shell e verifique novamente.",
+      "notDefinedInherited": "{{name}} não está definida no ambiente com que o Specrails foi iniciado. Defina-a lá e reinicie o Specrails.",
+      "probeTimeout": "{{shell}} levou mais de {{seconds}} s para iniciar. Acelere o perfil ou aumente SPECRAILS_LOGIN_SHELL_TIMEOUT_MS e verifique novamente.",
+      "probeFailed": "O Specrails não conseguiu ler {{shell}}. Corrija o perfil ou abra o Specrails a partir de um terminal e verifique novamente.",
+      "pending": "O Specrails está lendo seu login shell."
+    },
+    "recheck": "Verificar novamente",
+    "checking": "Verificando…",
+    "lastChecked": "Última verificação às {{time}}",
+    "statusUnavailable": "Não foi possível ler o estado do ambiente.",
+    "unresolvedTitle": "As execuções começam sem estas variáveis:"
   },
   "effects": {
     "heading": "Efeitos",

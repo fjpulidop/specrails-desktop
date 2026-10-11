@@ -594,18 +594,151 @@ export async function augmentEnvFromLoginShell(
   })
 }
 
-/** Read missing configured names without mutating the caller's or global env.
- * Callers own any cache so project credentials cannot leak across scopes. */
-export function readEnvFromLoginShellSync(
+/** Default budget for the asynchronous project-env probe. Real interactive
+ * profiles (oh-my-zsh, nvm, powerlevel10k, conda) routinely exceed 1.5 s. */
+export const LOGIN_SHELL_PROBE_TIMEOUT_MS = 10_000
+const LOGIN_SHELL_PROBE_MAX_TIMEOUT_MS = 120_000
+const LOGIN_SHELL_OUTPUT_CAP = 1024 * 1024
+
+/** `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` overrides the asynchronous probe budget.
+ * Invalid or non-positive values fall back to the 10 s default; values are
+ * capped at 2 minutes so a typo cannot park a probe forever. */
+export function resolveLoginShellProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.SPECRAILS_LOGIN_SHELL_TIMEOUT_MS?.trim()
+  if (!raw || !/^\d+$/.test(raw)) return LOGIN_SHELL_PROBE_TIMEOUT_MS
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return LOGIN_SHELL_PROBE_TIMEOUT_MS
+  return Math.min(value, LOGIN_SHELL_PROBE_MAX_TIMEOUT_MS)
+}
+
+/** Outcome of one login-shell env probe. `ok` means the sentinel block was
+ * complete (whatever the exit status); `skipped` means no probe was needed or
+ * allowed (Windows, tests, nothing missing). Never contains anything but the
+ * requested names' values, which callers must keep out of logs and payloads. */
+export type LoginShellEnvProbeStatus = 'ok' | 'timeout' | 'failed' | 'skipped'
+
+export interface LoginShellEnvProbe {
+  /** Recovered non-empty values for the probed names only. */
+  values: Record<string, string>
+  status: LoginShellEnvProbeStatus
+  /** Shell exit code; a diagnostic only (null when killed or not spawned). */
+  exitCode: number | null
+  /** Shell executable used, or null when no probe ran. */
+  shell: string | null
+  /** Normalized names the probe actually asked for (missing from the env). */
+  names: string[]
+}
+
+/** True when the probe output contains the complete env sentinel block. The
+ * block is the proof that the printf ran, independent of the shell's status. */
+export function hasCompleteLoginShellEnvBlock(stdout: string): boolean {
+  const begin = stdout.indexOf(ENV_BEGIN)
+  return begin !== -1 && stdout.indexOf(ENV_END, begin + ENV_BEGIN.length) !== -1
+}
+
+function loginShellProbeSkipped(names: string[] = []): LoginShellEnvProbe {
+  return { values: {}, status: 'skipped', exitCode: null, shell: null, names }
+}
+
+function pickRecovered(stdout: string, wanted: readonly string[]): Record<string, string> {
+  const recovered = parseLoginShellEnv(stdout)
+  const out: Record<string, string> = {}
+  for (const key of wanted) {
+    const val = recovered[key]
+    if (val) out[key] = val
+  }
+  return out
+}
+
+function settleLoginShellProbe(stdout: string, wanted: string[], shell: string, exitCode: number | null, timedOut: boolean): LoginShellEnvProbe {
+  if (hasCompleteLoginShellEnvBlock(stdout)) {
+    return { values: pickRecovered(stdout, wanted), status: 'ok', exitCode, shell, names: wanted }
+  }
+  return { values: {}, status: timedOut ? 'timeout' : 'failed', exitCode, shell, names: wanted }
+}
+
+function wantedLoginShellNames(names: readonly string[], env: NodeJS.ProcessEnv): string[] | null {
+  if (process.platform === 'win32') return null
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return null
+  return normalizeLoginShellEnvNames(names).filter((name) => !env[name])
+}
+
+/** Asynchronously read missing configured names from the login shell without
+ * blocking the event loop or mutating any environment. Values from a complete
+ * sentinel block are accepted regardless of the shell's exit status. Output is
+ * capped at 1 MiB; the child is killed at the timeout. Callers own any cache. */
+export function readEnvFromLoginShell(
+  names: readonly string[],
+  opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number; spawnFn?: SpawnFn } = {},
+): Promise<LoginShellEnvProbe> {
+  const env = opts.env ?? process.env
+  const wanted = wantedLoginShellNames(names, env)
+  if (wanted === null) return Promise.resolve(loginShellProbeSkipped())
+  if (wanted.length === 0) return Promise.resolve(loginShellProbeSkipped(wanted))
+
+  const spawnFn = opts.spawnFn ?? spawn
+  const timeoutMs = opts.timeoutMs ?? resolveLoginShellProbeTimeoutMs(env)
+  const shell = resolveLoginShell(env)
+  const command = buildLoginShellEnvCommand(wanted)
+
+  return new Promise<LoginShellEnvProbe>((resolve) => {
+    let child: ChildProcess
+    try {
+      child = spawnFn(shell, ['-l', '-i', '-c', command], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+    } catch {
+      resolve({ values: {}, status: 'failed', exitCode: null, shell, names: wanted })
+      return
+    }
+
+    let stdout = ''
+    let timedOut = false
+    let settled = false
+    const kill = () => { try { child.kill('SIGKILL') } catch { /* ignore */ } }
+    const timer = setTimeout(() => {
+      timedOut = true
+      kill()
+      // Settle now: a background job started by the profile can keep the pipes
+      // (and so 'close') open long after the shell itself was killed. A complete
+      // block printed before a hung exit hook is still a success.
+      finish(null)
+    }, timeoutMs)
+    const finish = (exitCode: number | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(settleLoginShellProbe(stdout, wanted, shell, exitCode, timedOut))
+    }
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      if (stdout.length >= LOGIN_SHELL_OUTPUT_CAP) return
+      stdout += chunk.toString('utf-8')
+      if (stdout.length >= LOGIN_SHELL_OUTPUT_CAP) {
+        stdout = stdout.slice(0, LOGIN_SHELL_OUTPUT_CAP)
+        if (!hasCompleteLoginShellEnvBlock(stdout)) kill()
+      }
+    })
+    child.stderr?.on('data', () => { /* discard: profiles print noise; values never go to stderr */ })
+    child.on('error', () => finish(null))
+    child.on('close', (code: number | null) => finish(typeof code === 'number' ? code : null))
+  })
+}
+
+function isSpawnSyncTimeout(res: SpawnSyncReturns<string | Buffer>): boolean {
+  const error = res.error as NodeJS.ErrnoException | undefined
+  return Boolean(error && (error.code === 'ETIMEDOUT' || /ETIMEDOUT/.test(error.message)))
+}
+
+/** Synchronous, detailed variant used only as the cold fallback at spawn time.
+ * Keeps the short 1.5 s budget so a cold spawn never freezes the server for
+ * long, and accepts a complete sentinel block regardless of exit status. */
+export function readEnvFromLoginShellSyncDetailed(
   names: readonly string[],
   opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
-): NodeJS.ProcessEnv {
-  if (process.platform === 'win32') return {}
-  if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') return {}
-
+): LoginShellEnvProbe {
   const env = opts.env ?? process.env
-  const wanted = normalizeLoginShellEnvNames(names).filter((name) => !env[name])
-  if (wanted.length === 0) return {}
+  const wanted = wantedLoginShellNames(names, env)
+  if (wanted === null) return loginShellProbeSkipped()
+  if (wanted.length === 0) return loginShellProbeSkipped(wanted)
 
   const spawnSyncFn = opts.spawnSyncFn ?? spawnSync
   const timeoutMs = opts.timeoutMs ?? LOGIN_SHELL_TIMEOUT_MS
@@ -618,20 +751,24 @@ export function readEnvFromLoginShellSync(
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: 1024 * 1024,
+      // An interactive shell can ignore SIGTERM; the cold fallback must stay bounded.
+      killSignal: 'SIGKILL',
+      maxBuffer: LOGIN_SHELL_OUTPUT_CAP,
     })
   } catch {
-    return {}
+    return { values: {}, status: 'failed', exitCode: null, shell, names: wanted }
   }
-  if (res.error || res.status !== 0) return {}
   const stdout = typeof res.stdout === 'string' ? res.stdout : res.stdout?.toString('utf8') ?? ''
-  const recovered = parseLoginShellEnv(stdout)
-  const out: NodeJS.ProcessEnv = {}
-  for (const key of wanted) {
-    const val = recovered[key]
-    if (val) out[key] = val
-  }
-  return out
+  return settleLoginShellProbe(stdout, wanted, shell, typeof res.status === 'number' ? res.status : null, isSpawnSyncTimeout(res))
+}
+
+/** Read missing configured names without mutating the caller's or global env.
+ * Callers own any cache so project credentials cannot leak across scopes. */
+export function readEnvFromLoginShellSync(
+  names: readonly string[],
+  opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number; spawnSyncFn?: typeof spawnSync } = {},
+): NodeJS.ProcessEnv {
+  return readEnvFromLoginShellSyncDetailed(names, opts).values
 }
 
 /** Compatibility backfill for callers that intentionally augment process.env.

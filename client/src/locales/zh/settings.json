@@ -294,7 +294,30 @@
     "saved": "Worktree 环境已保存",
     "saveFailed": "无法保存 Worktree 环境",
     "invalidName": "{{name}} 不是有效的环境变量名",
-    "noValues": "这里只添加变量名，不要添加 KEY=value 形式的密钥。"
+    "noValues": "这里只添加变量名，不要添加 KEY=value 形式的密钥。",
+    "status": {
+      "inherited": "已继承",
+      "recovered": "来自登录 shell",
+      "notDefined": "未定义",
+      "probeTimeout": "Shell 超时",
+      "probeFailed": "Shell 读取失败",
+      "pending": "检查中…"
+    },
+    "hint": {
+      "defaultShell": "你的登录 shell",
+      "inherited": "在 Specrails 启动时的环境中可用。",
+      "recovered": "已从 {{shell}} 恢复。运行会自动获得它；值从不显示。",
+      "notDefined": "{{shell}} 没有导出 {{name}}。请在 shell 配置文件中添加 export，然后重新检查。",
+      "notDefinedInherited": "{{name}} 未在 Specrails 启动时的环境中设置。请在那里设置并重启 Specrails。",
+      "probeTimeout": "{{shell}} 启动耗时超过 {{seconds}} 秒。请精简配置文件或调高 SPECRAILS_LOGIN_SHELL_TIMEOUT_MS，然后重新检查。",
+      "probeFailed": "Specrails 无法读取 {{shell}}。请修复配置文件或从终端启动 Specrails，然后重新检查。",
+      "pending": "Specrails 正在读取你的登录 shell。"
+    },
+    "recheck": "重新检查",
+    "checking": "检查中…",
+    "lastChecked": "上次检查于 {{time}}",
+    "statusUnavailable": "无法读取环境状态。",
+    "unresolvedTitle": "以下变量缺失时运行仍会开始："
   },
   "effects": {
     "heading": "效果",

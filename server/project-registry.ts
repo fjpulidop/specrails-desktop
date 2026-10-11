@@ -37,7 +37,7 @@ import {
   type ProjectEntry,
 } from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
-import { applyWorktreeEnvPassthrough } from './project-env'
+import { applyWorktreeEnvPassthrough, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
@@ -440,6 +440,8 @@ export class ProjectRegistry {
       try { dropPhaseScope(id) } catch { /* ignore */ }
       // Drop any in-memory telemetry BlobState entries for this project.
       try { dropBlobStatesForProject(id) } catch { /* ignore */ }
+      // Stop the login-shell env refresh and forget recovered values.
+      try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       this._contexts.delete(id)
@@ -630,6 +632,7 @@ export class ProjectRegistry {
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
+      try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
     }
     // Close the shared browser context once, after every per-project manager has
@@ -1178,6 +1181,8 @@ export class ProjectRegistry {
         undefined,
         applyWorktreeEnvPassthrough(db, process.env),
       ),
+      // One value-free run-log line when configured names are unresolved.
+      environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),
       // Named rail profiles and global per-agent defaults ride the same
       // SPECRAILS_PROFILE_PATH snapshot in both AI transports. An explicit null
       // rail selection opts out; omitted selections keep Core's default rules.
@@ -1492,6 +1497,9 @@ export class ProjectRegistry {
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
     ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
+    // Warm the project's login-shell env cache off the event loop so the first
+    // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
+    startProjectEnvWarmup(db)
     const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => {
       if (this._contexts.get(project.id) !== ctx) return
       const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns, definitionStates)

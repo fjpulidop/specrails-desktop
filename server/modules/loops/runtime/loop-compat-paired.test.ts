@@ -11,7 +11,7 @@ import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from './loop-compat'
 import { compileLoopToDefinition } from './loop-definition'
 import { initDb, updateProjectSettings } from '../../../db'
 import { applyWorktreeEnvPassthrough } from '../../../project-env'
-import { readEnvFromLoginShellSync } from '../../../path-resolver'
+import { readEnvFromLoginShellSyncDetailed } from '../../../path-resolver'
 import { LoopRunManager } from './loop-run-manager'
 import { getLoopRun } from './loop-runs-store'
 import { FACTORY_LOOPS } from './loop-factory'
@@ -21,7 +21,7 @@ import type { LoopGraph } from './loop-graph'
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
 vi.mock('../../../path-resolver', async original => ({
   ...await original<typeof import('../../../path-resolver')>(),
-  readEnvFromLoginShellSync: vi.fn(),
+  readEnvFromLoginShellSyncDetailed: vi.fn(),
 }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', async original => {
   const selected = new Map<string, string>()
@@ -125,7 +125,7 @@ paired('inherits the parent project shell credential in both repository worktree
   const credential = 'fictitious-parent-project-token-for-pairing'
   const credentialName = 'NODE_AUTH_TOKEN'
   vi.stubEnv(credentialName, undefined)
-  vi.mocked(readEnvFromLoginShellSync).mockReturnValue({ [credentialName]: credential })
+  vi.mocked(readEnvFromLoginShellSyncDetailed).mockReturnValue({ values: { [credentialName]: credential }, status: 'ok', exitCode: 0, shell: '/bin/zsh', names: [credentialName] })
   const db = initDb(':memory:')
   try {
     updateProjectSettings(db, { worktreeEnvPassthrough: [credentialName] })

@@ -294,7 +294,30 @@
     "saved": "Worktree environment saved",
     "saveFailed": "Could not save the worktree environment",
     "invalidName": "{{name}} is not a valid environment variable name",
-    "noValues": "Add only variable names here, not KEY=value secrets."
+    "noValues": "Add only variable names here, not KEY=value secrets.",
+    "status": {
+      "inherited": "Inherited",
+      "recovered": "From login shell",
+      "notDefined": "Not defined",
+      "probeTimeout": "Shell timed out",
+      "probeFailed": "Shell check failed",
+      "pending": "Checking…"
+    },
+    "hint": {
+      "defaultShell": "your login shell",
+      "inherited": "Available in the environment Specrails started with.",
+      "recovered": "Recovered from {{shell}}. Runs receive it automatically; the value is never shown.",
+      "notDefined": "{{shell}} does not export {{name}}. Add an export for it to your shell profile, then check again.",
+      "notDefinedInherited": "{{name}} is not set in the environment Specrails started with. Set it there and restart Specrails.",
+      "probeTimeout": "{{shell}} took longer than {{seconds}} s to start. Speed up the profile or raise SPECRAILS_LOGIN_SHELL_TIMEOUT_MS, then check again.",
+      "probeFailed": "Specrails could not read {{shell}}. Fix the profile or launch Specrails from a terminal, then check again.",
+      "pending": "Specrails is reading your login shell."
+    },
+    "recheck": "Check again",
+    "checking": "Checking…",
+    "lastChecked": "Last checked at {{time}}",
+    "statusUnavailable": "Could not read the environment status.",
+    "unresolvedTitle": "Runs start without these variables:"
   },
   "effects": {
     "heading": "Effects",

@@ -30,3 +30,34 @@ export function registerProjectSettingsHttp(
     }
   })
 }
+
+/** Value-free resolution status of the configured environment names. The
+ * composition binds it to the project's runtime environment cache. */
+export interface EnvPassthroughStatusHttpPort {
+  /** Current statuses; probes first only when a name has no valid record. */
+  read(request: Request): Promise<unknown>
+  /** Probe immediately, then return the updated statuses. */
+  recheck(request: Request): Promise<unknown>
+}
+
+/** Inbound adapter for `GET /:projectId/env-passthrough/status` and
+ * `POST /:projectId/env-passthrough/recheck`. Responses carry names and
+ * states only; values never reach this adapter. */
+export function registerEnvPassthroughStatusHttp(router: Router, port: EnvPassthroughStatusHttpPort): void {
+  router.get('/:projectId/env-passthrough/status', async (req, res) => {
+    try {
+      res.json(await port.read(req))
+    } catch (error) {
+      console.error('[project-router] env status error:', error)
+      res.status(500).json({ error: 'Failed to read environment status' })
+    }
+  })
+  router.post('/:projectId/env-passthrough/recheck', async (req, res) => {
+    try {
+      res.json(await port.recheck(req))
+    } catch (error) {
+      console.error('[project-router] env recheck error:', error)
+      res.status(500).json({ error: 'Failed to recheck environment' })
+    }
+  })
+}

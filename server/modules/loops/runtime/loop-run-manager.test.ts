@@ -973,6 +973,27 @@ describe('LoopRunManager', () => {
     expect(res.outcome).toBe('stopped')
   })
 
+  it('writes the environment notice once to the run log and still runs every step', async () => {
+    const notice = '[environment] NODE_AUTH_TOKEN not available (probe-failed); configure it in the login shell or launch from a terminal'
+    const environmentNotice = vi.fn(() => notice)
+    const ex = makeExecutors({ environmentNotice })
+    const result = await manager(ex).run(baseReq())
+    expect(result.outcome).toBe('success')
+    expect(environmentNotice).toHaveBeenCalledTimes(1)
+    const lines = broadcasts.filter((m) => m.type === 'log').map((m) => (m as { line: string; source: string }))
+    expect(lines.filter((l) => l.line === notice)).toEqual([expect.objectContaining({ source: 'stderr' })])
+    expect(ex.runAiStep).toHaveBeenCalled()
+  })
+
+  it('writes no environment line when the notice is null or throws', async () => {
+    for (const environmentNotice of [vi.fn(() => null), vi.fn(() => { throw new Error('settings unavailable') })]) {
+      broadcasts = []
+      const result = await manager(makeExecutors({ environmentNotice })).run(baseReq())
+      expect(result.outcome).toBe('success')
+      expect(broadcasts.some((m) => m.type === 'log' && String((m as { line?: string }).line).startsWith('[environment]'))).toBe(false)
+    }
+  })
+
   it('broadcasts run_started, run_progress and run_completed', async () => {
     await manager(makeExecutors()).run(baseReq())
     const types = broadcasts.map((m) => m.type)

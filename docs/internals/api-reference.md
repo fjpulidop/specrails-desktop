@@ -435,7 +435,9 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
-| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions |
+| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery |
+| `GET` | `/env-passthrough/status` | Value-free resolution status of every configured `worktreeEnvPassthrough` name: `{ loginShellRecovery, timeoutMs, checking, names: [{ name, status, shell, checkedAt, exitCode }] }`. `status` is `inherited`, `recovered`, `not-defined`, `probe-timeout`, `probe-failed`, or `pending` for a name never checked. Probes first only when a missing name has no valid cached result. Never returns values |
+| `POST` | `/env-passthrough/recheck` | Probe the login shell now (asynchronously, `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS`, default 10 s), then return the same payload as the status route |
 | `GET` | `/terminal-settings` | Per-project terminal overrides |
 | `PATCH` | `/terminal-settings` | Update |
 | `GET` | `/agent-models` | Per-agent model overrides |
