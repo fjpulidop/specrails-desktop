@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1044 source/build files. Nearby tests are linked where names
+Includes 1045 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -844,6 +844,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
 - [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
+- [ftps-upload.sh](../../scripts/ftps-upload.sh)
 - [generate-core-event-fixture.mjs](../../scripts/generate-core-event-fixture.mjs)
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
