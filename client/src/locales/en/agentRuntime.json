@@ -506,6 +506,11 @@
         "title": "Distrust a green exit code that reports failures",
         "description": "A verification command that exits 0 while its output prints failures (`FAIL:` lines, \"3 failed\", an AssertionError) is treated as FAILED and handed to the fixer with the harness named as the defect.",
         "why": "A hand-rolled test runner that never sets a non-zero exit code once shipped three red tests as green."
+      },
+      "verification-output-adoption": {
+        "title": "Adopt output the checks write themselves",
+        "description": "When verification passes but its own commands rewrite tracked files (a lint step regenerating a mapping), the host keeps those files in the candidate and verifies once more; the reviewer and fixer must not revert them.",
+        "why": "A lint pre-step that regenerated a tracked file made every green run look like a changed candidate, burning corrections on a non-defect."
       }
     }
   },
