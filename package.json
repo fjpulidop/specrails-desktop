@@ -72,7 +72,7 @@
     "tree-kill": "^1.2.2",
     "werift": "^0.23.0",
     "ws": "^8.22.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@babel/parser": "^7.29.9",
