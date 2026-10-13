@@ -54,6 +54,16 @@ real committed full verification and the reviewed/approved candidate before
 publishing the recoverable write set. The final host check certifies the archived
 candidate. Reviewer assertions remain AI evidence and cannot create verification.
 
+A failed archive returns to verification only when the gate reports a stale or
+unverified candidate (`unverified`/`candidate_changed`), at most twice
+(`archiveRetries`). Any other archive failure, such as OpenSpec rejecting a rebuilt
+main spec, repeats identically. Implement ends at `archive-failed` with
+the run log pointing at OpenSpec's reason, instead of looping through verification,
+review and archive until the transition budget runs out. Core's `openspec-validate`
+dry-runs the archive before the plan freezes, so most such specs return to the
+Architect with the offending requirement named. Edited built-in loops keep their
+saved graph: restore or re-edit them to pick up recipe changes.
+
 Implement checks the host candidate hash after each correction. When verification
 failed and the correction leaves that candidate unchanged, it ends unsuccessfully
 with the corrector's explanation instead of rerunning the same failed checks.
