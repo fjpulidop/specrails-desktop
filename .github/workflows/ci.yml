@@ -313,7 +313,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: coverage-server-shard-*
           path: ${{ runner.temp }}/coverage-shards
@@ -342,7 +342,7 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci --prefix client
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: coverage-client-shard-*
           path: ${{ runner.temp }}/coverage-shards
