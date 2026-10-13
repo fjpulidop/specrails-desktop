@@ -607,6 +607,13 @@
     "inheritProvider": "Heredar proveedor de la misión",
     "inheritDefinition": "Sigue la definición de Core: cada actualización de Core la renueva automáticamente.",
     "customizeDefinition": "Personalizar para este loop",
-    "coreDefinitionUnavailable": "Vista previa no disponible hasta instalar un runtime de Core."
+    "coreDefinitionUnavailable": "Vista previa no disponible hasta instalar un runtime de Core.",
+    "turnLimits": {
+      "title": "Límites de turnos",
+      "hint": "Cada llamada a una herramienta del agente cuenta como un turno. Si un paso se detiene con \"reached the configured limit of N turns\", sube aquí su límite, guarda y publica; los lanzamientos nuevos lo usarán. Vacío usa el valor por defecto de Core ({{turns}}). Los Ajustes del proyecto no cambian las ejecuciones de loops.",
+      "role": "Rol {{role}}",
+      "input": "Máximo de turnos de {{steps}} (rol {{role}})",
+      "stepHint": "El rol {{role}} se detiene tras {{turns}} turnos. Los pasos que comparten este rol comparten el límite; se aplica a los lanzamientos nuevos tras publicar."
+    }
   }
 }

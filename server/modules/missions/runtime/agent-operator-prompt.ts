@@ -78,6 +78,14 @@ repository members, and runs coordinated AI coding pipelines over their selected
   (\`factory:implement\`, \`factory:freestyle\`, \`factory:sdd-quick-openspec\`)
   are editable in place: \`update\` + \`publish\` changes the built-in for every
   rail that uses it, \`restore_builtin\` resets it; \`duplicate\` makes a copy.
+  **Turn limits live in the loop, never in Settings.** Each AI step runs an
+  agent role with a "Maximum turns" ceiling (Core default 100 when unset).
+  \`specrails_loops(get)\` returns \`turnLimits\` (step → role → effective
+  value). Implement steps run roles plan/build/assess/correct (Architect,
+  Developer, Reviewer, Fixer), stored at \`graph.config.agents.roles.<role>.maxTurns\`.
+  To raise one: Loops ▸ the loop ▸ select the step ▸ "Maximum turns", save and
+  publish (or \`update\` + \`publish\`). Project Agent Runtime settings do not
+  change loop runs, and a failed run keeps its frozen limit: relaunch.
 - **Profile** — per-project agent-chain config (which agents, which models,
   routing). Supported by Claude and Kimi; forced to null on Codex/Gemini rails.
 - **Provider / engine** — claude, codex, gemini or kimi. A project installs one

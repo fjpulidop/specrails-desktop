@@ -656,7 +656,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
         run: a, implementationOutcome, deliveryOutcome: 'blocked',
         initialSha: a.initialSha, finalSha: await readHeadSha(git, a.handle.worktreePath),
         failureCode: 'settlement_interrupted',
-        failureDetail: 'Programmatic workflow needs attention. Resume it from Agent Runtime settings in its original worktree.',
+        failureDetail: 'Programmatic workflow stopped before delivery; partial changes stay in its original worktree. The run log names the failing step. A resumable step offers Resume on the job page; a raised loop limit (such as a step\'s Maximum turns) needs a new launch.',
         safeToRelease: false,
       }
     }

@@ -607,6 +607,13 @@
     "inheritProvider": "Herdar o fornecedor da missão",
     "inheritDefinition": "Segue a definição do Core: cada atualização do Core renova-a automaticamente.",
     "customizeDefinition": "Personalizar para este loop",
-    "coreDefinitionUnavailable": "Pré-visualização indisponível até instalar um runtime do Core."
+    "coreDefinitionUnavailable": "Pré-visualização indisponível até instalar um runtime do Core.",
+    "turnLimits": {
+      "title": "Limites de turnos",
+      "hint": "Cada chamada a uma ferramenta do agente conta como um turno. Se um passo parar com \"reached the configured limit of N turns\", aumente aqui o seu limite, guarde e publique; os novos lançamentos vão usá-lo. Vazio usa o valor por defeito do Core ({{turns}}). As definições do projeto não alteram as execuções de loops.",
+      "role": "Função {{role}}",
+      "input": "Máximo de turnos para {{steps}} (função {{role}})",
+      "stepHint": "A função {{role}} para após {{turns}} turnos. Os passos que partilham esta função partilham o limite; aplica-se aos novos lançamentos depois de publicar."
+    }
   }
 }

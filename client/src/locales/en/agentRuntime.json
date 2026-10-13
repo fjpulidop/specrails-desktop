@@ -607,6 +607,13 @@
     "inheritProvider": "Inherit mission provider",
     "inheritDefinition": "Follows the Core definition: every Core upgrade updates it automatically.",
     "customizeDefinition": "Customize for this loop",
-    "coreDefinitionUnavailable": "Preview unavailable until a Core runtime is installed."
+    "coreDefinitionUnavailable": "Preview unavailable until a Core runtime is installed.",
+    "turnLimits": {
+      "title": "Turn limits",
+      "hint": "Each tool call an agent makes counts as a turn. When a step stops with \"reached the configured limit of N turns\", raise that step here, save and publish; new launches use it. Empty uses Core's default ({{turns}}). Project Settings do not change loop runs.",
+      "role": "Role {{role}}",
+      "input": "Maximum turns for {{steps}} (role {{role}})",
+      "stepHint": "Role {{role}} stops after {{turns}} turns. Steps sharing this role share the limit; it applies to new launches after you publish."
+    }
   }
 }

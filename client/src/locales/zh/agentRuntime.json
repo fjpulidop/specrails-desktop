@@ -607,6 +607,13 @@
     "inheritProvider": "继承任务的提供商",
     "inheritDefinition": "跟随 Core 定义：每次升级 Core 都会自动更新。",
     "customizeDefinition": "为此循环自定义",
-    "coreDefinitionUnavailable": "安装 Core 运行时后才能预览。"
+    "coreDefinitionUnavailable": "安装 Core 运行时后才能预览。",
+    "turnLimits": {
+      "title": "轮数上限",
+      "hint": "智能体每调用一次工具计为一轮。如果某个步骤因 \"reached the configured limit of N turns\" 而停止，请在此提高其上限，保存并发布；新的启动将使用该值。留空则使用 Core 默认值（{{turns}}）。项目设置不会改变循环的运行。",
+      "role": "角色 {{role}}",
+      "input": "{{steps}} 的最大轮数（角色 {{role}}）",
+      "stepHint": "角色 {{role}} 在 {{turns}} 轮后停止。使用此角色的步骤共享该上限；发布后对新的启动生效。"
+    }
   }
 }

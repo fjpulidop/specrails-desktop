@@ -11,6 +11,8 @@ import { RuntimeEfficiencyControls } from '../../settings/components/RuntimeEffi
 import { REVIEW_ASPECTS, REVIEW_THRESHOLD_DEFAULTS, type RuntimeAgent, type RuntimeProvider, type AgentRuntimeConfig } from '../../settings/lib/agent-runtime'
 import { modelsForProvider } from '../lib/loop-run-models'
 import { loopAgentRoles } from '../lib/core-authoring'
+import { CORE_DEFAULT_MAX_TURNS, roleAgent, withRoleAgent } from '../lib/loop-role-agents'
+import { LoopTurnLimits } from './LoopTurnLimits'
 import type { LoopGraph, LoopAgentConfig } from '../lib/loops-api'
 
 const field = 'w-full rounded-md border border-input bg-background px-2 py-1 text-xs'
@@ -69,12 +71,9 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
 
   function engine(role: string) {
     if (!value) return null
-    const builtin = builtinRoles.includes(role as typeof builtinRoles[number])
-    const agent = role === 'fixer' ? value.fixer ?? value.agents.developer : builtin ? value.agents[role as keyof typeof value.agents] : value.roles?.[role]
+    const agent = roleAgent(value, role)
     if (!agent) return null
-    const update = (next: RuntimeAgent) => onChange(role === 'fixer' ? { ...value, fixer: next } : builtin
-      ? { ...value, agents: { ...value.agents, [role]: next } }
-      : { ...value, roles: { ...value.roles, [role]: { ...value.roles![role], ...next } } })
+    const update = (next: RuntimeAgent) => onChange(withRoleAgent(value, role, next))
     const provider = providers.find(item => item.id === agent.provider)
     const choices = provider?.kind === 'cli' ? modelsForProvider(provider.cli).map(item => item.value) : models[agent.provider] ?? []
     return <div className="space-y-2">
@@ -85,7 +84,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
       </select></label>
       <label className="block text-xs">{t('agents.model')}<Input value={agent.model ?? ''} list={`loop-models-${role}`} onChange={event => update({ ...agent, model: event.target.value || undefined })} /><datalist id={`loop-models-${role}`}>{choices.map(model => <option key={model} value={model} />)}</datalist></label>
       <label className="block text-xs">{t('loopAgents.effort')}<Input value={agent.effort ?? ''} onChange={event => update({ ...agent, effort: event.target.value || undefined })} /></label>
-      <label className="block text-xs">{t('agents.maxTurns', { turns: 100 })}<Input type="number" min={1} value={agent.maxTurns ?? ''} onChange={event => update({ ...agent, maxTurns: event.target.value ? Number(event.target.value) : undefined })} /></label>
+      <label className="block text-xs">{t('agents.maxTurns', { turns: CORE_DEFAULT_MAX_TURNS })}<Input type="number" min={1} placeholder={String(CORE_DEFAULT_MAX_TURNS)} value={agent.maxTurns ?? ''} onChange={event => update({ ...agent, maxTurns: event.target.value ? Math.max(1, Math.floor(Number(event.target.value))) : undefined })} /><span className="mt-1 block text-muted-foreground">{t('loopAgents.turnLimits.stepHint', { role, turns: agent.maxTurns ?? CORE_DEFAULT_MAX_TURNS })}</span></label>
       <label className="block text-xs">{t('agents.thinking')}<select className={field} value={agent.thinking ?? ''} onChange={event => update({ ...agent, thinking: event.target.value ? event.target.value as 'on' | 'off' : undefined })}><option value="">{t('loopAgents.default')}</option><option value="off">{t('agents.thinking_off')}</option><option value="on">{t('agents.thinking_on')}</option></select></label>
       <label className="block text-xs">{t('loopAgents.escalationModel')}<Input value={agent.escalation?.model ?? ''} onChange={event => update({ ...agent, escalation: event.target.value ? { ...agent.escalation, model: event.target.value } : undefined })} /></label>
       {agent.escalation && <label className="block text-xs">{t('loopAgents.escalationEffort')}<Input value={agent.escalation.effort ?? ''} onChange={event => update({ ...agent, escalation: { model: agent.escalation!.model, effort: event.target.value || undefined } })} /></label>}
@@ -96,6 +95,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
     <h3 className="text-sm font-medium">{t(title)}</h3>
     {showAgents && <p className="text-xs text-muted-foreground">{t(mode === 'step' ? 'loopAgents.stepHint' : 'loopAgents.hint')}</p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+    {mode === 'workflow' && value && graph && <LoopTurnLimits graph={graph} value={value} onChange={onChange} />}
     {!value && <><p className="text-xs text-accent-warning">{t('loopAgents.legacy')}</p><Button size="sm" disabled={!defaults} onClick={() => defaults && onChange(structuredClone(defaults))}>{t('loopAgents.enable')}</Button></>}
     {mode !== 'step' && <Button size="sm" variant="secondary" disabled={!activeProjectId || !defaults || importing} onClick={() => void importProject()}>{t('loopAgents.import')}</Button>}
     {value && <>

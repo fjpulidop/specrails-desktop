@@ -11,6 +11,8 @@ const reviewPolicy = 'approved == true; issues must be empty; score >= 70; ' + O
 
 export const HOST_BLOCKER_KINDS = ['network', 'credential', 'environment-variable', 'toolchain', 'setup', 'environment', 'scope'] as const
 /** Fixer/developer structured `blocker`: the host ends the run on it instead of counting a correction round. */
+/** Write roles of a large spec routinely exceed Core's default of 100 turns (one cross-repo Developer used 113). */
+export const IMPLEMENT_WRITE_ROLE_MAX_TURNS = 300
 const blocker = objectSchema({ kind: { enum: [...HOST_BLOCKER_KINDS] }, command: string, cwd: string, evidence: string, requiredAction: string }, ['kind', 'requiredAction'])
 
 /** Host-owned environment repair and structured blockers need the paired Core generation. */
@@ -24,9 +26,9 @@ export function configurableImplementGraph(capabilities?: Record<string, number>
   const agents = defaultLoopAgents()
   agents.roles = {
     plan: { ...agents.agents.architect, access: 'read', artifacts: 'all', openspecSkill: 'openspec-ff-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'architect') },
-    build: { ...agents.agents.developer, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'developer') },
+    build: { ...agents.agents.developer, maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'developer') },
     assess: { ...agents.agents.reviewer, access: 'read', artifacts: 'none', openspecSkill: 'openspec-verify-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'reviewer') },
-    correct: { ...agents.fixer!, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
+    correct: { ...agents.fixer!, maxTurns: IMPLEMENT_WRITE_ROLE_MAX_TURNS, access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change', prompt: inheritedRolePrompt(agents.rolePrompts, 'fixer') },
   }
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }], edges: LoopGraph['edges'] = []
   const node = (id: string, label: string, kind: CoreNodeKind, params: Record<string, unknown>, outcomes: Record<string, string>) => {

@@ -607,6 +607,13 @@
     "inheritProvider": "ミッションのプロバイダーを継承",
     "inheritDefinition": "Core の定義に従います。Core をアップグレードすると自動的に更新されます。",
     "customizeDefinition": "このループ用にカスタマイズ",
-    "coreDefinitionUnavailable": "Core ランタイムをインストールするまでプレビューは利用できません。"
+    "coreDefinitionUnavailable": "Core ランタイムをインストールするまでプレビューは利用できません。",
+    "turnLimits": {
+      "title": "ターン数の上限",
+      "hint": "エージェントのツール呼び出し1回が1ターンとして数えられます。ステップが \"reached the configured limit of N turns\" で停止した場合は、ここで上限を上げて保存・公開してください。新しい起動から適用されます。空欄の場合は Core の既定値（{{turns}}）を使います。プロジェクト設定はループの実行に影響しません。",
+      "role": "ロール {{role}}",
+      "input": "{{steps}} の最大ターン数（ロール {{role}}）",
+      "stepHint": "ロール {{role}} は {{turns}} ターンで停止します。このロールを使うステップは上限を共有し、公開後の新しい起動から適用されます。"
+    }
   }
 }

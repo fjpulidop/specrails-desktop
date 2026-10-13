@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1044 source/build files. Nearby tests are linked where names
+Includes 1047 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -384,6 +384,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopMigrationPanel.tsx](../../client/src/features/loops/components/LoopMigrationPanel.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopMigrationPanel.test.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
+- [LoopTurnLimits.tsx](../../client/src/features/loops/components/LoopTurnLimits.tsx) · [test](../../client/src/features/loops/components/LoopTurnLimits.test.tsx)
 - [LoopWindowSurface.tsx](../../client/src/features/loops/components/LoopWindowSurface.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopWindowSurface.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
 
@@ -413,6 +414,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-export.ts](../../client/src/features/loops/lib/loop-export.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-export.test.ts)
 - [loop-graph-rf.ts](../../client/src/features/loops/lib/loop-graph-rf.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-graph-rf.test.ts)
 - [loop-layout.ts](../../client/src/features/loops/lib/loop-layout.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-layout.test.ts)
+- [loop-role-agents.ts](../../client/src/features/loops/lib/loop-role-agents.ts)
 - [loop-run-models.ts](../../client/src/features/loops/lib/loop-run-models.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-run-models.test.ts)
 - [loop-template-filter.ts](../../client/src/features/loops/lib/loop-template-filter.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-template-filter.test.ts)
 - [loop-ticket-need.ts](../../client/src/features/loops/lib/loop-ticket-need.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-ticket-need.test.ts)
@@ -1332,6 +1334,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-shell-invocation.ts](../../server/modules/loops/runtime/loop-shell-invocation.ts)
 - [loop-step-idle.ts](../../server/modules/loops/runtime/loop-step-idle.ts) · [test](../../server/modules/loops/runtime/loop-step-idle.test.ts)
 - [loop-templates.ts](../../server/modules/loops/runtime/loop-templates.ts) · [test](../../server/modules/loops/runtime/loop-templates.test.ts)
+- [loop-turn-limits.ts](../../server/modules/loops/runtime/loop-turn-limits.ts) · [test](../../server/modules/loops/runtime/loop-turn-limits.test.ts)
 - [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
 - [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)
 

@@ -92,6 +92,7 @@
         "../../../util/win-spawn",
         "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
+        "../../loops/runtime/loop-turn-limits",
         "./agent-runtime-effective-config",
         "./agent-runtime-history",
         "./agent-runtime-loader",
@@ -1452,6 +1453,7 @@
       "runtime/loop-role-engines.ts",
       "runtime/loop-run-manager.ts",
       "runtime/loop-runs-store.ts",
+      "runtime/loop-turn-limits.ts",
       "runtime/loops-router.ts",
       "runtime/loops-store.ts"
     ],
@@ -1645,6 +1647,10 @@
         "./loop-core-factory",
         "./loop-graph"
       ],
+      "runtime/loop-turn-limits.ts": [
+        "./loop-agents",
+        "./loop-graph"
+      ],
       "runtime/loops-router.ts": [
         "../../../db",
         "../../../feature-flags",
@@ -1662,6 +1668,7 @@
         "./loop-migration",
         "./loop-preview",
         "./loop-templates",
+        "./loop-turn-limits",
         "./loops-store",
         "express"
       ],

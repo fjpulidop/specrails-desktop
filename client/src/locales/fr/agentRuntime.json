@@ -607,6 +607,13 @@
     "inheritProvider": "Hériter du fournisseur de la mission",
     "inheritDefinition": "Suit la définition de Core : chaque mise à niveau de Core la met à jour automatiquement.",
     "customizeDefinition": "Personnaliser pour cette boucle",
-    "coreDefinitionUnavailable": "Aperçu indisponible tant qu’aucun runtime Core n’est installé."
+    "coreDefinitionUnavailable": "Aperçu indisponible tant qu’aucun runtime Core n’est installé.",
+    "turnLimits": {
+      "title": "Limites de tours",
+      "hint": "Chaque appel d'outil d'un agent compte comme un tour. Si une étape s'arrête avec \"reached the configured limit of N turns\", augmentez sa limite ici, enregistrez et publiez ; les nouveaux lancements l'utiliseront. Vide utilise la valeur par défaut de Core ({{turns}}). Les paramètres du projet ne modifient pas les exécutions de loops.",
+      "role": "Rôle {{role}}",
+      "input": "Nombre maximal de tours pour {{steps}} (rôle {{role}})",
+      "stepHint": "Le rôle {{role}} s'arrête après {{turns}} tours. Les étapes qui partagent ce rôle partagent la limite ; elle s'applique aux nouveaux lancements après publication."
+    }
   }
 }

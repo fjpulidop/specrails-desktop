@@ -37,6 +37,7 @@ import { ensureBuiltinLoops, resolveBuiltinLoop, restoreBuiltin, type BuiltinLoo
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
+import { loopTurnLimits } from './loop-turn-limits'
 
 export interface LoopsRoutesDeps {
   db: DbInstance
@@ -296,7 +297,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
-    res.json({ loop })
+    // Effective per-step turn ceilings, so readers (UI, MCP) never guess where the limit lives.
+    res.json({ loop, turnLimits: loopTurnLimits(loop.graph) })
   })
 
   // ── Create ───────────────────────────────────────────────────────────────────
