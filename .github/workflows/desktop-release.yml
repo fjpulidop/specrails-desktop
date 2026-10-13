@@ -105,7 +105,7 @@ jobs:
         run: node scripts/release-policy.mjs client-artifact
       - name: Download retained frontend
         if: steps.retained.outputs.available == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           artifact-ids: ${{ steps.retained.outputs.artifact_id }}
           path: ${{ runner.temp }}/verified-client
@@ -171,7 +171,7 @@ jobs:
         run: npm ci
 
       - name: Download the shared release frontend
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
@@ -547,7 +547,7 @@ jobs:
         run: npm ci
 
       - name: Download the shared release frontend
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
@@ -842,7 +842,7 @@ jobs:
         run: npm ci
 
       - name: Download the shared release frontend
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
@@ -1080,7 +1080,7 @@ jobs:
         with:
           node-version: 22.22.3
       - name: Download all build artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           # Keep per-job subdirs (dmg-aarch64/, windows-x64/, windows-arm64/)
           # so the rename step can disambiguate the two Windows architectures
