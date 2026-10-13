@@ -506,6 +506,11 @@
         "title": "Diffidare di un exit 0 che segnala fallimenti",
         "description": "Un comando di verifica che esce con 0 mentre l'output stampa fallimenti (righe `FAIL:`, \"3 failed\", un AssertionError) è trattato come FALLITO e passato al correttore con l'harness indicato come difetto.",
         "why": "Un runner di test artigianale che non impostava mai un exit code diverso da zero ha consegnato tre test rossi come verdi."
+      },
+      "verification-output-adoption": {
+        "title": "Adottare l'output scritto dai controlli stessi",
+        "description": "Se la verifica passa ma i suoi comandi riscrivono file tracciati (un passaggio di lint che rigenera una mappatura), l'host mantiene quei file nel candidato e verifica ancora una volta; reviewer e fixer non devono annullarli.",
+        "why": "Un passaggio di lint che rigenerava un file tracciato faceva sembrare ogni esecuzione verde un candidato modificato e consumava correzioni su un non-difetto."
       }
     }
   },

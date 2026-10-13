@@ -506,6 +506,11 @@
         "title": "Desconfiar de um exit 0 que reporta falhas",
         "description": "Um comando de verificação que sai com 0 enquanto a saída imprime falhas (linhas `FAIL:`, \"3 failed\", um AssertionError) é tratado como FALHADO e entregue ao corretor com o harness apontado como o defeito.",
         "why": "Um runner de testes caseiro que nunca definia um exit code diferente de zero entregou três testes vermelhos como verdes."
+      },
+      "verification-output-adoption": {
+        "title": "Adotar a saída escrita pelas próprias verificações",
+        "description": "Se a verificação passar mas os seus comandos reescreverem ficheiros versionados (um passo de lint que regenera um mapeamento), o host mantém esses ficheiros no candidato e verifica mais uma vez; o reviewer e o fixer não os devem reverter.",
+        "why": "Um passo de lint que regenerava um ficheiro versionado fazia cada execução verde parecer um candidato alterado e gastava correções num não-defeito."
       }
     }
   },

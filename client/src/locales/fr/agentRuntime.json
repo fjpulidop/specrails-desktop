@@ -506,6 +506,11 @@
         "title": "Se méfier d'un code de sortie 0 qui signale des échecs",
         "description": "Une commande de vérification qui sort avec 0 alors que sa sortie affiche des échecs (lignes `FAIL:`, « 3 failed », une AssertionError) est traitée comme ÉCHOUÉE et transmise au correcteur, le harnais étant désigné comme le défaut.",
         "why": "Un lanceur de tests maison qui ne fixait jamais de code de sortie non nul a livré trois tests rouges comme verts."
+      },
+      "verification-output-adoption": {
+        "title": "Adopter la sortie écrite par les vérifications",
+        "description": "Si la vérification réussit mais que ses commandes réécrivent des fichiers suivis (une étape de lint qui régénère un mapping), l'hôte conserve ces fichiers dans le candidat et vérifie une fois de plus ; le reviewer et le fixer ne doivent pas les annuler.",
+        "why": "Une étape de lint qui régénérait un fichier suivi faisait passer chaque exécution verte pour un candidat modifié et consommait des corrections pour un non-défaut."
       }
     }
   },

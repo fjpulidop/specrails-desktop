@@ -506,6 +506,11 @@
         "title": "Grünem Exit-Code mit gemeldeten Fehlern misstrauen",
         "description": "Ein Prüfbefehl, der mit 0 endet, während seine Ausgabe Fehler meldet (`FAIL:`-Zeilen, „3 failed“, ein AssertionError), gilt als FEHLGESCHLAGEN und geht an den Korrektor, wobei der Test-Harness als Defekt benannt wird.",
         "why": "Ein selbstgebauter Test-Runner ohne Nicht-Null-Exit-Code lieferte einmal drei rote Tests als grün aus."
+      },
+      "verification-output-adoption": {
+        "title": "Von den Prüfungen selbst geschriebene Ausgabe übernehmen",
+        "description": "Besteht die Verifikation, schreiben ihre Befehle aber versionierte Dateien neu (ein Lint-Schritt, der ein Mapping regeneriert), behält der Host diese Dateien im Kandidaten und verifiziert noch einmal; Reviewer und Fixer dürfen sie nicht zurücksetzen.",
+        "why": "Ein Lint-Vorschritt, der eine versionierte Datei neu erzeugte, ließ jeden grünen Lauf wie einen geänderten Kandidaten aussehen und verbrauchte Korrekturen für einen Nicht-Fehler."
       }
     }
   },
