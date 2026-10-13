@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: 187f9d24533a99fb1f37c7805b3c5b1375040d25  # Core v6.5.0: agent sessions, delegated sub-agents, writer environment preparation
+          ref: 98b5d3c515967aed170dcb8a31a7462390cc420f  # Core v6.6.2: archive preflight at validate, turn-limit guidance
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
