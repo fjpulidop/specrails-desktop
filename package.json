@@ -67,7 +67,7 @@
     "node-pty": "^1.0.0",
     "pdf-parse": "^2.4.5",
     "playwright": "^1.60.0",
-    "read-excel-file": "^9.0.6",
+    "read-excel-file": "^9.3.12",
     "selfsigned": "^5.5.0",
     "tree-kill": "^1.2.2",
     "werift": "^0.23.0",
