@@ -4,6 +4,7 @@ import type { DbInstance } from '../db'
 import type { WsMessage } from '../types'
 import type { MobileGateway } from './mobile-gateway'
 import { listDevices, revokeDevice } from './mobile-devices'
+import { getProject } from '../desktop-db'
 
 // Loopback-only control plane for the desktop UI, mounted on the MAIN server
 // at /api/mobile (behind requireAuth + requireLoopback). The phone never
@@ -55,9 +56,26 @@ export function createMobileAdminRouter(deps: MobileAdminDeps): Router {
     const changed = revokeDevice(desktopDb, id)
     if (changed) {
       gateway.bridge?.closeForDevice(id)
+      void gateway.closePreviewsForDevice(id).catch(() => { /* best-effort */ })
       deps.broadcast({ type: 'mobile.device_revoked', deviceId: id, timestamp: new Date().toISOString() })
     }
     res.json({ ok: changed })
+  })
+
+  // —— Companion app previews (Desktop indicator) ——
+  router.get('/previews', (_req: Request, res: Response) => {
+    const previews = gateway.preview?.listDeviceSessions() ?? []
+    res.json({ previews: previews.map((p) => ({ ...p, projectName: getProject(desktopDb, p.projectId)?.name ?? p.projectId })) })
+  })
+
+  router.delete('/previews/:projectId/:sessionId', async (req: Request, res: Response) => {
+    const projectId = typeof req.params.projectId === 'string' ? req.params.projectId : ''
+    const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : ''
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(projectId) || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) {
+      res.status(400).json({ error: 'Invalid parameter' })
+      return
+    }
+    res.json({ ok: (await gateway.preview?.endFromDesktop(projectId, sessionId)) ?? false })
   })
 
   router.post('/cert/rotate', async (_req: Request, res: Response) => {

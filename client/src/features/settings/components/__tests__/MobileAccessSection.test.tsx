@@ -72,6 +72,30 @@ describe('MobileAccessSection', () => {
     })
   })
 
+  it('shows what a paired device is previewing and ends it from Desktop', async () => {
+    const devices = [{ id: 'd1', name: 'iPhone', platform: 'ios', createdAt: '', lastSeenAt: null, revoked: false }]
+    let previews = [{ projectId: 'p1', projectName: 'Checkout', sessionId: 's1', deviceId: 'd1', deviceName: 'iPhone', url: 'http://localhost:5173/', title: 'App', createdAt: 1 }]
+    mockApi([
+      { match: (u) => u.endsWith('/status'), body: ON },
+      { match: (u, m) => u.endsWith('/devices') && m === 'GET', body: { devices } },
+      { match: (u, m) => u.endsWith('/previews/p1/s1') && m === 'DELETE', body: { ok: true } },
+    ])
+    const base = global.fetch as unknown as (u: unknown, o?: { method?: string }) => Promise<Response>
+    global.fetch = vi.fn(async (u: unknown, o?: { method?: string }) => {
+      if (String(u).endsWith('/previews') && (o?.method ?? 'GET') === 'GET') {
+        return { ok: true, status: 200, json: async () => ({ previews }) } as Response
+      }
+      if (String(u).endsWith('/previews/p1/s1')) previews = []
+      return base(u, o)
+    }) as never
+    render(<MobileAccessSection />)
+    await screen.findByText('Viewing localhost:5173 · Checkout')
+    fireEvent.click(screen.getByRole('button', { name: 'Ends the app preview open on iPhone' }))
+    await waitFor(() => expect(screen.queryByText('Viewing localhost:5173 · Checkout')).not.toBeInTheDocument())
+    const { toast } = await import('sonner')
+    expect(toast.success).toHaveBeenCalledWith('Preview ended on iPhone')
+  })
+
   it('reset identity rotates the cert after confirm', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const ROT = { ...ON, certFingerprint: 'b'.repeat(64) }

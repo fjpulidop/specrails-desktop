@@ -16,9 +16,11 @@ export const MISSION_ACCESS_REASON = 'Mission agents can access more than their 
 export interface MobileUpstreamResponse { status: number; json: unknown }
 export type MobileUpstream = (method: string, path: string, body?: unknown) => Promise<MobileUpstreamResponse>
 
-export function mobileCapabilities(db: DbInstance, deviceId: string) {
+export function mobileCapabilities(db: DbInstance, deviceId: string, opts: { appPreview?: boolean } = {}) {
   const missions = process.env.SPECRAILS_AGENT_CHAT !== 'false' && getAllowedProjects(db, deviceId) === null
-  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true, codeExplorer: isCodeExplorerEnabled(), missionRailCards: missions && isMissionRailCardsEnabled() },
+  // App preview targets come from mission processes, so it inherits the
+  // mission grant and additionally needs Desktop's browser capture.
+  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true, codeExplorer: isCodeExplorerEnabled(), missionRailCards: missions && isMissionRailCardsEnabled(), appPreview: missions && opts.appPreview === true },
     ...(!missions ? { missionsUnavailableReason: process.env.SPECRAILS_AGENT_CHAT === 'false' ? 'Missions are disabled on Desktop.' : MISSION_ACCESS_REASON } : {}) }
 }
 
@@ -70,14 +72,14 @@ export function missionSnapshot(value: unknown) {
 
 }
 
-export function createMobileMissionsRouter({ db, upstream }: { db: DbInstance; upstream: MobileUpstream }): Router {
+export function createMobileMissionsRouter({ db, upstream, appPreview }: { db: DbInstance; upstream: MobileUpstream; appPreview?: () => boolean }): Router {
   const router = Router()
   const segment = (value: unknown) => typeof value === 'string' ? value : ''
   const send = async (res: Response, method: string, path: string, body?: unknown, shape?: (json: unknown) => unknown) => {
     try { const result = await upstream(method, path, body); res.status(result.status).json(redact(result.status >= 200 && result.status < 300 && shape ? shape(result.json) : result.json)) }
     catch { res.status(502).json({ error: 'Desktop is unreachable. Retry when connected.' }) }
   }
-  router.get('/capabilities', (req, res) => res.json(mobileCapabilities(db, (req as MobileAuthedRequest).mobileDevice!.id)))
+  router.get('/capabilities', (req, res) => res.json(mobileCapabilities(db, (req as MobileAuthedRequest).mobileDevice!.id, { appPreview: appPreview?.() ?? false })))
   router.get('/mission-models', (req, res) => {
     const provider = segment(req.query.provider)
     if (!/^[a-z0-9_-]{1,40}$/.test(provider)) { res.status(400).json({ error: 'A valid provider is required' }); return }

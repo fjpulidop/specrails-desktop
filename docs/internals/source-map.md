@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1046 source/build files. Nearby tests are linked where names
+Includes 1050 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1057,6 +1057,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mobile-event-bus.ts](../../server/mobile/mobile-event-bus.ts)
 - [mobile-gateway.ts](../../server/mobile/mobile-gateway.ts) · [test](../../server/mobile/mobile-gateway.test.ts)
 - [mobile-missions.ts](../../server/mobile/mobile-missions.ts) · [test](../../server/mobile/mobile-missions.test.ts)
+- [mobile-preview-channel.ts](../../server/mobile/mobile-preview-channel.ts) · [test](../../server/mobile/mobile-preview-channel.test.ts)
+- [mobile-preview.ts](../../server/mobile/mobile-preview.ts) · [test](../../server/mobile/mobile-preview.test.ts)
 - [mobile-redact.ts](../../server/mobile/mobile-redact.ts) · [test](../../server/mobile/mobile-redact.test.ts)
 - [mobile-router.ts](../../server/mobile/mobile-router.ts) · [test](../../server/mobile/mobile-router.test.ts)
 - [mobile-signal-reconnect.ts](../../server/mobile/mobile-signal-reconnect.ts) · [test](../../server/mobile/mobile-signal-reconnect.test.ts)
@@ -1148,6 +1150,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
 - [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
 
+## server/modules/browser/domain
+
+- [preview-origins.ts](../../server/modules/browser/domain/preview-origins.ts) · [test](../../server/modules/browser/domain/preview-origins.test.ts)
+
 ## server/modules/browser/runtime
 
 - [browser-capture-manager.ts](../../server/modules/browser/runtime/browser-capture-manager.ts) · [test](../../server/modules/browser/runtime/browser-capture-manager.test.ts)
@@ -1156,6 +1162,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser-network.ts](../../server/modules/browser/runtime/browser-network.ts) · [test](../../server/modules/browser/runtime/browser-network.test.ts)
 - [browser-playwright.ts](../../server/modules/browser/runtime/browser-playwright.ts) · [test](../../server/modules/browser/runtime/browser-playwright.test.ts)
 - [browser-viewport.ts](../../server/modules/browser/runtime/browser-viewport.ts) · [test](../../server/modules/browser/runtime/browser-viewport.test.ts)
+- [preview-targets.ts](../../server/modules/browser/runtime/preview-targets.ts) · [test](../../server/modules/browser/runtime/preview-targets.test.ts)
 
 ## server/modules/builder/runtime
 
@@ -1406,7 +1413,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/terminals/runtime
 
 - [background-process-control.ts](../../server/modules/terminals/runtime/background-process-control.ts) · [test](../../server/modules/terminals/runtime/background-process-control.test.ts)
-- [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts)
+- [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts) · [test](../../server/modules/terminals/runtime/background-process-service.test.ts)
 - [background-process-store.ts](../../server/modules/terminals/runtime/background-process-store.ts) · [test](../../server/modules/terminals/runtime/background-process-store.test.ts)
 - [background-windows-bootstrap.ts](../../server/modules/terminals/runtime/background-windows-bootstrap.ts) · [test](../../server/modules/terminals/runtime/background-windows-bootstrap.test.ts)
 - [terminal-manager.ts](../../server/modules/terminals/runtime/terminal-manager.ts) · [test](../../server/modules/terminals/runtime/terminal-manager.test.ts)

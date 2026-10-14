@@ -36,6 +36,7 @@ const coreDependencies: Record<string, string[]> = {
   'agent-sessions/ports.ts': ['./domain/projection', './domain/protocol'],
   'agent-sessions/application/session-event-pump.ts': ['../domain/projection', '../domain/protocol', '../ports'],
   'agent-sessions/index.ts': ['./domain/protocol', './domain/errors', './domain/subagent-policy', './domain/projection', './domain/host-state', './application/session-event-pump', './ports', './domain/availability'],
+  'browser/domain/preview-origins.ts': [],
   'conversations/domain/recovery-context.ts': [],
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],

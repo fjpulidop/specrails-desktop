@@ -198,7 +198,12 @@
     "windowsFirewall": "Windows Firewall will ask to allow the SpecRails server on first enable — choose “Allow on private networks”.",
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
-    "revokeDevice": "Revoke {{name}}"
+    "revokeDevice": "Revoke {{name}}",
+    "previewing": "Viewing {{url}} · {{project}}",
+    "endPreview": "End preview",
+    "endPreviewLabel": "Ends the app preview open on {{name}}",
+    "previewEnded": "Preview ended on {{name}}",
+    "endPreviewFailed": "Could not end the preview"
   },
   "pairWeb": {
     "title": "Pair web companion",

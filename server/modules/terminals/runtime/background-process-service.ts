@@ -3,7 +3,8 @@ import type { WsMessage } from '../../../types'
 import type { ProjectContext } from '../../../project-registry'
 import { listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
 import { canonicalRepositoryPath, isRepositoryPathWithin, RepositoryValidationError } from '../../../project-repositories'
-import { getBackgroundProcess, killOwnedBackgroundProcess, type BackgroundProcessHooks } from '../../../transient-children'
+import { getBackgroundProcess, killOwnedBackgroundProcess, type BackgroundProcessHooks, type BackgroundProcessOutputEvent } from '../../../transient-children'
+import { extractPreviewUrls, previewOrigin } from '../../browser/domain/preview-origins'
 
 /** The same scope and lifecycle policy applies to REST and the mission MCP. */
 export function resolveBackgroundCwd(repositoryRoot: string, cwd: unknown): string {
@@ -19,7 +20,25 @@ export function backgroundProcessHooks(broadcast: (msg: WsMessage) => void): Bac
   const publish = (type: 'background_process.started' | 'background_process.updated' | 'background_process.exited') =>
     (process: import('../../../transient-children').BackgroundProcess) => broadcast({ type, process,
       projectId: process.projectId, timestamp: new Date().toISOString() })
-  return { onStarted: publish('background_process.started'), onUpdated: publish('background_process.updated'), onExited: publish('background_process.exited') }
+  // Companion app preview: announce once per newly seen local origin so phones
+  // refetch the derived targets instead of tailing every log line.
+  const announced = new Set<string>()
+  const onOutput = (event: BackgroundProcessOutputEvent) => {
+    let fresh = false
+    for (const url of extractPreviewUrls(event.line)) {
+      const origin = previewOrigin(url)
+      if (origin && !announced.has(origin)) { announced.add(origin); fresh = true }
+    }
+    if (fresh) broadcast({ type: 'background_process.preview_targets', processId: event.processId, chatId: event.chatId,
+      projectId: event.projectId, timestamp: new Date().toISOString() })
+  }
+  const exited = publish('background_process.exited')
+  return {
+    onStarted: publish('background_process.started'),
+    onUpdated: publish('background_process.updated'),
+    onOutput,
+    onExited: (process) => { announced.clear(); exited(process) },
+  }
 }
 
 export function backgroundStartBusyReason(c: ProjectContext): string | null {

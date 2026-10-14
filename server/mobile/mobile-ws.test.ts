@@ -302,6 +302,13 @@ describe('mission capabilities and live ACL boundaries', () => {
     bridge.dispatch({ type: 'agent_stream', conversationId: 'c1', delta: 'x'.repeat(20000) } as unknown as WsMessage)
     expect((one.sent[1] as { delta: string }).delta).toHaveLength(16000)
   })
+  it('forwards preview-target announcements as a mission invalidation keyed by the chat', () => {
+    const bridge = new MobileWsBridge({ missionProjectFor: id => id === 'c1' ? 'p1' : null })
+    const socket = new StubSocket()
+    bridge.attach(socket, 'all'); sub(socket, ['p1'], ['missions'])
+    bridge.dispatch({ type: 'background_process.preview_targets', processId: 'proc', chatId: 'c1', projectId: 'p1', timestamp: 't' } as WsMessage)
+    expect(socket.sent).toEqual([{ type: 'mission.updated', projectId: 'p1', conversationId: 'c1', event: 'background_process.preview_targets', timestamp: 't' }])
+  })
   it('enforces restrictions immediately without reconnect and filters registry/budget events', () => {
     let allowed: Set<string> | null = null
     const bridge = new MobileWsBridge({ allowedProjectsFor: () => allowed, missionProjectFor: () => 'p1' })
