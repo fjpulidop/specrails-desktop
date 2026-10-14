@@ -87,7 +87,7 @@ export async function requireSuccessfulCi({ repository, sha, branch = 'main', re
 }
 export async function verifyLatestChannel(version, { fetchImpl = fetch, now = Date.now } = {}) {
   stableVersion(version)
-  const response = await fetchImpl(`https://specrails.dev/downloads/specrails-desktop/latest/manifest.json?release-check=${now()}`, { signal: AbortSignal.timeout(15_000), headers: { 'Cache-Control': 'no-cache' } })
+  const response = await fetchImpl(`https://github.com/fjpulidop/specrails-desktop/releases/latest/download/manifest.json?release-check=${now()}`, { signal: AbortSignal.timeout(15_000), headers: { 'Cache-Control': 'no-cache' } })
   if (response.status === 404) return
   if (!response.ok) throw new Error(`Cannot verify the current latest channel (HTTP ${response.status}); refusing to overwrite it.`)
   const current = await response.json()

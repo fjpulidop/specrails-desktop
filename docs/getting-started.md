@@ -16,7 +16,7 @@ Two options:
 
 ### Option 1 — Desktop app (recommended)
 
-Download a signed build for your OS from `https://specrails.dev/downloads/specrails-desktop/latest/`:
+Download a signed build for your OS from the [latest GitHub Release](https://github.com/fjpulidop/specrails-desktop/releases/latest) (the **Download** button on [specrails.dev](https://specrails.dev) links the same files):
 
 - **macOS** — `specrails-desktop-<version>-aarch64.dmg` (Apple Silicon, notarised)
 - **Windows** — `specrails-desktop-<version>-x64-setup.exe` (NSIS; `-arm64-setup.exe` on ARM64)

@@ -1066,7 +1066,7 @@ jobs:
       contents: write
     needs: [admission, build-macos, build-windows, build-windows-arm64]
     runs-on: ubuntu-latest
-    # The shared latest/ channel must not have two overlapping cutovers.
+    # Two releases must not publish the latest channel at the same time.
     concurrency:
       group: desktop-release-publish
       cancel-in-progress: false
@@ -1088,31 +1088,15 @@ jobs:
           # for each target on its own runner.
           path: ./artifacts/
 
-      # openspec: add-latest-release-channel
-      # The deploy job publishes the .dmg twice:
-      #   1. downloads/specrails-desktop/v<tag>/  — archival, versioned (pre-existing behaviour)
-      #   2. downloads/specrails-desktop/latest/  — stable channel consumed by specrails-web
-      #
-      # Consumers (specrails-web) read manifest.json in latest/ to render the
-      # Download CTA and surface the current version without hardcoding.
-      #
-      # IMPORTANT: The latest/ folder on Hostinger also contains a one-time,
-      # hand-authored .htaccess file that must remain in place:
-      #
-      #     <Files "manifest.json">
-      #       Header set Cache-Control "no-cache, must-revalidate"
-      #       Header set Access-Control-Allow-Origin "*"
-      #     </Files>
-      #
-      # The .htaccess is server-managed (Hostinger), NOT from this repo. Do
-      # not add steps that wipe latest/ wholesale — only delete stale .dmg
-      # files explicitly.
+      # GitHub Releases is the only download channel. The Tauri updater reads
+      # releases/latest/download/latest.json, and specrails.dev reads the latest
+      # release through the GitHub API (assets carry name, size and sha256).
 
       - name: Compute release version
         id: vars
         run: node scripts/release-policy.mjs tag
 
-      - name: Refuse an older release replacing the stable download channel
+      - name: Refuse an older release replacing the latest GitHub release
         env:
           RELEASE_VERSION: ${{ steps.vars.outputs.version }}
         run: node scripts/release-policy.mjs latest
@@ -1205,17 +1189,17 @@ jobs:
           DMG_FILENAME="${{ steps.rename.outputs.dmg_filename }}"
           DMG_SHA="${{ steps.hash.outputs.dmg_sha256 }}"
           DMG_SIZE="${{ steps.hash.outputs.dmg_size }}"
-          DMG_URL="https://specrails.dev/downloads/specrails-desktop/latest/${DMG_FILENAME}"
+          DMG_URL="https://github.com/fjpulidop/specrails-desktop/releases/download/${TAG}/${DMG_FILENAME}"
 
           EXE_X64_FILENAME="${{ steps.rename.outputs.exe_x64_filename }}"
           EXE_X64_SHA="${{ steps.hash.outputs.exe_x64_sha256 }}"
           EXE_X64_SIZE="${{ steps.hash.outputs.exe_x64_size }}"
-          EXE_X64_URL="https://specrails.dev/downloads/specrails-desktop/latest/${EXE_X64_FILENAME}"
+          EXE_X64_URL="https://github.com/fjpulidop/specrails-desktop/releases/download/${TAG}/${EXE_X64_FILENAME}"
 
           EXE_ARM64_FILENAME="${{ steps.rename.outputs.exe_arm64_filename }}"
           EXE_ARM64_SHA="${{ steps.hash.outputs.exe_arm64_sha256 }}"
           EXE_ARM64_SIZE="${{ steps.hash.outputs.exe_arm64_size }}"
-          EXE_ARM64_URL="https://specrails.dev/downloads/specrails-desktop/latest/${EXE_ARM64_FILENAME}"
+          EXE_ARM64_URL="https://github.com/fjpulidop/specrails-desktop/releases/download/${TAG}/${EXE_ARM64_FILENAME}"
 
           RELEASED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           RELEASE_URL="https://github.com/fjpulidop/specrails-desktop/releases/tag/${TAG}"
@@ -1270,240 +1254,7 @@ jobs:
           if ! gh release view "${TAG}" >/dev/null 2>&1; then
             gh release create "${TAG}" --title "Specrails ${TAG}" --notes "Specrails ${TAG}"
           fi
-          # GitHub Releases is the durable archive. Hostinger only retains the
-          # current and previous versioned folders to stay within its quota.
-          gh release upload "${TAG}" updater/* artifacts/canonical/* --clobber
-
-      # Upload only the canonical-named installers (artifacts/canonical/). The
-      # per-job subdirectories with raw Tauri filenames stay out so the
-      # versioned folder mirrors what consumers expect.
-      - name: Deploy versioned installers to Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287  # v4.4.0
-        with:
-          server: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
-          protocol: ftps
-          security: strict
-          local-dir: ./artifacts/canonical/
-          server-dir: domains/specrails.dev/public_html/downloads/specrails-desktop/${{ steps.vars.outputs.tag }}/
-
-      # ---------------------------------------------------------------
-      # latest/ channel — openspec: add-latest-release-channel + add-windows-desktop-release
-      # ---------------------------------------------------------------
-      #
-      # Ordering matters (spec: desktop-release-channel) — ATOMIC CUTOVER (BUG-CI-01):
-      #   1. SNAPSHOT the prior installer filenames in latest/ (do NOT delete yet).
-      #   2. Upload the new .dmg and .exe installers.
-      #   3. HEAD-verify every binary referenced by manifest.json is HTTP-reachable.
-      #   4. Upload manifest.json.
-      #   5. HEAD-verify manifest.json is HTTP-reachable and valid JSON.
-      #   6. ONLY NOW delete the prior installers snapshotted in step 1
-      #      (excluding any the new release re-uploaded under the same name).
-      #
-      # Why this order: filenames are version-stamped, so deleting the old
-      # installers FIRST left the still-live OLD manifest.json (served no-cache)
-      # pointing at filenames that 404 for the whole multi-hundred-MB FTP upload
-      # window. By uploading new binaries + the new manifest FIRST and deleting the
-      # stale ones LAST, the cutover is atomic: a consumer that sees the new
-      # manifest always finds the referenced binary, and the old manifest's
-      # binaries remain live until the new manifest has fully published.
-      #
-      # Never upload manifest.json before step 3 passes for EVERY platform listed
-      # in the manifest. Keep .htaccess untouched (server-managed).
-
-      - name: Snapshot stale installers in latest/ (delete deferred to end)
-        id: stale
-        env:
-          HOST: ${{ secrets.HOSTINGER_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
-        run: |
-          set -euo pipefail
-          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
-          # List the directory. Returns just filenames when using --list-only.
-          # Match .dmg (mac), .exe (Windows NSIS) and legacy .msi files (Windows
-          # no longer ships MSI; the first NSIS-only cutover retires them). Do NOT
-          # ever touch manifest.json or .htaccess (server-managed). We only RECORD
-          # the current installers here — the actual DELE runs in the final step,
-          # after the new binaries + manifest are published and verified, so the
-          # latest/ channel never references a deleted binary.
-          stale="$(curl --fail --silent --show-error --ssl-reqd --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" "ftp://${HOST}/${remote}" --list-only | grep -E '\.(dmg|exe|msi)$' || true)"
-          # Persist the newline-delimited list to a file (avoids GITHUB_OUTPUT
-          # multiline quoting pitfalls); the delete step reads it back.
-          printf '%s\n' "${stale}" > /tmp/stale-installers.txt
-          if [[ -z "${stale}" ]]; then
-            echo "No prior installer files in latest/ to retire."
-          else
-            echo "Snapshotted prior installers (will delete AFTER new manifest publishes):"
-            echo "${stale}"
-          fi
-
-      - name: Upload new installers to latest/
-        env:
-          HOST: ${{ secrets.HOSTINGER_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
-        run: |
-          set -euo pipefail
-          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
-          # --ftp-create-dirs auto-creates the latest/ folder on first run.
-          # Hostinger's FTP drops mid-transfer on these multi-hundred-MB
-          # uploads (`curl: (55) Send failure: Broken pipe`, v2.49.0 deploy,
-          # twice in a row). A dropped connection is not a bad artifact: retry
-          # the whole file a few times before failing the release. Each attempt
-          # re-uploads from byte 0 — FTP APPE/REST resume would risk a
-          # truncated-then-appended binary, and the HTTP HEAD verification
-          # below only proves reachability, not integrity.
-          upload() {
-            local file="$1" attempt=1 trace
-            trace="$(mktemp)"
-            while :; do
-              # --verbose into a file: on failure we print the FTP CONTROL
-              # channel (`< 552 Disk full`, `< 421 …`) instead of curl's bare
-              # exit code, which is what made three identical `(55) Send
-              # failure: Broken pipe` failures undiagnosable. Secrets stay
-              # masked by Actions; only server replies are echoed.
-              if curl --fail --silent --show-error --verbose --ssl-reqd --ftp-pasv --ftp-create-dirs \
-                --connect-timeout 30 --speed-time 120 --speed-limit 1024 \
-                --user "${FTP_USER}:${FTP_PASS}" \
-                -T "${file}" \
-                "ftp://${HOST}/${remote}" 2>"${trace}"; then
-                return 0
-              fi
-              echo "--- FTP replies for $(basename "${file}") (attempt ${attempt}) ---" >&2
-              grep -E '^(< |curl: )' "${trace}" | tail -25 >&2 || true
-              if [ "${attempt}" -ge 4 ]; then
-                echo "FTP upload of $(basename "${file}") failed after ${attempt} attempts" >&2
-                return 1
-              fi
-              echo "FTP upload of $(basename "${file}") failed (attempt ${attempt}); retrying in $((attempt * 15))s" >&2
-              sleep $((attempt * 15))
-              attempt=$((attempt + 1))
-            done
-          }
-          for file in \
-            "${{ steps.rename.outputs.dmg_path }}" \
-            "${{ steps.rename.outputs.exe_x64_path }}" \
-            "${{ steps.rename.outputs.exe_arm64_path }}"; do
-            upload "${file}"
-            echo "Uploaded $(basename "${file}") to ${remote}"
-          done
-
-      - name: Verify manifest-referenced binaries are HTTP-reachable
-        run: |
-          set -euo pipefail
-          # HEAD every URL that manifest.json will reference.
-          for filename in \
-            "${{ steps.rename.outputs.dmg_filename }}" \
-            "${{ steps.rename.outputs.exe_x64_filename }}" \
-            "${{ steps.rename.outputs.exe_arm64_filename }}"; do
-            url="https://specrails.dev/downloads/specrails-desktop/latest/${filename}"
-            ok=""
-            # Retry briefly to absorb FTP-to-HTTP propagation.
-            for i in 1 2 3 4 5 6; do
-              code="$(curl --head --silent --output /dev/null --write-out '%{http_code}' "${url}")"
-              if [[ "${code}" == "200" ]]; then
-                echo "✓ ${url} reachable"
-                ok="1"
-                break
-              fi
-              echo "  attempt ${i}: ${url} -> HTTP ${code}, retrying in 5s..."
-              sleep 5
-            done
-            if [[ -z "${ok}" ]]; then
-              echo "✗ ${url} still not reachable"
-              exit 1
-            fi
-          done
-
-      - name: Upload manifest.json to latest/
-        env:
-          HOST: ${{ secrets.HOSTINGER_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
-        run: |
-          set -euo pipefail
-          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
-          # --ftp-create-dirs is defensive; latest/ should already exist from
-          # the previous step but we keep the flag for idempotency.
-          for attempt in 1 2 3; do
-            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
-              --connect-timeout 30 \
-              --user "${FTP_USER}:${FTP_PASS}" \
-              -T manifest/manifest.json \
-              "ftp://${HOST}/${remote}manifest.json.${GITHUB_RUN_ID}.tmp" && break
-            [ "${attempt}" = 3 ] && { echo "manifest upload failed after ${attempt} attempts" >&2; exit 1; }
-            echo "manifest upload failed (attempt ${attempt}); retrying" >&2
-            sleep 10
-          done
-          curl --fail --silent --show-error --ssl-reqd --ftp-pasv \
-            --user "${FTP_USER}:${FTP_PASS}" \
-            -Q "RNFR ${remote}manifest.json.${GITHUB_RUN_ID}.tmp" \
-            -Q "RNTO ${remote}manifest.json" \
-            "ftp://${HOST}/${remote}" --output /dev/null
-          echo "Atomically replaced manifest.json in ${remote}"
-
-      - name: Verify manifest.json matches the published release
-        id: verify_manifest
-        run: |
-          set -euo pipefail
-          url="https://specrails.dev/downloads/specrails-desktop/latest/manifest.json"
-          for i in 1 2 3 4 5 6; do
-            if curl --fail --silent --show-error "${url}" -o /tmp/manifest.json; then
-              if jq empty /tmp/manifest.json && cmp -s <(jq -S . manifest/manifest.json) <(jq -S . /tmp/manifest.json); then
-                echo "✓ manifest.json reachable and matches this release"
-                cat /tmp/manifest.json
-                exit 0
-              fi
-            fi
-            echo "  attempt ${i}: manifest.json not yet this release, retrying in 5s..."
-            sleep 5
-          done
-          echo "✗ manifest.json not reachable or does not match this release"
-          exit 1
-
-      # FINAL step of the atomic cutover (BUG-CI-01): only NOW, with the new
-      # binaries + manifest published and HTTP-verified, retire the PRIOR
-      # installers snapshotted at the start. Excludes any filename the new release
-      # re-uploaded under the same name (a same-version rebuild), so we never
-      # delete a binary the live manifest now references. If publication or
-      # verification fails, preserve the previous installers for the live manifest.
-      - name: Retire stale installers in latest/ (atomic cutover)
-        if: ${{ success() && steps.verify_manifest.outcome == 'success' }}
-        env:
-          HOST: ${{ secrets.HOSTINGER_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
-          # Canonical filenames the new release just published — never delete these.
-          KEEP_DMG: ${{ steps.rename.outputs.dmg_filename }}
-          KEEP_EXE_X64: ${{ steps.rename.outputs.exe_x64_filename }}
-          KEEP_EXE_ARM64: ${{ steps.rename.outputs.exe_arm64_filename }}
-        run: |
-          set -euo pipefail
-          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
-          if [[ ! -f /tmp/stale-installers.txt ]]; then
-            echo "No snapshot file (snapshot step did not run) — nothing to retire."
-            exit 0
-          fi
-          # Filenames the new release published; matching ones are NOT stale.
-          keep="${KEEP_DMG}
-          ${KEEP_EXE_X64}
-          ${KEEP_EXE_ARM64}"
-          deleted=0
-          while IFS= read -r f; do
-            f="$(echo "${f}" | tr -d '[:space:]')"
-            [[ -z "${f}" ]] && continue
-            # Never delete manifest.json / .htaccess (the snapshot grep already
-            # excluded them) or a name the new release just re-uploaded.
-            if grep -qxF "${f}" <<< "$(echo "${keep}" | sed 's/^[[:space:]]*//')"; then
-              echo "Keeping (re-uploaded this release): ${f}"
-              continue
-            fi
-            echo "Retiring stale: ${f}"
-            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" \
-              -Q "DELE ${remote}${f}" \
-              "ftp://${HOST}/${remote}" || echo "  (DELE failed for ${f}; continuing)"
-            deleted=$((deleted+1))
-          done < /tmp/stale-installers.txt
-          echo "Retired ${deleted} stale installer(s) from latest/"
+          # GitHub Releases is the download channel and the durable archive:
+          # specrails.dev reads the latest release through the GitHub API, and
+          # manifest.json keeps the stable-channel promotion check.
+          gh release upload "${TAG}" updater/* artifacts/canonical/* manifest/manifest.json --clobber
