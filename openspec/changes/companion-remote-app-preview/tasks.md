@@ -36,24 +36,24 @@
 
 ## 6. Companion – transport and data (`specrails-companion`)
 
-- [ ] 6.1 Extend `WebRtcTransport`/`PeerTransport` to surface additional adopted channels by label without touching `mobile` handling; fake-transport tests
-- [ ] 6.2 Implement the binary chunk reassembler (newest `frameSeq` wins, render only complete frames) with unit tests mirroring the Desktop format
-- [ ] 6.3 Add `PreviewRepository` + models (targets, open/navigate/close, `PreviewStream` of frames + control) gated by the `appPreview` capability; demo repository returns no targets
-- [ ] 6.4 Refresh targets on `preview_targets_changed` push and on reconnect
+- [x] 6.1 Extend `WebRtcTransport`/`PeerTransport` to surface additional adopted channels by label without touching `mobile` handling; fake-transport tests
+- [x] 6.2 Implement the binary chunk reassembler (newest `frameSeq` wins, render only complete frames) with unit tests mirroring the Desktop format
+- [x] 6.3 Add `PreviewRepository` + models (targets, open/navigate/close, `PreviewStream` of frames + control) gated by the `appPreview` capability; demo repository returns no targets
+- [x] 6.4 Refresh targets on the `mission.updated` invalidation (event `background_process.preview_targets`) and on reconnect
 
 ## 7. Companion – viewer
 
-- [ ] 7.1 Add `features/preview/` full-screen viewer rendering frames (`gaplessPlayback`, contain-fit) with connecting/live/reconnecting/closed/target-gone states
-- [ ] 7.2 Implement coordinate mapping (letterbox + DPR) and gestures: tap, long-press right click, pan→wheel, local pinch zoom, soft keyboard→key events; widget tests for mapping
-- [ ] 7.3 Send resize on open/rotation/resize clamped to Desktop bounds
-- [ ] 7.4 Navigation chrome: back/forward/reload, origin picker (announced origins) + path input (no free URL entry), popup banner
-- [ ] 7.5 Add the "Preview" entry point on mission process rows/log views that have targets; hidden when capability absent
-- [ ] 7.6 Re-attach to the same session after reconnection or offer reopen
-- [ ] 7.7 Translations for every Companion locale
+- [x] 7.1 Add `features/preview/` full-screen viewer rendering frames (`gaplessPlayback`, contain-fit) with connecting/live/reconnecting/closed/target-gone states
+- [x] 7.2 Implement coordinate mapping (letterbox + DPR) and gestures: tap, long-press right click, pan→wheel, local pinch zoom, soft keyboard→key events; widget tests for mapping
+- [x] 7.3 Send resize on open/rotation/resize clamped to Desktop bounds
+- [x] 7.4 Navigation chrome: back/forward/reload, origin picker (announced origins, shown when there are several) + path or same-origin URL input, popup banner, reset-zoom chip (no double-tap delay on taps)
+- [x] 7.5 Add the "Preview" entry point on mission process rows/log views that have targets; hidden when capability absent
+- [x] 7.6 Re-attach to the same session after reconnection or offer reopen
+- [x] 7.7 Translations for every Companion locale
 
 ## 8. Verification
 
 - [x] 8.1 Desktop: `npm run typecheck`, `npx vitest run server/mobile server/modules/browser server/modules/terminals server/modules`, client tests for the indicator, `npm run audit:architecture`, `npm run docs:source-map` if files were added
-- [ ] 8.2 Companion: `flutter analyze`, `flutter test`, `flutter build web` and native build
+- [x] 8.2 Companion: `flutter analyze`, `flutter test`, `flutter build web` and native build
 - [ ] 8.3 Manual smoke: mission starts `npm run dev` (Vite) → Companion native on iPhone and web companion via specrails-web preview it, tap/type/scroll work, unannounced port rejected, Desktop badge ends the session, Wi-Fi drop re-attaches
 - [ ] 8.4 Measure fps/latency on LAN and record numbers in the internals doc
