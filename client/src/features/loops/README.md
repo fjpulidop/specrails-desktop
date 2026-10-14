@@ -48,7 +48,10 @@ and server control routes. Recorded trace identifiers are optional.
 The builder edits agent definitions and engines in `graph.config.agents`. These
 settings are shared across projects using the published loop. Duplicate a loop
 for specialized recipes. `LoopAgentsEditor` imports historical project agents
-only on explicit action and discards responses after project switches. See
+only on explicit action and discards responses after project switches.
+`LoopTurnLimits` (Advanced settings) lists every AI step with its role and an
+editable **Maximum turns**; `lib/loop-role-agents.ts` is the shared role read/write
+used by it and the per-step panel. See
 [workflow ownership](../../../../docs/internals/desktop-owned-workflows.md) for
 compatibility and frozen-run behavior.
 

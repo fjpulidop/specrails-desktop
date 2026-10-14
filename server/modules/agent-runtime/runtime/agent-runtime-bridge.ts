@@ -17,6 +17,7 @@ import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
 import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
+import { CORE_DEFAULT_MAX_TURNS, withTurnLimitHint } from '../../loops/runtime/loop-turn-limits'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -255,9 +256,17 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     }
   }
   if (existsSync(frozenPath)) {
-    const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }>; fixer?: { provider: string; model?: string } }
-    for (const [role, assignment] of [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : [])]) {
-      try { options.onLine?.(`[runtime] ${role}: ${assignment.provider}/${assignment.model ?? 'provider default'}\n`) } catch { /* Log observers cannot prevent execution. */ }
+    type Assignment = { provider: string; model?: string; maxTurns?: number }
+    const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, Assignment>; fixer?: Assignment; roles?: Record<string, Assignment> }
+    // A definition names the roles its steps run (Implement: plan/build/assess/correct); list exactly those with their turn ceiling.
+    const definitionRoles = definitionEngine ? (JSON.parse(readFileSync(definitionFile, 'utf8')) as { roles?: unknown }).roles : undefined
+    const used = Array.isArray(definitionRoles) ? new Set(definitionRoles.filter((role): role is string => typeof role === 'string')) : undefined
+    if (used?.has('developer')) used.add('fixer')
+    const assignments = [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : []), ...Object.entries(frozen.roles ?? {})]
+      .filter(([role]) => used ? used.has(role) : role in frozen.agents || role === 'fixer')
+    for (const [role, assignment] of assignments) {
+      const turns = assignment.maxTurns === undefined ? `max ${CORE_DEFAULT_MAX_TURNS} turns (Core default)` : `max ${assignment.maxTurns} turns`
+      try { options.onLine?.(`[runtime] ${role}: ${assignment.provider}/${assignment.model ?? 'provider default'} · ${turns}\n`) } catch { /* Log observers cannot prevent execution. */ }
     }
   }
   for (const [flag, values] of [['approve', options.approve], ['recover', options.recover], ['invalidate', options.invalidate]] as const) {
@@ -323,7 +332,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         const kind = payload?.type === 'step_succeeded' && payload.outcome === 'fail' ? 'verification_failed' : payload?.type
         const completionDetail = payload?.type === 'workflow_failed' && Array.isArray(payload.reasons)
           ? payload.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : undefined
-        const detail = payload?.error?.message ?? payload?.message ?? completionDetail
+        const rawDetail = payload?.error?.message ?? payload?.message ?? completionDetail
+        const detail = payload?.type === 'step_failed' && typeof rawDetail === 'string' ? withTurnLimitHint(rawDetail, payload.stepId) : rawDetail
         const stepKey = JSON.stringify([payload?.scopeId ?? null, payload?.nodePath ?? payload?.stepId ?? null])
         if (payload?.type === 'step_failed' && typeof detail === 'string' && detail.trim()) {
           stepFailures.delete(stepKey)

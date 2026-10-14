@@ -30,7 +30,7 @@ export function loopsTools(): McpToolSpec[] {
         'For a standalone ticket-less run use the run action. ' +
         'Actions: ' +
         'list (all saved loops), ' +
-        'get (one loop by id), ' +
+        'get (one loop by id, plus turnLimits: each AI step\'s role and effective Maximum turns — set graph.config.agents.roles.<role>.maxTurns, or agents.<role> for built-in roles, then publish; project Agent Runtime settings never change loop runs), ' +
         'templates (built-in template catalog with graphs), ' +
         'factory (the built-in loops — factory:implement, factory:freestyle, factory:sdd-quick-openspec — with the graph a rail launch runs; ' +
         'built-ins are ordinary editable loops whose loopId IS the factory id: change them with update + publish and the change applies to every rail, chat launch and companion that uses that built-in), ' +

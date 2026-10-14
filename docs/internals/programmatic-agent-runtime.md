@@ -69,6 +69,22 @@ Desktop negotiates `runtime api` and sends configuration to `runtime validate --
    may only tighten Core's floors (70 overall, 75 security, 60 other aspects).
    Archive approval and low-confidence architect behavior are loop policies.
 
+### Turn limits
+
+Every AI step runs an agent role with a **Maximum turns** ceiling; each tool call
+counts as a turn. Unset roles use Core's default of 100. The Implement recipe runs
+roles `plan`, `build`, `assess` and `correct` (Architect, Developer, Reviewer,
+Fixer) and ships `build`/`correct` at 300. Read and set every ceiling in one place
+under the loop's **Advanced settings → Turn limits**, or per step in its agent
+panel; steps sharing a role share the value. Save and publish: a run freezes its
+limits at launch, so a failed run needs a new launch, not a resume.
+
+`GET /api/loops/:id` (and MCP `specrails_loops get`) returns `turnLimits` with each
+step's role, effective value and source (`step`, `role` or `core-default`). The run
+log prints each used role as `[runtime] build: claude/opus · max 300 turns`, and a
+turn-limit failure names the step and the field to raise. Project agent-runtime
+settings never change loop runs.
+
 Only verification is read from the project's `.specrails/agent-runtime.json` for
 new loop-owned recipes. Historical roles remain available for explicit import
 and old saved graphs. The editor never silently imports a project's settings

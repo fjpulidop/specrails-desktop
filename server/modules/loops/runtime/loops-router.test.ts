@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import express, { type Express } from 'express'
 import { Router } from 'express'
 import request from 'supertest'
@@ -71,6 +72,13 @@ describe('loops-router CRUD', () => {
     const id = created.body.loop.id
     expect((await request(app).get(`/api/loops/${id}`)).status).toBe(200)
     expect((await request(app).get('/api/loops/nope')).status).toBe(404)
+  })
+
+  it('returns each AI step turn ceiling with the loop', async () => {
+    const created = await request(app).post('/api/loops').send({ name: 'Turns', graph: configurableImplementGraph({ openRoles: 1 }) })
+    const res = await request(app).get(`/api/loops/${created.body.loop.id}`)
+    expect(res.body.turnLimits).toContainEqual(expect.objectContaining({ stepId: 'developer', role: 'build', maxTurns: 300, source: 'role' }))
+    expect(res.body.turnLimits).toContainEqual(expect.objectContaining({ stepId: 'architect', role: 'plan', maxTurns: 100, source: 'core-default' }))
   })
 
   it('deletes a loop (204)', async () => {

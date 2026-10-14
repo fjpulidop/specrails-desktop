@@ -30,6 +30,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/loop-role-engines.ts](runtime/loop-role-engines.ts)
 - [runtime/loop-run-manager.ts](runtime/loop-run-manager.ts)
 - [runtime/loop-runs-store.ts](runtime/loop-runs-store.ts)
+- [runtime/loop-turn-limits.ts](runtime/loop-turn-limits.ts) — effective per-step Maximum turns (`GET /loops/:id` `turnLimits`) and the turn-limit failure hint the runtime bridge appends
 - [runtime/loops-router.ts](runtime/loops-router.ts)
 - [runtime/loops-store.ts](runtime/loops-store.ts)
 

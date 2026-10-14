@@ -2492,7 +2492,7 @@ describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', (
       expect(listRailWorktrees(db, 0)[0].merge_state).toBe('needs-review')
       expect(remove).not.toHaveBeenCalled()
       expect(fs.existsSync(worktreePath)).toBe(true)
-      expect(getActivePrDeliveryByRail(db, 0)!.status_detail).toContain('Agent Runtime')
+      expect(getActivePrDeliveryByRail(db, 0)!.status_detail).toContain('Resume on the job page')
     } finally { db.close(); fs.rmSync(repoDir, { recursive: true, force: true }) }
   })
 
