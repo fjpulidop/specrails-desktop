@@ -17,6 +17,20 @@ it('defines agent roles, schemas, decisions and approval as editable loop data w
   expect(definition.roles.sort()).toEqual(['assess', 'build', 'correct', 'plan'])
   expect(definition.nodes.archive.params).toMatchObject({ requiresVerified: true })
 })
+it('ends on a deterministic OpenSpec archive rejection instead of cycling verify → review → archive', () => {
+  const graph = configurableImplementGraph()
+  const edge = (source: string, label: string) => graph.edges.find(item => item.source === source && item.label === label)?.target
+  expect(edge('archive', 'failed')).toBe('archive-retry')
+  const retry = graph.nodes.find(node => node.id === 'archive-retry')!
+  expect(retry.data!.params!.expr).toBe('exists($outputs.archive.reason) && ($outputs.archive.reason == "unverified" || $outputs.archive.reason == "candidate_changed") && $vars.archiveRetries < 2')
+  expect([edge('archive-retry', 'true'), edge('archive-retry', 'false')]).toEqual(['count-archive-retry', 'archive-failed'])
+  expect(edge('count-archive-retry', 'next')).toBe('verify')
+  expect(graph.nodes.find(node => node.id === 'count-archive-retry')!.data!.params).toEqual({ increment: { archiveRetries: 1 } })
+  expect(graph.nodes.find(node => node.id === 'initialize-corrections')!.data!.params!.set).toMatchObject({ archiveRetries: 0 })
+  expect(graph.nodes.find(node => node.id === 'archive-failed')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('could not archive change {{run.changeId}}') })
+  const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
+  expect(definition.nodes['archive-failed']).toMatchObject({ kind: 'end' })
+})
 it('uses configurable recipes only when Core advertises the generic capabilities', () => {
   const old = factoryLoopsForCapabilities({ engineV2: 1, workflowDefinitions: 1, implementationSteps: 1 }).find(loop => loop.id === 'factory:implement')!
   expect(old.graph.nodes.some(node => node.data?.kind === 'implementation-step')).toBe(true)
