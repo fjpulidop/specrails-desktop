@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.63.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.0...v2.63.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **loops:** end Implement on a repeating archive failure ([#743](https://github.com/fjpulidop/specrails-desktop/issues/743)) ([d1bd121](https://github.com/fjpulidop/specrails-desktop/commit/d1bd121fe8b2db73efce334bea0dd23fd8c7c28d))
+* **loops:** make step turn limits visible, configurable and actionable ([#742](https://github.com/fjpulidop/specrails-desktop/issues/742)) ([2ee4d89](https://github.com/fjpulidop/specrails-desktop/commit/2ee4d89aff75edc720a9ad7bb9198d06fdab3360))
+
 ## [2.63.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.62.0...v2.63.0) (2026-10-11)
 
 
