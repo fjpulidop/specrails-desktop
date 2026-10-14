@@ -7,19 +7,19 @@
 
 ## Installation
 
-Signed, notarized builds are published on every release under:
+Signed, notarized builds are published on every release as GitHub Release assets:
 
-> 📥 `https://specrails.dev/downloads/specrails-desktop/latest/`
+> 📥 [https://github.com/fjpulidop/specrails-desktop/releases/latest](https://github.com/fjpulidop/specrails-desktop/releases/latest)
 
 - `specrails-desktop-<version>-aarch64.dmg` — the Apple Silicon installer.
 
-Versioned copies live at `downloads/specrails-desktop/v<version>/` for archival and deep-linking. A machine-readable `manifest.json` in `latest/` describes the current release (version, sha256, size) so you can verify a download:
+Every earlier version stays on its own [GitHub Release](https://github.com/fjpulidop/specrails-desktop/releases). Each release lists the sha256 of every asset and carries a machine-readable `manifest.json` (version, sha256, size) so you can verify a download:
 
 ```bash
 shasum -a 256 specrails-desktop-<version>-aarch64.dmg
 ```
 
-Compare the output against `platforms["darwin-arm64"].sha256` in `https://specrails.dev/downloads/specrails-desktop/latest/manifest.json`.
+Compare the output against `platforms["darwin-arm64"].sha256` in `https://github.com/fjpulidop/specrails-desktop/releases/latest/download/manifest.json`, or against the sha256 shown next to the asset on the release page.
 
 To install: open the `.dmg` and drag **Specrails** into `Applications/`.
 

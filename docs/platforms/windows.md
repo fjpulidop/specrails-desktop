@@ -11,9 +11,9 @@
 
 ## Installation
 
-Installers are published on every release under:
+Installers are published on every release as GitHub Release assets:
 
-> 📥 `https://specrails.dev/downloads/specrails-desktop/latest/`
+> 📥 [https://github.com/fjpulidop/specrails-desktop/releases/latest](https://github.com/fjpulidop/specrails-desktop/releases/latest)
 
 Pick the installer that matches your CPU architecture:
 
@@ -22,9 +22,9 @@ Pick the installer that matches your CPU architecture:
 | x64 | `specrails-desktop-<version>-x64-setup.exe` |
 | ARM64 | `specrails-desktop-<version>-arm64-setup.exe` |
 
-Windows ships only the NSIS installer. For unattended or managed deployment, run it silently with `/S` (optionally `/D=<install dir>` as the last argument). Releases up to 2.62 also published an `.msi`; see [Updates](#updates) for how those installations migrate. The installer provisions Microsoft Edge WebView2 when it is missing, downloading it through a small embedded bootstrapper (Windows 11 and current Windows 10 already include it). Versioned copies live at `downloads/specrails-desktop/v<version>/` for archival and deep-linking.
+Windows ships only the NSIS installer. For unattended or managed deployment, run it silently with `/S` (optionally `/D=<install dir>` as the last argument). Releases up to 2.62 also published an `.msi`; see [Updates](#updates) for how those installations migrate. The installer provisions Microsoft Edge WebView2 when it is missing, downloading it through a small embedded bootstrapper (Windows 11 and current Windows 10 already include it). Every earlier version stays on its own [GitHub Release](https://github.com/fjpulidop/specrails-desktop/releases).
 
-A machine-readable `manifest.json` in `latest/` describes the current release (version, sha256, size) per platform, including `windows-x64` and `windows-arm64` entries — consumers can read it to build download links without hardcoding a version.
+A machine-readable `manifest.json` asset on each release describes the current release (version, sha256, size) per platform, including `windows-x64` and `windows-arm64` entries — consumers can read it to build download links without hardcoding a version.
 
 ## SmartScreen warning
 
@@ -44,7 +44,7 @@ This warning is expected and will persist until Authenticode code signing is add
 Get-FileHash specrails-desktop-<version>-x64-setup.exe -Algorithm SHA256
 ```
 
-Compare the output against the matching architecture's `sha256` (`platforms["windows-x64"].sha256` or `platforms["windows-arm64"].sha256`) in `https://specrails.dev/downloads/specrails-desktop/latest/manifest.json`.
+Compare the output against the matching architecture's `sha256` (`platforms["windows-x64"].sha256` or `platforms["windows-arm64"].sha256`) in `https://github.com/fjpulidop/specrails-desktop/releases/latest/download/manifest.json`, or against the sha256 shown next to the asset on the release page.
 
 ## What's bundled
 
