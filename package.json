@@ -75,7 +75,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@babel/parser": "^7.29.9",
+    "@babel/parser": "^8.0.7",
     "@tauri-apps/cli": "^2.0.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/cross-spawn": "^6.0.6",
