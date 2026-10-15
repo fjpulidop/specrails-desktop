@@ -54,7 +54,7 @@
     "audit:architecture": "node scripts/audit-server-modules.mjs --check && node scripts/audit-client-features.mjs --check"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@tailwindcss/typography": "^0.5.19",
     "ajv": "^8.20.0",
     "better-sqlite3": "^12.8.0",
