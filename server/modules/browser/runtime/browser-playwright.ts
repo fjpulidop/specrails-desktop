@@ -385,6 +385,20 @@ export class PlaywrightPageHandle implements BrowserPageHandle {
     }
   }
 
+  async setRequestGuard(allow: (url: string) => boolean): Promise<void> {
+    // Page-scoped (not context-scoped): the shared global context also serves
+    // Desktop sessions, which must keep their own unchanged guard and must not
+    // pay for request interception.
+    await this.page.route('**/*', async (route: any) => {
+      let url = ''
+      try { url = route.request().url() } catch { /* treat as rejected */ }
+      try {
+        if (url && allow(url)) await route.fallback()
+        else await route.abort('blockedbyclient')
+      } catch { /* the page or request went away */ }
+    })
+  }
+
   async enableNetwork(): Promise<void> {
     if (this.netEnabled) return
     this.netEnabled = true

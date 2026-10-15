@@ -198,7 +198,12 @@
     "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der SpecRails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
-    "revokeDevice": "{{name}} widerrufen"
+    "revokeDevice": "{{name}} widerrufen",
+    "previewing": "Zeigt {{url}} · {{project}}",
+    "endPreview": "Vorschau beenden",
+    "endPreviewLabel": "Beendet die App-Vorschau auf {{name}}",
+    "previewEnded": "Vorschau auf {{name}} beendet",
+    "endPreviewFailed": "Die Vorschau konnte nicht beendet werden"
   },
   "pairWeb": {
     "title": "Web-Companion koppeln",

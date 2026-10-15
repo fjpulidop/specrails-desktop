@@ -198,7 +198,12 @@
     "windowsFirewall": "Alla prima attivazione Windows Firewall chiederà di consentire il server SpecRails — scegli “Consenti su reti private”.",
     "pairedDevices": "Dispositivi associati",
     "noDevices": "Nessun dispositivo ancora associato.",
-    "revokeDevice": "Revoca {{name}}"
+    "revokeDevice": "Revoca {{name}}",
+    "previewing": "Sta visualizzando {{url}} · {{project}}",
+    "endPreview": "Termina anteprima",
+    "endPreviewLabel": "Termina l’anteprima dell’app aperta su {{name}}",
+    "previewEnded": "Anteprima terminata su {{name}}",
+    "endPreviewFailed": "Impossibile terminare l’anteprima"
   },
   "pairWeb": {
     "title": "Associa companion web",

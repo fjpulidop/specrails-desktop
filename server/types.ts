@@ -1272,6 +1272,16 @@ export interface BackgroundProcessUpdatedMessage {
   projectId: string
 }
 
+/** A running background process announced a new local URL (Companion app
+ *  preview). Carries identity only — clients refetch the preview targets. */
+export interface BackgroundProcessPreviewTargetsMessage {
+  type: 'background_process.preview_targets'
+  processId: string
+  chatId: string
+  projectId: string
+  timestamp: string
+}
+
 export type WsMessage =
   | { type: 'runtime.continuation'; projectId: string; jobId: string; railIndex: number | null; active: boolean }
   | LogMessage | PhaseMessage | InitMessage | QueueMessage | EventMessage
@@ -1299,7 +1309,7 @@ export type WsMessage =
   | PluginHealthChangedMessage | PluginDegradedMessage
   | PluginInstallProgressMessage
   | PluginPrereqInstallProgressMessage | PluginPrereqInstalledMessage
-  | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage | BackgroundProcessUpdatedMessage
+  | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage | BackgroundProcessUpdatedMessage | BackgroundProcessPreviewTargetsMessage
   | SpendingInvalidatedMessage
   | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
   | JobInteractiveMessage | JobStuckMessage
@@ -1309,7 +1319,7 @@ export type WsMessage =
   | FileSummaryUpdatedMessage | FileSummaryFailedMessage | FileSummarySkippedMessage
   | FileStoryUpdatedMessage
   | MobilePairRequestedMessage | MobileDevicePairedMessage
-  | MobileDeviceRevokedMessage | MobileGatewayStateMessage
+  | MobileDeviceRevokedMessage | MobileGatewayStateMessage | MobilePreviewsChangedMessage
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
@@ -1972,6 +1982,13 @@ export interface MobileGatewayStateMessage {
   type: 'mobile.gateway_state'
   running: boolean
   port: number
+  timestamp: string
+}
+
+/** A paired device opened or ended an app preview (app-level, no projectId):
+ *  Settings ▸ Mobile refetches `/api/mobile/previews`. */
+export interface MobilePreviewsChangedMessage {
+  type: 'mobile.previews_changed'
   timestamp: string
 }
 
