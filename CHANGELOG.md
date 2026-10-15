@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.63.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.1...v2.63.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **core:** ship Core 6.6.3 so long dependency installs keep the run alive ([#776](https://github.com/fjpulidop/specrails-desktop/issues/776)) ([b9f676c](https://github.com/fjpulidop/specrails-desktop/commit/b9f676cd95dd03d91e904510465e914e9d2cf9f8))
+
 ## [2.63.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.0...v2.63.1) (2026-10-14)
 
 
