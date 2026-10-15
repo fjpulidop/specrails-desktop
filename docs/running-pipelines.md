@@ -156,6 +156,18 @@ Visible only when [telemetry](customizing.md#telemetry) was enabled for the job.
 - `summary.md` — human-readable highlights
 - `profile.json`, `plugins.json` — exact snapshots of what ran (when present)
 
+### A run fails with `lease_lost` right after installing dependencies
+
+On Desktop versions that bundle Core 6.6.2 or older, an Implement run on a large repository could fail in the `developer` step shortly after `[environment] yarn install` (or `npm install`) with:
+
+```
+Execution lease expired or was replaced; late effects cannot commit
+```
+
+Core held an execution lease that it renews every few seconds, but it ran the dependency install synchronously. An install longer than about 45 s blocked that renewal, so the lease expired. Core 6.6.3 runs host installs asynchronously and the lease keeps renewing. Update Desktop and launch the spec again.
+
+The interrupted attempt cannot be resumed: its write step was cut off, so the runtime cannot confirm what was applied. Its isolated worktree is preserved, and you can inspect it or delete it.
+
 ## Agent profiles
 
 A **profile** is a named JSON file that bundles the agent chain + per-agent models + routing rules. Different rails can run different profiles.
