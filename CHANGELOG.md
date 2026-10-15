@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.64.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.2...v2.64.0) (2026-10-15)
+
+
+### Features
+
+* **mobile:** preview Desktop-served web apps from Companion ([#774](https://github.com/fjpulidop/specrails-desktop/issues/774)) ([357672c](https://github.com/fjpulidop/specrails-desktop/commit/357672c5cef01d946e8183b6cba840a215e632fe))
+
 ## [2.63.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.1...v2.63.2) (2026-10-15)
 
 
