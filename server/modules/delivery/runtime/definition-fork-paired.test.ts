@@ -23,7 +23,9 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRet
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
 const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT
 let root: string | undefined, db: DbInstance | undefined
-afterEach(() => { db?.close(); if (root) rmSync(root, { recursive: true, force: true }) })
+// The process-crash case kills a settlement worker; on Windows its Git children can
+// hold worktree files briefly after the kill, so retry transient EBUSY/EPERM.
+afterEach(() => { db?.close(); if (root) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 }) })
 
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['exception', 'process', 'historical'] as const)('forks a real Core run across two Git worktrees and recovers a %s crash between repository settlements', async crash => {
   root = realpathSync(mkdtempSync(path.join(tmpdir(), 'paired fork git ')))

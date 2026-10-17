@@ -79,7 +79,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (command === 'list') console.log(files.join('\n'))
   else {
     const reporters = junit ? ['--reporter=default', '--reporter=junit', `--outputFile.junit=${junit}`] : []
-    const result = spawnSync(process.execPath, [path.join(repository, 'node_modules/vitest/vitest.mjs'), 'run', '--maxWorkers=1', ...reporters, ...files], {
+    // Paired hooks remove real Git worktrees, SQLite files and Core run trees; on
+    // a loaded Windows runner that exceeded the global 20 s hook ceiling after a
+    // passing test (release 2.63.0 CI). A hung hook still fails, at two minutes.
+    const result = spawnSync(process.execPath, [path.join(repository, 'node_modules/vitest/vitest.mjs'), 'run', '--maxWorkers=1', '--hookTimeout=120000', ...reporters, ...files], {
       cwd: repository, stdio: 'inherit', windowsHide: true,
     })
     if (result.error) throw result.error
