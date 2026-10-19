@@ -567,7 +567,15 @@
       "count": "Prozesse: {{count}}"
     },
     "interruptedHint": "Specrails überwacht diesen Prozess nicht mehr. Sein Zustand im Betriebssystem ist unbekannt; gespeicherte Protokolle bleiben verfügbar.",
-    "persistenceFailed": "Der Prozessverlauf konnte nicht gespeichert werden. Die verfügbare Ausgabe bleibt sichtbar."
+    "persistenceFailed": "Der Prozessverlauf konnte nicht gespeichert werden. Die verfügbare Ausgabe bleibt sichtbar.",
+    "appUrls": {
+      "title": "App-Adressen",
+      "local": "Dieser Computer",
+      "network": "Dein Netzwerk",
+      "open": "{{url}} im Browser öffnen",
+      "copy": "{{url}} kopieren",
+      "localOnly": "Nur von diesem Computer erreichbar. Um sie vom Handy im selben WLAN zu öffnen, bitte den Agenten, sie im lokalen Netzwerk freigegeben neu zu starten."
+    }
   },
   "window": {
     "detach": "In eigenem Fenster öffnen",

@@ -567,7 +567,15 @@
       "count": "进程数：{{count}}"
     },
     "interruptedHint": "Specrails 已停止监控此进程。其在操作系统中的状态未知；已保存的日志仍然可用。",
-    "persistenceFailed": "无法保存进程历史。现有输出仍然可见。"
+    "persistenceFailed": "无法保存进程历史。现有输出仍然可见。",
+    "appUrls": {
+      "title": "应用地址",
+      "local": "本机",
+      "network": "你的网络",
+      "open": "在浏览器中打开 {{url}}",
+      "copy": "复制 {{url}}",
+      "localOnly": "仅可从本机访问。要在同一 Wi-Fi 下的手机上打开，请让代理以局域网公开方式重新启动它。"
+    }
   },
   "window": {
     "detach": "在独立窗口中打开",

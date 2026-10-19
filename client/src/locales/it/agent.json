@@ -567,7 +567,15 @@
       "count": "Processi: {{count}}"
     },
     "interruptedHint": "Specrails non supervisiona più questo processo. Il suo stato nel sistema operativo è sconosciuto; i log salvati restano disponibili.",
-    "persistenceFailed": "Impossibile salvare la cronologia del processo. L’output disponibile resta visibile."
+    "persistenceFailed": "Impossibile salvare la cronologia del processo. L’output disponibile resta visibile.",
+    "appUrls": {
+      "title": "Indirizzi dell’app",
+      "local": "Questo computer",
+      "network": "La tua rete",
+      "open": "Apri {{url}} nel browser",
+      "copy": "Copia {{url}}",
+      "localOnly": "Raggiungibile solo da questo computer. Per aprirla dal telefono sulla stessa Wi-Fi, chiedi all’agente di riavviarla esposta sulla rete locale."
+    }
   },
   "window": {
     "detach": "Apri in una finestra separata",

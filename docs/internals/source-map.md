@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1046 source/build files. Nearby tests are linked where names
+Includes 1049 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -138,6 +138,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/background/components
 
+- [BackgroundProcessAppLinks.tsx](../../client/src/features/background/components/BackgroundProcessAppLinks.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessAppLinks.test.tsx)
 - [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx)
 - [BackgroundProcessHistoryModal.tsx](../../client/src/features/background/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
 - [BackgroundProcessLogsModal.tsx](../../client/src/features/background/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessLogsModal.test.tsx)
@@ -1403,10 +1404,15 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [composition.ts](../../server/modules/subscription-usage/runtime/composition.ts)
 - [usage-service.ts](../../server/modules/subscription-usage/runtime/usage-service.ts) · [test](../../server/modules/subscription-usage/runtime/usage-service.test.ts)
 
+## server/modules/terminals/domain
+
+- [app-urls.ts](../../server/modules/terminals/domain/app-urls.ts) · [test](../../server/modules/terminals/domain/app-urls.test.ts)
+
 ## server/modules/terminals/runtime
 
+- [app-urls.ts](../../server/modules/terminals/runtime/app-urls.ts) · [test](../../server/modules/terminals/runtime/app-urls.test.ts)
 - [background-process-control.ts](../../server/modules/terminals/runtime/background-process-control.ts) · [test](../../server/modules/terminals/runtime/background-process-control.test.ts)
-- [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts)
+- [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts) · [test](../../server/modules/terminals/runtime/background-process-service.test.ts)
 - [background-process-store.ts](../../server/modules/terminals/runtime/background-process-store.ts) · [test](../../server/modules/terminals/runtime/background-process-store.test.ts)
 - [background-windows-bootstrap.ts](../../server/modules/terminals/runtime/background-windows-bootstrap.ts) · [test](../../server/modules/terminals/runtime/background-windows-bootstrap.test.ts)
 - [terminal-manager.ts](../../server/modules/terminals/runtime/terminal-manager.ts) · [test](../../server/modules/terminals/runtime/terminal-manager.test.ts)

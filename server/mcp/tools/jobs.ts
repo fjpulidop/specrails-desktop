@@ -3,6 +3,9 @@ import type { McpToolSpec } from './types'
 import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository } from './types'
 import { startBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
 import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
+import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
+
+const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give the user each as a clickable markdown link: local opens on this computer; network opens from a phone or another device on the same Wi-Fi/VPN. No network URL means the server only listens on this computer (it was started without its host/LAN flag).'
 
 function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
   if (!ctx.firstPartyAgent || !ctx.originConversationId) {
@@ -459,7 +462,7 @@ export function jobsTools(): McpToolSpec[] {
               .sort((a, b) => Number(terminal.has(a.status)) - Number(terminal.has(b.status)) || b.startedAt - a.startedAt)
             const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 50
             const offset = typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : 0
-            return { processes: processes.slice(offset, offset + limit), total: processes.length, offset, limit, hasMore: offset + limit < processes.length,
+            return { processes: processes.slice(offset, offset + limit).map(withAppUrls), total: processes.length, offset, limit, hasMore: offset + limit < processes.length,
               ...(Number.isSafeInteger(ctx.desktopPort) && ctx.desktopPort > 0 ? { specrailsApi: { host: '127.0.0.1', port: ctx.desktopPort } } : {}),
               hint: 'History includes persisted executions. interrupted means supervision ended after restart; current OS state is unknown and the historical PID cannot be signalled. Keep application ports separate from the Specrails API. Inspect persisted failure logs before proposing another launch.' }
           }
@@ -496,9 +499,11 @@ export function jobsTools(): McpToolSpec[] {
               ...(limit !== undefined ? { limit } : {}),
             })
             if (!logs) throw new Error('background_logs requires a registered pid in the same project/chat; logs may have expired.')
+            const { appUrls } = withAppUrls(logs.process)
             return {
               ok: true,
               ...logs,
+              ...(appUrls ? { appUrls, appUrlsHint: APP_URLS_HINT } : {}),
               hint: logs.lines.length > 0
                 ? 'Inspect stdout/stderr to explain why the background process exited or failed.'
                 : 'No stdout/stderr output has been captured yet. Check the returned process status; empty logs do not prove application readiness.',

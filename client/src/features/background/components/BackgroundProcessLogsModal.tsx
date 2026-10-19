@@ -5,6 +5,7 @@ import { AlertCircle, ArrowDownToLine, ArrowLeft, Check, Copy, Download, Loader2
 import { Dialog, DialogClose, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from '../../../components/ui/dialog'
 import { backgroundProcessKey, getBackgroundProcessLogs } from '../lib/background-processes-api'
 import { isBackgroundProcessFinished, useBackgroundProcessElapsed } from './BackgroundProcessChip'
+import { BackgroundProcessAppLinks } from './BackgroundProcessAppLinks'
 import type { BackgroundProcess } from '../../../types'
 
 type LogLine = Awaited<ReturnType<typeof getBackgroundProcessLogs>>['lines'][number]
@@ -185,6 +186,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
           {(displayedProcess.repositoryName || displayedProcess.repositoryId) && <><dt className="text-muted-foreground">{t('backgroundProcess.repository')}</dt><dd className="break-all text-muted-foreground">{sanitizeBackgroundLog(displayedProcess.repositoryName ?? displayedProcess.repositoryId ?? '')}</dd></>}
           <dt className="text-muted-foreground">PID</dt><dd className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-muted-foreground"><span>{displayedProcess.pid}</span>{displayedProcess.exitCode != null && <span>{t('backgroundProcess.exitCode', { code: displayedProcess.exitCode })}</span>}{displayedProcess.signal && <span>{t('backgroundProcess.signal', { signal: displayedProcess.signal })}</span>}</dd>
         </dl>
+        {!finished && <BackgroundProcessAppLinks process={displayedProcess.appUrls ? displayedProcess : process} />}
         {displayedProcess.error && <p role="alert" className="border-b border-border/40 bg-destructive/5 px-4 py-2 text-xs text-destructive">{sanitizeBackgroundLog(displayedProcess.error).slice(0, 1000)}</p>}
         {displayedProcess.status === 'interrupted' && <p role="status" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.interruptedHint')}</p>}
         {displayedProcess.persistenceError && <p role="alert" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.persistenceFailed')}</p>}

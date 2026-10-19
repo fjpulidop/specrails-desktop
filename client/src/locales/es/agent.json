@@ -567,7 +567,15 @@
       "count": "Procesos: {{count}}"
     },
     "interruptedHint": "Specrails dejó de supervisar este proceso. Su estado en el sistema operativo es desconocido; los logs guardados siguen disponibles.",
-    "persistenceFailed": "No se pudo guardar el historial del proceso. La salida disponible sigue visible."
+    "persistenceFailed": "No se pudo guardar el historial del proceso. La salida disponible sigue visible.",
+    "appUrls": {
+      "title": "Direcciones de la app",
+      "local": "Este ordenador",
+      "network": "Tu red",
+      "open": "Abrir {{url}} en el navegador",
+      "copy": "Copiar {{url}}",
+      "localOnly": "Solo accesible desde este ordenador. Para abrirla desde el móvil en la misma wifi, pide al agente que la relance expuesta en tu red local."
+    }
   },
   "window": {
     "detach": "Abrir en otra ventana",

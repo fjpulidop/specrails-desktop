@@ -209,6 +209,13 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
     expect(OPERATOR_SYSTEM_PROMPT).toContain('background_logs')
   })
 
+  it('asks before exposing a dev server on the local network and links its appUrls', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Offer the app on the local network')
+    expect(OPERATOR_INSTRUCTIONS).toContain('appUrls')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('whether to expose it on the local network')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('appUrls')
+  })
+
   it('carries the grounding + spec-draft + contract-layer-default essentials', () => {
     expect(OPERATOR_SYSTEM_PROMPT).toContain('ground it in the real codebase FIRST')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('spec-draft JSON block')

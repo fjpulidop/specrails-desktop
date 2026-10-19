@@ -128,6 +128,19 @@ Loopback-only admin surface for the Mobile Gateway (the gateway itself is a sepa
 | `DELETE` | `/devices/:id` | Revoke a paired device |
 | `POST` | `/cert/rotate` | Rotate the gateway TLS identity (unpairs every device) |
 
+### Mission app addresses
+
+A running mission background process (`GET /api/projects/:id/background-processes`,
+its `/:pid/logs` snapshot, the Companion's `/v1/projects/:pid/missions/:cid/processes`
+proxy and every `background_process.*` WS event) carries
+`appUrls: { local: string[], network: string[] }` once its output announces an
+address. `local` opens on the Desktop computer; `network` holds private LAN/VPN
+addresses (RFC 1918, `100.64/10`, `*.local`, or this machine's addresses for a
+`0.0.0.0` bind) that a phone on the same Wi-Fi opens in its own browser. The
+field is derived from the retained logs on read, never persisted, and absent
+once the process stops. A new or changed address is announced as a
+`background_process.updated` event; log lines themselves are not broadcast.
+
 ### specrails-tech proxy
 
 Proxies the external specrails-tech agents service (base URL from `desktop_settings.specrails_tech_url`).

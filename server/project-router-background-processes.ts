@@ -3,6 +3,7 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import { getBackgroundProcessLogs, listBackgroundProcesses, startBackgroundProcess } from './transient-children'
 import { getProjectRepositories, resolveProjectRepository, RepositoryValidationError } from './project-repositories'
 import { BackgroundProcessOwnershipLostError, backgroundProcessHooks, backgroundStartBusyReason, resolveBackgroundCwd, stopOwnedBackgroundProcess } from './modules/terminals/runtime/background-process-service'
+import { withAppUrls } from './modules/terminals/runtime/app-urls'
 
 function processQuery(req: Request, res: Response): { pid: number; chatId: string; processId?: string } | null {
   const pid = Number(req.params.pid)
@@ -21,7 +22,7 @@ export function registerBackgroundProcessRoutes({ router, ctx }: ProjectRoutesDe
     const c = ctx(req)
     const chatId = typeof req.query.chatId === 'string' && req.query.chatId.trim() ? req.query.chatId.trim() : undefined
     res.json({ processes: listBackgroundProcesses({ projectId: c.project.id,
-      ...(chatId ? { chatId } : {}), ...(req.query.includeFinished === 'true' ? { includeFinished: true } : {}) }) })
+      ...(chatId ? { chatId } : {}), ...(req.query.includeFinished === 'true' ? { includeFinished: true } : {}) }).map(withAppUrls) })
   })
 
   router.get('/:projectId/background-processes/:pid/logs', (req, res) => {
@@ -33,7 +34,7 @@ export function registerBackgroundProcessRoutes({ router, ctx }: ProjectRoutesDe
     if (limit !== undefined && (!Number.isSafeInteger(limit) || limit <= 0)) { res.status(400).json({ error: 'limit must be a positive integer' }); return }
     const logs = getBackgroundProcessLogs(pid, { projectId: c.project.id, ...owner, ...(limit !== undefined ? { limit } : {}) })
     if (!logs) { res.status(404).json({ error: 'background process logs not found for project/chat or execution has expired' }); return }
-    res.json(logs)
+    res.json({ ...logs, process: withAppUrls(logs.process) })
   })
 
   router.post('/:projectId/background-processes', (req, res) => {
