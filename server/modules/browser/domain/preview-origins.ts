@@ -79,6 +79,19 @@ export function previewTargetsFromLines(lines: readonly string[]): string[] {
 }
 
 /**
+ * Drop announced URLs on Specrails' own loopback ports (Desktop API, mobile
+ * gateway). Any process can print any URL, and the preview browser runs on
+ * loopback, so an "announced" Desktop port would expose loopback-only routes.
+ */
+export function withoutReservedPorts(urls: readonly string[], reserved: ReadonlySet<number>): string[] {
+  if (reserved.size === 0) return [...urls]
+  return urls.filter((url) => {
+    const origin = previewOrigin(url)
+    return origin !== null && !reserved.has(Number(origin.slice(origin.lastIndexOf(':') + 1)))
+  })
+}
+
+/**
  * Whether a device-owned preview session may load `url` (a navigation or a
  * subresource request). Announced origins of the project are allowed even
  * though they are loopback; everything else must pass the regular server-side

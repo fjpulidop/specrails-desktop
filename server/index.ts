@@ -679,6 +679,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     },
   })
   _mobileGateway = mobileGateway
+  registry.reservePreviewPorts(() => [mobileGateway.listenPort()])
   app.use('/api/mobile', requireLoopback, createMobileAdminRouter({
     gateway: mobileGateway,
     desktopDb: registry.desktopDb,

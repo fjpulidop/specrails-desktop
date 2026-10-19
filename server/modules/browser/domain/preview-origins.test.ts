@@ -6,6 +6,7 @@ import {
   isPreviewRequestAllowed,
   previewOrigin,
   previewTargetsFromLines,
+  withoutReservedPorts,
 } from './preview-origins'
 
 describe('extractPreviewUrls', () => {
@@ -56,6 +57,12 @@ describe('origins', () => {
     expect(previewOrigin('https://Example.com/')).toBe('https://example.com:443')
     expect(previewOrigin('file:///etc/passwd')).toBeNull()
     expect(previewOrigin('not a url')).toBeNull()
+  })
+
+  it('drops URLs on reserved ports, including default-port spellings', () => {
+    const urls = ['http://localhost:5173/', 'http://localhost:4200/api', 'https://localhost/', 'http://localhost/']
+    expect(withoutReservedPorts(urls, new Set([4200, 443]))).toEqual(['http://localhost:5173/', 'http://localhost/'])
+    expect(withoutReservedPorts(urls, new Set())).toEqual(urls)
   })
 
   it('recognises loopback hosts', () => {

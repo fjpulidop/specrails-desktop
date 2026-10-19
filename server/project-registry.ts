@@ -215,7 +215,12 @@ export class ProjectRegistry {
   private _browserContextPool: SharedBrowserContextPool
   // Companion app preview: URLs announced by running mission processes,
   // derived on demand from their logs (shared by every project's browser).
-  private readonly _previewTargets: PreviewTargetSource = createPreviewTargetSource()
+  // Specrails' own ports are never previewable (see reservePreviewPorts).
+  private _extraReservedPreviewPorts: () => Iterable<number> = () => []
+  private readonly _previewTargets: PreviewTargetSource = createPreviewTargetSource(
+    undefined,
+    () => [this._desktopPort, ...this._extraReservedPreviewPorts()],
+  )
 
   constructor(broadcast: (msg: WsMessage) => void, desktopDbPath?: string, desktopPort?: number) {
     this._broadcast = broadcast
@@ -229,6 +234,12 @@ export class ProjectRegistry {
 
   get previewTargets(): PreviewTargetSource {
     return this._previewTargets
+  }
+
+  /** Further Specrails listeners (e.g. the mobile gateway) that a mission
+   *  process must never announce as a Companion preview target. */
+  reservePreviewPorts(provider: () => Iterable<number>): void {
+    this._extraReservedPreviewPorts = provider
   }
 
   get desktopDb(): DbInstance {

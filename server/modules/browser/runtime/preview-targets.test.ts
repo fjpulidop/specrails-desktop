@@ -67,4 +67,22 @@ describe('createPreviewTargetSource', () => {
     const failingLogs = createPreviewTargetSource({ list: () => [proc()], logs: () => { throw new Error('read') } })
     expect(failingLogs.announcedOrigins('proj').size).toBe(0)
   })
+
+  it('never offers Specrails\' own ports, whatever a process prints', () => {
+    const lines = ['Local: http://localhost:5173/', 'echo http://127.0.0.1:4200/api/mobile', 'gateway https://localhost:4443/']
+    const reader = { list: () => [proc()], logs: (p: BackgroundProcess) => snapshot(p, lines) }
+    const source = createPreviewTargetSource(reader, () => [4200, 4443])
+    expect(source.list('proj')).toEqual([{ processId: 'p1', chatId: 'c1', urls: ['http://localhost:5173/'] }])
+    expect(source.forProcess('proj', 'p1')?.urls).toEqual(['http://localhost:5173/'])
+    expect(source.announcedOrigins('proj')).toEqual(new Set(['http://localhost:5173']))
+  })
+
+  it('fails closed when the reserved ports cannot be read', () => {
+    const source = createPreviewTargetSource(
+      { list: () => [proc()], logs: (p) => snapshot(p, ['Local: http://localhost:5173/']) },
+      () => { throw new Error('gateway db') },
+    )
+    expect(source.list('proj')).toEqual([])
+    expect(source.announcedOrigins('proj').size).toBe(0)
+  })
 })

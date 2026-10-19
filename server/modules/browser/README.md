@@ -24,11 +24,12 @@ Device sessions differ from Desktop sessions in three ways:
   holds at most two device sessions.
 - **Origin pinning.** The pure policy in `domain/preview-origins.ts` allows a
   loopback origin only while a running mission background process of the
-  project announces it in its logs (`runtime/preview-targets.ts`). Everything
-  else falls back to `isNavigableUrl`. A page-scoped request guard
-  (`setRequestGuard`) enforces it for documents, subresources and popups, and
-  creation fails closed without it. Desktop pages carry no guard and keep the
-  unchanged SSRF rule.
+  project announces it in its logs (`runtime/preview-targets.ts`). Specrails'
+  own ports (Desktop API, mobile gateway) are never targets, whatever a process
+  prints. Everything else falls back to `isNavigableUrl`. A page-scoped request
+  guard (`setRequestGuard`) enforces it for documents, subresources, popups and
+  direct `goto` navigations, and creation fails closed without it. Desktop pages
+  carry no guard and keep the unchanged SSRF rule.
 - **Manual URLs.** `navigateAsDevice` accepts only paths on announced origins.
 
 The gateway side (channels, routes, capability) lives in `server/mobile/mobile-preview*.ts`.

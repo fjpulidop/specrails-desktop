@@ -143,6 +143,11 @@ export class MobileGateway {
     return getDesktopSetting(this._db, SETTING.enabled) === 'true'
   }
 
+  /** The port the gateway listens on (or will, once started). */
+  listenPort(): number {
+    return this._running ? this._boundPort : this.configuredPort()
+  }
+
   status(): MobileGatewayStatus {
     return {
       enabled: this.isEnabledSetting(),
