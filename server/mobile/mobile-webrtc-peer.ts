@@ -1,7 +1,6 @@
 import { RTCPeerConnection, type RTCDataChannel } from 'werift'
 import { safeEqual } from '../auth'
 import { DataChannelPeer, type DataChannelLike, type DataChannelPeerDeps, type WelcomeResult } from './mobile-datachannel'
-import type { PreviewChannelLike } from './mobile-preview-channel'
 
 // werift runtime glue: the desktop is the WebRTC *offerer*. It creates a peer +
 // DataChannel, emits an offer SDP (for the first QR), then applies the scanned
@@ -37,9 +36,6 @@ export class MobileWebrtcGateway {
   // answer to whatever happened to be pending. Per-room keying isolates them.
   private _pending = new Map<string, PendingOffer>()
   private _active = new Set<RTCPeerConnection>()
-  /** The live peer of each authenticated device (latest wins), so Desktop can
-   *  open extra DataChannels (app preview) on the connection it already has. */
-  private _byDevice = new Map<string, RTCPeerConnection>()
 
   constructor(private _deps: MobileWebrtcGatewayDeps) {}
 
@@ -76,21 +72,17 @@ export class MobileWebrtcGateway {
     //    require a valid existing device token instead, and never mint.
     new DataChannelPeer(toChannelLike(dc), {
       registerDevice: async (input) => {
-        let result: WelcomeResult | { ok: false }
         if (isReconnect) {
-          result = await this._deps.registerDevice({
+          return this._deps.registerDevice({
             deviceName: input.deviceName,
             platform: input.platform,
             token: input.token,
             requireExistingToken: true,
           })
-        } else {
-          result = input.secret && safeEqual(input.secret, secret)
-            ? await this._deps.registerDevice({ deviceName: input.deviceName, platform: input.platform, token: input.token })
-            : { ok: false }
         }
-        if (result.ok) this._byDevice.set(result.deviceId, pc)
-        return result
+        return input.secret && safeEqual(input.secret, secret)
+          ? this._deps.registerDevice({ deviceName: input.deviceName, platform: input.platform, token: input.token })
+          : { ok: false }
       },
       rpcDispatch: this._deps.rpcDispatch,
       bridge: this._deps.bridge,
@@ -100,7 +92,6 @@ export class MobileWebrtcGateway {
       console.log('[webrtc] pc connectionState:', s)
       if (s === 'failed' || s === 'closed' || s === 'disconnected') {
         this._active.delete(pc)
-        for (const [deviceId, owned] of this._byDevice) if (owned === pc) this._byDevice.delete(deviceId)
         // Drop this pc from whichever room slot still holds it.
         if (this._pending.get(key)?.pc === pc) this._pending.delete(key)
       }
@@ -135,30 +126,11 @@ export class MobileWebrtcGateway {
     }
   }
 
-  /** Open an ordered, reliable DataChannel on the device's live peer (no SDP
-   *  renegotiation: the SCTP association already exists). Null when the
-   *  device has no connected WebRTC peer. */
-  openChannel(deviceId: string, label: string): PreviewChannelLike | null {
-    const pc = this._byDevice.get(deviceId)
-    if (!pc || pc.connectionState !== 'connected') return null
-    try {
-      return toPreviewChannel(pc.createDataChannel(label, { ordered: true }))
-    } catch {
-      return null
-    }
-  }
-
-  /** Forget a device's peer (revoked). Its channels close with the peer. */
-  forgetDevice(deviceId: string): void {
-    this._byDevice.delete(deviceId)
-  }
-
   /** Tear down every peer (gateway stopping / disabled). */
   stop(): void {
     for (const key of [...this._pending.keys()]) this.clearOffer(key)
     for (const pc of this._active) this._close(pc)
     this._active.clear()
-    this._byDevice.clear()
   }
 
   private _close(pc: RTCPeerConnection): void {
@@ -185,22 +157,6 @@ function toChannelLike(dc: RTCDataChannel): DataChannelLike {
         if (s === 'closed') cb()
       })
     },
-  }
-}
-
-function toPreviewChannel(dc: RTCDataChannel): PreviewChannelLike {
-  return {
-    get label() { return dc.label },
-    get readyState() { return dc.readyState },
-    get bufferedAmount() { return dc.bufferedAmount },
-    send: (data) => dc.send(data),
-    close: () => dc.close(),
-    onOpen: (cb) => {
-      if (dc.readyState === 'open') queueMicrotask(cb)
-      else dc.stateChanged.subscribe((s) => { if (s === 'open') cb() })
-    },
-    onMessage: (cb) => { dc.onMessage.subscribe((d) => cb(d)) },
-    onClose: (cb) => { dc.stateChanged.subscribe((s) => { if (s === 'closed') cb() }) },
   }
 }
 

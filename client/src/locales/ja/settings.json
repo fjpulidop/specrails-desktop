@@ -198,12 +198,7 @@
     "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
-    "revokeDevice": "{{name}} を無効化",
-    "previewing": "{{url}} を表示中 · {{project}}",
-    "endPreview": "プレビューを終了",
-    "endPreviewLabel": "{{name}} で開いているアプリのプレビューを終了します",
-    "previewEnded": "{{name}} のプレビューを終了しました",
-    "endPreviewFailed": "プレビューを終了できませんでした"
+    "revokeDevice": "{{name}} を無効化"
   },
   "pairWeb": {
     "title": "Web コンパニオンをペアリング",

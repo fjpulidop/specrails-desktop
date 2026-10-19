@@ -8,7 +8,6 @@ import type { DbInstance } from '../db'
 import { createMobileMissionsRouter } from './mobile-missions'
 import type { MobileUpstream } from './mobile-missions'
 import { createMobileCodeRouter } from './mobile-code'
-import { createMobilePreviewRouter, type MobilePreviewService } from './mobile-preview'
 
 // The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
 // forwards, in-process, via a REAL loopback HTTP request to
@@ -29,8 +28,6 @@ export interface MobileRouterDeps {
   db: DbInstance
   desktopPort: number
   currentFingerprint: () => string
-  /** Companion app preview (absent ⇒ capability off, routes 404). */
-  preview?: MobilePreviewService
 }
 
 export function createMobileRouter(deps: MobileRouterDeps): Router {
@@ -428,8 +425,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
     return { status: response.status, json: await response.json() }
   }
-  v1.use(createMobileMissionsRouter({ db: deps.db, upstream: mobileUpstream, appPreview: () => deps.preview?.available() ?? false }))
-  if (deps.preview) v1.use(createMobilePreviewRouter({ db: deps.db, preview: deps.preview }))
+  v1.use(createMobileMissionsRouter({ db: deps.db, upstream: mobileUpstream }))
   v1.use(createMobileCodeRouter(mobileUpstream))
   router.use('/v1', v1)
 
@@ -449,11 +445,6 @@ export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/find' },
   { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/file' },
   { method: 'GET', path: '/v1/capabilities' },
-  { method: 'GET', path: '/v1/projects/:pid/missions/:cid/preview-targets' },
-  { method: 'POST', path: '/v1/projects/:pid/preview-sessions' },
-  { method: 'POST', path: '/v1/projects/:pid/preview-sessions/:sid/attach' },
-  { method: 'POST', path: '/v1/projects/:pid/preview-sessions/:sid/navigate' },
-  { method: 'DELETE', path: '/v1/projects/:pid/preview-sessions/:sid' },
   { method: 'GET', path: '/v1/mission-models' },
   { method: 'PATCH', path: '/v1/projects/:pid/missions/:cid/messages/:mid/intent' },
   { method: 'GET', path: '/v1/projects/:pid/repositories' },

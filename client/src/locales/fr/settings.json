@@ -198,12 +198,7 @@
     "windowsFirewall": "Le Pare-feu Windows demandera d'autoriser le serveur SpecRails à la première activation — choisissez « Autoriser sur les réseaux privés ».",
     "pairedDevices": "Appareils appairés",
     "noDevices": "Aucun appareil appairé pour l'instant.",
-    "revokeDevice": "Révoquer {{name}}",
-    "previewing": "Affiche {{url}} · {{project}}",
-    "endPreview": "Arrêter l’aperçu",
-    "endPreviewLabel": "Arrête l’aperçu de l’app ouvert sur {{name}}",
-    "previewEnded": "Aperçu arrêté sur {{name}}",
-    "endPreviewFailed": "Impossible d’arrêter l’aperçu"
+    "revokeDevice": "Révoquer {{name}}"
   },
   "pairWeb": {
     "title": "Appairer le compagnon web",

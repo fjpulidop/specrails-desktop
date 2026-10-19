@@ -46,7 +46,7 @@ function topicFor(type: string): TopicName | 'jobtail' | 'hub' | null {
     case 'agent_stream': case 'agent_done': case 'agent_partial': case 'agent_error': case 'agent_title':
     case 'agent_tool': case 'agent_tool_result': case 'agent_queued': case 'agent_dequeued': case 'agent_steered':
     case 'agent_queue_edited': case 'agent_queue_removed': case 'agent_queue_cleared': case 'agent_input_receipt':
-    case 'agent_pr_decision': case 'background_process.started': case 'background_process.updated': case 'background_process.exited': case 'background_process.preview_targets': return 'missions'
+    case 'agent_pr_decision': case 'background_process.started': case 'background_process.updated': case 'background_process.exited': return 'missions'
     case 'queue': return 'queue'
     case 'phase': return 'phase'
     case 'ticket_created':
@@ -241,8 +241,7 @@ export class MobileWsBridge {
         if (allowed !== null || !s.topics.has('missions')) continue
         const value = msg as unknown as Record<string, unknown>
         const process = value.process as { chatId?: string } | undefined
-        const cid = typeof value.conversationId === 'string' ? value.conversationId
-          : typeof value.chatId === 'string' ? value.chatId : process?.chatId
+        const cid = typeof value.conversationId === 'string' ? value.conversationId : process?.chatId
         const projectId = cid ? this._missionProjectFor(cid) : null
         if (!projectId || !s.projects.has(projectId)) continue
         // The snapshot is authoritative. Events are bounded invalidation hints;

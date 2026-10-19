@@ -25,37 +25,6 @@ describe('mobile-admin-router', () => {
 
   afterEach(async () => { await gw.stop() })
 
-  it('lists and ends Companion app previews with project names', async () => {
-    const owners = new Map<string, { kind: 'device'; deviceId: string; deviceName: string } | { kind: 'desktop' }>([
-      ['s1', { kind: 'device', deviceId: 'd1', deviceName: 'iPhone' }],
-      ['desk', { kind: 'desktop' }],
-    ])
-    const browser = {
-      listSessions: () => [...owners].map(([id, owner]) => ({ id, projectId: 'p1', url: 'http://localhost:5173/', title: 'App', viewportWidth: 1, viewportHeight: 1, createdAt: 1, owner })),
-      sessionOwner: (id: string) => owners.get(id) ?? null,
-      kill: async (id: string) => owners.delete(id),
-    }
-    const withPreview = new MobileGateway({
-      desktopDb: db, desktopPort: 4200, broadcast: (m) => events.push(m), bindHost: '127.0.0.1', port: 0,
-      preview: {
-        enabled: () => true,
-        browserFor: (pid) => (pid === 'p1' ? browser : null) as never,
-        allBrowsers: () => [browser] as never,
-        targets: { list: () => [], forProcess: () => null },
-      },
-    })
-    const previewApp = express()
-    previewApp.use(express.json())
-    previewApp.use('/api/mobile', createMobileAdminRouter({ gateway: withPreview, desktopDb: db, broadcast: (m) => events.push(m) }))
-    const listed = await request(previewApp).get('/api/mobile/previews')
-    expect(listed.body.previews).toEqual([expect.objectContaining({ projectId: 'p1', projectName: 'p1', sessionId: 's1', deviceName: 'iPhone' })])
-    expect((await request(previewApp).delete('/api/mobile/previews/p1/desk')).body).toEqual({ ok: false })
-    expect((await request(previewApp).delete('/api/mobile/previews/p1/s1')).body).toEqual({ ok: true })
-    expect(events.some((e) => e.type === 'mobile.previews_changed')).toBe(true)
-    expect((await request(previewApp).delete('/api/mobile/previews/p1/..%2Fx')).status).toBe(400)
-    expect((await request(app).get('/api/mobile/previews')).body).toEqual({ previews: [] })
-  })
-
   it('status → enable → status running', async () => {
     let res = await request(app).get('/api/mobile/status')
     expect(res.status).toBe(200)

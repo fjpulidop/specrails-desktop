@@ -23,7 +23,6 @@ import { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
 import { BrowserCaptureManager } from './modules/browser/runtime/browser-capture-manager'
 import { SharedBrowserContextPool } from './modules/browser/runtime/browser-context-pool'
-import { createPreviewTargetSource, type PreviewTargetSource } from './modules/browser/runtime/preview-targets'
 import { removeExploreCwd } from './modules/conversations/runtime/explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
@@ -213,14 +212,6 @@ export class ProjectRegistry {
   // Chromium profile under ~/.specrails/browser-profile, so cookies/logins are
   // shared across every project. Launched lazily, disposed once at shutdown().
   private _browserContextPool: SharedBrowserContextPool
-  // Companion app preview: URLs announced by running mission processes,
-  // derived on demand from their logs (shared by every project's browser).
-  // Specrails' own ports are never previewable (see reservePreviewPorts).
-  private _extraReservedPreviewPorts: () => Iterable<number> = () => []
-  private readonly _previewTargets: PreviewTargetSource = createPreviewTargetSource(
-    undefined,
-    () => [this._desktopPort, ...this._extraReservedPreviewPorts()],
-  )
 
   constructor(broadcast: (msg: WsMessage) => void, desktopDbPath?: string, desktopPort?: number) {
     this._broadcast = broadcast
@@ -230,16 +221,6 @@ export class ProjectRegistry {
     this._desktopPort = desktopPort ?? 4200
     this._failedProjects = new Map()
     this._browserContextPool = new SharedBrowserContextPool()
-  }
-
-  get previewTargets(): PreviewTargetSource {
-    return this._previewTargets
-  }
-
-  /** Further Specrails listeners (e.g. the mobile gateway) that a mission
-   *  process must never announce as a Companion preview target. */
-  reservePreviewPorts(provider: () => Iterable<number>): void {
-    this._extraReservedPreviewPorts = provider
   }
 
   get desktopDb(): DbInstance {
@@ -1168,9 +1149,6 @@ export class ProjectRegistry {
       // Share ONE persistent Chromium profile (global cookies/logins) across all
       // projects instead of a per-project profile.
       contextPool: this._browserContextPool,
-      // Only device-owned (Companion preview) sessions may load these loopback
-      // origins; Desktop sessions keep the regular SSRF guard.
-      previewOrigins: () => this._previewTargets.announcedOrigins(project.id),
     })
 
     // ── Loops engine (the Loops feature) ──────────────────────────────────────

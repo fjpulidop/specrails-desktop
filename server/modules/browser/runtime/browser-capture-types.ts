@@ -6,13 +6,6 @@
 // `browser-playwright.ts` and is the ONLY module that imports `playwright`.
 
 /** Public, serialisable session metadata returned over REST. */
-/** Who opened a session: the Desktop UI, or a paired Companion device (app
- *  preview). Device sessions have their own budget and an origin-pinned
- *  navigation policy. */
-export type BrowserSessionOwner =
-  | { kind: 'desktop' }
-  | { kind: 'device'; deviceId: string; deviceName: string }
-
 export interface BrowserSessionMeta {
   id: string
   projectId: string
@@ -21,7 +14,6 @@ export interface BrowserSessionMeta {
   viewportWidth: number
   viewportHeight: number
   createdAt: number
-  owner: BrowserSessionOwner
 }
 
 /** A selection rectangle in CSS pixels relative to the page viewport. */
@@ -174,9 +166,6 @@ export interface BrowserPageHandle {
   currentTitle(): Promise<string>
   setViewport(width: number, height: number, deviceScaleFactor?: number): Promise<void>
   dispatchInput(event: BrowserInputEvent): Promise<void>
-  /** Abort every request (documents and subresources) whose URL `allow`
-   *  rejects. Optional — installed only on device-owned preview pages. */
-  setRequestGuard?(allow: (url: string) => boolean): Promise<void>
   /** Begin streaming JPEG frames; the handle auto-acks. */
   startScreencast(onFrame: (frame: ScreencastFrame) => void): Promise<void>
   stopScreencast(): Promise<void>
@@ -259,15 +248,6 @@ export class BrowserLimitExceededError extends Error {
     super('browser_session_limit_exceeded')
     this.name = 'BrowserLimitExceededError'
     this.limit = limit
-  }
-}
-
-/** A device-owned preview session was asked to load a URL its origin policy
- *  rejects (an unannounced loopback port, or any manual non-announced URL). */
-export class BrowserNavigationRejectedError extends Error {
-  constructor() {
-    super('browser_navigation_rejected')
-    this.name = 'BrowserNavigationRejectedError'
   }
 }
 
