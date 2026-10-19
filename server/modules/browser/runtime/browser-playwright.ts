@@ -119,10 +119,11 @@ export function screencastParams(env: NodeJS.ProcessEnv = process.env): {
 /**
  * Normalize a user-supplied address into a safe, navigable URL. A bare host
  * (`example.com`) is upgraded to `https://`. The result is then validated by
- * `isNavigableUrl`; anything that fails the SSRF/scheme guard collapses to
- * `about:blank` so a blocked navigation never reaches Chromium.
+ * `allowed` (the SSRF/scheme guard `isNavigableUrl` unless a page carries its
+ * own request guard); anything that fails collapses to `about:blank` so a
+ * blocked navigation never reaches Chromium.
  */
-export function normalizeUrl(raw: string): string {
+export function normalizeUrl(raw: string, allowed: (url: string) => boolean = isNavigableUrl): string {
   const trimmed = (raw ?? '').trim()
   if (!trimmed) return 'about:blank'
   let candidate: string
@@ -131,7 +132,7 @@ export function normalizeUrl(raw: string): string {
   } else {
     candidate = `https://${trimmed}`
   }
-  return isNavigableUrl(candidate) ? candidate : 'about:blank'
+  return allowed(candidate) ? candidate : 'about:blank'
 }
 
 export class PlaywrightPageHandle implements BrowserPageHandle {
@@ -157,6 +158,9 @@ export class PlaywrightPageHandle implements BrowserPageHandle {
   // the redundant `mouse.move` a scroll gesture would otherwise re-issue for
   // every tick at the same cursor position (halves the CDP commands per wheel).
   private lastMouse: { x: number; y: number } | null = null
+  // A page-scoped guard (Companion preview) replaces the SSRF rule for direct
+  // navigations too, so announced loopback origins are not collapsed to blank.
+  private requestGuard: ((url: string) => boolean) | null = null
 
   constructor(private readonly page: any) {}
 
@@ -168,7 +172,7 @@ export class PlaywrightPageHandle implements BrowserPageHandle {
 
   async goto(url: string): Promise<{ url: string; title: string }> {
     try {
-      await this.page.goto(normalizeUrl(url), { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await this.page.goto(normalizeUrl(url, this.requestGuard ?? isNavigableUrl), { waitUntil: 'domcontentloaded', timeout: 30_000 })
     } catch {
       // A failed navigation (bad host, timeout) should not crash the session — the
       // user just sees whatever the page settled on.
@@ -397,6 +401,7 @@ export class PlaywrightPageHandle implements BrowserPageHandle {
         else await route.abort('blockedbyclient')
       } catch { /* the page or request went away */ }
     })
+    this.requestGuard = allow
   }
 
   async enableNetwork(): Promise<void> {

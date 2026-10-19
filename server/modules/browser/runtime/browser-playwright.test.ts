@@ -101,6 +101,34 @@ describe('normalizeUrl', () => {
   it('still allows about:blank passthrough', () => {
     expect(normalizeUrl('about:blank')).toBe('about:blank')
   })
+
+  it('validates against a supplied guard instead of the SSRF rule', () => {
+    const announced = (url: string) => url.startsWith('http://localhost:5173/')
+    expect(normalizeUrl('http://localhost:5173/', announced)).toBe('http://localhost:5173/')
+    expect(normalizeUrl('http://localhost:4200/', announced)).toBe('about:blank')
+  })
+})
+
+describe('PlaywrightPageHandle goto', () => {
+  function setup() {
+    const page = { goto: vi.fn(async () => {}), route: vi.fn(async () => {}), title: vi.fn(async () => ''), url: () => 'about:blank' }
+    return { page, handle: new PlaywrightPageHandle(page) }
+  }
+
+  it('keeps blocking loopback on an unguarded (Desktop) page', async () => {
+    const { page, handle } = setup()
+    await handle.goto('http://localhost:5173/')
+    expect(page.goto).toHaveBeenCalledWith('about:blank', expect.anything())
+  })
+
+  it('lets a request-guarded (Companion preview) page open an announced loopback origin', async () => {
+    const { page, handle } = setup()
+    await handle.setRequestGuard((url) => url.startsWith('http://localhost:5173/'))
+    await handle.goto('http://localhost:5173/')
+    expect(page.goto).toHaveBeenLastCalledWith('http://localhost:5173/', expect.anything())
+    await handle.goto('http://localhost:4200/')
+    expect(page.goto).toHaveBeenLastCalledWith('about:blank', expect.anything())
+  })
 })
 
 describe('chromiumLaunchArgs (BUG-BROWSER-04)', () => {
