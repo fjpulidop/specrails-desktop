@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.64.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.1...v2.64.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **deps:** bundle OpenSpec 1.14.3 and pin Core 6.6.5 ([#782](https://github.com/fjpulidop/specrails-desktop/issues/782)) ([38ba9e5](https://github.com/fjpulidop/specrails-desktop/commit/38ba9e5460b74fd9731d7528bac7eb173393fb3e))
+
 ## [2.64.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.0...v2.64.1) (2026-10-20)
 
 
