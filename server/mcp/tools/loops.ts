@@ -117,7 +117,7 @@ export function loopsTools(): McpToolSpec[] {
           .describe('Loop or constant name (required for create / constant_create; optional override for from_template / fork / duplicate / update)'),
         description: z.string().optional().describe('Loop description (for create / update)'),
         graph: z
-          .record(z.unknown())
+          .record(z.string(), z.unknown())
           .optional()
           .describe('Loop graph object { nodes, edges, ... } (for create / update; required for preview)'),
         value: z.string().optional().describe('Constant value (for constant_create / constant_update)'),

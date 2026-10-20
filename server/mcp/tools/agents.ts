@@ -103,7 +103,7 @@ export function agentsTools(): McpToolSpec[] {
           .optional()
           .describe('Explicit profile name to preview in `resolve` (omit to resolve the project default)'),
         profile: z
-          .record(z.unknown())
+          .record(z.string(), z.unknown())
           .optional()
           .describe('Full Profile body for create/update: { schemaVersion:1, name, description?, provider?, orchestrator:{model}, agents:[], routing:[] }'),
         windowDays: z.number().int().optional().describe('analytics time window in days (1-365, default 30)'),

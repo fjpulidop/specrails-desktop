@@ -20,6 +20,14 @@ interface DescribedField {
  * `.describe()` string, the convention across the tool files) down to the base
  * type so the model sees the real type + enum values instead of a bare key name.
  */
+type ZodDefLike = { typeName?: string; type?: string; innerType?: z.ZodTypeAny }
+
+/** Lower-case kind of a zod schema: zod 3 exposes `_def.typeName` ('ZodOptional'), zod 4 `_def.type` ('optional'). */
+function zodKind(schema: z.ZodTypeAny): string {
+  const def = (schema as { _def?: ZodDefLike })._def
+  return (def?.typeName?.replace(/^Zod/, '') ?? def?.type ?? 'unknown').toLowerCase()
+}
+
 function describeZodField(name: string, field: z.ZodTypeAny): DescribedField {
   let current: z.ZodTypeAny = field
   let optional = false
@@ -27,23 +35,21 @@ function describeZodField(name: string, field: z.ZodTypeAny): DescribedField {
   let description: string | undefined
   for (;;) {
     if (description === undefined && current.description !== undefined) description = current.description
-    const def = (current as { _def?: { typeName?: string; innerType?: z.ZodTypeAny } })._def
-    const typeName = def?.typeName
-    if ((typeName === 'ZodOptional' || typeName === 'ZodDefault') && def?.innerType) {
+    const def = (current as { _def?: ZodDefLike })._def
+    const kind = zodKind(current)
+    if ((kind === 'optional' || kind === 'default') && def?.innerType) {
       optional = true
       current = def.innerType
       continue
     }
-    if (typeName === 'ZodNullable' && def?.innerType) {
+    if (kind === 'nullable' && def?.innerType) {
       nullable = true
       current = def.innerType
       continue
     }
     break
   }
-  const baseName = ((current as { _def?: { typeName?: string } })._def?.typeName ?? 'ZodUnknown')
-    .replace(/^Zod/, '')
-    .toLowerCase()
+  const baseName = zodKind(current)
   const type = nullable ? `${baseName} | null` : baseName
   const out: DescribedField = { name, type, optional }
   if (description !== undefined) out.description = description
@@ -133,7 +139,7 @@ export function metaTools(getSpecs: () => McpToolSpec[]): McpToolSpec[] {
       tier: 'read',
       inputSchema: {
         name: z.string().describe('Tool name, e.g. "specrails_rails"'),
-        arguments: z.record(z.unknown()).optional().describe('Optional prospective tool arguments to validate and preview permissions; never executes the tool'),
+        arguments: z.record(z.string(), z.unknown()).optional().describe('Optional prospective tool arguments to validate and preview permissions; never executes the tool'),
       },
       handler: (ctx, args) => {
         const name = String(args.name ?? '')

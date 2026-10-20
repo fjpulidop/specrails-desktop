@@ -89,7 +89,7 @@ export function setupTools(): McpToolSpec[] {
         repositories: z.array(z.object({ path: z.string().min(1), name: z.string().optional(), workspacePaths: z.array(z.string().min(1)).min(1).max(50).optional(), integrationBranch: z.string().nullable().optional() })).max(50).optional().describe('add_project: additional repository memberships with their code workspaces'),
         // install_config
         config: z
-          .record(z.unknown())
+          .record(z.string(), z.unknown())
           .optional()
           .describe('install_config: the install-config object to serialize (e.g. { tier:"quick", provider, agents }); required for install_config'),
       },
