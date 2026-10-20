@@ -45,13 +45,13 @@ env:
   # reproducibility — BUG-CI-02). This MUST equal the version the vendored
   # scripts/assemble-bundled-core.lock.json pins (assemble-bundled-core.mjs fails
   # fast on mismatch). Bump both together via PR. See server/bundled-core.ts.
-  CORE_BUNDLE_VERSION: "6.6.4"
+  CORE_BUNDLE_VERSION: "6.6.5"
   # Bundle @fission-ai/openspec into the app so the LAST network step of
   # project-add (openspec init) runs OFFLINE from the bundle instead of
   # `npx @fission-ai/openspec`. Pinned to match specrails-core's
   # pinned-versions.json `openspec`. See scripts/assemble-bundled-openspec.mjs +
   # server/bundled-openspec.ts.
-  OPENSPEC_BUNDLE_VERSION: "1.4.1"
+  OPENSPEC_BUNDLE_VERSION: "1.14.3"
   # Chromium remains available offline. The shared assembler preserves framework
   # symlinks in a normal tar.gz. On macOS, --release requires Developer ID signing,
   # hardened runtime and successful notarization before packaging; no opaque blobs.

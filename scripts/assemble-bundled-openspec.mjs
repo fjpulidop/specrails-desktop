@@ -43,7 +43,7 @@
  *   node scripts/assemble-bundled-openspec.mjs [<version>] [--dest <dir>]
  *
  * The version, when given, MUST be the exact version the vendored lockfile pins
- * (1.4.1, matching specrails-core's pinned-versions.json). It is a consistency
+ * (1.14.3, matching specrails-core's pinned-versions.json). It is a consistency
  * assertion, NOT a resolution input — `npm ci` always installs exactly the locked
  * closure. Omitting it installs the locked version. Floating specs (`latest`,
  * `^1.4`) are rejected: the whole point is a pinned, reproducible bundle.
@@ -115,7 +115,7 @@ function lockedVersion() {
 }
 
 /**
- * Accept a bare version (`1.4.1`) or a `@fission-ai/openspec@<version>` spec;
+ * Accept a bare version (`1.14.3`) or a `@fission-ai/openspec@<version>` spec;
  * reject floating ranges/tags — a reproducible bundle requires an exact pin that
  * matches the vendored lockfile.
  */
