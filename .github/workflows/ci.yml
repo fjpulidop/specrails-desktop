@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: a8bc8181a206ea9630ae3b02e6198f8519d35604  # Core v6.6.3: async host installs keep the execution lease alive
+          ref: f4504178c8c39ff648e6df58f043d7c2ea39ef67  # Core v6.6.4: patched transitive dependencies (npm audit)
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020

@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "6.6.3"
+        "specrails-core": "6.6.4"
       }
     },
     "node_modules/@cfworker/json-schema": {
@@ -438,9 +438,9 @@
       }
     },
     "node_modules/@langchain/langgraph-sdk": {
-      "version": "1.12.4",
-      "resolved": "https://registry.npmjs.org/@langchain/langgraph-sdk/-/langgraph-sdk-1.12.4.tgz",
-      "integrity": "sha512-DuYk7HbajphOzBBtZYm+4LpCZuHj1/Csqepej5Ro1PJvchotA+bjg9XLh9LRsbz5j49Tl3owNoUp9ezj0lMCXA==",
+      "version": "1.12.5",
+      "resolved": "https://registry.npmjs.org/@langchain/langgraph-sdk/-/langgraph-sdk-1.12.5.tgz",
+      "integrity": "sha512-zVaUOzduWHXtxOaI6w95m+JzUQN+2zyf3dKqaqrMVhIFO6rGVe7UvA14NBhBLizK1GsZIlEO3cHQfIAYQamUAg==",
       "license": "MIT",
       "dependencies": {
         "@langchain/protocol": "^0.0.19",
@@ -678,10 +678,20 @@
       }
     },
     "node_modules/argparse": {
-      "version": "2.0.1",
-      "resolved": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
-      "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==",
-      "license": "Python-2.0"
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/argparse/-/argparse-3.0.3.tgz",
+      "integrity": "sha512-Sn98ftV3KfsO8xfLPHG6oT8y+b0yvbrLgZjgPDXsharNY15tTAjqIsIju4S32nl6/iEUNNE4v+yL2Zhm8ooP3w==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/puzrin"
+        },
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/nodeca"
+        }
+      ],
+      "license": "PSF-2.0"
     },
     "node_modules/base64-js": {
       "version": "1.5.1",
@@ -1173,9 +1183,9 @@
       }
     },
     "node_modules/fast-uri": {
-      "version": "3.1.8",
-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
-      "integrity": "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==",
+      "version": "3.1.9",
+      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz",
+      "integrity": "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==",
       "funding": [
         {
           "type": "github",
@@ -1529,9 +1539,9 @@
       }
     },
     "node_modules/js-yaml": {
-      "version": "5.4.3",
-      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-5.4.3.tgz",
-      "integrity": "sha512-yzzNtgczwgoVHNigCyKTXcQJU4Y8t/ikU4UxXW0BvrLfHTGWZhsNcOT2s/a7vn81/4KqVnNmHjaUEPlvWnNwVw==",
+      "version": "5.5.0",
+      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-5.5.0.tgz",
+      "integrity": "sha512-paNr4LFIFPjeeSmwNYdrb8FafLLG/Cr2Af3GjbsHJ5CxIjH4r0c2emlmRdAtpPAieP1gRVzk6buBbVP5gBMGAg==",
       "funding": [
         {
           "type": "github",
@@ -1544,7 +1554,7 @@
       ],
       "license": "MIT",
       "dependencies": {
-        "argparse": "^2.0.1"
+        "argparse": "^3.0.3"
       },
       "bin": {
         "js-yaml": "bin/js-yaml.mjs"
@@ -1563,9 +1573,9 @@
       "license": "BSD-2-Clause"
     },
     "node_modules/langsmith": {
-      "version": "0.10.13",
-      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.10.13.tgz",
-      "integrity": "sha512-v5500fr7rVzQSfQphTBJV2/OrMRDzb2QfLfoO+gvPBY/kER99QF2+wbG6QQUydm0N7ueyJfBOYhq6tqYacXVAA==",
+      "version": "0.11.0",
+      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.11.0.tgz",
+      "integrity": "sha512-NMyaEhfHKAVPdXR8jqP1in4BAr2RhJTmBsH+ZzhvBDTxWUsuaprnJxkRe/3NY5d2+wCaPtzbDK2Myhh6vg2q7w==",
       "license": "MIT",
       "dependencies": {
         "p-queue": "6.6.2"
@@ -1957,12 +1967,12 @@
       }
     },
     "node_modules/posthog-node": {
-      "version": "5.56.1",
-      "resolved": "https://registry.npmjs.org/posthog-node/-/posthog-node-5.56.1.tgz",
-      "integrity": "sha512-TlEeE5OHNbsIje/htLwvmxN45/X0FcMSsln15cHdQqybUGj9Ebd0yyziWec0Fi5YQwMHYCfJPcNdgol/s1lIFA==",
+      "version": "5.56.2",
+      "resolved": "https://registry.npmjs.org/posthog-node/-/posthog-node-5.56.2.tgz",
+      "integrity": "sha512-1/qYFNuHkDJJuDHjAvozN/fH/+XdqzlIZ0WCsCYrhUgGNxDBw5M3kZaJaRX0YSPi9tn7PnZFD5eTXg2Z7m5LeQ==",
       "license": "MIT",
       "dependencies": {
-        "@posthog/core": "^1.59.0"
+        "@posthog/core": "^1.59.1"
       },
       "engines": {
         "node": "^20.20.0 || >=22.22.0"
@@ -2310,9 +2320,9 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "6.6.3",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.6.3.tgz",
-      "integrity": "sha512-saRq12E1qrc/lItS3sHOxjiaXvkfpOCPISj4rsCRv6DFn6OLLhtJRvLopt08Sd7CA4knHjbFAFGTEqUGMH38cw==",
+      "version": "6.6.4",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.6.4.tgz",
+      "integrity": "sha512-YGKhSjtYySubVevtfIJQ9ig4Mk24tM/7Kwzs78GFRTOsNXfwNIN4sh3hl4asrQcxg0jUloAhpG82eVZ4Qwy7eQ==",
       "license": "MIT",
       "dependencies": {
         "@fission-ai/openspec": "1.4.1",
