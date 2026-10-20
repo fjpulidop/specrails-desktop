@@ -147,7 +147,7 @@ export function specsTools(): McpToolSpec[] {
         labels: z.array(z.string()).optional().describe('update/from_prompt/save_draft/commit_draft: labels array'),
         assignee: z.string().nullable().optional().describe('update/commit_draft: assignee; null clears'),
         prerequisites: z.array(z.number().int()).optional().describe('update/commit_draft: prerequisite ticket ids'),
-        metadata: z.record(z.unknown()).optional().describe('update/commit_draft: free-form metadata object (update merges keys)'),
+        metadata: z.record(z.string(), z.unknown()).optional().describe('update/commit_draft: free-form metadata object (update merges keys)'),
         acceptanceCriteria: z
           .array(z.string())
           .optional()
@@ -177,7 +177,7 @@ export function specsTools(): McpToolSpec[] {
           .optional()
           .describe('create/generate/contract_refine: provider/engine override (must be installed; contract_refine cannot switch an Explore-origin provider)'),
         contextScope: z
-          .record(z.unknown())
+          .record(z.string(), z.unknown())
           .optional()
           .describe('create/generate: context-awareness flags {specrails,openspec,full,mcp,userMcp,contractRefine}'),
         contractRefine: z

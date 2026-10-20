@@ -29,8 +29,9 @@ function stringValue(node) {
 }
 
 function importTypeArgument(node) {
-  // Babel 7: TSImportType.argument is a StringLiteral; Babel 8: a TSLiteralType.
-  const argument = node.argument
+  // Babel 7: TSImportType.argument is a StringLiteral; Babel 8 pre-releases: a
+  // TSLiteralType; Babel 8 stable: the string moved to TSImportType.source.
+  const argument = node.source ?? node.argument
   if (argument?.type === 'TSLiteralType') return argument.literal?.type === 'StringLiteral' ? argument.literal : null
   return argument?.type === 'StringLiteral' ? argument : null
 }

@@ -59,7 +59,7 @@ export function chatTools(): McpToolSpec[] {
         provider: z.string().optional().describe('AI engine for create — must be installed on the project (alias of aiEngine); defaults to the primary provider'),
         model: z.string().optional().describe('Model for create/update — must be valid for the conversation\'s provider'),
         contextScope: z
-          .record(z.unknown())
+          .record(z.string(), z.unknown())
           .optional()
           .describe(
             'Explore-only context scope flags for create: {full: repo-wide investigation, specrails: specs context, ' +
