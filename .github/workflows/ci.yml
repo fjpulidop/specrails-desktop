@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: f4504178c8c39ff648e6df58f043d7c2ea39ef67  # Core v6.6.4: patched transitive dependencies (npm audit)
+          ref: 8d796502ceb3b95bebbac7df4084f0655b408a26  # Core v6.6.5: OpenSpec 1.14.3 (npm audit)
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020

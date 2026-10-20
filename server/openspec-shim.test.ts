@@ -52,7 +52,7 @@ describe('openspec-shim', () => {
       const cmd = readFileSync(path.join(dir!, 'openspec.cmd'), 'utf8')
       expect(cmd).toContain('@echo off')
       expect(cmd).toContain('if defined SPECRAILS_REPO_DIR cd /d "%SPECRAILS_REPO_DIR%"')
-      expect(cmd).toContain('npx -y "@fission-ai/openspec@1.4.1"')
+      expect(cmd).toContain('npx -y "@fission-ai/openspec@1.14.3"')
       expect(cmd).toContain('%*')
     })
 

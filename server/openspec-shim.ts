@@ -35,7 +35,7 @@ import { resolveBundledNodeExe } from './path-resolver'
 /** Pinned openspec npm spec for the `npx` fallback when no bundled openspec is
  *  present. Matches specrails-core's `pinned-versions.json` openspec pin and the
  *  desktop OPENSPEC_BUNDLE_VERSION in the release workflow. */
-export const OPENSPEC_NPX_SPEC = '@fission-ai/openspec@1.4.1'
+export const OPENSPEC_NPX_SPEC = '@fission-ai/openspec@1.14.3'
 
 /** `~/.specrails/projects/<slug>/openspec-shim/<jobId>` — the per-job shim dir. */
 export function openspecShimDir(slug: string, jobId: string, home: string = os.homedir()): string {
