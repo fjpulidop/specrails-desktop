@@ -122,7 +122,7 @@ jobs:
           npm run build --prefix client
       - name: Stage the shared release frontend
         run: node scripts/verified-client.mjs stage '${{ runner.temp }}/release-client'
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/release-client
@@ -479,7 +479,7 @@ jobs:
 
       - name: Upload Chromium signing and notarization diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: chromium-signing-macos
           path: artifacts/chromium-signing/
@@ -487,7 +487,7 @@ jobs:
           retention-days: 14
 
       - name: Upload .dmg artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: dmg-aarch64
           path: |
@@ -778,13 +778,13 @@ jobs:
 
       - name: Upload installed package smoke log
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: installed-smoke-${{ runner.arch }}
           path: ${{ runner.temp }}/specrails-installed-smoke.log
 
       - name: Upload Windows installer artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: windows-x64
           # Tauri emits the NSIS installer (and its updater signature) under
@@ -1042,13 +1042,13 @@ jobs:
 
       - name: Upload installed package smoke log
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: installed-smoke-${{ runner.arch }}
           path: ${{ runner.temp }}/specrails-installed-smoke.log
 
       - name: Upload Windows ARM64 installer artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: windows-arm64
           path: src-tauri/target/release/bundle/nsis/*.exe*
