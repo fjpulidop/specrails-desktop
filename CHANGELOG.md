@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.64.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.0...v2.64.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **deps:** patch vulnerable dependencies in app and client ([#780](https://github.com/fjpulidop/specrails-desktop/issues/780)) ([a827523](https://github.com/fjpulidop/specrails-desktop/commit/a8275237791b55d06e63662c83697b61e01a59fb))
+
 ## [2.64.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.63.2...v2.64.0) (2026-10-15)
 
 
