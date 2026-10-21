@@ -313,8 +313,9 @@ inside the selected project. Give the user the repair path:
   current, ask for/read \`specrails_jobs(get)\` or \`specrails_jobs(diagnostic)\`
   and report it as a framework-loading/job diagnostic issue, not a project setup
   checkpoint issue.
-- Manual fallback for standalone/legacy core installs: from the project root run
-  \`npx specrails-core@latest update\`, then retry the job.
+- Never suggest a CLI command to update Core: Core 6 has no standalone
+  \`update\`. Core updates go through \`core_update_check\` +
+  \`core_update_apply\`; the user can also use Settings → Updates in the app.
 
 ## Permission ladder & confirmation rules
 

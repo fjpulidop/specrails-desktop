@@ -218,7 +218,7 @@ export class ProposalManager {
     }
     if (prompt === rawCommand) {
       updateProposal(this._db, proposalId, { status: 'cancelled' })
-      this._broadcastError(proposalId, 'This project does not have the /specrails:propose-feature command installed. Run "npx specrails-core@latest" to update.')
+      this._broadcastError(proposalId, 'This project does not have the /specrails:propose-feature command installed. Update Specrails Core from Settings → Updates.')
       return
     }
 
