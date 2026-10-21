@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 import { Puzzle, Workflow, X, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
+import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
@@ -217,8 +218,20 @@ function DesktopApp() {
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState<'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'>('appearance')
+  const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Pages inside features (e.g. the Agents upgrade banner) open a specific
+  // app-settings section through a window event (see lib/app-settings-events).
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<OpenAppSettingsDetail>).detail?.section
+      if (!section) return
+      setSettingsSection(section)
+      setSettingsOpen(true)
+    }
+    window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
+  }, [])
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)

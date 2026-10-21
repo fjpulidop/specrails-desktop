@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1050 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -104,7 +104,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/agents/pages
 
-- [AgentsPage.tsx](../../client/src/features/agents/pages/AgentsPage.tsx)
+- [AgentsPage.tsx](../../client/src/features/agents/pages/AgentsPage.tsx) · [test](../../client/src/features/agents/pages/__tests__/AgentsPage.test.tsx)
 
 ## client/src/features/analytics/components
 
@@ -783,6 +783,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [api-response.ts](../../client/src/lib/api-response.ts) · [test](../../client/src/lib/__tests__/api-response.test.ts)
 - [api.ts](../../client/src/lib/api.ts) · [test](../../client/src/lib/__tests__/api.test.ts)
+- [app-settings-events.ts](../../client/src/lib/app-settings-events.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)

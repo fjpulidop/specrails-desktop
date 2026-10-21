@@ -1,4 +1,5 @@
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
+import type { AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -58,7 +59,7 @@ interface DesktopSettings {
 }
 
 interface SettingsDialogProps {
-  initialSection?: 'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'
+  initialSection?: AppSettingsSection
   open: boolean
   onClose: () => void
   onOpenOnboarding?: () => void

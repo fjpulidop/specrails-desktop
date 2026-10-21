@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "プロファイル対応パイプラインには specrails-core {{required}}+ が必要です",
-      "body": "このプロジェクトのバージョンは <code>{{version}}</code> です。プロジェクト内で <code>{{command}}</code> を実行するとプロファイルモードが有効になります。ここで作成したプロファイルは保存されますが、core を更新するまでパイプラインには影響しません。",
-      "unknownVersion": "不明"
+      "body": "このプロジェクトのワークスペースは specrails-core <code>{{version}}</code> でセットアップされています。設定 → 更新 から Specrails Core を更新してください。更新後、プロジェクトのワークスペースは自動的に更新されます。ここで作成したプロファイルは保存されますが、ワークスペースが更新されるまでパイプラインには影響しません。",
+      "unknownVersion": "不明",
+      "openUpdates": "Core のアップデートを開く"
     }
   },
   "catalog": {

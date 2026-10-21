@@ -112,8 +112,8 @@ async function asJson<T>(res: Response): Promise<T> {
 
 /**
  * Resolve the API base. Defaults to the active project (`getApiBase()`), but the
- * setup wizard passes an explicit `/api/projects/<id>` for the project being set
- * up (which may not be the active project yet).
+ * Plugins page's Jira panel passes an explicit `/api/projects/<id>` for the
+ * project chosen there (which may not be the active project).
  */
 function base(apiBase?: string): string {
   return apiBase ?? getApiBase()

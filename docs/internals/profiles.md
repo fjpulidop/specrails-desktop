@@ -122,8 +122,9 @@ template/duplicate/edit and rail execution remain available.
 
 - **Upgrade banner on Agents page** — the project's workspace was assembled
   by a Core older than 4.1.0 (profiles need ≥ 4.1.0). The app installs Core 6
-  (`CORE_PACKAGE_SPEC` in `server/core-package.ts`); update Core from the app
-  (see [Core runtime updates](core-runtime-updates.md)) and stale workspaces are
+  (`CORE_PACKAGE_SPEC` in `server/core-package.ts`). The banner's **Open Core
+  updates** button opens **Settings → Updates**; update Core there (see
+  [Core runtime updates](core-runtime-updates.md)) and stale workspaces are
   re-assembled automatically after the swap.
 - **Save disabled with "N issues to resolve"** — the live validator
   enforces the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`)
