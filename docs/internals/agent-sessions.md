@@ -96,6 +96,15 @@ deferred, and the mission offers "Stop agents and apply now". If Core rejects
 a policy with `policy_unenforceable`, the mission shows a localized error that
 names the provider and the setting.
 
+## Permission boundary
+
+Mission sessions are read-only. `MissionCoreSessions.prepareTurn` takes the
+`permissions` and `tools` fields from `missionSessionBoundary`. For Claude that
+is `bypass` plus `tools: { mode: 'read-only' }`, because plan mode would block
+Specrails MCP calls. For Codex it is `permissions: 'read-only'`, the read-only
+sandbox. A tool restriction is only requested from a driver that advertises
+`toolFiltering`. See [read-only missions](mission-read-only-policy.md).
+
 ## Sub-agent runtime (who launches them)
 
 The hybrid runtime decides who launches sub-agents once the policy allows them.

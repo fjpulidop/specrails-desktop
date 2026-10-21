@@ -96,15 +96,31 @@ function resolveSpawnModel(model: string | null | undefined): string {
  * servers are gated by the `user` setting source); it also re-loads user
  * CLAUDE.md + hooks, which is the user's explicit opt-in via the toggle.
  */
+/** Built-in tools of a pure read-only transform (plan mode, no MCP). */
+const PURE_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob'] as const
+/**
+ * Built-in tools of a read-only operator session (missions). None writes files
+ * or runs commands; `Agent` sub-agents inherit this same set (verified), and the
+ * web tools keep research available. MCP tools are not built-ins and stay.
+ */
+export const MISSION_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob', 'Agent', 'WebFetch', 'WebSearch'] as const
+
 function commonFlagsFor(opts: SpawnOptions): string[] {
   const toolPolicy = opts.toolPolicy ?? 'default'
+  // Read-only with the app's MCP tools still callable (missions). Plan mode and
+  // --safe-mode are both incompatible with that: plan mode makes the model
+  // refuse state-changing MCP calls and --safe-mode unloads --mcp-config
+  // servers (verified on claude 2.1.299). The boundary is the tool SET: no
+  // built-in tool that writes files or runs commands exists in the session,
+  // and native sub-agents inherit the same restricted set.
+  const operatorReadOnly = toolPolicy === 'read-only' && opts.retainMcpTools === true
   const toolArgs = toolPolicy === 'none'
     // Claude silently drops an empty tool list on some versions and falls back
     // to the default toolkit. A non-existent sentinel is the established,
     // tested way this repo disables every tool (see context-scope.ts).
     ? ['--tools', '__none__']
     : toolPolicy === 'read-only'
-      ? ['--tools', 'Read,Grep,Glob']
+      ? ['--tools', (operatorReadOnly ? MISSION_READ_ONLY_TOOLS : PURE_READ_ONLY_TOOLS).join(',')]
       : ['--tools', 'default']
   return [
     // No approval bypass is necessary when no tool can be invoked. Keeping it
@@ -112,7 +128,7 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
     // changes how it interprets the sentinel. Read-only work uses Claude's
     // native plan mode: Read/Grep/Glob stay usable without granting the
     // blanket permission bypass carried by normal autonomous turns.
-    ...(toolPolicy === 'default'
+    ...(toolPolicy === 'default' || operatorReadOnly
       ? ['--dangerously-skip-permissions']
       : toolPolicy === 'read-only'
         ? ['--permission-mode', 'plan', '--safe-mode']
@@ -515,6 +531,10 @@ export const claudeAdapter = {
     systemPromptArg: true,
     // Missions already run with --dangerously-skip-permissions; Specrails tiers gate actions.
     sessionPermissions: 'bypass',
+    // Read-only missions: Core's plan mode (`permissions: 'read-only'`) makes
+    // Claude refuse state-changing Specrails MCP calls, so keep the bypass and
+    // remove every write/exec built-in instead (`--tools Read,Grep,Glob`).
+    missionReadOnlySession: { permissions: 'bypass', tools: 'read-only' },
     persistentStdin: true,
     liveInputTransport: 'claude-stream-json',
     supportsReasoningEffort: true,

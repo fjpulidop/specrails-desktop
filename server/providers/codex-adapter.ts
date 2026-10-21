@@ -373,6 +373,9 @@ export const codexAdapter = {
     // Codex has an enforced read-only sandbox, but no true "no tools" mode in
     // this adapter (workspace-write is not an output-only boundary).
     toolPolicies: ['read-only'],
+    // Core's Codex driver maps `permissions: 'read-only'` to the read-only
+    // sandbox; MCP tool calls run outside the sandbox (verified codex 0.160).
+    missionReadOnlySession: { permissions: 'read-only', tools: 'default' },
     profiles: false,
     customRoles: false,
     freestyle: false,
