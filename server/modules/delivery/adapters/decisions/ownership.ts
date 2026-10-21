@@ -32,7 +32,8 @@ export function ownedDeliveryBranches(
   }
   const owned = new Set(
     snap.branches
-      .filter((unit) => unit.branchOwnership === 'created' && unitWasDelivered(unit))
+      // An adopted Flow branch is the rail's from the hand-off on (release treats it like created).
+      .filter((unit) => (unit.branchOwnership === 'created' || unit.branchOwnership === 'adopted') && unitWasDelivered(unit))
       .map((unit) => unit.branch),
   )
   if (

@@ -964,6 +964,8 @@ export function clearProjectSetupSession(db: DbInstance, projectId: string): voi
 // ─── Agent-chat invocations (cost accounting, HIGH-3) ───────────────────────────
 
 export type AgentInvocationStatus = 'success' | 'failed' | 'aborted'
+/** `agent-chat` = a mission turn; `flow` = a Flow turn (its own Core session in the Flow worktree). */
+export type AgentInvocationSurface = 'agent-chat' | 'flow'
 
 /** One agent-chat turn's billable accounting. App-global — `project_id` is the
  *  pinned project id when the turn ran project-scoped, else NULL (Home). Cost is
@@ -974,6 +976,8 @@ export interface AgentInvocationInput {
   conversation_id: string
   project_id?: string | null
   provider: string
+  /** Default `agent-chat`. */
+  surface?: AgentInvocationSurface
   model?: string | null
   status: AgentInvocationStatus
   started_at: string
@@ -1022,12 +1026,13 @@ export function recordAgentInvocation(db: DbInstance, input: AgentInvocationInpu
       started_at, finished_at, duration_ms, duration_api_ms,
       tokens_in, tokens_out, tokens_cache_read, tokens_cache_create,
       total_cost_usd, total_cost_usd_estimated, num_turns, session_id, origin
-    ) VALUES (?, ?, ?, ?, 'agent-chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     input.id,
     input.conversation_id,
     input.project_id ?? null,
     input.provider,
+    input.surface ?? 'agent-chat',
     input.model ?? null,
     input.status,
     input.started_at,
@@ -1179,4 +1184,30 @@ export function updateWebhook(
 
 export function removeWebhook(db: DbInstance, id: string): void {
   db.prepare('DELETE FROM webhooks WHERE id = ?').run(id)
+}
+
+/**
+ * Real usage of a conversation's Flow turns in a time window (Flow bar).
+ * `costUsd` sums ONLY provider-billed cost; turns whose cost was estimated (or
+ * unknown) are counted in `unpricedTurns` and never added. Tokens are the
+ * provider-reported counts.
+ */
+export function sumFlowInvocations(db: DbInstance, input: { conversationId: string; from: string; to: string | null }): {
+  costUsd: number
+  turns: number
+  unpricedTurns: number
+  tokensIn: number
+  tokensOut: number
+} {
+  const row = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 0 AND total_cost_usd IS NOT NULL THEN total_cost_usd ELSE 0 END), 0) AS costUsd,
+      COUNT(*) AS turns,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 OR total_cost_usd IS NULL THEN 1 ELSE 0 END), 0) AS unpricedTurns,
+      COALESCE(SUM(tokens_in), 0) AS tokensIn,
+      COALESCE(SUM(tokens_out), 0) AS tokensOut
+    FROM agent_invocations
+    WHERE conversation_id = ? AND surface = 'flow' AND started_at >= ? AND (? IS NULL OR started_at <= ?)
+  `).get(input.conversationId, input.from, input.to, input.to) as { costUsd: number; turns: number; unpricedTurns: number; tokensIn: number; tokensOut: number }
+  return row
 }

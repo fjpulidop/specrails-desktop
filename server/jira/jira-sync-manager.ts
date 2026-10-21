@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { DbInstance } from '../db'
-import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../modules/specs/runtime/ticket-store'
+import { isFlowHeldTicket, mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../modules/specs/runtime/ticket-store'
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'
@@ -479,6 +479,7 @@ export class JiraSyncManager {
     const created = await this.createLinkedIssue(client, conn, localId)
     if (!created.ok) {
       if (created.reason === 'ticket_not_found') return { ok: false, error: 'ticket not found' }
+      if (created.reason === 'flow_held') return { ok: false, error: 'the spec is still in Flow; it reaches Jira when its Flow -> Spec rail settles' }
       if (created.code === 'auth') this.onAuth401()
       return { ok: false, error: created.error || 'jira issue create failed' }
     }
@@ -528,11 +529,14 @@ export class JiraSyncManager {
   ): Promise<
     | { ok: true; jiraKey: string; recovered?: boolean }
     | { ok: false; reason: 'ticket_not_found' }
+    | { ok: false; reason: 'flow_held' }
     | { ok: false; reason: 'jira'; code: string; status: number; retryAfterMs?: number; error: string }
   > {
     const file = resolveTicketStoragePath(this._artifactRoot())
     const ticket = readStore(file).tickets[String(localId)]
     if (!ticket) return { ok: false, reason: 'ticket_not_found' }
+    // Flow placeholder specs never reach Jira while the Flow is active or paused.
+    if (isFlowHeldTicket(ticket)) return { ok: false, reason: 'flow_held' }
 
     const marker = issueCreateMarker(this.projectId, localId)
     let created: { ok: true; data: { id: string; key: string } } | { ok: false; code: string; status: number; retryAfterMs?: number; error: string }
@@ -1241,6 +1245,12 @@ export class JiraSyncManager {
     }
     if (created.reason === 'ticket_not_found') {
       markOutboxDead(this.db, op.id, 'local ticket not found')
+      return
+    }
+    if (created.reason === 'flow_held') {
+      // Settlement marks the Flow delivered before it publishes; retry until then.
+      if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) markOutboxDead(this.db, op.id, 'the spec is still in Flow')
+      else markOutboxRetry(this.db, op.id, new Date(Date.now() + backoffMs(op.attempts)).toISOString(), 'the spec is still in Flow')
       return
     }
     this.handleHardError(op, created.code, created.status, created.retryAfterMs, created.error)

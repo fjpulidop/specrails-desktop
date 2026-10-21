@@ -191,6 +191,8 @@ Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result
 
 `agent_error` may carry `code` and `provider` for failures the client explains in the user's language. One example is `policy_unenforceable`, sent when a provider cannot honour "Allow sub-agents: off".
 
+Flow mode: `POST /agent/conversations/:id/send` also accepts `deliveryMode: 'interrupt'`, only while the conversation's Flow is active (`409 interrupt_requires_flow` otherwise). In a Flow every mid-turn input reaches Core as `session.send { delivery: 'interrupt' }`, which cuts the running turn and runs the input next; the reply continues the same user turn. A Flow turn on a host without `flowSessions` fails with `agent_error` code `flow_sessions_unavailable` (there is no legacy Flow transport). Flow turns are recorded in `agent_invocations` with `surface: 'flow'`.
+
 ### Webhooks
 
 | Method | Path | Notes |
@@ -479,6 +481,34 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 
 ---
 
+## `/api/projects/:projectId/flow/*`
+
+Flow mode ([guide](flow-mode.md)): build with an agent in an isolated worktree,
+then hand the worktree to a rail. Thin routes over the
+[Flow module](../../server/modules/flow/README.md). Every response carries the
+Flow as `{ id, conversationId, ticketId, state, branch, worktreePath, baseSha,
+headSha, coreSessionId, railIndex, deliveryId, step, createdAt, updatedAt }`;
+`state` is `active` / `paused` / `handed_off` / `delivered` / `discarded` /
+`needs-review` and `step` names an unfinished saga step (`start:*`, `handoff:*`).
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/flow/availability` | `{ available, reason, missing[] }`. Available only when Core sessions are usable and Core advertises `flowSessions` and `deriveChange`. |
+| `POST` | `/flow` | Start. Body `{ conversationId, idea, title?, flowId? }`. The mission must be pinned to this project and its provider must have a Core session driver on a host with `flowSessions`. Creates the placeholder spec, reserves the worktree and returns `201 { flow }`. Idempotent by `flowId`. `409 flow_already_open` (with `flowId`) when the conversation has an open Flow; `409 feature_unavailable` (with `missing`) without the capabilities; `400 conversation_not_pinned` / `idea_required`. |
+| `GET` | `/flow/by-conversation/:conversationId` | `{ flow }`: the open Flow, else the latest one, else `null`. |
+| `GET` | `/flow/:flowId` | `{ flow }`; `404 flow_not_found`. |
+| `POST` | `/flow/:flowId/pause` | Closes the Flow's Core session (a running Flow turn is stopped); worktree and spec stay. Idempotent. |
+| `POST` | `/flow/:flowId/resume` | Reopens the session lazily on the next turn. `409 flow_worktree_missing` when the worktree disappeared. Idempotent. |
+| `POST` | `/flow/:flowId/discard` | Closes the session, removes the Flow worktree and branch and deletes the placeholder spec. `409 illegal_transition` after a hand-off. Idempotent. |
+| `POST` | `/flow/:flowId/hand-off` | Body `{ railIndex, loopId?, aiEngine?, model?, reasoning_effort? }`; `loopId` defaults to `factory:flow-spec` (never the rail's default loop). Commits the worktree (HEAD frozen), closes the session, assigns the Flow spec to a free rail and launches it with `flowId`. Returns `202 { flow, loopRunIds, deliveryId }`. A refused launch keeps its status and code (`409 rail_not_empty`, `409 flow_worktree_mismatch`, `409 pr_decision_pending`…) and the Flow returns to `paused`. |
+| `GET` | `/flow/:flowId/diff` | `{ branch, baseSha, headSha, files: [{ path, status, additions, deletions }], totals: { files, additions, deletions } }` — working tree against the Flow base, overlay and `node_modules` excluded. Empty once the Flow is no longer open. |
+| `GET` | `/flow/:flowId/cost` | `{ flowId, costUsd, turns, unpricedTurns, tokensIn, tokensOut }` — provider-billed cost of the Flow's turns only; turns without billed cost are counted in `unpricedTurns`, never estimated. |
+
+WebSocket: `flow.state` `{ projectId, conversationId, flowId, flow, timestamp }`
+on every committed state change (project-scoped).
+
+---
+
 ## `/api/projects/:projectId/rails/*`
 
 | Method | Path | Notes |
@@ -488,7 +518,7 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
 | `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `freestyle` / `loop` (the removed Batch mode's `batch-implement` / `batch` are accepted as input aliases and normalized to `implement`); a factory `loopId` maps to its canonical rail mode (`factory:batch` resolves to `factory:implement`). `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive?, flowId? }`. `flowId` (sent by the Flow hand-off, never by the dashboard) adopts that Flow's frozen worktree: the rail must carry exactly the Flow spec (`409 flow_rail_mismatch`), the Flow must be waiting for the launch (`409 flow_handoff_not_ready`), the launch must be isolated (`409 flow_requires_isolation`), relaunch/revision/target PR/follow-up/base options are refused (`400 flow_handoff_incompatible`) and a mount/branch/HEAD discrepancy returns `409 flow_worktree_mismatch`. `loopId: 'factory:flow-spec'` without `flowId` returns `400 flow_id_required`. `mode` is `implement` / `freestyle` / `loop` (the removed Batch mode's `batch-implement` / `batch` are accepted as input aliases and normalized to `implement`); a factory `loopId` maps to its canonical rail mode (`factory:batch` resolves to `factory:implement`). `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
 | `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 | `POST` | `/:railIndex/relaunch` | Relaunch a settled source. Body `{ sourceId: deliveryId or 'run:<runId>', originConversationId?, originSurface? }`. Uses its recorded specs and admitted options, restores empty assignments after preflight and atomically replaces an undelivered failed generation. Returns the same `202` launch response. Reused/removed rails, active/stale sources, missing specs/workflow and delivered work needing recovery return actionable errors. Request-side workflow overrides are ignored. |
 

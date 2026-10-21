@@ -29,7 +29,8 @@ describe('getSpending', () => {
     expect(r.summary.deltaPct).toBeNull()
     // The 7 original analytics surfaces + the 5 cost-accounting-audit additions
     // (chat-sidebar, spec-launcher, proposal, agent-studio, setup).
-    expect(r.bySurface).toHaveLength(12)
+    // + 'flow' (Flow turns live in agent_invocations; listed in the shared vocabulary).
+    expect(r.bySurface).toHaveLength(13)
     expect(r.bySurface.every((s) => s.count === 0)).toBe(true)
     expect(r.topTickets).toEqual([])
   })
@@ -912,6 +913,22 @@ describe('getAgentMissionSpending', () => {
     expect(result.topConversations[0].conversationId).toBe(conv.id)
     expect(result.topConversations[0].costUsd).toBeCloseTo(0.75)
     expect(result.topConversations[0].turns).toBe(2)
+    expect(result.summary.flowCostUsd).toBe(0)
+    expect(result.summary.flowTurns).toBe(0)
+  })
+
+  it('splits out the Flow turns (surface=flow) inside the mission total', async () => {
+    const { initDesktopDb, recordAgentInvocation } = await import('../../../desktop-db')
+    const { getAgentMissionSpending } = await import('./spending')
+    const ddb = initDesktopDb(':memory:')
+    const started_at = new Date(Date.now() - 3_600_000).toISOString()
+    const base = { conversation_id: 'c', provider: 'claude', status: 'success' as const, project_id: 'proj-1', started_at }
+    recordAgentInvocation(ddb, { ...base, id: 'm', total_cost_usd: 0.5 })
+    recordAgentInvocation(ddb, { ...base, id: 'f1', surface: 'flow', total_cost_usd: 0.25 })
+    recordAgentInvocation(ddb, { ...base, id: 'f2', surface: 'flow', total_cost_usd: 0.75 })
+    const result = getAgentMissionSpending(ddb, 'proj-1', { period: '7d' })
+    expect(result.summary).toMatchObject({ totalCostUsd: 1.5, turns: 3, flowCostUsd: 1, flowTurns: 2 })
+    expect(ddb.prepare("SELECT id FROM agent_invocations WHERE surface = 'agent-chat'").all()).toEqual([{ id: 'm' }])
   })
 
   it('empty ledger yields zeroed summary', async () => {

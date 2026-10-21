@@ -271,6 +271,42 @@ describe('durable create outbox op (enqueuePromote)', () => {
     expect(listOutbox(db, { state: 'pending' }).map((op) => op.idempotencyKey)).toEqual(['k-401'])
   })
 
+  it('never pushes a spec held by an active or paused Flow (promote refuses, the outbox retries)', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 12, 'In Flow')
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => {
+      s.tickets['12'].metadata.flow = { conversationId: 'c', flowId: 'f', worktreeId: 'f', startedAt: 't', state: 'active' }
+    })
+    const { impl, calls } = makeFetch([
+      createRoute(201, { id: '10009', key: 'PROJ-9' }),
+      { match: (u: string, m: string) => m === 'POST' && u.includes('/search'), res: fakeResponse(200, { issues: [] }) },
+    ])
+    const mgr = manager(impl)
+    expect(await mgr.promoteTicketToJira(12)).toMatchObject({ ok: false, error: expect.stringContaining('still in Flow') })
+    mgr.enqueuePromote(12, 'flow:f:create')
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'pending' })).toEqual([expect.objectContaining({ idempotencyKey: 'flow:f:create', attempts: 1 })])
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(0)
+    expect(getLinkByLocalId(db, 12)).toBeNull()
+
+    // Once the Flow settles (delivered) the same op creates the issue.
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => { s.tickets['12'].metadata.flow!.state = 'delivered' })
+    db.prepare('UPDATE jira_outbox SET next_attempt_at = NULL').run()
+    await mgr.drainOnce()
+    expect(getLinkByLocalId(db, 12)).toMatchObject({ jiraKey: 'PROJ-9' })
+
+    // An op that never sees the Flow settle eventually dead-letters.
+    seedTicket(projectPath, 13, 'Stuck in Flow')
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => {
+      s.tickets['13'].metadata.flow = { conversationId: 'c', flowId: 'g', worktreeId: 'g', startedAt: 't', state: 'paused' }
+    })
+    mgr.enqueuePromote(13, 'flow:g:create')
+    await mgr.drainOnce()
+    db.prepare("UPDATE jira_outbox SET attempts = 5, next_attempt_at = NULL WHERE idempotency_key = 'flow:g:create'").run()
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'dead' }).map((op) => op.deadReason)).toContain('the spec is still in Flow')
+  })
+
   it('reports inactive without a connection', () => {
     seedTicket(projectPath, 10, 'no conn')
     expect(manager(makeFetch([]).impl).enqueuePromote(10, 'k')).toBe('inactive')

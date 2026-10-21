@@ -804,7 +804,9 @@
     "publicEntries": [
       "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/flow-worktree-handoff.ts",
       "runtime/isolated-settlement-reconstruction.ts",
+      "runtime/isolated-worktree.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-publisher.ts",
@@ -999,6 +1001,7 @@
         "fs",
         "path"
       ],
+      "runtime/flow-worktree-handoff.ts": [],
       "runtime/isolated-settlement-reconstruction.ts": [
         "../../../db",
         "../../loops/runtime/loop-runs-store",
@@ -1131,6 +1134,7 @@
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./flow-worktree-handoff",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
         "./isolated-worktree",
@@ -1264,6 +1268,7 @@
         "../../specs/runtime/ticket-store",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./flow-worktree-handoff",
         "./multi-repo-bases",
         "./multi-repo-checkout",
         "./multi-repo-execution",
@@ -1450,6 +1455,62 @@
         "../../loops/runtime/loop-runs-store"
       ],
       "runtime/verification-sentinel.ts": []
+    }
+  },
+  "flow": {
+    "publicEntries": [
+      "adapters/bindings.ts",
+      "adapters/http.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/bindings.ts": [
+        "../../../desktop-db",
+        "../../../ids",
+        "../../../internal-api",
+        "../../../project-registry",
+        "../../../repo-lock",
+        "../../../types",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../agents/runtime/agent-store",
+        "../../delivery/runtime/flow-worktree-handoff",
+        "../../delivery/runtime/isolated-worktree",
+        "../../delivery/runtime/rails-store",
+        "../../missions/runtime/agent-flow-prompt",
+        "../../missions/runtime/flow-turn-context",
+        "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/ticket-store",
+        "../application",
+        "../domain",
+        "../ports",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/http.ts": [
+        "..",
+        "express"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
     }
   },
   "loops": {
@@ -1700,9 +1761,11 @@
       "runtime/agent-chat-manager.ts",
       "runtime/agent-chat-registry.ts",
       "runtime/agent-chat-router.ts",
+      "runtime/agent-flow-prompt.ts",
       "runtime/agent-spec-framing.ts",
       "runtime/agent-steering.ts",
       "runtime/agent-tier.ts",
+      "runtime/flow-turn-context.ts",
       "runtime/mission-core-sessions.ts",
       "runtime/mission-run-notify.ts"
     ],
@@ -1738,6 +1801,7 @@
         "./agent-steering",
         "./agent-tier",
         "./core-session-runner",
+        "./flow-turn-context",
         "./mission-core-sessions",
         "./mission-tool-policy",
         "child_process",
@@ -1787,6 +1851,7 @@
         "../../../types"
       ],
       "runtime/agent-fence-promotion.ts": [],
+      "runtime/agent-flow-prompt.ts": [],
       "runtime/agent-input-store.ts": [
         "../../../db",
         "../../agents/runtime/agent-store",
@@ -1823,6 +1888,9 @@
         "../../execution/runtime/spawn-lifecycle",
         "node:crypto"
       ],
+      "runtime/flow-turn-context.ts": [
+        "../../agent-sessions"
+      ],
       "runtime/mission-core-sessions.ts": [
         "../../../agent-mcp-config",
         "../../../db",
@@ -1833,6 +1901,7 @@
         "../../agents/runtime/agent-store",
         "./agent-session-store",
         "./core-session-runner",
+        "./flow-turn-context",
         "./mission-session-projector",
         "./mission-tool-policy"
       ],

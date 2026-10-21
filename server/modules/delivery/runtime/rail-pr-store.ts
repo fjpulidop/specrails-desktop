@@ -33,7 +33,7 @@ export interface DeliverBranchRecord {
   finalSha?: string | null
   changed?: boolean
   failureCode?: PrDeliveryStatusCode | null
-  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
   /** Delivery-owned isolated checkout retained for explicit local recovery. */
   worktreePath?: string | null
   /** Allocation-time never-commit paths. This list remains conservative even

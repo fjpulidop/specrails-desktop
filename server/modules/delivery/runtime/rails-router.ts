@@ -50,6 +50,10 @@ import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
+
+/** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
+export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
 import { resolveRailRelaunch, restoreRelaunchRail, RailRelaunchError, type RailRelaunch } from './rail-relaunch'
 import { repoIsolationStatus, defaultGitRunner } from '../../../worktree-manager'
 import { isValidBranchName } from '../../../integration-branch'
@@ -599,6 +603,31 @@ export function createRailsRouter(): Router {
     }
     const explicitLoop = (typeof rawLoopId === 'string' && rawLoopId.length > 0) || req.body?.mode != null
     let loopId: unknown = rawLoopId
+    // Flow hand-off (Flow mode): the launch adopts the Flow's own worktree.
+    // Only the Flow module starts it, after freezing HEAD; it never combines
+    // with relaunch, revision, PR targets, follow-ups or stacked bases.
+    const rawFlowId: unknown = req.body?.flowId
+    let flowWorktree: (RequiredFlowWorktree & { ticketId: number }) | null = null
+    if (rawFlowId !== undefined && rawFlowId !== null) {
+      if (typeof rawFlowId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(rawFlowId)) {
+        res.status(400).json({ error: 'invalid_flow_id' }); return
+      }
+      if (relaunchSource || revisionOfDeliveryId || targetPrNumber !== undefined && targetPrNumber !== null || followUp || baseBranch || baseDeliveryIds !== undefined) {
+        res.status(400).json({ error: 'flow_handoff_incompatible', detail: 'A Flow hand-off launches the Flow spec on its own worktree only' }); return
+      }
+      if (!isLoopsEnabled()) {
+        res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off needs Loops and worktree isolation' }); return
+      }
+      if (!c.flowHandOff) { res.status(409).json({ error: 'feature_unavailable', detail: 'Flow is not available in this project' }); return }
+      try {
+        flowWorktree = c.flowHandOff.resolve(rawFlowId)
+      } catch (err) {
+        if (err instanceof FlowHandOffNotReadyError) { res.status(409).json({ error: err.code, detail: err.message }); return }
+        throw err
+      }
+    } else if (rawLoopId === FLOW_SPEC_LOOP_ID) {
+      res.status(400).json({ error: 'flow_id_required', detail: 'The Flow -> Spec loop is launched from a Flow hand-off' }); return
+    }
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
     // Both fields are optional; malformed values are rejected outright.
@@ -674,6 +703,9 @@ export function createRailsRouter(): Router {
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
+    }
+    if (flowWorktree && (rail.ticketIds.length !== 1 || rail.ticketIds[0] !== flowWorktree.ticketId)) {
+      res.status(409).json({ error: 'flow_rail_mismatch', detail: 'The rail must carry exactly the Flow spec' }); return
     }
 
     // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
@@ -1093,6 +1125,9 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
+        if (flowWorktree && (!useIsolation || requiresRepositoryIsolation)) {
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree of the primary repository.' }); return
+        }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
             action: 'Restore worktree isolation and the original workflow before retrying.' }); return
@@ -1116,6 +1151,9 @@ export function createRailsRouter(): Router {
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = requiresRepositoryIsolation ? 'ok' : await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
+            if (flowWorktree) {
+              res.status(409).json({ error: 'flow_requires_isolation', detail: `worktree isolation is unavailable (${status})` }); return
+            }
             if (baseBranch) {
               res.status(400).json({ error: 'base_branch_requires_isolation', detail: `baseBranch requires worktree isolation, which is unavailable (${status})` }); return
             }
@@ -1179,6 +1217,7 @@ export function createRailsRouter(): Router {
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
                 ...(retryOfDelivery ? { retryOfDelivery } : {}),
                 ...(followUp ? { followUp } : {}),
+                ...(flowWorktree ? { requiredFlowWorktree: flowWorktree } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
               return
@@ -1196,6 +1235,9 @@ export function createRailsRouter(): Router {
               // Explicit-target validation failures are the USER's answer being
               // unusable — fail closed with the machine-readable code; never
               // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof FlowWorktreeMismatchError) {
+                res.status(409).json({ error: err.code, detail: err.message }); return
+              }
               if (err instanceof ExplicitPrTargetError) {
                 res.status(err.code === 'target_pr_not_found' ? 404 : 409).json({
                   error: err.code,

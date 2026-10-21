@@ -40,6 +40,10 @@ export interface Ticket {
       owner_id?: string
       applied_effect_id?: string
     }
+    /** Flow mode (schema 1.5): the placeholder spec of a Flow session. Shown as
+     * the "In Flow" label while `active` or `paused`; Jira never receives a
+     * ticket in those states. Desktop-only; Core ignores it. */
+    flow?: FlowTicketMetadata
   }
   comments?: Array<{
     id: number
@@ -60,7 +64,8 @@ export interface Ticket {
   // legacy wire value kept for compat, do not rename.
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder'
+  // 'flow' marks the placeholder spec a Flow session creates (schema 1.5).
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue, null for local specs. */
@@ -100,6 +105,25 @@ export interface Ticket {
   addenda?: SpecAddendum[]
 }
 
+/** `metadata.flow` of a Flow placeholder spec (feedback-2026-10 annex D.7). */
+export interface FlowTicketMetadata {
+  conversationId: string
+  flowId: string
+  /** The Flow-owned worktree reservation (the Flow id). */
+  worktreeId: string
+  startedAt: string
+  state: 'active' | 'paused' | 'delivered'
+  recommendedMode?: 'flow' | 'implement'
+  chosenMode?: 'flow' | 'implement'
+}
+
+/** True while a spec belongs to a live Flow: no Jira write may create or
+ * update an issue for it until the Flow -> Spec rail settles. */
+export function isFlowHeldTicket(ticket: Pick<Ticket, 'metadata'> | null | undefined): boolean {
+  const state = ticket?.metadata?.flow?.state
+  return state === 'active' || state === 'paused'
+}
+
 export interface TicketStore {
   schema_version: string
   revision: number
@@ -111,7 +135,7 @@ export interface TicketStore {
 const VALID_STATUSES = new Set<TicketStatus>(['draft', 'todo', 'in_progress', 'on_review', 'done', 'cancelled'])
 const VALID_PRIORITIES = new Set<TicketPriority>(['critical', 'high', 'medium', 'low'])
 
-export const CURRENT_SCHEMA_VERSION = '1.4'
+export const CURRENT_SCHEMA_VERSION = '1.5'
 
 export const SHORT_SUMMARY_MAX_LEN = 240
 

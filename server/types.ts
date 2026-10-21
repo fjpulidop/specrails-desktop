@@ -791,6 +791,34 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
+/** A Flow session as clients receive it (server/modules/flow FlowSession). */
+export interface FlowSessionWire {
+  id: string
+  conversationId: string
+  ticketId: number | null
+  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+  branch: string | null
+  worktreePath: string | null
+  baseSha: string | null
+  headSha: string | null
+  coreSessionId: string | null
+  railIndex: number | null
+  deliveryId: string | null
+  step: 'start:ticket' | 'start:worktree' | 'start:session' | 'handoff:freeze' | 'handoff:launch' | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Flow mode: a Flow's committed state changed (project-scoped). */
+export interface FlowStateMessage {
+  type: 'flow.state'
+  projectId: string
+  conversationId: string
+  flowId: string
+  flow: FlowSessionWire
+  timestamp: string
+}
+
 /** Per-ticket progress of an isolated rail's worktree fan-out / merge-back. */
 export interface RailWorktreeProgressMessage {
   type: 'rail.worktree_progress'
@@ -852,7 +880,7 @@ export interface RailPrStateMessage {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
-    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
@@ -1291,6 +1319,7 @@ export type WsMessage =
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
+  | FlowStateMessage
  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
@@ -1663,7 +1692,7 @@ export interface PrDecisionCardEnvelope {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
-    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
   prUrl: string | null
