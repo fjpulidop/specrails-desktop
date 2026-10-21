@@ -46,6 +46,11 @@ validated by `parseSubagentRuntimeSetting` and stored as JSON in
 `config.subagent_runtime`. A change also reaches the observer. Who launches the
 sub-agents is resolved by the agent-sessions core, not here.
 
+`reviewerFamilySuggestionDismissed` (default `false`) is a strict boolean that
+records a dismissed loop-editor suggestion to run the reviewer on another model
+family. Its row (`config.reviewer_family_suggestion_dismissed`) is removed when
+the value is `false`. It is advisory UI state; no runtime reads it.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

@@ -620,5 +620,12 @@
       "input": "Máximo de turnos de {{steps}} (rol {{role}})",
       "stepHint": "El rol {{role}} se detiene tras {{turns}} turnos. Los pasos que comparten este rol comparten el límite; se aplica a los lanzamientos nuevos tras publicar."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Sugerencia de familia de modelos para el revisor",
+    "title": "Ejecuta el revisor con {{provider}}: una familia de modelos distinta detecta errores distintos",
+    "body": "El desarrollador y el revisor usan ahora el mismo proveedor. Es solo una sugerencia: no cambia nada a menos que la apliques.",
+    "apply": "Aplicar",
+    "dismiss": "Descartar"
   }
 }

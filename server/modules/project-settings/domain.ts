@@ -39,6 +39,9 @@ export interface ProjectSettings {
   allowSubagents: boolean
   /** Who runs sub-agents. null = the mission agent's own provider (native, its defaults). */
   subagentRuntime: SubagentRuntimeSetting | null
+  /** The user dismissed the "run the reviewer on a different model family"
+   *  suggestion for this project. Off by default; purely advisory UI state. */
+  reviewerFamilySuggestionDismissed: boolean
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -125,6 +128,10 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents
+  }
+  if (values.reviewerFamilySuggestionDismissed !== undefined) {
+    if (typeof values.reviewerFamilySuggestionDismissed !== 'boolean') throw new SettingsValidationError('reviewerFamilySuggestionDismissed must be a boolean')
+    patch.reviewerFamilySuggestionDismissed = values.reviewerFamilySuggestionDismissed
   }
   if (values.integrationBranch !== undefined) {
     const branch = values.integrationBranch

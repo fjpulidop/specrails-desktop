@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1051 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -387,6 +387,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
 - [LoopTurnLimits.tsx](../../client/src/features/loops/components/LoopTurnLimits.tsx) · [test](../../client/src/features/loops/components/LoopTurnLimits.test.tsx)
 - [LoopWindowSurface.tsx](../../client/src/features/loops/components/LoopWindowSurface.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopWindowSurface.test.tsx)
+- [ReviewerFamilySuggestion.tsx](../../client/src/features/loops/components/ReviewerFamilySuggestion.tsx) · [test](../../client/src/features/loops/components/ReviewerFamilySuggestion.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
 
 ## client/src/features/loops/components/loop-log
@@ -422,6 +423,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
 - [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
+- [reviewer-family-suggestion.ts](../../client/src/features/loops/lib/reviewer-family-suggestion.ts) · [test](../../client/src/features/loops/lib/reviewer-family-suggestion.test.ts)
 
 ## client/src/features/loops/pages
 

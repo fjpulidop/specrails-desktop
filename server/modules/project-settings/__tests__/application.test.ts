@@ -3,7 +3,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
-  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
+  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null, reviewerFamilySuggestionDismissed: false,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -89,3 +89,12 @@ describe('subagentRuntime', () => {
   })
 })
 
+
+describe('reviewerFamilySuggestionDismissed', () => {
+  it('accepts booleans only and passes them through', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ reviewerFamilySuggestionDismissed: true })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ reviewerFamilySuggestionDismissed: true })
+    expect(() => service.updateSettings({ reviewerFamilySuggestionDismissed: 'true' })).toThrow('reviewerFamilySuggestionDismissed must be a boolean')
+  })
+})

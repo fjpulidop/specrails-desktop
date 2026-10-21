@@ -280,6 +280,14 @@ and no shared prompt cache. The UI asks for confirmation before leaving the
 default. The setting is read-only over the Specrails MCP. See
 [agent sessions](agent-sessions.md#sub-agent-runtime-who-launches-them).
 
+**Reviewer model family suggestion.** When two or more providers are usable, the
+loop editor suggests running the reviewer on a different model family than the
+developer (Claude ↔ Codex first, then Gemini, Kimi and local engines), since a
+different family catches different mistakes. It is advisory only: the default
+roles never change unless the user clicks **Apply**, which edits the loop draft.
+**Dismiss** stores `reviewerFamilySuggestionDismissed` (`config.reviewer_family_suggestion_dismissed`,
+row removed when `false`) for that project.
+
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---
