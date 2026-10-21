@@ -26,6 +26,7 @@ import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
 import { buildOperatorSystemPrompt } from './agent-operator-prompt'
+import { missionReadOnlyGap, missionSpawnPolicy } from './mission-tool-policy'
 import { prepareAgentMcp, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import { buildCodexPluginArgs, resolveCodexPluginMcpServers } from '../../../plugins/codex-spawn'
 import { resolveProjectExecution } from '../../../workspace-resolution'
@@ -590,6 +591,9 @@ export class AgentChatManager {
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.
     const spawnImagePaths = adapter.capabilities.supportsImageInput ? imagePaths : undefined
 
+    // Native read-only boundary for legacy transports (one-shot and native live
+    // sessions). Core sessions get the matching session policy instead.
+    const spawnPolicy = missionSpawnPolicy(adapter)
     let currentCapability: string | null = null
     let currentInvocationId: string | undefined
     try {
@@ -648,6 +652,7 @@ export class AgentChatManager {
             adapterId: adapter.id, conversationId, invocationId, cwd,
             port: this._port, capability: agentCapability,
             external: resolveExternalEntries(adapter.id, this._db),
+            readOnly: spawnPolicy.toolPolicy === 'read-only',
           })
           mcpArgs = wiring.extraArgs
           mcpEnv = wiring.env
@@ -669,7 +674,8 @@ export class AgentChatManager {
 
         console.log(
           `[agent-chat] turn start conv=${conversationId} provider=${adapter.id} binary=${adapter.binary} ` +
-            `action=${action} model=${model} cwd=${cwd} mcp=${coreContext ? `core-session:${coreContext.mcpServers.map((server) => server.name).join(',') || 'none'}` : mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
+            `action=${action} model=${model} cwd=${cwd} mcp=${coreContext ? `core-session:${coreContext.mcpServers.map((server) => server.name).join(',') || 'none'}` : mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'} ` +
+            `tools=${coreContext ? `core:${coreContext.policy.permissions ?? 'default'}/${coreContext.policy.tools?.mode ?? 'default'}` : spawnPolicy.toolPolicy ?? `default(${missionReadOnlyGap(adapter) ?? 'n/a'})`}`,
         )
 
         const buildOpts = {
@@ -680,6 +686,8 @@ export class AgentChatManager {
           extraArgs: mcpArgs,
           imagePaths: spawnImagePaths,
           reasoning_effort: reasoningEffort,
+          // Read-only by construction (mission-read-only-policy); MCP tools stay callable.
+          ...spawnPolicy,
         }
         const nativeRunner = coreContext ? createCoreSessionRunner(coreContext) : nativeLiveSessionRunner(adapter)
         let invocationLive = true

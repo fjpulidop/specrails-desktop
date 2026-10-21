@@ -115,6 +115,16 @@ describe('geminiAdapter.buildArgs', () => {
     expect(args).not.toContain('-y')
   })
 
+  it('read-only missions pass the plan-mode MCP policy through extraArgs', () => {
+    const args = geminiAdapter.buildArgs('chat-turn', {
+      prompt: 'inspect', model: 'gemini-3.5-flash', toolPolicy: 'read-only', retainMcpTools: true,
+      extraArgs: ['--policy', '/tmp/conv/.gemini/specrails-plan-mcp-policy.toml'],
+    })
+    expect(args[args.indexOf('--approval-mode') + 1]).toBe('plan')
+    expect(args[args.indexOf('--policy') + 1]).toBe('/tmp/conv/.gemini/specrails-plan-mcp-policy.toml')
+    expect(args).not.toContain('--yolo')
+  })
+
   it('chat-resume requires sessionId and passes --resume <id> with user-only prompt', () => {
     expect(() =>
       geminiAdapter.buildArgs('chat-resume', { prompt: 'x', model: 'gemini-3.5-flash' }),

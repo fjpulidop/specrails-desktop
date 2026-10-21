@@ -397,6 +397,76 @@ async function waitFor(cond: () => boolean, timeout = 1000): Promise<void> {
   }
 }
 
+describe('AgentChatManager read-only mission policy (mission-read-only-policy)', () => {
+  let db: DbInstance
+  let mgr: AgentChatManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetAgentCapabilitiesForTest()
+    db = initDesktopDb(':memory:')
+    mgr = new AgentChatManager(vi.fn(), db, 4200)
+  })
+
+  afterEach(() => {
+    delete process.env.SPECRAILS_MISSION_READ_ONLY
+  })
+
+  const MCP_ARGS = ['--mcp-config', '/tmp/agent-cwd-test/mcp.json']
+  const flagValue = (args: string[], flag: string) => args[args.indexOf(flag) + 1]
+
+  async function turnArgs(provider: string, lines: string[]): Promise<{ args: string[]; prepared: Record<string, unknown> }> {
+    agentMcpMocks.prepare.mockImplementationOnce(() => ({ extraArgs: [...MCP_ARGS], env: {} }))
+    const conv = createAgentConversation(db, { provider })
+    updateAgentConversation(db, conv.id, { title: 'Existing title' })
+    primeTurn(lines)
+    await mgr.sendMessage(conv.id, 'inspect the project')
+    return {
+      args: vi.mocked(mockSpawn).mock.calls[0][1] as string[],
+      prepared: agentMcpMocks.prepare.mock.calls[0][0] as Record<string, unknown>,
+    }
+  }
+
+  it('spawns Claude with only read-only built-in tools while keeping the Specrails MCP config', async () => {
+    const { args, prepared } = await turnArgs('claude', [assistantLine('ok'), resultLine({ session_id: 's' })])
+    expect(flagValue(args, '--tools')).toBe('Read,Grep,Glob,Agent,WebFetch,WebSearch')
+    // Plan mode makes Claude refuse state-changing MCP calls; --safe-mode unloads --mcp-config.
+    expect(args).not.toContain('--permission-mode')
+    expect(args).not.toContain('--safe-mode')
+    expect(args).toContain('--dangerously-skip-permissions')
+    expect(flagValue(args, '--mcp-config')).toBe(MCP_ARGS[1])
+    expect(prepared.readOnly).toBe(true)
+  })
+
+  it('spawns Codex in its read-only sandbox with the MCP overrides intact', async () => {
+    const { args, prepared } = await turnArgs('codex', [JSON.stringify({ type: 'thread.started', thread_id: 't' })])
+    expect(flagValue(args, '--sandbox')).toBe('read-only')
+    expect(args).toEqual(expect.arrayContaining(MCP_ARGS))
+    expect(prepared.readOnly).toBe(true)
+  })
+
+  it('spawns Gemini in plan mode and asks the MCP wiring for the plan-mode MCP policy', async () => {
+    const { args, prepared } = await turnArgs('gemini', [JSON.stringify({ type: 'init', session_id: 'g' })])
+    expect(flagValue(args, '--approval-mode')).toBe('plan')
+    expect(args).not.toContain('--yolo')
+    expect(prepared.readOnly).toBe(true)
+  })
+
+  it('keeps Kimi on its default tools because prompt mode has no native read-only boundary', async () => {
+    const { args, prepared } = await turnArgs('kimi', [JSON.stringify({ role: 'assistant', content: 'ok' })])
+    expect(args).toContain('-p')
+    expect(prepared.readOnly).toBe(false)
+  })
+
+  it('restores the previous write-capable argv when SPECRAILS_MISSION_READ_ONLY=false', async () => {
+    process.env.SPECRAILS_MISSION_READ_ONLY = 'false'
+    const { args, prepared } = await turnArgs('claude', [assistantLine('ok'), resultLine({ session_id: 's' })])
+    expect(flagValue(args, '--tools')).toBe('default')
+    expect(args).toContain('--dangerously-skip-permissions')
+    expect(prepared.readOnly).toBe(false)
+  })
+})
+
 describe('AgentChatManager AI title', () => {
   let db: DbInstance
   let broadcast: ReturnType<typeof vi.fn>
