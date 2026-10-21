@@ -39,6 +39,19 @@ export interface ProjectSettings {
   allowSubagents: boolean
   /** Who runs sub-agents. null = the mission agent's own provider (native, its defaults). */
   subagentRuntime: SubagentRuntimeSetting | null
+  /** Days the agent actions audit log keeps rows (1-3650, default 30). */
+  agentAuditRetentionDays: number
+}
+
+export const DEFAULT_AGENT_AUDIT_RETENTION_DAYS = 30
+export const MAX_AGENT_AUDIT_RETENTION_DAYS = 3650
+
+/** Strict integer day count; values outside 1-3650 are rejected. */
+export function parseAgentAuditRetentionDays(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_AGENT_AUDIT_RETENTION_DAYS) {
+    throw new SettingsValidationError(`agentAuditRetentionDays must be an integer between 1 and ${MAX_AGENT_AUDIT_RETENTION_DAYS}`)
+  }
+  return value
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -126,6 +139,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents
   }
+  if (values.agentAuditRetentionDays !== undefined) patch.agentAuditRetentionDays = parseAgentAuditRetentionDays(values.agentAuditRetentionDays)
   if (values.integrationBranch !== undefined) {
     const branch = values.integrationBranch
     if (typeof branch !== 'string') throw new SettingsValidationError('integrationBranch must be a string')

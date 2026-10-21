@@ -3,7 +3,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
-  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
+  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null, agentAuditRetentionDays: 30,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -89,3 +89,14 @@ describe('subagentRuntime', () => {
   })
 })
 
+describe('agentAuditRetentionDays', () => {
+  it('accepts whole days within 1-3650 and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ agentAuditRetentionDays: 90 })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ agentAuditRetentionDays: 90 })
+    for (const value of [0, -1, 3651, 1.5, '30', null]) {
+      expect(() => service.updateSettings({ agentAuditRetentionDays: value })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).toHaveBeenCalledOnce()
+  })
+})

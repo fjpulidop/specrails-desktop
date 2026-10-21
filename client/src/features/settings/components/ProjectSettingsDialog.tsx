@@ -19,6 +19,7 @@ import {
   ProjectPrePromptsSection,
   ProjectIntegrationBranchSection,
   ProjectBudgetSection,
+  ProjectAgentAuditSection,
   ProjectWorktreeEnvSection,
 } from './ProjectSettingsSections'
 
@@ -108,6 +109,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
             </div>
             <div className={paneCls('telemetry')}>
               <ProjectTelemetrySection />
+              <ProjectAgentAuditSection />
             </div>
             <div className={paneCls('terminal')}>
               <TerminalSettingsSection mode="project" />

@@ -12,6 +12,7 @@ import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
   ProjectBudgetSection,
+  ProjectAgentAuditSection,
   ProjectIntegrationBranchSection,
   ProjectWorktreeEnvSection,
 } from '../components/ProjectSettingsSections'
@@ -121,6 +122,8 @@ export default function SettingsPage() {
       <ProjectWorktreeEnvSection />
 
       <ProjectBudgetSection />
+
+      <ProjectAgentAuditSection />
 
       <TerminalSettingsSection mode="project" />
 

@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "Was du wolltest",
     "whatIDid": "Was getan wurde",
-    "howItWasChecked": "Wie es geprüft wurde"
+    "howItWasChecked": "Wie es geprüft wurde",
+    "whatTheAgentDid": "Was der Agent getan hat"
   },
   "churn": {
     "line": "{{files}} Dateien geändert · +{{added}} / −{{removed}} Zeilen",
@@ -165,5 +166,21 @@
       "unreported": "Nicht berichtet"
     },
     "noReport": "Der Lauf hat zu diesem Addendum nichts berichtet. Prüfe die Änderungen und Belege unten."
+  },
+  "agentActions": {
+    "total_one": "{{count}} Aktion",
+    "total_other": "{{count}} Aktionen",
+    "countsLabel": "Erfasste Agentenaktionen nach Art",
+    "kinds": {
+      "read": "Lesezugriffe",
+      "write": "Schreibzugriffe",
+      "exec": "Befehle",
+      "mcp": "MCP-Aufrufe",
+      "network": "Webanfragen"
+    },
+    "caveat": "Aus den Streams der Agenten erfasst: Lesezugriffe sind nur so vollständig, wie jeder Anbieter sie meldet. Inhalte und Umgebungswerte werden nie gespeichert.",
+    "run": "Lauf {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Die Agentenaktionen konnten nicht heruntergeladen werden"
   }
 }

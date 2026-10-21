@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "Ce que vous avez demandé",
     "whatIDid": "Ce qui a été fait",
-    "howItWasChecked": "Comment cela a été vérifié"
+    "howItWasChecked": "Comment cela a été vérifié",
+    "whatTheAgentDid": "Ce que l'agent a fait"
   },
   "churn": {
     "line": "{{files}} fichiers modifiés · +{{added}} / −{{removed}} lignes",
@@ -165,5 +166,21 @@
       "unreported": "Non signalé"
     },
     "noReport": "L'exécution n'a rien signalé pour cet addendum. Vérifiez les changements et les preuves ci-dessous."
+  },
+  "agentActions": {
+    "total_one": "{{count}} action",
+    "total_other": "{{count}} actions",
+    "countsLabel": "Actions de l'agent enregistrées par type",
+    "kinds": {
+      "read": "lectures",
+      "write": "écritures",
+      "exec": "commandes",
+      "mcp": "appels MCP",
+      "network": "requêtes web"
+    },
+    "caveat": "Enregistré à partir des flux des agents : les lectures ne sont complètes que dans la mesure où chaque fournisseur les signale. Les contenus et les valeurs d'environnement ne sont jamais stockés.",
+    "run": "Exécution {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Impossible de télécharger les actions de l'agent"
   }
 }

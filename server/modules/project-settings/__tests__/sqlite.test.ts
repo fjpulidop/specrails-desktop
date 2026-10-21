@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { createProjectSettingsService } from '..'
-import { createSqliteProjectSettingsRepository } from '../adapters/sqlite'
+import { createSqliteProjectSettingsRepository, getAgentAuditRetentionDays } from '../adapters/sqlite'
 
 const databases: DbInstance[] = []
 function setup() {
@@ -58,3 +58,20 @@ describe('subagentRuntime persistence', () => {
   })
 })
 
+describe('agentAuditRetentionDays persistence', () => {
+  it('defaults to 30 days, persists per project and clears its row at the default', () => {
+    const first = setup(), second = setup()
+    expect(first.service.getSettings().agentAuditRetentionDays).toBe(30)
+    expect(first.service.updateSettings({ agentAuditRetentionDays: 7 }).agentAuditRetentionDays).toBe(7)
+    expect(getAgentAuditRetentionDays(first.db)).toBe(7)
+    expect(second.service.getSettings().agentAuditRetentionDays).toBe(30)
+    first.service.updateSettings({ agentAuditRetentionDays: 30 })
+    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.agent_audit_retention_days'").get()).toBeUndefined()
+  })
+
+  it('reads a corrupt stored value as the default', () => {
+    const { db, service } = setup()
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.agent_audit_retention_days', 'forever')").run()
+    expect(service.getSettings().agentAuditRetentionDays).toBe(30)
+  })
+})

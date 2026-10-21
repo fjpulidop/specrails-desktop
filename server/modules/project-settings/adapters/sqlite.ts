@@ -1,5 +1,5 @@
 import type { DbInstance } from '../../../db/types'
-import { DEFAULT_FREESTYLE_PRE_PROMPT, normalizeWorktreeEnvPassthrough, parseSubagentRuntimeSetting, type ProjectSettings, type SubagentRuntimeSetting } from '../domain'
+import { DEFAULT_AGENT_AUDIT_RETENTION_DAYS, DEFAULT_FREESTYLE_PRE_PROMPT, parseAgentAuditRetentionDays, normalizeWorktreeEnvPassthrough, parseSubagentRuntimeSetting, type ProjectSettings, type SubagentRuntimeSetting } from '../domain'
 import type { ProjectSettingsRepository } from '../ports'
 
 function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
@@ -12,6 +12,11 @@ function parseWorktreeEnvPassthrough(raw: string | undefined): string[] {
 }
 
 /** A stored value that no longer parses (hand-edited, older shape) reads as "same as the mission agent". */
+function readAgentAuditRetentionDays(raw: string | undefined): number {
+  if (!raw) return DEFAULT_AGENT_AUDIT_RETENTION_DAYS
+  try { return parseAgentAuditRetentionDays(Number(raw)) } catch { return DEFAULT_AGENT_AUDIT_RETENTION_DAYS }
+}
+
 function readSubagentRuntime(raw: string | undefined): SubagentRuntimeSetting | null {
   if (!raw) return null
   try { return parseSubagentRuntimeSetting(JSON.parse(raw)) } catch { return null }
@@ -24,7 +29,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.pipeline_telemetry_enabled', 'config.orchestrator_model',
       'config.pre_prompt', 'config.freestyle_pre_prompt',
       'config.integration_branch', 'config.worktree_env_passthrough',
-      'config.allow_subagents', 'config.subagent_runtime'
+      'config.allow_subagents', 'config.subagent_runtime',
+      'config.agent_audit_retention_days'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -44,6 +50,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
     allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
     subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
+    agentAuditRetentionDays: readAgentAuditRetentionDays(settings.get('config.agent_audit_retention_days')?.value),
   }
 }
 
@@ -103,6 +110,11 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
     if (patch.subagentRuntime === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.subagent_runtime'`).run()
     else db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.subagent_runtime', ?)`).run(JSON.stringify(patch.subagentRuntime))
   }
+  if (patch.agentAuditRetentionDays !== undefined) {
+    const days = parseAgentAuditRetentionDays(patch.agentAuditRetentionDays)
+    if (days === DEFAULT_AGENT_AUDIT_RETENTION_DAYS) db.prepare(`DELETE FROM queue_state WHERE key = 'config.agent_audit_retention_days'`).run()
+    else db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.agent_audit_retention_days', ?)`).run(String(days))
+  }
   if (patch.worktreeEnvPassthrough !== undefined) {
     const names = normalizeWorktreeEnvPassthrough(patch.worktreeEnvPassthrough)
     if (names.length === 0) {
@@ -139,6 +151,12 @@ export function setQuickContractRefineLast(db: DbInstance, enabled: boolean): vo
   db.prepare(
     `INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.add_spec_quick_contract_refine_last', ?)`
   ).run(enabled ? 'true' : 'false')
+}
+
+/** Retention window of the agent actions audit log (project setting). */
+export function getAgentAuditRetentionDays(db: DbInstance): number {
+  const row = db.prepare(`SELECT value FROM queue_state WHERE key = 'config.agent_audit_retention_days'`).get() as { value: string } | undefined
+  return readAgentAuditRetentionDays(row?.value)
 }
 
 /** Bind one project's connection. No global registry or cross-project cache. */

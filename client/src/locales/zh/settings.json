@@ -370,5 +370,17 @@
         "accept": "使用 {{provider}}"
       }
     }
+  },
+  "agentAudit": {
+    "title": "智能体操作审计日志",
+    "description": "按项目记录智能体读取、写入、执行、通过 MCP 调用或获取的内容——可从每个任务和评审包导出为 JSONL 或 CSV。",
+    "retentionLabel": "保留条目",
+    "daysUnit": "天",
+    "caveat": "旧条目会在启动时及每天清理。读取的完整程度取决于各提供方的输出流；从不保存文件内容或环境变量值。",
+    "save": "保存保留期",
+    "saved_one": "智能体操作保留 {{count}} 天",
+    "saved_other": "智能体操作保留 {{count}} 天",
+    "saveFailed": "无法保存审计日志的保留期",
+    "invalidDays": "请输入 1 到 {{max}} 之间的整数天数"
   }
 }

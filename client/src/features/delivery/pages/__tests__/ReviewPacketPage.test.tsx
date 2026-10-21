@@ -691,3 +691,34 @@ describe('unfoldInlineNumberedList', () => {
     expect(unfoldInlineNumberedList('v1.2 ships 3.5 GB and 4.0 more')).toBe('v1.2 ships 3.5 GB and 4.0 more')
   })
 })
+
+describe('ReviewPacketPage — what the agent did', () => {
+  it('hides the section when nothing was recorded', async () => {
+    respond({})
+    renderPage()
+    await screen.findByText('How it was checked')
+    expect(screen.queryByText('What the agent did')).not.toBeInTheDocument()
+  })
+
+  it('shows counts by kind and downloads a run export through fetch', async () => {
+    respond({ packet: packet({ agentActions: { counts: { read: 12, write: 3, exec: 5, mcp: 0, network: 1 }, total: 21, runIds: ['run-1'] } }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('What the agent did'))
+    expect(screen.getByText('21 actions')).toBeInTheDocument()
+    expect(screen.getByTestId('packet-agent-actions-read')).toHaveTextContent('12reads')
+    expect(screen.getByTestId('packet-agent-actions-exec')).toHaveTextContent('5commands')
+    expect(screen.getByText(/reads are only as complete as each provider/i)).toBeInTheDocument()
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => new Blob(['{}\n']) })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const createObjectURL = vi.fn(() => 'blob:audit')
+    const revokeObjectURL = vi.fn()
+    Object.assign(URL, { createObjectURL, revokeObjectURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    fireEvent.click(screen.getByTestId('packet-agent-actions-download-csv'))
+    await waitFor(() => expect(click).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/proj-1/jobs/run-1/audit?format=csv')
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:audit')
+    click.mockRestore()
+  })
+})

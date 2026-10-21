@@ -811,3 +811,89 @@ export function ProjectBudgetSection() {
     </Card>
   )
 }
+
+const AUDIT_RETENTION_MAX_DAYS = 3650
+
+/** Agent actions audit: how long the per-project log of what agents read,
+ *  wrote, executed, called over MCP or fetched is kept (default 30 days). */
+export function ProjectAgentAuditSection() {
+  const { t } = useTranslation('settings')
+  const { activeProjectId } = useDesktop()
+  const [days, setDays] = useState('30')
+  const [isSaving, setIsSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const touchedRef = useRef(false)
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    let cancelled = false
+    setLoaded(false)
+    touchedRef.current = false
+    fetch(`${getApiBase()}/settings`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { agentAuditRetentionDays?: number } | null) => {
+        if (cancelled || !data || touchedRef.current) return
+        if (typeof data.agentAuditRetentionDays === 'number') setDays(String(data.agentAuditRetentionDays))
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [activeProjectId])
+
+  if (!loaded) return <SectionSkeleton />
+
+  async function save() {
+    const parsed = Number(days.trim())
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > AUDIT_RETENTION_MAX_DAYS) {
+      toast.error(t('agentAudit.invalidDays', { max: AUDIT_RETENTION_MAX_DAYS }))
+      return
+    }
+    setIsSaving(true)
+    try {
+      const res = await fetch(`${getApiBase()}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentAuditRetentionDays: parsed }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || 'Failed to save')
+      }
+      toast.success(t('agentAudit.saved', { count: parsed }))
+    } catch (err) {
+      toast.error(t('agentAudit.saveFailed'), { description: (err as Error).message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('agentAudit.title')}</CardTitle>
+        <CardDescription>{t('agentAudit.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{t('agentAudit.retentionLabel')}</span>
+          <Input
+            type="number"
+            min={1}
+            max={AUDIT_RETENTION_MAX_DAYS}
+            step={1}
+            value={days}
+            onChange={(e) => { touchedRef.current = true; setDays(e.target.value) }}
+            className="w-24"
+            aria-label={t('agentAudit.retentionLabel')}
+            data-testid="agent-audit-retention-input"
+          />
+          <span className="text-muted-foreground">{t('agentAudit.daysUnit')}</span>
+        </label>
+        <p className="text-[11px] text-muted-foreground">{t('agentAudit.caveat')}</p>
+        <Button size="sm" onClick={save} disabled={isSaving} data-testid="agent-audit-retention-save">
+          {t('agentAudit.save')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}

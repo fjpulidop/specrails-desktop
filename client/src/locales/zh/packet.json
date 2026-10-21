@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "你要求的",
     "whatIDid": "已完成的",
-    "howItWasChecked": "如何检查的"
+    "howItWasChecked": "如何检查的",
+    "whatTheAgentDid": "智能体做了什么"
   },
   "churn": {
     "line": "{{files}} 个文件改动 · +{{added}} / −{{removed}} 行",
@@ -165,5 +166,21 @@
       "unreported": "未报告"
     },
     "noReport": "运行未报告此附录。请查看下方的变更与证据。"
+  },
+  "agentActions": {
+    "total_one": "{{count}} 项操作",
+    "total_other": "{{count}} 项操作",
+    "countsLabel": "按类型记录的智能体操作",
+    "kinds": {
+      "read": "读取",
+      "write": "写入",
+      "exec": "命令",
+      "mcp": "MCP 调用",
+      "network": "网络请求"
+    },
+    "caveat": "根据智能体自身的输出流记录：读取的完整程度取决于各提供方的上报。从不保存文件内容或环境变量值。",
+    "run": "运行 {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "无法下载智能体操作记录"
   }
 }
