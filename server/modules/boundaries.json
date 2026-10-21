@@ -1888,12 +1888,14 @@
   "specs": {
     "publicEntries": [
       "runtime/contract-refine-runner.ts",
+      "runtime/generated-spec-parser.ts",
       "runtime/proposal-manager.ts",
       "runtime/smash-runner.ts",
       "runtime/spec-addenda-core.ts",
       "runtime/spec-addenda.ts",
       "runtime/spec-contract-prompt.ts",
       "runtime/spec-draft-parser.ts",
+      "runtime/spec-generation.ts",
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/ticket-store.ts",
@@ -1918,6 +1920,9 @@
         "node:crypto",
         "node:readline",
         "tree-kill"
+      ],
+      "runtime/generated-spec-parser.ts": [
+        "./ticket-store"
       ],
       "runtime/proposal-manager.ts": [
         "../../../command-resolver",
@@ -1966,6 +1971,26 @@
         "../../builder/runtime/blueprint-types"
       ],
       "runtime/spec-draft-parser.ts": [],
+      "runtime/spec-generation.ts": [
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/context-scope",
+        "./contract-refine-runner",
+        "./generated-spec-parser",
+        "./ticket-store",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
       "runtime/spec-launcher-manager.ts": [
         "../../../command-resolver",
         "../../../db",

@@ -301,33 +301,8 @@ function applyModelConfig(project: AgentModelProject): void {
   }
 }
 
-/**
- * Strip the metadata sections (Spec Title, Labels, Estimated Complexity,
- * Short Summary) from a generate-spec LLM response so they don't end up
- * duplicated inside the ticket's description — they're already parsed into
- * dedicated fields and re-rendered by the UI.
- */
-export function stripSpecMetadataSections(buffer: string): string {
-  return buffer
-    .replace(/##\s*Spec Title\s*\n+[^\n]*\n*/i, '')
-    .replace(/##\s*Labels\s*\n+(?:[^\n]+(?:\n(?!##)[^\n]+)*)\n*/i, '')
-    .replace(/##\s*Estimated Complexity\s*\n+(?:[^\n]+(?:\n(?!##)[^\n]+)*)\n*/i, '')
-    .replace(/##\s*Short Summary\s*\n+(?:[^\n]+(?:\n(?!##)[^\n]+)*)\n*/i, '')
-    .trim()
-}
-
-/**
- * Extract the `## Short Summary` section body from a generate-spec response.
- * Returns the raw multi-line string (the ticket-store `clampShortSummary`
- * helper applies trim, control-strip, and the 240-char hard cap before
- * persistence). Returns `null` when the section is missing or empty.
- */
-export function extractShortSummary(buffer: string): string | null {
-  const m = buffer.match(/##\s*Short Summary\s*\n+((?:(?!##)[^\n]+(?:\n(?!##)[^\n]+)*))/i)
-  if (!m) return null
-  const body = m[1].trim()
-  return body.length > 0 ? body : null
-}
+// Generated-spec parsing lives with the specs capability (spec-generation use case).
+export { stripSpecMetadataSections, extractShortSummary } from './modules/specs/runtime/generated-spec-parser'
 
 export function deriveFallbackShortSummary(title: string, description: string): string | null {
   const plain = description

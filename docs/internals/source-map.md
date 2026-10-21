@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1050 source/build files. Nearby tests are linked where names
+Includes 1052 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1374,12 +1374,14 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/specs/runtime
 
 - [contract-refine-runner.ts](../../server/modules/specs/runtime/contract-refine-runner.ts) · [test](../../server/modules/specs/runtime/contract-refine-runner.test.ts)
+- [generated-spec-parser.ts](../../server/modules/specs/runtime/generated-spec-parser.ts)
 - [proposal-manager.ts](../../server/modules/specs/runtime/proposal-manager.ts) · [test](../../server/modules/specs/runtime/proposal-manager.test.ts)
 - [smash-runner.ts](../../server/modules/specs/runtime/smash-runner.ts) · [test](../../server/modules/specs/runtime/smash-runner.test.ts)
 - [spec-addenda-core.ts](../../server/modules/specs/runtime/spec-addenda-core.ts)
 - [spec-addenda.ts](../../server/modules/specs/runtime/spec-addenda.ts) · [test](../../server/modules/specs/runtime/spec-addenda.test.ts)
 - [spec-contract-prompt.ts](../../server/modules/specs/runtime/spec-contract-prompt.ts)
 - [spec-draft-parser.ts](../../server/modules/specs/runtime/spec-draft-parser.ts) · [test](../../server/modules/specs/runtime/spec-draft-parser.test.ts)
+- [spec-generation.ts](../../server/modules/specs/runtime/spec-generation.ts) · [test](../../server/modules/specs/runtime/spec-generation.test.ts)
 - [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
