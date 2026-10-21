@@ -24,9 +24,9 @@ static SIDECAR_CREATION_TIME: std::sync::OnceLock<Option<(u32, u64)>> = std::syn
 
 fn host_control_token() -> &'static str {
     HOST_CONTROL_TOKEN.get_or_init(|| {
-        use rand::TryRngCore;
+        use rand::TryRng;
         let mut bytes = [0u8; 32];
-        rand::rngs::OsRng.try_fill_bytes(&mut bytes).expect("OS random source unavailable");
+        rand::rngs::SysRng.try_fill_bytes(&mut bytes).expect("OS random source unavailable");
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()
     })
 }
