@@ -16,3 +16,7 @@
 
 ## 3. Docs
 - [x] 3.1 `docs/local-providers.md` hybrid section, CLAUDE.md bullet
+
+Status 2026-10-21: server behaviour verified on main (`loop-role-engines.ts`, roles launch 400s, `deciderEngine`, loop-roles
+routes, MCP). The client entry points from 2.2 and 2.5 were removed in #718 (workflow roles supersede loop roles; `roles`
+is set through the API/MCP and still rendered on existing rails). The delta only specifies the server contract, which holds.
