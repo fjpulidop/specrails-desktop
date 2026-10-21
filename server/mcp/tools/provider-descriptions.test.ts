@@ -19,6 +19,13 @@ describe('provider-aware MCP tool descriptions', () => {
     expect(tool.inputSchema.provider.description).toContain('kimi')
   })
 
+  it('exposes decision_times with honest unknown semantics', () => {
+    const tool = analyticsTools()[0]
+    expect(tool.description).toContain('decision_times')
+    expect(tool.description).toContain('unknown is never zero')
+    expect(tool.inputSchema.action.safeParse('decision_times').success).toBe(true)
+  })
+
   it('describes provider-native role artifacts and the Studio safety gate', () => {
     const tool = agentsTools()[0]
     expect(tool.description).toContain('provider-native')

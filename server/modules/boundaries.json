@@ -3,6 +3,7 @@
     "publicEntries": [
       "runtime/ai-invocations.ts",
       "runtime/codex-otel-bridge.ts",
+      "runtime/decision-times.ts",
       "runtime/desktop-analytics.ts",
       "runtime/metrics.ts",
       "runtime/pricing.ts",
@@ -20,6 +21,10 @@
       "runtime/codex-otel-bridge.ts": [
         "../../../providers/types",
         "crypto"
+      ],
+      "runtime/decision-times.ts": [
+        "../../../db",
+        "./spending"
       ],
       "runtime/desktop-analytics.ts": [
         "../../../db",

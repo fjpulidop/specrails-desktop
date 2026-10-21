@@ -8,6 +8,7 @@ subdirectories, where present, enforce inward dependency rules.
 
 - [runtime/ai-invocations.ts](runtime/ai-invocations.ts)
 - [runtime/codex-otel-bridge.ts](runtime/codex-otel-bridge.ts)
+- [runtime/decision-times.ts](runtime/decision-times.ts)
 - [runtime/desktop-analytics.ts](runtime/desktop-analytics.ts)
 - [runtime/metrics.ts](runtime/metrics.ts)
 - [runtime/pricing.ts](runtime/pricing.ts)
@@ -24,3 +25,13 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/accounting` and any affected consumers.
+
+## Decision times
+
+[decision-times.ts](runtime/decision-times.ts) aggregates the first-write-wins
+delivery lifecycle instants (migration 72: `on_review_at`, `decided_at`,
+`published_at`, `merged_at`) into median/p90 time to decision and time to merge,
+per project and per loop (`GET /api/projects/:id/analytics/decision-times`,
+MCP `specrails_analytics(decision_times)`). Missing instants are counted as
+`unknown` (or `pending` while still awaited) and never become zero durations.
+Repository children of grouped deliveries count once through their parent.
