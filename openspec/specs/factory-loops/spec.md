@@ -2,17 +2,22 @@
 
 ## Purpose
 TBD - created by archiving change rails-as-loops. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Built-in factory loops
 
-The app SHALL ship built-in "factory" loops for `implement`, `batch`, `freestyle`, and `SDD Quick (OpenSpec)`. They SHALL appear in the Loops gallery alongside user loops, marked read-only (locked), and SHALL NOT be editable in place. A "Fork to edit" action SHALL clone a factory loop into a new editable user draft, leaving the original unchanged.
+The app SHALL ship built-in "factory" loops for `implement`, `freestyle`, and `SDD Quick (OpenSpec)`. They SHALL appear in the Loops gallery alongside user loops, marked read-only (locked), and SHALL NOT be editable in place. A "Fork to edit" action SHALL clone a factory loop into a new editable user draft, leaving the original unchanged.
 
 The `SDD Quick (OpenSpec)` factory loop SHALL have a stable factory id and SHALL map to rail loop execution. Existing OpenSpec lifecycle factory ids SHALL remain resolvable for compatibility.
+
+The removed Batch factory loop SHALL NOT be listed. Its persisted id `factory:batch` SHALL remain resolvable and SHALL resolve to the `implement` factory loop, so saved rails and launches keep working.
 
 #### Scenario: Factory loops are listed and locked
 
 - **WHEN** the Loops gallery is opened
-- **THEN** the `implement`, `batch`, `freestyle`, and `SDD Quick (OpenSpec)` factory loops SHALL be listed as read-only (locked)
+- **THEN** the `implement`, `freestyle`, and `SDD Quick (OpenSpec)` factory loops SHALL be listed as read-only (locked)
+- **AND** no Batch factory loop SHALL be listed
 - **AND** they SHALL NOT expose Edit / Delete / Publish actions
 
 #### Scenario: Forking a factory loop
@@ -27,15 +32,21 @@ The `SDD Quick (OpenSpec)` factory loop SHALL have a stable factory id and SHALL
 - **THEN** the id SHALL continue to resolve to a valid OpenSpec lifecycle graph
 - **AND** new recommendations SHALL prefer the `SDD Quick (OpenSpec)` product name
 
+#### Scenario: A saved Batch id runs as Implement
+
+- **WHEN** a rail or launch names `factory:batch`
+- **THEN** it SHALL resolve to the `implement` factory loop and run one aggregate Implement run
+
 ### Requirement: Catalog commands for batch and freestyle
 
-The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core `batch-implement` slash command, resolved per provider like `{{cmd:implement}}`) and `{{cmd:freestyle}}` (a native/raw autonomous command — NOT a slash command).
+The loop command catalog SHALL expose `{{cmd:freestyle}}` (a native/raw autonomous command — NOT a slash command). It SHALL NOT list a `batch` command. `{{cmd:batch}}` in a saved loop SHALL remain a hidden alias that expands exactly like `{{cmd:implement}}` for every provider; no provider SHALL receive a `batch-implement` invocation, and multi-ticket `implement` SHALL never be rewritten to `batch-implement`.
 
-#### Scenario: batch expands to the native batch-implement command
+#### Scenario: batch is a hidden alias of implement
 
 - **WHEN** `{{cmd:batch}}` is expanded for the claude provider with rail tickets 1 and 2
-- **THEN** the result SHALL be the native `batch-implement` invocation over those tickets (`/specrails:batch-implement #1 #2 --yes`)
-- **AND** for codex it SHALL use the `$batch-implement` skill form
+- **THEN** the result SHALL be `/specrails:implement #1 #2 --yes`
+- **AND** for codex it SHALL be `$implement #1 #2 --yes`
+- **AND** the builder command palette SHALL NOT list `batch`
 
 #### Scenario: freestyle expands to the raw autonomous prompt
 
@@ -44,7 +55,7 @@ The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core
 
 ### Requirement: Command-declared ticket scope
 
-Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` and `batch` SHALL be `all`; `freestyle` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
+Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` (and its hidden `batch` alias) SHALL be `all`; `freestyle` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
 
 #### Scenario: An all-scope command runs once over every ticket
 
@@ -185,4 +196,3 @@ The client SHALL preserve recorded loop lifecycle boundaries while bounding rend
 - **WHEN** a live loop produces more output events than the display limit
 - **THEN** its retained view still includes recorded step boundaries and completion markers
 - **AND** the view indicates omitted readable output when applicable
-

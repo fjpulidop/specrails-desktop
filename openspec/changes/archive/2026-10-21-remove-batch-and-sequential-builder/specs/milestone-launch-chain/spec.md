@@ -57,7 +57,7 @@ A sequential chain SHALL carry an `autoAdvance` flag (launch body `autoAdvance`,
 ## ADDED Requirements
 
 ### Requirement: Chain rails respect the rail limit
-Before creating a rail for the next spec, the chain SHALL reuse a free builder-owned rail — the retried chunk's previous rail, a rail already named for the spec, a rail this chain used, then any rail named `M<n>` or `M<n> · …` — where free means no undecided delivery, no active job or loop run, and not the in-flight rail of another active chain. A reused rail SHALL be renamed after its spec (best effort). When no rail is free and the rails route refuses to create one with `rail_limit_reached` (MAX_RAILS 12), a later spec SHALL pause the chain with `pause_reason = 'rail_limit_reached'`, which the surfaces SHALL localize as "every rail holds a PR awaiting your decision — decide pending PRs to free a rail, then resume"; Resume SHALL retry the same spec. When the FIRST spec cannot get a rail, nothing SHALL launch, no chain SHALL remain active, and the route SHALL return 409 `rail_limit_reached`, which the client SHALL localize.
+Before creating a rail for the next spec, the chain SHALL reuse a free builder-owned rail — the retried chunk's previous rail, a rail already named for the spec, a rail this chain used, then any rail named `M<n>` or `M<n> · …` — where free means no undecided delivery, no active job or loop run, and not the in-flight rail of another active chain. A reused rail SHALL be renamed after its spec (best effort).
 
 #### Scenario: A decided PR frees its rail
 - **WHEN** spec #1's PR was merged and spec #2 is due
@@ -66,6 +66,9 @@ Before creating a rail for the next spec, the chain SHALL reuse a free builder-o
 #### Scenario: Busy or undecided rails are never reused
 - **WHEN** a builder rail is running or holds a PR awaiting a decision
 - **THEN** the chain does not assign the next spec to it
+
+### Requirement: Rail exhaustion pauses or refuses the chain
+When no rail is free and the rails route refuses to create one with `rail_limit_reached` (MAX_RAILS 12), a later spec SHALL pause the chain with `pause_reason = 'rail_limit_reached'`, localized as "every rail holds a PR awaiting your decision — decide pending PRs to free a rail, then resume"; Resume SHALL retry the same spec. When the FIRST spec cannot get a rail, nothing SHALL launch, no chain SHALL remain active, and the route SHALL return a localized 409 `rail_limit_reached`.
 
 #### Scenario: Limit reached mid-chain
 - **WHEN** every rail holds undecided work and the next spec is due

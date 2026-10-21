@@ -31,3 +31,7 @@
 - [x] 4.1 Delete `docs/guide/<locale>/pipeline/3-batch-implement-and-multi-feature.md` and fix links/mentions
 - [x] 4.2 Update docs/*.md and docs/internals references
 - [x] 4.3 Tests for aliases, normalization, migration, ordering, rail reuse and rail limit
+
+Status 2026-10-21: verified shipped (#708): Batch mode aliases and migration, hidden `{{cmd:batch}}` alias, one-spec 
+sequential chain with auto-advance on. The routing requirement was corrected before archiving: with Loops enabled, 
+built-in loops also run through LoopRunManager.
