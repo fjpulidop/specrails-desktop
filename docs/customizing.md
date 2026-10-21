@@ -75,13 +75,13 @@ Opt-in OpenTelemetry capture for rail runs.
 
 | Setting | Behaviour |
 |---------|-----------|
-| **Enable pipeline telemetry** | Default OFF. When ON, every rail spawn gets OTLP env vars injected. Each rail's traces/metrics/logs are captured to a `.ndjson.gz` blob. |
+| **Enable pipeline telemetry** | Default ON (a project without a saved choice records telemetry). When ON, every queued pipeline job spawn gets OTLP env vars injected (see Scope below). Each rail's traces/metrics/logs are captured to a `.ndjson.gz` blob. |
 
 When telemetry is on, the **Diagnostic ZIP** button appears on every job's detail page. The ZIP contains `job-metadata.json`, `telemetry.ndjson`, `logs.txt`, `summary.md`, and per-job snapshots of the agent profile and active plugins.
 
 Retention: raw blobs > 7 days old are compacted at startup (file deleted, aggregates kept).
 
-Scope: rails only. The sidebar chat, Explore, AI Edit, and the setup wizard are not instrumented (telemetry env injection happens only in the queue manager).
+Scope: jobs that run through the project's job queue (CLI pipeline runs: rails when Loops are disabled, and `implement` commands from the CLI). Telemetry env injection happens only in the queue manager, so loop runs (the default rail path), the sidebar chat, Explore, AI Edit and missions are not instrumented.
 
 ### Terminal panel
 
@@ -136,7 +136,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 
 | Variable | Effect |
 |----------|--------|
-| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@^5.1.0` — the 5.1.0 floor is the release that quotes the command path in its Windows shell runner, so OpenSpec init works from an install directory with spaces; it is also the version bundled with the app) |
+| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: the Core bundled with the desktop app; without a bundle, `npx --yes --prefer-online specrails-core@^6.0.0`, the `CORE_PACKAGE_SPEC` range in `server/core-package.ts`) |
 | `SPECRAILS_TECH_URL` | Override the specrails-tech proxy base URL |
 | `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS` | Budget in milliseconds for reading configured project environment names from your login shell (default `10000`, max `120000`). Raise it when the Environment card shows **Shell timed out**. See the [project environment guide](guide/en/settings/5-project-environment.md) |
 | `SPECRAILS_AGENTS_SECTION=false` | Hide the Agents section from every project |
@@ -161,7 +161,7 @@ These feature flags are **default ON**. Set the flag to `false` to hide the feat
 | `VITE_FEATURE_TERMINAL_PANEL=false` | Hide the bottom terminal panel |
 | `VITE_FEATURE_AGENTS_SECTION=false` | Hide the Agents section |
 | `VITE_FEATURE_CODE_EXPLORER=false` | Hide the Code section |
-| `VITE_FEATURE_JIRA=false` | Hide the Jira integration UI (settings section + spec badges) |
+| `VITE_FEATURE_JIRA=false` | Hide the Jira integration UI (Plugins entry + spec badges) |
 | `VITE_FEATURE_INTERACTIVE_JOBS=false` | Hide the in-job chat UI (the composer on Job Detail / the job modal, plus its Finalize / Wrap-up actions) |
 | `VITE_FEATURE_EXPLORE_REVIEW=false` | Disable the Review step in the Explore shell |
 | `VITE_FEATURE_EXPLORE_PREMIUM_UX=false` | Disable the "Conectando…/Pensando…/Consultando código…" pills above the Explore streaming bubble |

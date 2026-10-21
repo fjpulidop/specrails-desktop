@@ -50,7 +50,7 @@ reading one description. The tools are:
 | `specrails_git` | Repository/branch/worktree information, status, diffs and PR lookup |
 | `specrails_env` | Project environment readiness and environment-file management; `get`/`status`/`recheck` report each configured name's value-free resolution status |
 | `specrails_support` | Support triage, local diagnostics and specrails-core update workflows |
-| `specrails_setup` | Add-project setup wizard surface |
+| `specrails_setup` | Add-project and per-project install surface (prerequisites, add, install-config, install, checkpoints, abort) |
 | `specrails_analytics` | Per-project spending analytics + budget |
 | `specrails_settings` | App-level settings |
 | `specrails_watch` | Await the real result of an async (cost-incurring) action |

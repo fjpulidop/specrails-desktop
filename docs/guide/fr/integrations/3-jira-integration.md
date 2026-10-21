@@ -15,7 +15,7 @@ Toutes les écritures vers Jira passent par une file d'attente durable et résis
 
 ## Connecter un tableau
 
-La connexion se fait depuis la page **Réglages** d'un projet (il existe aussi une étape facultative « Configurer Jira » à la fin de l'assistant d'ajout de projet). L'assistant de connexion vous guide :
+La connexion se fait depuis la page **Plugins** de la barre latérale gauche : cliquez sur **Installer** sur la carte Jira et choisissez le projet. L'assistant de connexion vous guide :
 
 1. **Tester** — saisissez l'URL et les identifiants de votre Jira, et Specrails vérifie la connexion.
 2. **Choisir un projet** — sélectionnez le projet Jira avec lequel synchroniser.
@@ -52,7 +52,7 @@ Vous pouvez donc expérimenter librement — activez, lancez quelques rails, dé
 
 ## Au quotidien
 
-Une fois connecté, la page Réglages du projet affiche une **carte de connexion** où vous pouvez :
+Une fois connecté, la carte Jira de la page **Plugins** passe à **Gérer**. Choisissez-y le projet pour ouvrir sa **carte de connexion**, où vous pouvez :
 
 - **Synchroniser maintenant** — forcer une interrogation immédiate au lieu d'attendre le minuteur.
 - **Réessayer les lettres mortes** — relancer les écritures vers Jira restées bloquées.
@@ -69,4 +69,4 @@ Les specs adossées à Jira affichent un **badge de clé Jira** (comme `PROJ-123
 
 ## Désactiver l'intégration
 
-Si vous souhaitez tout arrêter, il suffit de cliquer sur **Se déconnecter** depuis les Réglages. Vos specs retrouvent leur comportement purement local, et les métadonnées Jira restent simplement inutilisées — rien n'est détruit.
+Si vous souhaitez tout arrêter, il suffit de cliquer sur **Se déconnecter** depuis la carte de connexion. Vos specs retrouvent leur comportement purement local, et les métadonnées Jira restent simplement inutilisées — rien n'est détruit.

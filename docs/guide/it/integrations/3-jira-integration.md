@@ -15,7 +15,7 @@ Tutti i riscritti verso Jira passano attraverso un outbox durevole e resistente 
 
 ## Connettere una board
 
-Ti connetti dalla pagina **Impostazioni** di un progetto (c'è anche un passo facoltativo "Configura Jira" alla fine della procedura guidata di Add Project). La procedura guidata di connessione ti accompagna passo dopo passo:
+Ti connetti dalla pagina **Plugin** nella barra laterale sinistra: fai clic su **Installa** nella scheda Jira e scegli il progetto. La procedura guidata di connessione ti accompagna passo dopo passo:
 
 1. **Prova** — inserisci l'URL e le credenziali di Jira, e Specrails verifica la connessione.
 2. **Scegli un progetto** — scegli con quale progetto Jira sincronizzarti.
@@ -52,7 +52,7 @@ Così puoi sperimentare liberamente — attivala, esegui qualche rail, disattiva
 
 ## Il giorno per giorno
 
-Una volta connesso, la pagina Impostazioni del progetto mostra una **scheda di connessione** dove puoi:
+Una volta connesso, la scheda Jira nella pagina **Plugin** passa a **Gestisci**. Scegli lì il progetto per aprire la sua **scheda di connessione**, dove puoi:
 
 - **Sincronizza ora** — forza un polling immediato invece di aspettare il timer.
 - **Riprova i dead-letter** — riesegui qualsiasi riscritto rimasto bloccato.
@@ -69,4 +69,4 @@ Le spec appoggiate a Jira mostrano un **badge con la chiave Jira** (come `PROJ-1
 
 ## Disattivarla
 
-Se in qualsiasi momento vuoi tornare completamente indietro, basta **Disconnettere** dalle Impostazioni. Le tue spec tornano al comportamento solo-locale e i metadati Jira semplicemente restano inutilizzati — niente viene distrutto.
+Se in qualsiasi momento vuoi tornare completamente indietro, basta **Disconnettere** dalla scheda di connessione. Le tue spec tornano al comportamento solo-locale e i metadati Jira semplicemente restano inutilizzati — niente viene distrutto.

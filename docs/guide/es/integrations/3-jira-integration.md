@@ -15,7 +15,7 @@ Todas las escrituras pasan por un outbox duradero y a prueba de fallos, así que
 
 ## Conectar un tablero
 
-Te conectas desde la página de **Ajustes** de un proyecto (también hay un paso opcional «Configurar Jira» al final del asistente de Añadir proyecto). El asistente de conexión te guía paso a paso:
+Te conectas desde la página **Plugins** de la barra lateral izquierda: pulsa **Instalar** en la tarjeta de Jira y elige el proyecto. El asistente de conexión te guía paso a paso:
 
 1. **Probar** — introduce la URL de tu Jira y tus credenciales, y Specrails verifica la conexión.
 2. **Elegir un proyecto** — elige con qué proyecto de Jira sincronizar.
@@ -52,7 +52,7 @@ Así que puedes experimentar con libertad —actívalo, ejecuta unos cuantos rai
 
 ## El día a día
 
-Una vez conectado, la página de Ajustes del proyecto muestra una **tarjeta de conexión** donde puedes:
+Una vez conectado, la tarjeta de Jira de la página **Plugins** pasa a **Gestionar**. Elige ahí el proyecto para abrir su **tarjeta de conexión**, donde puedes:
 
 - **Sincronizar ahora** — fuerza un sondeo inmediato en lugar de esperar al temporizador.
 - **Reintentar cartas muertas** — vuelve a ejecutar cualquier escritura que se haya quedado atascada.
@@ -69,4 +69,4 @@ Las specs respaldadas por Jira muestran una **insignia con la clave de Jira** (c
 
 ## Desactivarlo
 
-Si en algún momento quieres dar marcha atrás del todo, simplemente **Desconecta** desde Ajustes. Tus specs vuelven al comportamiento solo-local y los metadatos de Jira simplemente quedan sin uso: no se destruye nada.
+Si en algún momento quieres dar marcha atrás del todo, simplemente **Desconecta** desde la tarjeta de conexión. Tus specs vuelven al comportamiento solo-local y los metadatos de Jira simplemente quedan sin uso: no se destruye nada.

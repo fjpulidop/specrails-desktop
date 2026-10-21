@@ -6,15 +6,17 @@ Abra-a a partir da barra lateral direita (tem a etiqueta **Analytics**). Tudo o 
 
 ## O que conta como gasto
 
-O Specrails regista cinco tipos de atividade de IA, a que chamamos *superfícies*. Cada uma tem uma cor consistente em todos os gráficos, para a identificar num relance:
+O Specrails etiqueta cada execução de IA com uma *superfície*: a parte da app que gerou o gasto. As superfícies principais têm uma cor fixa e um chip de filtro próprio, para que as identifique num relance:
 
-- **Job** — um rail de pipeline a correr Architect → Developer → Reviewer → Ship.
+- **Job** — um job do pipeline em fila (Architect → Developer → Reviewer → Ship), incluindo as execuções Freestyle.
+- **Loop** — cada passo de IA de uma execução de loop. Os rails correm como loops por omissão, por isso a maior parte do gasto dos rails aparece aqui.
 - **Quick spec** — uma spec gerada pelo caminho rápido de Add Spec.
 - **Explore spec** — uma conversa de Explore em que dá forma a uma spec à medida que conversa.
 - **AI edit** — um refinamento assistido por IA sobre um agente ou ficheiro.
-- **File summary** — os resumos em linguagem simples que dão vida ao Code explorer.
+- **SMASH** — a divisão de uma spec épica em specs mais pequenas.
+- **File summary** — os resumos em linguagem simples e as histórias de ficheiros que dão vida ao Code explorer.
 
-Há um par de coisas que, propositadamente, *não* são registadas: tanto o chat lateral como o assistente de configuração arrancam CLIs de IA, mas nunca aparecem nos seus gastos. Assim, o painel reflete trabalho real e repetível, em vez de conversa ocasional.
+Também são registadas superfícies menores, sem chip próprio: o chat da barra lateral, o lançador de specs do OpenSpec, as propostas de specs, o Agent Studio e o chat de configuração antigo. As missões fixadas ao projeto também contam para o seu gasto. Nada que execute uma CLI de IA fica de fora, por isso os totais refletem toda a atividade de IA do projeto.
 
 ## Ler o painel
 

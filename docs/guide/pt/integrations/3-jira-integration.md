@@ -15,7 +15,7 @@ Todas as escritas de retorno passam por uma fila de saída (outbox) durável e r
 
 ## Conectar um quadro
 
-Conecta-se a partir da página **Definições** de um projeto (há também um passo opcional "Configurar Jira" no final do assistente de Adicionar Projeto). O assistente de ligação guia-o através de:
+Conecta-se a partir da página **Plugins** na barra lateral esquerda: clique em **Instalar** no cartão do Jira e escolha o projeto. O assistente de ligação guia-o através de:
 
 1. **Testar** — introduza o URL e as credenciais do seu Jira, e o Specrails verifica a ligação.
 2. **Escolher um projeto** — escolha com que projeto Jira sincronizar.
@@ -52,7 +52,7 @@ Por isso pode experimentar à vontade — ligue, corra uns quantos rails, deslig
 
 ## No dia a dia
 
-Uma vez conectada, a página de Definições do projeto mostra um **cartão de ligação** onde pode:
+Uma vez conectada, o cartão do Jira na página **Plugins** passa a **Gerir**. Escolha aí o projeto para abrir o seu **cartão de ligação**, onde pode:
 
 - **Sincronizar agora** — forçar um polling imediato em vez de esperar pelo temporizador.
 - **Tentar dead-letters de novo** — voltar a correr quaisquer escritas de retorno que tenham ficado presas.
@@ -69,4 +69,4 @@ As specs apoiadas no Jira mostram um **selo com a chave Jira** (como `PROJ-123`)
 
 ## Desligar
 
-Se alguma vez quiser recuar por completo, basta **Desligar** nas Definições. As suas specs voltam ao comportamento apenas local, e os metadados do Jira ficam simplesmente sem uso — nada é destruído.
+Se alguma vez quiser recuar por completo, basta **Desligar** no cartão de ligação. As suas specs voltam ao comportamento apenas local, e os metadados do Jira ficam simplesmente sem uso — nada é destruído.

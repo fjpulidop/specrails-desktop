@@ -6,15 +6,17 @@ Open it from the right sidebar (it's labelled **Analytics**). Everything you see
 
 ## What counts as spend
 
-Specrails tracks five kinds of AI activity, called *surfaces*. Each one is colour-coded consistently across every chart so you can spot it at a glance:
+Specrails tags every AI run with a *surface*: the part of the app that spent it. The main surfaces each get a consistent colour and a filter chip, so you can spot them at a glance:
 
-- **Job** — a pipeline rail running Architect → Developer → Reviewer → Ship.
+- **Job** — a queued pipeline job (Architect → Developer → Reviewer → Ship), including Freestyle runs.
+- **Loop** — each AI step of a loop run. Rails run as loops by default, so most rail spend lands here.
 - **Quick spec** — a spec generated through the fast Add Spec path.
 - **Explore spec** — an Explore conversation where you shape a spec by chatting.
 - **AI edit** — an AI-assisted refine on an agent or file.
-- **File summary** — the plain-language summaries that power the Code explorer.
+- **SMASH** — splitting an epic spec into smaller specs.
+- **File summary** — the plain-language summaries and file stories that power the Code explorer.
 
-A couple of things are deliberately *not* tracked: the chat sidebar and the setup wizard both spawn AI CLIs, but they never show up in your spend. So the dashboard reflects real, repeatable work rather than incidental chatter.
+Smaller surfaces are tracked as well, without a chip of their own: the chat sidebar, the OpenSpec spec launcher, spec proposals, Agent Studio and the legacy setup chat. Missions pinned to the project count toward its spend too. Nothing that runs an AI CLI is left out, so the totals reflect all of the project's AI activity.
 
 ## Reading the dashboard
 

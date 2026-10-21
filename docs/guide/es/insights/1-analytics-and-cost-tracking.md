@@ -6,15 +6,17 @@ Cada vez que Specrails ejecuta una CLI de IA en tu nombre —un job del pipeline
 
 ## Qué cuenta como gasto
 
-Specrails registra cinco tipos de actividad de IA, llamados *superficies*. Cada uno tiene un color asignado de forma consistente en todas las gráficas, para que lo identifiques de un vistazo:
+Specrails etiqueta cada ejecución de IA con una *superficie*: la parte de la app que generó el gasto. Las superficies principales tienen un color fijo y su propio chip de filtro, para que las identifiques de un vistazo:
 
-- **Job** — un rail del pipeline ejecutando Architect → Developer → Reviewer → Ship.
+- **Job** — un job del pipeline en cola (Architect → Developer → Reviewer → Ship), incluidas las ejecuciones Freestyle.
+- **Loop** — cada paso de IA de una ejecución de loop. Los rails se ejecutan como loops por defecto, así que la mayor parte del gasto de los rails aparece aquí.
 - **Quick spec** — una spec generada por la vía rápida de Add Spec.
 - **Explore spec** — una conversación de Explore en la que das forma a una spec charlando.
 - **AI edit** — un refinado asistido por IA sobre un agente o un archivo.
-- **File summary** — los resúmenes en lenguaje sencillo que alimentan el Code explorer.
+- **SMASH** — dividir una spec épica en specs más pequeñas.
+- **File summary** — los resúmenes en lenguaje sencillo y las historias de archivo que alimentan el Code explorer.
 
-Hay un par de cosas que, a propósito, *no* se registran: el panel de chat lateral y el asistente de configuración también lanzan CLIs de IA, pero nunca aparecen en tu gasto. Así el panel refleja trabajo real y repetible, en lugar de conversaciones puntuales.
+También se registran superficies menores, sin chip propio: el panel de chat lateral, el lanzador de specs de OpenSpec, las propuestas de specs, Agent Studio y el chat de configuración heredado. Las misiones fijadas al proyecto también cuentan en su gasto. No se deja fuera nada que ejecute una CLI de IA, así que los totales reflejan toda la actividad de IA del proyecto.
 
 ## Cómo leer el panel
 
