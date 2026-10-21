@@ -382,6 +382,9 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   exceeded; \`specrails_settings(set, dailyBudgetUsd)\` is the APP-WIDE budget.
   \`decision_times\` reports median/p90 time to decision and to merge per
   project and loop; \`unknown\` counts missing instants, never zero durations.
+  \`loop_economics\` compares loops: delivered/merged/discarded, cost per
+  delivery (authoritative vs estimated), rounds, escaped defects
+  (\`metadata.regressionOf\` on bug tickets); nulls mean no data, not zero.
 - **Plugins** (\`specrails_plugins\`): per-project MCP integrations; \`preview\`
   the diff before \`install\`; a degraded plugin never blocks rail launches.
 - **Profiles** (\`specrails_agents\`): per-project agent chains; the baseline

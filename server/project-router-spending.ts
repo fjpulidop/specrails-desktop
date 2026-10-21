@@ -7,7 +7,9 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
 import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
 import { getDecisionTimes } from './modules/accounting/runtime/decision-times'
-import { readStore } from './modules/specs/runtime/ticket-store'
+import { getLoopEconomics, listRecentDeliveries, type KnownLoop, type RegressionLink } from './modules/accounting/runtime/loop-economics'
+import { readStore, listRegressionLinks } from './modules/specs/runtime/ticket-store'
+import { listLoops } from './modules/loops/runtime/loops-store'
 import { readLegacyLaunchSummary } from './modules/loops/runtime/legacy-launch-telemetry'
 import {
   type ProjectRoutesDeps
@@ -70,6 +72,48 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     } catch (err) {
       console.error('[decision-times] query failed:', err)
       res.status(500).json({ error: 'decision_times_unavailable' })
+    }
+  })
+
+  // Loop economics per loop (loop-economics-analytics). Unknown values stay
+  // null — no data — never a manufactured zero.
+  router.get('/:projectId/analytics/loop-economics', (req: Request, res: Response) => {
+    const filters = parseSpendingFilters(req.query as Record<string, unknown>)
+    if (filters.period && !['7d', '30d', '90d', 'all', 'custom'].includes(filters.period)) {
+      res.status(400).json({ error: 'invalid_period' })
+      return
+    }
+    if (filters.period === 'custom' && (!filters.from || !filters.to)) {
+      res.status(400).json({ error: 'from and to are required for custom period' })
+      return
+    }
+    // Escaped-defect links come from the ticket store; an unreadable store
+    // leaves the metric untracked (null) rather than zero.
+    let regressionLinks: RegressionLink[] = []
+    try { regressionLinks = listRegressionLinks(readStore(ticketPath(req))) } catch { /* untracked */ }
+    // Saved loops are global (desktop DB). Only published ones are listed as
+    // "no data" rows; an unavailable registry just omits them.
+    let knownLoops: KnownLoop[] = []
+    try {
+      const desktopDb = registry?.desktopDb
+      if (desktopDb) knownLoops = listLoops(desktopDb).filter((loop) => loop.status === 'published').map((loop) => ({ id: loop.id, name: loop.name }))
+    } catch { /* no saved loops */ }
+    try {
+      res.json(getLoopEconomics(ctx(req).db, filters, { regressionLinks, knownLoops }))
+    } catch (err) {
+      console.error('[loop-economics] query failed:', err)
+      res.status(500).json({ error: 'loop_economics_unavailable' })
+    }
+  })
+
+  // Recent delivered deliveries — source of the ticket "Regression of" picker.
+  router.get('/:projectId/analytics/loop-economics/deliveries', (req: Request, res: Response) => {
+    const limit = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : 50
+    try {
+      res.json({ deliveries: listRecentDeliveries(ctx(req).db, Number.isFinite(limit) ? limit : 50) })
+    } catch (err) {
+      console.error('[loop-economics] deliveries query failed:', err)
+      res.status(500).json({ error: 'deliveries_unavailable' })
     }
   })
 

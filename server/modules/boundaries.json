@@ -5,6 +5,7 @@
       "runtime/codex-otel-bridge.ts",
       "runtime/decision-times.ts",
       "runtime/desktop-analytics.ts",
+      "runtime/loop-economics.ts",
       "runtime/metrics.ts",
       "runtime/pricing.ts",
       "runtime/result-event.ts",
@@ -31,6 +32,11 @@
         "../../../desktop-db",
         "../../../project-registry",
         "../../../types"
+      ],
+      "runtime/loop-economics.ts": [
+        "../../../db",
+        "./decision-times",
+        "./spending"
       ],
       "runtime/metrics.ts": [
         "../../../db",
