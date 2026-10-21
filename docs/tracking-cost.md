@@ -72,6 +72,22 @@ How long deliveries wait for you. From the moment a delivery becomes reviewable 
 
 Every instant is recorded once and never moved by a retry, a second click or a restart (first write wins). A delivery still waiting counts as **pending**; one without recorded instants — for example created before this metric existed — counts as **unknown**. Neither is ever counted as zero. Discarded deliveries count toward time to decision but never toward time to merge. The same data is available through `specrails_analytics` (`decision_times`).
 
+### Loop economics
+
+Compares your loops over the selected period. One row per loop (saved published loops with nothing delivered show **No data**):
+
+| Column | Meaning |
+| --- | --- |
+| Delivered | Deliveries that reached review or beyond (on review, PR draft/ready/closed, merged, superseded, or discarded after review). Failed or still-building runs do not count. A multi-repository delivery counts once. |
+| Merged / Discarded | Delivered changes that were merged / discarded; the discard rate is discarded ÷ delivered. |
+| Cost / delivery | Average AI cost of delivered changes, attributed exactly like the delivery cost footer (the delivery's runs and their merge-resolver calls). Provider-reported cost is used as is; the share that comes from the pricing table is shown as *estimated*. Deliveries without any recorded cost are listed as *unpriced* and left out of the average — never counted as $0. |
+| Decision / Merge | Median · p90, as in [Time to decision](#time-to-decision). |
+| Reviews / Fixer rounds per delivery | Reviewer and fixer steps of the delivery's loop runs (automatic stall retries are not new rounds). Deliveries whose runs have no step log are unknown and do not lower the average. |
+| Escaped defects | Bug tickets linked to the delivery that introduced them. Label a ticket `bug` and pick the delivery under **Regression of** when you create or edit it. Until any ticket in the project carries a link the column shows **No data**. |
+| Requirements demonstrated / Triage accuracy | Reserved: they show **No data** until spec traceability and loop triage ship. |
+
+**—** always means unknown. Revert commits on delivered branches are not detected automatically; link the regression ticket instead. The same data is available through `specrails_analytics` (`loop_economics`).
+
 ### Quick vs Explore card
 
 Share-of-spend between Quick spec generation and Explore conversations, with a small sparkline. If Explore has fewer than 5 runs in the period, a CTA nudges you to try it.

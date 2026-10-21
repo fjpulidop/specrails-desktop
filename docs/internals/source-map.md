@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1051 source/build files. Nearby tests are linked where names
+Includes 1054 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -114,6 +114,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
 - [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
 - [LegacyWorkflowUsage.tsx](../../client/src/features/analytics/components/LegacyWorkflowUsage.tsx) · [test](../../client/src/features/analytics/components/__tests__/LegacyWorkflowUsage.test.tsx)
+- [LoopEconomicsCard.tsx](../../client/src/features/analytics/components/LoopEconomicsCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/LoopEconomicsCard.test.tsx)
 - [ModelBreakdown.tsx](../../client/src/features/analytics/components/ModelBreakdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ModelBreakdown.test.tsx)
 - [PeriodSelector.tsx](../../client/src/features/analytics/components/PeriodSelector.tsx) · [test](../../client/src/features/analytics/components/__tests__/PeriodSelector.test.tsx)
 - [ProviderBreakdownCard.tsx](../../client/src/features/analytics/components/ProviderBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/ProviderBreakdownCard.test.tsx)
@@ -660,6 +661,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
 - [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
+- [RegressionOfPicker.tsx](../../client/src/features/specs/components/RegressionOfPicker.tsx) · [test](../../client/src/features/specs/components/__tests__/RegressionOfPicker.test.tsx)
 - [SpecAddendaSection.tsx](../../client/src/features/specs/components/SpecAddendaSection.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecAddendaSection.test.tsx)
 - [SpecCard.tsx](../../client/src/features/specs/components/SpecCard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecCard.test.tsx)
 - [SpecComparePicker.tsx](../../client/src/features/specs/components/SpecComparePicker.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecComparePicker.test.tsx)
@@ -1074,6 +1076,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [codex-otel-bridge.ts](../../server/modules/accounting/runtime/codex-otel-bridge.ts) · [test](../../server/modules/accounting/runtime/codex-otel-bridge.test.ts)
 - [decision-times.ts](../../server/modules/accounting/runtime/decision-times.ts) · [test](../../server/modules/accounting/runtime/decision-times.test.ts)
 - [desktop-analytics.ts](../../server/modules/accounting/runtime/desktop-analytics.ts) · [test](../../server/modules/accounting/runtime/desktop-analytics.test.ts)
+- [loop-economics.ts](../../server/modules/accounting/runtime/loop-economics.ts) · [test](../../server/modules/accounting/runtime/loop-economics.test.ts)
 - [metrics.ts](../../server/modules/accounting/runtime/metrics.ts) · [test](../../server/modules/accounting/runtime/metrics.test.ts)
 - [pricing.ts](../../server/modules/accounting/runtime/pricing.ts) · [test](../../server/modules/accounting/runtime/pricing.test.ts)
 - [result-event.ts](../../server/modules/accounting/runtime/result-event.ts) · [test](../../server/modules/accounting/runtime/result-event.test.ts)
