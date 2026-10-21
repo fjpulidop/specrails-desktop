@@ -1011,6 +1011,25 @@
         "../../../db",
         "./rail-isolated-launch"
       ],
+      "runtime/isolated-worktree.ts": [
+        "../../../artifact-registry",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../jira/jira-db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../code/runtime/file-provenance",
+        "./pr-naming",
+        "path"
+      ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
       ],
@@ -1084,15 +1103,11 @@
         "child_process"
       ],
       "runtime/rail-isolated-launch.ts": [
-        "../../../artifact-registry",
         "../../../db",
-        "../../../feature-flags",
         "../../../ids",
         "../../../integration-branch",
-        "../../../jira/jira-db",
         "../../../project-registry",
         "../../../project-repositories",
-        "../../../providers",
         "../../../providers/types",
         "../../../repo-lock",
         "../../../workspace-resolution",
@@ -1118,6 +1133,7 @@
         "./delivery-evidence",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
+        "./isolated-worktree",
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",

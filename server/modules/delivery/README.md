@@ -30,6 +30,21 @@ degraded drafts and continuation recovery prerequisites.
 - [runtime/rails-router.ts](runtime/rails-router.ts)
 - [runtime/rails-store.ts](runtime/rails-store.ts)
 
+### Isolated worktree preparation
+
+[`runtime/isolated-worktree.ts`](runtime/isolated-worktree.ts) owns the single
+worktree machinery. `materializeIsolatedWorktree` (caller holds the repository
+lock) creates or resumes the mount, verifies its HEAD, applies the per-run
+overlay, links warm `node_modules` and freezes the provenance snapshot; a
+verification failure removes only resources the call created.
+`launchIsolatedRail` calls it once per allocation unit and keeps batching, PR
+continuation, delivery rows and the rail ledger. `prepareIsolatedWorktree` is
+the self-contained entry for a second consumer (Flow): it takes the repository
+lock, fetches, resolves the integration base and a fresh conventional branch,
+then materializes. It writes no `rail_worktrees` row; the caller owns release
+using the returned ownership flags. The manifest lists it as a public subpath
+once a consumer outside `delivery` imports it.
+
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture
 test rejects undeclared dependency changes; domain/application rules remain
