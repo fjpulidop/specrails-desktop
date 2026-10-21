@@ -7,3 +7,6 @@
 - [x] 2.1 Server: type, validator, launch override, default-model fill, `[runtime] fixer:` banner; schema synced
 - [x] 2.2 Client: Fixer phase in the stepper + card (Inherit developer / Own engine), i18n ×8, tests
 - [x] 2.3 Docs: `docs/local-providers.md` roles table + CLAUDE.md
+
+Status 2026-10-21: verified shipped (#664). The stepper card from 2.2 was replaced in #718 by the built-in `fixer` role of the
+workflow agent editor (`LoopAgentsEditor`, inherit/own engine); the delta describes runtime behaviour and still holds.
