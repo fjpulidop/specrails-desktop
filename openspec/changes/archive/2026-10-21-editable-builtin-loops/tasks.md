@@ -22,3 +22,7 @@
 
 ## 5. Documentation
 - [x] 5.1 Loop builder and rails guides (8 locales), running-pipelines, companion contract, loops module README
+
+Status 2026-10-21: verified shipped (#708, #718): migration 31 builtin rows, seeding/restore, 409 `builtin_loop`, rail
+resolution of edited built-ins, MCP `restore_builtin`, library card actions. The locked/fork scenarios are dropped from
+the canonical spec as obsolete; the Batch-id scenario is kept in the modified requirement.

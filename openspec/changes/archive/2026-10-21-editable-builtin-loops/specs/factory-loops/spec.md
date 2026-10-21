@@ -38,7 +38,11 @@ The `SDD Quick (OpenSpec)` built-in SHALL have a stable factory id and SHALL map
 
 ### Requirement: Built-in seeding follows the Core default without overwriting edits
 
-The app SHALL seed missing built-in rows idempotently, as Published, using the default graph for the selected Core's capabilities. It SHALL record the hash of the seeded default. When Core capabilities are known and the default changes, the app SHALL refresh a built-in row whose content still equals its seeded default, and SHALL NOT change a row the user edited. When Core cannot be loaded, the app SHALL seed missing rows with the legacy default and SHALL leave existing rows unchanged. An existing Freestyle row SHALL be kept when no provider supports Freestyle.
+The app SHALL seed missing built-in rows idempotently, as Published, from the default graph for the selected Core's capabilities, recording the seeded default's hash. When Core capabilities are known and the default changes, it SHALL refresh a row still equal to its seeded default and SHALL NOT change a user-edited row. Without a loadable Core it SHALL seed missing rows with the legacy default and leave existing rows unchanged.
+
+#### Scenario: Freestyle row without a Freestyle provider
+- **WHEN** a Freestyle built-in row exists and no detected provider supports Freestyle
+- **THEN** seeding keeps the row
 
 #### Scenario: Core upgrade refreshes an unedited built-in
 
