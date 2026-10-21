@@ -9,3 +9,6 @@
 - [x] 2.2 `GET /:projectId/agent-runtime/guardrails`
 - [x] 2.3 Guardrails block in project settings ▸ Agent engine (+ tests, i18n ×8)
 - [x] 2.4 Docs: `docs/local-providers.md` section + CLAUDE.md bullet
+
+Status 2026-10-21: verified shipped (#664). Since #718 the guardrail switches live in each workflow's agent editor
+(`LoopAgentsEditor` → `RuntimeGuardrails`), not in project settings; the delta was reworded before archiving.
