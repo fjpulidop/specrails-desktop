@@ -227,5 +227,30 @@
       "queue_manager_slash": "排队命令",
       "merge_back": "本地集成"
     }
+  },
+  "decisionTimes": {
+    "title": "决策用时",
+    "subtitle": "从可供评审到首次人工决策以及到合并",
+    "toDecision": "决策用时",
+    "toMerge": "合并用时",
+    "median": "中位数",
+    "p90": "p90",
+    "counts": "已测量 {{measured}} · 待定 {{pending}} · 未知 {{unknown}}",
+    "unknownValue": "未知",
+    "loading": "正在加载决策用时…",
+    "unavailable": "无法加载决策用时。",
+    "empty": "此期间内没有交付进入评审。",
+    "byLoop": "按循环的决策用时",
+    "loop": "循环",
+    "deliveries": "交付",
+    "decisionMedianP90": "决策（中位数 · p90）",
+    "mergeMedianP90": "合并（中位数 · p90）",
+    "unnamedLoop": "未命名循环",
+    "note": "未知统计的是没有记录时间点的交付（例如在此指标出现之前创建的交付）。它们从不计为零。",
+    "units": {
+      "minutes": "{{value}} 分钟",
+      "hours": "{{value}} 小时",
+      "days": "{{value}} 天"
+    }
   }
 }

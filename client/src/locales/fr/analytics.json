@@ -227,5 +227,30 @@
       "queue_manager_slash": "Commandes en attente",
       "merge_back": "Intégrations locales"
     }
+  },
+  "decisionTimes": {
+    "title": "Délai de décision",
+    "subtitle": "De la mise en revue à la première décision humaine et jusqu'au merge",
+    "toDecision": "Délai de décision",
+    "toMerge": "Délai de merge",
+    "median": "médiane",
+    "p90": "p90",
+    "counts": "{{measured}} mesurées · {{pending}} en attente · {{unknown}} inconnues",
+    "unknownValue": "Inconnu",
+    "loading": "Chargement des délais de décision…",
+    "unavailable": "Impossible de charger les délais de décision.",
+    "empty": "Aucune livraison n'a atteint la revue sur cette période.",
+    "byLoop": "Délais de décision par boucle",
+    "loop": "Boucle",
+    "deliveries": "Livraisons",
+    "decisionMedianP90": "Décision (médiane · p90)",
+    "mergeMedianP90": "Merge (médiane · p90)",
+    "unnamedLoop": "Boucle sans nom",
+    "note": "Les inconnues comptent les livraisons sans instants enregistrés (par exemple, créées avant l'existence de cette métrique). Elles ne sont jamais comptées comme zéro.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} j"
+    }
   }
 }

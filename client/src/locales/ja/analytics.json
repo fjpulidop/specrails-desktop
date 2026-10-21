@@ -227,5 +227,30 @@
       "queue_manager_slash": "キュー内のコマンド",
       "merge_back": "ローカル統合"
     }
+  },
+  "decisionTimes": {
+    "title": "判断までの時間",
+    "subtitle": "レビュー可能になってから最初の人による判断まで、およびマージまで",
+    "toDecision": "判断までの時間",
+    "toMerge": "マージまでの時間",
+    "median": "中央値",
+    "p90": "p90",
+    "counts": "計測 {{measured}} 件 · 保留 {{pending}} 件 · 不明 {{unknown}} 件",
+    "unknownValue": "不明",
+    "loading": "判断時間を読み込み中…",
+    "unavailable": "判断時間を読み込めませんでした。",
+    "empty": "この期間にレビューに達したデリバリーはありません。",
+    "byLoop": "ループ別の判断時間",
+    "loop": "ループ",
+    "deliveries": "デリバリー",
+    "decisionMedianP90": "判断（中央値 · p90）",
+    "mergeMedianP90": "マージ（中央値 · p90）",
+    "unnamedLoop": "名前のないループ",
+    "note": "不明は時刻が記録されていないデリバリー（この指標の導入前に作成されたものなど）を数えます。ゼロとしては数えません。",
+    "units": {
+      "minutes": "{{value}} 分",
+      "hours": "{{value}} 時間",
+      "days": "{{value}} 日"
+    }
   }
 }

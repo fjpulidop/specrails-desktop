@@ -227,5 +227,30 @@
       "queue_manager_slash": "Befehle in der Warteschlange",
       "merge_back": "Lokale Integrationen"
     }
+  },
+  "decisionTimes": {
+    "title": "Zeit bis zur Entscheidung",
+    "subtitle": "Von der Review-Bereitschaft bis zur ersten menschlichen Entscheidung und bis zum Merge",
+    "toDecision": "Zeit bis zur Entscheidung",
+    "toMerge": "Zeit bis zum Merge",
+    "median": "Median",
+    "p90": "p90",
+    "counts": "{{measured}} gemessen · {{pending}} ausstehend · {{unknown}} unbekannt",
+    "unknownValue": "Unbekannt",
+    "loading": "Entscheidungszeiten werden geladen…",
+    "unavailable": "Entscheidungszeiten konnten nicht geladen werden.",
+    "empty": "Keine Lieferung hat in diesem Zeitraum das Review erreicht.",
+    "byLoop": "Entscheidungszeiten nach Loop",
+    "loop": "Loop",
+    "deliveries": "Lieferungen",
+    "decisionMedianP90": "Entscheidung (Median · p90)",
+    "mergeMedianP90": "Merge (Median · p90)",
+    "unnamedLoop": "Unbenannter Loop",
+    "note": "Unbekannt zählt Lieferungen ohne erfasste Zeitpunkte (zum Beispiel vor Einführung dieser Metrik erstellte). Sie werden nie als null gezählt.",
+    "units": {
+      "minutes": "{{value}} Min.",
+      "hours": "{{value}} Std.",
+      "days": "{{value}} T."
+    }
   }
 }
