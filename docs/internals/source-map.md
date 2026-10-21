@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1050 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -851,6 +851,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
 - [generate-source-map.mjs](../../scripts/generate-source-map.mjs) · [test](../../scripts/generate-source-map.test.mjs)
+- [metrics-baseline.mjs](../../scripts/metrics-baseline.mjs) · [test](../../scripts/metrics-baseline.test.mjs)
 - [module-references.mjs](../../scripts/module-references.mjs) · [test](../../scripts/module-references.test.mjs)
 - [obfuscate-chromium.mjs](../../scripts/obfuscate-chromium.mjs)
 - [paired-core-shards.mjs](../../scripts/paired-core-shards.mjs) · [test](../../scripts/paired-core-shards.test.mjs)
