@@ -236,6 +236,8 @@ Example — queue a command on a specific provider:
 | `GET` | `/issues` | GitHub issues linked to the project |
 | `GET` | `/jobs` | Job list (`?limit=&offset=&status=`) |
 | `GET` | `/jobs/export` | CSV/JSON export |
+| `GET` | `/jobs/:runId/audit` | Agent actions of one run (job id or loop run id) as an attachment. `?format=jsonl` (default) or `csv`. Pending batched rows are flushed first; at most 100 000 rows, oldest first; `X-Agent-Actions-Rows` carries the count. `400` invalid format. See [agent actions audit](agent-actions-audit.md) |
+| `GET` | `/agent-actions` | Project-wide agent actions export. `?format=jsonl\|csv&from=&to=` (ISO timestamps, inclusive). `400` for an invalid format, an unparsable timestamp or `from` after `to` |
 | `GET` | `/jobs/compare` | Compare metrics between two jobs |
 | `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry`, `tickets[]` (resolved from the command, powers the ticket header), `interactiveSettleMode` (`'finalize'` \| `'auto'` \| `null`) and `interactiveAcceptingTurns` (whether a resident session accepts turns right now — a between-steps loop run reports `'auto'`/`false` so the composer can phrase the waiting state) |
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
@@ -447,8 +449,8 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
-| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery |
+| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`) and `agentAuditRetentionDays` (default `30`) |
+| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery. `agentAuditRetentionDays` must be an integer between 1 and 3650 |
 | `GET` | `/env-passthrough/status` | Value-free resolution status of every configured `worktreeEnvPassthrough` name: `{ loginShellRecovery, timeoutMs, checking, names: [{ name, status, shell, checkedAt, exitCode }] }`. `status` is `inherited`, `recovered`, `not-defined`, `probe-timeout`, `probe-failed`, or `pending` for a name never checked. Probes first only when a missing name has no valid cached result. Never returns values |
 | `POST` | `/env-passthrough/recheck` | Probe the login shell now (asynchronously, `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS`, default 10 s), then return the same payload as the status route |
 | `GET` | `/terminal-settings` | Per-project terminal overrides |

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1057 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -285,6 +285,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/delivery/components/review-packet
 
+- [AgentActionsSummary.tsx](../../client/src/features/delivery/components/review-packet/AgentActionsSummary.tsx)
 - [PacketMarkdown.tsx](../../client/src/features/delivery/components/review-packet/PacketMarkdown.tsx)
 
 ## client/src/features/delivery/context
@@ -1148,6 +1149,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts)
 - [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
 - [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
+
+## server/modules/audit
+
+- [application.ts](../../server/modules/audit/application.ts) · [test](../../server/modules/audit/__tests__/application.test.ts)
+- [domain.ts](../../server/modules/audit/domain.ts) · [test](../../server/modules/audit/__tests__/domain.test.ts)
+- [index.ts](../../server/modules/audit/index.ts)
+- [ports.ts](../../server/modules/audit/ports.ts)
+
+## server/modules/audit/adapters
+
+- [http.ts](../../server/modules/audit/adapters/http.ts)
+- [runtime.ts](../../server/modules/audit/adapters/runtime.ts)
+- [sqlite.ts](../../server/modules/audit/adapters/sqlite.ts)
 
 ## server/modules/browser/runtime
 

@@ -63,6 +63,16 @@ This policy covers:
 
 It does not cover vulnerabilities in third-party tools invoked by the app (e.g., Claude Code, Codex CLI, GitHub CLI), or issues in the user's own project repositories managed through specrails-desktop.
 
+## Agent Actions Audit Log
+
+Each project database keeps an `agent_actions` table recording what agents read, wrote, executed, called over MCP or fetched (see [docs/internals/agent-actions-audit.md](docs/internals/agent-actions-audit.md)). It is designed to be safe to export and share:
+
+- It stores targets only: file paths, commands, MCP tool names and URLs. File contents, tool outputs, diffs, MCP arguments and environment values are never stored.
+- Commands are redacted before storage: `NAME=value` assignments keep only the name, secret-looking flags (`--token`, `--password`, `--api-key`, …), `Authorization`/`Bearer` values, URL credentials and common token formats are replaced by `***`. URL query strings are dropped.
+- Redaction is pattern-based. A secret passed in an unusual form (for example a bare positional argument) can still appear in a command target; review exports before sharing them outside your team.
+- Rows are deleted after the project's retention window (default 30 days).
+- The log is only as complete as each provider's stream: it is an aid for review, not a security boundary.
+
 ## Build & Artifact Integrity
 
 We build and publish artifacts so you can verify what you run:

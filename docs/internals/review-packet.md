@@ -59,7 +59,12 @@ GET /rails/pr-deliveries/:id/packet
       └─ resolveAcceptCapability()  git remote + `gh auth token`
 ```
 
-Nothing in the read path re-reads a mutable store, spawns a model, or writes.
+`agentActions` ("What the agent did") counts the delivery runs' rows in the
+[agent actions audit](agent-actions-audit.md) by kind and lists the runs that
+have rows, each with a JSONL/CSV export. It is `null` when nothing was recorded.
+Unlike the frozen fields above it reads the live log, so retention can shrink it.
+
+Apart from `agentActions`, nothing in the read path re-reads a mutable store, spawns a model, or writes.
 Composing the same delivery twice returns an identical document.
 
 ## Variants
