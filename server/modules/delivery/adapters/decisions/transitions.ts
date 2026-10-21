@@ -18,6 +18,16 @@ import { PrDecisionResult, PrDecisionDeps } from './contracts'
 export const deferredFinalizations = new Set<string>()
 
 
+/** Instant a human decision was admitted: the operation lease's start (the
+ * claim precedes every Git/GitHub effect), so slow effects never inflate the
+ * measured time to decision. Falls back to now for an unleased caller. Stored
+ * first-write-wins (`decided_at`); see rail-pr-store `lifecycleStamps`. */
+export function decisionInstant(row: Pick<RailPrDeliveryRow, 'operation_started_at_ms'>, now = Date.now()): string {
+  const ms = row.operation_started_at_ms
+  return new Date(typeof ms === 'number' && Number.isFinite(ms) && ms > 0 ? ms : now).toISOString()
+}
+
+
 export function staleDecision(current: string): PrDecisionResult {
   return { status: 409, body: { error: 'stale_decision', current } }
 }

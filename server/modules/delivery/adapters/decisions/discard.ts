@@ -8,7 +8,7 @@ import {
   commitCarriesRunMarker, inspectRecoveryCommitProtection, releaseRecoveryCommit
 } from '../../runtime/rail-pr-recovery-git'
 import { PrDecisionDeps, PrDecisionResult } from './contracts'
-import { safetyArchiveRecorder, casTransition, casTransitionWithTicketEffect, applyTerminalTicketEffect, finalizeTransition } from './transitions'
+import { safetyArchiveRecorder, casTransition, casTransitionWithTicketEffect, applyTerminalTicketEffect, decisionInstant, finalizeTransition } from './transitions'
 import { deleteOwnedBranchesIfUnchanged, ownedDeliveryBranches } from './ownership'
 import { COMMIT_SHA_RE } from './evidence'
 import { pauseChainsOnDiscard } from './chains'
@@ -154,6 +154,7 @@ export async function runDiscard(
   }
 
   const terminalPatch: PrDeliveryPatch = {
+    decidedAt: decisionInstant(row),
     deliveryOutcome: 'not_started',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'discarded',
     cleanupWarnings,
@@ -227,6 +228,7 @@ export async function runAcknowledgeNoChanges(deps: PrDecisionDeps, row: RailPrD
   }
 
   const conflict = casTransitionWithTicketEffect(deps, row, 'completed', {
+    decidedAt: decisionInstant(row),
     deliveryOutcome: 'no_changes',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'no_changes',
     cleanupWarnings,

@@ -111,6 +111,11 @@ export function isTerminalPrDecision(s: string): boolean {
 
 export interface RailPrDeliveryRow {
   launch_config_json?: string | null
+  /** Migration 72 lifecycle instants (ISO, first write wins; NULL = unknown). */
+  on_review_at?: string | null
+  decided_at?: string | null
+  published_at?: string | null
+  merged_at?: string | null
   parent_delivery_id?: string | null
   repository_id?: string | null
   repository_path?: string | null
@@ -582,8 +587,66 @@ export function reconcileFailedBuildingPrDeliveries(
   return reconciled
 }
 
+/**
+ * Review-lifecycle instants (migration 72). Unlike every other patch column
+ * they are FIRST WRITE WINS: the UPDATE uses `COALESCE(column, ?)`, so a
+ * double decision, a replayed transition or a restart reconciliation can
+ * never move an already-recorded instant. Decision adapters pass the instant
+ * the human action was admitted; transitions also stamp the lifecycle facts
+ * they prove (see {@link lifecycleStamps}).
+ */
+export interface PrDeliveryLifecycleStamps {
+  decidedAt?: string
+  publishedAt?: string
+  mergedAt?: string
+}
+
+const STAMP_COLUMNS = {
+  onReviewAt: 'on_review_at',
+  decidedAt: 'decided_at',
+  publishedAt: 'published_at',
+  mergedAt: 'merged_at',
+} as const
+
+/** Pure: which first-write-wins instants a `expected → next` transition sets.
+ * Entering `on_review` proves reviewability; entering `pr_ready` proves the PR
+ * was published for review; entering `merged` proves the merge. A human
+ * decision is never inferred from a transition (startup recovery may leave
+ * `on_review` automatically) — only decision adapters pass `decidedAt`. */
+export function lifecycleStamps(
+  expected: PrDecision,
+  next: PrDecision,
+  patch: PrDeliveryLifecycleStamps,
+  nowIso: string,
+): Partial<Record<keyof typeof STAMP_COLUMNS, string>> {
+  const stamps: Partial<Record<keyof typeof STAMP_COLUMNS, string>> = {}
+  if (next === 'on_review' && expected !== 'on_review') stamps.onReviewAt = nowIso
+  if (patch.decidedAt) stamps.decidedAt = patch.decidedAt
+  const published = patch.publishedAt ?? (next === 'pr_ready' && expected !== 'pr_ready' ? nowIso : undefined)
+  if (published) stamps.publishedAt = published
+  const merged = patch.mergedAt ?? (next === 'merged' && expected !== 'merged' ? nowIso : undefined)
+  if (merged) stamps.mergedAt = merged
+  return stamps
+}
+
+function stampClause(expected: PrDecision, next: PrDecision, patch: PrDeliveryPatch): { clause: string; values: string[] } {
+  const stamps = lifecycleStamps(expected, next, patch, new Date().toISOString())
+  const keys = Object.keys(stamps) as (keyof typeof STAMP_COLUMNS)[]
+  return {
+    clause: keys.map((key) => `, ${STAMP_COLUMNS[key]} = COALESCE(${STAMP_COLUMNS[key]}, ?)`).join(''),
+    values: keys.map((key) => stamps[key]!),
+  }
+}
+
+type PatchColumnKey = Exclude<keyof PrDeliveryPatch, keyof PrDeliveryLifecycleStamps>
+
+function patchKeys(patch: PrDeliveryPatch): PatchColumnKey[] {
+  return (Object.keys(patch) as (keyof PrDeliveryPatch)[])
+    .filter((key): key is PatchColumnKey => key in PATCH_COLUMNS && patch[key] !== undefined)
+}
+
 /** Optional column updates riding a decision transition. */
-export interface PrDeliveryPatch {
+export interface PrDeliveryPatch extends PrDeliveryLifecycleStamps {
   executionManifest?: RunExecutionManifest | null
   repositoryDeliveries?: RepositoryDeliverySnapshot[]
   branch?: string | null
@@ -612,7 +675,7 @@ export interface PrDeliveryPatch {
 // Column allow-list — patch keys are interpolated into the SET clause, so gate
 // them to prevent any future caller injecting SQL via an object key (values
 // are always parameterized). Mirrors loop-runs-store's COUNTER_COLUMNS.
-const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
+const PATCH_COLUMNS: Record<PatchColumnKey, string> = {
   executionManifest: 'execution_manifest',
   repositoryDeliveries: 'repository_deliveries',
   branch: 'branch',
@@ -637,7 +700,7 @@ const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
   settleEvidence: 'settle_evidence',
 }
 
-function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string | number | null {
+function patchValue(key: PatchColumnKey, patch: PrDeliveryPatch): string | number | null {
   const raw = patch[key]
   if (key === 'branches' || key === 'worktreeIds' || key === 'runIds') return JSON.stringify(raw)
   if (key === 'cleanupWarnings') return JSON.stringify(boundCleanupWarnings(raw as string[]))
@@ -723,17 +786,18 @@ export function transitionDecision(
   next: PrDecision,
   patch: PrDeliveryPatch = {}
 ): boolean {
-  const keys = (Object.keys(patch) as (keyof PrDeliveryPatch)[]).filter((k) => patch[k] !== undefined)
+  const keys = patchKeys(patch)
   const patchClause = keys.map((k) => `, ${PATCH_COLUMNS[k]} = ?`).join('')
   const values = keys.map((k) => patchValue(k, patch))
+  const stamps = stampClause(expected, next, patch)
   return (
     db
       .prepare(
         `UPDATE rail_pr_deliveries
-         SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
+         SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}${stamps.clause}
          WHERE id = ? AND decision = ?`
       )
-      .run(next, ...values, id, expected).changes > 0
+      .run(next, ...values, ...stamps.values, id, expected).changes > 0
   )
 }
 
@@ -750,14 +814,15 @@ export function transitionClaimedDecision(
   patch: PrDeliveryPatch = {},
 ): boolean {
   if (!operationToken) return false
-  const keys = (Object.keys(patch) as (keyof PrDeliveryPatch)[]).filter((key) => patch[key] !== undefined)
+  const keys = patchKeys(patch)
   const patchClause = keys.map((key) => `, ${PATCH_COLUMNS[key]} = ?`).join('')
   const values = keys.map((key) => patchValue(key, patch))
+  const stamps = stampClause(expected, next, patch)
   return db.prepare(`
     UPDATE rail_pr_deliveries
-       SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
+       SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}${stamps.clause}
      WHERE id = ? AND decision = ? AND operation_token = ?
-  `).run(next, ...values, id, expected, operationToken).changes > 0
+  `).run(next, ...values, ...stamps.values, id, expected, operationToken).changes > 0
 }
 
 /** Decision-side Git/GitHub effects must be claimed BEFORE they start. The

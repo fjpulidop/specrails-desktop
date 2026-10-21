@@ -4309,3 +4309,117 @@ describe('Discard of a preparation failure (manifest, zero repository deliveries
     expect(jira.onRailDiscard).not.toHaveBeenCalled()
   })
 })
+
+// ─── delivery-decision-times: first-write-wins lifecycle instants ─────────────
+
+describe('decision-time stamps (migration 72)', () => {
+  const at = (iso: string) => vi.setSystemTime(new Date(iso))
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }) })
+  afterEach(() => { vi.useRealTimers() })
+
+  const stamps = (id: string) => {
+    const row = getPrDelivery(db, id)!
+    return { on_review_at: row.on_review_at, decided_at: row.decided_at, published_at: row.published_at, merged_at: row.merged_at }
+  }
+
+  it('settlement into on_review stamps on_review_at once; re-entry after a stale PR keeps it', () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'on_review' })
+    expect(stamps(row.id)).toEqual({ on_review_at: '2026-10-01T10:00:00.000Z', decided_at: null, published_at: null, merged_at: null })
+    at('2026-10-01T11:00:00.000Z')
+    transitionDecision(db, row.id, 'on_review', 'pr_draft', { prUrl: PR_URL })
+    transitionDecision(db, row.id, 'pr_draft', 'on_review', { prUrl: null })
+    expect(stamps(row.id).on_review_at).toBe('2026-10-01T10:00:00.000Z')
+  })
+
+  it('create-pr stamps decided_at at the claim instant; a double decision and a replay cannot move it', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }] })
+    at('2026-10-01T10:30:00.000Z')
+    const { exec } = fakeExec({ create: { code: 0, stdout: `${PR_URL}\n`, stderr: '' } })
+    const { deps } = mkDeps({ exec })
+    const r = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'on_review' })
+    expect(r.body).toMatchObject({ decision: 'pr_draft' })
+    expect(stamps(row.id)).toEqual({
+      on_review_at: '2026-10-01T10:00:00.000Z', decided_at: '2026-10-01T10:30:00.000Z', published_at: null, merged_at: null,
+    })
+
+    at('2026-10-01T12:00:00.000Z')
+    // Second surface answering the same snapshot: rejected, no stamp change.
+    const again = await executePrDecision(deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'on_review' })
+    expect(again.status).toBe(409)
+    // Replayed transition carrying a later instant: first write wins.
+    transitionDecision(db, row.id, 'pr_draft', 'pr_draft', { decidedAt: '2026-10-01T12:00:00.000Z' })
+    // A later discard is still a decision, but never the first one.
+    const discard = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_draft' })
+    expect(discard.status).toBe(200)
+    expect(stamps(row.id).decided_at).toBe('2026-10-01T10:30:00.000Z')
+    expect(stamps(row.id).merged_at).toBeNull()
+  })
+
+  it('a failed create-pr is still the human decision', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'on_review', branches: [{ ticketId: 1, branch: 'feat/1-t1', succeeded: true }] })
+    at('2026-10-01T10:05:00.000Z')
+    const { exec } = fakeExec({}, { throwOnGh: true })
+    const { git } = fakeGit({ failOn: (args) => args[0] === 'push' })
+    await executePrDecision(mkDeps({ exec, git }).deps, { prDeliveryId: row.id, action: 'create-pr', expectedDecision: 'on_review' })
+    expect(stamps(row.id).decided_at).toBe('2026-10-01T10:05:00.000Z')
+  })
+
+  it('discard from on_review stamps decided_at and never merged_at', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'on_review' })
+    at('2026-10-02T10:00:00.000Z')
+    const r = await executePrDecision(mkDeps().deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'on_review' })
+    expect(r.body).toMatchObject({ decision: 'discarded' })
+    expect(stamps(row.id)).toEqual({
+      on_review_at: '2026-10-01T10:00:00.000Z', decided_at: '2026-10-02T10:00:00.000Z', published_at: null, merged_at: null,
+    })
+  })
+
+  it('merge-local stamps both the decision and the merge instants', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'on_review' })
+    at('2026-10-01T10:10:00.000Z')
+    const r = await executePrDecision(mkDeps({ git: gitScript().git }).deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(r.status).toBe(200)
+    expect(stamps(row.id)).toMatchObject({ decided_at: '2026-10-01T10:10:00.000Z', merged_at: '2026-10-01T10:10:00.000Z' })
+  })
+
+  it('publish stamps published_at once; a replayed ready transition keeps it', async () => {
+    const sha = '1'.repeat(40)
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'pr_draft', prUrl: PR_URL, deliverySha: sha })
+    at('2026-10-01T15:00:00.000Z')
+    const { exec } = verifiedPublishExec(sha)
+    const r = await executePrDecision(mkDeps({ exec }).deps, { prDeliveryId: row.id, action: 'publish', expectedDecision: 'pr_draft' })
+    expect(r.body).toMatchObject({ decision: 'pr_ready' })
+    expect(stamps(row.id).published_at).toBe('2026-10-01T15:00:00.000Z')
+    at('2026-10-02T15:00:00.000Z')
+    transitionDecision(db, row.id, 'pr_ready', 'pr_ready', { publishedAt: '2026-10-02T15:00:00.000Z' })
+    expect(stamps(row.id).published_at).toBe('2026-10-01T15:00:00.000Z')
+  })
+
+  it('acknowledge-no-changes is a decision without a review start (excluded from timings)', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'no_changes' })
+    at('2026-10-01T10:20:00.000Z')
+    const r = await executePrDecision(mkDeps().deps, { prDeliveryId: row.id, action: 'acknowledge-no-changes', expectedDecision: 'no_changes' })
+    expect(r.status).toBe(200)
+    expect(stamps(row.id)).toEqual({ on_review_at: null, decided_at: '2026-10-01T10:20:00.000Z', published_at: null, merged_at: null })
+  })
+
+  it('poll-merge stamps merged_at; a restart replay of the merge cannot move it', async () => {
+    at('2026-10-01T10:00:00.000Z')
+    const row = mkRow({ decision: 'pr_ready', prUrl: PR_URL, deliverySha: '1'.repeat(40) })
+    at('2026-10-03T09:00:00.000Z')
+    const { exec } = fakeExec({ view: { code: 0, stdout: lifecycleJson({ state: 'MERGED', sha: row.delivery_sha }), stderr: '' } })
+    const r = await executePrDecision(mkDeps({ exec }).deps, { prDeliveryId: row.id, action: 'poll-merge', expectedDecision: 'pr_ready' })
+    expect(r.body).toMatchObject({ decision: 'merged' })
+    expect(stamps(row.id)).toMatchObject({ on_review_at: '2026-10-01T10:00:00.000Z', merged_at: '2026-10-03T09:00:00.000Z' })
+    at('2026-10-04T09:00:00.000Z')
+    transitionDecision(db, row.id, 'merged', 'merged', { mergedAt: '2026-10-04T09:00:00.000Z' })
+    expect(stamps(row.id).merged_at).toBe('2026-10-03T09:00:00.000Z')
+  })
+})

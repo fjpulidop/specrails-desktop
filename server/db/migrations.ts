@@ -1715,6 +1715,20 @@ const MIGRATIONS: Migration[] = [
     }
   },
 
+  // Migration 72: delivery-decision-times — first-write-wins ISO instants of
+  // the review lifecycle on each delivery: when it became reviewable
+  // (`on_review_at`), first received a human decision (`decided_at`), was
+  // published for review (`published_at`) and merged (`merged_at`). None of
+  // them is derivable exactly from existing columns (`updated_at` moves on any
+  // later patch), so historical rows stay NULL — unknown, never zero.
+  // Additive + idempotent; self-contained so parallel appends cannot collide.
+  (db) => {
+    const columns = new Set((db.prepare('PRAGMA table_info(rail_pr_deliveries)').all() as { name: string }[]).map(column => column.name))
+    for (const name of ['on_review_at', 'decided_at', 'published_at', 'merged_at']) {
+      if (!columns.has(name)) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN ${name} TEXT`)
+    }
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {
