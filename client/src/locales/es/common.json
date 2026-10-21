@@ -144,5 +144,17 @@
     "superseded": "Sustituido",
     "implementation_failed": "Implementación fallida",
     "pr_failed": "Entrega fallida"
+  },
+  "budget": {
+    "exceededProject": "Presupuesto diario del proyecto alcanzado (${{spent}} de ${{budget}}). No se ha lanzado nada.",
+    "exceededDesktop": "Presupuesto diario global alcanzado (${{spent}} de ${{budget}}). No se ha lanzado nada.",
+    "whereProject": "Ajustes del proyecto ▸ Presupuesto",
+    "whereDesktop": "Ajustes ▸ Presupuesto",
+    "action": "Sube o elimina el presupuesto en {{where}}, o espera al reinicio diario.",
+    "actionWithReset": "Sube o elimina el presupuesto en {{where}}, o espera al reinicio ({{time}}).",
+    "pausedProject": "En pausa por el presupuesto diario del proyecto (${{spent}} de ${{budget}}). Súbelo y reanuda.",
+    "pausedDesktop": "En pausa por el presupuesto diario global (${{spent}} de ${{budget}}). Súbelo y reanuda.",
+    "resume": "Reanudar",
+    "stillExceeded": "El presupuesto diario sigue agotado."
   }
 }

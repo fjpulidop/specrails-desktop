@@ -104,7 +104,8 @@
     "alreadyResolved": "Qualcuno ha già risposto.",
     "actionFailed": "L'azione non è andata a buon fine.",
     "revisionStale": "È stato appena risolto altrove — ricarica per vedere lo stato.",
-    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato."
+    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato.",
+    "revisionBudget": "Il budget giornaliero è esaurito, quindi la modifica non è stata avviata. Il tuo testo è stato conservato."
   },
   "versions": {
     "title": "Versioni precedenti ({{count}})",

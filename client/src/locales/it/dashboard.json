@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} saltato (spec già in corso)",
     "skipInFlight_other": "{{count}} saltati (spec già in corso)",
     "failedCount_one": "{{count}} non riuscito",
-    "failedCount_other": "{{count}} non riusciti"
+    "failedCount_other": "{{count}} non riusciti",
+    "skipBudget": "{{count}} oltre il budget giornaliero"
   },
   "launchAllDialog": {
     "title": "Lancia tutti i rail",

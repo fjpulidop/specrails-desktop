@@ -104,7 +104,8 @@
     "alreadyResolved": "Alguien ya respondió a esto.",
     "actionFailed": "Esa acción no se completó.",
     "revisionStale": "Esto se acaba de resolver en otro sitio — recarga para ver cómo está.",
-    "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado."
+    "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado.",
+    "revisionBudget": "El presupuesto diario está agotado, así que el cambio no se inició. Tu texto se ha conservado."
   },
   "versions": {
     "title": "Versiones anteriores ({{count}})",

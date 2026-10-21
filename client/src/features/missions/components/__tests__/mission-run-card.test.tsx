@@ -8,9 +8,9 @@ vi.mock('../../../browser/context/WebViewModalContext', () => ({ useWebViewModal
 vi.mock('../../context/AgentChatContext', () => ({ useAgentChat: () => ({ applyPrDecisionSnapshot: () => 'applied' }) }))
 vi.mock('../../../builder/hooks/useMilestoneProgress', () => ({ useStackedHeadDeliveryIds: () => new Set() }))
 vi.mock('../../hooks/useAgentRefActions', () => ({ useAgentRefActions: () => ({ openRef: vi.fn() }) }))
-const vitals = vi.hoisted(() => ({ paused: false, pausedReason: null as string | null }))
+const vitals = vi.hoisted(() => ({ paused: false, pausedReason: null as string | null, pauseBudget: null as null | { scope: 'project' | 'desktop'; budgetUsd: number; spentUsd: number; resetsAt: string | null } }))
 vi.mock('../../../jobs/hooks/useRunVitals', () => ({
-  useRunVitals: () => ({ status: null, paused: vitals.paused, pausedReason: vitals.pausedReason, running: false, elapsedMs: 61_000, costUsd: null, numTurns: null, loaded: true }),
+  useRunVitals: () => ({ status: null, paused: vitals.paused, pausedReason: vitals.pausedReason, pauseBudget: vitals.pauseBudget, running: false, elapsedMs: 61_000, costUsd: null, numTurns: null, loaded: true }),
   formatRunElapsed: (ms: number) => `${Math.floor(ms / 1000)}s`,
 }))
 const toast = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn() }))
@@ -40,7 +40,7 @@ const failed = { status: 'failed' as const, currentStep: null, canResume: true, 
 beforeEach(() => {
   runtime.state.runs = []; runtime.state.error = ''; runtime.state.busy = null; runtime.calls.length = 0
   runtime.state.act.mockClear(); Object.values(toast).forEach((f) => f.mockClear())
-  vitals.paused = false; vitals.pausedReason = null
+  vitals.paused = false; vitals.pausedReason = null; vitals.pauseBudget = null
 })
 
 describe('deriveMissionRunStatus', () => {
@@ -87,6 +87,28 @@ describe('paused building card', () => {
     fireEvent.click(screen.getByTestId('pr-run-paused-resume'))
     await act(async () => {})
     expect(runtime.state.act).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r1' }), 'resume')
+  })
+
+  it('shows a budget_paused run with localized amounts and resumes it through the loop-run resume route', async () => {
+    vitals.paused = true; vitals.pausedReason = 'SERVER ENGLISH'
+    vitals.pauseBudget = { scope: 'desktop', budgetUsd: 5, spentUsd: 6.5, resetsAt: null }
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 7, resetsAt: null }), { status: 409, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ decision: 'building' })} conversationId="c1" />)
+    const banner = screen.getByTestId('pr-run-paused-actions')
+    expect(banner).toHaveTextContent('Paused on the app-wide daily budget ($6.50 of $5.00)')
+    expect(banner).not.toHaveTextContent('SERVER ENGLISH')
+    await act(async () => { fireEvent.click(screen.getByTestId('pr-run-paused-resume')) })
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/resume$/), expect.objectContaining({ method: 'POST' }))
+    expect(runtime.state.act).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('The daily budget is still exhausted.', expect.objectContaining({ description: expect.stringContaining('Settings ▸ Budget') }))
+  })
+
+  it('relaunch reports a daily budget 409 in localized words', async () => {
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 11, resetsAt: null, detail: 'SERVER' }), { status: 409, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
+    await act(async () => { fireEvent.click(screen.getByTestId('mission-run-relaunch')) })
+    expect(screen.getByTestId('mission-run-relaunch-error')).toHaveTextContent('Project daily budget reached ($11.00 of $10.00)')
+    expect(screen.getByTestId('mission-run-relaunch-error')).not.toHaveTextContent('SERVER')
   })
 
   it('leaves a pause that awaits an answer to the run log', async () => {

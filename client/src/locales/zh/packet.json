@@ -104,7 +104,8 @@
     "alreadyResolved": "已有人回应过。",
     "actionFailed": "该操作未成功。",
     "revisionStale": "此项刚在别处被处理 — 请重新加载查看状态。",
-    "revisionFailed": "无法开始修改。你的文字已保留。"
+    "revisionFailed": "无法开始修改。你的文字已保留。",
+    "revisionBudget": "每日预算已用尽，因此未开始此更改。你的文本已保留。"
   },
   "versions": {
     "title": "早前的版本（{{count}}）",

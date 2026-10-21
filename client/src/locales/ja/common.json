@@ -144,5 +144,17 @@
     "superseded": "置き換え済み",
     "implementation_failed": "実装失敗",
     "pr_failed": "成果物の準備に失敗"
+  },
+  "budget": {
+    "exceededProject": "プロジェクトの1日の予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "exceededDesktop": "アプリ全体の1日の予算に達しました（${{spent}} / ${{budget}}）。何も起動していません。",
+    "whereProject": "プロジェクト設定 ▸ 予算",
+    "whereDesktop": "設定 ▸ 予算",
+    "action": "{{where}}で予算を引き上げるか解除するか、日次リセットをお待ちください。",
+    "actionWithReset": "{{where}}で予算を引き上げるか解除するか、リセット（{{time}}）をお待ちください。",
+    "pausedProject": "プロジェクトの1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
+    "pausedDesktop": "アプリ全体の1日の予算で一時停止中（${{spent}} / ${{budget}}）。予算を引き上げてから再開してください。",
+    "resume": "再開",
+    "stillExceeded": "1日の予算はまだ使い切られています。"
   }
 }

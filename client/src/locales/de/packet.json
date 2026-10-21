@@ -104,7 +104,8 @@
     "alreadyResolved": "Jemand hat das schon beantwortet.",
     "actionFailed": "Diese Aktion ist nicht durchgegangen.",
     "revisionStale": "Das wurde gerade anderswo entschieden — neu laden, um den Stand zu sehen.",
-    "revisionFailed": "Die Änderung konnte nicht gestartet werden. Dein Text wurde behalten."
+    "revisionFailed": "Die Änderung konnte nicht gestartet werden. Dein Text wurde behalten.",
+    "revisionBudget": "Das Tagesbudget ist ausgeschöpft, daher wurde die Änderung nicht gestartet. Dein Text bleibt erhalten."
   },
   "versions": {
     "title": "Frühere Versionen ({{count}})",

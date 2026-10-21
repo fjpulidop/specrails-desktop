@@ -60,6 +60,7 @@ import {
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
 import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 
 const INITIAL_RAILS: RailState[] = [
   { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'implement', status: 'idle' },
@@ -95,7 +96,7 @@ function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number,
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview'
 /** Per-rail terminal outcome of a (batched) launch attempt. */
-type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped'
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -1351,6 +1352,14 @@ export default function DashboardPage() {
           if (!silent) toast.info(t('toasts.launchTicketsInFlight'))
           return 'skipped'
         }
+        // Daily budget exhausted (project or app-wide): nothing spawned.
+        const budget = res.status === 409 ? readDailyBudgetRejection(data) : null
+        if (budget) {
+          if (!silent) {
+            toast.error(dailyBudgetExceededMessage(t, budget), { description: dailyBudgetActionMessage(t, budget), duration: 10000 })
+          }
+          return 'budget'
+        }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
           if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
@@ -1444,11 +1453,13 @@ export default function DashboardPage() {
     let failed = 0
     let pendingDecision = 0
     let skippedLate = 0
+    let overBudget = 0
     for (const s of settled) {
       const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
       if (v === 'launched') launched++
       else if (v === 'pendingDecision') pendingDecision++
       else if (v === 'skipped') skippedLate++
+      else if (v === 'budget') overBudget++
       else failed++
     }
     // One compact summary toast: launched count + per-reason skip breakdown.
@@ -1466,6 +1477,7 @@ export default function DashboardPage() {
       if (count > 0) parts.push(t(reasonKey[reason], { count }))
     }
     if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
+    if (overBudget > 0) parts.push(t('launchAll.skipBudget', { count: overBudget }))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
     if (launched > 0) {

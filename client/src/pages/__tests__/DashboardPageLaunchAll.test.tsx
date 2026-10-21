@@ -280,6 +280,35 @@ describe('DashboardPage — Launch all control', () => {
     expect((opts as { description: string }).description).toContain('awaiting a PR decision')
   })
 
+  it('summary toast counts daily-budget refusals separately (rail-loop-budget-guard)', async () => {
+    mockTickets = [ticket(1), ticket(2)]
+    seedRails([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [2], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
+    ])
+    global.fetch = mockFetch({
+      onRequest: (u, init) => {
+        if (/\/api\/rails\/[01]\/launch$/.test(u) && init?.method === 'POST') {
+          return {
+            ok: false, status: 409,
+            json: () => Promise.resolve({ error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: null }),
+          } as unknown as Response
+        }
+      },
+    })
+    render(<DashboardPage />)
+    fireEvent.click(screen.getByText('Launch all').closest('button')!)
+    fireEvent.click(await screen.findByText('Launch 2 rails'))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    const [, opts] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((opts as { description: string }).description).toContain('2 over the daily budget')
+    expect((opts as { description: string }).description).not.toContain('failed')
+    const persisted = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+    expect(persisted[0].status).toBe('idle')
+  })
+
   it('cancel closes the dialog without launching', async () => {
     mockTickets = [ticket(1)]
     seedRails([

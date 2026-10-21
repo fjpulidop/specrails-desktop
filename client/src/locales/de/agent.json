@@ -651,7 +651,8 @@
       "target_pr_requires_pr_mode": "Ein Ziel-PR benötigt Worktree-Isolation (ein Git-Repository mit Commits).",
       "invalid_response": "Unerwartete Antwort vom Server.",
       "scope_save_failed": "Die Repositories der Spec konnten nicht gespeichert werden.",
-      "repository_scope_incomplete": "Für den Start fehlt ein von den Specs benötigtes Repository. Prüfen Sie die Zuweisungen oben."
+      "repository_scope_incomplete": "Für den Start fehlt ein von den Specs benötigtes Repository. Prüfen Sie die Zuweisungen oben.",
+      "daily_budget_exceeded": "Tagesbudget erreicht – es wurde nichts gestartet."
     },
     "stub": {
       "launched": "Gestartet → Rail {{rail}}",

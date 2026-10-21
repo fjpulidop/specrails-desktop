@@ -144,5 +144,17 @@
     "superseded": "Sostituita",
     "implementation_failed": "Implementazione non riuscita",
     "pr_failed": "Consegna non riuscita"
+  },
+  "budget": {
+    "exceededProject": "Budget giornaliero del progetto raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "exceededDesktop": "Budget giornaliero globale raggiunto (${{spent}} su ${{budget}}). Non è stato avviato nulla.",
+    "whereProject": "Impostazioni progetto ▸ Budget",
+    "whereDesktop": "Impostazioni ▸ Budget",
+    "action": "Aumenta o rimuovi il budget in {{where}}, oppure attendi il ripristino giornaliero.",
+    "actionWithReset": "Aumenta o rimuovi il budget in {{where}}, oppure attendi il ripristino ({{time}}).",
+    "pausedProject": "In pausa per il budget giornaliero del progetto (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "pausedDesktop": "In pausa per il budget giornaliero globale (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
+    "resume": "Riprendi",
+    "stillExceeded": "Il budget giornaliero è ancora esaurito."
   }
 }

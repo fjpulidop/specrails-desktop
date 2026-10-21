@@ -166,3 +166,36 @@ describe('useRunVitals', () => {
     expect(wsHandlers.size).toBe(0)
   })
 })
+
+describe('useRunVitals budget_paused (rail-loop-budget-guard)', () => {
+  function BudgetProbe() {
+    const v = useRunVitals('p1', 'run-1', { live: true })
+    return <div data-testid="budget">{`${v.paused ? 1 : 0}|${v.pauseBudget ? `${v.pauseBudget.scope}:${v.pauseBudget.spentUsd}/${v.pauseBudget.budgetUsd}` : '-'}`}</div>
+  }
+  const budgetText = () => screen.getByTestId('budget').textContent
+
+  it('reads the budget pause from the jobs row and clears it on resume', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jobRes({
+      id: 'run-1', status: 'running', started_at: new Date(T0).toISOString(), finished_at: null,
+      loopPaused: true, loopPauseReason: 'over', loopPauseKind: 'budget_paused',
+      loopPauseBudget: { scope: 'project', budgetUsd: 10, spentUsd: 12, resetsAt: '2026-07-05T00:00:00.000Z' },
+    })))
+    render(<BudgetProbe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(budgetText()).toBe('1|project:12/10')
+    act(() => emitWs({ type: 'loop.run_resumed', loopRunId: 'run-1' }))
+    expect(budgetText()).toBe('0|-')
+  })
+
+  it('tracks a live budget_paused event and ignores a human-decision pause', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jobRes({ id: 'run-1', status: 'running', started_at: new Date(T0).toISOString(), finished_at: null })))
+    render(<BudgetProbe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    act(() => emitWs({ type: 'loop.run_paused', loopRunId: 'run-1', reason: 'x', pauseKind: 'budget_paused', budget: { scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: null } }))
+    expect(budgetText()).toBe('1|desktop:6/5')
+    act(() => emitWs({ type: 'loop.run_paused', loopRunId: 'run-1', reason: 'Which option?' }))
+    expect(budgetText()).toBe('1|-')
+    act(() => emitWs({ type: 'loop.run_paused', loopRunId: 'run-1', reason: 'x', pauseKind: 'budget_paused', budget: { scope: 'nope' } }))
+    expect(budgetText()).toBe('1|-')
+  })
+})

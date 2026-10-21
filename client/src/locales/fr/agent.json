@@ -651,7 +651,8 @@
       "target_pr_requires_pr_mode": "Une PR cible nécessite l’isolation par worktree (un dépôt git avec des commits).",
       "invalid_response": "Réponse inattendue du serveur.",
       "scope_save_failed": "Impossible d’enregistrer les dépôts de la spec.",
-      "repository_scope_incomplete": "Un dépôt requis par les specs manque au lancement. Vérifiez les attributions ci-dessus."
+      "repository_scope_incomplete": "Un dépôt requis par les specs manque au lancement. Vérifiez les attributions ci-dessus.",
+      "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé."
     },
     "stub": {
       "launched": "Lancé → Rail {{rail}}",

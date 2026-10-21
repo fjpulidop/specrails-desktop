@@ -651,7 +651,8 @@
       "target_pr_requires_pr_mode": "対象 PR には worktree による分離（コミットのある git リポジトリ）が必要です。",
       "invalid_response": "サーバーから予期しない応答がありました。",
       "scope_save_failed": "仕様のリポジトリを保存できませんでした。",
-      "repository_scope_incomplete": "実行には仕様で必要なリポジトリが不足しています。上の割り当てを確認してください。"
+      "repository_scope_incomplete": "実行には仕様で必要なリポジトリが不足しています。上の割り当てを確認してください。",
+      "daily_budget_exceeded": "1日の予算に達しました — 何も起動していません。"
     },
     "stub": {
       "launched": "起動しました → レール {{rail}}",
