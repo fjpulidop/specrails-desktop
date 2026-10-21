@@ -5,8 +5,8 @@ import path from 'path'
 import { initDb, type DbInstance } from '../db'
 import { mutateStore, readStore, resolveTicketStoragePath, type Ticket } from '../modules/specs/runtime/ticket-store'
 import { setSecretStore } from './jira-credential-store'
-import { upsertConnection, getLinkByLocalId } from './jira-db'
-import { JiraSyncManager } from './jira-sync-manager'
+import { upsertConnection, getLinkByLocalId, listOutbox, insertLinkWithId, enqueueMany } from './jira-db'
+import { JiraSyncManager, pendingCreateIssueId } from './jira-sync-manager'
 import type { FetchImpl } from './jira-client'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -174,5 +174,106 @@ describe('promoteTicketToJira', () => {
     ])
     const r = await manager(impl).promoteTicketToJira(999)
     expect(r.ok).toBe(false)
+  })
+})
+
+describe('durable create outbox op (enqueuePromote)', () => {
+  let db: DbInstance
+  let projectPath: string
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    setSecretStore({ encrypt: (s) => `e:${s}`, decrypt: (s) => s.slice(2) })
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-create-op-'))
+  })
+
+  afterEach(() => {
+    setSecretStore(null)
+    fs.rmSync(projectPath, { recursive: true, force: true })
+  })
+
+  function manager(fetchImpl: FetchImpl, broadcast: (m: unknown) => void = () => {}) {
+    return new JiraSyncManager({ db, projectId: 'p1', projectPath, broadcast: broadcast as any, fetchImpl, startTimers: false })
+  }
+  const createRoute = (status: number, body: unknown) => ({ match: (u: string, m: string) => m === 'POST' && u.endsWith('/issue'), res: fakeResponse(status, body) })
+
+  it('creates, links the same local id and flips the ticket like promote', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 5, 'Add CSV export')
+    const { impl, calls } = makeFetch([createRoute(201, { id: '10001', key: 'PROJ-7' })])
+    const msgs: any[] = []
+    const mgr = manager(impl, (m) => msgs.push(m))
+    expect(mgr.enqueuePromote(5, 'flow:f1:create')).toBe('enqueued')
+    await mgr.drainOnce()
+
+    const done = listOutbox(db, { state: 'done' })
+    expect(done).toHaveLength(1)
+    expect(done[0]).toMatchObject({ opType: 'create', jiraIssueId: pendingCreateIssueId(5), idempotencyKey: 'flow:f1:create' })
+    expect(getLinkByLocalId(db, 5)).toMatchObject({ jiraIssueId: '10001', jiraKey: 'PROJ-7' })
+    const t = readStore(resolveTicketStoragePath(projectPath)).tickets['5']
+    expect(t).toMatchObject({ source: 'jira', jira_key: 'PROJ-7' })
+    expect(msgs.some((m) => m.type === 'ticket_updated')).toBe(true)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(1)
+  })
+
+  it('is idempotent: same key enqueues once, linked tickets are a no-op', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 5, 'Add CSV export')
+    const { impl, calls } = makeFetch([createRoute(201, { id: '10001', key: 'PROJ-7' })])
+    const mgr = manager(impl)
+    mgr.enqueuePromote(5, 'k1')
+    mgr.enqueuePromote(5, 'k1')
+    await mgr.drainOnce()
+    expect(listOutbox(db)).toHaveLength(1)
+    expect(mgr.enqueuePromote(5, 'k2')).toBe('already_linked')
+
+    // Replayed op whose ticket was linked after enqueue (e.g. a concurrent
+    // promote, or a crash after linking) → done, no second issue.
+    seedTicket(projectPath, 6, 'Other')
+    insertLinkWithId(db, { localId: 6, jiraIssueId: '10002', jiraKey: 'PROJ-8', jiraProjectId: '1', deployment: 'cloud' })
+    enqueueMany(db, [{ jiraIssueId: pendingCreateIssueId(6), opType: 'create', idempotencyKey: 'k3', payload: { localTicketId: 6 } }])
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'done' })).toHaveLength(2)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(1)
+  })
+
+  it('retries server errors with backoff and keeps the ticket local', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 7, 'Flaky')
+    const { impl } = makeFetch([createRoute(500, { error: 'down' })])
+    const mgr = manager(impl)
+    mgr.enqueuePromote(7, 'k-retry')
+    await mgr.drainOnce()
+    const pending = listOutbox(db, { state: 'pending' })
+    expect(pending).toHaveLength(1)
+    expect(pending[0].attempts).toBe(1)
+    expect(pending[0].nextAttemptAt).not.toBeNull()
+    expect(getLinkByLocalId(db, 7)).toBeNull()
+    expect(readStore(resolveTicketStoragePath(projectPath)).tickets['7'].source).toBe('free-prompt')
+  })
+
+  it('dead-letters validation errors and missing tickets; parks on auth', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 8, 'Invalid')
+    const bad = manager(makeFetch([createRoute(400, { errors: { summary: 'bad' } })]).impl)
+    bad.enqueuePromote(8, 'k-400')
+    bad.enqueuePromote(999, 'k-missing')
+    await bad.drainOnce()
+    const dead = listOutbox(db, { state: 'dead' })
+    expect(dead.map((op) => op.deadReason).sort()).toEqual([expect.stringMatching(/^local ticket not found$/), expect.stringMatching(/^validation error/)].sort())
+
+    seedTicket(projectPath, 9, 'Auth')
+    const msgs: any[] = []
+    const auth = manager(makeFetch([createRoute(401, {})]).impl, (m) => msgs.push(m))
+    auth.enqueuePromote(9, 'k-401')
+    await auth.drainOnce()
+    expect(msgs.some((m) => m.type === 'jira.auth_expired')).toBe(true)
+    expect(listOutbox(db, { state: 'pending' }).map((op) => op.idempotencyKey)).toEqual(['k-401'])
+  })
+
+  it('reports inactive without a connection', () => {
+    seedTicket(projectPath, 10, 'no conn')
+    expect(manager(makeFetch([]).impl).enqueuePromote(10, 'k')).toBe('inactive')
+    expect(listOutbox(db)).toHaveLength(0)
   })
 })

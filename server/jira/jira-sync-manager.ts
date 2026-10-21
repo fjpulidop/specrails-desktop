@@ -42,6 +42,7 @@ import {
   countOutboxByState,
   deleteConnection,
   enqueueMany,
+  enqueueOutbox,
   getConnection,
   getDecryptedToken,
   getLinkByLocalId,
@@ -473,9 +474,62 @@ export class JiraSyncManager {
     const client = this.buildClient()
     if (!client) return { ok: false, error: 'no jira credentials' }
 
+    const created = await this.createLinkedIssue(client, conn, localId)
+    if (!created.ok) {
+      if (created.reason === 'ticket_not_found') return { ok: false, error: 'ticket not found' }
+      if (created.code === 'auth') this.onAuth401()
+      return { ok: false, error: created.error || 'jira issue create failed' }
+    }
+    return { ok: true, jiraKey: created.jiraKey }
+  }
+
+  /**
+   * Durable form of `promoteTicketToJira` (feedback-2026-10 Flow settlement):
+   * enqueue a `create` outbox op for a LOCAL ticket. The drainer creates the
+   * issue, links it to the same local id and flips the ticket to
+   * `source:'jira'` exactly as promote does, with the outbox's retry/backoff
+   * and restart replay. Idempotent: the same `idempotencyKey` never enqueues
+   * twice, and an already-linked ticket completes as a no-op at drain time.
+   * Never throws.
+   */
+  enqueuePromote(localTicketId: number, idempotencyKey: string): 'enqueued' | 'already_linked' | 'inactive' | 'failed' {
+    try {
+      if (!this.isActive()) return 'inactive'
+      const existing = getLinkByLocalId(this.db, localTicketId)
+      if (existing && !existing.tombstoned) return 'already_linked'
+      enqueueOutbox(this.db, {
+        jiraIssueId: pendingCreateIssueId(localTicketId),
+        opType: 'create',
+        idempotencyKey,
+        payload: { localTicketId },
+      })
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return 'enqueued'
+    } catch (err) {
+      console.error('[jira-sync] enqueuePromote failed:', err)
+      return 'failed'
+    }
+  }
+
+  /**
+   * Create the Jira issue for an existing LOCAL ticket, link it to the SAME
+   * local id and flip the cached ticket to `source:'jira'` with its key/url.
+   * Shared by `promoteTicketToJira` and the outbox `create` op. Callers own
+   * the already-linked check and error policy (auth pause, retry/dead).
+   */
+  private async createLinkedIssue(
+    client: JiraClient,
+    conn: JiraConnection,
+    localId: number,
+  ): Promise<
+    | { ok: true; jiraKey: string }
+    | { ok: false; reason: 'ticket_not_found' }
+    | { ok: false; reason: 'jira'; code: string; status: number; retryAfterMs?: number; error: string }
+  > {
     const file = resolveTicketStoragePath(this._artifactRoot())
     const ticket = readStore(file).tickets[String(localId)]
-    if (!ticket) return { ok: false, error: 'ticket not found' }
+    if (!ticket) return { ok: false, reason: 'ticket_not_found' }
 
     const created = await client.createIssue({
       projectKey: conn.jiraProjectKey,
@@ -485,8 +539,7 @@ export class JiraSyncManager {
       labels: ticket.labels,
     })
     if (!created.ok) {
-      if (created.code === 'auth') this.onAuth401()
-      return { ok: false, error: created.error || 'jira issue create failed' }
+      return { ok: false, reason: 'jira', code: created.code, status: created.status, retryAfterMs: created.retryAfterMs, error: created.error }
     }
 
     insertLinkWithId(this.db, {
@@ -1102,12 +1155,39 @@ export class JiraSyncManager {
         await this.executeTransition(client, conn, op, payload)
       } else if (op.opType === 'update') {
         await this.executeUpdate(client, op, payload)
+      } else if (op.opType === 'create') {
+        await this.executeCreate(client, conn, op, payload)
       } else {
         markOutboxDead(this.db, op.id, `unsupported op type ${op.opType}`)
       }
     } catch (err) {
       this.retryOrDead(op, err instanceof Error ? err.message : String(err))
     }
+  }
+
+  private async executeCreate(client: JiraClient, conn: JiraConnection, op: OutboxRow, payload: { localTicketId: number }): Promise<void> {
+    const localId = Number(payload?.localTicketId)
+    if (!Number.isInteger(localId) || localId <= 0) {
+      markOutboxDead(this.db, op.id, 'invalid create payload: localTicketId required')
+      return
+    }
+    // Idempotency-first: a ticket linked since enqueue (promote, a replay that
+    // crashed after linking) completes without creating a second issue.
+    const existing = getLinkByLocalId(this.db, localId)
+    if (existing && !existing.tombstoned) {
+      markOutboxDone(this.db, op.id)
+      return
+    }
+    const created = await this.createLinkedIssue(client, conn, localId)
+    if (created.ok) {
+      markOutboxDone(this.db, op.id)
+      return
+    }
+    if (created.reason === 'ticket_not_found') {
+      markOutboxDead(this.db, op.id, 'local ticket not found')
+      return
+    }
+    this.handleHardError(op, created.code, created.status, created.retryAfterMs, created.error)
   }
 
   private async executeUpdate(client: JiraClient, op: OutboxRow, payload: { jiraIssueId: string; fields: Record<string, unknown> }): Promise<void> {
@@ -1465,6 +1545,15 @@ class JiraOpError extends Error {
 }
 
 // ─── Pure helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Outbox serialisation key for a `create` op. The issue does not exist yet, so
+ * the op is keyed by its local ticket (`local:<id>`), which also keeps two
+ * creates for the same ticket FIFO-ordered. It never matches a real issue id.
+ */
+export function pendingCreateIssueId(localTicketId: number): string {
+  return `local:${localTicketId}`
+}
 
 export function backoffMs(attempts: number): number {
   const base = Math.min(30_000, 2000 * 2 ** attempts)
