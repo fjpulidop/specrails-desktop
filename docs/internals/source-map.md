@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1053 source/build files. Nearby tests are linked where names
+Includes 1063 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1239,6 +1239,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
 - [definition-fork.ts](../../server/modules/delivery/runtime/definition-fork.ts) · [test](../../server/modules/delivery/runtime/definition-fork.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
+- [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [isolated-worktree.ts](../../server/modules/delivery/runtime/isolated-worktree.ts) · [test](../../server/modules/delivery/runtime/isolated-worktree.test.ts)
@@ -1306,6 +1307,19 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [stuck-run-detector.ts](../../server/modules/execution/runtime/stuck-run-detector.ts) · [test](../../server/modules/execution/runtime/stuck-run-detector.test.ts)
 - [verification-sentinel.ts](../../server/modules/execution/runtime/verification-sentinel.ts)
 
+## server/modules/flow
+
+- [application.ts](../../server/modules/flow/application.ts) · [test](../../server/modules/flow/__tests__/application.test.ts)
+- [domain.ts](../../server/modules/flow/domain.ts) · [test](../../server/modules/flow/__tests__/domain.test.ts)
+- [index.ts](../../server/modules/flow/index.ts)
+- [ports.ts](../../server/modules/flow/ports.ts)
+
+## server/modules/flow/adapters
+
+- [bindings.ts](../../server/modules/flow/adapters/bindings.ts)
+- [http.ts](../../server/modules/flow/adapters/http.ts)
+- [sqlite.ts](../../server/modules/flow/adapters/sqlite.ts)
+
 ## server/modules/loops/runtime
 
 - [builtin-loops.ts](../../server/modules/loops/runtime/builtin-loops.ts) · [test](../../server/modules/loops/runtime/builtin-loops.test.ts)
@@ -1348,6 +1362,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts)
 - [agent-failure-briefing.ts](../../server/modules/missions/runtime/agent-failure-briefing.ts) · [test](../../server/modules/missions/runtime/agent-failure-briefing.test.ts)
 - [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts)
+- [agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts)
 - [agent-input-store.ts](../../server/modules/missions/runtime/agent-input-store.ts) · [test](../../server/modules/missions/runtime/agent-input-store.test.ts)
 - [agent-operator-prompt.ts](../../server/modules/missions/runtime/agent-operator-prompt.ts) · [test](../../server/modules/missions/runtime/agent-operator-prompt.test.ts)
 - [agent-session-store.ts](../../server/modules/missions/runtime/agent-session-store.ts)
@@ -1355,6 +1370,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
 - [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
 - [core-session-runner.ts](../../server/modules/missions/runtime/core-session-runner.ts) · [test](../../server/modules/missions/runtime/core-session-runner.test.ts)
+- [flow-turn-context.ts](../../server/modules/missions/runtime/flow-turn-context.ts)
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
