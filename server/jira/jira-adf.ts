@@ -227,6 +227,19 @@ export function bodyForDeployment(text: string, deployment: JiraDeployment): unk
 export const SPECRAILS_COMMENT_PROP_KEY = 'sh.specrails.marker'
 
 /**
+ * Jira ISSUE-property key carrying the creation marker of an issue Specrails
+ * created from a local ticket. Entity properties never render, so the marker is
+ * invisible; it lets a retried durable `create` recover an issue whose create
+ * response was lost instead of creating a duplicate.
+ */
+export const SPECRAILS_ISSUE_CREATE_PROP_KEY = 'sh.specrails.created-from'
+
+/** Stable creation marker for (project, local ticket). */
+export function issueCreateMarker(projectId: string, localTicketId: number): string {
+  return `[specrails:project=${projectId}:ticket=${localTicketId}]`
+}
+
+/**
  * Deterministic idempotency marker. Jira has no native comment idempotency, so
  * before re-posting on retry we GET the issue comments and skip if one already
  * carries this marker (now via an invisible comment property — see

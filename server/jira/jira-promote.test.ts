@@ -276,4 +276,112 @@ describe('durable create outbox op (enqueuePromote)', () => {
     expect(manager(makeFetch([]).impl).enqueuePromote(10, 'k')).toBe('inactive')
     expect(listOutbox(db)).toHaveLength(0)
   })
+
+  describe('lost create response recovery', () => {
+    const marker = (id: number) => `[specrails:project=p1:ticket=${id}]`
+    const makeDue = () => db.prepare('UPDATE jira_outbox SET next_attempt_at = NULL').run()
+
+    it('stamps the issue with the creation marker property', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 11, 'Marked')
+      const bodies: any[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        if (init?.method === 'POST' && url.endsWith('/issue')) {
+          bodies.push(JSON.parse(init.body))
+          return fakeResponse(201, { id: '20011', key: 'PROJ-11' }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(11, 'k-mark')
+      await mgr.drainOnce()
+      expect(bodies[0].properties).toEqual([{ key: 'sh.specrails.created-from', value: { marker: marker(11) } }])
+      expect(getLinkByLocalId(db, 11)?.jiraKey).toBe('PROJ-11')
+    })
+
+    it('first attempt creates but the response is lost; the retry finds the marker and links without a second issue', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 12, 'Lost response')
+      let creates = 0
+      let issueExists = false
+      const calls: string[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        const method = init?.method ?? 'GET'
+        calls.push(`${method} ${url}`)
+        if (method === 'POST' && url.endsWith('/issue')) {
+          creates++
+          issueExists = true
+          return fakeResponse(502, { error: 'gateway lost the response' }) as any
+        }
+        if (method === 'POST' && url.includes('/search')) {
+          return fakeResponse(200, { issues: issueExists ? [{ id: '30001', key: 'PROJ-30', fields: { summary: 'Lost response' } }, { id: '30000', key: 'PROJ-29', fields: { summary: 'Other' } }] : [] }) as any
+        }
+        if (url.includes('/issue/30001/properties/sh.specrails.created-from')) {
+          return fakeResponse(200, { key: 'sh.specrails.created-from', value: { marker: marker(12) } }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(12, 'k-lost')
+      await mgr.drainOnce()
+      expect(listOutbox(db, { state: 'pending' })[0].attempts).toBe(1)
+      expect(getLinkByLocalId(db, 12)).toBeNull()
+
+      makeDue()
+      await mgr.drainOnce()
+      expect(creates).toBe(1)
+      expect(listOutbox(db, { state: 'done' })).toHaveLength(1)
+      expect(getLinkByLocalId(db, 12)).toMatchObject({ jiraIssueId: '30001', jiraKey: 'PROJ-30' })
+      expect(readStore(resolveTicketStoragePath(projectPath)).tickets['12']).toMatchObject({ source: 'jira', jira_key: 'PROJ-30' })
+      const search = calls.find((c) => c.includes('/search'))
+      expect(search).toBeTruthy()
+    })
+
+    it('a retry that finds no marked issue creates it; an unconfirmed search never creates', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 13, 'Never created')
+      let creates = 0
+      let searchStatus = 503
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url.endsWith('/issue')) {
+          creates++
+          return creates === 1 ? fakeResponse(500, {}) as any : fakeResponse(201, { id: '40001', key: 'PROJ-40' }) as any
+        }
+        if (method === 'POST' && url.includes('/search')) return fakeResponse(searchStatus, { issues: [] }) as any
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(13, 'k-none')
+      await mgr.drainOnce()
+      makeDue()
+      await mgr.drainOnce() // search unavailable → retry later, no blind create
+      expect(creates).toBe(1)
+      expect(listOutbox(db, { state: 'pending' })[0].attempts).toBe(2)
+
+      searchStatus = 200
+      makeDue()
+      await mgr.drainOnce()
+      expect(creates).toBe(2)
+      expect(getLinkByLocalId(db, 13)?.jiraKey).toBe('PROJ-40')
+    })
+
+    it('falls back to a plain create when the instance rejects create-time properties', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 14, 'Old instance')
+      const bodies: any[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        if (init?.method === 'POST' && url.endsWith('/issue')) {
+          const body = JSON.parse(init.body)
+          bodies.push(body)
+          return body.properties ? fakeResponse(400, { errors: { properties: 'unsupported' } }) as any : fakeResponse(201, { id: '50001', key: 'PROJ-50' }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const r = await manager(impl).promoteTicketToJira(14)
+      expect(r).toMatchObject({ ok: true, jiraKey: 'PROJ-50' })
+      expect(bodies.map((b) => Boolean(b.properties))).toEqual([true, false])
+    })
+  })
 })
+

@@ -24,6 +24,8 @@ import {
   railReviewCommentMarker,
   commentHasMarker,
   bodyForDeployment,
+  issueCreateMarker,
+  SPECRAILS_ISSUE_CREATE_PROP_KEY,
 } from './jira-adf'
 import { issueUrl, upsertIssuesIntoStore } from './jira-materializer'
 import {
@@ -522,8 +524,9 @@ export class JiraSyncManager {
     client: JiraClient,
     conn: JiraConnection,
     localId: number,
+    recovery?: { since: string | null },
   ): Promise<
-    | { ok: true; jiraKey: string }
+    | { ok: true; jiraKey: string; recovered?: boolean }
     | { ok: false; reason: 'ticket_not_found' }
     | { ok: false; reason: 'jira'; code: string; status: number; retryAfterMs?: number; error: string }
   > {
@@ -531,13 +534,31 @@ export class JiraSyncManager {
     const ticket = readStore(file).tickets[String(localId)]
     if (!ticket) return { ok: false, reason: 'ticket_not_found' }
 
-    const created = await client.createIssue({
-      projectKey: conn.jiraProjectKey,
-      issueType: 'Task',
-      summary: ticket.title,
-      description: ticket.description || undefined,
-      labels: ticket.labels,
-    })
+    const marker = issueCreateMarker(this.projectId, localId)
+    let created: { ok: true; data: { id: string; key: string } } | { ok: false; code: string; status: number; retryAfterMs?: number; error: string }
+    let recovered = false
+    // A retried durable create may follow an attempt whose issue WAS created
+    // but whose response was lost. Recover that issue by its invisible
+    // creation marker before creating; an unconfirmed search retries later
+    // rather than risking a duplicate.
+    const existing = recovery ? await this.findIssueByCreateMarker(client, conn, marker, recovery.since) : null
+    if (existing && !existing.ok) return { ok: false, reason: 'jira', ...existing.error }
+    if (existing?.ok && existing.issue) {
+      created = { ok: true, data: existing.issue }
+      recovered = true
+    } else {
+      const input = {
+        projectKey: conn.jiraProjectKey,
+        issueType: 'Task',
+        summary: ticket.title,
+        description: ticket.description || undefined,
+        labels: ticket.labels,
+      }
+      created = await client.createIssue({ ...input, properties: [{ key: SPECRAILS_ISSUE_CREATE_PROP_KEY, value: { marker } }] })
+      // Compatibility: an instance that rejects create-time entity properties
+      // still gets the issue (without the recovery marker), as before.
+      if (!created.ok && created.code === 'validation') created = await client.createIssue(input)
+    }
     if (!created.ok) {
       return { ok: false, reason: 'jira', code: created.code, status: created.status, retryAfterMs: created.retryAfterMs, error: created.error }
     }
@@ -565,7 +586,41 @@ export class JiraSyncManager {
     if (updated) {
       this.broadcast({ type: 'ticket_updated', ticket: updated as unknown as never, projectId: this.projectId, timestamp: updated.updated_at } as WsMessage)
     }
-    return { ok: true, jiraKey: created.data.key }
+    return { ok: true, jiraKey: created.data.key, ...(recovered ? { recovered: true } : {}) }
+  }
+
+  /**
+   * Find an issue this manager created for `marker`: recent issues the
+   * connected account created in the project, confirmed by the invisible
+   * creation property (works on Cloud and DC without property indexing).
+   */
+  private async findIssueByCreateMarker(
+    client: JiraClient,
+    conn: JiraConnection,
+    marker: string,
+    since: string | null,
+  ): Promise<
+    | { ok: true; issue: { id: string; key: string } | null }
+    | { ok: false; error: { code: string; status: number; retryAfterMs?: number; error: string } }
+  > {
+    const sinceMs = since ? Date.parse(since.includes('T') ? since : `${since.replace(' ', 'T')}Z`) : NaN
+    const minutes = Number.isFinite(sinceMs) ? Math.max(1, Math.ceil((Date.now() - sinceMs) / 60_000) + CREATE_RECOVERY_MARGIN_MIN) : CREATE_RECOVERY_DEFAULT_MIN
+    const res = await client.searchJql({
+      jql: `project = "${conn.jiraProjectKey}" AND creator = currentUser() AND created >= "-${minutes}m" ORDER BY created DESC`,
+      fields: ['summary'],
+      maxResults: CREATE_RECOVERY_MAX_CANDIDATES,
+    })
+    if (!res.ok) return { ok: false, error: { code: res.code, status: res.status, retryAfterMs: res.retryAfterMs, error: res.error } }
+    for (const issue of res.data.issues ?? []) {
+      const prop = await client.getIssueProperty(issue.id, SPECRAILS_ISSUE_CREATE_PROP_KEY)
+      if (prop.ok) {
+        const value = prop.data.value as { marker?: unknown } | undefined
+        if (value?.marker === marker) return { ok: true, issue: { id: issue.id, key: issue.key } }
+      } else if (prop.code !== 'not_found') {
+        return { ok: false, error: { code: prop.code, status: prop.status, retryAfterMs: prop.retryAfterMs, error: prop.error } }
+      }
+    }
+    return { ok: true, issue: null }
   }
 
   // ─── Inbound poll ──────────────────────────────────────────────────────────
@@ -1178,7 +1233,8 @@ export class JiraSyncManager {
       markOutboxDone(this.db, op.id)
       return
     }
-    const created = await this.createLinkedIssue(client, conn, localId)
+    // attempts > 0 ⇒ an earlier attempt may have created the issue.
+    const created = await this.createLinkedIssue(client, conn, localId, op.attempts > 0 ? { since: op.createdAt } : undefined)
     if (created.ok) {
       markOutboxDone(this.db, op.id)
       return
@@ -1551,6 +1607,11 @@ class JiraOpError extends Error {
  * the op is keyed by its local ticket (`local:<id>`), which also keeps two
  * creates for the same ticket FIFO-ordered. It never matches a real issue id.
  */
+/** Durable-create recovery search window: since the op was enqueued, plus margin. */
+const CREATE_RECOVERY_MARGIN_MIN = 10
+const CREATE_RECOVERY_DEFAULT_MIN = 7 * 24 * 60
+const CREATE_RECOVERY_MAX_CANDIDATES = 50
+
 export function pendingCreateIssueId(localTicketId: number): string {
   return `local:${localTicketId}`
 }
