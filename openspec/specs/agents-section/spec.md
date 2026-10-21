@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-agents-profiles. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Sidebar entry
 The project sidebar SHALL contain a new entry labeled "Agents" placed between the existing pipeline-related entries and Settings. The entry SHALL be visible in Super mode only.
 
@@ -41,11 +43,15 @@ The Profiles tab SHALL display a list/grid of the project's profiles, a "New pro
 - **THEN** rules are rendered in evaluation order with visible ordinals and drag handles; the terminal `default: true` rule is pinned last and cannot be moved
 
 ### Requirement: Agents tab
-The Agents tab SHALL display a catalog of all agents in `.claude/agents/`, segmented into Upstream (`sr-*`, read-only) and Custom (`custom-*`, editable). An "Open in Studio" action SHALL open a Custom agent in the Agent Studio.
+The Agents tab SHALL display a catalog segmented into Upstream and Custom. Upstream entries are the provider's baseline roles (`sr-architect`, `sr-developer`, `sr-reviewer`), defined by the specrails-core runtime and listed read-only with the runtime definition as their body; they do not correspond to files in `.claude/agents/`. Custom entries are the `custom-*` agents in the provider's native catalog and are editable. An "Open in Studio" action SHALL open a Custom agent in the Agent Studio.
 
 #### Scenario: Upstream read-only
 - **WHEN** the user selects `sr-developer`
-- **THEN** a read-only viewer shows the agent's metadata and body; no edit actions are offered
+- **THEN** a read-only viewer shows the role's description ("runtime-defined by specrails-core") and the current runtime definition body; no edit actions are offered
+
+#### Scenario: Upstream shown without installed files
+- **WHEN** the project has no `.claude/agents` directory
+- **THEN** the Upstream segment still lists the three baseline roles and the Custom segment is empty
 
 #### Scenario: Custom editable
 - **WHEN** the user selects `custom-pentester`
@@ -86,4 +92,3 @@ The app SHALL persist per-project the last-visited Agents sub-tab and the last-s
 #### Scenario: Tab restored on project switch
 - **WHEN** the user is on the Agents tab with Profiles sub-tab open for project A, switches to project B, and returns to A
 - **THEN** the Agents tab is active with the Profiles sub-tab selected
-
