@@ -130,6 +130,14 @@ Tip: `npm run ci` runs typecheck + tests + both coverage gates in one shot.
 - **State per project:** never use module-level caches that could bleed between projects — use `useProjectCache` or per-project Maps in refs
 - **WS handlers:** always filter `msg.projectId` against active project via ref, not stale closure
 
+## API changes and deprecations
+
+The local HTTP API (`/api/**`) is versioned. Every response carries `X-Specrails-Api-Version`, and `GET /api/meta` reports the API, app, Core and contract versions. The full policy is in [the API reference](docs/internals/api-reference.md#versioning-and-deprecation-policy). In short:
+
+- **Additive changes** (new routes, optional request fields, new response fields) keep the version.
+- **Breaking changes** (removing/renaming a route or field, changing a type or meaning, stricter validation, a changed WebSocket event) bump `API_VERSION` in `server/api-version.ts`, use a `feat!`/`fix!` commit with a `BREAKING CHANGE:` footer, and are only allowed after the deprecation period.
+- **Deprecations** keep the old route or field working for **at least two minor releases**. The PR that deprecates something adds a row to the deprecation ledger in the API reference and a `DEPRECATED:` paragraph to its commit body. Before the release PR is merged, the maintainer adds a `### Deprecations` subsection listing it to that release's `CHANGELOG.md` entry (release-please regenerates its PR on every push to `main`, so this is the last edit before merge).
+
 ## Commit Convention
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):

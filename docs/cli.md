@@ -43,7 +43,7 @@ specrails-desktop --status              # one-shot status, compact text output
 specrails-desktop --jobs                # see the note below
 ```
 
-`--status` prints a compact status line that includes the app version. The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
+`--status` prints a compact status line that includes the app version and, from servers that report it, the HTTP API version (`api: v1`, from `apiVersion` in `/api/health`). Scripts can also read the `X-Specrails-Api-Version` response header or `GET /api/meta`; see the [versioning policy](internals/api-reference.md#versioning-and-deprecation-policy). The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
 
 > **Note on `--jobs`:** there is no app-level `/api/jobs` route, so the server returns 404 and `--jobs` prints `jobs history requires manager with SQLite persistence (#57)` and exits non-zero against a running server. Job history lives **per project** — view it on the project's **Jobs** page (right sidebar) in the dashboard instead.
 
