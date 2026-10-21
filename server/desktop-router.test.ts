@@ -1977,4 +1977,72 @@ describe('desktop-router', () => {
     })
   })
 
+
+  // ─── API version + release channel ──────────────────────────────────────────
+
+  describe('update channel setting', () => {
+    it('defaults to latest and persists stable through PUT /api/settings', async () => {
+      const { app } = createApp()
+      expect((await request(app).get('/api/settings')).body.updateChannel).toBe('latest')
+      const put = await request(app).put('/api/settings').send({ updateChannel: 'stable' })
+      expect(put.status).toBe(200)
+      expect(getDesktopSetting(desktopDb, 'update_channel')).toBe('stable')
+      expect((await request(app).get('/api/settings')).body.updateChannel).toBe('stable')
+      await request(app).put('/api/settings').send({ updateChannel: 'latest' })
+      expect((await request(app).get('/api/settings')).body.updateChannel).toBe('latest')
+    })
+
+    it('rejects an unknown channel without persisting it', async () => {
+      const { app } = createApp()
+      const res = await request(app).put('/api/settings').send({ updateChannel: 'beta' })
+      expect(res.status).toBe(400)
+      expect(getDesktopSetting(desktopDb, 'update_channel')).toBeUndefined()
+    })
+
+    it('reads a corrupted stored channel as latest', async () => {
+      setDesktopSetting(desktopDb, 'update_channel', 'nightly')
+      const { app } = createApp()
+      expect((await request(app).get('/api/settings')).body.updateChannel).toBe('latest')
+    })
+
+    it('reports the selected channel on core-update status', async () => {
+      setDesktopSetting(desktopDb, 'update_channel', 'stable')
+      const { app } = createApp()
+      const res = await request(app).get('/api/core-update/status')
+      expect(res.body.channel).toBe('stable')
+    })
+  })
+
+  describe('GET /api/meta', () => {
+    it('returns API, app, Core and contract versions plus the channel manifest', async () => {
+      vi.mocked(checkCoreCompat).mockResolvedValueOnce({
+        compatible: true, coreVersion: '6.6.5', desktopVersion: '2.64.2', contractFound: true, contractSchemaVersion: '5.2',
+        missingCheckpoints: [], extraCheckpoints: [], missingCommands: [], extraCommands: [], supportedProviders: [],
+      })
+      setDesktopSetting(desktopDb, 'update_channel', 'stable')
+      const { app } = createApp()
+      const res = await request(app).get('/api/meta')
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({
+        apiVersion: 1,
+        appVersion: '2.64.2',
+        coreVersion: expect.any(String),
+        contractSchemaVersion: '5.2',
+        channel: 'stable',
+        updateManifestUrl: 'https://github.com/fjpulidop/specrails-desktop/releases/download/stable/latest.json',
+      })
+    })
+
+    it('keeps the shape with nulls when Core compatibility cannot be read', async () => {
+      vi.mocked(checkCoreCompat).mockRejectedValueOnce(new Error('boom'))
+      const { app } = createApp()
+      const res = await request(app).get('/api/meta')
+      expect(res.status).toBe(200)
+      expect(res.body.apiVersion).toBe(1)
+      expect(res.body.appVersion).toBeNull()
+      expect(res.body.contractSchemaVersion).toBeNull()
+      expect(res.body.channel).toBe('latest')
+      expect(Object.keys(res.body).sort()).toEqual(['apiVersion', 'appVersion', 'channel', 'contractSchemaVersion', 'coreVersion', 'updateManifestUrl'])
+    })
+  })
 })

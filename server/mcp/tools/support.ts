@@ -39,7 +39,7 @@ export function supportTools(): McpToolSpec[] {
       title: 'Support & troubleshooting',
       description:
         'Support and troubleshooting for Specrails installation and usage problems. Use this when the user needs help setting up Specrails, adding/provisioning a project, fixing missing agents/skills/commands from the global specrails-core framework, provider CLI/MCP/agent-chat issues, rails/jobs/specs, or GitHub/PR/cost/plugin questions. ' +
-        'Actions: triage (read-only support playbook + diagnostics), core_update_status/check/apply (global specrails-core framework update). ' +
+        'Actions: triage (read-only support playbook + diagnostics), core_update_status/check/apply (global specrails-core framework update; follows the app update channel latest|stable), api_meta (API/app/Core/contract versions and update channel). ' +
         'This tool never creates specs; repair actions require the normal permission tier and explicit user confirmation.',
       tier: (a) => (String(a.action) === 'core_update_apply' ? 'ai-spawn' : 'read'),
       hintTier: 'read',
@@ -50,6 +50,7 @@ export function supportTools(): McpToolSpec[] {
             'core_update_status',
             'core_update_check',
             'core_update_apply',
+            'api_meta',
           ])
           .describe('Support operation to perform'),
         question: z
@@ -79,6 +80,8 @@ export function supportTools(): McpToolSpec[] {
         switch (action) {
           case 'core_update_status':
             return apiCall(ctx, 'GET', '/core-update/status')
+          case 'api_meta':
+            return apiCall(ctx, 'GET', '/meta')
           case 'core_update_check':
             return apiCall(ctx, 'POST', '/core-update/check', {})
           case 'core_update_apply': {

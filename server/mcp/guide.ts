@@ -301,7 +301,7 @@ list/get/spending/watch = read; from_prompt, update, set_tickets,
 create_rail, plugin install, Jira connect = write; spec create/generate, rail
 launch/launch_all, chat send, job spawn = ai-spawn; spec delete, rail stop, job
 purge, plugin uninstall, Jira disconnect, project unregister = destructive.
-\`specrails_support(triage/core_update_status/core_update_check)\` is read;
+\`specrails_support(triage/core_update_status/core_update_check/api_meta)\` is read;
 \`specrails_support(core_update_apply)\` is ai-spawn because it runs longer
 global update work. Note the
 embedded spec-refinement happy path needs only read + write when using a fresh

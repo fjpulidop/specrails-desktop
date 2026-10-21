@@ -244,7 +244,23 @@
       "local": "Local package",
       "global": "External CLI"
     },
-    "repair": "Finish updating {{version}}"
+    "repair": "Finish updating {{version}}",
+    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now."
+  },
+  "updateChannel": {
+    "heading": "Update channel",
+    "loading": "Loading channel…",
+    "scope": "Applies to Specrails Desktop and the specrails-core framework.",
+    "saved": "Update channel set to {{channel}}",
+    "saveFailed": "Could not change the update channel: {{message}}",
+    "latest": {
+      "label": "Latest",
+      "description": "Every release as soon as it ships. Newest features and fixes first."
+    },
+    "stable": {
+      "label": "Stable",
+      "description": "Only releases promoted after at least a week on Latest with green CI. Core follows its stable tag."
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "Checks automatically at launch and every 6 hours.",
     "unavailable": "App updates are only available in the desktop app.",
     "toastUpToDate": "Specrails Desktop is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}"
+    "toastCheckFailed": "Update check failed: {{message}}",
+    "stableUnavailable": "No release has been promoted to the Stable channel yet. Switch to Latest or try again later."
   },
   "projectDialog": {
     "title": "{{name}} — Settings",

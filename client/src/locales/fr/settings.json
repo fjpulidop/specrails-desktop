@@ -244,7 +244,23 @@
       "local": "Paquet local",
       "global": "CLI externe"
     },
-    "repair": "Terminer la mise à jour {{version}}"
+    "repair": "Terminer la mise à jour {{version}}",
+    "stableFallback": "specrails-core n'a pas encore de version stable : Core suit Dernière pour l'instant."
+  },
+  "updateChannel": {
+    "heading": "Canal de mise à jour",
+    "loading": "Chargement du canal…",
+    "scope": "S'applique à Specrails Desktop et au framework specrails-core.",
+    "saved": "Canal de mise à jour : {{channel}}",
+    "saveFailed": "Impossible de changer le canal de mise à jour : {{message}}",
+    "latest": {
+      "label": "Dernière",
+      "description": "Chaque version dès sa sortie. Nouveautés et correctifs en premier."
+    },
+    "stable": {
+      "label": "Stable",
+      "description": "Uniquement les versions promues après au moins une semaine sur Dernière avec une CI verte. Core suit son tag stable."
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "Vérification automatique au lancement et toutes les 6 heures.",
     "unavailable": "Les mises à jour ne sont disponibles que dans l'app de bureau.",
     "toastUpToDate": "Specrails Desktop est à jour",
-    "toastCheckFailed": "Échec de la recherche de mises à jour : {{message}}"
+    "toastCheckFailed": "Échec de la recherche de mises à jour : {{message}}",
+    "stableUnavailable": "Aucune version n'a encore été promue sur le canal Stable. Passez à Dernière ou réessayez plus tard."
   },
   "projectDialog": {
     "title": "{{name}} — Paramètres",

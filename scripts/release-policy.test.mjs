@@ -125,3 +125,60 @@ test('the actual workflow has no public publication path from validation, even w
     assert.equal(runInNewContext(job.if, context, { timeout: 100 }), false)
   }
 })
+test('stable promotion requires a published, soaked, CI-green release and never silently moves stable backwards', async () => {
+  const { assertStablePromotion, STABLE_SOAK_DAYS } = await import('./release-policy.mjs')
+  const day = 86_400_000
+  const now = Date.parse('2026-10-21T00:00:00Z')
+  const release = (extra = {}) => ({ tag_name: 'v2.64.2', draft: false, prerelease: false, published_at: new Date(now - 8 * day).toISOString(), assets: [{ name: 'latest.json' }, { name: 'manifest.json' }], ...extra })
+  const base = { version: '2.64.2', repository, sha, now, release: release(), ciRun: run(), currentStable: '2.63.0' }
+  assert.equal(STABLE_SOAK_DAYS, 7)
+  assert.deepEqual(assertStablePromotion(base), { tag: 'v2.64.2', version: '2.64.2', sha })
+  assert.deepEqual(assertStablePromotion({ ...base, currentStable: null }).tag, 'v2.64.2')
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ published_at: new Date(now - 6.9 * day).toISOString() }) }), /7/)
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ draft: true }) }), /draft/)
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ prerelease: true }) }), /prerelease/)
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ tag_name: 'v2.64.1' }) }), /not found/)
+  assert.throws(() => assertStablePromotion({ ...base, release: null }), /not found/)
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ published_at: null }) }), /publication date/)
+  assert.throws(() => assertStablePromotion({ ...base, release: release({ assets: [{ name: 'manifest.json' }] }) }), /latest\.json/)
+  assert.throws(() => assertStablePromotion({ ...base, ciRun: null }), /CI/)
+  assert.throws(() => assertStablePromotion({ ...base, ciRun: run({ conclusion: 'failure' }) }), /CI/)
+  assert.throws(() => assertStablePromotion({ ...base, ciRun: run({ status: 'in_progress', conclusion: null }) }), /CI/)
+  assert.throws(() => assertStablePromotion({ ...base, version: '2.64.2-beta.1' }))
+  assert.throws(() => assertStablePromotion({ ...base, currentStable: '2.65.0' }), /older/)
+  assert.deepEqual(assertStablePromotion({ ...base, currentStable: '2.65.0', allowRollback: true }).version, '2.64.2')
+})
+test('stable promotion resolves the tag commit, its trusted CI and the current pointer through GitHub', async () => {
+  const { stablePromotion, currentStableVersion } = await import('./release-policy.mjs')
+  const now = () => Date.parse('2026-10-21T00:00:00Z')
+  const routes = {
+    [`/repos/${repository}/releases/tags/v2.64.2`]: { tag_name: 'v2.64.2', draft: false, prerelease: false, published_at: '2026-10-10T00:00:00Z', assets: [{ name: 'latest.json' }] },
+    [`/repos/${repository}/commits/v2.64.2`]: { sha },
+    [`/repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${sha}&event=push&branch=main&per_page=100`]: { workflow_runs: [run({ head_branch: 'feature' }), run()] },
+  }
+  const request = async route => { if (!(route in routes)) throw new Error(`unexpected ${route}`); return routes[route] }
+  const pointer = (status, body) => async () => ({ ok: status >= 200 && status < 300, status, json: async () => body })
+  assert.deepEqual(await stablePromotion({ repository, version: '2.64.2', request, fetchImpl: pointer(404), now }), { tag: 'v2.64.2', version: '2.64.2', sha })
+  await assert.rejects(stablePromotion({ repository, version: '2.64.2', request, fetchImpl: pointer(200, { version: '2.70.0' }), now }), /older/)
+  await assert.rejects(currentStableVersion({ fetchImpl: pointer(502), now }), /502/)
+  assert.equal(await currentStableVersion({ fetchImpl: pointer(200, { version: '2.60.0' }), now }), '2.60.0')
+  const noCi = { ...routes, [`/repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${sha}&event=push&branch=main&per_page=100`]: { workflow_runs: [run({ event: 'pull_request' })] } }
+  await assert.rejects(stablePromotion({ repository, version: '2.64.2', request: async route => noCi[route], fetchImpl: pointer(404), now }), /CI/)
+})
+test('the promote-stable workflow is dispatch-only, gated by the policy, and keeps the stable pointer off latest', async () => {
+  const fs = await import('node:fs')
+  const { load } = await import('js-yaml')
+  const source = fs.readFileSync(new URL('../.github/workflows/promote-stable.yml', import.meta.url), 'utf8')
+  const workflow = load(source)
+  assert.deepEqual(Object.keys(workflow.on), ['workflow_dispatch'])
+  assert.equal(workflow.on.workflow_dispatch.inputs.allow_rollback.default, false)
+  assert.equal(workflow.permissions.contents, 'read')
+  const steps = workflow.jobs.promote.steps
+  const policy = steps.findIndex(step => /release-policy\.mjs stable-promotion/.test(step.run ?? ''))
+  const publish = steps.findIndex(step => /gh release upload stable/.test(step.run ?? ''))
+  assert(policy >= 0 && publish > policy, 'the policy must run before publication')
+  const script = steps[publish].run
+  assert.match(script, /--prerelease/)
+  assert.match(script, /--latest=false/)
+  for (const step of steps) assert.doesNotMatch(step.run ?? '', /\$\{\{\s*(github\.event\.)?inputs\./, 'inputs must reach shells through env, never interpolation')
+})

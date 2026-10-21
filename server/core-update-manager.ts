@@ -10,6 +10,7 @@ import { getBundledCoreVersion } from './bundled-core'
 import { getCoreRuntimeStatus, managedCoreRoot, readCoreRuntime, type CoreRuntimeSource } from './core-runtime'
 import { isSupportedCoreVersion, SUPPORTED_CORE_MAJORS } from './core-package'
 import { atomicWrite, withFileLock } from './artifact-registry'
+import { DEFAULT_UPDATE_CHANNEL, isUpdateChannel, type UpdateChannel } from './update-channel'
 
 /** Voluntary Core updates retain the complete npm package and dependencies,
  * publish its framework, then await every project refresh. Partial refreshes
@@ -17,9 +18,16 @@ import { atomicWrite, withFileLock } from './artifact-registry'
  * Older packages/frameworks remain available for diagnosis and recovery. */
 
 export const CORE_PACKAGE = 'specrails-core'
-const REGISTRY_URL = `https://registry.npmjs.org/${CORE_PACKAGE}/latest`
+const REGISTRY_BASE = `https://registry.npmjs.org/${CORE_PACKAGE}`
 const CHECK_TIMEOUT_MS = 10_000
 const INSTALL_TIMEOUT_MS = 180_000
+
+/** npm dist-tag a channel resolved to. `stable` falls back to `latest` while
+ * Core publishes no `stable` dist-tag (HTTP 404 on the tag). */
+export interface CoreChannelRelease {
+  version: string
+  distTag: 'latest' | 'stable'
+}
 
 export type CoreUpdatePhase = 'downloading' | 'materializing' | 'done' | 'error'
 
@@ -44,6 +52,12 @@ export interface CoreUpdateStatus {
   runtimeError: string | null
   pendingVersion: string | null
   migrationError: string | null
+  /** Selected release channel (app setting). */
+  channel: UpdateChannel
+  /** npm dist-tag the last check for this channel resolved (null until checked). */
+  resolvedDistTag: 'latest' | 'stable' | null
+  /** True when `stable` was requested but Core has no `stable` dist-tag yet. */
+  channelFallback: boolean
 }
 
 export interface CoreUpdateResult {
@@ -57,8 +71,10 @@ export interface CoreUpdateManagerOptions {
   broadcast?: FrameworkBroadcast
   /** Installed-provider union to materialize for (default `['claude']`). */
   providers?: () => string[]
-  /** Override the npm-latest fetch (tests). */
-  fetchLatest?: () => Promise<string>
+  /** Selected release channel; read on every check/status (default `latest`). */
+  channel?: () => UpdateChannel
+  /** Override the npm dist-tag fetch (tests). A bare string means `latest`. */
+  fetchLatest?: (channel: UpdateChannel) => Promise<string | CoreChannelRelease>
   /** Override the npm install (tests). Installs `spec` into `cwd`. */
   npmInstall?: (spec: string, cwd: string) => void
   /** Override FrameworkManager construction for a staged core root (tests). */
@@ -70,11 +86,15 @@ export class CoreUpdateManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
   private readonly providersFn: () => string[]
-  private readonly fetchLatestFn: () => Promise<string>
+  private readonly fetchLatestFn: (channel: UpdateChannel) => Promise<string | CoreChannelRelease>
+  private readonly channelFn: () => UpdateChannel
   private readonly npmInstallFn: (spec: string, cwd: string) => void
   private readonly makeFrameworkFn: (coreRoot: string) => FrameworkManager
 
   private latestVersion: string | null = null
+  /** Channel the cached `latestVersion` was resolved for (legacy caches: latest). */
+  private latestChannel: UpdateChannel = DEFAULT_UPDATE_CHANNEL
+  private latestDistTag: 'latest' | 'stable' | null = null
   private lastCheckedAt: number | null = null
   private updating = false
   private pendingVersion: string | null = null
@@ -85,7 +105,8 @@ export class CoreUpdateManager {
     this.home = opts.home
     this.broadcast = opts.broadcast
     this.providersFn = opts.providers ?? (() => ['claude'])
-    this.fetchLatestFn = opts.fetchLatest ?? (() => fetchLatestFromRegistry())
+    this.fetchLatestFn = opts.fetchLatest ?? ((channel) => fetchChannelFromRegistry(channel))
+    this.channelFn = opts.channel ?? (() => DEFAULT_UPDATE_CHANNEL)
     this.npmInstallFn = opts.npmInstall ?? defaultNpmInstall
     this.makeFrameworkFn =
       opts.makeFramework ??
@@ -96,6 +117,8 @@ export class CoreUpdateManager {
       if (typeof cached.latestVersion === 'string' && isValidVersion(cached.latestVersion) && Number.isFinite(cached.lastCheckedAt)) {
         this.latestVersion = cached.latestVersion
         this.lastCheckedAt = cached.lastCheckedAt
+        this.latestChannel = isUpdateChannel(cached.channel) ? cached.channel : DEFAULT_UPDATE_CHANNEL
+        this.latestDistTag = cached.distTag === 'stable' || cached.distTag === 'latest' ? cached.distTag : this.latestChannel
       }
       if (typeof cached.pendingVersion === 'string' && isValidVersion(cached.pendingVersion)) {
         this.pendingVersion = cached.pendingVersion
@@ -109,22 +132,37 @@ export class CoreUpdateManager {
     return getCoreRuntimeStatus(this.home).runtime !== null || readCurrentFrameworkVersion(this.home) !== null
   }
 
+  private currentChannel(): UpdateChannel {
+    try {
+      const channel = this.channelFn()
+      return isUpdateChannel(channel) ? channel : DEFAULT_UPDATE_CHANNEL
+    } catch { return DEFAULT_UPDATE_CHANNEL }
+  }
+
+  /** Cached target for the CURRENT channel; a check made for another channel never offers its version. */
+  private channelLatest(): string | null {
+    return this.latestChannel === this.currentChannel() ? this.latestVersion : null
+  }
+
   /** Current status — no network (uses the cached latest from the last check). */
   getStatus(): CoreUpdateStatus {
+    const channel = this.currentChannel()
+    const latestVersion = this.channelLatest()
+    const resolvedDistTag = latestVersion === null ? null : this.latestDistTag
     const selected = getCoreRuntimeStatus(this.home)
     const bundledVersion = getBundledCoreVersion()
     const frameworkVersion = readCurrentFrameworkVersion(this.home)
     const currentVersion = frameworkVersion ?? selected.runtime?.version ?? null
     const updateAvailable = this.pendingVersion !== null ||
-      this.latestVersion != null &&
+      latestVersion != null &&
       currentVersion != null &&
-      (isNewer(this.latestVersion, currentVersion) || selected.error !== null && this.latestVersion === currentVersion) &&
-      isSupportedCoreVersion(this.latestVersion)
+      (isNewer(latestVersion, currentVersion) || selected.error !== null && latestVersion === currentVersion) &&
+      isSupportedCoreVersion(latestVersion)
     return {
       available: this.isAvailable(),
       currentVersion,
       bundledVersion,
-      latestVersion: this.latestVersion,
+      latestVersion,
       updateAvailable,
       updating: this.updating,
       lastCheckedAt: this.lastCheckedAt,
@@ -134,16 +172,24 @@ export class CoreUpdateManager {
       runtimeError: selected.error,
       pendingVersion: this.pendingVersion,
       migrationError: this.migrationError,
+      channel,
+      resolvedDistTag,
+      channelFallback: channel === 'stable' && resolvedDistTag === 'latest',
     }
   }
 
-  /** Hit npm for the latest published version, cache it, return refreshed status. */
+  /** Hit npm for the selected channel's dist-tag, cache it, return refreshed status. */
   async checkForUpdate(): Promise<CoreUpdateStatus> {
-    const latest = await this.fetchLatestFn()
+    const channel = this.currentChannel()
+    const fetched = await this.fetchLatestFn(channel)
+    const release: CoreChannelRelease = typeof fetched === 'string' ? { version: fetched, distTag: 'latest' } : fetched
+    const latest = release.version
     if (!isValidVersion(latest)) {
       throw new Error(`core-update: npm returned an unparseable version "${latest}"`)
     }
     this.latestVersion = latest.trim().replace(/^[v=]+/, '')
+    this.latestChannel = channel
+    this.latestDistTag = release.distTag === 'stable' ? 'stable' : 'latest'
     this.lastCheckedAt = Date.now()
     this.persistStatus()
     return this.getStatus()
@@ -162,7 +208,7 @@ export class CoreUpdateManager {
     if (!this.isAvailable()) {
       return { ok: false, error: 'Core updates are unavailable in this build.' }
     }
-    const requested = (targetVersion ?? this.pendingVersion ?? this.latestVersion ?? '').trim().replace(/^[v=]+/, '')
+    const requested = (targetVersion ?? this.pendingVersion ?? this.channelLatest() ?? '').trim().replace(/^[v=]+/, '')
     if (!requested || !isValidVersion(requested)) {
       return { ok: false, error: 'No valid target version to update to. Check for updates first.' }
     }
@@ -306,7 +352,7 @@ export class CoreUpdateManager {
     try {
       const root = managedCoreRoot(this.home)
       fs.mkdirSync(root, { recursive: true, mode: 0o700 })
-      atomicWrite(path.join(root, 'update-status.json'), JSON.stringify({ latestVersion: this.latestVersion, lastCheckedAt: this.lastCheckedAt, pendingVersion: this.pendingVersion, migrationError: this.migrationError }))
+      atomicWrite(path.join(root, 'update-status.json'), JSON.stringify({ latestVersion: this.latestVersion, channel: this.latestChannel, distTag: this.latestDistTag, lastCheckedAt: this.lastCheckedAt, pendingVersion: this.pendingVersion, migrationError: this.migrationError }))
     } catch (error) {
       if (required) throw new Error(`Could not persist Core update recovery state: ${error instanceof Error ? error.message : String(error)}`)
       // A registry-cache failure does not erase the installed version.
@@ -341,15 +387,37 @@ function realTmpDir(): string {
   }
 }
 
-/** GET the latest published version from the npm registry (no npm binary needed). */
-async function fetchLatestFromRegistry(): Promise<string> {
+/** npm dist-tag a channel reads. Exported for tests and docs parity. */
+export function coreDistTagFor(channel: UpdateChannel): 'latest' | 'stable' {
+  return channel === 'stable' ? 'stable' : 'latest'
+}
+
+/**
+ * Resolve a channel against the npm registry (no npm binary needed). `stable`
+ * reads the `stable` dist-tag; only a 404 for that tag (Core has not published
+ * one yet) falls back to `latest`, reported as `distTag: 'latest'`. Any other
+ * failure fails the check instead of silently changing channel.
+ */
+export async function fetchChannelFromRegistry(channel: UpdateChannel, fetchImpl: typeof fetch = fetch): Promise<CoreChannelRelease> {
+  const distTag = coreDistTagFor(channel)
+  const version = await fetchDistTag(distTag, fetchImpl)
+  if (version !== null) return { version, distTag }
+  if (distTag === 'latest') throw new Error('npm registry returned 404')
+  const fallback = await fetchDistTag('latest', fetchImpl)
+  if (fallback === null) throw new Error('npm registry returned 404')
+  return { version: fallback, distTag: 'latest' }
+}
+
+/** Version for a dist-tag, or null when the registry has no such tag (404). */
+async function fetchDistTag(distTag: 'latest' | 'stable', fetchImpl: typeof fetch): Promise<string | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS)
   try {
-    const res = await fetch(REGISTRY_URL, {
+    const res = await fetchImpl(`${REGISTRY_BASE}/${distTag}`, {
       signal: controller.signal,
       headers: { accept: 'application/json' },
     })
+    if (res.status === 404) return null
     if (!res.ok) {
       throw new Error(`npm registry returned ${res.status}`)
     }

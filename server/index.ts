@@ -14,6 +14,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { WsMessage } from './types'
 import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
+import { API_VERSION, API_VERSION_HEADER, apiVersionHeader } from './api-version'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
 import { setDetectedProvidersSupplier } from './provider-selection'
 import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
@@ -186,6 +187,7 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
     if (ALLOWED_ORIGIN_PATTERN.test(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
       res.setHeader('Vary', 'Origin')
+      res.setHeader('Access-Control-Expose-Headers', API_VERSION_HEADER)
     } else {
       // Non-localhost origin — reject with 403
       res.status(403).json({ error: 'Forbidden: cross-origin requests not allowed' })
@@ -204,6 +206,9 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
 }
 
 app.use(corsMiddleware)
+// Every /api response (desktop, project-scoped, auth failures, 404s) carries the
+// API contract version. Mounted before any /api router so nothing bypasses it.
+app.use('/api', apiVersionHeader)
 app.use('/api/host', createHostControlRouter({ token: hostControlToken, onShutdown: shutdown }))
 
 // Provider traffic uses the desktop listener as a stable relay. Mount before
@@ -505,6 +510,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     version: PKG_VERSION,
+    apiVersion: API_VERSION,
     uptime: Math.floor(process.uptime()),
     projects: _getProjectCount(),
     mode: 'super',

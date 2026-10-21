@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1054 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -610,6 +610,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
 - [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
+- [UpdateChannelSection.tsx](../../client/src/features/settings/components/UpdateChannelSection.tsx) · [test](../../client/src/features/settings/components/__tests__/UpdateChannelSection.test.tsx)
 
 ## client/src/features/settings/components/pickers
 
@@ -783,6 +784,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [api-response.ts](../../client/src/lib/api-response.ts) · [test](../../client/src/lib/__tests__/api-response.test.ts)
 - [api.ts](../../client/src/lib/api.ts) · [test](../../client/src/lib/__tests__/api.test.ts)
+- [app-updater.ts](../../client/src/lib/app-updater.ts) · [test](../../client/src/lib/__tests__/app-updater.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
@@ -886,6 +888,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server / other
 
 - [api-not-found.ts](../../server/api-not-found.ts)
+- [api-version.ts](../../server/api-version.ts) · [test](../../server/api-version.test.ts)
 - [artifact-registry.ts](../../server/artifact-registry.ts) · [test](../../server/artifact-registry.test.ts)
 - [attachment-manager.ts](../../server/attachment-manager.ts) · [test](../../server/attachment-manager.test.ts)
 - [auth.ts](../../server/auth.ts) · [test](../../server/auth.test.ts)
@@ -950,6 +953,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [terminal-shell-integration.ts](../../server/terminal-shell-integration.ts) · [test](../../server/terminal-shell-integration.test.ts)
 - [transient-children.ts](../../server/transient-children.ts) · [test](../../server/transient-children.test.ts)
 - [types.ts](../../server/types.ts)
+- [update-channel.ts](../../server/update-channel.ts) · [test](../../server/update-channel.test.ts)
 - [user-mcp-config.ts](../../server/user-mcp-config.ts) · [test](../../server/user-mcp-config.test.ts)
 - [vitest-setup.ts](../../server/vitest-setup.ts)
 - [webhook-manager.ts](../../server/webhook-manager.ts) · [test](../../server/webhook-manager.test.ts)
@@ -1488,6 +1492,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## src-tauri/src
 
+- [app_updates.rs](../../src-tauri/src/app_updates.rs)
 - [backend_health.rs](../../src-tauri/src/backend_health.rs)
 - [browser.rs](../../src-tauri/src/browser.rs)
 - [browser_capture.rs](../../src-tauri/src/browser_capture.rs)

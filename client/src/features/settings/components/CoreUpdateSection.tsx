@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Download, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { UPDATE_CHANNEL_CHANGED_EVENT } from '../../../lib/app-updater'
 
 interface CoreUpdateStatus {
   available: boolean
@@ -18,6 +19,9 @@ interface CoreUpdateStatus {
   runtimeError?: string | null
   pendingVersion?: string | null
   migrationError?: string | null
+  channel?: 'latest' | 'stable'
+  resolvedDistTag?: 'latest' | 'stable' | null
+  channelFallback?: boolean
 }
 
 type ProgressPhase = 'downloading' | 'materializing' | 'done' | 'error' | null
@@ -60,7 +64,13 @@ export function CoreUpdateSection() {
     void refresh()
     const focus = () => { void refresh() }
     window.addEventListener('focus', focus)
-    return () => { requestGeneration.current++; window.removeEventListener('focus', focus) }
+    // A channel switch invalidates the cached target (it belonged to the other dist-tag).
+    window.addEventListener(UPDATE_CHANNEL_CHANGED_EVENT, focus)
+    return () => {
+      requestGeneration.current++
+      window.removeEventListener('focus', focus)
+      window.removeEventListener(UPDATE_CHANNEL_CHANGED_EVENT, focus)
+    }
   }, [refresh])
 
   // Stream update progress (app-level message — reaches every handler).
@@ -203,6 +213,9 @@ export function CoreUpdateSection() {
                 </button>
               )}
             </div>
+            {status.channel === 'stable' && status.channelFallback && (
+              <p className="text-[11px] text-muted-foreground">{t('coreUpdate.stableFallback')}</p>
+            )}
             {status.runtimeError && <p role="alert" className="text-xs text-destructive">{status.runtimeError}</p>}
             {status.migrationError && <p role="alert" className="text-xs text-destructive">{status.migrationError}</p>}
             {loadError && <button type="button" className="text-xs text-destructive" onClick={() => { void refresh() }}>{t('coreUpdate.loadFailed')}</button>}

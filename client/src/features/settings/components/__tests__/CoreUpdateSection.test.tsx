@@ -48,6 +48,18 @@ beforeEach(() => {
 })
 
 describe('CoreUpdateSection', () => {
+  it('explains the stable fallback and refreshes when the channel changes', async () => {
+    routeFetch({ '/core-update/status': [
+      { ok: true, body: STATUS({ channel: 'latest' }) },
+      { ok: true, body: STATUS({ channel: 'stable', channelFallback: true, resolvedDistTag: 'latest', lastCheckedAt: 1 }) },
+    ] })
+    render(<CoreUpdateSection />)
+    await screen.findByText('4.8.0')
+    expect(screen.queryByText(/no stable release yet/)).toBeNull()
+    act(() => { window.dispatchEvent(new CustomEvent('specrails:update-channel-changed', { detail: 'stable' })) })
+    expect(await screen.findByText(/no stable release yet/)).toBeTruthy()
+  })
+
   it('distinguishes the active framework, selected runtime and older bundled version', async () => {
     routeFetch({ '/core-update/status': { ok: true, body: STATUS({ currentVersion: '5.0.0', runtimeVersion: '5.0.1', runtimeSource: 'global', bundledVersion: '4.12.0' }) } })
     render(<CoreUpdateSection />)

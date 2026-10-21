@@ -93,6 +93,52 @@ export async function verifyLatestChannel(version, { fetchImpl = fetch, now = Da
   const current = await response.json()
   assertPromotion(version, current.version)
 }
+export const STABLE_SOAK_DAYS = 7
+const STABLE_POINTER = 'https://github.com/fjpulidop/specrails-desktop/releases/download/stable/latest.json'
+/**
+ * Pure stable-channel admission: a published (non-draft, non-prerelease) vX.Y.Z
+ * release that soaked on latest for STABLE_SOAK_DAYS, whose exact commit has a
+ * green main push CI, which ships an updater latest.json, and which does not move
+ * stable backwards unless a rollback is explicitly requested.
+ */
+export function assertStablePromotion({ version, release, ciRun, currentStable = null, now = Date.now(), allowRollback = false, repository, sha }) {
+  stableVersion(version)
+  validIdentity(repository, sha)
+  const tag = `v${version}`
+  if (!release || release.tag_name !== tag) throw new Error(`Release ${tag} was not found; only published releases can be promoted.`)
+  if (release.draft || release.prerelease) throw new Error(`Release ${tag} is a draft or prerelease; only published releases can be promoted.`)
+  const published = Date.parse(release.published_at ?? '')
+  if (!Number.isFinite(published)) throw new Error(`Release ${tag} has no publication date.`)
+  const soakedDays = (now - published) / 86_400_000
+  if (soakedDays < STABLE_SOAK_DAYS) throw new Error(`Release ${tag} has been on latest for ${soakedDays.toFixed(1)} days; stable requires ${STABLE_SOAK_DAYS}.`)
+  if (!Array.isArray(release.assets) || !release.assets.some(asset => asset?.name === 'latest.json')) throw new Error(`Release ${tag} has no updater latest.json asset.`)
+  if (!ciRun || ciRun.status !== 'completed' || ciRun.conclusion !== 'success') throw new Error(`No successful main push CI was found for ${tag} (${sha}); stable promotion is blocked.`)
+  if (currentStable !== null) {
+    stableVersion(currentStable)
+    if (!allowRollback) assertPromotion(version, currentStable)
+  }
+  return { tag, version, sha }
+}
+/** Current stable pointer version, or null before the first promotion (404). */
+export async function currentStableVersion({ fetchImpl = fetch, now = Date.now } = {}) {
+  const response = await fetchImpl(`${STABLE_POINTER}?release-check=${now()}`, { signal: AbortSignal.timeout(15_000), headers: { 'Cache-Control': 'no-cache' } })
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(`Cannot read the current stable channel (HTTP ${response.status}); refusing to overwrite it.`)
+  return stableVersion((await response.json()).version)
+}
+export async function stablePromotion({ repository, version, allowRollback = false, request = githubJson, fetchImpl = fetch, now = Date.now }) {
+  stableVersion(version)
+  const tag = `v${version}`
+  const release = await request(`/repos/${repository}/releases/tags/${tag}`)
+  const commit = await request(`/repos/${repository}/commits/${tag}`)
+  const sha = commit?.sha
+  validIdentity(repository, sha)
+  const runs = await request(`/repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${sha}&event=push&branch=main&per_page=100`)
+  if (!Array.isArray(runs.workflow_runs)) throw new Error('GitHub returned an invalid CI history. Promotion remains blocked.')
+  const ciRun = latestTrustedCiRun(runs.workflow_runs, { repository, sha })
+  const currentStable = await currentStableVersion({ fetchImpl, now })
+  return assertStablePromotion({ version, release, ciRun, currentStable, now: now(), allowRollback, repository, sha })
+}
 /** Retention expiry permits one source rebuild; API errors or conflicting evidence never do. */
 export async function retainedClientArtifact({ repository, sha, runId, request = githubJson }) {
   validIdentity(repository, sha)
@@ -185,6 +231,10 @@ async function main(command) {
     output('published', await npmPackageStatus(receipt) ? 'true' : 'false')
   } else if (command === 'core-version') {
     output('version', stableVersion(process.env.CORE_VERSION))
-  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|client-artifact|main-current|latest|npm-status|core-version')
+  } else if (command === 'stable-promotion') {
+    const allowRollback = process.env.ALLOW_STABLE_ROLLBACK === 'true'
+    const result = await stablePromotion({ repository, version: process.env.PROMOTE_VERSION, allowRollback })
+    output('tag', result.tag); output('version', result.version); output('sha', result.sha)
+  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|client-artifact|main-current|latest|npm-status|core-version|stable-promotion')
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv[2]).catch(error => { console.error(error.message); process.exitCode = 1 })

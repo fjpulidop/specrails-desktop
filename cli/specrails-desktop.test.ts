@@ -269,9 +269,10 @@ describe('handleStatus', () => {
   })
 
   it('prints running status for Super mode', async () => {
-    ;({ server, port } = await createMockServer([{ path: '/api/health', status: 200, body: { status: 'ok', version: '1.0.0', mode: 'super', projects: 3 } }]))
+    ;({ server, port } = await createMockServer([{ path: '/api/health', status: 200, body: { status: 'ok', version: '1.0.0', mode: 'super', projects: 3, apiVersion: 1 } }]))
     const o = await captureStdoutAsync(async () => { expect(await _internal.handleStatus(port)).toBe(0) })
     expect(o).toContain('running'); expect(o).toContain('v1.0.0'); expect(o).toContain('super')
+    expect(o).toContain('api:         v1')
   })
 
   it('returns 1 when health returns non-200', async () => {

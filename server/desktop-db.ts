@@ -9,6 +9,7 @@ import { secureDir, secureDbFile } from './util/secure-fs'
 import { applyNumberedMigrations } from './util/sqlite-migrations'
 import { randomUUID } from 'crypto'
 import { canonicalRepositoryPath, repositoryPathKey, repositoryAvailable, legacyRepositoryKind, inspectRepositoryPath, assertDistinctRepositories, RepositoryValidationError, type ProjectRepository, type ProjectRepositoryInput } from './project-repositories'
+import { isUpdateChannel, parseUpdateChannel, type UpdateChannel } from './update-channel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -934,6 +935,18 @@ export function getGlobalSubagentRuntime(db: DbInstance): SubagentRuntimeSetting
 export function setGlobalSubagentRuntime(db: DbInstance, value: SubagentRuntimeSetting | null): void {
   if (value === null) db.prepare('DELETE FROM desktop_settings WHERE key = ?').run(GLOBAL_SUBAGENT_RUNTIME_KEY)
   else setDesktopSetting(db, GLOBAL_SUBAGENT_RUNTIME_KEY, JSON.stringify(value))
+}
+
+/** App-global release channel for Desktop and Core updates (default `latest`). */
+export const UPDATE_CHANNEL_KEY = 'update_channel'
+
+export function getUpdateChannel(db: DbInstance): UpdateChannel {
+  return parseUpdateChannel(getDesktopSetting(db, UPDATE_CHANNEL_KEY))
+}
+
+export function setUpdateChannel(db: DbInstance, channel: UpdateChannel): void {
+  if (!isUpdateChannel(channel)) throw new Error('updateChannel must be "latest" or "stable"')
+  setDesktopSetting(db, UPDATE_CHANNEL_KEY, channel)
 }
 
 export function getDesktopSetting(db: DbInstance, key: string): string | undefined {
