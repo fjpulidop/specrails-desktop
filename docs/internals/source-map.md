@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1052 source/build files. Nearby tests are linked where names
+Includes 1057 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -568,6 +568,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RailRow.tsx](../../client/src/features/rails/components/RailRow.tsx) · [test](../../client/src/features/rails/components/__tests__/RailRow.test.tsx)
 - [RailTargetPrSelector.tsx](../../client/src/features/rails/components/RailTargetPrSelector.tsx) · [test](../../client/src/features/rails/components/__tests__/RailTargetPrSelector.test.tsx)
 - [RailsBoard.tsx](../../client/src/features/rails/components/RailsBoard.tsx) · [test](../../client/src/features/rails/components/__tests__/RailsBoard.test.tsx)
+- [ReviewWipBadge.tsx](../../client/src/features/rails/components/ReviewWipBadge.tsx)
 
 ## client/src/features/rails/context
 
@@ -800,6 +801,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
+- [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
@@ -1213,6 +1215,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [index.ts](../../server/modules/delivery/index.ts)
 
+## server/modules/delivery/adapters
+
+- [review-wip-store.ts](../../server/modules/delivery/adapters/review-wip-store.ts)
+
 ## server/modules/delivery/adapters/decisions
 
 - [chains.ts](../../server/modules/delivery/adapters/decisions/chains.ts)
@@ -1233,6 +1239,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/delivery/domain
 
 - [decision-policy.ts](../../server/modules/delivery/domain/decision-policy.ts)
+- [review-wip.ts](../../server/modules/delivery/domain/review-wip.ts)
 - [state.ts](../../server/modules/delivery/domain/state.ts)
 
 ## server/modules/delivery/runtime
@@ -1269,6 +1276,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [rails-router.ts](../../server/modules/delivery/runtime/rails-router.ts) · [test](../../server/modules/delivery/runtime/rails-router.test.ts)
 - [rails-store.ts](../../server/modules/delivery/runtime/rails-store.ts) · [test](../../server/modules/delivery/runtime/rails-store.test.ts)
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
+- [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
 
 ## server/modules/execution
 

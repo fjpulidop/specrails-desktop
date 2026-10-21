@@ -507,6 +507,32 @@ is superseded atomically and run on that PR head. A stale
 concurrent request receives 409 before it can allocate or claim anything. Legacy / non-isolated
 launches are unaffected.
 
+## Review WIP limit
+
+The project setting `reviewWipLimit` (null = no limit) caps how many deliveries wait for review.
+`server/modules/delivery/domain/review-wip.ts` counts top-level rows in `building`, `on_review`,
+`pr_draft` or `pr_ready`. `building` counts because it lands on review when it settles, and only
+counting it keeps the cap exact under Launch all. Per-repository children, `no_changes`,
+`implementation_failed`, `pr_failed`, `pr_closed` and terminal rows do not count.
+
+`runtime/review-wip-gate.ts` is bound per project as `ProjectContext.reviewWipGate`. The launch
+route checks it right after the daily budget gate, before relaunch restoration, worktree allocation
+or any spawn. A new delivery at the limit gets
+**409 `{ error: 'review_wip_limit_reached', limit, pending: [{ deliveryId, railIndex, ticketIds, since }], detail, action }`**.
+An admitted launch holds an in-memory reservation for its rail until the response finishes (the
+delivery row then exists), so parallel launches cannot overshoot.
+
+Continuations add no review work and are exempt (`launchAddsReviewWip`): `revisionOfDeliveryId`,
+Relaunch of a recorded delivery, `targetPrNumber`/`followUp`, and any launch on a rail that still owns an
+active delivery. The relaunch guard above only lets the last case through as that delivery's
+continuation; anything else gets `pr_decision_pending`. `since` is the delivery's `created_at`.
+
+Surfaces: the rails header badge "In review N/L" lists the pending deliveries. At the limit, Play is
+disabled with a tooltip on rails that would open a new delivery. Launch all starts at most the
+remaining capacity in board order and its dialog names the held rails. MCP `launch_all` reports
+`review-wip-limit` skips and mobile relays the 409 unchanged. The mission operator prompt explains
+the refusal.
+
 ## Explicit target PR (deliver-rail-into-existing-pr)
 
 The launch body accepts an optional `targetPrNumber` — the user's explicit designation of an
