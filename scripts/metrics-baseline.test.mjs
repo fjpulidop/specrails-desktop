@@ -15,11 +15,14 @@ let jobsDb
 // Build both schemas with the REAL migrations (TypeScript, loaded through tsx)
 // so the script's SQL is checked against the shipped column names.
 function initSchemas(desktopPath, projectPath) {
+  // tsx may expose a TS module as ESM named exports or as a CommonJS namespace
+  // (`default`) depending on the Node version, so resolve both shapes.
   const source = `
-    import { initDb } from './server/db/connection.ts'
-    import { initDesktopDb } from './server/desktop-db.ts'
-    initDb(${JSON.stringify(projectPath)}).close()
-    initDesktopDb(${JSON.stringify(desktopPath)}).close()
+    const pick = (mod, name) => mod[name] ?? mod.default?.[name]
+    const connection = await import('./server/db/connection.ts')
+    const desktop = await import('./server/desktop-db.ts')
+    pick(connection, 'initDb')(${JSON.stringify(projectPath)}).close()
+    pick(desktop, 'initDesktopDb')(${JSON.stringify(desktopPath)}).close()
   `
   const result = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', source], { cwd: root, encoding: 'utf8', timeout: 60_000 })
   assert.equal(result.status, 0, result.stderr)
