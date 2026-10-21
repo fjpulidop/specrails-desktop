@@ -198,12 +198,7 @@
     "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 SpecRails 服务器——请选择“允许在专用网络上”。",
     "pairedDevices": "已配对设备",
     "noDevices": "尚无已配对设备。",
-    "revokeDevice": "吊销 {{name}}",
-    "previewing": "正在查看 {{url}} · {{project}}",
-    "endPreview": "结束预览",
-    "endPreviewLabel": "结束在 {{name}} 上打开的应用预览",
-    "previewEnded": "已结束 {{name}} 上的预览",
-    "endPreviewFailed": "无法结束预览"
+    "revokeDevice": "吊销 {{name}}"
   },
   "pairWeb": {
     "title": "配对网页伴侣",

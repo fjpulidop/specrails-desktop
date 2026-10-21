@@ -567,7 +567,15 @@
       "count": "Processus : {{count}}"
     },
     "interruptedHint": "Specrails ne supervise plus ce processus. Son état dans le système d’exploitation est inconnu ; les journaux enregistrés restent disponibles.",
-    "persistenceFailed": "L’historique du processus n’a pas pu être enregistré. La sortie disponible reste visible."
+    "persistenceFailed": "L’historique du processus n’a pas pu être enregistré. La sortie disponible reste visible.",
+    "appUrls": {
+      "title": "Adresses de l’app",
+      "local": "Cet ordinateur",
+      "network": "Votre réseau",
+      "open": "Ouvrir {{url}} dans le navigateur",
+      "copy": "Copier {{url}}",
+      "localOnly": "Accessible uniquement depuis cet ordinateur. Pour l’ouvrir depuis votre téléphone sur le même Wi-Fi, demandez à l’agent de la relancer exposée sur votre réseau local."
+    }
   },
   "window": {
     "detach": "Ouvrir dans une fenêtre séparée",

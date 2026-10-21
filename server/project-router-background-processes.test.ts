@@ -146,21 +146,14 @@ describe('POST /:projectId/background-processes', () => {
       .send({ command: 'npm run dev', chatId: 'chat-1', confirmed: true })
 
     expect(res.status).toBe(202)
+    const hooks = vi.mocked(startBackgroundProcess).mock.calls[0][4]
+    // Output only feeds app-URL detection; log lines are never forwarded.
+    hooks?.onOutput?.({ sequence: 1, at: 1, source: 'stdout', line: 'compiled in 120ms', processId: 'execution-910', pid: 910, chatId: 'chat-1', projectId: 'p1' })
     expect(broadcast).toHaveBeenCalledTimes(1)
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
       type: 'background_process.started',
       process: expect.objectContaining({ pid: 910, chatId: 'chat-1' }),
     }))
-
-    // Output is observed only to detect Companion preview URLs: an ordinary
-    // line is never forwarded, and an announcement carries identity only.
-    const hooks = vi.mocked(startBackgroundProcess).mock.calls[0][4]
-    const line = (text: string) => ({ sequence: 1, at: 0, source: 'stdout' as const, line: text, processId: 'execution-910', pid: 910, chatId: 'chat-1', projectId: 'p1' })
-    hooks?.onOutput?.(line('secret token=abc'))
-    expect(broadcast).toHaveBeenCalledTimes(1)
-    hooks?.onOutput?.(line('  ➜  Local:   http://localhost:5173/'))
-    expect(broadcast).toHaveBeenCalledTimes(2)
-    expect(broadcast).toHaveBeenLastCalledWith({ type: 'background_process.preview_targets', processId: 'execution-910', chatId: 'chat-1', projectId: 'p1', timestamp: expect.any(String) })
     expect(broadcast).not.toHaveBeenCalledWith(expect.objectContaining({
       type: 'background_process.output',
     }))
@@ -284,6 +277,16 @@ describe('background execution stop and discovery', () => {
     expect(listBackgroundProcesses).toHaveBeenCalledWith({ projectId: 'p1', chatId: 'chat-1', includeFinished: true })
     await request(app).get('/api/projects/p1/background-processes/910/logs').query({ chatId: 'chat-1', processId: 'execution-910', limit: 100 })
     expect(getBackgroundProcessLogs).toHaveBeenCalledWith(910, { projectId: 'p1', chatId: 'chat-1', processId: 'execution-910', limit: 100 })
+  })
+
+  it('lists a running execution with the app URLs its output announced', async () => {
+    vi.mocked(listBackgroundProcesses).mockReturnValue([live])
+    vi.mocked(getBackgroundProcessLogs).mockReturnValue({ process: live,
+      lines: [{ sequence: 1, at: 11, source: 'stdout', line: '  ➜  Local:   http://localhost:5173/' },
+        { sequence: 2, at: 12, source: 'stdout', line: '  ➜  Network: http://192.168.1.20:5173/' }],
+      nextSequence: 2, truncated: false, droppedLines: 0, maxLines: 10000, maxLineChars: 4000, retentionMs: 1 })
+    const res = await request(buildApp()).get('/api/projects/p1/background-processes').query({ chatId: live.chatId })
+    expect(res.body.processes[0].appUrls).toEqual({ local: ['http://localhost:5173/'], network: ['http://192.168.1.20:5173/'] })
   })
 
   it('keeps recovered executions readable but refuses to signal their historical PID', async () => {

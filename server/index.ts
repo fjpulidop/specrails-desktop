@@ -664,20 +664,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // Second HTTPS+WSS listener in THIS process; the main server stays loopback.
   // The control plane is desktop-only: loopback + (via /api below) requireAuth.
   // Mounted before the /api desktop router so its sub-path is unambiguous.
-  const mobileGateway = new MobileGateway({
-    desktopDb: registry.desktopDb,
-    desktopPort: port,
-    broadcast,
-    // Companion app preview: each project's browser + the process-log targets.
-    preview: {
-      enabled: () => BROWSER_CAPTURE_ENABLED,
-      browserFor: (projectId) => registry.getContext(projectId)?.browserCaptureManager ?? null,
-      allBrowsers: () => registry.listProjects()
-        .map((project) => registry.getContext(project.id)?.browserCaptureManager)
-        .filter((manager): manager is NonNullable<typeof manager> => manager != null),
-      targets: registry.previewTargets,
-    },
-  })
+  const mobileGateway = new MobileGateway({ desktopDb: registry.desktopDb, desktopPort: port, broadcast })
   _mobileGateway = mobileGateway
   app.use('/api/mobile', requireLoopback, createMobileAdminRouter({
     gateway: mobileGateway,

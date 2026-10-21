@@ -127,32 +127,19 @@ Loopback-only admin surface for the Mobile Gateway (the gateway itself is a sepa
 | `GET` | `/devices` | List paired devices |
 | `DELETE` | `/devices/:id` | Revoke a paired device |
 | `POST` | `/cert/rotate` | Rotate the gateway TLS identity (unpairs every device) |
-| `GET` | `/previews` | Live Companion app previews (`{ previews: [{ projectId, projectName, sessionId, deviceId, deviceName, url, title, createdAt }] }`) |
-| `DELETE` | `/previews/:projectId/:sessionId` | End a device-owned preview from Desktop (`{ ok }`; Desktop sessions are never affected) |
 
-Revoking a device also ends its previews. The app-level WS event `mobile.previews_changed` (no `projectId`) tells Settings ▸ Mobile to refetch the list.
+### Mission app addresses
 
-#### Companion app preview (gateway `/v1`)
-
-A paired Companion views a project's locally served web app through a device-owned server-side browser session. The routes require the mission grant (all-projects device) and the `appPreview` capability (`GET /v1/capabilities` → `features.appPreview`, true when browser capture is enabled).
-
-| Method | Path | Notes |
-|--------|------|-------|
-| `GET` | `/v1/projects/:pid/missions/:cid/preview-targets` | `{ targets: [{ processId, urls }] }`: local URLs announced in the logs of the mission's running background processes |
-| `POST` | `/v1/projects/:pid/preview-sessions` | Body `{ missionId, processId, url, viewport? }`; `url` must be announced by that process. `201 { sessionId, channel, url }` |
-| `POST` | `/v1/projects/:pid/preview-sessions/:sid/attach` | Re-attach after a reconnect: `{ sessionId, channel }` (a new DataChannel replaces the old one) |
-| `POST` | `/v1/projects/:pid/preview-sessions/:sid/navigate` | Body `{ action: goto\|back\|forward\|reload, url? }`; `goto` accepts only paths on announced origins |
-| `DELETE` | `/v1/projects/:pid/preview-sessions/:sid` | End the device's own preview |
-
-Errors carry `{ error, code }`. Codes: `preview_unavailable` (404), `preview_target_gone` (404), `preview_session_closed` (404), `preview_url_not_announced` (400), `preview_limit` (429), `preview_requires_webrtc` (409), `preview_failed` (502). Sessions owned by Desktop or by another device are reported as `preview_session_closed`.
-
-**Channel.** `channel` is the label of an ordered, reliable DataChannel (`preview:<sessionId>`) that Desktop opens on the device's existing WebRTC peer without renegotiation:
-
-- **Desktop → Companion, text:** JSON control: `ready` (`{ id, url, title, viewport }`), `nav`, `popup`, `closed` (`{ reason }`) and `nav_rejected`.
-- **Desktop → Companion, binary:** JPEG screencast frames in fragments of at most 16 000 bytes. Each fragment starts with an 8-byte big-endian header `u32 frameSeq | u16 index | u16 count`. Render a frame only when all of its fragments have arrived. A newer `frameSeq` discards an incomplete older frame.
-- **Companion → Desktop:** JSON `{ type: 'input', event }` (mouse / wheel / key / resize, validated) and `{ type: 'navigate', action, url? }`, rate-limited to 6 000 messages per minute.
-
-**Origin policy.** A device session may load a loopback origin only while a running background process of the project announces it. Every other request passes the regular server-side SSRF guard. Device sessions have their own budget: one per device (opening a new one replaces it) and two per project. They never count against Desktop's four sessions.
+A running mission background process (`GET /api/projects/:id/background-processes`,
+its `/:pid/logs` snapshot, the Companion's `/v1/projects/:pid/missions/:cid/processes`
+proxy and every `background_process.*` WS event) carries
+`appUrls: { local: string[], network: string[] }` once its output announces an
+address. `local` opens on the Desktop computer; `network` holds private LAN/VPN
+addresses (RFC 1918, `100.64/10`, `*.local`, or this machine's addresses for a
+`0.0.0.0` bind) that a phone on the same Wi-Fi opens in its own browser. The
+field is derived from the retained logs on read, never persisted, and absent
+once the process stops. A new or changed address is announced as a
+`background_process.updated` event; log lines themselves are not broadcast.
 
 ### specrails-tech proxy
 

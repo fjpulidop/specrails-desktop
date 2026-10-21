@@ -30,6 +30,8 @@ export interface BackgroundProcess {
   recoveredAt?: number
   exitCode?: number | null
   signal?: string | null
+  /** Addresses a running process announced (derived on read, never persisted). */
+  appUrls?: { local: string[]; network: string[] }
 }
 export interface BackgroundProcessLogLine {
   sequence: number

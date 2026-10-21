@@ -15,7 +15,6 @@ import { MobileSignalReconnect } from './mobile-signal-reconnect'
 import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
 import type { MobilePlatform } from './mobile-types'
 import { getAgentConversation } from '../modules/agents/runtime/agent-store'
-import { MobilePreviewService, type MobilePreviewDeps } from './mobile-preview'
 
 // Lifecycle owner of the second HTTPS+WSS listener (default :4202), hard-isolated
 // from the main server. Off by default; started on enable or boot-if-enabled.
@@ -44,9 +43,6 @@ export interface MobileGatewayDeps {
   bindHost?: string
   /** Overrides the `mobile.port` setting (use 0 for an ephemeral test port). */
   port?: number
-  /** Companion app preview host (project browsers + process targets). The
-   *  gateway supplies the WebRTC channel factory. Absent ⇒ feature off. */
-  preview?: Omit<MobilePreviewDeps, 'openChannel'>
 }
 
 export interface MobileGatewayStatus {
@@ -70,7 +66,6 @@ export class MobileGateway {
   private _running = false
   private _boundPort = DEFAULT_PORT
   private readonly _portOverride?: number
-  private readonly _preview: MobilePreviewService | null
 
   constructor(deps: MobileGatewayDeps) {
     this._db = deps.desktopDb
@@ -78,23 +73,6 @@ export class MobileGateway {
     this._broadcast = deps.broadcast
     this._bindHost = deps.bindHost ?? '0.0.0.0'
     this._portOverride = deps.port
-    this._preview = deps.preview
-      ? new MobilePreviewService({
-        ...deps.preview,
-        openChannel: (deviceId, label) => this._webrtc?.openChannel(deviceId, label) ?? null,
-        onChange: () => this._broadcast({ type: 'mobile.previews_changed', timestamp: new Date().toISOString() }),
-      })
-      : null
-  }
-
-  get preview(): MobilePreviewService | null {
-    return this._preview
-  }
-
-  /** A revoked device loses its peer mapping and every preview it owns. */
-  async closePreviewsForDevice(deviceId: string): Promise<void> {
-    this._webrtc?.forgetDevice(deviceId)
-    await this._preview?.closeForDevice(deviceId)
   }
 
   get bridge(): MobileWsBridge | null {
@@ -177,7 +155,6 @@ export class MobileGateway {
       db: this._db,
       desktopPort: this._desktopPort,
       currentFingerprint: () => this._cert!.fingerprint,
-      ...(this._preview ? { preview: this._preview } : {}),
     }))
 
     const server = https.createServer({ cert: this._cert.certPem, key: this._cert.keyPem }, app)

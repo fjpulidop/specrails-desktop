@@ -23,6 +23,9 @@ export interface BackgroundProcess {
   projectId: string
   exitCode?: number | null
   signal?: string | null
+  /** Addresses a running app announced: `local` for this computer, `network`
+   *  for a phone on the same Wi-Fi/VPN. Absent once it stops. */
+  appUrls?: { local: string[]; network: string[] }
 }
 
 export type JobPriority = 'low' | 'normal' | 'high' | 'critical'

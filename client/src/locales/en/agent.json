@@ -567,7 +567,15 @@
       "count": "Processes: {{count}}"
     },
     "interruptedHint": "Specrails stopped supervising this process. Its operating system state is unknown; saved logs remain available.",
-    "persistenceFailed": "The process history could not be saved. Available output remains visible."
+    "persistenceFailed": "The process history could not be saved. Available output remains visible.",
+    "appUrls": {
+      "title": "App addresses",
+      "local": "This computer",
+      "network": "Your network",
+      "open": "Open {{url}} in the browser",
+      "copy": "Copy {{url}}",
+      "localOnly": "Only reachable from this computer. To open it from your phone on the same Wi-Fi, ask the agent to relaunch it exposed on your local network."
+    }
   },
   "window": {
     "detach": "Open in separate window",

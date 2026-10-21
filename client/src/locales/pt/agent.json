@@ -567,7 +567,15 @@
       "count": "Processos: {{count}}"
     },
     "interruptedHint": "O Specrails deixou de monitorar este processo. Seu estado no sistema operacional é desconhecido; os logs salvos continuam disponíveis.",
-    "persistenceFailed": "Não foi possível salvar o histórico do processo. A saída disponível continua visível."
+    "persistenceFailed": "Não foi possível salvar o histórico do processo. A saída disponível continua visível.",
+    "appUrls": {
+      "title": "Endereços do app",
+      "local": "Este computador",
+      "network": "Sua rede",
+      "open": "Abrir {{url}} no navegador",
+      "copy": "Copiar {{url}}",
+      "localOnly": "Acessível apenas deste computador. Para abri-lo no celular na mesma Wi-Fi, peça ao agente para reiniciá-lo exposto na sua rede local."
+    }
   },
   "window": {
     "detach": "Abrir numa janela separada",

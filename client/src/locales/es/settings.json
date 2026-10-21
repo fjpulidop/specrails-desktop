@@ -198,12 +198,7 @@
     "windowsFirewall": "El Firewall de Windows pedirá permiso para el servidor de SpecRails la primera vez que lo actives — elige «Permitir en redes privadas».",
     "pairedDevices": "Dispositivos emparejados",
     "noDevices": "Aún no hay dispositivos emparejados.",
-    "revokeDevice": "Revocar {{name}}",
-    "previewing": "Viendo {{url}} · {{project}}",
-    "endPreview": "Terminar vista previa",
-    "endPreviewLabel": "Termina la vista previa de la app abierta en {{name}}",
-    "previewEnded": "Vista previa terminada en {{name}}",
-    "endPreviewFailed": "No se pudo terminar la vista previa"
+    "revokeDevice": "Revocar {{name}}"
   },
   "pairWeb": {
     "title": "Emparejar companion web",

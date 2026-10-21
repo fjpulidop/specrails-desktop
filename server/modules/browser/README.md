@@ -10,28 +10,6 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/browser-capture-types.ts](runtime/browser-capture-types.ts)
 - [runtime/browser-context-pool.ts](runtime/browser-context-pool.ts)
 - [runtime/browser-playwright.ts](runtime/browser-playwright.ts)
-- [runtime/preview-targets.ts](runtime/preview-targets.ts)
-- [domain/preview-origins.ts](domain/preview-origins.ts)
-
-## Companion app preview
-
-A paired Companion can view a project's locally served web app through a
-**device-owned** session of this manager (`owner: { kind: 'device' }`).
-Device sessions differ from Desktop sessions in three ways:
-
-- **Budget.** They do not count against the 4 Desktop sessions per project.
-  Each device holds one session (opening another replaces it), and a project
-  holds at most two device sessions.
-- **Origin pinning.** The pure policy in `domain/preview-origins.ts` allows a
-  loopback origin only while a running mission background process of the
-  project announces it in its logs (`runtime/preview-targets.ts`). Everything
-  else falls back to `isNavigableUrl`. A page-scoped request guard
-  (`setRequestGuard`) enforces it for documents, subresources and popups, and
-  creation fails closed without it. Desktop pages carry no guard and keep the
-  unchanged SSRF rule.
-- **Manual URLs.** `navigateAsDevice` accepts only paths on announced origins.
-
-The gateway side (channels, routes, capability) lives in `server/mobile/mobile-preview*.ts`.
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader2, X, Terminal } from 'lucide-react'
+import { AlertCircle, ExternalLink, Loader2, X, Terminal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { formatElapsed } from '../../../lib/format-duration'
+import { openExternalUrl } from '../../../lib/tauri-shell'
+import { primaryAppUrl } from './BackgroundProcessAppLinks'
 import type { BackgroundProcess } from '../../../types'
 
 export type BackgroundProcessAccent = 'accent-primary' | 'accent-info' | 'accent-highlight'
@@ -27,6 +29,7 @@ export function BackgroundProcessChip({
   const { t } = useTranslation('agent')
   const elapsed = useBackgroundProcessElapsed(process)
   const terminal = isBackgroundProcessFinished(process)
+  const appUrl = primaryAppUrl(process)
   const [stopping, setStopping] = useState(false)
   const [failed, setFailed] = useState(false)
   const busy = stopping || process.status === 'stopping' && !process.stopError && !process.error
@@ -54,6 +57,12 @@ export function BackgroundProcessChip({
           </TooltipTrigger>
           <TooltipContent>{t('backgroundProcess.open', { command: process.command })} · {elapsed}</TooltipContent>
         </Tooltip>
+        {!terminal && appUrl && <button type="button" aria-label={t('backgroundProcess.appUrls.open', { url: appUrl })}
+          title={t('backgroundProcess.appUrls.open', { url: appUrl })}
+          onClick={event => { event.preventDefault(); event.stopPropagation(); void openExternalUrl(appUrl) }}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-background/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+          <ExternalLink className="h-3 w-3" aria-hidden />
+        </button>}
         {stopFailed && <span role="alert" title={t('backgroundProcess.stopFailed')} className="flex shrink-0 items-center px-1 text-destructive"><AlertCircle className="h-3 w-3" aria-hidden /><span className="sr-only">{t('backgroundProcess.stopFailed')}</span></span>}
         {!terminal && <button type="button" disabled={busy} aria-label={t('backgroundProcess.stopCommand', { command: process.command })}
           title={t('backgroundProcess.stopCommand', { command: process.command })}

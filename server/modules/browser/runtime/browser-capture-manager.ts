@@ -8,8 +8,6 @@ import { attachmentManager as defaultAttachmentManager, type AttachmentManager }
 import {
   BrowserLimitExceededError,
   BrowserLaunchError,
-  BrowserNavigationRejectedError,
-  type BrowserSessionOwner,
   type BrowserContextHandle,
   type BrowserInputEvent,
   type BrowserPageHandle,
@@ -20,8 +18,7 @@ import {
   type ElementProbe,
   type SharedBrowserContext,
 } from './browser-capture-types'
-import { createPlaywrightLauncher, isNavigableUrl } from './browser-playwright'
-import { isManualPreviewUrlAllowed, isPreviewRequestAllowed } from '../domain/preview-origins'
+import { createPlaywrightLauncher } from './browser-playwright'
 import { normalizeBrowserDeviceScaleFactor, normalizeBrowserViewport } from './browser-viewport'
 
 const WS_OPEN = 1
@@ -34,14 +31,6 @@ function isTargetClosedError(err: unknown): boolean {
   return /target page, context or browser has been closed|target closed|has been closed/i.test(msg)
 }
 const MAX_SESSIONS_PER_PROJECT = 4
-/** Companion app-preview sessions have their own budget so a phone can never
- *  take Desktop's sessions: one per device (a new one replaces it), two per
- *  project across devices. */
-const MAX_DEVICE_SESSIONS_PER_PROJECT = 2
-/** The announced-origin set is consulted on every request of a preview page
- *  (a dev server loads hundreds of modules); re-derive it at most this often. */
-const PREVIEW_ORIGINS_TTL_MS = 1000
-const DESKTOP_OWNER: BrowserSessionOwner = { kind: 'desktop' }
 const DEFAULT_SESSION_IDLE_TTL_MS = 10 * 60_000
 const DEFAULT_SESSION_SWEEP_INTERVAL_MS = 60_000
 const DOM_HTML_BYTE_CAP = 100_000
@@ -70,7 +59,6 @@ export interface BrowserWsClient {
 interface BrowserSession {
   id: string
   projectId: string
-  owner: BrowserSessionOwner
   /** The root/opener page — capture, probe and persisted session metadata target
    *  this page. Interactive navigation follows the visible page instead. */
   page: BrowserPageHandle
@@ -143,10 +131,6 @@ export interface BrowserCaptureManagerOptions {
   now?: () => number
   sessionIdleTtlMs?: number
   sessionSweepIntervalMs?: number
-  /** Comparable origins (`previewOrigin`) currently announced by this
-   *  project's running background processes. Only device-owned preview
-   *  sessions may load these loopback origins; omitted ⇒ none. */
-  previewOrigins?: () => ReadonlySet<string>
 }
 
 /**
@@ -172,8 +156,6 @@ export class BrowserCaptureManager {
   private readonly contextPool: SharedBrowserContext | null
   private readonly now: () => number
   private readonly sessionIdleTtlMs: number
-  private readonly previewOrigins: () => ReadonlySet<string>
-  private previewOriginsCache: { at: number; origins: ReadonlySet<string> } | null = null
   private idleSweepTimer: ReturnType<typeof setInterval> | null = null
 
   private context: BrowserContextHandle | null = null
@@ -181,7 +163,7 @@ export class BrowserCaptureManager {
   private readonly sessions = new Map<string, BrowserSession>()
   /** Count of in-flight `create()` calls that have reserved a slot but not yet
    *  committed their session — guards the cap against concurrent creates. */
-  private _reserved = { desktop: 0, device: 0 }
+  private _reserved = 0
   private disposed = false
 
   constructor(opts: BrowserCaptureManagerOptions) {
@@ -192,7 +174,6 @@ export class BrowserCaptureManager {
     this.attachments = opts.attachments ?? defaultAttachmentManager
     this.contextPool = opts.contextPool ?? null
     this.now = opts.now ?? Date.now
-    this.previewOrigins = opts.previewOrigins ?? (() => new Set<string>())
     const requestedIdleTtlMs = opts.sessionIdleTtlMs
     this.sessionIdleTtlMs = typeof requestedIdleTtlMs === 'number' && Number.isFinite(requestedIdleTtlMs) && requestedIdleTtlMs > 0
       ? requestedIdleTtlMs
@@ -267,7 +248,6 @@ export class BrowserCaptureManager {
       viewportWidth: s.viewport.width,
       viewportHeight: s.viewport.height,
       createdAt: s.createdAt,
-      owner: s.owner,
     }
   }
 
@@ -296,52 +276,27 @@ export class BrowserCaptureManager {
     s.lastActivityAt = this.now()
   }
 
-  private liveCount(kind: BrowserSessionOwner['kind']): number {
-    return [...this.sessions.values()].filter((s) => !s.closed && s.owner.kind === kind).length
-  }
-
-  async create(opts?: {
-    initialUrl?: string
-    createdAtMs?: number
-    owner?: BrowserSessionOwner
-    viewport?: { width: number; height: number; deviceScaleFactor?: number }
-  }): Promise<BrowserSessionMeta> {
-    const owner = opts?.owner ?? DESKTOP_OWNER
-    const kind = owner.kind
-    const limit = kind === 'device' ? MAX_DEVICE_SESSIONS_PER_PROJECT : MAX_SESSIONS_PER_PROJECT
-    if (owner.kind === 'device') {
-      // A phone may only type announced origins (never an arbitrary URL), and
-      // is validated BEFORE replacing its previous session so a bad request
-      // leaves the current preview alone.
-      const initialUrl = opts?.initialUrl?.trim() ?? ''
-      if (!initialUrl || !isManualPreviewUrlAllowed(initialUrl, this.currentPreviewOrigins(true))) {
-        throw new BrowserNavigationRejectedError()
-      }
-      for (const existing of [...this.sessions.values()]) {
-        if (!existing.closed && existing.owner.kind === 'device' && existing.owner.deviceId === owner.deviceId) {
-          await this.kill(existing.id)
-        }
-      }
-    }
+  async create(opts?: { initialUrl?: string; createdAtMs?: number }): Promise<BrowserSessionMeta> {
     // Reserve the slot SYNCHRONOUSLY before any await so N concurrent creates can't
     // all observe `< MAX` and race past the cap (BUG-BROWSER-02). `_reserved`
-    // counts in-flight (not-yet-inserted) sessions per budget; it's the only
-    // state that mutates synchronously here.
-    if (this.liveCount(kind) + this._reserved[kind] >= limit) {
-      throw new BrowserLimitExceededError(limit)
+    // counts in-flight (not-yet-inserted) sessions; it's the only state that
+    // mutates synchronously here.
+    const live = [...this.sessions.values()].filter((s) => !s.closed).length
+    if (live + this._reserved >= MAX_SESSIONS_PER_PROJECT) {
+      throw new BrowserLimitExceededError(MAX_SESSIONS_PER_PROJECT)
     }
-    this._reserved[kind]++
+    this._reserved++
 
     let page: BrowserPageHandle
     try {
       const ctx = await this.ensureContext()
       page = await ctx.newPage()
     } catch (err) {
-      this._reserved[kind]--
+      this._reserved--
       throw err
     }
     if (this.disposed) {
-      this._reserved[kind]--
+      this._reserved--
       try { await page.close() } catch { /* ignore */ }
       throw new BrowserLaunchError('manager disposed')
     }
@@ -349,23 +304,11 @@ export class BrowserCaptureManager {
     // Re-check AFTER the awaits: another create that started before us may have
     // committed its session in the meantime. If the cap is now exceeded, tear the
     // extra page down and reject rather than silently exceeding the limit.
-    if (this.liveCount(kind) >= limit) {
-      this._reserved[kind]--
+    const liveNow = [...this.sessions.values()].filter((s) => !s.closed).length
+    if (liveNow >= MAX_SESSIONS_PER_PROJECT) {
+      this._reserved--
       try { await page.close() } catch { /* ignore */ }
-      throw new BrowserLimitExceededError(limit)
-    }
-
-    if (kind === 'device') {
-      // Fail closed: a preview page without request interception could reach
-      // any loopback port of this machine.
-      try {
-        if (!page.setRequestGuard) throw new Error('request guard unsupported')
-        await page.setRequestGuard((url) => this.allowDeviceRequest(url))
-      } catch (err) {
-        this._reserved[kind]--
-        try { await page.close() } catch { /* ignore */ }
-        throw new BrowserLaunchError('failed to secure preview page', err)
-      }
+      throw new BrowserLimitExceededError(MAX_SESSIONS_PER_PROJECT)
     }
 
     const id = newId()
@@ -373,7 +316,6 @@ export class BrowserCaptureManager {
     const session: BrowserSession = {
       id,
       projectId: this.projectId,
-      owner,
       page,
       popups: [],
       popupView: false,
@@ -392,7 +334,7 @@ export class BrowserCaptureManager {
     }
     this.sessions.set(id, session)
     // The reservation is now realised as a committed session — release it.
-    this._reserved[kind]--
+    this._reserved--
 
     // Adopt popups the page opens (OAuth login windows etc.) as secondary pages
     // of this session, and keep the client's URL bar live on in-page navigation
@@ -401,7 +343,7 @@ export class BrowserCaptureManager {
     page.onNavigated?.((url) => {
       if (session.closed || this.disposed) return
       session.url = url
-      if (url && url !== 'about:blank') this.rememberUrl(session, url)
+      if (url && url !== 'about:blank') this.setLastUrl(url)
       this.broadcastControl(session, { type: 'nav', url, title: session.title })
     })
 
@@ -417,12 +359,7 @@ export class BrowserCaptureManager {
     // away, so the user watches the page paint progressively instead of staring
     // at "opening…". The URL is set optimistically to the target; the resolved
     // URL/title land via the `nav` control broadcast every client already handles.
-    if (opts?.viewport) {
-      try {
-        await this.handleInput(id, { type: 'resize', ...opts.viewport })
-      } catch { /* the default viewport still renders */ }
-    }
-    const target = opts?.initialUrl?.trim() || (kind === 'desktop' ? this.getLastUrl() : null) || 'about:blank'
+    const target = opts?.initialUrl?.trim() || this.getLastUrl() || 'about:blank'
     session.url = target
     void this.runInitialNavigation(session, target)
     return this.toMeta(session)
@@ -440,30 +377,8 @@ export class BrowserCaptureManager {
     if (s.closed || this.disposed) return
     s.url = result.url
     s.title = result.title
-    if (result.url && result.url !== 'about:blank') this.rememberUrl(s, result.url)
+    if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
     this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
-  }
-
-  /** Desktop's "last URL" is a Desktop convenience; a phone's preview of a
-   *  loopback origin must never become the next Desktop session's start page. */
-  private rememberUrl(s: BrowserSession, url: string): void {
-    if (s.owner.kind === 'desktop') this.setLastUrl(url)
-  }
-
-  private currentPreviewOrigins(fresh = false): ReadonlySet<string> {
-    const at = this.now()
-    if (!fresh && this.previewOriginsCache && at - this.previewOriginsCache.at < PREVIEW_ORIGINS_TTL_MS) {
-      return this.previewOriginsCache.origins
-    }
-    let origins: ReadonlySet<string>
-    try { origins = this.previewOrigins() } catch { origins = new Set<string>() }
-    this.previewOriginsCache = { at, origins }
-    return origins
-  }
-
-  /** The request guard of device-owned pages (documents + subresources). */
-  private allowDeviceRequest(url: string): boolean {
-    return isPreviewRequestAllowed(url, this.currentPreviewOrigins(), isNavigableUrl)
   }
 
   // ─── Popup support (OAuth login windows etc.) ───────────────────────────────
@@ -489,22 +404,6 @@ export class BrowserCaptureManager {
     if (s.closed || this.disposed) {
       void popup.close().catch(() => { /* ignore */ })
       return
-    }
-    if (s.owner.kind === 'device') {
-      // A popup is a new page: install the same guard, and close one that was
-      // opened straight onto a forbidden URL before the guard could see it.
-      const opened = popup.currentUrl()
-      if (opened && opened !== 'about:blank' && !this.allowDeviceRequest(opened)) {
-        void popup.close().catch(() => { /* ignore */ })
-        return
-      }
-      if (!popup.setRequestGuard) {
-        void popup.close().catch(() => { /* ignore */ })
-        return
-      }
-      void popup.setRequestGuard((url) => this.allowDeviceRequest(url)).catch(() => {
-        void popup.close().catch(() => { /* ignore */ })
-      })
     }
     s.popups.push(popup)
     s.popupView = true
@@ -724,7 +623,7 @@ export class BrowserCaptureManager {
       if (!s.closed && !this.disposed) {
         s.url = result.url
         s.title = result.title
-        if (result.url && result.url !== 'about:blank') this.rememberUrl(s, result.url)
+        if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
         this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
       }
       return result
@@ -1006,39 +905,6 @@ export class BrowserCaptureManager {
     }
     this.context = null
     this.contextPromise = null
-  }
-
-  /** Owner of a live session, or null when it does not exist. */
-  sessionOwner(sessionId: string): BrowserSessionOwner | null {
-    return this.getSession(sessionId)?.owner ?? null
-  }
-
-  /**
-   * Manual navigation from a device: the session must belong to that device,
-   * and `goto` only accepts paths on announced origins (the page itself may
-   * still follow public links/redirects through the request guard).
-   */
-  async navigateAsDevice(
-    sessionId: string,
-    deviceId: string,
-    action: 'goto' | 'back' | 'forward' | 'reload',
-    url?: string,
-  ): Promise<{ url: string; title: string; target?: 'popup' } | null> {
-    const owner = this.sessionOwner(sessionId)
-    if (!owner || owner.kind !== 'device' || owner.deviceId !== deviceId) return null
-    if (action === 'goto' && !(url && isManualPreviewUrlAllowed(url, this.currentPreviewOrigins(true)))) {
-      throw new BrowserNavigationRejectedError()
-    }
-    return this.navigate(sessionId, action, url)
-  }
-
-  /** Kill every session a device owns (device revoked / unpaired). */
-  async killDeviceSessions(deviceId: string): Promise<number> {
-    let killed = 0
-    for (const s of [...this.sessions.values()]) {
-      if (s.owner.kind === 'device' && s.owner.deviceId === deviceId && await this.kill(s.id)) killed += 1
-    }
-    return killed
   }
 
   sessionCount(): number {

@@ -449,22 +449,18 @@
   },
   "browser": {
     "publicEntries": [
-      "domain/preview-origins.ts",
       "runtime/browser-capture-manager.ts",
       "runtime/browser-capture-types.ts",
       "runtime/browser-context-pool.ts",
-      "runtime/browser-playwright.ts",
-      "runtime/preview-targets.ts"
+      "runtime/browser-playwright.ts"
     ],
     "dependencies": {
-      "domain/preview-origins.ts": [],
       "runtime/browser-capture-manager.ts": [
         "../../../attachment-manager",
         "../../../db",
         "../../../ids",
         "../../../types",
         "../../specs/runtime/ticket-store",
-        "../domain/preview-origins",
         "./browser-capture-types",
         "./browser-playwright",
         "./browser-viewport",
@@ -488,11 +484,7 @@
         "./browser-viewport",
         "playwright"
       ],
-      "runtime/browser-viewport.ts": [],
-      "runtime/preview-targets.ts": [
-        "../../../transient-children",
-        "../domain/preview-origins"
-      ]
+      "runtime/browser-viewport.ts": []
     }
   },
   "builder": {
@@ -2059,6 +2051,7 @@
   },
   "terminals": {
     "publicEntries": [
+      "runtime/app-urls.ts",
       "runtime/background-process-control.ts",
       "runtime/background-process-service.ts",
       "runtime/background-process-store.ts",
@@ -2068,6 +2061,12 @@
       "runtime/terminal-settings.ts"
     ],
     "dependencies": {
+      "domain/app-urls.ts": [],
+      "runtime/app-urls.ts": [
+        "../../../transient-children",
+        "../domain/app-urls",
+        "node:os"
+      ],
       "runtime/background-process-control.ts": [
         "../../../util/win-spawn",
         "child_process",
@@ -2078,8 +2077,8 @@
         "../../../project-repositories",
         "../../../transient-children",
         "../../../types",
-        "../../browser/domain/preview-origins",
         "../../loops/runtime/loop-runs-store",
+        "./app-urls",
         "node:path"
       ],
       "runtime/background-process-store.ts": [
