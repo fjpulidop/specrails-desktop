@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1051 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -110,6 +110,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
+- [DecisionTimesCard.tsx](../../client/src/features/analytics/components/DecisionTimesCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/DecisionTimesCard.test.tsx)
 - [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
 - [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
 - [LegacyWorkflowUsage.tsx](../../client/src/features/analytics/components/LegacyWorkflowUsage.tsx) · [test](../../client/src/features/analytics/components/__tests__/LegacyWorkflowUsage.test.tsx)
@@ -1024,7 +1025,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/mcp/tools
 
 - [agents.ts](../../server/mcp/tools/agents.ts) · [test](../../server/mcp/tools/agents.test.ts)
-- [analytics.ts](../../server/mcp/tools/analytics.ts)
+- [analytics.ts](../../server/mcp/tools/analytics.ts) · [test](../../server/mcp/tools/analytics.test.ts)
 - [app-settings.ts](../../server/mcp/tools/app-settings.ts)
 - [catalog.ts](../../server/mcp/tools/catalog.ts) · [test](../../server/mcp/tools/catalog.test.ts)
 - [chat.ts](../../server/mcp/tools/chat.ts)
@@ -1071,6 +1072,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [ai-invocations.ts](../../server/modules/accounting/runtime/ai-invocations.ts) · [test](../../server/modules/accounting/runtime/ai-invocations.test.ts)
 - [codex-otel-bridge.ts](../../server/modules/accounting/runtime/codex-otel-bridge.ts) · [test](../../server/modules/accounting/runtime/codex-otel-bridge.test.ts)
+- [decision-times.ts](../../server/modules/accounting/runtime/decision-times.ts) · [test](../../server/modules/accounting/runtime/decision-times.test.ts)
 - [desktop-analytics.ts](../../server/modules/accounting/runtime/desktop-analytics.ts) · [test](../../server/modules/accounting/runtime/desktop-analytics.test.ts)
 - [metrics.ts](../../server/modules/accounting/runtime/metrics.ts) · [test](../../server/modules/accounting/runtime/metrics.test.ts)
 - [pricing.ts](../../server/modules/accounting/runtime/pricing.ts) · [test](../../server/modules/accounting/runtime/pricing.test.ts)
