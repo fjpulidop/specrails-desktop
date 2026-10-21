@@ -29,6 +29,11 @@ The `SDD Quick (OpenSpec)` built-in SHALL have a stable factory id and SHALL map
 - **THEN** the id SHALL continue to resolve to the `SDD Quick (OpenSpec)` built-in
 - **AND** new recommendations SHALL prefer the `SDD Quick (OpenSpec)` product name
 
+#### Scenario: A saved Batch id runs as Implement
+
+- **WHEN** a rail or launch names `factory:batch`
+- **THEN** it SHALL resolve to the `implement` built-in loop and run one aggregate Implement run
+
 ## ADDED Requirements
 
 ### Requirement: Built-in seeding follows the Core default without overwriting edits

@@ -93,3 +93,6 @@ their earlier estimation rates. Typechecks, 592 provider/accounting server
 tests, 1,090 affected client tests, 393 changed-fixture client tests and 61 Core
 CLI tests pass. Paired Core compatibility, builds and both installed package
 checks pass. Anthropic source: https://platform.claude.com/docs/en/models/sonnet-5-5/overview.
+
+Status 2026-10-21: Desktop side verified shipped (#718 and follow-ups #730, #743); the pinned Core 6.6.5 advertises `workflowAgentSteps` and `implementationSteps`.
+The composition requirement was reworded: the configurable recipe is the default and phase operations are the compatibility path.

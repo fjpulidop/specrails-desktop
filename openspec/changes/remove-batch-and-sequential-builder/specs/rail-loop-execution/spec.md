@@ -2,12 +2,17 @@
 
 ### Requirement: Execution routing by loop kind
 
-The launch path SHALL route a factory loop (`implement`/`freestyle`) to the existing execution engine (QueueManager — slash command or raw autonomous prompt) and a custom loop to the `LoopRunManager` engine. The unified Loop picker SHALL hide this split from the user. The legacy QueueManager path SHALL always invoke `implement` for an implementation launch; it SHALL never invoke `batch-implement`.
+When Loops are enabled and a loop is chosen, the launch path SHALL run both factory (built-in) and custom loops through the `LoopRunManager` engine, using the resolved built-in graph for a factory id. Only when Loops are disabled or no loop is chosen SHALL the launch use the legacy bare-mode QueueManager path. The unified Loop picker SHALL hide this split from the user. The legacy QueueManager path SHALL always invoke `implement` for an implementation launch; it SHALL never invoke `batch-implement`.
 
-#### Scenario: Factory loop uses the existing engine
+#### Scenario: Factory loop uses the loop engine
 
-- **WHEN** a rail launches the `implement` factory loop
-- **THEN** execution SHALL go through the existing QueueManager `/specrails:implement` path (unchanged behaviour)
+- **WHEN** Loops are enabled and a rail launches the `implement` factory loop
+- **THEN** execution SHALL go through the `LoopRunManager` engine with the resolved built-in Implement graph
+
+#### Scenario: Loops disabled falls back to the bare-mode path
+
+- **WHEN** Loops are disabled and a rail launches in `implement` mode
+- **THEN** execution SHALL go through the QueueManager `/specrails:implement` path
 
 #### Scenario: Custom loop uses the loop engine
 

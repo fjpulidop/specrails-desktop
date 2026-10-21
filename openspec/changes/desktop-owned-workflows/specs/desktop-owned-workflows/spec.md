@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Desktop owns implementation composition
-Desktop SHALL publish independently configurable architecture, development, verification, review, correction and archive operations. Core SHALL execute one selected operation without scheduling another phase.
+Desktop SHALL author the Implement workflow graph, whose nodes Core executes one at a time without scheduling another phase. On a Core with workflow agent steps the graph SHALL be the configurable recipe of workflow-defined agent steps; fixed architecture, development, verification, review, correction and archive phase operations SHALL remain only as the compatibility graph for a Core that offers implementation steps alone.
 
 #### Scenario: Correction routing
 - **WHEN** verification fails or review rejects the candidate
