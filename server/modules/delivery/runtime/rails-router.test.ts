@@ -105,6 +105,7 @@ function appWith(
     onLoopRunFinished?: (runId: string, outcome: string) => void
     projectPath?: string
     repositories?: ProjectRepository[]
+    dailyBudgetRejection?: () => unknown
   },
 ) {
   const providers = opts?.providers ?? ['claude']
@@ -124,6 +125,7 @@ function appWith(
       loopRunManager: opts?.loopRunManager,
       getTicketSpec: opts?.getTicketSpec ?? (() => undefined),
       onLoopRunFinished: opts?.onLoopRunFinished ?? (() => { /* noop */ }),
+      dailyBudgetRejection: opts?.dailyBudgetRejection,
     }
     next()
   })
@@ -3250,5 +3252,93 @@ describe('rails-router GET / — availability (mission-rail-cards)', () => {
     expect(res.status).toBe(200)
     const byIndex = Object.fromEntries(res.body.rails.map((r: { railIndex: number; availability: string }) => [r.railIndex, r.availability]))
     expect(byIndex).toEqual({ 0: 'free', 1: 'busy', 2: 'pending_decision' })
+  })
+})
+
+describe('rails-router launch — daily budget guard (rail-loop-budget-guard)', () => {
+  let db: DbInstance, desktopDb: DbInstance, projectPath: string
+  const savedLoops = process.env.SPECRAILS_LOOPS_SECTION
+  const savedPr = process.env.SPECRAILS_RAIL_DELIVER_PR
+  const rejection = {
+    error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 10, spentUsd: 12.5,
+    resetsAt: '2026-10-22T00:00:00.000Z', detail: 'over', action: 'raise it',
+  }
+  const loopGraph = (): LoopGraph => ({
+    nodes: [
+      { id: 's', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Implement {{spec.title}}' } },
+      { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+    ],
+    edges: [{ id: 'e1', source: 's', target: 'ai' }, { id: 'e2', source: 'ai', target: 'e' }],
+    config: { maxIterations: 5, timeoutMinutes: 20 },
+  })
+
+  beforeEach(() => {
+    db = initDb(':memory:'); desktopDb = initDesktopDb(':memory:')
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rail-budget-'))
+    delete process.env.SPECRAILS_LOOPS_SECTION; delete process.env.SPECRAILS_RAIL_DELIVER_PR
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    db.close(); desktopDb.close(); fs.rmSync(projectPath, { recursive: true, force: true })
+    if (savedLoops === undefined) delete process.env.SPECRAILS_LOOPS_SECTION; else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
+    if (savedPr === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR; else process.env.SPECRAILS_RAIL_DELIVER_PR = savedPr
+  })
+
+  it('409s a loop launch with the budget detail and spawns nothing', async () => {
+    const loop = createLoop(desktopDb, { id: 'loop-b', name: 'Ship', graph: loopGraph() })
+    publishLoop(desktopDb, loop.id)
+    setRailTickets(db, 0, [7], 'loop')
+    const run = vi.fn(), railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[] }>()
+    const gate = vi.fn(() => rejection)
+    const res = await request(appWith(db, { desktopDb, railLoopRuns, loopRunManager: { run, cancel: vi.fn() },
+      getTicketSpec: () => ({ title: 'T', description: 'D' }), dailyBudgetRejection: gate }))
+      .post('/rails/0/launch').send({ mode: 'loop', loopId: loop.id })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual(rejection)
+    expect(gate).toHaveBeenCalledTimes(1)
+    expect(run).not.toHaveBeenCalled(); expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(railLoopRuns.size).toBe(0)
+    expect(db.prepare('SELECT count(*) AS n FROM loop_runs').get()).toEqual({ n: 0 })
+  })
+
+  it('launches unchanged when no budget is exhausted (gate returns null) or no gate is bound', async () => {
+    const loop = createLoop(desktopDb, { id: 'loop-ok', name: 'Ship', graph: loopGraph() })
+    publishLoop(desktopDb, loop.id)
+    setRailTickets(db, 0, [7], 'loop')
+    const run = vi.fn().mockResolvedValue({ runId: 'rid', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+    const gate = vi.fn(() => null)
+    const ok = await request(appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() },
+      getTicketSpec: () => ({ title: 'T', description: 'D' }), dailyBudgetRejection: gate }))
+      .post('/rails/0/launch').send({ mode: 'loop', loopId: loop.id })
+    expect(ok.status).toBe(202)
+    expect(gate).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('409s a source-bound relaunch before resolving or allocating anything', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['new-run'])
+    const row = createPrDelivery(db, { railIndex: 0, railKey: '0-quick', ticketIds: [4], baseBranch: 'main',
+      loopId: 'factory:sdd-quick-openspec', loopName: 'Quick', originSurface: 'agent-chat', originConversationId: 'mission-1' })
+    transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
+    const res = await request(appWith(db, { desktopDb, projectPath, loopRunManager: { run: vi.fn(), cancel: vi.fn() },
+      getTicketSpec: id => ({ title: `Spec ${id}`, description: 'Fix' }), dailyBudgetRejection: () => rejection }))
+      .post('/rails/0/relaunch').send({ sourceId: row.id })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('daily_budget_exceeded')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(getPrDelivery(db, row.id)?.decision).toBe('implementation_failed')
+  })
+
+  it('409s the legacy QueueManager launch too (loops off) without enqueueing', async () => {
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    setRailTickets(db, 0, [1])
+    const enqueue = vi.fn()
+    const res = await request(appWith(db, { queueManager: { enqueue }, dailyBudgetRejection: () => rejection }))
+      .post('/rails/0/launch').send({ mode: 'implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 10, spentUsd: 12.5 })
+    expect(enqueue).not.toHaveBeenCalled()
   })
 })

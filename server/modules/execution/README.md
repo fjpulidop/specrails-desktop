@@ -23,9 +23,15 @@ The queue suite covers settlement failure, crash replay, cancellation and budget
 [port tests](__tests__/accounting.test.ts) cover attribution and error propagation.
 [Architecture guards](../architecture.test.ts) prevent infrastructure imports.
 
+## Daily budget admission
+
+[enforce-budget](application/enforce-budget.ts) has two parts. `enforceDailyBudgets` pauses the queue. `evaluateDailyBudgets` is a read-only check that uses the same predicate. [daily-budget](domain/daily-budget.ts) defines the shared `daily_budget_exceeded` 409 body: scope, amounts, `resetsAt`, detail and action. [daily-budget-gate](runtime/daily-budget-gate.ts) binds one project's connection and the app-wide snapshot. It fails open when the budget can't be read. The composition root exposes it as `ProjectContext.dailyBudgetRejection` for rail and loop launch and resume. It also passes it to `LoopRunManager`, which pauses `budget_paused` between AI steps.
+
 ## Reviewed public entry points
 
+- [index.ts](index.ts)
 - [runtime/accept-ladder.ts](runtime/accept-ladder.ts)
+- [runtime/daily-budget-gate.ts](runtime/daily-budget-gate.ts)
 - [runtime/interactive-job-session.ts](runtime/interactive-job-session.ts)
 - [runtime/job-listing.ts](runtime/job-listing.ts)
 - [runtime/job-phase-breakdown.ts](runtime/job-phase-breakdown.ts)

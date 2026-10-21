@@ -662,6 +662,12 @@ export function createRailsRouter(): Router {
       }
       throw err
     }
+    // Daily budget (rail-loop-budget-guard): the same project/app-wide budget
+    // state the queue auto-pause enforces. Every launch door (dashboard Play,
+    // Launch all, mission cards, MCP launch/launch_all, mobile, milestone
+    // chains, relaunch) reaches this route, so one check spawns nothing.
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) { res.status(409).json(budgetRejection); return }
     const storedRail = getRail(c.db, railIndex)
     const rail = relaunchSource ? { ...storedRail, ticketIds: [...relaunchSource.ticketIds],
       profileName: typeof profileName === 'string' ? profileName : null,

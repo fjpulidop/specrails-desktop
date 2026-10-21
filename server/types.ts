@@ -929,6 +929,10 @@ export interface LoopRunPausedMessage {
   railIndex: number | null
   reason: string
   ticketIds: number[]
+  /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
+   *  out between AI steps; resume once the budget allows it. */
+  pauseKind?: 'budget_paused'
+  budget?: { scope: 'project' | 'desktop'; budgetUsd: number; spentUsd: number; resetsAt: string }
 }
 
 export interface LoopRunResumedMessage {

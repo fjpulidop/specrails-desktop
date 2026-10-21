@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1052 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -785,6 +785,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [api.ts](../../client/src/lib/api.ts) · [test](../../client/src/lib/__tests__/api.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
+- [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
@@ -1287,6 +1288,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/execution/domain
 
+- [daily-budget.ts](../../server/modules/execution/domain/daily-budget.ts)
 - [job-accounting.ts](../../server/modules/execution/domain/job-accounting.ts)
 - [scheduling.ts](../../server/modules/execution/domain/scheduling.ts)
 - [usage.ts](../../server/modules/execution/domain/usage.ts)
@@ -1294,6 +1296,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/execution/runtime
 
 - [accept-ladder.ts](../../server/modules/execution/runtime/accept-ladder.ts) · [test](../../server/modules/execution/runtime/accept-ladder.test.ts)
+- [daily-budget-gate.ts](../../server/modules/execution/runtime/daily-budget-gate.ts)
 - [interactive-job-session.ts](../../server/modules/execution/runtime/interactive-job-session.ts) · [test](../../server/modules/execution/runtime/interactive-job-session.test.ts)
 - [job-listing.ts](../../server/modules/execution/runtime/job-listing.ts) · [test](../../server/modules/execution/runtime/job-listing.test.ts)
 - [job-phase-breakdown.ts](../../server/modules/execution/runtime/job-phase-breakdown.ts) · [test](../../server/modules/execution/runtime/job-phase-breakdown.test.ts)

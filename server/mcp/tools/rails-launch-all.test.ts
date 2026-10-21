@@ -32,6 +32,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
   let enqueue: ReturnType<typeof vi.fn>
   let railJobs: Map<string, { railIndex: number; mode: string; ticketIds: number[] }>
   let railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>
+  let budgetRejection: Record<string, unknown> | null
   let captured: ((args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>) | undefined
 
   const fakeServer = {
@@ -58,6 +59,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
     enqueue = vi.fn().mockImplementation(() => ({ id: `job-${++n}`, queuePosition: 0 }))
     railJobs = new Map()
     railLoopRuns = new Map()
+    budgetRejection = null
 
     const app = express()
     app.use(express.json())
@@ -73,6 +75,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
         jiraSyncManager: { onRailLaunch: () => {} },
         getTicketSpec: () => ({ title: 'T', description: 'D' }),
         onLoopRunFinished: () => { /* noop */ },
+        dailyBudgetRejection: () => budgetRejection,
       }
       next()
     })
@@ -226,6 +229,19 @@ describe('specrails_rails — create_rail + launch_all', () => {
     const r0 = (data.results as { railIndex: number; outcome: string; reason?: string }[]).find((r) => r.railIndex === 0)
     expect(r0).toMatchObject({ outcome: 'skipped', reason: 'tickets-in-flight' })
     expect(data.launched).toBe(0)
+  })
+
+  it('launch_all maps a daily_budget_exceeded 409 to a budget skip with the remedy, spawning nothing', async () => {
+    setRailTickets(db, 0, [1])
+    setRailTickets(db, 1, [2])
+    budgetRejection = { error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'Spend reached the budget.', action: 'Raise it.' }
+    const { data } = await call({ action: 'launch_all' })
+    expect(data.launched).toBe(0)
+    for (const index of [0, 1]) {
+      expect((data.results as { railIndex: number }[]).find((r) => r.railIndex === index))
+        .toMatchObject({ outcome: 'skipped', reason: 'daily-budget-exceeded', error: 'Spend reached the budget. Raise it.' })
+    }
+    expect(enqueue).not.toHaveBeenCalled()
   })
 
   it('launch_all with nothing eligible returns zero launches and a retry hint', async () => {

@@ -1282,7 +1282,9 @@
   },
   "execution": {
     "publicEntries": [
+      "index.ts",
       "runtime/accept-ladder.ts",
+      "runtime/daily-budget-gate.ts",
       "runtime/interactive-job-session.ts",
       "runtime/job-listing.ts",
       "runtime/job-phase-breakdown.ts",
@@ -1306,7 +1308,9 @@
         "../../accounting/runtime/result-event",
         "../ports"
       ],
-      "application/enforce-budget.ts": [],
+      "application/enforce-budget.ts": [
+        "../domain/daily-budget"
+      ],
       "application/record-job-invocations.ts": [
         "../../../util/distribute-int",
         "../domain/job-accounting",
@@ -1316,6 +1320,7 @@
         "../domain/usage",
         "../ports"
       ],
+      "domain/daily-budget.ts": [],
       "domain/job-accounting.ts": [],
       "domain/scheduling.ts": [],
       "domain/usage.ts": [
@@ -1325,6 +1330,7 @@
         "./application/enforce-budget",
         "./application/record-job-invocations",
         "./application/recover-job-usage",
+        "./domain/daily-budget",
         "./domain/job-accounting",
         "./domain/scheduling",
         "./domain/usage",
@@ -1336,6 +1342,11 @@
       ],
       "runtime/accept-ladder.ts": [
         "../../delivery/runtime/pr-publisher"
+      ],
+      "runtime/daily-budget-gate.ts": [
+        "..",
+        "../../../db/types",
+        "../adapters/budget-storage"
       ],
       "runtime/interactive-job-session.ts": [
         "../../../db",

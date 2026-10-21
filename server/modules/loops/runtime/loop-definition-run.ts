@@ -73,6 +73,9 @@ export interface DefinitionLoopExecutionPorts {
   onPrepared?(metadata: DefinitionPrepared): void
   onInvocationEnd(result: DefinitionRuntimeResult): void
   awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }>
+  /** Host gate before re-invoking Core with a human decision (daily budget).
+   *  'stop' settles the run as cancelled exactly like a Stop while paused. */
+  beforeContinuation?(): Promise<'continue' | 'stop'>
 }
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
@@ -99,5 +102,8 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
     continuation = selected.kind === 'question'
       ? { resume: true, answer: decision.text, interruptId: selected.id }
       : { resume: true, approve: [selected.id], interruptId: selected.id }
+    if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
+      return { ...result, runtimeStatus: 'cancelled', failed: true }
+    }
   }
 }
