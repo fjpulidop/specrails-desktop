@@ -74,3 +74,6 @@ Status 2026-10-21: remaining — 9.2: the 2026-09-14 smoke in `docs/internals/lo
 shot/resume, test-connection and detection, but the in-app UI pass (Settings card, selectors, chat, Explore, mission
 via the bridge, freestyle and implement rails) is recorded as pending; 9.3: kill-switch behaviour has unit tests but
 the manual `SPECRAILS_LOCAL_ENGINES=false` smoke is not recorded.
+
+The multi-provider-architecture delta was rebased on 2026-10-21 onto the canonical text synced from
+retire-installed-role-agents (role ids are not files; profile migration scenario kept).
