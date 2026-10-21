@@ -296,6 +296,13 @@ Two distinct version concepts — don't conflate them:
 
 ## Known gotchas
 
+- **Read-only missions keep MCP tools.** If the adapter advertises
+  `capabilities.toolPolicies` with `read-only`, mission turns spawn with
+  `toolPolicy: 'read-only'` and `retainMcpTools: true`. The adapter's read-only
+  mode must still let the agent call the MCP servers registered for the turn.
+  Verify this live, because plan-style modes often hide or refuse MCP tools.
+  For Core sessions, declare `capabilities.missionReadOnlySession`. See
+  [read-only missions](mission-read-only-policy.md).
 - **Legacy result path.** `normaliseResultEvent(event, provider)`
   (`server/modules/accounting/runtime/result-event.ts`) is still live for any callsite not yet
   migrated to `finaliseInvocationResult`. It only special-cases

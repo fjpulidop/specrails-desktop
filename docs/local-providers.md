@@ -159,6 +159,7 @@ rail to a new model.
 | Resume by session id | ✅ |
 | Read-only / no-tools boundaries (Explore, deciders) | ✅ native runner policies |
 | MCP servers in missions | ✅ (`--mcp-config`, tools as `mcp__<server>__<tool>`) |
+| Read-only missions | ✅ runner read-only tools, MCP tools kept |
 | Agent profiles / custom roles / Agent Studio AI | ❌ |
 | SMASH, Contract Layer, Project Builder generation | ❌ (need structured-action guarantees) |
 | Native cost | ❌ — unknown unless you set rates |

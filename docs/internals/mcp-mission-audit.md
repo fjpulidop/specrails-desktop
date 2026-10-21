@@ -27,6 +27,10 @@ and no remote PRs were created. Source changes are retained on this branch.
 | Operational tools omitted useful review evidence and conversational launch defaults. | Add PR candidates/review packets, Git/worktree information, PR lookup and phase breakdowns. Preserve conversation provider/model/effort when launching compatible jobs/loops, and report when isolation is unavailable. |
 | Binary attachments were forwarded through a text response path. | Return attachment metadata and a download reference instead of decoding arbitrary bytes as text. |
 
+Follow-up (2026-10-21): mission agents now run with each provider's native
+read-only boundary while keeping MCP tools callable. See
+[read-only missions](mission-read-only-policy.md).
+
 ## New investigation workflow
 
 1. Identify the intended project from the conversation pin or durable catalog.

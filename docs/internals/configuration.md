@@ -246,6 +246,12 @@ its native key/config, and Kimi via `kimi login` or user-managed
 `~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
 [Gemini](../gemini.md).
 
+### Mission read-only policy
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_MISSION_READ_ONLY` | Default on. Mission (agent chat) turns use the provider's native read-only boundary, and the `specrails_*` MCP tools stay callable. Claude spawns with only read-only built-in tools, Codex uses its read-only sandbox, Gemini uses plan mode plus a plan-scoped MCP policy, and local engines use the runner's read-only tool set. Core mission sessions get the matching `permissions`/`tools` policy. Kimi has no native read-only mode and is unchanged. Set to `false` to restore the previous write-capable mission argv and session policy without a release. See [read-only missions](mission-read-only-policy.md). |
+
 ### Core agent sessions (rollout)
 
 | Variable | Effect |
