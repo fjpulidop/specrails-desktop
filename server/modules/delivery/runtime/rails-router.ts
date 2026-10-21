@@ -84,8 +84,17 @@ const VALID_MODES = new Set(['implement', 'freestyle', 'loop'])
  *  ticket in one aggregate run, so stored/agent/mobile `batch-implement` (or
  *  `batch`) requests are normalized to it at the HTTP boundary. */
 const REMOVED_BATCH_MODES = new Set(['batch-implement', 'batch'])
+/** Pre-rename name of Freestyle. Older Companion builds still send
+ *  `mode: 'ultracode'`; accept it so un-updated phones keep launching. */
+const LEGACY_FREESTYLE_MODE = 'ultracode'
 export function normalizeRailMode(mode: unknown): unknown {
-  return typeof mode === 'string' && REMOVED_BATCH_MODES.has(mode) ? 'implement' : mode
+  if (typeof mode !== 'string') return mode
+  if (REMOVED_BATCH_MODES.has(mode)) return 'implement'
+  if (mode === LEGACY_FREESTYLE_MODE) {
+    console.info(`[rails-router] legacy mode "${LEGACY_FREESTYLE_MODE}" accepted as "freestyle"`)
+    return 'freestyle'
+  }
+  return mode
 }
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false

@@ -159,6 +159,15 @@ describe('mobile-router', () => {
     expect(res.body.route).toBe('[path]')
   })
 
+  it('rail launch forwards a legacy ultracode mode verbatim; the rails router normalizes it', async () => {
+    const res = await request(app)
+      .post('/v1/projects/p1/rails/0/launch')
+      .set('Authorization', 'Bearer tok')
+      .send({ mode: 'ultracode' })
+    expect(res.status).toBe(200)
+    expect(res.body.body).toEqual({ mode: 'ultracode' })
+  })
+
   it('rail launch forwards loopId + reasoning_effort + interactive (rails-as-loops), drops junk', async () => {
     const res = await request(app)
       .post('/v1/projects/p1/rails/0/launch')
