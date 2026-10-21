@@ -319,6 +319,33 @@
     "statusUnavailable": "Impossibile leggere lo stato dell'ambiente.",
     "unresolvedTitle": "Le esecuzioni partono senza queste variabili:"
   },
+  "agentEnv": {
+    "title": "Ambiente degli agenti",
+    "description": "Scegli quali variabili d'ambiente ricevono gli agenti di questo progetto: job dei rail, loop, missioni, chat e assistenti per le spec.",
+    "modes": {
+      "inherit": {
+        "label": "Eredita (predefinito)",
+        "description": "Gli agenti ricevono l'intero ambiente con cui è partito Specrails, più i nomi qui sopra. Comportamento invariato."
+      },
+      "minimal": {
+        "label": "Minimo",
+        "description": "Gli agenti ricevono solo una lista consentita (PATH, HOME, lingua, file temporanei, terminale, proxy e certificati), le variabili di Specrails, quelle di accesso del provider scelto e i nomi qui sopra. Tutto il resto, come credenziali cloud o di database, viene trattenuto."
+      }
+    },
+    "saved": {
+      "inherit": "Gli agenti ereditano l'intero ambiente",
+      "minimal": "Gli agenti ora ricevono l'ambiente minimo"
+    },
+    "saveFailed": "Impossibile salvare l'ambiente degli agenti",
+    "namesTitle": "Variabili passate in modalità minima",
+    "shared": "Tutti gli agenti",
+    "passthrough": "Nomi del progetto (sopra)",
+    "noPassthrough": "Nessun nome di progetto configurato.",
+    "provider": "In più per {{provider}}",
+    "noProviderNames": "Nessuna impostata ora (accetta {{patterns}}).",
+    "namesHelp": "Vengono mostrati solo i nomi, mai i valori. Le modifiche valgono per gli agenti avviati in seguito; le sessioni di missione aperte mantengono il loro ambiente fino al riavvio. Se uno strumento richiede un'altra variabile, aggiungi il suo nome qui sopra.",
+    "statusUnavailable": "Impossibile leggere l'elenco delle variabili."
+  },
   "effects": {
     "heading": "Effetti",
     "description": "Tocchi visivi dell'app. Ognuno si può disattivare qui.",

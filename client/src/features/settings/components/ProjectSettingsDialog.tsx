@@ -14,6 +14,7 @@ import {
 import { TerminalSettingsSection } from './TerminalSettingsSection'
 import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
 import { AgentRuntimeSettingsSection } from './AgentRuntimeSettingsSection'
+import { ProjectAgentEnvModeSection } from './AgentEnvModeSection'
 import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
@@ -102,6 +103,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
             </div>
             <div className={paneCls('environment')}>
               <ProjectWorktreeEnvSection />
+              <ProjectAgentEnvModeSection />
             </div>
             <div className={paneCls('budget')}>
               <ProjectBudgetSection />

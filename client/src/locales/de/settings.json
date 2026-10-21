@@ -319,6 +319,33 @@
     "statusUnavailable": "Der Umgebungsstatus konnte nicht gelesen werden.",
     "unresolvedTitle": "Läufe starten ohne diese Variablen:"
   },
+  "agentEnv": {
+    "title": "Agentenumgebung",
+    "description": "Lege fest, welche Umgebungsvariablen die Agenten dieses Projekts erhalten: Rail-Jobs, Loops, Missionen, Chats und Spec-Helfer.",
+    "modes": {
+      "inherit": {
+        "label": "Erben (Standard)",
+        "description": "Agenten erhalten die vollständige Umgebung, mit der Specrails gestartet wurde, plus die Namen oben. Verhalten wie bisher."
+      },
+      "minimal": {
+        "label": "Minimal",
+        "description": "Agenten erhalten nur eine Positivliste (PATH, HOME, Sprache, Temp, Terminal, Proxy und Zertifikate), die Specrails-eigenen Variablen, die Anmeldevariablen des gewählten Anbieters und die Namen oben. Alles andere, etwa Cloud- oder Datenbank-Zugangsdaten, wird zurückgehalten."
+      }
+    },
+    "saved": {
+      "inherit": "Agenten erben die vollständige Umgebung",
+      "minimal": "Agenten erhalten jetzt die minimale Umgebung"
+    },
+    "saveFailed": "Die Agentenumgebung konnte nicht gespeichert werden",
+    "namesTitle": "Im Minimalmodus übergebene Variablen",
+    "shared": "Alle Agenten",
+    "passthrough": "Projektnamen (oben)",
+    "noPassthrough": "Keine Projektnamen konfiguriert.",
+    "provider": "Zusätzlich für {{provider}}",
+    "noProviderNames": "Derzeit keine gesetzt (akzeptiert {{patterns}}).",
+    "namesHelp": "Es werden nur Namen angezeigt, niemals Werte. Änderungen gelten für danach gestartete Agenten; offene Missionssitzungen behalten ihre Umgebung bis zum Neustart. Braucht ein Werkzeug eine weitere Variable, füge ihren Namen oben hinzu.",
+    "statusUnavailable": "Die Variablenliste konnte nicht gelesen werden."
+  },
   "effects": {
     "heading": "Effekte",
     "description": "Visuelle Akzente in der App. Jeder lässt sich hier abschalten.",

@@ -319,6 +319,33 @@
     "statusUnavailable": "无法读取环境状态。",
     "unresolvedTitle": "以下变量缺失时运行仍会开始："
   },
+  "agentEnv": {
+    "title": "智能体环境",
+    "description": "选择此项目的智能体（Rail 作业、循环、任务、聊天和规格助手）接收哪些环境变量。",
+    "modes": {
+      "inherit": {
+        "label": "继承（默认）",
+        "description": "智能体接收 Specrails 启动时的完整环境，以及上方的名称。与之前的行为相同。"
+      },
+      "minimal": {
+        "label": "最小",
+        "description": "智能体只接收允许列表（PATH、HOME、区域设置、临时目录、终端、代理和证书）、Specrails 自身的变量、所选提供商的登录变量以及上方的名称。其他内容（例如云或数据库凭据）不会传递。"
+      }
+    },
+    "saved": {
+      "inherit": "智能体继承完整环境",
+      "minimal": "智能体现在接收最小环境"
+    },
+    "saveFailed": "无法保存智能体环境",
+    "namesTitle": "最小模式下传递的变量",
+    "shared": "所有智能体",
+    "passthrough": "项目名称（上方）",
+    "noPassthrough": "未配置项目名称。",
+    "provider": "{{provider}} 额外接收",
+    "noProviderNames": "当前未设置（接受 {{patterns}}）。",
+    "namesHelp": "只显示名称，从不显示值。更改适用于之后启动的智能体；已打开的任务会话在重启前保留原环境。如果某个工具需要其他变量，请在上方添加其名称。",
+    "statusUnavailable": "无法读取变量列表。"
+  },
   "effects": {
     "heading": "效果",
     "description": "应用中的视觉点缀，每一项都可以在这里关闭。",
