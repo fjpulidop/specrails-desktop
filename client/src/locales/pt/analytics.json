@@ -252,5 +252,33 @@
       "hours": "{{value}} h",
       "days": "{{value}} d"
     }
+  },
+  "loopEconomics": {
+    "title": "Economia por loop",
+    "subtitle": "Entregas, custo, retrabalho e defeitos escapados por loop",
+    "loading": "Carregando economia por loop…",
+    "unavailable": "Não foi possível carregar a economia por loop.",
+    "empty": "Nenhum loop entregou nada neste período.",
+    "noData": "Sem dados",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop sem nome",
+    "estimatedShare": "{{share}} estimado",
+    "unpriced": "{{count}} sem custo",
+    "note": "Entregue = chegou à revisão ou além. O custo médio usa entregas com custo registrado (informado pelo provedor, salvo quando marcado como estimado); entregas sem custo são excluídas, nunca contadas como US$ 0. As rodadas vêm dos passos reviewer/fixer do loop. — significa desconhecido.",
+    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule um ticket de bug à entrega que o introduziu («Regressão de» no ticket) para começar a contá-los.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Entregues",
+      "merged": "Mescladas",
+      "discarded": "Descartadas",
+      "avgCost": "Custo / entrega",
+      "toDecision": "Decisão (mediana · p90)",
+      "toMerge": "Merge (mediana · p90)",
+      "reviewRounds": "Revisões / entrega",
+      "fixerRounds": "Rodadas de fixer / entrega",
+      "escapedDefects": "Defeitos escapados",
+      "requirementsDemonstrated": "Requisitos demonstrados",
+      "triageAccuracy": "Acerto da triagem"
+    }
   }
 }

@@ -252,5 +252,33 @@
       "hours": "{{value}} Std.",
       "days": "{{value}} T."
     }
+  },
+  "loopEconomics": {
+    "title": "Loop-Ökonomie",
+    "subtitle": "Lieferungen, Kosten, Nacharbeit und entgangene Fehler pro Loop",
+    "loading": "Loop-Ökonomie wird geladen…",
+    "unavailable": "Loop-Ökonomie konnte nicht geladen werden.",
+    "empty": "In diesem Zeitraum hat kein Loop etwas geliefert.",
+    "noData": "Keine Daten",
+    "unknownValue": "—",
+    "unnamedLoop": "Unbenannter Loop",
+    "estimatedShare": "{{share}} geschätzt",
+    "unpriced": "{{count}} ohne Kosten",
+    "note": "Geliefert = hat das Review erreicht oder mehr. Die Durchschnittskosten nutzen Lieferungen mit erfassten Kosten (vom Anbieter gemeldet, sofern nicht als geschätzt markiert); Lieferungen ohne Kosten werden ausgeschlossen, nie als 0 $ gezählt. Runden stammen aus Reviewer-/Fixer-Schritten. — bedeutet unbekannt.",
+    "escapedUntracked": "Entgangene Fehler werden noch nicht erfasst: Verknüpfe ein Bug-Ticket mit der Lieferung, die ihn eingeführt hat („Regression von“ im Ticket), um sie zu zählen.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Geliefert",
+      "merged": "Gemergt",
+      "discarded": "Verworfen",
+      "avgCost": "Kosten / Lieferung",
+      "toDecision": "Entscheidung (Median · p90)",
+      "toMerge": "Merge (Median · p90)",
+      "reviewRounds": "Reviews / Lieferung",
+      "fixerRounds": "Fixer-Runden / Lieferung",
+      "escapedDefects": "Entgangene Fehler",
+      "requirementsDemonstrated": "Nachgewiesene Anforderungen",
+      "triageAccuracy": "Triage-Treffer"
+    }
   }
 }

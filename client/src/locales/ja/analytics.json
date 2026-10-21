@@ -252,5 +252,33 @@
       "hours": "{{value}} 時間",
       "days": "{{value}} 日"
     }
+  },
+  "loopEconomics": {
+    "title": "ループ別エコノミクス",
+    "subtitle": "ループごとの納品・コスト・手戻り・流出欠陥",
+    "loading": "ループ別エコノミクスを読み込み中…",
+    "unavailable": "ループ別エコノミクスを読み込めませんでした。",
+    "empty": "この期間に納品したループはありません。",
+    "noData": "データなし",
+    "unknownValue": "—",
+    "unnamedLoop": "名前のないループ",
+    "estimatedShare": "推定 {{share}}",
+    "unpriced": "コスト不明 {{count}} 件",
+    "note": "納品 = レビューに到達した以降の状態。平均コストはコストが記録された納品のみで算出します（推定と表示されたもの以外はプロバイダー報告値）。コスト不明の納品は除外され、$0 として数えません。ラウンド数はループの reviewer/fixer ステップから算出します。— は不明を意味します。",
+    "escapedUntracked": "流出欠陥はまだ記録されていません。バグチケットを原因となった納品に紐付ける（チケットの「回帰元」）と集計が始まります。",
+    "columns": {
+      "loop": "ループ",
+      "delivered": "納品",
+      "merged": "マージ",
+      "discarded": "破棄",
+      "avgCost": "納品あたりコスト",
+      "toDecision": "判断まで（中央値 · p90）",
+      "toMerge": "マージまで（中央値 · p90）",
+      "reviewRounds": "納品あたりレビュー",
+      "fixerRounds": "納品あたり修正ラウンド",
+      "escapedDefects": "流出欠陥",
+      "requirementsDemonstrated": "実証された要件",
+      "triageAccuracy": "トリアージ精度"
+    }
   }
 }

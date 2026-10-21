@@ -252,5 +252,33 @@
       "hours": "{{value}} h",
       "days": "{{value}} g"
     }
+  },
+  "loopEconomics": {
+    "title": "Economia per loop",
+    "subtitle": "Consegne, costo, rilavorazioni e difetti sfuggiti per loop",
+    "loading": "Caricamento economia per loop…",
+    "unavailable": "Impossibile caricare l’economia per loop.",
+    "empty": "Nessun loop ha consegnato nulla in questo periodo.",
+    "noData": "Nessun dato",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop senza nome",
+    "estimatedShare": "{{share}} stimato",
+    "unpriced": "{{count}} senza costo",
+    "note": "Consegnato = ha raggiunto la revisione o oltre. Il costo medio usa le consegne con costo registrato (fornito dal provider salvo se indicato come stimato); le consegne senza costo sono escluse, mai contate come 0 $. I round derivano dagli step reviewer/fixer del loop. — significa sconosciuto.",
+    "escapedUntracked": "I difetti sfuggiti non sono ancora tracciati: collega un ticket di bug alla consegna che lo ha introdotto («Regressione di» nel ticket) per iniziare a contarli.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Consegnate",
+      "merged": "Unite",
+      "discarded": "Scartate",
+      "avgCost": "Costo / consegna",
+      "toDecision": "Decisione (mediana · p90)",
+      "toMerge": "Merge (mediana · p90)",
+      "reviewRounds": "Revisioni / consegna",
+      "fixerRounds": "Round di fixer / consegna",
+      "escapedDefects": "Difetti sfuggiti",
+      "requirementsDemonstrated": "Requisiti dimostrati",
+      "triageAccuracy": "Accuratezza del triage"
+    }
   }
 }

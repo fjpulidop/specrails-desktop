@@ -21,6 +21,7 @@ import { TopTicketsCrossSurface } from '../components/TopTicketsCrossSurface'
 import { InvocationsTable } from '../components/InvocationsTable'
 import { LegacyWorkflowUsage } from '../components/LegacyWorkflowUsage'
 import { DecisionTimesCard } from '../components/DecisionTimesCard'
+import { LoopEconomicsCard } from '../components/LoopEconomicsCard'
 
 const PERIODS: { value: Period; labelKey: string }[] = [
   { value: '7d', labelKey: 'periods.d7' },
@@ -438,6 +439,11 @@ export default function AnalyticsPage() {
       {/* Block 2c: Time to decision / merge per delivery (period-scoped only) */}
       {activeProjectId && (
         <DecisionTimesCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
+      )}
+
+      {/* Block 2d: Loop economics — per-loop delivery, cost, rework and escaped defects */}
+      {activeProjectId && (
+        <LoopEconomicsCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
       )}
 
       {/* Blocks 3 + 4 side by side */}
