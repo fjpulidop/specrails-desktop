@@ -23,21 +23,16 @@ The system SHALL publish the most recent Windows installers for specrails-deskto
 - **THEN** the GitHub latest release is `v<version+1>` and offers `specrails-desktop-<version+1>-x64-setup.exe`
 
 ### Requirement: Release manifest describes the latest build
-The system SHALL publish a `manifest.json` asset on the GitHub Release of each tag, reachable for the latest release at `https://github.com/fjpulidop/specrails-desktop/releases/latest/download/manifest.json`. The manifest SHALL be a UTF-8 encoded JSON document with the following fields:
-
-- `schemaVersion` (integer): currently `1`.
-- `version` (string): semver version of the release, without a leading `v` (e.g. `"1.40.0"`).
-- `releasedAt` (string): ISO 8601 UTC timestamp of when the release was published.
-- `releaseUrl` (string): HTTPS URL of the corresponding GitHub Release page.
-- `platforms` (object): map whose keys are `<os>-<arch>` identifiers. Currently defined keys are `darwin-arm64`, `windows-x64` and `windows-arm64`. Additional platform keys MAY be added in future releases without bumping `schemaVersion`. Each value contains:
-  - `filename` (string): the installer asset name.
-  - `url` (string): absolute HTTPS URL of the installer asset on the same GitHub Release.
-  - `sha256` (string): lowercase hex sha256 of the installer.
-  - `size` (integer): size of the installer in bytes.
+Each GitHub Release SHALL carry a UTF-8 JSON `manifest.json` asset, reachable for the latest release at `releases/latest/download/manifest.json`. It SHALL contain `schemaVersion` (`1`), `version` (no leading `v`), `releasedAt` (ISO 8601 UTC), `releaseUrl` and `platforms`, keyed by `<os>-<arch>` (`darwin-arm64`, `windows-x64`, `windows-arm64`), each with the asset `filename`, GitHub `url`, lowercase hex `sha256` and byte `size`.
 
 #### Scenario: Manifest is valid JSON and matches schema
 - **WHEN** a release completes and `manifest.json` is fetched
 - **THEN** it parses as JSON, contains `schemaVersion`, `version`, `releasedAt`, `releaseUrl`, and a `platforms` object with at least `darwin-arm64`
+
+#### Scenario: Manifest includes windows-x64 entry
+- **WHEN** a release completes for which the Windows x64 build job succeeded
+- **THEN** `manifest.json.platforms["windows-x64"]` exists and contains `filename`, `url`, `sha256`, and `size`
+- **AND** `platforms["windows-x64"].filename` matches `^specrails-desktop-\d+\.\d+\.\d+-x64-setup\.exe$`
 
 #### Scenario: Manifest reflects the most recent release
 - **WHEN** the release for tag `v<version>` completes
@@ -46,6 +41,10 @@ The system SHALL publish a `manifest.json` asset on the GitHub Release of each t
 #### Scenario: Manifest sha256 matches the published binary for every platform
 - **WHEN** the consumer downloads the file referenced by `platforms[<key>].url` for any key in `platforms` and computes its sha256
 - **THEN** the result equals `platforms[<key>].sha256`
+
+#### Scenario: Manifest size matches the published binary for every platform
+- **WHEN** the consumer downloads the file referenced by `platforms[<key>].url` for any key in `platforms`
+- **THEN** its byte length equals `platforms[<key>].size`
 
 ### Requirement: Manifest is uploaded after all referenced binaries
 The system SHALL upload `manifest.json` in the same GitHub Release upload as every installer it references, and SHALL fail the release before upload if any referenced installer is missing, so the manifest never references an installer the release does not carry.

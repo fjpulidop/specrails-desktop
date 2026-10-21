@@ -13,4 +13,9 @@
 ## 3. Verification
 
 - [x] 3.1 `npm run test:scripts` and workflow lint pass
-- [ ] 3.2 Next release publishes `manifest.json` on GitHub and specrails-web shows that version
+- [x] 3.2 Next release publishes `manifest.json` on GitHub and specrails-web shows that version
+
+Status 2026-10-21: 3.2 verified — releases v2.63.2–v2.64.2 carry `manifest.json` as a GitHub asset with
+`releases/download/v<version>/` URLs (latest: 2.64.2), the specrails.dev download page reads
+`api.github.com/repos/fjpulidop/specrails-desktop/releases/latest`, and the old
+`specrails.dev/downloads/specrails-desktop/latest/manifest.json` URL redirects to the GitHub release.
