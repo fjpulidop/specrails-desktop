@@ -34,6 +34,7 @@ import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } 
 import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
+  providerEnvAllowlist,
   formatProviderCommand,
   isReasoningEffortValidForModel,
   parseStreamEvents,
@@ -56,7 +57,7 @@ import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
 import { resolveProjectExecution, type ProjectExecution } from '../../../workspace-resolution'
-import { applyWorktreeEnvPassthrough, worktreeEnvPassthroughWarning } from '../../../project-env'
+import { resolveProjectAgentEnv, worktreeEnvPassthroughWarning } from '../../../project-env'
 import { readCurrentFrameworkVersion } from '../../../framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from '../../../openspec-shim'
 import { resolveHome } from '../../../artifact-registry'
@@ -2552,13 +2553,13 @@ export class QueueManager {
     // claude honours OTEL_* env vars natively; codex does not and instead
     // gets signals synthesised by the codex-otel-bridge attached below.
     let spawnEnv: NodeJS.ProcessEnv = process.env
-    // Per-project worktree/job env passthrough. The setting stores names only;
-    // values are read from the server env (with login-shell recovery for missing
-    // names) at spawn time. Apply this before Specrails' own env overlays so
-    // internal SPECRAILS_* control-plane values always win.
+    // Per-project agent environment: the passthrough overlay (names stored,
+    // values read at spawn time with login-shell recovery) and, in `minimal`
+    // mode, the allowlist filter. Apply this before Specrails' own env overlays
+    // so internal SPECRAILS_* control-plane values always win.
     let environmentNotice: string | null = null
     if (this._db) {
-      spawnEnv = applyWorktreeEnvPassthrough(this._db, spawnEnv)
+      spawnEnv = resolveProjectAgentEnv(this._db, { providerAllowlist: providerEnvAllowlist(adapter) })
       // One value-free line naming unresolved configured names (written to the
       // job log once the readers exist). The run proceeds without them.
       environmentNotice = worktreeEnvPassthroughWarning(this._db, spawnEnv)

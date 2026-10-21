@@ -58,3 +58,15 @@ describe('subagentRuntime persistence', () => {
   })
 })
 
+
+describe('agentEnvMode persistence', () => {
+  it('defaults to inherit, stores only the minimal opt-in and reads unknown values as inherit', () => {
+    const { db, service } = setup()
+    expect(service.getSettings().agentEnvMode).toBe('inherit')
+    expect(service.updateSettings({ agentEnvMode: 'minimal' }).agentEnvMode).toBe('minimal')
+    service.updateSettings({ agentEnvMode: 'inherit' })
+    expect(db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.agent_env_mode'").get()).toBeUndefined()
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.agent_env_mode', 'bogus')").run()
+    expect(service.getSettings().agentEnvMode).toBe('inherit')
+  })
+})

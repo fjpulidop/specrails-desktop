@@ -24,10 +24,12 @@ import type { SpawnOptions } from './providers/types'
 import {
   buildProviderEnv,
   parseStreamEvents,
+  providerEnvAllowlist,
   pureOutputToolPolicy,
   supportsContractRefine,
   supportsToolPolicy,
 } from './providers/runtime'
+import { projectAgentSourceEnv } from './project-env'
 import { randomUUID } from 'crypto'
 import {
   getModelsForProvider, isValidModelForProvider,
@@ -411,7 +413,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // POSIX argv path unchanged.
     console.log(`[project-router] spec-gen spawn: ${binary} (cwd=${specGenExec.cwd}, requestId=${requestId})`)
     const child = spawnAiCli(binary, args, {
-      env: buildProviderEnv(adapter, specGenOptions, specGenEnv),
+      env: buildProviderEnv(adapter, specGenOptions, projectAgentSourceEnv(ctx(req).db, providerEnvAllowlist(adapter), specGenEnv)),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: specGenExec.cwd,
     })
@@ -1969,7 +1971,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     console.log(`[project-router] ai-edit spawn: ${binary} (cwd=${project.path}, requestId=${requestId})`)
     const child = spawnAiCli(binary, args, {
-      env: buildProviderEnv(adapter, aiEditOptions),
+      env: buildProviderEnv(adapter, aiEditOptions, projectAgentSourceEnv(ctx(req).db, providerEnvAllowlist(adapter))),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: project.path,
     })

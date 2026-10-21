@@ -37,7 +37,7 @@ import {
   type ProjectEntry,
 } from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
-import { applyWorktreeEnvPassthrough, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
+import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
@@ -1176,10 +1176,11 @@ export class ProjectRegistry {
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
       sourcePath: () => resolveProjectRepository(project).path,
       workspacePaths: () => { const primary = resolveProjectRepository(project); return primary.workspacePaths ?? (primary.workspacePath ? [primary.workspacePath] : undefined) },
-      env: () => resolveLoopBaseEnv(
+      // `minimal` agent environment: the step's provider names ride along.
+      env: (providerAllowlist) => resolveLoopBaseEnv(
         { slug: project.slug, path: project.path },
         undefined,
-        applyWorktreeEnvPassthrough(db, process.env),
+        resolveProjectAgentEnv(db, { providerAllowlist }),
       ),
       // One value-free run-log line when configured names are unresolved.
       environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),

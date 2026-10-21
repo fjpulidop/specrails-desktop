@@ -45,6 +45,7 @@ export function envTools(): McpToolSpec[] {
         'Read, scan, and configure the per-project environment variable NAME allowlist used for rail jobs and isolated loop worktrees. ' +
         'Values are never read or stored by this tool; runs read them from the server environment and can recover configured names from the login shell when the desktop process is missing them. scan inspects safe repo config files such as package.json, .npmrc, .yarnrc.yml and pnpm-workspace.yaml for ${VAR} / process.env.VAR references and private scoped package auth hints. ' +
         'Each configured name reports a value-free resolution status: inherited, recovered (from the login shell), not-defined, probe-timeout or probe-failed. ' +
+        'get also reports the project agentEnvMode (inherit | minimal); that mode is read-only here so an agent cannot widen its own environment. ' +
         'Actions: get (read current names and their statuses), status (statuses only), recheck (probe the login shell now, then return statuses), scan (discover candidates), set (write names), auto_configure (scan then merge discovered names into settings).',
       hintTier: 'read',
       tier: (args) => (args.action === 'set' || args.action === 'auto_configure' ? 'write' : 'read'),
@@ -58,14 +59,15 @@ export function envTools(): McpToolSpec[] {
         const action = args.action as string
         const base = projectPath(ctx, args.projectId as string | undefined)
         if (action === 'get') {
-          const settings = await apiCall(ctx, 'GET', `${base}/settings`) as { worktreeEnvPassthrough?: unknown }
+          const settings = await apiCall(ctx, 'GET', `${base}/settings`) as { worktreeEnvPassthrough?: unknown; agentEnvMode?: unknown }
           const names = Array.isArray(settings.worktreeEnvPassthrough) ? settings.worktreeEnvPassthrough : []
+          const agentEnvMode = settings.agentEnvMode === 'minimal' ? 'minimal' : 'inherit'
           // Statuses are best-effort: an older server without the route still answers names.
           try {
             const { statuses } = sanitizeStatus(await apiCall(ctx, 'GET', `${base}/env-passthrough/status`))
-            return { names, statuses }
+            return { names, agentEnvMode, statuses }
           } catch {
-            return { names }
+            return { names, agentEnvMode }
           }
         }
         if (action === 'status') {

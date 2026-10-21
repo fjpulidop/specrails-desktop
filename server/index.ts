@@ -45,7 +45,9 @@ import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-ho
 import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
 import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
 import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
-import { getAdapter } from './providers/registry'
+import { getAdapter, listAdapters } from './providers/registry'
+import { providerEnvAllowlist } from './providers/runtime'
+import { projectAgentSourceEnv } from './project-env'
 import { revokeAgentCapability } from './mcp/agent-capability'
 import { createAgentChatRouter, isAgentChatEnabled } from './modules/missions/runtime/agent-chat-router'
 import { BlueprintChatManager } from './modules/builder/runtime/blueprint-chat-manager'
@@ -716,7 +718,15 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
   // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
   const sessionHosts = new SessionHostRegistry({
-    launcher: new CoreHostLauncher({ host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' } }),
+    launcher: new CoreHostLauncher({
+      host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' },
+      // A project scope's host follows that project's agent environment mode
+      // (Core may launch any configured provider, so every adapter's names pass).
+      env: (scope) => {
+        const context = registry.listContexts().find(item => item.project.slug === scope)
+        return projectAgentSourceEnv(context?.db, providerEnvAllowlist(listAdapters()))
+      },
+    }),
     clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); timer.unref?.(); return { cancel: () => clearTimeout(timer) } } },
     onStatus: (scope, status, detail, code) => {
       console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`)

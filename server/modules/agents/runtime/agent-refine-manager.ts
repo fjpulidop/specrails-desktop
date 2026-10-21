@@ -10,6 +10,8 @@ import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
 import { resolveProjectExecution } from '../../../workspace-resolution'
+import { projectAgentSourceEnv } from '../../../project-env'
+import { providerEnvAllowlist } from '../../../providers/runtime'
 import {
   getAdapter,
   buildProviderEnv,
@@ -380,7 +382,7 @@ export class AgentRefineManager {
       action,
       buildOpts,
       cwd: refineExec.cwd,
-      env: buildProviderEnv(this._adapter, buildOpts, refineEnv),
+      env: buildProviderEnv(this._adapter, buildOpts, projectAgentSourceEnv(this._db, providerEnvAllowlist(this._adapter), refineEnv)),
       onSpawn: (child) => this._activeProcesses.set(refineId, child),
       onSpawnError: (err) => { spawnState.err = err },
       onEvent: (ev) => {

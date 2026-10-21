@@ -324,6 +324,8 @@ export const kimiAdapter = {
   id: 'kimi',
   displayName: 'Kimi Code',
   binary: 'kimi',
+  // CLI config (KIMI_*) and Moonshot API-key auth.
+  envAllowlist: ['KIMI_*', 'MOONSHOT_*'],
   minCliVersion: KIMI_MIN_VERSION,
   projectDirName: '.kimi-code',
   // Unlike Codex's root AGENTS.md, Kimi's provider-local project instructions

@@ -4,6 +4,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
   prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
+  agentEnvMode: 'inherit',
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -89,3 +90,18 @@ describe('subagentRuntime', () => {
   })
 })
 
+
+describe('agentEnvMode', () => {
+  it('accepts inherit and minimal and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ agentEnvMode: 'minimal' })
+    expect(repository.update).toHaveBeenLastCalledWith({ agentEnvMode: 'minimal' })
+    service.updateSettings({ agentEnvMode: 'inherit' })
+    expect(repository.update).toHaveBeenLastCalledWith({ agentEnvMode: 'inherit' })
+    vi.mocked(repository.update).mockClear()
+    for (const bad of ['strict', '', null, true, 1]) {
+      expect(() => service.updateSettings({ agentEnvMode: bad })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).not.toHaveBeenCalled()
+  })
+})

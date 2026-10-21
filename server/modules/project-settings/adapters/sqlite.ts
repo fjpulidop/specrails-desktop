@@ -24,7 +24,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.pipeline_telemetry_enabled', 'config.orchestrator_model',
       'config.pre_prompt', 'config.freestyle_pre_prompt',
       'config.integration_branch', 'config.worktree_env_passthrough',
-      'config.allow_subagents', 'config.subagent_runtime'
+      'config.allow_subagents', 'config.subagent_runtime', 'config.agent_env_mode'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -44,6 +44,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
     allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
     subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
+    // Anything other than the explicit opt-in reads as the default.
+    agentEnvMode: settings.get('config.agent_env_mode')?.value === 'minimal' ? 'minimal' : 'inherit',
   }
 }
 
@@ -102,6 +104,10 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
   if (patch.subagentRuntime !== undefined) {
     if (patch.subagentRuntime === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.subagent_runtime'`).run()
     else db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.subagent_runtime', ?)`).run(JSON.stringify(patch.subagentRuntime))
+  }
+  if (patch.agentEnvMode !== undefined) {
+    if (patch.agentEnvMode === 'minimal') db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.agent_env_mode', 'minimal')`).run()
+    else db.prepare(`DELETE FROM queue_state WHERE key = 'config.agent_env_mode'`).run()
   }
   if (patch.worktreeEnvPassthrough !== undefined) {
     const names = normalizeWorktreeEnvPassthrough(patch.worktreeEnvPassthrough)

@@ -18,6 +18,12 @@ reservation, process handles, durable recovery and notifications. The accounting
 use case does not swallow errors, open transactions or retry individual writes.
 These responsibilities have not yet been migrated out of QueueManager.
 
+[Agent environment policy](domain/agent-env.ts) is pure: `buildAgentEnv` returns
+the source unchanged in `inherit` mode and, in `minimal` mode, a fresh object with
+the shared allowlist, Windows essentials (case-insensitive on Windows),
+`SPECRAILS_*`, the provider names and the passthrough values. Project wiring is
+in `server/project-env.ts`; provider names come from each adapter's `envAllowlist`.
+
 Run `npx vitest run server/modules/execution server/modules/execution/runtime/queue-manager.test.ts`.
 The queue suite covers settlement failure, crash replay, cancellation and budgets;
 [port tests](__tests__/accounting.test.ts) cover attribution and error propagation.

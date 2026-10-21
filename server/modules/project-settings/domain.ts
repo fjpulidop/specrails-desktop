@@ -39,6 +39,17 @@ export interface ProjectSettings {
   allowSubagents: boolean
   /** Who runs sub-agents. null = the mission agent's own provider (native, its defaults). */
   subagentRuntime: SubagentRuntimeSetting | null
+  /** Environment given to this project's agent processes. `inherit` (default)
+   *  forwards the Desktop environment as before; `minimal` forwards only an
+   *  allowlist, the passthrough names and the provider's own auth/config names. */
+  agentEnvMode: AgentEnvMode
+}
+
+export type AgentEnvMode = 'inherit' | 'minimal'
+
+export function parseAgentEnvMode(value: unknown): AgentEnvMode {
+  if (value === 'inherit' || value === 'minimal') return value
+  throw new SettingsValidationError("agentEnvMode must be 'inherit' or 'minimal'")
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -121,6 +132,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
       throw new SettingsValidationError(error instanceof Error ? error.message : 'invalid worktreeEnvPassthrough')
     }
   }
+  if (values.agentEnvMode !== undefined) patch.agentEnvMode = parseAgentEnvMode(values.agentEnvMode)
   if (values.subagentRuntime !== undefined) patch.subagentRuntime = parseSubagentRuntimeSetting(values.subagentRuntime)
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')

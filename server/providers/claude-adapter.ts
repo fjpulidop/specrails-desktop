@@ -502,6 +502,9 @@ export const claudeAdapter = {
   id: 'claude',
   displayName: 'Claude Code',
   binary: 'claude',
+  // Auth (API key, OAuth token, gateway), config dir and CLI knobs. Bedrock /
+  // Vertex credentials (AWS_*, GOOGLE_*) go through the project's passthrough.
+  envAllowlist: ['ANTHROPIC_*', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_*', 'DISABLE_AUTOUPDATER'],
   minCliVersion: null,
   projectDirName: '.claude',
   instructionsFilename: 'CLAUDE.md',

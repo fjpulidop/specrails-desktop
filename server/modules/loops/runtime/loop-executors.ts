@@ -19,6 +19,7 @@ import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
+import { listAdapters } from '../../../providers/registry'
 import { isLocalAdapterId } from '../../../providers/registry'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
@@ -38,6 +39,7 @@ import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
   formatProviderCommand,
+  providerEnvAllowlist,
   pureOutputToolPolicy,
 } from '../../../providers/runtime'
 import { seedChangeId, type LoopExecutors, type ShellResult } from './loop-run-manager'
@@ -168,8 +170,10 @@ export function createLoopExecutors(
     /** Base spawn env, or a LAZY provider re-resolved per step. Project-bound
      *  executors pass `() => resolveLoopBaseEnv(project)` so relocated projects
      *  inject core's workspace artifact indirection (and a project relocated
-     *  AFTER server start is picked up without a restart). Default process.env. */
-    env?: NodeJS.ProcessEnv | (() => NodeJS.ProcessEnv)
+     *  AFTER server start is picked up without a restart). Default process.env.
+     *  The provider allowlist names the auth/config variables the step's
+     *  provider(s) need when the project uses the `minimal` agent environment. */
+    env?: NodeJS.ProcessEnv | ((providerAllowlist: readonly string[]) => NodeJS.ProcessEnv)
     pluginScope?: () => { stateRoot: string; legacyProviderId: string }
     /** Named rail profiles and global per-agent defaults: resolves the immutable
      *  SPECRAILS_PROFILE_PATH snapshot for AI steps. A null selection opts out;
@@ -183,8 +187,12 @@ export function createLoopExecutors(
     environmentNotice?: () => string | null
   } = {},
 ): LoopExecutors {
-  const resolveEnv = (): NodeJS.ProcessEnv =>
-    typeof opts.env === 'function' ? opts.env() : opts.env ?? process.env
+  // Core-hosted work may launch any configured role provider, so it receives
+  // every registered adapter's names; plain AI steps and deciders receive only
+  // their provider's; shell steps receive none.
+  const coreProviderAllowlist = (): string[] => providerEnvAllowlist(listAdapters())
+  const resolveEnv = (providerAllowlist?: readonly string[]): NodeJS.ProcessEnv =>
+    typeof opts.env === 'function' ? opts.env(providerAllowlist ?? coreProviderAllowlist()) : opts.env ?? process.env
   const inactivityTimeoutMs = (): number => {
     const env = resolveEnv()
     const configuredIdle = env.SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS ?? process.env.SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS
@@ -325,7 +333,7 @@ export function createLoopExecutors(
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
       // agent self-heal on Windows.
-      const baseEnv = resolveEnv()
+      const baseEnv = resolveEnv(coreRun ? undefined : providerEnvAllowlist(adapter))
       const existingContext = coreRun ? runtimeContextPath(cwd, coreRun.runId, baseEnv) : undefined
       const programmatic = coreRun && existingContext && (coreRun.implementation || (coreRun.verificationStep && existsRuntimeRequest(existingContext)))
       const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
@@ -543,7 +551,7 @@ export function createLoopExecutors(
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
-      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(coreRun ? undefined : providerEnvAllowlist(adapter)), repoDir, executionManifest), provider, profileName)
       const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: coreRun?.workspacePaths }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
@@ -595,7 +603,7 @@ export function createLoopExecutors(
     },
 
     async runShell({ command, cwd, repoDir, onLine, onSpawn, timeoutMs }) {
-      const env = resolveEnv()
+      const env = resolveEnv([])
       return runShellCommand(command, repoDir ?? cwd, repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env, timeoutMs ?? SHELL_TIMEOUT_MS, onLine, onSpawn)
     },
 
@@ -603,7 +611,7 @@ export function createLoopExecutors(
       const adapter = getAdapter(provider)
       let text = ''
       let errorText: string | undefined
-      const baseEnv = resolveEnv()
+      const baseEnv = resolveEnv(providerEnvAllowlist(adapter))
       const decEnv = aiStepEnv(baseEnv, repoDir, executionManifest)
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
       // codex, not full-access) — appropriate for a read-only judgment.

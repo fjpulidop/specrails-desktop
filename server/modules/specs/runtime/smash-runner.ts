@@ -38,7 +38,8 @@ import {
   type TicketStore,
 } from './ticket-store'
 import type { DbInstance } from '../../../db'
-import { buildProviderEnv } from '../../../providers/runtime'
+import { buildProviderEnv, providerEnvAllowlist } from '../../../providers/runtime'
+import { projectAgentSourceEnv } from '../../../project-env'
 import { trackTransientChild } from '../../../transient-children'
 
 /** Resolve the tickets-store path for a SMASH run: the gated `ticketsPath` when
@@ -687,7 +688,7 @@ export async function runSmash(
     env: buildProviderEnv(
       adapter,
       spawnOptions,
-      spawnEnv ? { ...process.env, ...spawnEnv } : process.env,
+      projectAgentSourceEnv(deps.db, providerEnvAllowlist(adapter), spawnEnv ? { ...process.env, ...spawnEnv } : process.env),
     ),
     spawn,
     timeoutMs,
