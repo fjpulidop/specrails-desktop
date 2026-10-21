@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Project runtime configuration
-Desktop SHALL expose validated runtime configuration through project API and settings, supporting all four current CLI providers and additional OpenAI-compatible local or remote endpoints.
+Desktop SHALL expose validated runtime configuration through the project API and settings. Role engines SHALL reference global provider connections: the CLI providers Desktop detects and additional OpenAI-compatible local or remote endpoints.
 
 #### Scenario: Add local model
 - **WHEN** a user adds a local endpoint and assigns its model to a role
@@ -14,12 +14,12 @@ Configured implementation requests SHALL execute the packaged Core runtime with 
 - **WHEN** runtime execution selects Claude, Codex, Gemini or Kimi on macOS or Windows
 - **THEN** its existing coding capabilities remain usable through the compatible executor
 
-### Requirement: Legacy compatibility
-Desktop SHALL retain legacy execution when runtime configuration is absent or disabled and SHALL reject an enabled configuration if its compatible Core runtime is missing.
+### Requirement: Default runtime configuration
+The Core runtime SHALL be the only implementation engine. When a project has no runtime configuration, Desktop SHALL derive an enabled default that assigns every role to a detected CLI connection, migrate provider entries embedded in older project files into global connections, and reject execution when the compatible Core runtime is missing.
 
 #### Scenario: Older project
 - **WHEN** an existing project has no runtime configuration
-- **THEN** its current provider and workflow behavior remains unchanged
+- **THEN** Desktop runs it with a default configuration whose roles use a detected CLI provider
 
 ### Requirement: Recovery and cancellation
 Desktop SHALL expose persisted run status and explicit resume or recovery and SHALL propagate cancellation without certifying interrupted work as successful.

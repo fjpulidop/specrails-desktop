@@ -16,3 +16,7 @@
 - [x] 3.1 Document runtime/local model setup and recovery behavior.
 - [x] 3.2 Run typecheck, server/client regressions, coverage and packaging checks; resolve introduced failures.
 - [x] 3.3 Complete cross-repository verification and record limitations honestly.
+
+Status 2026-10-21: verified shipped (#658 and follow-ups). The delta's legacy-fallback requirement no longer matched the
+code (a missing configuration now yields an enabled default and providers are global connections); it was reworded to the
+current behaviour before archiving.
