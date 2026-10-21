@@ -566,3 +566,23 @@ describe('TicketDetailModal', () => {
     })
   })
 })
+
+describe('TicketDetailModal regressionOf', () => {
+  it('hides the picker for non-bug tickets without a link', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ labels: ['area:frontend'] }) })} />)
+    expect(screen.queryByTestId('regression-of-picker')).toBeNull()
+  })
+
+  it('clears an existing link with metadata.regressionOf = null', async () => {
+    const onSave = vi.fn(async () => true)
+    render(<TicketDetailModal {...makeDefaultProps({ onSave, ticket: makeTicket({ labels: [], metadata: { regressionOf: 'del-9' } }) })} />)
+    const picker = screen.getByTestId('regression-of-picker')
+    const select = picker.querySelector('select') as HTMLSelectElement
+    await waitFor(() => expect(select.disabled).toBe(false))
+    expect(select.value).toBe('del-9')
+    fireEvent.change(select, { target: { value: '' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeDefined())
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, expect.objectContaining({ metadata: { regressionOf: null } })))
+  })
+})

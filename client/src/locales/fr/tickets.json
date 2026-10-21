@@ -176,5 +176,16 @@
       "failed": "Impossible d'enregistrer l'addendum",
       "inFlight": "Cet addendum est en cours — attendez la fin de l'exécution"
     }
+  },
+  "regressionOf": {
+    "label": "Régression de",
+    "hint": "Livraison qui a introduit ce bug (compte comme défaut échappé de son loop)",
+    "none": "Non lié",
+    "loading": "Chargement des livraisons…",
+    "unavailable": "Impossible de charger les livraisons.",
+    "empty": "Aucun changement livré pour l’instant.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "n° {{ids}}",
+    "missing": "Livraison inconnue ({{id}})"
   }
 }

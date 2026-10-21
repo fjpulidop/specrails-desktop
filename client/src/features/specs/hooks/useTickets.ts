@@ -360,7 +360,7 @@ export function useTickets() {
   )
 
   const createTicket = useCallback(
-    async (ticket: { title: string; description?: string; status?: LocalTicket['status']; priority?: LocalTicket['priority']; labels?: string[]; repositoryIds?: string[] }): Promise<boolean> => {
+    async (ticket: { title: string; description?: string; status?: LocalTicket['status']; priority?: LocalTicket['priority']; labels?: string[]; repositoryIds?: string[]; metadata?: { regressionOf?: string } }): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
       try {
@@ -381,7 +381,7 @@ export function useTickets() {
   )
 
   const updateTicket = useCallback(
-    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds'>>): Promise<boolean> => {
+    async (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'prerequisites' | 'repositoryIds'>> & { metadata?: { regressionOf?: string | null } }): Promise<boolean> => {
       const ownerProjectId = activeProjectId
       if (!ownerProjectId) return false
       try {

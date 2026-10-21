@@ -37,6 +37,7 @@ import { validateRequestedProvider } from './provider-selection'
 import {
   readStore, mutateStore, filterTickets,
   isValidStatus, isValidPriority, validatePriorityForStatus, clampShortSummary,
+  normalizeRegressionOfMetadata,
   type Ticket
 } from './modules/specs/runtime/ticket-store'
 import { generateAutoTitle } from './modules/conversations/runtime/explore-draft-title'
@@ -885,7 +886,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       ? (body.prerequisites as unknown[]).filter((p): p is number => typeof p === 'number')
       : []
     const hasMetadata = typeof body.metadata === 'object' && body.metadata !== null
-    const metadata = hasMetadata ? (body.metadata as Ticket['metadata']) : {}
+    const regressionCheck = normalizeRegressionOfMetadata(hasMetadata ? (body.metadata as Record<string, unknown>) : {})
+    if (!regressionCheck.ok) {
+      res.status(400).json({ error: regressionCheck.error }); return
+    }
+    const metadata = hasMetadata ? (regressionCheck.metadata as Ticket['metadata']) : {}
 
     // A supplied conversationId must reference a REAL chat conversation in this
     // project (an Explore row in chat_conversations). Agent/desktop conversation
@@ -967,7 +972,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           Object.assign(flipTarget, repositoryScope(req, res))
           if (hasAssignee) flipTarget.assignee = assignee
           if (hasPrerequisites) flipTarget.prerequisites = prerequisites
-          if (hasMetadata) flipTarget.metadata = { ...flipTarget.metadata, ...metadata }
+          if (hasMetadata) {
+            flipTarget.metadata = { ...flipTarget.metadata, ...metadata }
+            if (regressionCheck.clear) delete flipTarget.metadata.regressionOf
+          }
           flipTarget.updated_at = now
           // Preserve prior short_summary on flip when the model/body omits one;
           // overwrite only when a non-null value is provided.
@@ -1534,10 +1542,15 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
   // POST /:projectId/tickets — Create new ticket
   router.post('/:projectId/tickets', (req: Request, res: Response) => {
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata, source } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source } = req.body ?? {}
     if (!title || typeof title !== 'string' || !title.trim()) {
       res.status(400).json({ error: 'title is required' }); return
     }
+    const createRegression = normalizeRegressionOfMetadata(typeof rawMetadata === 'object' && rawMetadata !== null ? rawMetadata : {})
+    if (!createRegression.ok) {
+      res.status(400).json({ error: createRegression.error }); return
+    }
+    const metadata = typeof rawMetadata === 'object' && rawMetadata !== null ? createRegression.metadata : undefined
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
@@ -1748,10 +1761,15 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (!/^\d+$/.test(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' }); return
     }
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata, acceptanceCriteria, short_summary } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary } = req.body ?? {}
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
+    const patchRegression = normalizeRegressionOfMetadata(typeof rawMetadata === 'object' && rawMetadata !== null ? rawMetadata : {})
+    if (!patchRegression.ok) {
+      res.status(400).json({ error: patchRegression.error }); return
+    }
+    const metadata = typeof rawMetadata === 'object' && rawMetadata !== null ? patchRegression.metadata : rawMetadata
     if (priority !== undefined && priority !== null && !isValidPriority(priority)) {
       res.status(400).json({ error: 'priority must be one of: critical, high, medium, low' }); return
     }
@@ -1790,6 +1808,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         if (prerequisites !== undefined && Array.isArray(prerequisites)) ticket.prerequisites = prerequisites.filter((p: unknown) => typeof p === 'number')
         if (metadata !== undefined && typeof metadata === 'object' && metadata !== null) {
           ticket.metadata = { ...ticket.metadata, ...metadata }
+          if (patchRegression.clear) delete ticket.metadata.regressionOf
         }
         // Short summary: explicit non-empty overwrites; explicit null clears;
         // omitted leaves the existing value untouched (preserves prior summary

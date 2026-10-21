@@ -176,5 +176,16 @@
       "failed": "Could not save the addendum",
       "inFlight": "This addendum is in flight — wait for the run to settle"
     }
+  },
+  "regressionOf": {
+    "label": "Regression of",
+    "hint": "Delivery that introduced this bug (counts as an escaped defect of its loop)",
+    "none": "Not linked",
+    "loading": "Loading deliveries…",
+    "unavailable": "Could not load deliveries.",
+    "empty": "No delivered changes yet.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "Unknown delivery ({{id}})"
   }
 }

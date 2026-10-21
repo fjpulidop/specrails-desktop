@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../../../components/ui/button'
 import type { TicketStatus, TicketPriority } from '../../../types'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
+import { RegressionOfPicker, isBugTicket } from './RegressionOfPicker'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface CreateTicketModalProps {
     priority?: TicketPriority
     labels?: string[]
     repositoryIds?: string[]
+    metadata?: { regressionOf?: string }
   }) => Promise<boolean>
 }
 
@@ -33,6 +35,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
   const [priority, setPriority] = useState<TicketPriority>('medium')
   const [labels, setLabels] = useState<string[]>([])
   const [repositoryIds, setRepositoryIds] = useState<string[] | undefined>()
+  const [regressionOf, setRegressionOf] = useState<string | null>(null)
   const [labelInput, setLabelInput] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -55,6 +58,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
       setPriority('medium')
       setLabels([])
       setRepositoryIds(undefined)
+      setRegressionOf(null)
       setLabelInput('')
     }
   }, [open])
@@ -85,6 +89,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
       priority,
       labels: labels.length > 0 ? labels : undefined,
       ...(repositoryIds ? { repositoryIds } : {}),
+      ...(regressionOf && isBugTicket(labels) ? { metadata: { regressionOf } } : {}),
     })
     setSaving(false)
     if (ok) {
@@ -93,7 +98,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
     } else {
       toast.error(t('createModal.toast.createFailed'))
     }
-  }, [title, description, status, priority, labels, repositoryIds, onCreate, onClose, t])
+  }, [title, description, status, priority, labels, repositoryIds, regressionOf, onCreate, onClose, t])
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -226,6 +231,10 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               )}
             </div>
           </div>
+
+          {isBugTicket(labels) && (
+            <RegressionOfPicker value={regressionOf} onChange={setRegressionOf} disabled={saving} />
+          )}
         </div>
 
         <DialogFooter>

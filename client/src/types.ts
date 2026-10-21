@@ -451,6 +451,8 @@ export interface LocalTicket {
     effort_level?: string
     user_story?: string
     area?: string
+    /** Escaped-defect link: id of the delivery that introduced this bug. */
+    regressionOf?: string
   }
   attachments?: Attachment[]
   origin_conversation_id?: string | null
