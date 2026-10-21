@@ -1715,6 +1715,27 @@ const MIGRATIONS: Migration[] = [
     }
   },
 
+  // Migration 72: agent actions audit log (what each run read, wrote, ran,
+  // called over MCP or fetched). Targets only — never file contents or
+  // environment values. Retention is a project setting (default 30 days).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_actions (
+        id      INTEGER PRIMARY KEY,
+        run_id  TEXT NOT NULL,
+        job_id  TEXT,
+        role    TEXT NOT NULL,
+        kind    TEXT NOT NULL CHECK(kind IN ('read','write','exec','mcp','network')),
+        target  TEXT NOT NULL,
+        hash    TEXT,
+        ts      TEXT NOT NULL,
+        source  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_run ON agent_actions(run_id, ts);
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_ts ON agent_actions(ts);
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {
