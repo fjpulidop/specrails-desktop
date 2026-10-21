@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { createDefinitionEventProjection, readDefinitionUsage } from './loop-definition-events'
 import { recordLegacyLaunch } from './legacy-launch-telemetry'
 import { runDefinitionLoop, type DefinitionCompletion, type DefinitionInterrupt, type DefinitionLoopInvocation, type DefinitionRuntimeResult, type DefinitionResumeControls } from './loop-definition-run'
@@ -924,7 +925,11 @@ export class LoopRunManager {
     private readonly now: () => number = () => Date.now(),
     /** `idleTimeoutMs`: override the env-resolved loop-step idle watchdog
      *  (tests). Undefined ⇒ resolveLoopStepIdleTimeoutMs() per run. */
-    private readonly options: { idleTimeoutMs?: number } = {},
+    private readonly options: {
+      idleTimeoutMs?: number
+      /** Agent actions audit sink bound to this project (observing only). */
+      agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
+    } = {},
   ) {}
 
   /** WebSocket delivery is advisory. A disconnected/misbehaving listener must
@@ -1391,6 +1396,9 @@ export class LoopRunManager {
     // identical to QueueManager — so JobStatusPanel parses real activity
     // (thinking/reading/editing/tool steps) instead of staying on "Connecting…".
     // Non-JSON lines fall back to a plain log line.
+    // Agent actions audit for one-shot AI steps (provider JSONL) and Core
+    // agent-event tool lines. Observing only: a tap failure never reaches the run.
+    const auditTap = this.options.agentAudit ? createStreamAuditTap(this.options.agentAudit, { runId, jobId: runId, role: 'loop' }) : null
     const onRawLine = (line: string): void => {
       if (!line) return
       let eventType: string | undefined
@@ -1398,6 +1406,7 @@ export class LoopRunManager {
         const parsed = JSON.parse(line) as { type?: unknown; role?: unknown }
         if (typeof parsed.type === 'string') eventType = parsed.type
         else if (typeof parsed.role === 'string') eventType = parsed.role
+        auditTap?.(parsed)
       } catch { /* not JSON */ }
       if (!eventType) { logLine(line); return }
       if (eventType === 'runtime-efficiency-event') {
@@ -1764,7 +1773,7 @@ export class LoopRunManager {
           onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) },
           invoke: input => { this.claimDefinition({ ...req, runId }); return this.executors.runDefinition!(input) }, isCancelled: () => this._cancelled.has(runId),
           remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes*60_000-activeDurationMs) : undefined,
-          onLine: logLine, onRuntimeEvent: projectEvent, onSpawn: child => {
+          onLine: logLine, onRuntimeEvent: auditTap ? event => { auditTap(event); return projectEvent(event) } : projectEvent, onSpawn: child => {
             this._activeChild.set(runId, child)
             if (this._cancelled.has(runId)) this.cancelResident(runId, false)
           },
@@ -2597,6 +2606,7 @@ export class LoopRunManager {
         zombieTimeoutMs: input.plan.idleTimeoutMs ?? input.plan.inactivityTimeoutMs ?? 0,
         onZombieTimeout: () => { stalled = true },
         nextEventSeq: input.nextEventSeq,
+        ...(this.options.agentAudit ? { onProviderEvent: createStreamAuditTap(this.options.agentAudit, { runId: input.runId, jobId: input.runId, role: 'loop' }) } : {}),
         persistTurnUsage: (usage, completedEventSeq, checkpoint) => {
           const checkpointTurn = this.db.transaction(() => {
             accumulateInteractiveTurn(this.db, input.runId, usage)

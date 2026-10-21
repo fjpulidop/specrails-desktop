@@ -273,6 +273,30 @@ function emitMcpActivity(ctx: McpToolContext, spec: McpToolSpec, args: Record<st
 }
 
 /**
+ * Agent actions audit for first-party mission agents: one `mcp` row per
+ * admitted tool call, in the capability's project, run id = the mission
+ * conversation. Only the tool and its action are stored — never arguments.
+ * Observing only: a missing project or a failing sink never affects the call.
+ */
+export function recordMissionMcpAction(ctx: McpToolContext, toolName: string, args: Record<string, unknown>): void {
+  try {
+    const projectId = ctx.requestProjectId
+    const conversationId = ctx.originConversationId
+    if (!projectId || !conversationId) return
+    const recorder = ctx.registry.getContext(projectId)?.agentAudit?.recorder
+    if (!recorder) return
+    const action = typeof args.action === 'string' && /^[a-z0-9_.-]{1,64}$/i.test(args.action) ? args.action : null
+    recorder.record({
+      runId: conversationId,
+      role: 'mission',
+      kind: 'mcp',
+      target: action ? `${toolName}:${action}` : toolName,
+      source: 'mcp-wrapper',
+    })
+  } catch { /* audit is observing only */ }
+}
+
+/**
  * Registers a tool on the McpServer, wrapping the handler with (1) tier
  * enforcement and (2) uniform success/error result shaping. No tool can forget
  * the tier check because it lives here, not in the handler.
@@ -316,6 +340,7 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       if (!toolTierAllowed(callCtx, tier)) {
         return errorResult(tierRefusalMessage(tier))
       }
+      if (capability) recordMissionMcpAction(callCtx, spec.name, args ?? {})
       const operation = async (): Promise<CallToolResult> => {
         try {
           const data = await spec.handler(callCtx, args ?? {})

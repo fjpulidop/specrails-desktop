@@ -16,6 +16,7 @@ import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
 import { injectRepoMapEnv } from '../../../repo-map'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { extractDisplayText } from '../../../util/stream-display'
+import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { resetPhases, setActivePhases } from '../../../hooks'
 import { recordInvocation, type InvocationStatus } from '../../accounting/runtime/ai-invocations'
 import { isCodeExplorerEnabled, isInteractiveJobsEnabled } from '../../../feature-flags'
@@ -293,6 +294,8 @@ export class QueueManager {
    *  For codex it controls the catalog model used at spawn time and as the
    *  fallback model name stamped onto the ai_invocations row. */
   private _resolvedModel: string | null
+  /** Agent actions audit sink (project-bound). Observing only: never fails a job. */
+  private _agentAudit: Pick<AgentAuditRecorder, 'record'> | null = null
   private _agentDefaults: ((provider: string) => ResolvedProviderAgentDefaults | null) | null
   private _onJobFinished:
     | ((
@@ -404,6 +407,8 @@ export class QueueManager {
       zombieTimeoutMs?: number
       getCostAlertThreshold?: () => number | null
       getDesktopDailyBudget?: () => { budget: number | null; totalSpend: number }
+      /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
+      agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
       /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.1-sol'. */
       resolvedModel?: string
@@ -479,6 +484,7 @@ export class QueueManager {
     this._onBudgetExceeded = options?.onBudgetExceeded ?? null
     this._resolvePluginsForSpawn = options?.resolvePluginsForSpawn ?? null
     this._projectId = options?.projectId ?? null
+    this._agentAudit = options?.agentAudit ?? null
     this._desktopPort = options?.desktopPort ?? 4200
     this._projectSlug = options?.projectSlug ?? null
     this._jobProfileSelection = new Map()
@@ -2027,6 +2033,7 @@ export class QueueManager {
       // Auto sessions arm a wedge detector on the SAME inactivity budget the
       // one-shot path uses; finalize sessions idle awaiting the human.
       zombieTimeoutMs: settleMode === 'auto' ? this._zombieTimeoutMs : undefined,
+      ...(this._agentAudit ? { onProviderEvent: createStreamAuditTap(this._agentAudit, { runId: jobId, jobId }) } : {}),
     })
     this._interactiveSessions.set(jobId, session)
     session.start(spec, firstPrompt)
@@ -2967,10 +2974,13 @@ export class QueueManager {
       emitLine('stderr', environmentNotice)
     }
 
+    // Agent actions audit: observes parsed provider frames; never throws.
+    const auditTap = this._agentAudit ? createStreamAuditTap(this._agentAudit, { runId: jobId, jobId }) : null
     stdoutReader.on('line', (line) => {
       if (this._disposed) return
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { /* plain text */ }
+      if (parsed && auditTap) auditTap(parsed)
 
       // Feed the adapter for the canonical event shape used by
       // finaliseInvocationResult and (optionally) the OTEL bridge. Done

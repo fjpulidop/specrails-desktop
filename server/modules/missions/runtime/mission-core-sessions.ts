@@ -4,6 +4,7 @@ import type { ResolvedExternalServer } from '../../../external-mcp'
 import type { ProviderAdapter } from '../../../providers/types'
 import { resolveSubagentRuntime, type CoreSessionsAvailability, type DriverDescriptor, type SessionPolicyInput, type SubagentRuntimeChoice } from '../../agent-sessions'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
+import type { AgentAuditRecorder } from '../../audit'
 import { getAgentConversation, type AgentConversation } from '../../agents/runtime/agent-store'
 import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
@@ -23,6 +24,8 @@ export interface MissionCoreSessionsDeps {
   subagentPolicy?: (conversation: AgentConversation) => SessionPolicyInput['subagents']
   /** "Run sub-agents with" for a conversation; null = the mission agent's own provider. */
   subagentRuntime?: (conversation: AgentConversation) => SubagentRuntimeChoice | null
+  /** Agent actions audit sink of a project (tool calls of its missions). */
+  agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
 }
 
 export const GLOBAL_SCOPE = 'global'
@@ -249,6 +252,7 @@ export class MissionCoreSessions {
       broadcast,
       adapterFor: this.deps.adapterFor,
       onProcessEnded: (id) => this.releaseCapability(id),
+      ...(this.deps.agentAudit ? { agentAudit: this.deps.agentAudit } : {}),
     })
     try {
       await this.deps.registry.track(scope, conversationId, projector, () => {})

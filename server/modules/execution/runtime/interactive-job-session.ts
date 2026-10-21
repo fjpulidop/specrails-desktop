@@ -241,6 +241,10 @@ export interface InteractiveJobSessionDeps {
    * failure fail-stops the session; it must never continue with an untracked
    * provider turn. */
   persistTurnActivity?: (turnStartedAtMs: number, activityAtMs: number) => void
+  /** Observer for every parsed provider stdout frame (agent actions audit).
+   *  Called before drop/persistence decisions; a throw is swallowed so an
+   *  observer can never affect the session. */
+  onProviderEvent?: (event: Record<string, unknown>) => void
   /** Injectable spawn (tests). Defaults to spawnAiCli. */
   spawn?: typeof spawnAiCli
   /** Injectable process-tree terminator (tests). Defaults to treeKillSafe. */
@@ -263,6 +267,7 @@ const FINALIZE_KILL_GRACE_MS = 2000
 
 export class InteractiveJobSession {
   private readonly _jobId: string
+  private readonly _onProviderEvent: ((event: Record<string, unknown>) => void) | null
   private readonly _projectId: string
   private readonly _db: DbInstance | null
   private readonly _adapter: ProviderAdapter
@@ -358,6 +363,7 @@ export class InteractiveJobSession {
 
   constructor(deps: InteractiveJobSessionDeps) {
     this._jobId = deps.jobId
+    this._onProviderEvent = deps.onProviderEvent ?? null
     this._projectId = deps.projectId
     this._db = deps.db
     this._adapter = deps.adapter
@@ -624,6 +630,9 @@ export class InteractiveJobSession {
   private _handleStdoutLine(line: string): void {
     let parsed: Record<string, unknown> | null = null
     try { parsed = JSON.parse(line) } catch { /* plain text */ }
+    if (parsed && this._onProviderEvent) {
+      try { this._onProviderEvent(parsed) } catch { /* observers never affect the session */ }
+    }
 
     // Keep the live roster current before deciding whether a result completes
     // the step or needs the parent to join its unfinished workers.

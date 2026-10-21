@@ -50,6 +50,7 @@ import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { defaultGitRunner } from './worktree-manager'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
+import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
@@ -161,6 +162,8 @@ export interface ProjectContext {
   milestoneProgress?: MilestoneProgressBroadcaster
   /** Server-durable milestone launch chains (sequential Launch Milestone). */
   milestoneChains?: MilestoneChainManager
+  /** Agent actions audit (batched writer, exports, retention). Absent in bare test contexts. */
+  agentAudit?: ProjectAgentAudit
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -442,6 +445,8 @@ export class ProjectRegistry {
       try { dropBlobStatesForProject(id) } catch { /* ignore */ }
       // Stop the login-shell env refresh and forget recovered values.
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
+      // Flush pending audit rows and stop retention BEFORE the connection closes.
+      try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       this._contexts.delete(id)
@@ -633,6 +638,7 @@ export class ProjectRegistry {
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
+      try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
     }
     // Close the shared browser context once, after every per-project manager has
@@ -717,8 +723,15 @@ export class ProjectRegistry {
       projectPath: project.path,
       broadcast: boundBroadcast,
     })
+    // Agent actions audit (one batched writer per project connection). Retention
+    // runs shortly after startup and daily, reading the project setting each time.
+    const agentAudit = createProjectAgentAudit(db, {
+      label: project.slug,
+      retentionDays: () => getProjectSettings(db).agentAuditRetentionDays,
+    })
     const queueManager = new QueueManager(boundBroadcast, db, undefined, project.path, {
       zombieTimeoutMs: projectZombieTimeout,
+      agentAudit: agentAudit.recorder,
       provider: project.provider ?? 'claude',
       projectId: project.id,
       projectSlug: project.slug,
@@ -1191,7 +1204,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }))
+    }), undefined, { agentAudit: agentAudit.recorder })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1494,7 +1507,7 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, agentAudit }
     ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first

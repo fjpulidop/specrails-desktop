@@ -478,6 +478,49 @@ describe('QueueManager', () => {
     })
   })
 
+  // ─── agent actions audit ──────────────────────────────────────────────────
+
+  describe('agent actions audit', () => {
+    const toolFrame = JSON.stringify({ type: 'assistant', message: { content: [
+      { type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'src/a.ts' } },
+      { type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'npm test' } },
+    ] } })
+
+    it('records tool calls of the provider stream against the job', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('audit-job' as any)
+      const record = vi.fn()
+      const audited = new QueueManager(broadcast, initDb(':memory:'), [], undefined, { provider: 'claude', projectId: 'p1', agentAudit: { record } })
+      audited.enqueue('/implement #1')
+      child.stdout.push(toolFrame + '\n')
+      child.stdout.push(null)
+      await new Promise((r) => setTimeout(r, 50))
+      const rows = record.mock.calls.flatMap(([actions]) => actions)
+      expect(rows).toEqual([
+        expect.objectContaining({ runId: 'audit-job', jobId: 'audit-job', kind: 'read', target: 'src/a.ts', source: 'claude-stream' }),
+        expect.objectContaining({ runId: 'audit-job', jobId: 'audit-job', kind: 'exec', target: 'npm test', source: 'claude-stream' }),
+      ])
+    })
+
+    it('a throwing audit sink never affects the job', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('audit-throw-job' as any)
+      const db = initDb(':memory:')
+      const audited = new QueueManager(broadcast, db, [], undefined, { provider: 'claude', projectId: 'p1', agentAudit: { record: () => { throw new Error('audit down') } } })
+      audited.enqueue('/implement #1')
+      child.stdout.push(toolFrame + '\n')
+      child.stdout.push('after the tool call\n')
+      child.stdout.push(null)
+      await new Promise((r) => setTimeout(r, 50))
+      expect(audited.getLogBuffer().some((l) => l.line === 'after the tool call')).toBe(true)
+      expect(getJobEvents(db, 'audit-throw-job').some((e) => e.payload === toolFrame)).toBe(true)
+    })
+  })
+
   // ─── getLogBuffer ─────────────────────────────────────────────────────────
 
   describe('getLogBuffer', () => {

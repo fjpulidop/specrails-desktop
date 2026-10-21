@@ -145,5 +145,43 @@ describe('MissionSessionProjector', () => {
     expect(listSubagents(db, conversationId).find((node) => node.subagentId === 'child-1')?.delegated).toEqual({ driver: 'codex', model: 'gpt-5.6-terra' })
     expect(broadcasts.some((message) => message.type === 'spending.invalidated')).toBe(false)
   })
-})
 
+  it('records mission and sub-agent tool starts in the pinned project audit, after commit', () => {
+    const pinned = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' }).id
+    ensureSessionCursor(db, pinned, pinned, 'p1')
+    const recorded: Array<Record<string, unknown>> = []
+    const lookups: string[] = []
+    conversationId = pinned
+    state = initialProjection(pinned)
+    projector = new MissionSessionProjector(pinned, {
+      db, broadcast: () => {}, adapterFor: getAdapter,
+      agentAudit: (projectId) => { lookups.push(projectId); return { record: (rows) => { recorded.push(...(rows as Array<Record<string, unknown>>)) } } },
+    })
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: ['u1'] },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'started', input: { file_path: 'README.md' } },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'completed', output: 'contents' },
+      { type: 'subagent.started', subagentId: 'a1', parentId: null, kind: 'background', agentType: 'general-purpose', description: 'x' },
+      { type: 'subagent.output', subagentId: 'a1', channel: 'tool', tool: { toolUseId: 'b', name: 'Bash', phase: 'started', input: { command: 'npm test' } } },
+    ])
+    expect(lookups.every((id) => id === 'p1')).toBe(true)
+    expect(recorded).toEqual([
+      expect.objectContaining({ runId: pinned, role: 'mission', kind: 'read', target: 'README.md', source: 'core-session' }),
+      expect.objectContaining({ runId: pinned, role: 'subagent', kind: 'exec', target: 'npm test', source: 'core-session' }),
+    ])
+  })
+
+  it('a throwing audit sink never affects the projection', () => {
+    conversationId = createAgentConversation(db, { provider: 'claude', pinnedProjectId: 'p1' }).id
+    ensureSessionCursor(db, conversationId, conversationId, 'p1')
+    state = initialProjection(conversationId)
+    projector = new MissionSessionProjector(conversationId, { db, broadcast: () => {}, adapterFor: getAdapter, agentAudit: () => { throw new Error('no project') } })
+    expect(() => feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: ['u1'] },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'started', input: { file_path: 'a' } },
+    ])).not.toThrow()
+    expect(getSessionCursor(db, conversationId)?.lastSeq).toBe(3)
+  })
+})
