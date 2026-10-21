@@ -49,3 +49,6 @@
 - [x] 7.2 Client tests: card render/edit/play/409/frozen, run-card phases + failure actions, pinning, palette rail chips
 - [x] 7.3 `npm run typecheck`, `npm test`, `npm run test:coverage` (server ≥ 80%), `cd client && npm run test:coverage` (client ≥ 80%)
 - [ ] 7.4 Manual smoke in Mission mode: propose → edit → Play (existing rail, new rail, no-git project) → running → forced failure → auto-turn → resume from card; check all 8 locales render
+
+Status 2026-10-21: remaining — 7.4: the feature shipped in #670, but no record of the manual Mission-mode smoke exists
+in the change, docs or history.

@@ -45,7 +45,7 @@ Status: local implementation complete; unchecked items retain their native-distr
 
 ## 6. D5 — Production pin and reviewable handoff
 
-- [ ] 6.1 After Core C7 provides a verified published package, update exact Core version/integrity in `scripts/assemble-bundled-core.lock.json` and `.github/workflows/desktop-release.yml` together; update stale packaging/runtime-version docs. Do not guess a future release number.
+- [x] 6.1 After Core C7 provides a verified published package, update exact Core version/integrity in `scripts/assemble-bundled-core.lock.json` and `.github/workflows/desktop-release.yml` together; update stale packaging/runtime-version docs. Do not guess a future release number.
 - [ ] 6.2 Assemble and smoke the pinned production bundle/sidecar, verify API/schema/evidence/continuation support from that bundle and retain referenced older runtimes. Treat local source assembly as a separate development check.
 - [x] 6.3 Document new controls, recorded-versus-live evidence, original-runtime recovery and rollback. State measured results and benchmark limitations; do not claim AI savings from the offline fixture.
 - [x] 6.4 Review implementation against both OpenSpec changes, record passing checks and package identities, remove newly unreachable duplicate paths and prepare coordinated release notes. Keep economic routing unset unless explicitly configured and validated.
@@ -53,3 +53,10 @@ Status: local implementation complete; unchecked items retain their native-distr
 Dependency order: Core C0 + D0 → D1 → D2; Core C5 + D0 → D3; all → D4 with Core C7; published Core + D4 → D5. D2 and D3 can proceed in parallel once their contracts are stable. D5 publication/pinning is a release step, distinct from finishing local implementation and review.
 
 Validation note: local CI suites and follow-up regressions passed; the unchecked CI task retains only its native OS/Node distribution-matrix requirement. Publishing and exact production pinning remain separate release steps.
+
+Status 2026-10-21: 6.1 verified and checked — `scripts/assemble-bundled-core.lock.json` and `desktop-release.yml` pin
+Core 6.6.5 (with integrity) together, and 6.6.5 contains Core #360. Remaining — 5.4: a full `npm run ci` pass is
+recorded, but the native Windows/macOS package checks and the browser check of the shared evidence UI in both modes
+are not; 6.2: no recorded check of API/schema/evidence/continuation support from the pinned 6.6.5 bundle (the release
+workflow only runs the bundled-runtime and MCP smokes). `docs/plans/implementation-efficiency-progress.md` still lists
+6.1 as a blocker.

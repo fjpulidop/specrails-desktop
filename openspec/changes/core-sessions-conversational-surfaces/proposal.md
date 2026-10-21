@@ -36,3 +36,7 @@ Moving them onto the same runtime makes Core the single engine for conversationa
 - **Docs**: `docs/internals/agent-sessions.md`, the module READMEs and the user guide pages of each surface.
 - **Dependency**: the released Core with `agent-session-runtime` (`sessions: 1`). Live verification covers Claude and Codex.
 - **Sequencing**: after `core-agent-sessions-host` ships and `SPECRAILS_CORE_SESSIONS` defaults to `auto`. It precedes `core-runtime-one-shots`, which removes `server/providers/*`.
+
+Status 2026-10-21: not started — the missions migration it depends on shipped in #732, but chat, agent refine,
+contract refine, smash, blueprint chat and interactive jobs do not use Core sessions, and `resolveSubagentPolicy` is
+only called for `surface: 'mission'`. No tasks.md exists yet.

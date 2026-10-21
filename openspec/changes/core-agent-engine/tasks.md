@@ -111,3 +111,9 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 - First release prepared, not published: `RELEASE-PLAN.md` lists the expected
   versions (Core 6.1.0, Desktop 2.58.0), draft notes and the ordered owner-gated
   publish steps. 1.6 closes only against the published Core package.
+
+Status 2026-10-21: remaining — all of 10.1–10.6. Legacy launch telemetry exists but launch call sites/analytics and
+the two-release zero-use record are missing (10.1); the compatibility suite has not been proven against real user-
+saved graphs (10.2, 10.3: only the read-only `GET /api/loops/migration` check exists); obsolete loop-spec deltas are
+not prepared (10.4); run/package retention is done but paired Core 7 compatibility is open and Core 7 is unreleased
+(10.5); final CI/audits/docs pass not run (10.6).

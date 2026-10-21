@@ -78,3 +78,9 @@
 ## 10. Follow-up changes (tracked, not in this change)
 
 - [x] 10.1 Open follow-up OpenSpec changes to migrate explore, blueprint, agent refine, interactive jobs and one-shot features onto the transport port, then remove `server/providers/*`
+
+Status 2026-10-21: remaining — 1.1: Core 6.6.5 (pinned) ships `sessions: 1`, `runtime host` and the
+`agentRuntime.sessions` contract, but the minimum Core version is not recorded in docs; 8.1: pin bump done, native
+host-launch smoke on macOS/Windows/Linux missing (bundled-runtime smokes never start `runtime host`); 8.2: manual
+Claude/Codex smoke not recorded; 11.6: tests and docs exist, the live Codex-with-Claude-sub-agents run (and reverse)
+is not recorded.
