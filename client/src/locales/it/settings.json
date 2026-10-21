@@ -370,5 +370,18 @@
         "accept": "Usa {{provider}}"
       }
     }
+  },
+  "reviewWip": {
+    "title": "Limite di revisione",
+    "description": "Limita quante consegne possono attendere la tua revisione contemporaneamente, così il nuovo lavoro non si accumula più in fretta di quanto tu possa decidere.",
+    "label": "Consegne in attesa di revisione",
+    "help": "Suggeriamo {{suggested}}: abbastanza per tenere occupati i rail mentre revisioni. Contano le consegne in corso, quelle non decise e le PR aperte create dall’app. Le modifiche a una consegna esistente sono sempre consentite. Lascia vuoto per nessun limite.",
+    "placeholder": "Nessun limite",
+    "useSuggested": "Usa {{suggested}}",
+    "invalid": "Inserisci un numero intero da 1 a {{max}}, oppure lascia vuoto per nessun limite.",
+    "saved_one": "Limite di revisione impostato a {{count}}",
+    "saved_other": "Limite di revisione impostato a {{count}}",
+    "removed": "Limite di revisione rimosso",
+    "saveFailed": "Impossibile salvare il limite di revisione"
   }
 }

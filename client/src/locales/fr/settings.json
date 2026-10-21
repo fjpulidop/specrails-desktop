@@ -370,5 +370,18 @@
         "accept": "Utiliser {{provider}}"
       }
     }
+  },
+  "reviewWip": {
+    "title": "Limite de revue",
+    "description": "Limitez le nombre de livraisons qui peuvent attendre votre revue en même temps, pour que le nouveau travail ne s’accumule pas plus vite que vous ne pouvez décider.",
+    "label": "Livraisons en attente de revue",
+    "help": "Nous suggérons {{suggested}} : assez pour occuper les rails pendant que vous relisez. Comptent les livraisons en cours, celles non décidées et les PR ouvertes créées par l’app. Les modifications d’une livraison existante sont toujours autorisées. Laissez vide pour aucune limite.",
+    "placeholder": "Aucune limite",
+    "useSuggested": "Utiliser {{suggested}}",
+    "invalid": "Saisissez un nombre entier de 1 à {{max}}, ou laissez vide pour aucune limite.",
+    "saved_one": "Limite de revue fixée à {{count}}",
+    "saved_other": "Limite de revue fixée à {{count}}",
+    "removed": "Limite de revue supprimée",
+    "saveFailed": "Impossible d’enregistrer la limite de revue"
   }
 }

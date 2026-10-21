@@ -370,5 +370,18 @@
         "accept": "Use {{provider}}"
       }
     }
+  },
+  "reviewWip": {
+    "title": "Review limit",
+    "description": "Cap how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
+    "label": "Deliveries waiting for review",
+    "help": "We suggest {{suggested}}: enough to keep rails busy while you review. Running deliveries, undecided ones and open PRs created by the app count. Changes to an existing delivery are always allowed. Leave it empty for no limit.",
+    "placeholder": "No limit",
+    "useSuggested": "Use {{suggested}}",
+    "invalid": "Enter a whole number from 1 to {{max}}, or leave it empty for no limit.",
+    "saved_one": "Review limit set to {{count}}",
+    "saved_other": "Review limit set to {{count}}",
+    "removed": "Review limit removed",
+    "saveFailed": "Could not save the review limit"
   }
 }

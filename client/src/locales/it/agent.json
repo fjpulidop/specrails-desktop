@@ -652,7 +652,8 @@
       "invalid_response": "Risposta inattesa dal server.",
       "scope_save_failed": "Impossibile salvare i repository della spec.",
       "repository_scope_incomplete": "Manca un repository richiesto dalle spec per l’avvio. Controlla le assegnazioni sopra.",
-      "daily_budget_exceeded": "Budget giornaliero raggiunto: non è stato avviato nulla."
+      "daily_budget_exceeded": "Budget giornaliero raggiunto: non è stato avviato nulla.",
+      "review_wip_limit_reached": "Limite di revisione raggiunto: non è stato avviato nulla."
     },
     "stub": {
       "launched": "Lanciato → Rail {{rail}}",

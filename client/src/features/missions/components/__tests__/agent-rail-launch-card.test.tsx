@@ -504,6 +504,20 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
   })
 
+  it('renders a review WIP limit 409 with the localized count and remedy (review-wip-limit)', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'review_wip_limit_reached', limit: 2, pending: [{ deliveryId: 'a', railIndex: 0, ticketIds: [1], since: '' }, { deliveryId: 'b', railIndex: 2, ticketIds: [3], since: '' }], detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
+    const error = screen.getByTestId('rail-card-error')
+    expect(error).toHaveTextContent('Review limit reached — nothing was launched.')
+    expect(error).toHaveTextContent('2 deliveries are waiting for review (limit 2)')
+    expect(error).toHaveTextContent('Project settings ▸ Review limit')
+    expect(error).not.toHaveTextContent('SERVER ENGLISH')
+    expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
+  })
+
   it('renders a 409 inline and stays editable', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'tickets_in_flight', detail: 'spec #12 is running', action: 'wait for it' } }) })
     renderCard()

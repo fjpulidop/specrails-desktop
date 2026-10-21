@@ -36,6 +36,7 @@ import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
 import { API_ORIGIN } from '../../../lib/origin'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusMatchesCard, type FocusPrCardDetail } from './agent-run-failure'
@@ -685,9 +686,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       }
       const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; action?: string }
       const budget = readDailyBudgetRejection(body)
+      const wip = readReviewWipRejection(body)
       const detail = budget
         ? `${dailyBudgetExceededMessage(t, budget)} — ${dailyBudgetActionMessage(t, budget)}`
-        : [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
+        : wip
+          ? `${reviewWipRejectionMessage(t, wip)} — ${reviewWipActionMessage(t)}`
+          : [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
       setRelaunchError(detail)
       toast.error(t('runCard.relaunchFailed'), { description: detail })
     } catch (e) {

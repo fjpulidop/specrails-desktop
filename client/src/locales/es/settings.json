@@ -370,5 +370,18 @@
         "accept": "Usar {{provider}}"
       }
     }
+  },
+  "reviewWip": {
+    "title": "Límite de revisión",
+    "description": "Limita cuántas entregas pueden esperar tu revisión a la vez, para que el trabajo nuevo no se acumule más rápido de lo que puedes decidirlo.",
+    "label": "Entregas en espera de revisión",
+    "help": "Te sugerimos {{suggested}}: suficiente para mantener los rails ocupados mientras revisas. Cuentan las entregas en curso, las que no has decidido y los PR abiertos creados por la app. Los cambios sobre una entrega existente siempre se permiten. Déjalo vacío para no poner límite.",
+    "placeholder": "Sin límite",
+    "useSuggested": "Usar {{suggested}}",
+    "invalid": "Escribe un número entero de 1 a {{max}}, o déjalo vacío para no poner límite.",
+    "saved_one": "Límite de revisión fijado en {{count}}",
+    "saved_other": "Límite de revisión fijado en {{count}}",
+    "removed": "Límite de revisión eliminado",
+    "saveFailed": "No se pudo guardar el límite de revisión"
   }
 }

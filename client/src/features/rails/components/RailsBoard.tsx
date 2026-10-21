@@ -12,6 +12,8 @@ import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnap
 import { worktreeSummary, type RailWorktreeMap } from '../lib/worktree-progress'
 import type { RailExecMetric } from '../context/RailMetricsContext'
 import type { RailPrActResult, RailPrCheckoutResult } from '../../delivery/context/RailPrDecisionContext'
+import { ReviewWipBadge } from './ReviewWipBadge'
+import { railLaunchAddsReviewWip, reviewWipReached, type PendingReview } from '../../../lib/review-wip'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -125,6 +127,11 @@ interface RailsBoardProps {
   onLaunchAll?: () => void
   /** How many rails a Launch-all would start right now (0 disables the button). */
   launchAllCount?: number
+  /** Rails a Launch-all holds back for the review WIP limit; keeps the button
+   *  enabled so its dialog can explain why nothing (more) launches. */
+  launchAllHeld?: number
+  /** Review WIP limit (null = none) and the deliveries counting against it. */
+  reviewWip?: { limit: number | null; pending: PendingReview[] }
 }
 
 function SortableRailWrapper({ railId, children }: { railId: string; children: (props: { listeners: Record<string, Function>; attributes: Record<string, any>; isDragging: boolean }) => React.ReactNode }) {
@@ -146,7 +153,7 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 /** Width threshold below which rail rows switch to the compact mini-card layout. */
 export const RAILS_COMPACT_THRESHOLD_PX = 320
 
-export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount }: RailsBoardProps) {
+export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
@@ -184,6 +191,14 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
 
   const sortableIds = rails.map((r) => railSortId(r.id))
 
+  // Review WIP limit: once reached, a rail whose launch would open a NEW
+  // delivery cannot start; continuations of its own delivery stay allowed.
+  const wipLimit = reviewWip?.limit ?? null
+  const wipPending = reviewWip?.pending ?? []
+  const wipReached = reviewWipReached(wipLimit, wipPending.length)
+  const wipBlockedReason = wipReached ? t('reviewWip.playBlocked', { pending: wipPending.length, limit: wipLimit }) : null
+  const railLabelFor = (railIndex: number) => rails.find((r, pos) => (railIndexFromId(r.id) ?? pos) === railIndex)?.label ?? `Rail ${railIndex + 1}`
+
   return (
     <div ref={containerRef} className="flex flex-col h-full" data-density={density} onClick={handleBackgroundClick}>
       {/* Header */}
@@ -196,12 +211,20 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
               {t('railsBoard.runningCount', { count: activeRails })}
             </span>
           )}
+          {wipLimit !== null && (
+            <ReviewWipBadge
+              limit={wipLimit}
+              pending={wipPending}
+              railLabel={railLabelFor}
+              ticketTitle={(id) => ticketMap.get(id)?.title}
+            />
+          )}
         </div>
         <div className="flex items-center gap-2">
           {onLaunchAll && (
             <button
               type="button"
-              disabled={(launchAllCount ?? 0) === 0}
+              disabled={(launchAllCount ?? 0) === 0 && launchAllHeld === 0}
               onClick={(e) => { e.stopPropagation(); onLaunchAll() }}
               title={t('railsBoard.launchAllTitle')}
               className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-semibold rounded-md border border-emerald-400/50 text-emerald-400 aurora-light:text-accent-success aurora-light:border-accent-success/50 bg-gradient-to-r from-emerald-400/10 to-accent-primary/10 hover:from-emerald-400/20 hover:to-accent-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-emerald-400/10 disabled:hover:to-accent-primary/10"
@@ -284,6 +307,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     onLongPress={() => setJiggleMode(true)}
                     onRename={(newLabel) => onRenameRail(rail.id, newLabel)}
                     onTicketMoveToSpecs={onTicketMoveToSpecs}
+                    launchBlockedReason={wipBlockedReason && railLaunchAddsReviewWip(railIndex, railPrDecisions ?? new Map()) ? wipBlockedReason : null}
                   />
                 </div>
               )}

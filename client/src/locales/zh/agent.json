@@ -652,7 +652,8 @@
       "invalid_response": "服务器返回了意外的响应。",
       "scope_save_failed": "无法保存规格的仓库。",
       "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。",
-      "daily_budget_exceeded": "已达到每日预算——未启动任何任务。"
+      "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
+      "review_wip_limit_reached": "已达到评审上限——未启动任何任务。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",

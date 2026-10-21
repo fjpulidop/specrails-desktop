@@ -108,6 +108,8 @@ interface RailRowProps {
    *  a context menu offering "← Move to Specs" which removes the ticket
    *  from this rail and returns it to the specs list. */
   onTicketMoveToSpecs?: (ticketId: number) => void
+  /** Play disabled with this explanation (review WIP limit reached). */
+  launchBlockedReason?: string | null
 }
 
 export function RailRow({
@@ -115,7 +117,7 @@ export function RailRow({
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
-  onTicketMoveToSpecs,
+  onTicketMoveToSpecs, launchBlockedReason,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
   const { activeProjectId, projects } = useDesktop()
@@ -517,7 +519,8 @@ export function RailRow({
             freestyleAvailable={freestyleAvailable}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
-                onToggle={onToggle}
+            onToggle={onToggle}
+            launchBlockedReason={launchBlockedReason}
           />
         </div>
 
@@ -674,7 +677,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} launchBlockedReason={launchBlockedReason} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button

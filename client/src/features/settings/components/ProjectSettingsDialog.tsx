@@ -20,6 +20,7 @@ import {
   ProjectIntegrationBranchSection,
   ProjectBudgetSection,
   ProjectWorktreeEnvSection,
+  ProjectReviewWipSection,
 } from './ProjectSettingsSections'
 
 const PROJECT_SETTINGS_SECTIONS = [
@@ -105,6 +106,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
             </div>
             <div className={paneCls('budget')}>
               <ProjectBudgetSection />
+              <ProjectReviewWipSection />
             </div>
             <div className={paneCls('telemetry')}>
               <ProjectTelemetrySection />

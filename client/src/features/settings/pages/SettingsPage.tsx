@@ -14,6 +14,7 @@ import {
   ProjectBudgetSection,
   ProjectIntegrationBranchSection,
   ProjectWorktreeEnvSection,
+  ProjectReviewWipSection,
 } from '../components/ProjectSettingsSections'
 
 export default function SettingsPage() {
@@ -121,6 +122,8 @@ export default function SettingsPage() {
       <ProjectWorktreeEnvSection />
 
       <ProjectBudgetSection />
+
+      <ProjectReviewWipSection />
 
       <TerminalSettingsSection mode="project" />
 

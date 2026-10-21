@@ -184,7 +184,9 @@
     "skipInFlight_other": "{{count}} 个已跳过（Spec 已在进行中）",
     "failedCount_one": "{{count}} 个失败",
     "failedCount_other": "{{count}} 个失败",
-    "skipBudget": "{{count}} 个超出每日预算"
+    "skipBudget": "{{count}} 个超出每日预算",
+    "skipReviewLimit_one": "{{count}} 个因评审上限而暂缓",
+    "skipReviewLimit_other": "{{count}} 个因评审上限而暂缓"
   },
   "launchAllDialog": {
     "title": "启动所有 Rail",
@@ -200,7 +202,12 @@
     "costTitle": "成本成倍增加。",
     "costBody": "每个 Rail 都会产生自己的 AI 运行 — 花费随 Rail 数量增长。",
     "launch_one": "启动 {{count}} 个 Rail",
-    "launch_other": "启动 {{count}} 个 Rail"
+    "launch_other": "启动 {{count}} 个 Rail",
+    "reviewLimitTitle": "评审上限:{{pending}}/{{limit}} 等待中。",
+    "reviewLimitNone_one": "{{count}} 条 Rail 会开启新的交付,因此不会启动任何任务。请先处理一个待决交付。",
+    "reviewLimitNone_other": "{{count}} 条 Rail 会开启新的交付,因此不会启动任何任务。请先处理一个待决交付。",
+    "reviewLimitPartial_one": "现在只能启动 {{launched}} 条;{{count}} 条 Rail 将等待某个交付被处理。",
+    "reviewLimitPartial_other": "现在只能启动 {{launched}} 条;{{count}} 条 Rail 将等待某个交付被处理。"
   },
   "railControls": {
     "viewJobLog": "查看任务日志",
@@ -272,5 +279,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle 需要单一提供方——请先选择 Implement 或某个循环，再将此轨道切换为按角色引擎。"
+  },
+  "reviewWip": {
+    "badge": "评审中 {{pending}}/{{limit}}",
+    "title": "等待评审的交付(上限 {{limit}})。点击查看列表。",
+    "reachedTitle": "已达到评审上限({{limit}})。新的启动将等待某个交付被处理。",
+    "panelTitle": "等待评审",
+    "panelBody": "运行中的交付、等待决定的交付和打开的 PR 都计入 {{limit}} 的上限。",
+    "panelReached": "已达到 {{limit}} 的上限。处理其中一个(创建 PR、合并或丢弃)即可启动新工作。对这些交付的修改仍然允许。",
+    "empty": "没有等待评审的内容。",
+    "playBlocked": "已达到评审上限({{pending}}/{{limit}} 等待中)。处理一个交付后才能启动新工作。"
   }
 }

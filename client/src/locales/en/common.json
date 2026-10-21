@@ -156,5 +156,10 @@
     "pausedDesktop": "Paused on the app-wide daily budget (${{spent}} of ${{budget}}). Raise it, then resume.",
     "resume": "Resume",
     "stillExceeded": "The daily budget is still exhausted."
+  },
+  "reviewWip": {
+    "reached_one": "Review limit reached: {{count}} delivery is waiting for review (limit {{limit}}). Nothing was launched.",
+    "reached_other": "Review limit reached: {{count}} deliveries are waiting for review (limit {{limit}}). Nothing was launched.",
+    "action": "Decide a pending delivery (Create PR, merge or discard) or raise the limit in Project settings ▸ Review limit."
   }
 }

@@ -19,12 +19,16 @@ interface RailControlsProps {
   loopAvailable?: boolean
   onModeChange: (mode: RailMode) => void
   onToggle: () => void
+  /** When set, Play is disabled and this sentence explains why (e.g. the
+   *  project's review WIP limit is reached). Stop is never blocked. */
+  launchBlockedReason?: string | null
 }
 
-export function RailControls({ status, activeJobId, ticketCount, onToggle }: RailControlsProps) {
+export function RailControls({ status, activeJobId, ticketCount, onToggle, launchBlockedReason }: RailControlsProps) {
   const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
-  const canPlay = ticketCount > 0
+  const blocked = status !== 'running' && Boolean(launchBlockedReason)
+  const canPlay = ticketCount > 0 && !blocked
   return (
     <div className="flex items-center gap-1.5">
       {/* View Log button — visible only while running */}
@@ -47,13 +51,17 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle }: Rai
           "Interactive" toggle is gone: Freestyle jobs are interactive by
           default whenever the feature is enabled.) */}
 
-      {/* Play / Stop / Failed toggle */}
+      {/* Play / Stop / Failed toggle. A disabled button shows no tooltip in
+          every webview, so a blocked Play carries its reason on a wrapper. */}
+      <span className="inline-flex" title={blocked ? launchBlockedReason ?? undefined : undefined} data-testid={blocked ? 'rail-play-blocked' : undefined}>
       <Button
         size="sm"
         variant="ghost"
         className={`h-5 w-5 p-0 rounded-full transition-all duration-200 ${
           status === 'running'
             ? 'text-red-400 aurora-light:text-destructive hover:text-red-300 aurora-light:hover:text-destructive hover:bg-red-400/10 aurora-light:hover:bg-destructive/10'
+            : blocked
+              ? 'text-muted-foreground/40 cursor-not-allowed'
             : status === 'failed'
               ? 'text-amber-400 aurora-light:text-accent-warning hover:text-emerald-300 aurora-light:hover:text-accent-success hover:bg-emerald-400/10 aurora-light:hover:bg-accent-success/10'
               : canPlay
@@ -62,8 +70,10 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle }: Rai
         }`}
         onClick={onToggle}
         disabled={!canPlay && status !== 'running'}
+        aria-label={blocked ? launchBlockedReason ?? undefined : undefined}
         title={
           status === 'running' ? t('railControls.stop') :
+          blocked ? launchBlockedReason ?? undefined :
           status === 'failed' ? t('railControls.failedRetry') :
           canPlay ? t('railControls.play') : t('railControls.addSpecsFirst')
         }
@@ -76,6 +86,7 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle }: Rai
           <Play className="w-2.5 h-2.5 fill-current" />
         )}
       </Button>
+      </span>
     </div>
   )
 }

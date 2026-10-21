@@ -156,5 +156,10 @@
     "pausedDesktop": "Pausiert: app-weites Tagesbudget erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
     "resume": "Fortsetzen",
     "stillExceeded": "Das Tagesbudget ist weiterhin ausgeschöpft."
+  },
+  "reviewWip": {
+    "reached_one": "Review-Limit erreicht: {{count}} Lieferung wartet auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
+    "reached_other": "Review-Limit erreicht: {{count}} Lieferungen warten auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
+    "action": "Entscheide über eine offene Lieferung (PR erstellen, mergen oder verwerfen) oder erhöhe das Limit unter Projekteinstellungen ▸ Review-Limit."
   }
 }

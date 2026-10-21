@@ -406,3 +406,107 @@ describe('DashboardPage — reconcile adopts agent-created rails', () => {
     })
   })
 })
+
+describe('DashboardPage — review WIP limit (review-wip-limit)', () => {
+  const delivery = (railIndex: number, id: string, ticketIds: number[], decision = 'on_review') => ({
+    id, railIndex, railKey: `${railIndex}-factory:implement`, ticketIds, baseBranch: 'main', branch: null,
+    prUrl: null, prNumber: null, prState: 'none', decision, runIds: [], originConversationId: null,
+    createdAt: `2026-10-21 10:0${railIndex}:00`, updatedAt: `2026-10-21 10:0${railIndex}:00`,
+  })
+
+  function setup(limit: number | null, prDeliveries: Record<string, unknown>, onRequest?: (url: string, init?: RequestInit) => Response | undefined | void) {
+    mockTickets = [ticket(1), ticket(2), ticket(3), ticket(9), ticket(8)]
+    seedRails([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [2], mode: 'implement', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [3], mode: 'implement', status: 'idle' },
+    ])
+    global.fetch = mockFetch({
+      railsPayload: {
+        rails: [{ railIndex: 0, ticketIds: [1] }, { railIndex: 1, ticketIds: [2] }, { railIndex: 2, ticketIds: [3] }],
+        activeJobs: {}, activeLoopRuns: {}, prDeliveries,
+      },
+      onRequest: (u, init) => {
+        const custom = onRequest?.(u, init)
+        if (custom) return custom
+        if (u === '/api/settings') return { ok: true, json: () => Promise.resolve({ reviewWipLimit: limit }) } as unknown as Response
+      },
+    })
+    render(
+      <RailPrDecisionProvider activeProjectId="proj-1">
+        <DashboardPage />
+      </RailPrDecisionProvider>,
+    )
+  }
+
+  it('at the limit: badge, disabled Play with the reason, and a Launch all dialog that launches nothing', async () => {
+    setup(2, { '5': delivery(5, 'd-5', [9]), '6': delivery(6, 'd-6', [8], 'pr_draft') })
+    const badge = await screen.findByTestId('review-wip-badge')
+    await waitFor(() => expect(badge.textContent).toContain('In review 2/2'))
+    expect(badge.getAttribute('data-reached')).toBe('true')
+    fireEvent.click(badge)
+    const list = await screen.findByTestId('review-wip-list')
+    expect(list.textContent).toContain('#9 Spec 9')
+    expect(list.textContent).toContain('#8 Spec 8')
+
+    const blocked = await screen.findAllByTestId('rail-play-blocked')
+    expect(blocked).toHaveLength(3)
+    expect(blocked[0].getAttribute('title')).toBe('Review limit reached (2/2 waiting). Decide a delivery to launch new work.')
+    expect(blocked[0].querySelector('button')).toBeDisabled()
+
+    const launchAll = screen.getByText('Launch all').closest('button')!
+    expect(launchAll).not.toBeDisabled()
+    fireEvent.click(launchAll)
+    const notice = await screen.findByTestId('launch-all-review-limit')
+    expect(notice.textContent).toContain('Review limit: 2/2 waiting.')
+    expect(notice.textContent).toContain('3 rails would open new deliveries, so nothing launches.')
+    expect(screen.getByText('Launch 0 rails').closest('button')).toBeDisabled()
+    const launches = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).endsWith('/launch'))
+    expect(launches).toHaveLength(0)
+  })
+
+  it('with partial capacity Launch all starts only up to the remaining slots, in board order, and says so', async () => {
+    setup(3, { '5': delivery(5, 'd-5', [9]) })
+    await waitFor(() => expect(screen.getByTestId('review-wip-badge').textContent).toContain('In review 1/3'))
+    fireEvent.click(screen.getByText('Launch all').closest('button')!)
+    const notice = await screen.findByTestId('launch-all-review-limit')
+    expect(notice.textContent).toContain('Only 2 can start now; 1 rail waits until a delivery is decided.')
+    fireEvent.click(screen.getByText('Launch 2 rails'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
+    const launches = (global.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: unknown[]) => typeof c[0] === 'string' && /\/rails\/\d+\/launch$/.test(c[0] as string))
+      .map((c: unknown[]) => c[0])
+    expect(launches).toEqual(['/api/rails/0/launch', '/api/rails/1/launch'])
+    expect((toast.success as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ description: expect.stringContaining('1 held by the review limit') })
+  })
+
+  it('a rail continuing its own delivery is never blocked and takes no slot', async () => {
+    setup(1, { '0': delivery(0, 'd-0', [1], 'pr_ready') })
+    await waitFor(() => expect(screen.getByTestId('review-wip-badge').textContent).toContain('In review 1/1'))
+    // Rails 2 and 3 would open new deliveries → blocked; rail 1 owns d-0 → not blocked.
+    expect(await screen.findAllByTestId('rail-play-blocked')).toHaveLength(2)
+  })
+
+  it('a server refusal is counted as held by the review limit, not as a failure', async () => {
+    setup(5, {}, (u, init) => {
+      if (/\/api\/rails\/[01]\/launch$/.test(u) && init?.method === 'POST') {
+        return { ok: false, status: 409, json: () => Promise.resolve({ error: 'review_wip_limit_reached', limit: 5, pending: [] }) } as unknown as Response
+      }
+    })
+    await waitFor(() => expect(screen.getByTestId('review-wip-badge').textContent).toContain('In review 0/5'))
+    fireEvent.click(screen.getByText('Launch all').closest('button')!)
+    fireEvent.click(await screen.findByText('Launch 3 rails'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
+    const [, opts] = (toast.success as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((opts as { description: string }).description).toContain('2 held by the review limit')
+    expect((opts as { description: string }).description).not.toContain('failed')
+  })
+
+  it('without a limit there is no badge and nothing is blocked', async () => {
+    setup(null, { '5': delivery(5, 'd-5', [9]) })
+    await waitFor(() => expect(screen.getByText('Launch all').closest('button')!.textContent).toContain('3'))
+    expect(screen.queryByTestId('review-wip-badge')).toBeNull()
+    expect(screen.queryAllByTestId('rail-play-blocked')).toHaveLength(0)
+  })
+})

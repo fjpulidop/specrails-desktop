@@ -370,5 +370,18 @@
         "accept": "使用 {{provider}}"
       }
     }
+  },
+  "reviewWip": {
+    "title": "评审上限",
+    "description": "限制同时等待你评审的交付数量,避免新工作堆积得比你决定的速度更快。",
+    "label": "等待评审的交付数",
+    "help": "建议设为 {{suggested}}:足以在你评审时让 Rail 保持忙碌。运行中的交付、未决定的交付以及应用创建的打开 PR 都会计入。对已有交付的修改始终允许。留空表示不设上限。",
+    "placeholder": "不设上限",
+    "useSuggested": "使用 {{suggested}}",
+    "invalid": "请输入 1 到 {{max}} 之间的整数,或留空表示不设上限。",
+    "saved_one": "评审上限已设为 {{count}}",
+    "saved_other": "评审上限已设为 {{count}}",
+    "removed": "已移除评审上限",
+    "saveFailed": "无法保存评审上限"
   }
 }

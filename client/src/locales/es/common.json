@@ -156,5 +156,10 @@
     "pausedDesktop": "En pausa por el presupuesto diario global (${{spent}} de ${{budget}}). Súbelo y reanuda.",
     "resume": "Reanudar",
     "stillExceeded": "El presupuesto diario sigue agotado."
+  },
+  "reviewWip": {
+    "reached_one": "Límite de revisión alcanzado: {{count}} entrega espera revisión (límite {{limit}}). No se ha lanzado nada.",
+    "reached_other": "Límite de revisión alcanzado: {{count}} entregas esperan revisión (límite {{limit}}). No se ha lanzado nada.",
+    "action": "Decide una entrega pendiente (Crear PR, fusionar o descartar) o sube el límite en Ajustes del proyecto ▸ Límite de revisión."
   }
 }
