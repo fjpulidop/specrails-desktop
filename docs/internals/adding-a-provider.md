@@ -93,6 +93,15 @@ it; if your CLI has no persistent-stdin transport, `throw` in that `case`
 (as Gemini does) so a misrouted spawn fails loudly instead of emitting a
 broken argv.
 
+#### Declare `envAllowlist`
+
+List the authentication and configuration variable names your CLI reads
+(`'MYCLI_*'` matches a prefix). Projects in the `minimal` agent environment mode
+forward only these, the shared allowlist and the project's passthrough names to
+your provider; omitting a credential variable makes the CLI fail to sign in
+there. See [agent environment mode](configuration.md#agent-environment-mode) and
+add a case to `server/providers/env-allowlist.test.ts`.
+
 #### (Optional) prepareHeadlessSpawn
 
 `prepareHeadlessSpawn?(projectPath)` is an optional, best-effort filesystem

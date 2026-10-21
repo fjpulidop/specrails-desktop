@@ -72,6 +72,8 @@ Project settings apply to a single project. Open them from the project's **Setti
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
 | **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (Claude and Kimi advertise this autonomous rail mode). |
+| **Worktree environment** | Names of environment variables passed to the project's agents (values are read at spawn time, never stored). |
+| **Agent environment** | `inherit` (default) or `minimal`. See [Agent environment mode](#agent-environment-mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
 | **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. |
@@ -220,6 +222,71 @@ When a rail, loop or queued job starts with a configured name unresolved, its ru
 receives one aggregated warning, for example
 `[environment] NODE_AUTH_TOKEN not available (probe-timeout); configure it in the login shell or launch from a terminal`.
 Statuses, logs and MCP output contain names and states only, never values.
+
+#### Agent environment mode
+
+The project setting `agentEnvMode` (Project Settings → **Agent environment**,
+stored as `config.agent_env_mode`) decides what the Desktop server environment
+an agent process receives.
+
+- **`inherit`** (default). Unchanged behavior: agents receive the Desktop
+  environment, plus the passthrough overlay on the paths that already applied it
+  (rail jobs, loops, runtime controls).
+- **`minimal`**. Agents receive a fresh environment built from:
+  - a shared allowlist: `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `LANG`,
+    `LANGUAGE`, `LC_*`, `TMPDIR`, `TMP`, `TEMP`, `TERM`, `COLORTERM`, `TZ`,
+    `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`,
+    `XDG_RUNTIME_DIR`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY` (both
+    cases), `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`;
+  - Windows essentials, matched case-insensitively on Windows: `SystemRoot`,
+    `SystemDrive`, `windir`, `ComSpec`, `PATHEXT`, `USERPROFILE`, `USERNAME`,
+    `USERDOMAIN`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`,
+    `ProgramData`, `ALLUSERSPROFILE`, `PUBLIC`, `ProgramFiles`,
+    `ProgramFiles(x86)`, `ProgramW6432`, `CommonProgramFiles*`,
+    `NUMBER_OF_PROCESSORS`, `PROCESSOR_*` (architecture, identifier), `OS`,
+    `COMPUTERNAME`. `windowsSpawnEnv` still backfills the canonical values;
+  - Specrails' own variables (`SPECRAILS_*`), including the relocation,
+    profile, telemetry and repo-map overlays added per spawn;
+  - the auth/config names each provider adapter declares in `envAllowlist`:
+
+    | Provider | Names |
+    |----------|-------|
+    | Claude | `ANTHROPIC_*`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_*`, `DISABLE_AUTOUPDATER` |
+    | Codex | `CODEX_*`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT` |
+    | Gemini | `GEMINI_*`, `GOOGLE_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GENAI_USE_VERTEXAI`, `CLOUDSDK_CONFIG` |
+    | Kimi | `KIMI_*`, `MOONSHOT_*` |
+    | Local engine | the connection's `apiKeyEnv`, when set |
+
+    A spawn receives only its provider's names. Core-hosted work (loop
+    definitions, Implement runs driven by Core, runtime controls, mission
+    session hosts) receives every registered provider's names, because Core may
+    launch any configured role provider. Loop shell steps receive no provider
+    names;
+  - the project's passthrough names, with login-shell recovery as above.
+
+  Everything else (cloud credentials such as `AWS_*`, `GITHUB_TOKEN`, database
+  URLs, unrelated API keys) is withheld. Add a name to the passthrough list when
+  a tool needs it, for example `AWS_PROFILE` for Claude on Bedrock.
+
+Every project agent spawn path builds its base environment through one builder
+(`resolveProjectAgentEnv` / `projectAgentSourceEnv` in `server/project-env.ts`,
+pure policy in `server/modules/execution/domain/agent-env.ts`): rail jobs
+(headless and interactive), loop AI steps, deciders, shell steps and Core
+definition runs, runtime controls, missions (legacy runners and the Core session
+host of a project scope), project chats and Explore, spec generation, proposals,
+Contract Refine, SMASH, agent refinement and AI ticket edits. Not covered yet:
+the project setup wizard, project builder chat, file summaries, agent generation
+and conversation-title helpers; they keep the Desktop environment.
+
+The mode applies to processes started after the change. A running mission
+session host keeps the environment it started with until it restarts.
+
+`GET /api/projects/:projectId/agent-env/status` returns, without values, the
+mode, the shared allowlist patterns, the Desktop variable names that pass them,
+the configured passthrough names and, per provider, its patterns and the extra
+names they admit. The Project Settings card renders this list. The MCP
+`specrails_env` tool reports the mode in `get` but cannot change it, so an agent
+cannot widen its own environment.
 
 A few env vars are read directly by the app. The two most useful operational ones:
 

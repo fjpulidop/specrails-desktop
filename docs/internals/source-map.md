@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1049 source/build files. Nearby tests are linked where names
+Includes 1051 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -583,6 +583,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/settings/components
 
+- [AgentEnvModeSection.tsx](../../client/src/features/settings/components/AgentEnvModeSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentEnvModeSection.test.tsx)
 - [AgentRuntimeMetrics.tsx](../../client/src/features/settings/components/AgentRuntimeMetrics.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeMetrics.test.tsx)
 - [AgentRuntimeRuns.tsx](../../client/src/features/settings/components/AgentRuntimeRuns.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeRuns.test.tsx)
 - [AgentRuntimeSettingsSection.tsx](../../client/src/features/settings/components/AgentRuntimeSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeSettingsSection.test.tsx)
@@ -1287,6 +1288,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/execution/domain
 
+- [agent-env.ts](../../server/modules/execution/domain/agent-env.ts)
 - [job-accounting.ts](../../server/modules/execution/domain/job-accounting.ts)
 - [scheduling.ts](../../server/modules/execution/domain/scheduling.ts)
 - [usage.ts](../../server/modules/execution/domain/usage.ts)

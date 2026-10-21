@@ -22,6 +22,20 @@ Include in your report:
 - Any relevant configuration or environment details
 - Proof of concept or exploit code (if applicable)
 
+## Hardening: agent environment
+
+By default, agents launched by Specrails Desktop inherit the environment the app
+started with, so any credential exported there (cloud keys, `GITHUB_TOKEN`,
+database URLs) is visible to the agent and to the commands it runs. Set a
+project's **Agent environment** to **Minimal** (Project Settings) to forward only
+a fixed allowlist, Specrails' own variables, the selected provider's sign-in
+variables and the names you list under **Worktree environment**. Values are never
+stored or shown; the settings card and
+`GET /api/projects/:projectId/agent-env/status` list variable names only. Agents
+cannot change this mode through the MCP tools. See
+[configuration](docs/internals/configuration.md#agent-environment-mode) for the
+exact allowlist and the spawn paths it covers.
+
 ## Response Timeline
 
 | Step | SLA |
