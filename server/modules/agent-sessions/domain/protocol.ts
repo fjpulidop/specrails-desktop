@@ -34,6 +34,12 @@ export const KNOWN_EVENT_TYPES = Object.freeze([
 ] as const)
 
 export type SessionPhase = 'idle' | 'turn' | 'background'
+/**
+ * How `session.send` delivers an input. `interrupt` (Core flowSessions) cuts
+ * the running turn and runs the input next; on an idle session it equals
+ * `queue`. Desktop never calls `session.interrupt` before it.
+ */
+export type InputDelivery = 'queue' | 'steer' | 'interrupt'
 export type TurnOrigin = 'user' | 'subagent' | 'system'
 export type TurnStatus = 'completed' | 'failed' | 'stopped' | 'interrupted'
 export type SubagentPhase = 'running' | 'idle' | 'failed' | 'stopped' | 'killed' | 'interrupted'
@@ -65,7 +71,7 @@ export type SessionEvent = { at: string } & (
   | { type: 'session.provider-ref'; providerSessionRef: string }
   | { type: 'session.updated'; changes: Record<string, unknown>; outcome: 'applied' | 'deferred' }
   | { type: 'session.closed'; reason: string }
-  | { type: 'input.accepted'; inputId: string; delivery: 'queue' | 'steer'; text: string }
+  | { type: 'input.accepted'; inputId: string; delivery: InputDelivery; text: string }
   | { type: 'input.state'; inputId: string; state: 'queued' | 'started' | 'completed' | 'rejected' | 'interrupted'; turnId?: string; reason?: string }
   | { type: 'turn.started'; turnId: string; origin: TurnOrigin; inputIds: string[]; trigger?: { subagentIds: string[] } }
   | { type: 'turn.output'; turnId: string; channel: 'text' | 'thinking'; delta: string }
@@ -103,6 +109,8 @@ export interface DriverDescriptor {
     autonomousContinuation: boolean
     steer: boolean
     toolFiltering: boolean
+    /** How the driver honours `delivery: 'interrupt'` (absent on Cores before flowSessions). Informative only. */
+    interrupt?: 'native' | 'emulated'
     usage: { costUsd: 'session-cumulative' | 'per-turn' | 'none'; tokens: 'per-turn' | 'cumulative' | 'none' }
   }
 }
@@ -138,7 +146,7 @@ export interface InitializeResult {
   scope: string
   runtime: Record<string, unknown>
   /** `delegation`: Core can launch sub-agents itself (session.delegate / waitSubagents). */
-  capabilities: { sessions?: number; delegation?: number }
+  capabilities: { sessions?: number; delegation?: number; flowSessions?: number }
   drivers: DriverDescriptor[]
 }
 
@@ -156,6 +164,10 @@ export interface SessionContractBlock {
   capability: string
   cliOperation: string
   eventTypes: string[]
+  /** Host-level capabilities (Core contract 5.3+: `sessions`, `delegation`, `flowSessions`). */
+  capabilities?: string[]
+  /** `session.send` deliveries (Core contract 5.3+). Absent = `queue` and `steer` only. */
+  deliveries?: string[]
 }
 
 export interface SessionContractCheck {
@@ -165,12 +177,14 @@ export interface SessionContractCheck {
   unknownEventTypes: string[]
   /** Event types this Desktop expects that Core no longer declares. */
   missingEventTypes: string[]
+  /** Core declares the `interrupt` delivery and the `flowSessions` capability (Flow mode). Never part of `compatible`. */
+  flowSessions: boolean
   reasons: string[]
 }
 
 /** Compare a Core contract block with what this Desktop speaks. Pure. */
 export function checkSessionContract(block: SessionContractBlock | undefined | null): SessionContractCheck {
-  if (!block) return { compatible: false, protocolVersion: null, unknownEventTypes: [], missingEventTypes: [], reasons: ['Core does not declare agentRuntime.sessions'] }
+  if (!block) return { compatible: false, protocolVersion: null, unknownEventTypes: [], missingEventTypes: [], flowSessions: false, reasons: ['Core does not declare agentRuntime.sessions'] }
   const common = block.protocolVersions.filter((version) => SUPPORTED_PROTOCOL_VERSIONS.includes(version))
   const declared = new Set(block.eventTypes)
   const known = new Set<string>(KNOWN_EVENT_TYPES)
@@ -184,6 +198,13 @@ export function checkSessionContract(block: SessionContractBlock | undefined | n
     protocolVersion: common.length ? Math.max(...common) : null,
     unknownEventTypes: block.eventTypes.filter((type) => !known.has(type)),
     missingEventTypes,
+    // Additive and tolerant: older contracts omit both fields and stay compatible.
+    flowSessions: (block.capabilities ?? []).includes('flowSessions') && (block.deliveries ?? []).includes('interrupt'),
     reasons,
   }
+}
+
+/** True when this session host accepts `delivery: 'interrupt'` (initialize `flowSessions: 1`). */
+export function hostSupportsFlowSessions(initialize: Pick<InitializeResult, 'capabilities'> | null | undefined): boolean {
+  return (initialize?.capabilities?.flowSessions ?? 0) >= 1
 }
