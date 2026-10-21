@@ -1,13 +1,13 @@
-## ADDED Requirements
+# warm-dependency-freshness Specification
+
+## Purpose
+Defines when a worktree may reuse the base checkout's warm node_modules, so isolated runs never execute against dependencies that differ from their own lockfile and manifest.
+
+## Requirements
 
 ### Requirement: Warm links require matching dependency inputs
 
-Before preparing a warm `node_modules` link for a package directory, Desktop SHALL compare the dependency inputs of the base checkout with those of the worktree. The inputs are:
-
-- the content digest of the nearest lockfile found by walking from the package directory up to the repository's git top level, using the first match of `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `npm-shrinkwrap.json` or `bun.lock`;
-- the canonical `dependencies`, `devDependencies`, `optionalDependencies` and `peerDependencies` of the package directory's `package.json`.
-
-Desktop SHALL link only when both inputs are equal, or when both are absent, between the base checkout and the worktree.
+Before linking a warm `node_modules` for a package directory, Desktop SHALL compare the base checkout's and the worktree's dependency inputs: the content digest of the nearest lockfile up to the git top level (first of `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `npm-shrinkwrap.json`, `bun.lock`) and the canonical `dependencies`, `devDependencies`, `optionalDependencies` and `peerDependencies` of its `package.json`. Desktop SHALL link only when both inputs are equal, or both absent.
 
 #### Scenario: Base checkout on an older branch
 
