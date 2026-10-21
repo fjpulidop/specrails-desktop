@@ -9,6 +9,7 @@ import { mutateStore, readStore } from '../../specs/runtime/ticket-store'
 import { buildSpecAddendum, readSpecAddenda } from '../../specs/runtime/spec-addenda'
 import { initDb, type DbInstance } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
+import { createReviewWipGate } from './review-wip-gate'
 import { createRailsRouter, prDeliveryRevisionAllowed } from './rails-router'
 import { PrContinuationIsolationError } from './rail-isolated-launch'
 import { getRail, setRailTickets } from './rails-store'
@@ -106,6 +107,7 @@ function appWith(
     projectPath?: string
     repositories?: ProjectRepository[]
     dailyBudgetRejection?: () => unknown
+    reviewWipGate?: unknown
   },
 ) {
   const providers = opts?.providers ?? ['claude']
@@ -126,6 +128,7 @@ function appWith(
       getTicketSpec: opts?.getTicketSpec ?? (() => undefined),
       onLoopRunFinished: opts?.onLoopRunFinished ?? (() => { /* noop */ }),
       dailyBudgetRejection: opts?.dailyBudgetRejection,
+      reviewWipGate: opts?.reviewWipGate,
     }
     next()
   })
@@ -3340,5 +3343,126 @@ describe('rails-router launch — daily budget guard (rail-loop-budget-guard)', 
     expect(res.status).toBe(409)
     expect(res.body).toMatchObject({ error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 10, spentUsd: 12.5 })
     expect(enqueue).not.toHaveBeenCalled()
+  })
+})
+
+describe('rails-router launch — review WIP limit (review-wip-limit)', () => {
+  let db: DbInstance, desktopDb: DbInstance
+  let limit: number | null
+  beforeEach(() => {
+    db = initDb(':memory:'); desktopDb = initDesktopDb(':memory:')
+    limit = 2
+    mockExecRun.mockReset()
+    mockRepoStatus.mockReset().mockResolvedValue('ok')
+    mockLaunchIsolated.mockReset().mockResolvedValue(['run-new'])
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR
+  })
+  afterEach(() => { openProjectProcessAdmission('p1'); db.close(); desktopDb.close() })
+
+  function delivery(railIndex: number, ticketIds: number[], decision: 'building' | 'on_review' | 'implementation_failed' = 'on_review'): string {
+    setRailTickets(db, railIndex, ticketIds)
+    const row = createPrDelivery(db, {
+      railIndex, loopId: 'factory:implement', railKey: `${railIndex}-factory:implement`,
+      ticketIds, baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    if (decision === 'on_review') {
+      transitionDecision(db, row.id, 'building', 'on_review', {
+        branches: ticketIds.map((id) => ({ ticketId: id, branch: `feat/${id}`, succeeded: true, finalSha: 'a'.repeat(40) })),
+        implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      })
+    } else if (decision === 'implementation_failed') {
+      transitionDecision(db, row.id, 'building', 'implementation_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed' })
+    }
+    return row.id
+  }
+
+  const app = () => appWith(db, {
+    loopRunManager: { run: vi.fn(), cancel: vi.fn() }, desktopDb,
+    getTicketSpec: (id) => ({ title: `Spec ${id}`, description: 'Fix' }),
+    reviewWipGate: createReviewWipGate({ db, readLimit: () => limit }),
+  })
+
+  it('409s a new delivery at the limit with the pending list, spawning nothing; deciding one frees the slot', async () => {
+    const first = delivery(1, [11])
+    delivery(2, [12, 13])
+    setRailTickets(db, 0, [1])
+    const refused = await request(app()).post('/rails/0/launch').send({})
+    expect(refused.status).toBe(409)
+    expect(refused.body).toMatchObject({ error: 'review_wip_limit_reached', limit: 2 })
+    expect(refused.body.pending.map((p: { railIndex: number; ticketIds: number[] }) => [p.railIndex, p.ticketIds])).toEqual([[1, [11]], [2, [12, 13]]])
+    expect(refused.body.pending[0]).toEqual({ deliveryId: first, railIndex: 1, ticketIds: [11], since: expect.stringMatching(/Z$/) })
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+
+    transitionDecision(db, first, 'on_review', 'discarded', { statusCode: 'discarded' })
+    const admitted = await request(app()).post('/rails/0/launch').send({})
+    expect(admitted.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts running (building) deliveries and ignores failed ones', async () => {
+    delivery(1, [11], 'building')
+    delivery(2, [12], 'implementation_failed')
+    limit = 1
+    setRailTickets(db, 0, [1])
+    const res = await request(app()).post('/rails/0/launch').send({})
+    expect(res.status).toBe(409)
+    expect(res.body.pending).toHaveLength(1)
+    limit = 2
+    expect((await request(app()).post('/rails/0/launch').send({})).status).toBe(202)
+  })
+
+  it('lets a revision of an undecided delivery through at the limit (continuation adds no review work)', async () => {
+    const id = delivery(0, [1, 2])
+    delivery(1, [11])
+    const res = await request(app()).post('/rails/0/launch').send({ revisionOfDeliveryId: id, revisionNote: 'make it blue' })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ revision: expect.objectContaining({ ofDeliveryId: id }) }))
+  })
+
+  it('lets a Relaunch of a recorded delivery through the gate at the limit', async () => {
+    delivery(1, [11])
+    delivery(2, [12])
+    const failed = delivery(0, [4], 'implementation_failed')
+    const res = await request(app()).post('/rails/0/relaunch').send({ sourceId: failed })
+    expect(res.body.error).not.toBe('review_wip_limit_reached')
+  })
+
+  it('a launch on a rail that still owns an undecided delivery is never counted as new work', async () => {
+    delivery(0, [1])
+    delivery(1, [11])
+    const res = await request(app()).post('/rails/0/launch').send({})
+    // Not a review WIP refusal: the rail's own pending decision answers first.
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('pr_decision_pending')
+  })
+
+  it('launches unchanged without a limit', async () => {
+    limit = null
+    delivery(1, [11]); delivery(2, [12]); delivery(3, [13])
+    setRailTickets(db, 0, [1])
+    expect((await request(app()).post('/rails/0/launch').send({})).status).toBe(202)
+  })
+
+  it('holds a slot for an in-flight launch so parallel launches cannot overshoot', async () => {
+    limit = 1
+    setRailTickets(db, 0, [1]); setRailTickets(db, 1, [2])
+    let finish!: (ids: string[]) => void
+    mockLaunchIsolated.mockImplementationOnce(() => new Promise<string[]>((resolve) => { finish = resolve }))
+    const server = app()
+    const firstLaunch = request(server).post('/rails/0/launch').send({}).then((r) => r)
+    await vi.waitFor(() => expect(mockLaunchIsolated).toHaveBeenCalledTimes(1))
+    const second = await request(server).post('/rails/1/launch').send({})
+    expect(second.status).toBe(409)
+    expect(second.body.error).toBe('review_wip_limit_reached')
+    finish(['run-a'])
+    expect((await firstLaunch).status).toBe(202)
+    // The answered launch released its reservation (it wrote no row in this stub).
+    expect((await request(server).post('/rails/1/launch').send({})).status).toBe(202)
+  })
+
+  it('GET /rails reports the limit and the pending deliveries', async () => {
+    delivery(1, [11])
+    const res = await request(app()).get('/rails')
+    expect(res.body.reviewWip).toMatchObject({ limit: 2, reached: false, pending: [{ railIndex: 1, ticketIds: [11] }] })
   })
 })

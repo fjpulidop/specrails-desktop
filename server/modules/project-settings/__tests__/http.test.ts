@@ -87,3 +87,26 @@ describe('env passthrough status HTTP', () => {
     expect(recheck.body).toEqual({ error: 'Failed to recheck environment' })
   })
 })
+
+describe('reviewWipLimit over HTTP', () => {
+  it('rejects an invalid limit with 400 and persists a valid one', async () => {
+    const { initDb } = await import('../../../db')
+    const { createProjectSettingsService } = await import('..')
+    const { createSqliteProjectSettingsRepository } = await import('../adapters/sqlite')
+    const db = initDb(':memory:')
+    try {
+      const app = express()
+      app.use(express.json())
+      const service = createProjectSettingsService(createSqliteProjectSettingsRepository(db))
+      registerProjectSettingsHttp(app, () => service)
+      const bad = await request(app).patch('/p1/settings').send({ reviewWipLimit: 0 })
+      expect(bad.status).toBe(400)
+      expect(bad.body.error).toMatch(/reviewWipLimit/)
+      const ok = await request(app).patch('/p1/settings').send({ reviewWipLimit: 5 })
+      expect(ok.body).toMatchObject({ ok: true, settings: { reviewWipLimit: 5 } })
+      expect((await request(app).get('/p1/settings')).body.reviewWipLimit).toBe(5)
+    } finally {
+      db.close()
+    }
+  })
+})

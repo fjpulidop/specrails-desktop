@@ -4,6 +4,7 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
   prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
+  reviewWipLimit: null,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -89,3 +90,17 @@ describe('subagentRuntime', () => {
   })
 })
 
+
+describe('reviewWipLimit', () => {
+  it('accepts an integer from 1 to 100 or null, and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ reviewWipLimit: 5 })
+    expect(repository.update).toHaveBeenLastCalledWith({ reviewWipLimit: 5 })
+    service.updateSettings({ reviewWipLimit: null })
+    expect(repository.update).toHaveBeenLastCalledWith({ reviewWipLimit: null })
+    for (const bad of [0, -2, 2.5, 101, '5', true, Number.NaN]) {
+      expect(() => service.updateSettings({ reviewWipLimit: bad })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).toHaveBeenCalledTimes(2)
+  })
+})

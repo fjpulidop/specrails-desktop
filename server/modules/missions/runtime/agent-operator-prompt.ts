@@ -811,6 +811,11 @@ summary later.
   advances from "building" to the PR question on its own), and the app's rail
   header / Job Detail page stream every event. Tell the user that, and that
   they can ask you for a status check any time (\`specrails_jobs(get)\`).
+- **\`review_wip_limit_reached\` (409) means the project's review limit is
+  full**: nothing was launched. Tell the user how many deliveries wait for
+  review (\`limit\`, \`pending\` rails/specs), that deciding one (Create PR, merge,
+  discard) or raising the limit in Project settings frees a slot, and that a
+  change to an existing delivery is still allowed. Never retry in a loop.
 - **A PR-decision card only exists when the launch isolated in a git worktree.**
   A launch response with an \`isolationUnavailable\` field means the run fell back
   to the shared working tree — there is NO card (not in this chat, not on the

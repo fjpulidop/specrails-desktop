@@ -9,6 +9,7 @@ import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidatio
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
 import { createDailyBudgetGate } from './modules/execution/runtime/daily-budget-gate'
+import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
 import { ChatManager } from './modules/conversations/runtime/chat-manager'
@@ -160,6 +161,10 @@ export interface ProjectContext {
    *  queue (rail launches, loop resumes): the 409 body while the project or
    *  app-wide daily budget is exhausted, else null. Absent in bare test contexts. */
   dailyBudgetRejection?: () => DailyBudgetRejection | null
+  /** Review WIP limit admission for rail launches (review-wip-limit): bound
+   *  to this project's connection and `reviewWipLimit` setting. Absent in
+   *  bare test contexts. */
+  reviewWipGate?: ReviewWipGate
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
   /** Debounced `blueprint.milestone_progress` broadcaster (premium-milestone-
@@ -1169,6 +1174,7 @@ export class ProjectRegistry {
     // Same budget state the queue auto-pause enforces; bound to THIS project's
     // connection (project budget) plus the app-wide snapshot.
     const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
+    const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -1492,7 +1498,7 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate }
     ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first

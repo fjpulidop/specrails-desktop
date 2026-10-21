@@ -279,7 +279,11 @@ export function createRailsRouter(): Router {
               ? 'on_review' as const
               : 'free' as const,
       }))
-      res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries })
+      // review-wip-limit: the project's limit and the deliveries counting
+      // against it (absent in bare contexts without the gate).
+      const wip = c.reviewWipGate?.status()
+      const reviewWip = wip ? { limit: wip.limit, pending: wip.pending, reached: wip.limit !== null && wip.pending.length + wip.reserved >= wip.limit } : undefined
+      res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries, ...(reviewWip ? { reviewWip } : {}) })
     } catch (err) {
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
@@ -668,6 +672,21 @@ export function createRailsRouter(): Router {
     // chains, relaunch) reaches this route, so one check spawns nothing.
     const budgetRejection = c.dailyBudgetRejection?.() ?? null
     if (budgetRejection) { res.status(409).json(budgetRejection); return }
+    // Review WIP limit (review-wip-limit): same doors, same "spawn nothing"
+    // contract. Continuations of an existing delivery add no review work and
+    // pass; a new delivery holds a slot until this request has answered (its
+    // delivery row then exists), so parallel launches cannot overshoot.
+    const reviewWip = c.reviewWipGate?.admit(railIndex, {
+      revisionOfDeliveryId: typeof revisionOfDeliveryId === 'string' ? revisionOfDeliveryId : null,
+      relaunchOfDelivery: Boolean(relaunchSource?.delivery),
+      targetsExistingPr: typeof targetPrNumber === 'number' || Boolean(followUp),
+      railHasActiveDelivery: Boolean(getActivePrDeliveryByRail(c.db, railIndex)),
+    })
+    if (reviewWip && !reviewWip.ok) { res.status(409).json(reviewWip.rejection); return }
+    if (reviewWip) {
+      res.once('finish', reviewWip.release)
+      res.once('close', reviewWip.release)
+    }
     const storedRail = getRail(c.db, railIndex)
     const rail = relaunchSource ? { ...storedRail, ticketIds: [...relaunchSource.ticketIds],
       profileName: typeof profileName === 'string' ? profileName : null,

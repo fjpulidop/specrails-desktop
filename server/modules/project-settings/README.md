@@ -46,6 +46,11 @@ validated by `parseSubagentRuntimeSetting` and stored as JSON in
 `config.subagent_runtime`. A change also reaches the observer. Who launches the
 sub-agents is resolved by the agent-sessions core, not here.
 
+`reviewWipLimit` (default `null` = no limit) is an integer from 1 to 100, validated by
+`parseReviewWipLimit` and stored in `config.review_wip_limit`. Clearing it removes the row,
+and a stored value that no longer parses reads as no limit. The delivery core enforces it at rail
+launch; the composition passes it through `getProjectSettings`.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.
