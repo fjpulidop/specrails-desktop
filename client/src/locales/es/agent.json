@@ -1020,7 +1020,8 @@
       "rationale": "Un rail se hace cargo del worktree del Flow, deriva la spec y ejecuta verificación y revisión.",
       "loop": "Flow → Spec",
       "launch": "Lanzar",
-      "notYet": "Todavía no"
+      "notYet": "Todavía no",
+      "engineFallback": "{{provider}} no puede ejecutar Flow → Spec en este equipo, así que se ha seleccionado el motor por defecto del rail. Puedes cambiarlo abajo."
     },
     "review": {
       "backToFlow": "Volver a Flow",

@@ -1020,7 +1020,8 @@
       "rationale": "由轨道接管 Flow 的 worktree，推导 spec，并运行验证和审查。",
       "loop": "Flow → Spec",
       "launch": "启动",
-      "notYet": "暂不"
+      "notYet": "暂不",
+      "engineFallback": "{{provider}} 无法在此设备上运行 Flow → Spec，因此已选择该 rail 的默认引擎。你可以在下方更改。"
     },
     "review": {
       "backToFlow": "回到 Flow",

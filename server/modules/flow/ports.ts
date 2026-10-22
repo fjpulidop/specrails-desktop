@@ -101,6 +101,10 @@ export interface FlowAgentSession {
   open(input: { flowId: string; conversationId: string; worktreePath: string; renew?: boolean }): Promise<{ coreSessionId: string }>
   /** Stops a running Flow turn and closes the Core session. Never throws. */
   close(input: { flowId: string; conversationId: string; coreSessionId: string }): Promise<void>
+  /** The conversation's CURRENT engine (provider/model/effort) when that
+   * provider can run Flow → Spec on this machine; null otherwise (the run
+   * keeps its previous choices or the rail default). */
+  launchEngine?(conversationId: string): Pick<FlowLaunchOptions, 'aiEngine' | 'model' | 'reasoningEffort'> | null
 }
 
 /** Background processes (dev servers) the Flow agent started in its worktree

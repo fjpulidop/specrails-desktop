@@ -1020,7 +1020,8 @@
       "rationale": "Eine Rail übernimmt den Flow-Worktree, leitet die Spec ab und führt Verifikation und Review aus.",
       "loop": "Flow → Spec",
       "launch": "Starten",
-      "notYet": "Noch nicht"
+      "notYet": "Noch nicht",
+      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, daher ist die Standard-Engine der Rail ausgewählt. Du kannst sie unten ändern."
     },
     "review": {
       "backToFlow": "Zurück zu Flow",

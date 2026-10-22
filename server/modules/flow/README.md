@@ -55,6 +55,10 @@ removed or handed to a rail. Best effort, like closing the session.
   next freeze allows exactly those active changes (any other new active change
   still blocks) and the next Flow → Spec run re-derives the latest one in place
   (`flowDerivationChangeId`); only the first derivation is named after the spec.
+- Flow → Spec runs on the engine the person uses in the Flow: the hand-off
+  card preselects the conversation's current provider/model/effort (rail
+  default plus a note when that provider is not usable here) and Relaunch uses
+  `agent.launchEngine` the same way (the stopped run's engine otherwise).
 - Every use case is idempotent by `flowId`; a repeated command whose target
   state already holds is a no-op.
 - Release removes only the Flow mount root (`worktrees/<flowId>`); a worktree

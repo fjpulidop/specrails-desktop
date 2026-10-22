@@ -23,6 +23,7 @@ import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
 import { flowDerivationChangeId } from '../../loops/runtime/loop-executors'
+import { setDetectedProvidersSupplier } from '../../../provider-selection'
 
 const ORIGINAL_HOME = process.env.SPECRAILS_REGISTRY_HOME
 let tmp: string
@@ -548,5 +549,25 @@ describe('Flow freeze after Back to Flow keeps the Flow\'s own derived change (r
     const { reserved, service } = await returnedFlow({ evidenceChange: null })
     await expect(service.handOffFlow({ flowId: 'flow-1', railIndex: 0 })).rejects.toThrow(new RegExp(`openspec/changes/${LEGACY}`))
     expect(flowDerivationChangeId(reserved.worktreePath, { baseSha: reserved.baseSha, changeId: null }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
+  })
+})
+
+describe('Flow launch engine binding', () => {
+  afterEach(() => setDetectedProvidersSupplier(null))
+
+  it('is the conversation\'s current provider/model/effort when this machine can run it, else null', () => {
+    const ctx = context()
+    const codex = createAgentConversation(ctx.desktopDb, { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'medium', pinnedProjectId: 'proj-1' })
+    const plain = createAgentConversation(ctx.desktopDb, { provider: 'claude', pinnedProjectId: 'proj-1' })
+    const ports = createFlowPorts({
+      ctx, repository: createSqliteFlowRepository(ctx.db), effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
+      agentHost: () => null, availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+    })
+    setDetectedProvidersSupplier(() => ['claude', 'codex'])
+    expect(ports.agent.launchEngine!(codex.id)).toEqual({ aiEngine: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'medium' })
+    expect(ports.agent.launchEngine!(plain.id)).toEqual({ aiEngine: 'claude' })
+    expect(ports.agent.launchEngine!('missing')).toBeNull()
+    setDetectedProvidersSupplier(() => ['claude'])
+    expect(ports.agent.launchEngine!(codex.id)).toBeNull()
   })
 })

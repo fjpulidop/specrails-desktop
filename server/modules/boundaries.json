@@ -1634,6 +1634,7 @@
         "../../../process-admission",
         "../../../project-registry",
         "../../../project-router-helpers",
+        "../../../provider-selection",
         "../../../providers",
         "../../../providers/runtime",
         "../../../repo-lock",

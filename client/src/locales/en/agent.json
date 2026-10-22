@@ -1020,7 +1020,8 @@
       "rationale": "A rail takes over the Flow worktree, derives the spec and runs verification and review.",
       "loop": "Flow → Spec",
       "launch": "Launch",
-      "notYet": "Not yet"
+      "notYet": "Not yet",
+      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail default engine is selected. You can change it below."
     },
     "review": {
       "backToFlow": "Back to Flow",

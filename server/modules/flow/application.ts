@@ -278,6 +278,18 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     }
   }
 
+  /**
+   * A relaunch runs on what the person uses in the Flow NOW (the conversation's
+   * provider/model/effort, as the hand-off card defaults to); the stopped run's
+   * engine only when that provider cannot run the loop. The loop is kept.
+   */
+  function relaunchOptions(conversationId: string, previous: FlowLaunchOptions): FlowLaunchOptions {
+    let engine: ReturnType<NonNullable<FlowPorts['agent']['launchEngine']>> = null
+    try { engine = ports.agent.launchEngine?.(conversationId) ?? null } catch { engine = null }
+    if (!engine?.aiEngine) return previous
+    return { ...(previous.loopId ? { loopId: previous.loopId } : {}), ...engine }
+  }
+
   /** The change the Flow's returned delivery derived (null when none, or unreadable). */
   function returnedDeliveryChange(session: FlowSession): string | null {
     if (!session.deliveryId) return null
@@ -379,7 +391,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       const returned = await returnWorktree(current, input.deliveryId)
       const railIndex = returned.railIndex ?? stopped?.railIndex ?? null
       if (railIndex === null) throw new FlowConflictError('flow_rail_unknown', 'The rail of the stopped run is unknown; hand off from the Flow bar', session.id)
-      return handOff({ flowId: session.id, railIndex, options: { ...(stopped?.options ?? {}), ...returned.options } })
+      return handOff({ flowId: session.id, railIndex, options: relaunchOptions(session.conversationId, { ...(stopped?.options ?? {}), ...returned.options }) })
     })
   }
 

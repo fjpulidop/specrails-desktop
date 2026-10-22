@@ -89,6 +89,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     // A resume opens a new Core session generation (a closed one never takes a turn).
     open: vi.fn(async ({ flowId, renew }: { flowId: string; renew?: boolean }) => ({ coreSessionId: renew ? `flow:${flowId}:r${++generation}` : `flow:${flowId}` })),
     close: vi.fn(async () => {}),
+    launchEngine: vi.fn((_conversationId: string): { aiEngine?: string; model?: string; reasoningEffort?: string } | null => null),
   }
   const processes = { stop: vi.fn(async (_input: { flowId: string; conversationId: string }) => {}) }
   // The real launcher adopts inside delivery's transaction; the fake mirrors that commit.
@@ -662,6 +663,25 @@ describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
     expect(relaunched.flow).toMatchObject({ state: 'handed_off', railIndex: 2 })
     expect(relaunched.flow.returnBriefing ?? null).toBeNull()
     expect(ctx.agent.open).toHaveBeenCalledTimes(1) // only the start: a relaunch never opens a Flow turn
+  })
+
+  it('relaunches on the Flow conversation\'s CURRENT engine, keeping the loop; the previous engine only when it cannot run', async () => {
+    const ctx = setup()
+    await handedOff(ctx)
+    ctx.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: { loopId: 'factory:flow-spec', aiEngine: 'claude', model: 'sonnet', reasoningEffort: 'medium' }, findings: null })
+    ctx.agent.launchEngine.mockReturnValue({ aiEngine: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'medium' })
+    ctx.rails.launch.mockClear()
+    await ctx.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(ctx.agent.launchEngine).toHaveBeenCalledWith('conv-1')
+    expect(ctx.rails.launch).toHaveBeenCalledWith(expect.objectContaining({ options: { loopId: 'factory:flow-spec', aiEngine: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'medium' } }))
+
+    const other = setup()
+    await handedOff(other)
+    other.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: { loopId: 'factory:flow-spec', aiEngine: 'claude', model: 'sonnet' }, findings: null })
+    other.agent.launchEngine.mockReturnValue(null)
+    other.rails.launch.mockClear()
+    await other.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(other.rails.launch).toHaveBeenCalledWith(expect.objectContaining({ options: { loopId: 'factory:flow-spec', aiEngine: 'claude', model: 'sonnet' } }))
   })
 
   it('records the change the stopped run derived and lets the next freeze keep it (relaunch and Back to Flow)', async () => {

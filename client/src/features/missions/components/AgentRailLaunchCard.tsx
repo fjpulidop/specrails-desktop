@@ -479,7 +479,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         const r = await fetch(`${base}/${railIndex}/name`, { method: 'PUT', headers: json, body: JSON.stringify({ name: wantsName }) })
         if (!r.ok) { setInlineError(await readError(r)); return }
       }
-      const engineForRail = effectiveEngine && detectedProviders.length > 1 ? effectiveEngine : undefined
+      // A hand-off always names its engine: the owner chose it (Flow: the conversation's provider).
+      const engineForRail = effectiveEngine && (detectedProviders.length > 1 || handOff) ? effectiveEngine : undefined
       if (handOff) {
         // The owner's route assigns its spec and launches its worktree.
         const outcome = await handOff.launch({

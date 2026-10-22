@@ -1020,7 +1020,8 @@
       "rationale": "レールが Flow の worktree を引き継ぎ、spec を導出して検証とレビューを実行します。",
       "loop": "Flow → Spec",
       "launch": "起動",
-      "notYet": "まだ"
+      "notYet": "まだ",
+      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。下で変更できます。"
     },
     "review": {
       "backToFlow": "Flow に戻る",

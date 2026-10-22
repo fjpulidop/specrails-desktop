@@ -5,7 +5,9 @@
 // limit, budget, busy rail) the launch route reports. Launch calls the Flow
 // hand-off route, never the plain rails launch. The decision is recorded on
 // the Flow offer message that started this Flow (`flow-hand-off`); without
-// one, the Flow's own state is the record.
+// one, the Flow's own state is the record. The engine/model/effort default to
+// the Flow conversation's current selection (the rail default only when that
+// provider cannot run the loop here, with a note saying so).
 
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +19,9 @@ import { useLocalIntents } from '../../rails/lib/rail-launch-intents'
 import { useFlowContext, type FlowHandOffReceipt } from '../context/FlowContext'
 import { FlowApiError, type Flow } from '../lib/flow-api'
 import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
+import { flowHandOffEngine } from '../lib/flow-engine'
+import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
+import { providerLabel } from '../../providers/lib/provider-capabilities'
 
 /** The message whose flow-offer decision started this Flow (null if none). */
 export function findFlowAnchor(
@@ -34,7 +39,13 @@ export function findFlowAnchor(
 export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { projectId: string; conversationId: string; flow: Flow; receipt?: FlowHandOffReceipt | null }) {
   const { t } = useTranslation('agent')
   const ctx = useFlowContext()
-  const { messages } = useAgentChat()
+  const { messages, conversations, active } = useAgentChat()
+  const detection = useProviderDetection()
+  const conversation = (active?.id === conversationId ? active : null) ?? conversations.find((entry) => entry.id === conversationId) ?? null
+  const engine = useMemo(
+    () => flowHandOffEngine(conversation, detection.detected, detection.loading),
+    [conversation, detection.detected, detection.loading],
+  )
   const local = useLocalIntents()
   const anchor = useMemo(() => findFlowAnchor(messages, local, flow.id), [messages, local, flow.id])
 
@@ -45,16 +56,16 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
     ticketIds: flow.ticketId !== null ? [flow.ticketId] : [],
     mode: 'loop',
     loopId: FLOW_SPEC_LOOP_ID,
-    aiEngine: null,
-    model: null,
-    reasoningEffort: null,
+    aiEngine: engine.aiEngine,
+    model: engine.model,
+    reasoningEffort: engine.reasoningEffort,
     profileName: null,
     targetPrNumber: null,
     baseBranch: null,
     railName: null,
     rationale: t('flow.handOff.rationale'),
     followUp: null,
-  }), [flow.ticketId, t])
+  }), [flow.ticketId, t, engine.aiEngine, engine.model, engine.reasoningEffort])
 
   const handOff: RailLaunchHandOff = useMemo(() => ({
     loop: { id: FLOW_SPEC_LOOP_ID, label: t('flow.handOff.loop') },
@@ -83,7 +94,13 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
 
   return (
     <div data-testid="flow-hand-off-card">
+      {!intent && engine.fallbackFrom && (
+        <p data-testid="flow-hand-off-engine-note" className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
+          {t('flow.handOff.engineFallback', { provider: providerLabel(engine.fallbackFrom) })}
+        </p>
+      )}
       <AgentRailLaunchCard
+        key={`${engine.aiEngine ?? 'default'}:${engine.model ?? ''}:${engine.reasoningEffort ?? ''}`}
         proposal={proposal}
         proposalIndex={0}
         messageId={anchor ?? `flow:${flow.id}`}

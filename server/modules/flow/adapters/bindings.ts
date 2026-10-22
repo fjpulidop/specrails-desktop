@@ -21,6 +21,7 @@ import type { WsMessage } from '../../../types'
 import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
 import { getLinkByLocalId } from '../../../jira/jira-db'
 import { getAdapter } from '../../../providers'
+import { isProviderEnabled } from '../../../provider-selection'
 import { supportsContractRefine } from '../../../providers/runtime'
 import { captureProcessAdmission } from '../../../process-admission'
 import { resolveDefaultSpecModel } from '../../../project-router-helpers'
@@ -379,6 +380,15 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
       async close({ conversationId, coreSessionId }) {
         const agentHost = deps.agentHost()
         if (agentHost) await agentHost.closeFlowSession(conversationId, coreSessionId, 'flow_closed')
+      },
+      launchEngine(conversationId) {
+        const conversation = getAgentConversation(ctx.desktopDb, conversationId)
+        if (!conversation?.provider || !isProviderEnabled(ctx.project, conversation.provider)) return null
+        return {
+          aiEngine: conversation.provider,
+          ...(conversation.model ? { model: conversation.model } : {}),
+          ...(conversation.reasoning_effort ? { reasoningEffort: conversation.reasoning_effort } : {}),
+        }
       },
     },
     rails: {

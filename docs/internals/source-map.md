@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1144 source/build files. Nearby tests are linked where names
+Includes 1145 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -344,6 +344,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/flow/lib
 
 - [flow-api.ts](../../client/src/features/flow/lib/flow-api.ts)
+- [flow-engine.ts](../../client/src/features/flow/lib/flow-engine.ts)
 - [flow-offer.ts](../../client/src/features/flow/lib/flow-offer.ts)
 
 ## client/src/features/integrations/components/jira
