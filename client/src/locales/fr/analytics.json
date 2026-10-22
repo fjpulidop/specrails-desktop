@@ -252,5 +252,33 @@
       "hours": "{{value}} h",
       "days": "{{value}} j"
     }
+  },
+  "loopEconomics": {
+    "title": "Économie par loop",
+    "subtitle": "Livraisons, coût, reprises et défauts échappés par loop",
+    "loading": "Chargement de l’économie par loop…",
+    "unavailable": "Impossible de charger l’économie par loop.",
+    "empty": "Aucun loop n’a rien livré sur cette période.",
+    "noData": "Aucune donnée",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop sans nom",
+    "estimatedShare": "{{share}} estimé",
+    "unpriced": "{{count}} sans coût",
+    "note": "Livré = a atteint la revue ou au-delà. Le coût moyen utilise les livraisons au coût enregistré (fourni par le fournisseur sauf mention estimée) ; les livraisons sans coût sont exclues, jamais comptées à 0 $. Les tours viennent des étapes reviewer/fixer du loop. — signifie inconnu.",
+    "escapedUntracked": "Les défauts échappés ne sont pas encore suivis : liez un ticket de bug à la livraison qui l’a introduit (« Régression de » dans le ticket) pour commencer à les compter.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Livrées",
+      "merged": "Fusionnées",
+      "discarded": "Rejetées",
+      "avgCost": "Coût / livraison",
+      "toDecision": "Décision (médiane · p90)",
+      "toMerge": "Fusion (médiane · p90)",
+      "reviewRounds": "Revues / livraison",
+      "fixerRounds": "Tours de fixer / livraison",
+      "escapedDefects": "Défauts échappés",
+      "requirementsDemonstrated": "Exigences démontrées",
+      "triageAccuracy": "Précision du triage"
+    }
   }
 }

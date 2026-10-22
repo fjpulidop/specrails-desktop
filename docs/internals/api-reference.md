@@ -296,6 +296,8 @@ Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `a
 | `GET` | `/tickets/:id/spending-summary` | Per-ticket cross-surface aggregate (powers `TicketSpendingLine`) |
 | `GET` | `/analytics/export?format=csv\|json&mode=summary\|raw&…` | Multi-section summary CSV/JSON, or raw rows (10 000 cap) |
 | `GET` | `/analytics/decision-times?period=7d\|30d\|90d\|all\|custom&from&to` | Time to decision / merge per delivery: `{ period, from, to, project, byLoop[] }`, each group `{ deliveries, toDecision, toMerge }` with `{ measured, pending, unknown, medianMs, p90Ms }`. Window = `on_review_at` (or `created_at` for legacy rows). `medianMs`/`p90Ms` are `null` when nothing is measurable; unknown is never zero. Repository children are excluded (counted via the group parent). 400 on an invalid period or a custom period without `from`/`to` |
+| `GET` | `/analytics/loop-economics?period=7d\|30d\|90d\|all\|custom&from&to` | Loop economics: `{ period, from, to, sources: { escapedDefects: tracked\|untracked, requirementsDemonstrated, triageAccuracy: unavailable }, project, byLoop[] }`. Each group: `{ hasData, delivered, merged, discarded, superseded, onReview, discardRate, cost: { pricedDeliveries, unpricedDeliveries, incompleteDeliveries, totalUsd, authoritativeUsd, estimatedUsd, avgCostUsd, estimatedShare }, decisionTimes, rounds: { measuredDeliveries, reviewRounds, fixerRounds, reviewPerDelivery, fixerPerDelivery }, escapedDefects, requirementsDemonstrated, triageAccuracy }`; loops add `loopId`, `loopName`. Delivered = parent delivery that reached `on_review` or beyond. Unknown values are `null`, never 0; published saved loops without deliveries appear with `hasData: false`. `escapedDefects` counts tickets whose `metadata.regressionOf` names a delivery in the window (null while no ticket carries a link). Same period validation as decision-times |
+| `GET` | `/analytics/loop-economics/deliveries?limit=50` | Recent delivered parent deliveries `{ deliveries: [{ id, loopId, loopName, decision, ticketIds, createdAt }] }` (max 200) — source of the ticket "Regression of" picker |
 
 Example — the Analytics dashboard payload (abridged):
 
@@ -327,7 +329,7 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `GET` | `/tickets` | Filters: `?status=`, `?label=`, `?q=` |
 | `GET` | `/tickets/:id` | One ticket |
 | `POST` | `/tickets` | Create |
-| `PATCH` | `/tickets/:id` | Update any subset of fields |
+| `PATCH` | `/tickets/:id` | Update any subset of fields. `metadata` merges keys; `metadata.regressionOf` (delivery id string ≤ 200 chars, escaped-defect link) is validated on create/update/commit-draft (400 otherwise) and `null` removes it |
 | `DELETE` | `/tickets/:id` | Delete (cascades the draft conversation if it is the last reference) |
 | `POST` | `/tickets/generate-spec` | Quick-mode generation. Body `{ idea, model?, contractRefine?, aiEngine?, attachmentIds?, pendingSpecId?, contextScope? }` (the spec text is `idea`, not `title`). Streams progress over WS |
 | `POST` | `/tickets/save-as-draft` | Persist an Explore conversation as a draft (idempotent on `conversationId`) |

@@ -35,3 +35,19 @@ per project and per loop (`GET /api/projects/:id/analytics/decision-times`,
 MCP `specrails_analytics(decision_times)`). Missing instants are counted as
 `unknown` (or `pending` while still awaited) and never become zero durations.
 Repository children of grouped deliveries count once through their parent.
+
+## Loop economics
+
+[loop-economics.ts](runtime/loop-economics.ts) compares loops over a period
+(`GET /api/projects/:id/analytics/loop-economics`, MCP
+`specrails_analytics(loop_economics)`): delivered (reached review or beyond),
+merged, discarded, cost per delivery (attributed like
+`sumInvocationCostForRuns`, authoritative and estimated portions separate,
+unpriced deliveries excluded from the average), decision times (reusing
+`aggregateDecisionTimes`), reviewer/fixer rounds from `loop_step` events and
+escaped defects from tickets' `metadata.regressionOf` (passed in by the router,
+so this module does not import the ticket store). Requirements demonstrated and
+triage accuracy are nullable placeholders. The pure helpers
+(`isDelivered`, `summarizeInvocationCost`, `countLoopRounds`,
+`aggregateLoopEconomics`) are the shared join rules the offline
+`scripts/metrics-baseline.mjs` export can import.

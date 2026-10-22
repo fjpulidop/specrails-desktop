@@ -13,6 +13,9 @@ import {
   isValidPriority,
   validatePriorityForStatus,
   validateEpicChildIntegrity,
+  normalizeRegressionOfMetadata,
+  listRegressionLinks,
+  REGRESSION_OF_MAX_LEN,
   extractTicketIdsFromCommand,
   CURRENT_SCHEMA_VERSION,
   type Ticket,
@@ -848,5 +851,26 @@ const store: TicketStore = makeStore({
     const errs = validateEpicChildIntegrity(store)
     expect(errs).toHaveLength(1)
     expect(errs[0]).toMatch(/parent 1 is not an epic/)
+  })
+})
+
+describe('regressionOf metadata', () => {
+  it('normalizes, clears and rejects', () => {
+    expect(normalizeRegressionOfMetadata({ area: 'x' })).toEqual({ ok: true, metadata: { area: 'x' }, clear: false })
+    expect(normalizeRegressionOfMetadata({ regressionOf: ' d-1 ' })).toEqual({ ok: true, metadata: { regressionOf: 'd-1' }, clear: false })
+    expect(normalizeRegressionOfMetadata({ regressionOf: null, area: 'x' })).toEqual({ ok: true, metadata: { area: 'x' }, clear: true })
+    expect(normalizeRegressionOfMetadata({ regressionOf: '  ' })).toMatchObject({ ok: true, clear: true })
+    expect(normalizeRegressionOfMetadata({ regressionOf: 7 }).ok).toBe(false)
+    expect(normalizeRegressionOfMetadata({ regressionOf: 'x'.repeat(REGRESSION_OF_MAX_LEN + 1) }).ok).toBe(false)
+  })
+
+  it('lists every ticket link', () => {
+    const base = { title: '', description: '', status: 'todo', priority: null, labels: [], assignee: null, prerequisites: [], origin_conversation_id: null, is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null, created_at: '', updated_at: '', created_by: '', source: 'manual' }
+    const store = { schema_version: '1.4', revision: 1, last_updated: '', next_id: 4, tickets: {
+      '1': { ...base, id: 1, metadata: { regressionOf: 'd-1' } },
+      '2': { ...base, id: 2, metadata: {} },
+      '3': { ...base, id: 3, metadata: { regressionOf: 'd-1' } },
+    } } as unknown as Parameters<typeof listRegressionLinks>[0]
+    expect(listRegressionLinks(store)).toEqual([{ ticketId: 1, deliveryId: 'd-1' }, { ticketId: 3, deliveryId: 'd-1' }])
   })
 })

@@ -346,6 +346,32 @@ describe('ticket endpoints', () => {
 
   // ─── PATCH /tickets/:id ────────────────────────────────────────────────────
 
+  describe('metadata.regressionOf (escaped-defect link)', () => {
+    it('sets on create, validates, and clears with null on update', async () => {
+      const ctx = makeContext(db, tmpDir)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const bad = await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Bug', labels: ['bug'], metadata: { regressionOf: 42 } })
+      expect(bad.status).toBe(400)
+
+      const created = await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Bug', labels: ['bug'], metadata: { regressionOf: '  delivery-1 ' } })
+      expect(created.status).toBe(201)
+      const id = created.body.id ?? created.body.ticket?.id
+      const storePath = path.join(tmpDir, '.specrails', 'local-tickets.json')
+      expect(readStore(storePath).tickets[String(id)].metadata.regressionOf).toBe('delivery-1')
+
+      const invalid = await request(app).patch(`/api/projects/proj-1/tickets/${id}`).send({ metadata: { regressionOf: { id: 'x' } } })
+      expect(invalid.status).toBe(400)
+      expect(readStore(storePath).tickets[String(id)].metadata.regressionOf).toBe('delivery-1')
+
+      const cleared = await request(app).patch(`/api/projects/proj-1/tickets/${id}`).send({ metadata: { regressionOf: null, area: 'core' } })
+      expect(cleared.status).toBe(200)
+      const metadata = readStore(storePath).tickets[String(id)].metadata
+      expect(metadata).not.toHaveProperty('regressionOf')
+      expect(metadata.area).toBe('core')
+    })
+  })
+
   describe('PATCH /:projectId/tickets/:id', () => {
     it('returns 400 for non-numeric id', async () => {
       const ctx = makeContext(db, tmpDir)

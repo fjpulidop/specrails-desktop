@@ -29,3 +29,20 @@ describe('specrails_analytics decision_times', () => {
     expect(typeof tool.tier === 'function' ? tool.tier({ action: 'decision_times' }) : tool.tier).toBe('read')
   })
 })
+
+describe('specrails_analytics loop_economics', () => {
+  const tool = analyticsTools()[0]
+  const ctx = {} as McpToolContext
+  beforeEach(() => { vi.mocked(apiCall).mockClear() })
+
+  it('reads the loop-economics route with only the window filters', async () => {
+    await tool.handler(ctx, { action: 'loop_economics', period: '30d', model: ['x'] })
+    expect(apiCall).toHaveBeenCalledWith(ctx, 'GET', '/projects/p1/analytics/loop-economics?period=30d')
+    await tool.handler(ctx, { action: 'loop_economics', period: 'custom', from: '2026-10-01', to: '2026-10-07' })
+    expect(apiCall).toHaveBeenLastCalledWith(ctx, 'GET', '/projects/p1/analytics/loop-economics?period=custom&from=2026-10-01&to=2026-10-07')
+  })
+
+  it('is a read-tier action', () => {
+    expect(typeof tool.tier === 'function' ? tool.tier({ action: 'loop_economics' }) : tool.tier).toBe('read')
+  })
+})

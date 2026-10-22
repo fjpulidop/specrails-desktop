@@ -176,5 +176,16 @@
       "failed": "Addendum konnte nicht gespeichert werden",
       "inFlight": "Dieses Addendum ist in Arbeit – warte auf den Abschluss des Laufs"
     }
+  },
+  "regressionOf": {
+    "label": "Regression von",
+    "hint": "Lieferung, die diesen Bug eingeführt hat (zählt als entgangener Fehler ihres Loops)",
+    "none": "Nicht verknüpft",
+    "loading": "Lieferungen werden geladen…",
+    "unavailable": "Lieferungen konnten nicht geladen werden.",
+    "empty": "Noch keine gelieferten Änderungen.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "Unbekannte Lieferung ({{id}})"
   }
 }

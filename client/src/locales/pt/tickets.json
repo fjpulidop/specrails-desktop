@@ -176,5 +176,16 @@
       "failed": "Não foi possível guardar o adendo",
       "inFlight": "Este adendo está em curso — aguarde o fim da execução"
     }
+  },
+  "regressionOf": {
+    "label": "Regressão de",
+    "hint": "Entrega que introduziu este bug (conta como defeito escapado do seu loop)",
+    "none": "Não vinculado",
+    "loading": "Carregando entregas…",
+    "unavailable": "Não foi possível carregar as entregas.",
+    "empty": "Ainda não há mudanças entregues.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "Entrega desconhecida ({{id}})"
   }
 }

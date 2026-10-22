@@ -40,6 +40,11 @@ export interface Ticket {
       owner_id?: string
       applied_effect_id?: string
     }
+    /** Escaped-defect link (loop-economics-analytics): the delivery
+     * (`rail_pr_deliveries.id`) that introduced the bug this ticket tracks.
+     * Desktop-owned optional metadata — Core ignores unknown metadata, so no
+     * schema bump. Set from the ticket modal for bug tickets. */
+    regressionOf?: string
   }
   comments?: Array<{
     id: number
@@ -114,6 +119,38 @@ const VALID_PRIORITIES = new Set<TicketPriority>(['critical', 'high', 'medium', 
 export const CURRENT_SCHEMA_VERSION = '1.4'
 
 export const SHORT_SUMMARY_MAX_LEN = 240
+
+export const REGRESSION_OF_MAX_LEN = 200
+
+/**
+ * Validate the `regressionOf` key of an incoming metadata patch. Absent ⇒
+ * untouched; `null`/empty ⇒ cleared (key removed); a non-empty string ≤
+ * REGRESSION_OF_MAX_LEN ⇒ trimmed; anything else ⇒ error. Returns the
+ * metadata to merge plus the keys to delete after merging.
+ */
+export function normalizeRegressionOfMetadata(
+  metadata: Record<string, unknown>,
+): { ok: true; metadata: Record<string, unknown>; clear: boolean } | { ok: false; error: string } {
+  if (!Object.prototype.hasOwnProperty.call(metadata, 'regressionOf')) return { ok: true, metadata, clear: false }
+  const { regressionOf, ...rest } = metadata
+  if (regressionOf === null || (typeof regressionOf === 'string' && regressionOf.trim() === '')) {
+    return { ok: true, metadata: rest, clear: true }
+  }
+  if (typeof regressionOf !== 'string' || regressionOf.trim().length > REGRESSION_OF_MAX_LEN) {
+    return { ok: false, error: `metadata.regressionOf must be a delivery id string (max ${REGRESSION_OF_MAX_LEN} chars) or null` }
+  }
+  return { ok: true, metadata: { ...rest, regressionOf: regressionOf.trim() }, clear: false }
+}
+
+/** Every ticket's escaped-defect link (`metadata.regressionOf`). */
+export function listRegressionLinks(store: TicketStore): Array<{ ticketId: number; deliveryId: string }> {
+  const links: Array<{ ticketId: number; deliveryId: string }> = []
+  for (const ticket of Object.values(store.tickets)) {
+    const deliveryId = ticket?.metadata?.regressionOf
+    if (typeof deliveryId === 'string' && deliveryId.length > 0) links.push({ ticketId: ticket.id, deliveryId })
+  }
+  return links
+}
 
 /**
  * Sanitize a `shortSummary` value coming from an AI response or external input.
