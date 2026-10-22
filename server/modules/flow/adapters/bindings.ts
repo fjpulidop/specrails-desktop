@@ -31,11 +31,12 @@ import { RepositoryHasNoCommitsError, isolatedWorktreesRoot, prepareIsolatedWork
 import { FlowHandOffNotReadyError, type FlowHandOffAuthority } from '../../delivery/runtime/flow-worktree-handoff'
 import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
+import { FAILURE_BRIEFING_REF_KIND } from '../../missions/runtime/agent-failure-briefing'
 import { FLOW_SESSION_BOUNDARY, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, transition,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
@@ -470,11 +471,20 @@ const ARCHIVED_CHANGE = /^openspec\/changes\/archive\/([^/]+)\/(proposal|design)
 const ACTIVE_CHANGE = /^openspec\/changes\/(?!archive\/)([^/]+)\/(proposal|design)\.md$/
 const TEXT_CAP = 64 * 1024
 
-/** The bounded summary of a Flow conversation (user messages + decisions). */
+/**
+ * The bounded summary of a Flow conversation: the person's messages since the
+ * Flow started (automatic briefings excluded), the first line of each final
+ * agent reply and the recorded decisions. Message times (SQLite) and Flow times
+ * (ISO) are compared as instants, never as strings.
+ */
 export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null }): string {
   const messages = listAgentMessages(desktopDb, input.conversationId)
-    .filter((message) => message.created_at >= input.from && (input.to === null || message.created_at <= input.to))
-    .map((message) => ({ role: message.role, content: message.content }))
+    .filter((message) => inFlowWindow(message.created_at, input.from, input.to))
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+      ...(message.context_refs.some((ref) => ref.kind === FAILURE_BRIEFING_REF_KIND) ? { automated: true } : {}),
+    }))
   return buildFlowSummary({ idea: input.idea, messages })
 }
 

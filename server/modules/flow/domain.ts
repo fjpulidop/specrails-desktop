@@ -437,10 +437,13 @@ export const FLOW_SUMMARY_LIMIT_BYTES = 32 * 1024
 const SUMMARY_MESSAGE_CAP = 2000
 const SUMMARY_DECISION_CAP = 500
 const SUMMARY_IDEA_CAP = 4000
+const SUMMARY_REPLY_CAP = 240
 
 export interface FlowTranscriptMessage {
   role: string
   content: string
+  /** Written by Specrails, not typed by the person (e.g. a run-failure briefing): never a user message. */
+  automated?: boolean
 }
 
 const DECISION_LINE = /^\s*(?:[-*]\s+)?(?:\*\*)?(?:Decision|Decisión)(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*$/i
@@ -474,27 +477,96 @@ export function extractFlowDecisions(messages: readonly FlowTranscriptMessage[])
   return decisions
 }
 
+/** The first prose line of an agent reply (no decision line, fence or bare heading marker), bounded. */
+export function replyFirstLine(content: string): string | null {
+  for (const raw of content.replace(/\r\n/g, '\n').split('\n')) {
+    const line = raw.trim()
+    if (!line || line.startsWith('```') || DECISION_LINE.test(line)) continue
+    const text = line.replace(/^#{1,6}\s+/, '').replace(/^[-*>]\s+/, '').trim()
+    if (text) return clip(text, SUMMARY_REPLY_CAP)
+  }
+  return null
+}
+
+const SQLITE_DATETIME = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:?\d{2})?$/
+
 /**
- * The bounded conversation summary handed to Core's derive-change piece:
- * the idea, the user's messages and the recorded decisions ONLY (assistant
- * narration and tool output are left out). At most 32 KB of UTF-8; when over,
- * the oldest user messages go first, then the oldest decisions. Front matter
- * `transcriptTurns` counts the user messages kept.
+ * Epoch milliseconds of a stored timestamp. Messages carry SQLite's
+ * `datetime('now')` (`YYYY-MM-DD HH:MM:SS`, UTC, no zone) while Flow rows carry
+ * ISO 8601 (`…T…Z`): comparing them as strings put every message of the
+ * Flow's own day BEFORE its start (`' '` < `'T'`), so the summary was empty.
+ */
+export function timestampMs(value: string): number | null {
+  const match = SQLITE_DATETIME.exec(value.trim())
+  const ms = match ? Date.parse(`${match[1]}T${match[2]}${match[3] ?? 'Z'}`) : Date.parse(value)
+  return Number.isFinite(ms) ? ms : null
+}
+
+/**
+ * Whether a message written at `createdAt` belongs to the window [from, to].
+ * Message times have one-second resolution, so `from` is floored to its second:
+ * the reply written in the same second the Flow started is kept. An
+ * unparseable message time is kept (never silently dropped); an unparseable
+ * bound does not restrict.
+ */
+export function inFlowWindow(createdAt: string, from: string, to: string | null): boolean {
+  const at = timestampMs(createdAt)
+  if (at === null) return true
+  const start = timestampMs(from)
+  if (start !== null && at < Math.floor(start / 1000) * 1000) return false
+  const end = to === null ? null : timestampMs(to)
+  return end === null || at <= end
+}
+
+interface SummaryTurn {
+  user: string
+  /** First line of the agent's final reply to this message, when there was one. */
+  reply: string | null
+}
+
+/** The person's messages in order, each with the first line of the agent's last reply before the next message. */
+function conversationTurns(messages: readonly FlowTranscriptMessage[]): SummaryTurn[] {
+  const turns: SummaryTurn[] = []
+  // Replies to an automated briefing answer Specrails, not the person.
+  let current: SummaryTurn | null = null
+  for (const message of messages) {
+    if (message.role === 'user') {
+      const user = message.automated ? '' : clip(message.content, SUMMARY_MESSAGE_CAP)
+      current = user ? { user, reply: null } : null
+      if (current) turns.push(current)
+    } else if (message.role === 'assistant' && current) {
+      const reply = replyFirstLine(message.content)
+      if (reply) current.reply = reply
+    }
+  }
+  return turns
+}
+
+/**
+ * The bounded conversation summary handed to Core's derive-change piece: the
+ * idea, every message the person typed (automated briefings excluded), the
+ * first line of the agent's final reply to each, and the recorded decisions
+ * (tool output and the rest of the narration are left out). At most 32 KB of
+ * UTF-8; when over, the oldest messages go first (with their reply), then the
+ * oldest decisions. Front matter `transcriptTurns` counts the messages kept.
  */
 export function buildFlowSummary(input: { idea: string | null; messages: readonly FlowTranscriptMessage[] }, limit = FLOW_SUMMARY_LIMIT_BYTES): string {
   const idea = input.idea?.trim() ? clip(input.idea, SUMMARY_IDEA_CAP) : null
-  let users = input.messages.filter((message) => message.role === 'user').map((message) => clip(message.content, SUMMARY_MESSAGE_CAP)).filter(Boolean)
+  let turns = conversationTurns(input.messages)
   let decisions = extractFlowDecisions(input.messages)
+  const indent = (text: string) => text.replace(/\n/g, '\n   ')
   const render = (): string => [
     '---',
-    `transcriptTurns: ${users.length}`,
+    `transcriptTurns: ${turns.length}`,
     '---',
     '# Flow conversation summary',
     '',
     ...(idea ? ['## Idea', '', idea, ''] : []),
     '## User messages',
     '',
-    ...(users.length ? users.map((text, index) => `${index + 1}. ${text.replace(/\n/g, '\n   ')}`) : ['(none)']),
+    ...(turns.length
+      ? turns.flatMap((turn, index) => [`${index + 1}. ${indent(turn.user)}`, ...(turn.reply ? [`   ↳ Agent: ${turn.reply}`] : [])])
+      : ['(none)']),
     '',
     '## Decisions',
     '',

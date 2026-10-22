@@ -352,6 +352,36 @@ describe('settlement publication bindings', () => {
     expect(jira.onRailReview).toHaveBeenCalledWith([3], 'delivery-1')
   })
 
+  it('summarizes a real-shaped Flow conversation: SQLite message times after an ISO start, briefings excluded', () => {
+    const ctx = context()
+    const conversation = createAgentConversation(ctx.desktopDb, { title: 'arkanoidex' } as never)
+    // Shaped like run e9fe4204: the Flow started at 12:49:06.950Z; its messages
+    // carry datetime('now') stamps and a run-failure briefing came afterwards.
+    const rows: Array<[string, string, string, unknown[]?]> = [
+      ['user', 'me gustaría añadir mas efectos de video al juego', '2026-10-22 12:48:51'],
+      ['user', 'vale, estamos experimentando a meter mas efectos graficos, que le podemos meter?', '2026-10-22 12:49:34'],
+      ['assistant', 'Voy a mirar qué efectos hay ya en el código.', '2026-10-22 12:49:54'],
+      ['user', 'puedes incluir todas, y que desde el menu de opciones se puedan habilitar/deshabilitar?', '2026-10-22 12:55:36'],
+      ['assistant', 'Sí. Añado un catálogo de 27 efectos.\nDecision: every effect is toggleable from Options', '2026-10-22 13:21:00'],
+      ['system', '{"kind":"pr_decision"}', '2026-10-22 13:48:50'],
+      ['user', '[Specrails run-failure briefing — automatic, not typed by the user]', '2026-10-22 13:52:16', [{ kind: 'system-briefing', id: 'e9fe4204', label: 'Run failure briefing', token: '' }]],
+    ]
+    for (const [role, content, at, refs] of rows) {
+      const message = addAgentMessage(ctx.desktopDb, { conversationId: conversation.id, role: role as 'user', content, ...(refs ? { contextRefs: refs as never } : {}) })
+      ctx.desktopDb.prepare('UPDATE agent_messages SET created_at = ? WHERE id = ?').run(at, message.id)
+    }
+    const summary = flowConversationSummary(ctx.desktopDb, { conversationId: conversation.id, idea: 'Add more visual effects', from: '2026-10-22T12:49:06.950Z', to: null })
+    expect(summary).toContain('transcriptTurns: 2')
+    expect(summary).toContain('1. vale, estamos experimentando')
+    expect(summary).toContain('   ↳ Agent: Voy a mirar qué efectos hay ya en el código.')
+    expect(summary).toContain('2. puedes incluir todas')
+    expect(summary).toContain('   ↳ Agent: Sí. Añado un catálogo de 27 efectos.')
+    expect(summary).toContain('- every effect is toggleable from Options')
+    expect(summary).not.toContain('me gustaría añadir')
+    expect(summary).not.toContain('run-failure briefing')
+    expect(summary).not.toContain('(none)')
+  })
+
   it('summarizes the Flow conversation for the hand-off (user messages and decisions)', () => {
     const ctx = context()
     const conversation = createAgentConversation(ctx.desktopDb, { title: 'm' } as never)

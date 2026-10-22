@@ -1628,6 +1628,7 @@
       "adapters/http.ts": [
         "..",
         "express"
+        "../../missions/runtime/agent-failure-briefing",
       ],
       "adapters/sqlite.ts": [
         "../../../db/types",
@@ -1918,6 +1919,7 @@
         "../../../db",
         "../../../desktop-db",
         "../../../external-mcp",
+      "runtime/agent-failure-briefing.ts",
         "../../../feature-flags",
         "../../../mcp/agent-capability",
         "../../../plugins/codex-spawn",
