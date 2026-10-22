@@ -314,7 +314,9 @@
       "merged": "PR がマージされました",
       "discarded": "破棄済み",
       "review_changes_requested": "レビュアーが変更を依頼しました",
-      "returned_to_flow": "Flow に戻りました"
+      "returned_to_flow": "Flow に戻りました",
+      "flowSpecChanges": "Flow → Spec — レビュアーが変更を求めました",
+      "flowSpecDelivered": "Flow → Spec 納品済み"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",

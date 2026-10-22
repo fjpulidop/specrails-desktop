@@ -173,5 +173,13 @@
       "repository_has_commits": "このリポジトリにはすでにコミットがあります。",
       "generic": "初回コミットを作成できませんでした。"
     }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow → Spec",
+    "unknown": "ループ",
+    "title": "ループ: {{name}}"
   }
 }

@@ -304,7 +304,9 @@
       "merged": "Merge de la PR completado",
       "discarded": "Descartada",
       "review_changes_requested": "El revisor solicitó cambios",
-      "returned_to_flow": "De vuelta en Flow"
+      "returned_to_flow": "De vuelta en Flow",
+      "flowSpecChanges": "Flow → Spec — el revisor pidió cambios",
+      "flowSpecDelivered": "Flow → Spec entregado"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",

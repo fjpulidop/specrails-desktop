@@ -24,16 +24,3 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/plugins`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
-
-
-## Independent window
-
-Mission mode opens Plugins in a modal over the active mission. Its header
-provides **Open in window**; successful opening dismisses the modal and failures
-keep it open.
-Board mode retains the embedded page, with **Open in window** in the header.
-`plugin-windows` opens the native manager or a popup during browser development;
-reopening focuses the current window without replacing its forms. The secondary
-surface uses an isolated DesktopProvider and shared WebSocket, theme and language
-providers, without mounting mission execution providers. The native host reuses
-the restricted editor-window registry and capabilities from `loop_windows.rs`.

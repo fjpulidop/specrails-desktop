@@ -304,7 +304,9 @@
       "merged": "PR merged",
       "discarded": "Discarded",
       "review_changes_requested": "The reviewer requested changes",
-      "returned_to_flow": "Back in Flow"
+      "returned_to_flow": "Back in Flow",
+      "flowSpecChanges": "Flow → Spec — the reviewer requested changes",
+      "flowSpecDelivered": "Flow → Spec delivered"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",

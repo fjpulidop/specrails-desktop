@@ -121,6 +121,7 @@
   },
   "delivery": {
     "publicEntries": [
+      "components/LoopChip.tsx",
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
       "components/TargetPrLaunchDialog.tsx",

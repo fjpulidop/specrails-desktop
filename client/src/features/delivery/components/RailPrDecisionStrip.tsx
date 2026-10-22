@@ -19,6 +19,7 @@ import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnown
 import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
+import { LoopChip } from './LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -798,6 +799,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         onAct={(action, repositoryId) => run(action, decision.decision, decision.prDeliveryId, repositoryId)}
         onCheckout={checkout ? runCheckout : undefined} />
       {pill}
+      {/* Which loop produced this delivery (the rail's current loop may differ). */}
+      {d !== 'building' && (decision.loopId || decision.loopName) ? <LoopChip loopId={decision.loopId} loopName={decision.loopName} /> : null}
       {decision.operation && (
         <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`} data-testid="rail-pr-operation">
           <Loader2 className={`${iconCls} animate-spin`} aria-hidden />

@@ -15,6 +15,7 @@ import { AgentFlowReviewBlock, AgentFlowReturnedNote } from './AgentFlowReviewBl
 import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { RepositoryDeliveries } from '../../delivery/components/RepositoryDeliveries'
 import { TopRiskLine } from '../../delivery/components/TopRiskLine'
+import { FLOW_SPEC_LOOP_ID, LoopChip } from '../../delivery/components/LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
@@ -894,8 +895,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           )}
         </div>
         {phaseLine && <div className="mt-1 flex items-center pl-[22px]">{phaseLine}</div>}
-        {ticketChips && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">{ticketChips}</div>
+        {(ticketChips || !runOnly) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
+            {!runOnly && <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />}
+            {ticketChips}
+          </div>
         )}
         {existingPrContinuation && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
@@ -1056,8 +1060,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
 
   const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
   const iconTone = flowOutcome === 'changes' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
+  // Flow → Spec names itself where the title would otherwise be generic.
+  const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
+  const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
   const title = flowOutcome === 'changes'
-    ? t('prCard.title.review_changes_requested')
+    ? t(flowSpec ? 'prCard.title.flowSpecChanges' : 'prCard.title.review_changes_requested')
     : flowOutcome === 'returned'
       ? t('prCard.title.returned_to_flow')
       : presentation.superseded
@@ -1074,7 +1081,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             ? t('prCard.title.partial')
             : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
-                : degradedDraft ? t('prCard.title.pr_draft_degraded') : t(`prCard.title.${decision}`)
+                : degradedDraft ? t('prCard.title.pr_draft_degraded')
+                  : flowSpecDelivered ? t('prCard.title.flowSpecDelivered') : t(`prCard.title.${decision}`)
 
   const primaryBtn =
     'inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-primary/90 disabled:cursor-default disabled:opacity-60'
@@ -1276,6 +1284,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           {'→ '}
           {envelope.baseBranch}
         </span>}
+        <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />
         <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-foreground/70">
           <Ticket className="h-3 w-3 text-accent-secondary/80" />
           {t('prCard.specCount', { count: envelope.ticketIds.length })}

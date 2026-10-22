@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '../../../../test-utils'
 import { DndContext } from '@dnd-kit/core'
+import { cleanup } from '@testing-library/react'
 
 const { mockToast, mockRevealItemInDir, mockClipboardWriteText, mockIsTauri } = vi.hoisted(() => ({
   mockToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -205,6 +206,14 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(strip).getByTestId('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('implementation run failed'))
         expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
+      })
+
+      it('names the delivery loop when the snapshot carries it (custom loops by name); absent otherwise', () => {
+        renderRail(snapshot({ decision: 'on_review', loopId: 'custom:hardening', loopName: 'Hardening' }), density)
+        expect(within(screen.getByTestId('rail-pr-strip')).getByTestId('loop-chip')).toHaveTextContent('Hardening')
+        cleanup()
+        renderRail(snapshot({ decision: 'on_review' }), density)
+        expect(within(screen.getByTestId('rail-pr-strip')).queryByTestId('loop-chip')).toBeNull()
       })
 
       it('Flow → Spec with requested changes → review pill, never Discard (the Flow worktree is kept)', () => {

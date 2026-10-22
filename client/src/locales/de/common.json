@@ -173,5 +173,13 @@
       "repository_has_commits": "Dieses Repository hat bereits Commits.",
       "generic": "Der erste Commit konnte nicht erstellt werden."
     }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow → Spec",
+    "unknown": "Loop",
+    "title": "Loop: {{name}}"
   }
 }

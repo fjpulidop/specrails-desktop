@@ -16,8 +16,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/RuntimeEfficiencyControls.tsx](components/RuntimeEfficiencyControls.tsx)
 - [components/RuntimeExecutionEvidence.tsx](components/RuntimeExecutionEvidence.tsx)
 - [components/RuntimeGuardrails.tsx](components/RuntimeGuardrails.tsx)
-- [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx): exact-attempt recovery selection shared by saved executions and job details.
-- [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx): shared durable steering inbox for saved runs and job details.
+- [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx)
+- [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx)
 - [components/pickers/LanguagePickerGrid.tsx](components/pickers/LanguagePickerGrid.tsx)
 - [components/pickers/ThemePickerGrid.tsx](components/pickers/ThemePickerGrid.tsx)
 - [components/theme-effects/Starfield.tsx](components/theme-effects/Starfield.tsx)
@@ -50,16 +50,3 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/settings`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
-
-## Repository verification
-
-Project runtime settings edit repository verification commands and, below them,
-the idempotent setup commands Core runs before every verification (same row
-editor, `CommandListEditor` in `AgentRuntimeSettingsSection.tsx`, without
-auto-detection). Agent definitions,
-engine selection and workflow policy belong to the loop builder. Saving checks
-preserves historical configuration for legacy graphs; frozen executions retain
-their admission snapshot. The focused runtime forms exported above are also used
-by the loop editor.
-
-Subscription usage is available in the global settings modal and shares the machine-scoped store with the footer menu.

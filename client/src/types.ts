@@ -416,6 +416,9 @@ export interface RailPrStateSnapshot {
   riskSummary?: PrDeliveryRiskSummary
   /** Flow → Spec stopped with requested changes (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
+  /** The loop that produced this delivery (absent on older snapshots). */
+  loopId?: string | null
+  loopName?: string | null
   /** Durable generation ordering evidence for stale-snapshot arbitration. */
   createdAt?: string
   updatedAt?: string

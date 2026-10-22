@@ -314,7 +314,9 @@
       "merged": "PR 已合并",
       "discarded": "已丢弃",
       "review_changes_requested": "审阅者要求修改",
-      "returned_to_flow": "已回到 Flow"
+      "returned_to_flow": "已回到 Flow",
+      "flowSpecChanges": "Flow → Spec — 审查者要求修改",
+      "flowSpecDelivered": "Flow → Spec 已交付"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",

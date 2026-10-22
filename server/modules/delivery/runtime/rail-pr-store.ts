@@ -1081,6 +1081,8 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     originConversationId: snap.originConversationId,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    loopId: snap.loopId,
+    loopName: snap.loopName || null,
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
   }
@@ -1121,6 +1123,8 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     runIds: snap.runIds,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    loopId: snap.loopId,
+    loopName: snap.loopName || null,
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
     // mission-rail-cards: coarse phase so the card renders the run header

@@ -478,6 +478,9 @@ export interface AgentPrDecisionEnvelope {
   riskSummary?: import('../../../types').PrDeliveryRiskSummary
   /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks. */
   flowReview?: import('../../../types').PrDeliveryFlowReview
+  /** The loop that produced the delivery (absent on older cards). */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -576,6 +579,8 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
     ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
     ...(snapshot.flowReview ? { flowReview: snapshot.flowReview } : {}),
+    ...(snapshot.loopId ? { loopId: snapshot.loopId } : {}),
+    ...(snapshot.loopName ? { loopName: snapshot.loopName } : {}),
   }
 }
 

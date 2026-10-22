@@ -188,6 +188,8 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
     originConversationId: asNullableString(o.originConversationId),
     ...(() => { const riskSummary = coerceRiskSummary(o.riskSummary); return riskSummary ? { riskSummary } : {} })(),
     ...(() => { const flowReview = coerceFlowReview(o.flowReview); return flowReview ? { flowReview } : {} })(),
+    ...(asString(o.loopId) ? { loopId: asString(o.loopId) } : {}),
+    ...(asString(o.loopName) ? { loopName: asString(o.loopName) } : {}),
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : undefined,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : undefined,
     ...(implementationOutcome ? { implementationOutcome } : {}),

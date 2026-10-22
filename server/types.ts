@@ -918,6 +918,9 @@ export interface RailPrStateMessage {
   riskSummary?: PrDeliveryRiskSummary
   /** Flow → Spec requested changes (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
+  /** The loop that produced this delivery (id + display name at launch); absent on pre-loop-chip rows. */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 /**
@@ -1749,6 +1752,9 @@ export interface PrDecisionCardEnvelope {
   riskSummary?: PrDeliveryRiskSummary
   /** Flow → Spec requested changes: issues + failing checks, Back to Flow / Relaunch (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
+  /** The loop that produced this delivery (id + display name at launch); absent on pre-loop-chip rows. */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'

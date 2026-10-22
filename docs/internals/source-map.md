@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1142 source/build files. Nearby tests are linked where names
+Includes 1143 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -282,6 +282,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/delivery/components
 
+- [LoopChip.tsx](../../client/src/features/delivery/components/LoopChip.tsx) · [test](../../client/src/features/delivery/components/__tests__/LoopChip.test.tsx)
 - [RailPrDecisionStrip.tsx](../../client/src/features/delivery/components/RailPrDecisionStrip.tsx) · [test](../../client/src/features/delivery/components/__tests__/RailPrDecisionStrip.test.tsx)
 - [RepositoryDeliveries.tsx](../../client/src/features/delivery/components/RepositoryDeliveries.tsx) · [test](../../client/src/features/delivery/components/__tests__/RepositoryDeliveries.test.tsx)
 - [TargetPrLaunchDialog.tsx](../../client/src/features/delivery/components/TargetPrLaunchDialog.tsx)
