@@ -785,7 +785,7 @@ export function healRuntimeEvidence(
   pipelineDir: string,
   fsIo: Partial<EvidenceFsIO> = {},
   definitionStatuses: ReadonlyMap<string, DefinitionRunProbe> = new Map(),
-  options: { reviewBrief?: boolean } = {},
+  options: { reviewBrief?: boolean; refreshMissingReview?: boolean } = {},
 ): DeliverySettleEvidence | null {
   const io: EvidenceFsIO = {
     readFile: fsIo.readFile ?? ((p) => fs.readFileSync(p, 'utf8')),
@@ -814,12 +814,15 @@ export function healRuntimeEvidence(
   return changed ? { ...evidence, units } : null
 
   function healUnitRuntime(unit: DeliveryUnitEvidence): DeliveryUnitEvidence {
-    if (!unit.runId || unit.runtime) return unit
+    // `refreshMissingReview`: a unit harvested without the reviewer verdict
+    // (e.g. the retained ledger was unreadable at settle) reads it again.
+    const refresh = options.refreshMissingReview === true && !!unit.runtime && !unit.runtime.review
+    if (!unit.runId || unit.runtime && !refresh) return unit
     const definition = definitionStatuses.get(unit.runId)
-    if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined) return unit
+    if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined && !refresh) return unit
     let runtime: DeliveryRuntimeEvidence | null = null
     try { runtime = definition ? projectDefinitionRuntimeEvidence(definition, unit.reviewerStepId) : readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
-    if (!runtime) return unit
+    if (!runtime || refresh && !runtime.review) return unit
     changed = true
     const confidence = unit.confidence ?? (runtime.review && runtime.review.score !== null
       ? { changeName: null, overall: runtime.review.score, aspects: runtime.review.aspects, flags: runtime.review.issues, raw: null }

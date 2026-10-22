@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1140 source/build files. Nearby tests are linked where names
+Includes 1141 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1316,6 +1316,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
 - [definition-fork.ts](../../server/modules/delivery/runtime/definition-fork.ts) · [test](../../server/modules/delivery/runtime/definition-fork.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
+- [flow-review-legacy.ts](../../server/modules/delivery/runtime/flow-review-legacy.ts) · [test](../../server/modules/delivery/runtime/flow-review-legacy.test.ts)
 - [flow-review-outcome.ts](../../server/modules/delivery/runtime/flow-review-outcome.ts)
 - [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
 - [flow-worktree-return.ts](../../server/modules/delivery/runtime/flow-worktree-return.ts) · [test](../../server/modules/delivery/runtime/flow-worktree-return.test.ts)

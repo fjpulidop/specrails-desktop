@@ -79,12 +79,59 @@ export function flowReviewStatusDetail(outcome: FlowReviewOutcome): string {
   return clip(`The reviewer requested changes${outcome.score !== null ? ` (score ${outcome.score})` : ''}: ${first ?? outcome.summary ?? 'see the review'}${more > 0 ? ` (+${more} more)` : ''}`, SUMMARY_CAP)
 }
 
+interface FlowReviewRow {
+  loop_id: string | null
+  decision?: string | null
+  implementation_outcome?: string | null
+  status_code?: string | null
+  settle_evidence?: string | null
+}
+
+const REVIEW_STATUS_CODES = new Set(['review_changes_requested', 'returned_to_flow'])
+
+/**
+ * A Flow → Spec delivery settled as a generic implementation failure — before
+ * settlement classified requested changes (or with evidence healed later).
+ * Its stored evidence decides on read whether it is really a review outcome;
+ * a failure the evidence does not explain stays a failure.
+ */
+export function isLegacyFlowReviewCandidate(row: FlowReviewRow): boolean {
+  return row.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID
+    && row.decision === 'implementation_failed'
+    && row.implementation_outcome === 'failed'
+    && !REVIEW_STATUS_CODES.has(row.status_code ?? '')
+}
+
 /** Parse the stored settle evidence of a row; null when absent or unreadable. */
-export function readFlowReviewOutcome(row: { loop_id: string | null; implementation_outcome?: string | null; status_code?: string | null; settle_evidence?: string | null }): FlowReviewOutcome | null {
-  if (row.loop_id !== FLOW_SPEC_DELIVERY_LOOP_ID || (row.status_code !== 'review_changes_requested' && row.status_code !== 'returned_to_flow') || !row.settle_evidence) return null
+export function readFlowReviewOutcome(row: FlowReviewRow): FlowReviewOutcome | null {
+  if (row.loop_id !== FLOW_SPEC_DELIVERY_LOOP_ID || !row.settle_evidence) return null
+  if (!REVIEW_STATUS_CODES.has(row.status_code ?? '') && !isLegacyFlowReviewCandidate(row)) return null
   try {
     return flowReviewOutcome({ loopId: row.loop_id, implementationOutcome: row.implementation_outcome ?? null, evidence: JSON.parse(row.settle_evidence) as DeliverySettleEvidence })
   } catch {
     return null
+  }
+}
+
+/**
+ * The presentation of a legacy candidate whose evidence shows requested
+ * changes: exactly what a settlement records today (status code, detail, the
+ * per-unit failure code). Null when the row is not such a candidate. Pure —
+ * the snapshot applies it on read; the one-shot heal persists the same values.
+ */
+export function legacyFlowReviewReclassification<Unit extends { failureCode?: string | null }>(row: FlowReviewRow, units: readonly Unit[]): {
+  flowReview: FlowReviewOutcome
+  statusCode: 'review_changes_requested'
+  statusDetail: string
+  units: Unit[]
+} | null {
+  if (!isLegacyFlowReviewCandidate(row)) return null
+  const flowReview = readFlowReviewOutcome(row)
+  if (!flowReview) return null
+  return {
+    flowReview,
+    statusCode: 'review_changes_requested',
+    statusDetail: flowReviewStatusDetail(flowReview),
+    units: units.map((unit) => unit.failureCode === 'settlement_interrupted' ? ({ ...unit, failureCode: 'review_changes_requested' }) as Unit : unit),
   }
 }

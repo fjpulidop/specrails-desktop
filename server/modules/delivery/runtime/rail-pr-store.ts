@@ -14,7 +14,7 @@ import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import { summarizeReviewBriefs } from './review-brief'
-import { readFlowReviewOutcome, type FlowReviewOutcome } from './flow-review-outcome'
+import { legacyFlowReviewReclassification, readFlowReviewOutcome, type FlowReviewOutcome } from './flow-review-outcome'
 import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
@@ -996,7 +996,11 @@ export function updatePrDeliverySettleEvidence(db: DbInstance, id: string, evide
 }
 
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
-  const units = parseJsonArray<DeliverBranchRecord>(row.branches)
+  const storedUnits = parseJsonArray<DeliverBranchRecord>(row.branches)
+  // A Flow → Spec delivery settled as a generic failure whose evidence shows
+  // requested changes reads exactly like one settled as such today.
+  const legacyFlowReview = legacyFlowReviewReclassification(row, storedUnits)
+  const units = legacyFlowReview?.units ?? storedUnits
   return {
     ...(row.execution_manifest ? { executionManifest: readExecutionManifest(row.execution_manifest), repositoryDeliveries: parseJsonArray<RepositoryDeliverySnapshot>(row.repository_deliveries ?? '[]') } : {}),
     id: row.id,
@@ -1012,8 +1016,8 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     decision: row.decision,
     implementationOutcome: row.implementation_outcome ?? 'unknown',
     deliveryOutcome: row.delivery_outcome ?? 'unknown',
-    statusCode: row.status_code ?? null,
-    statusDetail: row.status_detail ?? null,
+    statusCode: legacyFlowReview?.statusCode ?? row.status_code ?? null,
+    statusDetail: legacyFlowReview?.statusDetail ?? row.status_detail ?? null,
     deliverySha: row.delivery_sha ?? null,
     isContinuation: row.is_continuation === 1,
     supersedesDeliveryId: row.supersedes_delivery_id ?? null,
@@ -1034,7 +1038,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     followUp: readFollowUp(row.follow_up),
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
     ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
-    ...(() => { const flowReview = readFlowReviewOutcome(row); return flowReview ? { flowReview } : {} })(),
+    ...(() => { const flowReview = legacyFlowReview?.flowReview ?? readFlowReviewOutcome(row); return flowReview ? { flowReview } : {} })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

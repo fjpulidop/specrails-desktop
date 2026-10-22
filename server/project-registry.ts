@@ -58,6 +58,7 @@ import { getProjectSettings } from './db'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { healLegacyFlowReviews } from './modules/delivery/runtime/flow-review-legacy'
 import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
 import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolation'
@@ -1665,6 +1666,18 @@ export class ProjectRegistry {
               if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
               reprojectActivePrDeliveries(ctx)
               openProjectProcessAdmission(project.id)
+              // Flow -> Spec deliveries settled as a generic failure before the
+              // review outcome existed: persist the reclassification once (the
+              // retained ledger is read-only here) and refresh their cards.
+              void healLegacyFlowReviews({
+                db,
+                pipelineDir: path.join(resolveProjectExecution({ slug: project.slug, path: project.path }).specrailsDir, 'pipeline'),
+                probe: (runIds) => probeDefinitionRuns({ db, cwd: project.path, env: process.env }, runIds, true),
+                isDefinitionRun: (runId) => getLoopRun(db, runId)?.engine_version === 2,
+              }).then((ids) => {
+                if (this._contexts.get(project.id) !== ctx) return
+                for (const deliveryId of ids) emitRecoveredPrDelivery(ctx, deliveryId)
+              })
             }
           })
           .catch((err) => {

@@ -400,7 +400,11 @@ describe('settlement publication bindings', () => {
 })
 
 describe('Back to Flow binding (real SQLite ownership transfer)', () => {
-  it('returns the adopted worktree to the Flow atomically, reopens the spec "In Flow" and leaves the worktree intact', async () => {
+  it.each([
+    ['settled as review_changes_requested', 'review_changes_requested', 'The reviewer requested changes'],
+    // Settled before the review outcome existed: a generic failure whose evidence holds the rejected review.
+    ['settled earlier as a generic implementation failure', 'settlement_interrupted', 'Core exited without a successful programmatic workflow result'],
+  ] as const)('returns the adopted worktree to the Flow atomically, reopens the spec "In Flow" and leaves the worktree intact (%s)', async (_label, settledCode, settledDetail) => {
     const ctx = context()
     const worktreePath = path.join(tmp, 'worktrees', 'flow-1', 'ticket-8')
     git(['worktree', 'add', '-q', '-b', 'feat/8-effects', worktreePath])
@@ -418,8 +422,8 @@ describe('Back to Flow binding (real SQLite ownership transfer)', () => {
     ctx.db.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['run-1']), 'delivery-1')
     createRailWorktree(ctx.db, { id: 'ledger-1', railIndex: 0, ticketId, runId: 'run-1', branch: 'feat/8-effects', worktreePath, mergeState: 'needs-review' })
     transitionDecision(ctx.db, 'delivery-1', 'building', 'implementation_failed', {
-      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'review_changes_requested', statusDetail: 'The reviewer requested changes', worktreeIds: ['ledger-1'],
-      branches: [{ ticketId, branch: 'feat/8-effects', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'a', failureCode: 'review_changes_requested', branchOwnership: 'adopted', worktreePath }],
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: settledCode, statusDetail: settledDetail, worktreeIds: ['ledger-1'],
+      branches: [{ ticketId, branch: 'feat/8-effects', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'a', failureCode: settledCode, branchOwnership: 'adopted', worktreePath }],
       settleEvidence: { schemaVersion: 1, harvest: 'ok', harvestedAt: 'now', units: [{ ticketId, runId: 'run-1', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null,
         runtime: { commands: [], checks: [], findings: [], review: { approved: false, score: 58, aspects: {}, issues: ['Tag the tests with [spec:visual-effects/toggles]'], summary: 'Blocked by missing tests' } } }] } as never,
     })

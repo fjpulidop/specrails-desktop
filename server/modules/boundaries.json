@@ -869,6 +869,7 @@
     "publicEntries": [
       "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/flow-review-legacy.ts",
       "runtime/flow-worktree-handoff.ts",
       "runtime/flow-worktree-return.ts",
       "runtime/isolated-settlement-reconstruction.ts",
@@ -1083,6 +1084,13 @@
         "./run-records",
         "fs",
         "path"
+      ],
+      "runtime/flow-review-legacy.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-definition-recovery",
+        "./delivery-evidence",
+        "./flow-review-outcome",
+        "./rail-pr-store"
       ],
       "runtime/flow-review-outcome.ts": [
         "../../../types",

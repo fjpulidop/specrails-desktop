@@ -32,6 +32,7 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
+- [runtime/flow-review-legacy.ts](runtime/flow-review-legacy.ts)
 - [runtime/flow-review-outcome.ts](runtime/flow-review-outcome.ts)
 - [runtime/flow-worktree-handoff.ts](runtime/flow-worktree-handoff.ts)
 - [runtime/flow-worktree-return.ts](runtime/flow-worktree-return.ts)
@@ -103,6 +104,18 @@ deletes the adopted `rail_worktrees` row, closes the delivery as
 `discarded` / `returned_to_flow` and runs the Flow's commit callback; the
 worktree is never removed. Tests:
 [`runtime/flow-worktree-return.test.ts`](runtime/flow-worktree-return.test.ts).
+
+Deliveries settled as a generic `implementation_failed` before that
+classification existed are re-evaluated on read: `toPrDeliverySnapshot`
+applies `legacyFlowReviewReclassification`, so the strip, the mission card and
+Back to Flow / Relaunch see exactly a `review_changes_requested` delivery when
+the stored evidence shows a rejected review or failing checks; any other
+failure stays a failure. After startup admission,
+[`healLegacyFlowReviews`](runtime/flow-review-legacy.ts) persists that once
+(one transaction: evidence + status) and, when the stored evidence lacks the
+reviewer verdict, re-reads the retained run read-only through the settle
+harvest (`probeDefinitionRuns` + `healRuntimeEvidence({ refreshMissingReview })`).
+Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts).
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture
