@@ -22,6 +22,16 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/missions` and any affected consumers.
 
+## Read-only boundary
+
+[runtime/mission-tool-policy.ts](runtime/mission-tool-policy.ts) maps every
+mission turn to the provider's native read-only boundary while keeping MCP
+tools callable. It sets the `toolPolicy` and `retainMcpTools` spawn options for
+legacy and native live transports, and the `permissions` and `tools` fields of
+the Core session policy. The kill switch is `SPECRAILS_MISSION_READ_ONLY=false`.
+Per-provider evidence and limitations are in
+[read-only missions](../../../docs/internals/mission-read-only-policy.md).
+
 ## Failure assistance
 
 The operator uses `specrails_jobs runtime_diagnose` and paged `runtime_evidence`

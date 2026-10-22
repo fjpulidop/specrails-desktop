@@ -232,6 +232,29 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args).not.toContain('--dangerously-skip-permissions')
   })
 
+  it.each(['chat-turn', 'chat-resume', 'chat-stream'] as const)('read-only missions (%s) keep MCP tools callable with only read-only built-ins', action => {
+    const mcp = ['--mcp-config', '/tmp/conv/mcp.json', '--strict-mcp-config']
+    const args = claudeAdapter.buildArgs(action, {
+      prompt: 'inspect', model: 'sonnet', sessionId: 'session-1',
+      toolPolicy: 'read-only', retainMcpTools: true, extraArgs: mcp,
+    })
+    expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2))
+      .toEqual(['--tools', 'Read,Grep,Glob,Agent,WebFetch,WebSearch'])
+    // Plan mode makes Claude refuse state-changing MCP calls and --safe-mode
+    // unloads --mcp-config servers (claude 2.1.299): neither may appear.
+    expect(args).not.toContain('--permission-mode')
+    expect(args).not.toContain('--safe-mode')
+    expect(args).not.toContain('--plugin-dir')
+    expect(args).toContain('--dangerously-skip-permissions')
+    expect(args).toEqual(expect.arrayContaining(mcp))
+    for (const tool of ['Bash', 'Edit', 'Write', 'NotebookEdit']) expect(args.join(' ')).not.toContain(tool)
+  })
+
+  it('retainMcpTools is ignored outside read-only', () => {
+    const args = claudeAdapter.buildArgs('chat-turn', { prompt: 'x', model: 'sonnet', retainMcpTools: true })
+    expect(args.slice(args.indexOf('--tools'), args.indexOf('--tools') + 2)).toEqual(['--tools', 'default'])
+  })
+
   it('chat-turn normalises pinned model ids to the catalog alias, then to the pinned generation', () => {
     const args = claudeAdapter.buildArgs('chat-turn', {
       prompt: 'x',

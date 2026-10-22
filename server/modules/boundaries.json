@@ -1837,6 +1837,7 @@
         "./agent-tier",
         "./core-session-runner",
         "./mission-core-sessions",
+        "./mission-tool-policy",
         "child_process",
         "crypto",
         "node:fs/promises",
@@ -1931,7 +1932,8 @@
         "../../audit",
         "./agent-session-store",
         "./core-session-runner",
-        "./mission-session-projector"
+        "./mission-session-projector",
+        "./mission-tool-policy"
       ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
@@ -1949,6 +1951,12 @@
         "../../agents/runtime/agent-store",
         "../../audit",
         "./agent-session-store"
+      ],
+      "runtime/mission-tool-policy.ts": [
+        "../../../feature-flags",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../agent-sessions"
       ]
     }
   },

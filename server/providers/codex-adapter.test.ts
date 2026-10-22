@@ -135,6 +135,16 @@ describe('codexAdapter.buildArgs', () => {
     expect(args).not.toContain('danger-full-access')
   })
 
+  it('read-only missions keep the MCP overrides beside the read-only sandbox (fresh and resume)', () => {
+    const mcp = ['-c', 'mcp_servers.specrails.command="node"', '-c', 'mcp_servers.specrails.default_tools_approval_mode="approve"']
+    const fresh = codexAdapter.buildArgs('chat-turn', { prompt: 'inspect', model: 'gpt-5.5', toolPolicy: 'read-only', retainMcpTools: true, extraArgs: mcp })
+    expect(fresh[fresh.indexOf('--sandbox') + 1]).toBe('read-only')
+    expect(fresh).toEqual(expect.arrayContaining(mcp))
+    const resumed = codexAdapter.buildArgs('chat-resume', { prompt: 'inspect', model: 'gpt-5.5', sessionId: 'thread-1', toolPolicy: 'read-only', retainMcpTools: true, extraArgs: mcp })
+    expect(resumed).toContain('sandbox_mode="read-only"')
+    expect(resumed).toEqual(expect.arrayContaining(mcp))
+  })
+
   it('chat-turn preserves short user prompts verbatim even with a long systemPrompt', () => {
     // Regression: a short Explore turn ("quiero hacer un tetris") was being
     // drowned out by a long system prompt that codex echoed back instead of

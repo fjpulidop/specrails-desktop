@@ -94,3 +94,16 @@ export function isMissionRailCardsEnabled(): boolean {
 export function isMissionFailureTurnEnabled(): boolean {
   return isMissionRailCardsEnabled() && process.env.SPECRAILS_MISSION_FAILURE_TURN !== 'false'
 }
+
+/**
+ * Read-only mission agents (mission-read-only-policy). Mission turns spawn with
+ * the provider's native read-only boundary (Claude: no write/exec built-in
+ * tools; Codex: read-only sandbox; Gemini: plan mode; local engines: read-only
+ * tool set) and Core mission sessions get the matching read-only policy, while
+ * the `specrails_*` MCP tools stay callable. Default ON; set
+ * SPECRAILS_MISSION_READ_ONLY="false" to restore the previous write-capable
+ * mission argv and session policy (emergency rollback, no release needed).
+ */
+export function isMissionReadOnlyEnabled(): boolean {
+  return process.env.SPECRAILS_MISSION_READ_ONLY !== 'false'
+}

@@ -249,6 +249,13 @@ one.)
   short-lived capability bound server-side to that conversation, pinned project,
   and permission level, transports it through an app-owned `0600` file, and
   revokes it when the turn ends.
+- **Mission agents are read-only.** In the app's own agent chat, the AI CLI
+  starts with its native read-only boundary. Claude gets no file-writing or
+  shell tools, Codex runs in its read-only sandbox, Gemini runs in plan mode, and
+  local engines use the runner's read-only tools. Changes reach your projects
+  only through these MCP tools and the rails they launch. Kimi has no native
+  read-only mode, so Kimi missions keep their previous permissions. MCP servers
+  you add yourself keep their own behaviour.
 - **The app must be running.** The MCP server is embedded in the desktop app's
   process — there is no standalone daemon. The Tauri shell keeps it alive even
   when you close the main window: closing the window **minimizes to the system

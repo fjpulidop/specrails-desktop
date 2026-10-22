@@ -98,6 +98,12 @@ describe('local adapter buildArgs', () => {
     ])
   })
 
+  it('read-only missions keep the runner read-only tool set and the --mcp-config servers', () => {
+    const args = argsOf(undefined, 'chat-turn', { toolPolicy: 'read-only', retainMcpTools: true, extraArgs: ['--mcp-config', '/tmp/conv/mcp.json'] })
+    expect(args[args.indexOf('--tools') + 1]).toBe('Read,Grep,Glob')
+    expect(args[args.indexOf('--mcp-config') + 1]).toBe('/tmp/conv/mcp.json')
+  })
+
   it('maps tool policies: none → __none__, read-only → Read,Grep,Glob, default → nothing', () => {
     expect(argsOf(undefined, 'chat-turn', { toolPolicy: 'none' })).toContain('__none__')
     expect(argsOf(undefined, 'chat-turn', { toolPolicy: 'default' })).not.toContain('--tools')

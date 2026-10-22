@@ -9,6 +9,7 @@ import { getAgentConversation, type AgentConversation } from '../../agents/runti
 import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProjection } from './agent-session-store'
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
+import { missionSessionBoundary } from './mission-tool-policy'
 
 export interface MissionCoreSessionsDeps {
   db: DbInstance
@@ -91,11 +92,12 @@ export class MissionCoreSessions {
     this.activeTurns.add(conversationId)
     if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
 
-    // Parity with legacy missions: the adapter declares its permission level; user-scope MCP servers stay inherited.
+    // Missions are read-only (mission-read-only-policy): the adapter declares how its
+    // Core driver enforces that while MCP tools stay callable. User-scope MCP stays inherited.
     const delegation = client.initialize?.capabilities?.delegation === 1
     const policy: SessionPolicyInput = {
       subagents: this.subagentPolicy(conversation),
-      permissions: adapter.capabilities.sessionPermissions ?? 'workspace-write',
+      ...missionSessionBoundary(adapter, drivers.find((driver) => driver.id === adapter.id)),
       mcp: { inheritUserScope: true },
       subagentRuntime: this.subagentRuntime(conversation, adapter.id, drivers, delegation),
     }

@@ -459,5 +459,42 @@ describe('missions on Core agent sessions', () => {
       expect(broadcasts.find((message) => message.type === 'agent_session_notice')).toMatchObject({ conversationId: conversation.id, code: 'subagents.delegation_unsupported' })
     })
   })
-})
 
+  describe('read-only mission policy (mission-read-only-policy)', () => {
+    afterEach(() => { delete process.env.SPECRAILS_MISSION_READ_ONLY })
+
+    const driver = (id: string, toolFiltering: boolean) => ({ id, displayName: id, capabilities: { resident: true, nativeInputQueue: true, subagents: 'supported' as const, subagentDisable: true, autonomousContinuation: true, steer: true, toolFiltering, usage: { costUsd: 'session-cumulative' as const, tokens: 'per-turn' as const } } })
+    const openPolicy = () => host.requests.find((request) => request.method === 'session.open' && !request.params.resume)?.params.policy as Record<string, unknown>
+    async function openWith(provider: string, drivers: ReturnType<typeof driver>[]) {
+      host.initialize = { ...host.initialize, drivers }
+      const conversation = createAgentConversation(db, { provider })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      return openPolicy()
+    }
+
+    it('removes Claude write/exec tools but keeps the bypass so Specrails MCP calls still run', async () => {
+      const policy = await openWith('claude', [driver('claude', true)])
+      expect(policy).toMatchObject({ permissions: 'bypass', tools: { mode: 'read-only' }, mcp: { servers: [expect.objectContaining({ name: 'specrails' })] } })
+    })
+
+    it('puts Codex sessions in the read-only sandbox without asking for unsupported tool filtering', async () => {
+      const policy = await openWith('codex', [driver('codex', false)])
+      expect(policy).toMatchObject({ permissions: 'read-only' })
+      expect(policy.tools).toBeUndefined()
+    })
+
+    it('keeps the legacy policy when the driver cannot filter tools, instead of an unenforceable request', async () => {
+      const policy = await openWith('claude', [driver('claude', false)])
+      expect(policy).toMatchObject({ permissions: 'bypass' })
+      expect(policy.tools).toBeUndefined()
+    })
+
+    it('restores the previous session policy when SPECRAILS_MISSION_READ_ONLY=false', async () => {
+      process.env.SPECRAILS_MISSION_READ_ONLY = 'false'
+      const policy = await openWith('claude', [driver('claude', true)])
+      expect(policy).toMatchObject({ permissions: 'bypass' })
+      expect(policy.tools).toBeUndefined()
+    })
+  })
+})
