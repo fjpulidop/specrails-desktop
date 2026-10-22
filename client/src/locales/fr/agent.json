@@ -691,7 +691,8 @@
       "refresh": "Actualiser",
       "retry": "Réessayer le chargement",
       "checkScope": "Vérifiez la sélection des dépôts avant de lancer."
-    }
+    },
+    "triageLabel": "Triage"
   },
   "runCard": {
     "status": {

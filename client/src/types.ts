@@ -451,6 +451,8 @@ export interface LocalTicket {
     effort_level?: string
     user_story?: string
     area?: string
+    /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
+    triage?: import('./features/specs/lib/spec-triage').SpecTriage
   }
   attachments?: Attachment[]
   origin_conversation_id?: string | null

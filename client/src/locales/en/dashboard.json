@@ -221,7 +221,9 @@
     "worktreesNeedsReview": "{{count}} need review",
     "execSteps": "{{count}} steps",
     "execLines": "{{count}} lines",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "Recommended",
+    "recommendedOption": "{{label}} · recommended"
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",

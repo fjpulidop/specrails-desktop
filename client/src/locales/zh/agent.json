@@ -691,7 +691,8 @@
       "refresh": "刷新",
       "retry": "重新加载",
       "checkScope": "运行前请检查仓库选择。"
-    }
+    },
+    "triageLabel": "分诊"
   },
   "runCard": {
     "status": {

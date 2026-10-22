@@ -11,7 +11,8 @@
     "specLauncher": "Spec launcher",
     "proposal": "Proposal",
     "agentStudio": "Agent Studio",
-    "setup": "Setup"
+    "setup": "Setup",
+    "triage": "Triage"
   },
   "periods": {
     "d7": "7d",

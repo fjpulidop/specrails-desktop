@@ -11,7 +11,8 @@
     "specLauncher": "スペックランチャー",
     "proposal": "提案",
     "agentStudio": "エージェントスタジオ",
-    "setup": "セットアップ"
+    "setup": "セットアップ",
+    "triage": "トリアージ"
   },
   "periods": {
     "d7": "7日",

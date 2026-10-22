@@ -11,7 +11,8 @@
     "specLauncher": "规格启动器",
     "proposal": "提案",
     "agentStudio": "Agent Studio",
-    "setup": "设置"
+    "setup": "设置",
+    "triage": "分诊"
   },
   "periods": {
     "d7": "7天",

@@ -131,5 +131,35 @@
     "current": "現在",
     "all": "すべてのスプリント",
     "ariaLabel": "スプリントで絞り込み"
+  },
+  "triage": {
+    "compute": "トリアージ",
+    "computeTitle": "このスペックの規模を見積もり、ループを推奨します",
+    "recalculate": "再計算",
+    "recalculating": "再計算中…",
+    "recalculateFailed": "再計算に失敗しました — もう一度お試しください",
+    "ariaLabel": "スペック #{{id}} のトリアージ",
+    "recommends": "推奨: {{loop}}",
+    "confidence": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "flags": {
+      "publicInterfaces": "公開 API",
+      "dataModel": "データモデル",
+      "securitySurface": "セキュリティ",
+      "none": "公開 API・データ・セキュリティへの影響なし"
+    },
+    "flowHint": "Flow を推奨",
+    "filesLikely": "関係しそうなファイル",
+    "moreFiles_one": "他 {{count}} 件",
+    "moreFiles_other": "他 {{count}} 件",
+    "modelCost": "{{model}} · ${{cost}}",
+    "modelOnly": "{{model}} · コスト未報告",
+    "unavailable": "トリアージ不可",
+    "unavailableDetail": "トリアージに使えるモデルがありません ({{reason}})。",
+    "failed": "トリアージ失敗",
+    "failedDetail": "トリアージを完了できませんでした: {{error}}"
   }
 }

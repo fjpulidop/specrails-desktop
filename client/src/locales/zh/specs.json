@@ -131,5 +131,35 @@
     "current": "当前",
     "all": "所有冲刺",
     "ariaLabel": "按冲刺筛选"
+  },
+  "triage": {
+    "compute": "分诊",
+    "computeTitle": "估算此规格的规模并推荐一个循环",
+    "recalculate": "重新计算",
+    "recalculating": "正在重新计算…",
+    "recalculateFailed": "重新计算失败 — 请重试",
+    "ariaLabel": "规格 #{{id}} 的分诊",
+    "recommends": "推荐 {{loop}}",
+    "confidence": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "flags": {
+      "publicInterfaces": "公共 API",
+      "dataModel": "数据模型",
+      "securitySurface": "安全",
+      "none": "不影响公共 API、数据或安全"
+    },
+    "flowHint": "建议使用 Flow",
+    "filesLikely": "可能涉及的文件",
+    "moreFiles_one": "另有 {{count}} 个文件",
+    "moreFiles_other": "另有 {{count}} 个文件",
+    "modelCost": "{{model}} · ${{cost}}",
+    "modelOnly": "{{model}} · 未报告成本",
+    "unavailable": "无法分诊",
+    "unavailableDetail": "没有可用于分诊的模型（{{reason}}）。",
+    "failed": "分诊失败",
+    "failedDetail": "无法完成分诊：{{error}}"
   }
 }

@@ -11,7 +11,8 @@
     "specLauncher": "Lanzador de specs",
     "proposal": "Propuesta",
     "agentStudio": "Agent Studio",
-    "setup": "Configuración"
+    "setup": "Configuración",
+    "triage": "Triaje"
   },
   "periods": {
     "d7": "7d",

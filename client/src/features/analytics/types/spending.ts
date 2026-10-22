@@ -13,6 +13,7 @@ export type Surface =
   | 'proposal'
   | 'agent-studio'
   | 'setup'
+  | 'triage'
 export type SurfaceFilter = Surface | 'all'
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -278,6 +279,7 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   proposal: 'analytics:surfaces.proposal',
   'agent-studio': 'analytics:surfaces.agentStudio',
   setup: 'analytics:surfaces.setup',
+  triage: 'analytics:surfaces.triage',
 }
 
 export interface SurfaceAccent {
@@ -369,6 +371,12 @@ const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = {
     text: 'text-accent-primary',
     ring: 'ring-accent-primary/40',
     dot: 'bg-accent-primary',
+  },
+  triage: {
+    bg: 'bg-accent-info/15',
+    text: 'text-accent-info',
+    ring: 'ring-accent-info/40',
+    dot: 'bg-accent-info',
   },
 }
 
