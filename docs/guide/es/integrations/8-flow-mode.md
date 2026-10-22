@@ -29,6 +29,12 @@ La conversación cambia de aspecto (una fina línea de acento en el borde) y apa
 
 Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. La franja de git bajo el compositor muestra la rama del worktree.
 
+## Prueba la app
+
+El agente de Flow ejecuta él mismo el typecheck y los tests para comprobar su trabajo. Cuando hay algo que probar, te pregunta con tres opciones: **Start the app**, **Start and expose on the local network** o **Not now**. Exponerla te permite abrir la app desde un móvil en la misma Wi-Fi o VPN, y cualquiera en esa red puede acceder a ella.
+
+Cuando la app escucha, el agente te da sus direcciones como enlaces y la barra de Flow muestra **Vista previa** con un punto verde: abre la app en tu navegador. Su menú tiene la dirección de red y **Detener app**. La app se ejecuta en el worktree del Flow, nunca en tu checkout principal, y Specrails la detiene cuando pausas, descartas o entregas el Flow.
+
 ## Esto es
 
 Cuando el resultado te convenza, pulsa **Esto es**. La barra de Flow y el tratamiento visual desaparecen y aparece la tarjeta de lanzamiento de rail de siempre, con el loop **Flow → Spec** preseleccionado y un rail libre elegido por ti. Ajusta el motor, el modelo o el esfuerzo si quieres y pulsa **Lanzar**. Si se ha alcanzado el límite de revisión o un presupuesto, la tarjeta lo dice y no lanza. **Todavía no** te devuelve al Flow.

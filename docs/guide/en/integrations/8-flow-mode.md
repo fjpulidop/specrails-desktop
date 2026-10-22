@@ -29,6 +29,12 @@ The conversation changes look (a thin accent along the edge) and a bar appears a
 
 You can write while the agent is working: in Flow your message **interrupts** the current step (the send button turns into a lightning bolt) and the agent continues with your new information right away. The git strip under the composer shows the worktree branch.
 
+## Try the app
+
+The Flow agent runs the typecheck and the tests itself to check its work. When there is something to try, it asks with three choices: **Start the app**, **Start and expose on the local network** or **Not now**. Exposing it lets you open the app from a phone on the same Wi-Fi or VPN, and anyone on that network can reach it.
+
+Once the app is listening, the agent gives you its addresses as links and the Flow bar shows **Preview** with a green dot: it opens the app in your browser. Its menu has the network address and **Stop app**. The app runs in the Flow worktree, never in your main checkout, and Specrails stops it when you pause, discard or hand off the Flow.
+
 ## This is it
 
 When you are happy with the result, press **This is it**. The Flow bar and the visual treatment go away and the usual rail launch card appears with the **Flow → Spec** loop preselected and a free rail chosen for you. Adjust the engine, model or effort if you like and press **Launch**. If the review limit or a budget is reached, the card says so and does not launch. **Not yet** takes you back to the Flow.

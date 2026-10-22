@@ -81,8 +81,8 @@ Flow turn:
 
 - its own Core session `flow:<flowId>` (cwd is fixed at open, so the
   mission's session stays intact and resumes after the Flow);
-- `permissions: 'workspace-write'`, `tools: { mode: 'default' }`, the same
-  Specrails MCP the mission presents;
+- `permissions: 'bypass'`, `tools: { mode: 'default' }` (see
+  [Permissions](#permissions)), the same Specrails MCP the mission presents;
 - sub-agents follow the mission's project policy: "Allow sub-agents" off (the
   default) keeps them disabled; on, the session runs them natively or, with
   "Run sub-agents with" another provider, Core-delegated
@@ -112,18 +112,84 @@ Flow turn:
 When the Flow is paused or ended the port returns null and turns are normal
 read-only mission turns again.
 
+### Permissions
+
+A Flow session runs with the same permission level as a rail's write roles:
+`FLOW_SESSION_BOUNDARY` is `permissions: 'bypass'`, which Core's drivers map
+to Claude `--dangerously-skip-permissions` and Codex
+`--sandbox danger-full-access`. Rails pick the same level for every provider
+(Core's CLI executor); no adapter declares a narrower write-role mapping.
+
+The previous `workspace-write` boundary mapped Claude to
+`--permission-mode acceptEdits`: every shell command then waited for an
+interactive approval that a headless Core session cannot get, so the agent
+could not run the typecheck, the tests, an install or the app. That was the
+"you can't run or preview the app while in Flow" report.
+
+Containment is the same as a rail's, not an operating-system sandbox:
+
+- the session cwd is the Flow worktree (fixed when the Core session opens;
+  delegated sub-agents inherit it);
+- the static persona forbids editing, creating or deleting anything outside
+  the worktree, switching branches, rewriting history and pushing;
+- the worktree has its own branch, and Flow commits and delivers only that
+  worktree (hand-off freeze), so the main checkout is not involved;
+- long-lived processes go through Specrails background processes (below),
+  which are confined to the worktree and stopped with the Flow.
+
+A command the agent runs can technically reach outside the worktree, as in
+a rail. Normal (non-Flow) mission turns keep their read-only boundary
+([read-only missions](mission-read-only-policy.md)).
+
+### Running the app
+
+The persona tells the agent to verify its work with its own shell
+(typecheck, tests) and to run every long-lived process (dev server, watcher)
+through `specrails_jobs background_start`, never from its shell. It offers it
+first with the option chips **Start the app** / **Start and expose on the
+local network** / **Not now**. LAN exposure follows the operator rule: the
+framework's own host flag and a warning that anyone on that network can reach
+the app. Once the app is listening it gives the `appUrls` (local, then
+network) as links.
+
+`background_start` resolves the conversation's ACTIVE Flow through the
+project's Flow use cases (`ProjectContext.flow.getByConversation`, bound at
+composition; the authenticated capability supplies the conversation). Inside
+an active Flow:
+
+- the process runs in the Flow worktree (`cwd` may only name a folder inside
+  it; `repositoryId` is ignored) and carries `flowId`;
+- the project's busy guard (a running job or loop) does not apply: the
+  worktree is isolated from the checkout those runs use;
+- the call is admitted below the Autonomous level when the user confirmed it
+  (`confirmed: true` after picking a start chip). Entering Flow already
+  granted write and execution in that worktree, so asking for Autonomous
+  would only push the agent back to a raw shell. `background_kill` is admitted
+  the same way for a process tagged with that Flow. The exception is the
+  tool's `tierException` (`server/mcp/tools/types.ts`), consulted only for
+  in-app agent turns; external MCP clients keep the Settings ▸ MCP tiers.
+  Outside an active Flow, or without confirmation, the ladder applies as before.
+
+The `stopProcesses` effect runs first on pause, discard and hand-off
+(`FlowProcesses.stop` → `stopBackgroundProcessesForFlow`, which requests stop
+and waits up to 4 s for exit) because the worktree is about to be frozen,
+removed or handed to a rail. It is best effort: a failure is logged and never
+blocks the user's decision. Processes never survive a restart (their history
+is marked `interrupted`), so startup reconciliation needs no extra step.
+
 ### Pause, resume, discard
 
-Pause closes the Core session (stopping a running Flow turn) and labels the
-spec `paused`. Resume reopens it lazily (Core resumes a closed session from
-its journal). Discard closes the session, removes the Flow-owned worktree and
-branch and deletes the placeholder spec. Discard after a hand-off is illegal.
+Pause stops the Flow's apps, closes the Core session (stopping a running
+Flow turn) and labels the spec `paused`. Resume reopens it lazily (Core
+resumes a closed session from its journal). Discard stops the apps, closes the
+session, removes the Flow-owned worktree and branch and deletes the
+placeholder spec. Discard after a hand-off is illegal.
 
 ### Hand-off
 
 `POST /flow/:flowId/hand-off { railIndex, loopId?… }`:
 
-1. Close the session; step `handoff:freeze`.
+1. Stop the Flow's apps and close the session; step `handoff:freeze`.
 2. Commit the worktree (overlay and warm `node_modules` excluded) and record
    the frozen HEAD; step `handoff:launch`.
 3. Assign the spec to the free rail and call the rails launch route over
@@ -271,6 +337,7 @@ branch in the git strip, interrupting sends) and a dock above the composer.
 | Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
 | Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `recommendedMode`, `chosenMode`, `config.flowId`) and `flow-hand-off`; unique per (kind, proposalIndex). Flow kinds are accepted even with mission rail cards off. |
 | Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
+| Preview | While an app the agent started for this Flow (a background process tagged `flowId`, from the mission's `BackgroundProcessesContext`) announces `appUrls`, `FlowAppPreview` shows **Preview** with a live dot: it opens the local address in the system browser, like the mission's app chips (Desktop has no embedded preview for mission apps). Its menu has the network address (or says the app only listens on this computer) and **Stop app**. Hidden when nothing runs and on a paused Flow. |
 | Paused / needs-review | Compact bar: Resume Flow; needs-review explains the missing worktree, no destructive action. |
 | This is it | Client-only: bar and treatment animate out and `FlowHandOffCard` (the rail launch card in hand-off mode: Flow spec, `factory:flow-spec`, a free empty rail) calls `POST /flow/:id/hand-off`. Refusals render inline; "Not yet" returns to the Flow. |
 | Board | `metadata.flow.state` `active`/`paused` ⇒ "In Flow" label linking to the conversation; the spec cannot be dragged to a rail; inside a rail (handed off) or `delivered` ⇒ no label. |
@@ -283,7 +350,10 @@ reconnect refetches the watched Flows.
 
 - A conversation re-pinned to another project while a Flow is open stops
   resolving the Flow (turns become normal mission turns).
-- Sub-agents are disabled in Flow sessions.
+- Flow's containment is the cwd, the persona and the worktree's own branch,
+  as for rails; it is not an operating-system sandbox.
+- The Preview control follows the mission whose processes the app tracks:
+  in a split view it shows the Flow apps of the active conversation.
 - Without PR delivery, the derived change is read from the run's branch,
   which the legacy merge-back may already have removed; the rewrite then
   fails and the spec keeps its draft.
