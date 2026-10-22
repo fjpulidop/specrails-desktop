@@ -33,11 +33,11 @@ import { FlowHandOffNotReadyError, type FlowHandOffAuthority } from '../../deliv
 import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
 import { FAILURE_BRIEFING_REF_KIND } from '../../missions/runtime/agent-failure-briefing'
-import { FLOW_SESSION_BOUNDARY, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
+import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, transition,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
@@ -361,9 +361,10 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
           throw new FlowUnavailableError(error instanceof Error ? error.message : String(error))
         }
       },
-      async open({ flowId }) {
+      async open({ flowId, renew }) {
         // The Core session itself opens lazily on the first Flow turn (cwd = worktree).
-        return { coreSessionId: flowCoreSessionId(flowId) }
+        // A resume never reuses a closed session: it gets a new generation.
+        return { coreSessionId: renew ? nextFlowCoreSessionId(flowId, Date.now()) : flowCoreSessionId(flowId) }
       },
       async close({ conversationId, coreSessionId }) {
         const agentHost = deps.agentHost()
@@ -478,13 +479,27 @@ export function createFlowHandOffAuthority(
   }
 }
 
+/** The turn of an active Flow with a session (null otherwise). */
+function toFlowTurn(session: FlowSession | null): FlowTurn | null {
+  if (!session || session.state !== 'active' || session.step !== null || !session.worktreePath || !session.coreSessionId) return null
+  return {
+    flowId: session.id,
+    cwd: session.worktreePath,
+    branch: session.branch,
+    coreSessionId: session.coreSessionId,
+    systemPrompt: buildFlowSystemPrompt(),
+    policy: FLOW_SESSION_BOUNDARY,
+    ...(session.returnBriefing ? { briefing: session.returnBriefing } : {}),
+  }
+}
+
 /**
  * Missions' FlowTurnContext, bound app-wide: a conversation is in Flow while
  * the Flow of its pinned project is `active` with an open session.
  */
 export function createFlowTurnContext(deps: {
   conversationProject: (conversationId: string) => string | null
-  flowServiceFor: (projectId: string) => Pick<FlowService, 'getByConversation'> & Partial<Pick<FlowService, 'briefingDelivered'>> | null
+  flowServiceFor: (projectId: string) => Pick<FlowService, 'getByConversation'> & Partial<Pick<FlowService, 'briefingDelivered' | 'renewSession'>> | null
   /** Core capability gate (flowSessions + deriveChange); absent ⇒ never offerable. */
   availability?: () => Promise<{ available: boolean }>
 }): FlowTurnContext {
@@ -501,17 +516,13 @@ export function createFlowTurnContext(deps: {
     forConversation(conversationId) {
       const projectId = deps.conversationProject(conversationId)
       if (!projectId) return null
-      const session = deps.flowServiceFor(projectId)?.getByConversation(conversationId)
-      if (!session || session.state !== 'active' || session.step !== null || !session.worktreePath || !session.coreSessionId) return null
-      return {
-        flowId: session.id,
-        cwd: session.worktreePath,
-        branch: session.branch,
-        coreSessionId: session.coreSessionId,
-        systemPrompt: buildFlowSystemPrompt(),
-        policy: FLOW_SESSION_BOUNDARY,
-        ...(session.returnBriefing ? { briefing: session.returnBriefing } : {}),
-      }
+      return toFlowTurn(deps.flowServiceFor(projectId)?.getByConversation(conversationId) ?? null)
+    },
+    async renewSession(conversationId, flowId) {
+      const projectId = deps.conversationProject(conversationId)
+      const service = projectId ? deps.flowServiceFor(projectId) : null
+      if (!service?.renewSession) return null
+      return toFlowTurn(await service.renewSession(flowId))
     },
     async briefingDelivered(conversationId, flowId) {
       const projectId = deps.conversationProject(conversationId)

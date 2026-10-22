@@ -4,6 +4,7 @@ import {
   FlowTransitionError,
   buildReturnBriefing,
   flowCoreSessionId,
+  nextFlowCoreSessionId,
   isOpenFlow,
   isTerminalFlow,
   placeholderTitle,
@@ -278,3 +279,15 @@ describe('Back to Flow briefing', () => {
     expect(long.length).toBeLessThanOrEqual(FLOW_RETURN_BRIEFING_LIMIT)
   })
 })
+
+describe('Flow Core session generations', () => {
+  it('a new generation is strictly newer than the previous one, even within the same millisecond', () => {
+    const first = nextFlowCoreSessionId('f1', 1_000_000)
+    expect(first).toBe(`flow:f1:${(1_000_000).toString(36)}`)
+    const second = nextFlowCoreSessionId('f1', 1_000_000, first)
+    expect(second).toBe(`flow:f1:${(1_000_001).toString(36)}`)
+    expect(nextFlowCoreSessionId('f1', 2_000_000, second)).toBe(`flow:f1:${(2_000_000).toString(36)}`)
+    expect(nextFlowCoreSessionId('f1', 5, flowCoreSessionId('f1'))).toBe('flow:f1:5')
+  })
+})
+

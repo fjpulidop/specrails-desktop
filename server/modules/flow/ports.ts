@@ -96,7 +96,7 @@ export interface FlowAgentSession {
    * session driver, host without flowSessions). Checked before any effect. */
   assertReady(input: { conversationId: string }): Promise<void>
   /** Throws `FlowUnavailableError` when Flow cannot run for this conversation. */
-  open(input: { flowId: string; conversationId: string; worktreePath: string }): Promise<{ coreSessionId: string }>
+  open(input: { flowId: string; conversationId: string; worktreePath: string; renew?: boolean }): Promise<{ coreSessionId: string }>
   /** Stops a running Flow turn and closes the Core session. Never throws. */
   close(input: { flowId: string; conversationId: string; coreSessionId: string }): Promise<void>
 }

@@ -11,7 +11,7 @@ export interface FlowTurn {
   cwd: string
   /** Branch checked out in the worktree (shown to the agent on the user turn). */
   branch: string | null
-  /** A Core session distinct from the mission's (`flow:<flowId>`): cwd is fixed at open. */
+  /** A Core session distinct from the mission's (`flow:<flowId>[:<generation>]`): cwd is fixed at open. */
   coreSessionId: string
   /** The static Flow persona (byte-stable). */
   systemPrompt: string
@@ -33,6 +33,9 @@ export interface FlowTurnContext {
   offerable?(conversationId: string): Promise<boolean>
   /** A turn that carried `briefing` completed: the Flow clears it. Optional; never throws into a turn. */
   briefingDelivered?(conversationId: string, flowId: string): Promise<void>
+  /** The Flow's Core session cannot serve this turn (closed, or another provider):
+   * commit a new session id and return the turn for it (null: no active Flow). */
+  renewSession?(conversationId: string, flowId: string): Promise<FlowTurn | null>
 }
 
 /**

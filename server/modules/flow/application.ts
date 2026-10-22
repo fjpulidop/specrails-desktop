@@ -15,6 +15,7 @@ import {
   FlowUnavailableError,
   FlowValidationError,
   isOpenFlow,
+  nextFlowCoreSessionId,
   placeholderTitle,
   transition,
   type FlowCommand,
@@ -202,7 +203,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     if (!session.worktreePath || !ports.worktrees.exists(session.worktreePath)) {
       throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; review it before continuing', flowId)
     }
-    const opened = await ports.agent.open({ flowId, conversationId: session.conversationId, worktreePath: session.worktreePath })
+    // Pause, hand-off and restart closed the previous Core session: resuming
+    // (also after Back to Flow) always opens a new one.
+    const opened = await ports.agent.open({ flowId, conversationId: session.conversationId, worktreePath: session.worktreePath, renew: true })
     const resumed = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
     await settle(resumed, result.effects.filter((effect) => effect.kind !== 'openAgentSession'))
     return resumed
@@ -340,6 +343,21 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       const railIndex = returned.railIndex ?? stopped?.railIndex ?? null
       if (railIndex === null) throw new FlowConflictError('flow_rail_unknown', 'The rail of the stopped run is unknown; hand off from the Flow bar', session.id)
       return handOff({ flowId: session.id, railIndex, options: { ...(stopped?.options ?? {}), ...returned.options } })
+    })
+  }
+
+  /**
+   * The active Flow's Core session cannot serve the next turn (Core closed it,
+   * or the conversation switched provider): commit a new session id. The caller
+   * (the turn) closes the old session itself without aborting the turn and
+   * seeds the new one with the conversation. Null when the Flow is not active.
+   */
+  function renewSession(flowId: string): Promise<FlowSession | null> {
+    return serialized(`flow:${flowId}`, async () => {
+      const session = ports.repository.get(flowId)
+      if (!session || session.state !== 'active' || session.step !== null) return null
+      const coreSessionId = nextFlowCoreSessionId(session.id, Date.parse(ports.clock.now()) || Date.now(), session.coreSessionId)
+      return apply(session, { type: 'session-renewed', coreSessionId, now: ports.clock.now() })
     })
   }
 
@@ -548,6 +566,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     returnToFlow,
     relaunchFlow,
     briefingDelivered,
+    renewSession,
     onFlowDelivered,
     observeDelivery,
     onRailRunCompleted,

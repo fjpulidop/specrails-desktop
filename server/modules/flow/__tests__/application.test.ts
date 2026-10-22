@@ -83,9 +83,11 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     exists: vi.fn(() => true),
     diff: vi.fn(async () => ({ branch: 'feat/7-idea', baseSha: BASE, headSha: HEAD, files: [{ path: 'a.ts', status: 'added' as const, additions: 3, deletions: 0 }], totals: { files: 1, additions: 3, deletions: 0 } })),
   }
+  let generation = 0
   const agent = {
     assertReady: vi.fn(async () => {}),
-    open: vi.fn(async ({ flowId }: { flowId: string }) => ({ coreSessionId: `flow:${flowId}` })),
+    // A resume opens a new Core session generation (a closed one never takes a turn).
+    open: vi.fn(async ({ flowId, renew }: { flowId: string; renew?: boolean }) => ({ coreSessionId: renew ? `flow:${flowId}:r${++generation}` : `flow:${flowId}` })),
     close: vi.fn(async () => {}),
   }
   const processes = { stop: vi.fn(async (_input: { flowId: string; conversationId: string }) => {}) }
@@ -221,7 +223,9 @@ describe('pause, resume and discard', () => {
     await expect(service.pauseFlow('flow-1')).resolves.toEqual(paused)
     expect(agent.close).toHaveBeenCalledTimes(1)
     const resumed = await service.resumeFlow('flow-1')
-    expect(resumed).toMatchObject({ state: 'active', coreSessionId: 'flow:flow-1' })
+    // The paused session was closed in Core: resuming opens a NEW session.
+    expect(resumed).toMatchObject({ state: 'active', coreSessionId: 'flow:flow-1:r1' })
+    expect(agent.open).toHaveBeenLastCalledWith(expect.objectContaining({ renew: true }))
     expect(tickets.setFlowState).toHaveBeenLastCalledWith(7, 'active')
     await expect(service.resumeFlow('flow-1')).resolves.toEqual(resumed)
     expect(agent.open).toHaveBeenCalledTimes(2)
@@ -524,6 +528,22 @@ function portsOf(ctx: ReturnType<typeof setup>): FlowPorts {
   }
 }
 
+describe('renewSession (closed Core session, provider switch)', () => {
+  it('commits a new, strictly newer session generation for an active Flow only', async () => {
+    const ctx = setup()
+    const flow = await ctx.service.startFlow(startInput)
+    const renewed = await ctx.service.renewSession(flow.id)
+    expect(renewed?.coreSessionId).toMatch(/^flow:flow-1:[0-9a-z]+$/)
+    expect(ctx.repository.get(flow.id)?.coreSessionId).toBe(renewed!.coreSessionId)
+    const again = await ctx.service.renewSession(flow.id)
+    expect(again!.coreSessionId).not.toBe(renewed!.coreSessionId)
+    expect(ctx.agent.close).not.toHaveBeenCalled()
+    await ctx.service.pauseFlow(flow.id)
+    await expect(ctx.service.renewSession(flow.id)).resolves.toBeNull()
+    await expect(ctx.service.renewSession('missing')).resolves.toBeNull()
+  })
+})
+
 describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
   async function handedOff(ctx: ReturnType<typeof setup>) {
     const flow = await ctx.service.startFlow(startInput)
@@ -536,11 +556,12 @@ describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
     const flow = await handedOff(ctx)
     ctx.agent.open.mockClear()
     const returned = await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
-    expect(returned).toMatchObject({ id: flow.id, state: 'active', step: null, deliveryId: 'delivery-1', railIndex: null, worktreePath: '/wt/flow-1/ticket-7', coreSessionId: 'flow:flow-1' })
+    expect(returned).toMatchObject({ id: flow.id, state: 'active', step: null, deliveryId: 'delivery-1', railIndex: null, worktreePath: '/wt/flow-1/ticket-7', coreSessionId: 'flow:flow-1:r1' })
     expect(ctx.rails.returnWorktree).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: 'delivery-1', worktreePath: '/wt/flow-1/ticket-7' }))
     expect(ctx.tickets.reopen).toHaveBeenCalledWith(7)
     expect(ctx.tickets.setFlowState).toHaveBeenCalledWith(7, 'active')
-    expect(ctx.agent.open).toHaveBeenCalledWith({ flowId: flow.id, conversationId: 'conv-1', worktreePath: '/wt/flow-1/ticket-7' })
+    // The hand-off closed `flow:flow-1`: Back to Flow opens a new session, never the closed one.
+    expect(ctx.agent.open).toHaveBeenCalledWith({ flowId: flow.id, conversationId: 'conv-1', worktreePath: '/wt/flow-1/ticket-7', renew: true })
     expect(ctx.worktrees.release).not.toHaveBeenCalled()
     expect(returned.returnBriefing).toContain('the reviewer requested changes (score 58)')
     expect(returned.returnBriefing).toContain('1. Tag the tests with [spec:fx/toggles]')

@@ -45,6 +45,8 @@ class FakeCoreHost implements SessionHostClient {
   }
   requests: Array<{ method: string; params: Record<string, unknown> }> = []
   journals = new Map<string, SessionEventEnvelope[]>()
+  /** Sessions Core closed (pause, hand-off): open/send refuse them, like Core. */
+  closed = new Set<string>()
   turn = 0
   /** Hold the first turn open so mid-turn input can be tested. */
   holdTurn = false
@@ -53,7 +55,13 @@ class FakeCoreHost implements SessionHostClient {
   async request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     this.requests.push({ method, params })
     const sessionId = String((params.resume as { sessionId?: string } | undefined)?.sessionId ?? params.sessionId ?? '')
+    if (this.closed.has(sessionId) && (method === 'session.open' || method === 'session.send')) {
+      throw new SessionRequestError(`Session ${sessionId} is closed`, { code: 'session_closed', retryable: false })
+    }
     switch (method) {
+      case 'session.close':
+        this.closed.add(sessionId)
+        return {} as T
       case 'session.open':
         if (params.resume) {
           if (!this.journals.has(sessionId)) throw new SessionRequestError('Unknown session', { code: 'session_not_found', retryable: false })
@@ -281,6 +289,82 @@ describe('Flow turns in missions', () => {
     await waitFor(() => doneCount() === 2)
     const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
     expect(String((last.params.input as { text: string }).text)).not.toContain('Back from Flow')
+  })
+
+  describe('Flow session renewal (closed session, provider switch)', () => {
+    /** The Flow side of renewal: commits a new generation and returns its turn. */
+    function renewingContext(seed: FlowTurn) {
+      let generation = 0
+      flow = seed
+      const renewSession = vi.fn(async (_conversationId: string, flowId: string) => {
+        flow = { ...flow!, flowId, coreSessionId: `flow:${flowId}:g${++generation}` }
+        return flow
+      })
+      manager.setFlowTurnContext({ forConversation: () => flow, renewSession, briefingDelivered: async () => { if (flow) flow = { ...flow, briefing: undefined } } })
+      return renewSession
+    }
+
+    it('hand-off → Back to Flow → send: a session Core closed is reopened as a new one and the turn retried once, never a user-facing error', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'make the bricks explode' })
+      const renewSession = renewingContext({ ...flowTurn(), briefing: '[Back from Flow → Spec]\n1. Tag the tests' })
+      // Core closed `flow:f1` at hand-off; this process never saw it (restart).
+      host.journals.set('flow:f1', [])
+      host.closed.add('flow:f1')
+      await manager.sendMessage(conversation.id, 'arregla lo que pidió el reviewer')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+      const send = host.requests.filter((request) => request.method === 'session.send').at(-1)!
+      expect(send.params.sessionId).toBe('flow:f1:g1')
+      const text = String((send.params.input as { text: string }).text)
+      // The new session is seeded: the conversation so far and the pending review.
+      expect(text).toContain('make the bricks explode')
+      expect(text).toContain('1. Tag the tests')
+      expect(opens().map((request) => request.params.sessionId)).toContain('flow:f1:g1')
+      // Accounting under the new session; exactly one invocation for the turn.
+      expect(db.prepare('SELECT surface FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual(expect.arrayContaining([{ surface: 'flow' }]))
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toContain('flow:f1:g1')
+    })
+
+    it('a session closed by this process (pause) is never sent to: renewal happens before the turn', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const renewSession = renewingContext(flowTurn())
+      await manager.closeFlowSession(conversation.id, 'flow:f1', 'flow_paused')
+      await manager.sendMessage(conversation.id, 'continue')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      expect(host.requests.filter((request) => request.method === 'session.send').every((request) => request.params.sessionId !== 'flow:f1')).toBe(true)
+    })
+
+    it('a provider switch mid-Flow opens a new session for the new driver, seeded with the conversation; usage lands under it', async () => {
+      host.initialize = { ...host.initialize, drivers: [...host.initialize.drivers, { ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' }] }
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const renewSession = renewingContext(flowTurn())
+      await manager.sendMessage(conversation.id, 'build the trail')
+      await waitFor(() => doneCount() === 1)
+      expect(renewSession).not.toHaveBeenCalled()
+      updateAgentConversation(db, conversation.id, { provider: 'codex', model: 'gpt-5' })
+      await manager.sendMessage(conversation.id, 'now the shockwave')
+      await waitFor(() => doneCount() === 2)
+      expect(renewSession).toHaveBeenCalledTimes(1)
+      const open = opens().find((request) => request.params.sessionId === 'flow:f1:g1')!.params
+      expect(open).toMatchObject({ driver: 'codex', cwd: '/wt/f1/ticket-7' })
+      const text = String((host.requests.filter((request) => request.method === 'session.send').at(-1)!.params.input as { text: string }).text)
+      expect(text).toContain('build the trail')
+      expect(host.requests.find((request) => request.method === 'session.close')?.params).toMatchObject({ sessionId: 'flow:f1' })
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toEqual(expect.arrayContaining(['flow:f1', 'flow:f1:g1']))
+    })
+
+    it('without a renewal port a closed session still fails visibly (no loop)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      host.journals.set('flow:f1', [])
+      host.closed.add('flow:f1')
+      await manager.sendMessage(conversation.id, 'continue')
+      await waitFor(() => broadcasts.some((message) => message.type === 'agent_error'))
+      expect(host.requests.filter((request) => request.method === 'session.open' && request.params.sessionId === 'flow:f1').length + host.requests.filter((request) => request.method === 'session.open' && (request.params.resume as { sessionId?: string } | undefined)?.sessionId === 'flow:f1').length).toBeLessThanOrEqual(2)
+    })
   })
 
   it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {

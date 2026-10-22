@@ -180,8 +180,15 @@ is marked `interrupted`), so startup reconciliation needs no extra step.
 ### Pause, resume, discard
 
 Pause stops the Flow's apps, closes the Core session (stopping a running
-Flow turn) and labels the spec `paused`. Resume reopens it lazily (Core
-resumes a closed session from its journal). Discard stops the apps, closes the
+Flow turn) and labels the spec `paused`. A closed Core session never takes
+another turn, so resume (also after Back to Flow and after a restart) opens a
+NEW session `flow:<flowId>:<generation>` lazily; its first turn carries the
+conversation history (and any pending return briefing), so the agent keeps the
+context. A turn also renews the session when the conversation switched provider
+(a Core session is bound to the driver it was opened with) and, if Core still
+answers "session … is closed", reopens and retries once instead of failing
+(`FlowService.renewSession`, `MissionCoreSessions.flowSessionUsable`).
+Projection and accounting follow each session id. Discard stops the apps, closes the
 session, removes the Flow-owned worktree and branch and deletes the
 placeholder spec. Discard after a hand-off is illegal.
 

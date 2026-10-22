@@ -70,6 +70,8 @@ export type FlowCommand =
   | { type: 'returned'; deliveryId: string; briefing: string; now: string }
   /** A Flow turn carried the return briefing to the agent. */
   | { type: 'briefing-delivered'; now: string }
+  /** The Flow's Core session cannot serve the next turn (closed, or opened by another provider): a new one replaces it. */
+  | { type: 'session-renewed'; coreSessionId: string; now: string }
   /** Startup reconciliation: sessions never survive a restart. */
   | { type: 'restart'; worktreePresent: boolean; now: string }
 
@@ -111,6 +113,19 @@ export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
 /** Core session id for a Flow: a session distinct from the mission's own, because cwd is fixed at open. */
 export function flowCoreSessionId(flowId: string): string {
   return `flow:${flowId}`
+}
+
+/**
+ * A NEW Core session id for a Flow (`flow:<flowId>:<generation>`): a Core
+ * session that was closed (pause, hand-off) never accepts another turn, and
+ * one is bound to the provider it was opened with. The generation is the
+ * opening instant in base 36, strictly increasing against `previous`.
+ */
+export function nextFlowCoreSessionId(flowId: string, nowMs: number, previous?: string | null): string {
+  const prefix = `${flowCoreSessionId(flowId)}:`
+  const last = previous?.startsWith(prefix) ? parseInt(previous.slice(prefix.length), 36) : NaN
+  const generation = Number.isFinite(last) && last >= nowMs ? last + 1 : nowMs
+  return `${prefix}${generation.toString(36)}`
 }
 
 export function isOpenFlow(session: Pick<FlowSession, 'state'>): boolean {
@@ -291,6 +306,10 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
         effects: session.ticketId !== null ? [{ kind: 'reopenTicket', ticketId: session.ticketId }] : [],
       }
     }
+    case 'session-renewed':
+      if (session.state !== 'active' || session.step !== null || !command.coreSessionId) illegal(session, command)
+      if (session.coreSessionId === command.coreSessionId) return { session, effects: [] }
+      return { session: next(session, { coreSessionId: command.coreSessionId }, now), effects: [] }
     case 'briefing-delivered':
       if (!session.returnBriefing) return { session, effects: [] }
       return { session: next(session, { returnBriefing: null }, now), effects: [] }

@@ -62,6 +62,8 @@ export class MissionCoreSessions {
   private readonly contexts = new Map<string, SessionContext>()
   /** The Core session the conversation's latest turn ran in (sub-agent tools act on it). */
   private readonly current = new Map<string, string>()
+  /** Flow sessions closed in Core (pause, hand-off, renewal): never sent another turn. */
+  private readonly closedFlowSessions = new Set<string>()
 
   constructor(private readonly deps: MissionCoreSessionsDeps) {}
 
@@ -211,9 +213,21 @@ export class MissionCoreSessions {
     }
   }
 
-  /** Close a Flow's Core session (pause, discard, hand-off). Core keeps its
-   * journal; a later turn resumes it. Never throws. */
+  /**
+   * Whether a Flow's Core session can take this turn: not closed, and opened
+   * (if at all in this process) with the same provider — a Core session is
+   * bound to the driver it was opened with.
+   */
+  flowSessionUsable(coreSessionId: string, providerId: string): boolean {
+    if (this.closedFlowSessions.has(coreSessionId)) return false
+    const context = this.contexts.get(coreSessionId)
+    return !context || !context.flow || context.provider === providerId
+  }
+
+  /** Close a Flow's Core session (pause, discard, hand-off, renewal). Core keeps
+   * its journal for the projection; the session never takes another turn. Never throws. */
   async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {
+    this.closedFlowSessions.add(coreSessionId)
     // Later sub-agent tools act on the mission again; the projection keeps
     // following the Flow session (background sub-agents may still settle).
     if (this.current.get(conversation.id) === coreSessionId) this.current.delete(conversation.id)

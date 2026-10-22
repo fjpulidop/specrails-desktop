@@ -50,6 +50,7 @@ import {
   findAgentSystemMessages,
   deleteAgentMessagesByIds,
   updateAgentMessageContent,
+  type AgentConversation,
 } from '../../agents/runtime/agent-store'
 import type { PrDecisionCardEnvelope } from '../../../types'
 import { generateAutoTitle } from '../../conversations/runtime/explore-draft-title'
@@ -120,6 +121,12 @@ interface QueuedTurn {
 
 /** A projection rebuild was requested while a turn is running. */
 export class SessionRebuildBusyError extends Error {}
+
+/** Core refused the turn because the Flow session is closed (or unknown after a restart). */
+export function isClosedFlowSessionError(error: string | null | undefined, code?: string | null): boolean {
+  if (code === 'session_closed' || code === 'session_not_found') return true
+  return !!error && /\bsession\b[^\n]{0,200}\bis closed\b|session_closed/i.test(error)
+}
 
 export class AgentChatManager {
   private readonly _broadcast: (msg: WsMessage) => void
@@ -205,6 +212,24 @@ export class AgentChatManager {
       return await this._flowTurns.offerable(conversationId)
     } catch {
       return false
+    }
+  }
+
+  /**
+   * Replace the Flow's Core session for this turn (closed, or opened by another
+   * provider): the Flow commits a new session id, the old one is closed without
+   * touching this turn. Null when the Flow cannot renew (no longer active).
+   */
+  private async _renewFlowTurn(conversation: AgentConversation, flowTurn: FlowTurn, reason: string): Promise<FlowTurn | null> {
+    if (!this._flowTurns?.renewSession) return null
+    try {
+      const renewed = await this._flowTurns.renewSession(conversation.id, flowTurn.flowId)
+      if (!renewed || renewed.coreSessionId === flowTurn.coreSessionId) return null
+      if (this._coreSessions) await this._coreSessions.closeFlowSession(conversation, flowTurn.coreSessionId, reason)
+      return renewed
+    } catch (error) {
+      console.warn(`[agent-chat] Flow session renewal failed (${conversation.id}):`, error)
+      return null
     }
   }
 
@@ -554,10 +579,15 @@ export class AgentChatManager {
     const adapter = getAdapter(conversation.provider)
     // Flow mode: an active Flow turns this mission turn into a Flow turn (its own
     // Core session in the worktree). There is no legacy transport for Flow.
-    const flowTurn = this._flowTurn(conversationId)
+    let flowTurn = this._flowTurn(conversationId)
     if (flowTurn && !this._coreSessions) {
       this._emitError(conversationId, 'Flow needs Core agent sessions; this turn was not started.', { code: 'flow_sessions_unavailable', provider: adapter.id })
       return
+    }
+    // Never send to a closed Flow session or one another provider opened: a new
+    // session takes the turn (seeded with the conversation history below).
+    if (flowTurn && this._coreSessions && !this._coreSessions.flowSessionUsable(flowTurn.coreSessionId, adapter.id)) {
+      flowTurn = await this._renewFlowTurn(conversation, flowTurn, 'flow_session_renewed') ?? flowTurn
     }
     // Resolve a model that is VALID for this provider. A stale model from another
     // provider (e.g. claude's "sonnet" after switching to codex) is rejected by
@@ -1165,6 +1195,33 @@ export class AgentChatManager {
         settleAborted(r)
         record(r, 'aborted')
         return
+      }
+
+      // A Flow session Core reports closed (a journal closed by a pause, a
+      // hand-off or a previous process): reopen as a new session and retry
+      // once, never a user-facing failure. Nothing ran in a closed session.
+      if (
+        flowTurn &&
+        !r.spawnFailed && !r.fullText && !r.checkpointed &&
+        !r.events.some((event) => event.kind === 'tool-use' || event.kind === 'tool-result') &&
+        isClosedFlowSessionError(r.error, r.errorCode)
+      ) {
+        const renewed = await this._renewFlowTurn(conversation, flowTurn, 'flow_session_closed')
+        if (renewed) {
+          console.log(`[agent-chat] Flow session ${flowTurn.coreSessionId} is closed — retrying in ${renewed.coreSessionId} conv=${conversationId}`)
+          flowTurn = renewed
+          r = await invoke(false)
+          if (this._disposed || r.disposed) return
+          if (!getAgentConversation(this._db, conversationId)) {
+            record(r, 'aborted')
+            return
+          }
+          if (this._abortedTurns.delete(conversationId)) {
+            settleAborted(r)
+            record(r, 'aborted')
+            return
+          }
+        }
       }
 
       // Retry only a verified stale resume that did not execute tools. An empty

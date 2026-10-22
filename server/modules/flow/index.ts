@@ -26,6 +26,7 @@ export {
   nextDueEffect,
   summarizeSettlement,
   flowCoreSessionId,
+  nextFlowCoreSessionId,
   isOpenFlow,
   isTerminalFlow,
   placeholderTitle,
