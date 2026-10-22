@@ -144,5 +144,17 @@
     "superseded": "已取代",
     "implementation_failed": "实现失败",
     "pr_failed": "交付失败"
+  },
+  "budget": {
+    "exceededProject": "已达到项目每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "exceededDesktop": "已达到全局每日预算（${{spent}} / ${{budget}}）。未启动任何任务。",
+    "whereProject": "项目设置 ▸ 预算",
+    "whereDesktop": "设置 ▸ 预算",
+    "action": "请在{{where}}中提高或清除预算，或等待每日重置。",
+    "actionWithReset": "请在{{where}}中提高或清除预算，或等待重置（{{time}}）。",
+    "pausedProject": "因项目每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
+    "pausedDesktop": "因全局每日预算已暂停（${{spent}} / ${{budget}}）。提高预算后继续。",
+    "resume": "继续",
+    "stillExceeded": "每日预算仍已用尽。"
   }
 }

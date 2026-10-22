@@ -104,7 +104,8 @@
     "alreadyResolved": "Quelqu'un a déjà répondu.",
     "actionFailed": "Cette action n'a pas abouti.",
     "revisionStale": "Cela vient d'être résolu ailleurs — rechargez pour voir l'état.",
-    "revisionFailed": "Le changement n'a pas pu démarrer. Votre texte a été conservé."
+    "revisionFailed": "Le changement n'a pas pu démarrer. Votre texte a été conservé.",
+    "revisionBudget": "Le budget quotidien est épuisé, la modification n’a donc pas été lancée. Votre texte a été conservé."
   },
   "versions": {
     "title": "Versions précédentes ({{count}})",

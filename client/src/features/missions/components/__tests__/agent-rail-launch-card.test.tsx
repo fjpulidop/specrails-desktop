@@ -490,6 +490,20 @@ describe('AgentRailLaunchCard', () => {
     expect(calls.some((c) => c.url.endsWith('/rails/2/launch'))).toBe(true)
   })
 
+  it('renders a daily budget 409 with localized amounts and remedy instead of the server detail', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 12.4, resetsAt: null, detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
+    const error = screen.getByTestId('rail-card-error')
+    expect(error).toHaveTextContent('Daily budget reached — nothing was launched.')
+    expect(error).toHaveTextContent('Project daily budget reached ($12.40 of $10.00)')
+    expect(error).toHaveTextContent('Project settings ▸ Budget')
+    expect(error).not.toHaveTextContent('SERVER ENGLISH')
+    expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
+  })
+
   it('renders a 409 inline and stays editable', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'tickets_in_flight', detail: 'spec #12 is running', action: 'wait for it' } }) })
     renderCard()

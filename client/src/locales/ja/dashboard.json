@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} 件をスキップ（スペックは処理中）",
     "skipInFlight_other": "{{count}} 件をスキップ（スペックは処理中）",
     "failedCount_one": "{{count}} 件が失敗",
-    "failedCount_other": "{{count}} 件が失敗"
+    "failedCount_other": "{{count}} 件が失敗",
+    "skipBudget": "{{count}} 件が1日の予算を超過"
   },
   "launchAllDialog": {
     "title": "すべてのレールを起動",

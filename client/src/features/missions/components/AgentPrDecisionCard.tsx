@@ -35,6 +35,7 @@ import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
 import { API_ORIGIN } from '../../../lib/origin'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPausedMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusMatchesCard, type FocusPrCardDetail } from './agent-run-failure'
@@ -305,17 +306,20 @@ function RunLogChip({
   ticketLabel: string | null
   live: boolean
   onOpen: (runId: string) => void
-  onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null }) => void
+  onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => void
 }) {
   const { t } = useTranslation('agent')
   const vitals = useRunVitals(projectId, runId, { live })
+  // budget_paused: localized amounts instead of the server's English reason.
+  const pausedReason = vitals.pauseBudget ? dailyBudgetPausedMessage(t, vitals.pauseBudget) : vitals.pausedReason
+  const budgetPaused = vitals.pauseBudget !== null
   const label = ticketLabel ?? runId.slice(0, 8)
   const elapsed = vitals.elapsedMs != null ? formatRunElapsed(vitals.elapsedMs) : null
   const showCost = vitals.costUsd != null && vitals.costUsd > 0
   const dot = <span aria-hidden className="opacity-40">·</span>
   useEffect(() => {
-    onVitals?.(runId, { paused: vitals.paused, pausedReason: vitals.pausedReason })
-  }, [onVitals, runId, vitals.paused, vitals.pausedReason])
+    onVitals?.(runId, { paused: vitals.paused, pausedReason, budgetPaused })
+  }, [onVitals, runId, vitals.paused, pausedReason, budgetPaused])
   return (
     <button
       type="button"
@@ -395,7 +399,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const isStackedHead = stackedHeads.has(envelope.prDeliveryId)
   // A clicked run-log chip → the run's JobDetailModal (portals to body).
   const [logRunId, setLogRunId] = useState<string | null>(null)
-  const [pausedRuns, setPausedRuns] = useState<Record<string, { paused: boolean; pausedReason: string | null }>>({})
+  const [pausedRuns, setPausedRuns] = useState<Record<string, { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }>>({})
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null)
 
   const { decision, prUrl, prState } = envelope
@@ -476,13 +480,35 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     setConfirmingRecoverAndRetry(false)
   }, [decision, prUrl, envelope.prDeliveryId])
 
-  const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null }) => {
+  const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => {
     setPausedRuns((prev) => {
       const current = prev[runId]
-      if (current?.paused === vitals.paused && current?.pausedReason === vitals.pausedReason) return prev
+      if (current?.paused === vitals.paused && current?.pausedReason === vitals.pausedReason && current?.budgetPaused === vitals.budgetPaused) return prev
       return { ...prev, [runId]: vitals }
     })
   }, [])
+
+  // budget_paused runs resume in place once the budget allows the next step;
+  // still over budget ⇒ the shared 409 body, shown localized.
+  const [resumingBudgetRunId, setResumingBudgetRunId] = useState<string | null>(null)
+  const resumeBudgetPausedRun = async (runId: string) => {
+    if (resumingBudgetRunId) return
+    setResumingBudgetRunId(runId)
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/loop-runs/${encodeURIComponent(runId)}/resume`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      if (res.ok) return
+      const body = await res.json().catch(() => null)
+      const budget = readDailyBudgetRejection(body)
+      if (budget) toast.error(t('common:budget.stillExceeded'), { description: dailyBudgetActionMessage(t, budget) })
+      else toast.error(t('runCard.relaunchFailed'), { description: (body as { error?: string } | null)?.error ?? `HTTP ${res.status}` })
+    } catch (e) {
+      toast.error(t('runCard.relaunchFailed'), { description: e instanceof Error ? e.message : undefined })
+    } finally {
+      setResumingBudgetRunId(null)
+    }
+  }
 
   const stopPausedRun = async (runId: string) => {
     if (stoppingRunId) return
@@ -658,7 +684,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         return
       }
       const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; action?: string }
-      const detail = [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
+      const budget = readDailyBudgetRejection(body)
+      const detail = budget
+        ? `${dailyBudgetExceededMessage(t, budget)} — ${dailyBudgetActionMessage(t, budget)}`
+        : [body.detail ?? body.error, body.action].filter(Boolean).join(' — ') || `HTTP ${res.status}`
       setRelaunchError(detail)
       toast.error(t('runCard.relaunchFailed'), { description: detail })
     } catch (e) {
@@ -709,6 +738,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   }
   const pausedRunId = runIds.find((rid) => pausedRuns[rid]?.paused) ?? null
   const pausedReason = pausedRunId ? pausedRuns[pausedRunId]?.pausedReason ?? null : null
+  const pausedOnBudget = pausedRunId ? pausedRuns[pausedRunId]?.budgetPaused === true : false
   const runChips = runIds.length > 0 && (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="pr-run-log-chips">
       {runIds.map((rid, i) => (
@@ -877,12 +907,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
               title={pausedResumeStep ? t('prCard.resumeFromStepHint', { step: pausedResumeStep }) : undefined}
               onClick={(e) => {
                 e.stopPropagation()
-                if (pausedLive) void runtime.act(pausedLive, pausedLive.recoverableSteps.length ? 'recover' : 'resume')
+                if (pausedOnBudget) void resumeBudgetPausedRun(pausedRunId)
+                else if (pausedLive) void runtime.act(pausedLive, pausedLive.recoverableSteps.length ? 'recover' : 'resume')
                 else setLogRunId(pausedRunId)
               }}
               className="inline-flex items-center gap-1 rounded-md border border-accent-warning/40 bg-surface/70 px-2 py-0.5 font-medium text-accent-warning transition-colors hover:bg-accent-warning/15 disabled:pointer-events-none disabled:opacity-50"
             >
-              {runtime.busy === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+              {runtime.busy === pausedRunId || resumingBudgetRunId === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
               {pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume')}
             </button>
             <button

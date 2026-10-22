@@ -260,7 +260,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { error?: string } | null
         if (!isCurrentScope()) return
-        setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : 'revisionFailed')
+        setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : body?.error === 'daily_budget_exceeded' ? 'revisionBudget' : 'revisionFailed')
         return
       }
       // The note is preserved until the launch is accepted, so a failure never

@@ -651,7 +651,8 @@
       "target_pr_requires_pr_mode": "A target PR needs worktree isolation (a git repository with commits).",
       "invalid_response": "Unexpected server response.",
       "scope_save_failed": "Could not save the spec's repositories.",
-      "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above."
+      "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above.",
+      "daily_budget_exceeded": "Daily budget reached — nothing was launched."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",

@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} übersprungen (Spec bereits in Arbeit)",
     "skipInFlight_other": "{{count}} übersprungen (Specs bereits in Arbeit)",
     "failedCount_one": "{{count}} fehlgeschlagen",
-    "failedCount_other": "{{count}} fehlgeschlagen"
+    "failedCount_other": "{{count}} fehlgeschlagen",
+    "skipBudget": "{{count}} über dem Tagesbudget"
   },
   "launchAllDialog": {
     "title": "Alle Rails starten",

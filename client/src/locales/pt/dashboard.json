@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} ignorado (spec já em andamento)",
     "skipInFlight_other": "{{count}} ignorados (specs já em andamento)",
     "failedCount_one": "{{count}} falhou",
-    "failedCount_other": "{{count}} falharam"
+    "failedCount_other": "{{count}} falharam",
+    "skipBudget": "{{count}} acima do orçamento diário"
   },
   "launchAllDialog": {
     "title": "Lançar todos os rails",

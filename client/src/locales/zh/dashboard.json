@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} 个已跳过（Spec 已在进行中）",
     "skipInFlight_other": "{{count}} 个已跳过（Spec 已在进行中）",
     "failedCount_one": "{{count}} 个失败",
-    "failedCount_other": "{{count}} 个失败"
+    "failedCount_other": "{{count}} 个失败",
+    "skipBudget": "{{count}} 个超出每日预算"
   },
   "launchAllDialog": {
     "title": "启动所有 Rail",

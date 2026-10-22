@@ -8,6 +8,8 @@ import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
+import { createDailyBudgetGate } from './modules/execution/runtime/daily-budget-gate'
+import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
 import { ChatManager } from './modules/conversations/runtime/chat-manager'
 import { SetupManager } from './setup-manager'
@@ -154,6 +156,10 @@ export interface ProjectContext {
   ) => void
   /** Read a spec's fields for {{spec.*}} interpolation at launch. */
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
+  /** Daily budget admission gate for cost-incurring launches outside the
+   *  queue (rail launches, loop resumes): the 409 body while the project or
+   *  app-wide daily budget is exhausted, else null. Absent in bare test contexts. */
+  dailyBudgetRejection?: () => DailyBudgetRejection | null
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
   /** Debounced `blueprint.milestone_progress` broadcaster (premium-milestone-
@@ -750,18 +756,7 @@ export class ProjectRegistry {
         const val = getDesktopSetting(this._desktopDb, 'cost_alert_threshold_usd')
         return val != null ? parseFloat(val) : null
       },
-      getDesktopDailyBudget: () => {
-        const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
-        const budget = val != null ? parseFloat(val) : null
-        let totalSpend = 0
-        for (const c of this.listContexts()) {
-          const row = c.db.prepare(
-            `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
-          ).get() as { total: number }
-          totalSpend += row.total
-        }
-        return { budget, totalSpend }
-      },
+      getDesktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
       onBudgetExceeded: (event, data) => {
         if (event === 'desktop_daily_budget_exceeded') {
           this._pauseAllQueuesForDesktopBudget()
@@ -1171,6 +1166,9 @@ export class ProjectRegistry {
     // per-run (the worktree for isolated runs). Legacy projects keep process.env
     // byte-identical except for the explicit per-project passthrough overlay.
     // See resolveLoopBaseEnv.
+    // Same budget state the queue auto-pause enforces; bound to THIS project's
+    // connection (project budget) plus the app-wide snapshot.
+    const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -1191,7 +1189,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }))
+    }), undefined, { dailyBudget: dailyBudgetRejection })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1494,7 +1492,7 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection }
     ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
@@ -1628,6 +1626,21 @@ export class ProjectRegistry {
       console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
       return false
     }
+  }
+
+  /** App-wide daily budget state. The queue auto-pause and the rail/loop
+   *  admission gate read this same snapshot, so both doors agree. */
+  private _desktopDailyBudgetSnapshot(): { budget: number | null; totalSpend: number } {
+    const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
+    const budget = val != null ? parseFloat(val) : null
+    let totalSpend = 0
+    for (const c of this.listContexts()) {
+      const row = c.db.prepare(
+        `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
+      ).get() as { total: number }
+      totalSpend += row.total
+    }
+    return { budget, totalSpend }
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

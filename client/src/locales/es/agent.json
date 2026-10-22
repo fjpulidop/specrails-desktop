@@ -651,7 +651,8 @@
       "target_pr_requires_pr_mode": "Una PR de destino requiere aislamiento por worktree (un repositorio git con commits).",
       "invalid_response": "Respuesta inesperada del servidor.",
       "scope_save_failed": "No se pudieron guardar los repositorios de la spec.",
-      "repository_scope_incomplete": "Falta un repositorio necesario para las specs. Revisa las asignaciones de arriba."
+      "repository_scope_incomplete": "Falta un repositorio necesario para las specs. Revisa las asignaciones de arriba.",
+      "daily_budget_exceeded": "Presupuesto diario alcanzado: no se ha lanzado nada."
     },
     "stub": {
       "launched": "Lanzado → Rail {{rail}}",

@@ -1,6 +1,6 @@
 import { createQueueBudgetStorage } from '../adapters/budget-storage'
 import { isLegacySlashCommand, recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
-import { enforceDailyBudgets } from '..'
+import { enforceDailyBudgets, localDayStartIso } from '..'
 import { createDurableUsageReader } from '../adapters/usage-reader'
 import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, recoverJobUsage, sanitizeRecoveredResult, type JobAccountingInput } from '..'
 import { ChildProcess } from 'child_process'
@@ -1529,8 +1529,7 @@ export class QueueManager {
    * injected clock is unnecessary — it reads the real local day.
    */
   private _localDayStartIso(): string {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    return localDayStartIso(new Date())
   }
 
   /**

@@ -702,9 +702,11 @@ export function finishLoopRun(
   return getLoopRun(db, id)
 }
 
-export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>): LoopRunRow | undefined {
+/** `reason` marks a non-decision pause on `restart_reason` (e.g. `budget_paused`);
+ *  resumeLoopRun clears it. A human-decision pause leaves it untouched. */
+export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>, reason?: 'budget_paused'): LoopRunRow | undefined {
   if (counters) updateLoopRunCounters(db, id, counters)
-  db.prepare(`UPDATE loop_runs SET status = 'paused' WHERE id = ? AND status = 'running'`).run(id)
+  db.prepare(`UPDATE loop_runs SET status = 'paused', restart_reason = COALESCE(?, restart_reason) WHERE id = ? AND status = 'running'`).run(reason ?? null, id)
   return getLoopRun(db, id)
 }
 

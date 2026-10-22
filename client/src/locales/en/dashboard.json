@@ -183,7 +183,8 @@
     "skipInFlight_one": "{{count}} skipped (spec already in flight)",
     "skipInFlight_other": "{{count}} skipped (specs already in flight)",
     "failedCount_one": "{{count}} failed",
-    "failedCount_other": "{{count}} failed"
+    "failedCount_other": "{{count}} failed",
+    "skipBudget": "{{count}} over the daily budget"
   },
   "launchAllDialog": {
     "title": "Launch all rails",

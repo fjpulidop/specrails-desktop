@@ -41,6 +41,7 @@ import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSel
 import type { LocalTicket } from '../../../types'
 import { openAddenda } from '../../specs/lib/spec-addenda-core'
 import type { ProfileListEntry } from '../../agents/components/types'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -404,6 +405,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     const readError = async (r: Response) => {
       let body: Record<string, unknown> = {}
       try { body = await r.json() as Record<string, unknown> } catch { /* no body */ }
+      // Daily budget: localized amounts + remedy instead of the server's English detail.
+      const budget = readDailyBudgetRejection(body)
+      if (budget) return { error: 'daily_budget_exceeded', detail: dailyBudgetExceededMessage(t, budget), action: dailyBudgetActionMessage(t, budget) }
       return {
         error: typeof body.error === 'string' ? body.error : `HTTP ${r.status}`,
         detail: typeof body.detail === 'string' ? body.detail : undefined,
@@ -463,7 +467,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     } finally {
       if (mounted.current) setBusy(null)
     }
-  }, [projectId, blockReason, busy, resolvedRailIndex, config, launchRepositoryIds, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize])
+  }, [projectId, blockReason, busy, resolvedRailIndex, config, launchRepositoryIds, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize, t])
 
   const dismiss = useCallback(async () => {
     if (busy) return
