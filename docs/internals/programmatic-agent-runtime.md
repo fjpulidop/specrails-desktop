@@ -4,6 +4,8 @@ Desktop owns the Implement, Freestyle and Quick SDD workflow graphs and their lo
 
 This is the only implementation engine in the current source tree. It applies to implementation rail steps and their Core completion check. Mission chat and unrelated AI features keep their existing transports. Provider-native implementation prompts and skills are not invoked inside the programmatic phases.
 
+The bridge passes Desktop's environment to Core, and Core's provider CLIs inherit it. `coreProviderEnv` adds `GEMINI_CLI_TRUST_WORKSPACE=true` (unless the host set a value) because Gemini CLI exits 55 in a folder that was never trusted interactively, which includes every rail worktree. Desktop already trusts the admitted workspace this way for its own Gemini spawns.
+
 ## Build the paired source
 
 Use Node **22.22.3+** for Core; Node **22.22.3** matches Desktop's native CI runtime. Provider requirements can be higher. Both repositories' dependencies must be installed.

@@ -9,7 +9,7 @@ vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn()
 vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
-import { runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
+import { coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
 let root: string, contextPath: string
 beforeEach(() => {
@@ -56,6 +56,20 @@ describe('host checks of a package inside a larger checkout', () => {
     expect((await runAgentRuntimeInvocation(options())).failed).toBe(false)
     const frozen = JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8'))
     expect(frozen.verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'], cwd: 'apps/web' }])
+  })
+})
+
+describe('provider CLI environment', () => {
+  it('trusts the admitted workspace for Gemini CLIs that Core spawns, unless the host set a value', async () => {
+    const trust = join(root, 'trust.txt')
+    script(`import { writeFileSync } from 'node:fs';writeFileSync(${JSON.stringify(trust)}, String(process.env.GEMINI_CLI_TRUST_WORKSPACE));console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const base = options()
+    expect((await runAgentRuntimeInvocation({ ...base, env: { ...base.env, GEMINI_CLI_TRUST_WORKSPACE: undefined } })).failed).toBe(false)
+    expect(readFileSync(trust, 'utf8')).toBe('true')
+    expect(coreProviderEnv({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: 'false' })
+    const env = { PATH: '/bin' }
+    expect(coreProviderEnv(env)).toEqual({ PATH: '/bin', GEMINI_CLI_TRUST_WORKSPACE: 'true' })
+    expect(env).toEqual({ PATH: '/bin' })
   })
 })
 

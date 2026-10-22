@@ -160,6 +160,14 @@ interface RuntimeResult {
   invocationUsage?: { costUsd?: number | null; inputTokens?: number | null; outputTokens?: number | null }
 }
 
+/** Provider CLIs that Core spawns inherit this environment. Gemini CLI refuses
+ * headless runs in a folder the user never trusted interactively (exit 55), and
+ * rail worktrees and fresh projects never are. Every other Desktop Gemini spawn
+ * already trusts its admitted workspace the same way; an explicit value wins. */
+export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return env.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...env, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : env
+}
+
 /** Core owns the complete agent workflow in one managed process. The existing
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
@@ -286,7 +294,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const stepFailures = new Map<string, string>()
     let timer: ReturnType<typeof setTimeout> | undefined
     const child = spawn(resolveCoreNodeRuntime(), args, {
-      cwd: options.cwd, env: windowsSpawnEnv(options.env), shell: false, windowsHide: true,
+      cwd: options.cwd, env: windowsSpawnEnv(coreProviderEnv(options.env)), shell: false, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     // Always leave a terminal result, including synchronous observer failures.
