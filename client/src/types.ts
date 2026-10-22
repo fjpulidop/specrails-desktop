@@ -16,6 +16,8 @@ export interface BackgroundProcess {
   error?: string
   repositoryId?: string
   repositoryName?: string
+  /** The Flow whose worktree this process runs in (Specrails stops it with the Flow). */
+  flowId?: string
   recoveredAt?: number
   persistenceError?: string
   status: BackgroundProcessStatus

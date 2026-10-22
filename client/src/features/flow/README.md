@@ -39,6 +39,12 @@ reaches all of them and keeps the dependency one-way (`flow → missions`).
    it**), worktree branch in the git strip, and busy sends use
    `deliveryMode: 'interrupt'` (Zap button). A 409 `interrupt_requires_flow`
    (the Flow ended meanwhile) is resent as a normal message.
+   While an app the agent started for this Flow (a background process with
+   `flowId`, read from the mission's `BackgroundProcessesContext`) announces
+   `appUrls`, [FlowAppPreview](components/FlowAppPreview.tsx) adds **Preview**
+   with a live dot (opens the local address in the system browser, like the
+   app chips) and a menu with the network address and **Stop app**. Hidden
+   when nothing runs. Specrails stops the app on pause, discard and hand-off.
 3. `paused`: compact bar with **Resume Flow**, This is it and Discard.
    `needs-review`: the worktree is missing; the bar explains it and offers no
    destructive action.
@@ -74,6 +80,7 @@ the placeholder spec off rails until the hand-off.
 
 ## Feature dependencies
 
+- [background](../background/README.md)
 - [missions](../missions/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)

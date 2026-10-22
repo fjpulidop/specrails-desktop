@@ -955,6 +955,17 @@
         "discarded": "Abandonné"
       }
     },
+    "preview": {
+      "open": "Aperçu",
+      "openTitle": "Ouvrir l’app à {{url}} dans votre navigateur",
+      "stopping": "Arrêt…",
+      "more": "Actions de l’app",
+      "local": "Ouvrir sur cet ordinateur",
+      "network": "Ouvrir sur le réseau local",
+      "localOnly": "Accessible uniquement depuis cet ordinateur. Demandez à l’agent de la relancer exposée sur le réseau local pour l’ouvrir depuis un téléphone.",
+      "stop": "Arrêter l’app",
+      "stopFailed": "Impossible d’arrêter l’app"
+    },
     "discard": {
       "title": "Abandonner ce Flow ?",
       "body": "Le worktree, sa branche et la spec provisoire sont supprimés. Action irréversible.",

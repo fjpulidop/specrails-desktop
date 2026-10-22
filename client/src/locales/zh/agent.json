@@ -955,6 +955,17 @@
         "discarded": "已丢弃"
       }
     },
+    "preview": {
+      "open": "预览",
+      "openTitle": "在浏览器中打开 {{url}} 上的应用",
+      "stopping": "正在停止…",
+      "more": "应用操作",
+      "local": "在此电脑上打开",
+      "network": "在局域网中打开",
+      "localOnly": "仅可从此电脑访问。如需在手机上打开，请让智能体以局域网公开方式重新启动。",
+      "stop": "停止应用",
+      "stopFailed": "无法停止应用"
+    },
     "discard": {
       "title": "丢弃这个 Flow？",
       "body": "worktree、其分支和临时 spec 都会被删除，且无法撤销。",

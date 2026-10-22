@@ -955,6 +955,17 @@
         "discarded": "Discarded"
       }
     },
+    "preview": {
+      "open": "Preview",
+      "openTitle": "Open the app at {{url}} in your browser",
+      "stopping": "Stopping…",
+      "more": "App actions",
+      "local": "Open on this computer",
+      "network": "Open on the local network",
+      "localOnly": "Only reachable from this computer. Ask the agent to restart it exposed on the local network to open it from a phone.",
+      "stop": "Stop app",
+      "stopFailed": "Could not stop the app"
+    },
     "discard": {
       "title": "Discard this Flow?",
       "body": "The worktree, its branch and the placeholder spec are deleted. This cannot be undone.",

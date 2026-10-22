@@ -150,6 +150,7 @@
       "components/FlowMissionsBridge.tsx"
     ],
     "dependencies": [
+      "background",
       "missions",
       "providers",
       "rails"

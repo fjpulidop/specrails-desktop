@@ -955,6 +955,17 @@
         "discarded": "Descartado"
       }
     },
+    "preview": {
+      "open": "Vista previa",
+      "openTitle": "Abrir la app en {{url}} en tu navegador",
+      "stopping": "Deteniendo…",
+      "more": "Acciones de la app",
+      "local": "Abrir en este ordenador",
+      "network": "Abrir en la red local",
+      "localOnly": "Solo accesible desde este ordenador. Pide al agente que la reinicie expuesta en la red local para abrirla desde un móvil.",
+      "stop": "Detener app",
+      "stopFailed": "No se pudo detener la app"
+    },
     "discard": {
       "title": "¿Descartar este Flow?",
       "body": "Se borran el worktree, su rama y la spec provisional. No se puede deshacer.",

@@ -955,6 +955,17 @@
         "discarded": "Verworfen"
       }
     },
+    "preview": {
+      "open": "Vorschau",
+      "openTitle": "App unter {{url}} im Browser öffnen",
+      "stopping": "Wird beendet…",
+      "more": "App-Aktionen",
+      "local": "Auf diesem Computer öffnen",
+      "network": "Im lokalen Netzwerk öffnen",
+      "localOnly": "Nur von diesem Computer erreichbar. Bitte den Agenten, sie im lokalen Netzwerk freigegeben neu zu starten, um sie auf einem Smartphone zu öffnen.",
+      "stop": "App beenden",
+      "stopFailed": "Die App konnte nicht beendet werden"
+    },
     "discard": {
       "title": "Diesen Flow verwerfen?",
       "body": "Worktree, Branch und vorläufige Spec werden gelöscht. Das lässt sich nicht rückgängig machen.",

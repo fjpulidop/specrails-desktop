@@ -11,6 +11,13 @@ vi.mock('../../providers/hooks/useProviderDetection', () => ({
 }))
 vi.mock('../../loops/lib/loops-api', () => ({ loopsApi: { list: vi.fn(async () => []) } }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn() }) }))
+// The mission's background processes (the agent's apps) and the system browser.
+const background = vi.hoisted(() => ({ processes: [] as unknown[], kill: vi.fn(async () => {}) }))
+vi.mock('../../background/context/BackgroundProcessesContext', () => ({
+  useBackgroundProcesses: () => ({ processes: background.processes, history: background.processes, historyLoading: false, historyError: null, refreshHistory: async () => {}, kill: background.kill }),
+}))
+const shell = vi.hoisted(() => ({ openExternalUrl: vi.fn(async () => {}) }))
+vi.mock('../../../lib/tauri-shell', async (importOriginal) => ({ ...(await importOriginal<object>()), openExternalUrl: shell.openExternalUrl }))
 
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { FlowProvider, useConversationFlow } from '../context/FlowContext'
@@ -76,6 +83,9 @@ function Providers({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
+  background.processes = []
+  background.kill.mockClear()
+  shell.openExternalUrl.mockClear()
   wsHandlers = new Map()
   current = flow()
   availability = { available: true, reason: 'Flow is available', missing: [] }
@@ -176,6 +186,70 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(dialog.querySelectorAll('[data-testid="flow-changes-file"]')).toHaveLength(3))
     expect(dialog).toHaveTextContent('src/App.tsx')
     expect(dialog).toHaveTextContent('—')
+  })
+
+  describe('Preview of the app the Flow agent started', () => {
+    const app = (over: Record<string, unknown> = {}) => ({
+      processId: 'proc-1', pid: 4242, command: 'npm run dev', cwd: '/wt/f1/ticket-7', startedAt: 1, status: 'running', chatId: 'c1', projectId: 'p1', flowId: 'f1',
+      appUrls: { local: ['http://localhost:5173/'], network: ['http://192.168.1.20:5173/'] }, ...over,
+    })
+
+    it('stays hidden while no app of this Flow announced an address', async () => {
+      background.processes = [
+        app({ appUrls: undefined }),
+        app({ processId: 'other-flow', flowId: 'f2' }),
+        app({ processId: 'plain-mission', flowId: undefined }),
+        app({ processId: 'other-chat', chatId: 'c2' }),
+        app({ processId: 'ended', status: 'exited' }),
+      ]
+      render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      await screen.findByTestId('flow-bar')
+      expect(screen.queryByTestId('flow-bar-preview')).toBeNull()
+    })
+
+    it('shows Preview with a live dot that opens the local address in the browser', async () => {
+      background.processes = [app()]
+      render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      const preview = await screen.findByTestId('flow-bar-preview')
+      expect(preview).toHaveTextContent('Preview')
+      expect(preview).toHaveAccessibleName('Open the app at http://localhost:5173/ in your browser')
+      expect(screen.getByTestId('flow-app-dot')).toBeInTheDocument()
+      fireEvent.click(preview)
+      expect(shell.openExternalUrl).toHaveBeenCalledWith('http://localhost:5173/')
+    })
+
+    it('offers the network address and Stop app in its menu', async () => {
+      background.processes = [app()]
+      render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      fireEvent.click(await screen.findByTestId('flow-bar-preview-menu'))
+      expect(screen.getByRole('menu', { name: 'App actions' })).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('flow-preview-network'))
+      expect(shell.openExternalUrl).toHaveBeenCalledWith('http://192.168.1.20:5173/')
+      expect(screen.queryByRole('menu')).toBeNull()
+      fireEvent.click(screen.getByTestId('flow-bar-preview-menu'))
+      await act(async () => { fireEvent.click(screen.getByTestId('flow-preview-stop')) })
+      expect(background.kill).toHaveBeenCalledWith(expect.objectContaining({ processId: 'proc-1', pid: 4242 }))
+    })
+
+    it('says when the app only listens on this computer, and shows Stopping… while it stops', async () => {
+      background.processes = [app({ appUrls: { local: ['http://localhost:3000/'], network: [] } })]
+      const view = render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      fireEvent.click(await screen.findByTestId('flow-bar-preview-menu'))
+      expect(screen.getByTestId('flow-preview-local-only')).toHaveTextContent('Only reachable from this computer')
+      expect(screen.queryByTestId('flow-preview-network')).toBeNull()
+      background.processes = [app({ status: 'stopping' })]
+      view.rerender(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      await waitFor(() => expect(screen.getByTestId('flow-bar-preview')).toHaveTextContent('Stopping…'))
+      expect(screen.getByTestId('flow-bar-preview')).toBeDisabled()
+    })
+
+    it('is not shown on a paused Flow (Specrails stopped its apps)', async () => {
+      current = flow({ state: 'paused' })
+      background.processes = [app()]
+      render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+      await screen.findByTestId('flow-bar-resume')
+      expect(screen.queryByTestId('flow-app-preview')).toBeNull()
+    })
   })
 
   it('shows — when no turn is priced yet', async () => {

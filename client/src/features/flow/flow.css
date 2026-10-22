@@ -59,3 +59,20 @@
   0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-info) 28%, transparent); }
   50% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-accent-info) 8%, transparent); }
 }
+
+/* The running-app dot of the Flow bar's Preview control. */
+.flow-app-dot {
+  background: var(--color-accent-success);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-success) 24%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flow-app-dot {
+    animation: flow-app-dot-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes flow-app-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-success) 26%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent-success) 6%, transparent); }
+}

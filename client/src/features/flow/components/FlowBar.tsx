@@ -3,6 +3,8 @@
 // real cost (provider-billed turns only; "—" when nothing is priced) and the
 // controls. Controls are DATA (FlowBarControl[]) so new ones slot in without
 // touching the layout. Paused and needs-review Flows render compact variants.
+// While the Flow's app runs (started by the agent through Specrails), a
+// Preview control opens it (FlowAppPreview).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +16,7 @@ import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { useFlowContext } from '../context/FlowContext'
 import { flowApi, FlowApiError, type Flow, type FlowCost, type FlowDiff } from '../lib/flow-api'
 import { flowCostDisplay } from '../lib/flow-offer'
+import { FlowAppPreview } from './FlowAppPreview'
 import { FlowChangesDialog } from './FlowChangesDialog'
 import { FlowDiscardDialog } from './FlowDiscardDialog'
 
@@ -166,6 +169,7 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
           </span>
         )}
         <div className="ml-auto flex items-center gap-0.5" role="toolbar" aria-label={t('flow.bar.controls')}>
+          {flow.state === 'active' && <FlowAppPreview flow={flow} compact={compact} />}
           {controls.map((control) => <ControlButton key={control.id} control={control} compact={compact} />)}
         </div>
         {(paused || needsReview) && (

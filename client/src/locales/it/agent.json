@@ -955,6 +955,17 @@
         "discarded": "Scartato"
       }
     },
+    "preview": {
+      "open": "Anteprima",
+      "openTitle": "Apri l’app su {{url}} nel browser",
+      "stopping": "Arresto…",
+      "more": "Azioni dell’app",
+      "local": "Apri su questo computer",
+      "network": "Apri sulla rete locale",
+      "localOnly": "Raggiungibile solo da questo computer. Chiedi all’agente di riavviarla esposta sulla rete locale per aprirla da un telefono.",
+      "stop": "Arresta app",
+      "stopFailed": "Impossibile arrestare l’app"
+    },
     "discard": {
       "title": "Scartare questo Flow?",
       "body": "Il worktree, il suo branch e la spec provvisoria vengono eliminati. L’azione è irreversibile.",

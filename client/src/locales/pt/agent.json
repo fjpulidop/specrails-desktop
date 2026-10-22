@@ -955,6 +955,17 @@
         "discarded": "Descartado"
       }
     },
+    "preview": {
+      "open": "Pré-visualizar",
+      "openTitle": "Abrir a app em {{url}} no navegador",
+      "stopping": "A parar…",
+      "more": "Ações da app",
+      "local": "Abrir neste computador",
+      "network": "Abrir na rede local",
+      "localOnly": "Acessível apenas a partir deste computador. Peça ao agente para a reiniciar exposta na rede local para a abrir num telemóvel.",
+      "stop": "Parar app",
+      "stopFailed": "Não foi possível parar a app"
+    },
     "discard": {
       "title": "Descartar este Flow?",
       "body": "O worktree, o seu ramo e a spec provisória são apagados. Não é possível desfazer.",
