@@ -148,4 +148,54 @@ describe('missions extension seam (Flow mode)', () => {
     await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(2))
     expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]).not.toHaveProperty('deliveryMode')
   })
+
+  describe('option chips', () => {
+    const OPTIONS_REPLY = 'Which trail should the cursor leave?\n\n```options\n["Particle trail", "Solid trail", "No trail"]\n```'
+    const message = (id: string, role: 'user' | 'assistant', content: string) => ({ id, conversation_id: 'c1', role, content, created_at: '2026-10-22T10:00:00.000Z' })
+
+    async function openWithOptions(extensions?: MissionExtensions) {
+      vi.mocked(agentApi.listAgentConversations).mockResolvedValue([conversation('c1')] as never)
+      vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+        conversation: conversation('c1'),
+        messages: [message('m1', 'user', 'make the cursor fun'), message('m2', 'assistant', OPTIONS_REPLY)],
+      } as never)
+      renderPanel(extensions)
+      await waitFor(() => expect(chat).not.toBeNull())
+      await act(async () => { chat!.open() })
+      await act(async () => { await chat!.selectConversation('c1') })
+      return screen.findByRole('button', { name: 'Solid trail' })
+    }
+
+    it('renders the Flow agent options as chips and sends a pick normally when the agent is idle', async () => {
+      const chip = await openWithOptions(FLOW_MODE)
+      expect(screen.getByRole('button', { name: 'Particle trail' })).toBeInTheDocument()
+      expect(screen.queryByText(/```options/)).toBeNull()
+      await act(async () => { fireEvent.click(chip) })
+      await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(1))
+      expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][1]).toBe('Solid trail')
+      expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][2]).not.toHaveProperty('deliveryMode')
+    })
+
+    it('keeps the chips while the Flow agent is busy and a pick interrupts the running turn', async () => {
+      await openWithOptions(FLOW_MODE)
+      // A busy continuation turn (no newer settled message yet): the server streams.
+      act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
+      await waitFor(() => expect(chat!.isStreaming).toBe(true))
+      vi.mocked(agentApi.sendAgentMessage).mockClear()
+      vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: true, deliveryMode: 'interrupt' })
+      const chip = screen.queryByRole('button', { name: 'Solid trail' })
+      expect(chip).not.toBeNull()
+      await act(async () => { fireEvent.click(chip!) })
+      await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(1))
+      expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][1]).toBe('Solid trail')
+      expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[0][2]).toMatchObject({ deliveryMode: 'interrupt' })
+    })
+
+    it('outside Flow a busy turn still suppresses the chips', async () => {
+      await openWithOptions()
+      act(() => { wsHandler?.({ type: 'agent_stream', conversationId: 'c1', delta: 'Working on it' }) })
+      await waitFor(() => expect(chat!.isStreaming).toBe(true))
+      expect(screen.queryByRole('button', { name: 'Solid trail' })).toBeNull()
+    })
+  })
 })

@@ -86,7 +86,9 @@ Flow turn:
   not projected like the mission's, so their usage could not be accounted);
 - the static Flow persona ([agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts))
   as the session `systemPrompt`, never a file in the worktree; per-turn facts
-  (worktree path, branch) ride the user turn;
+  (worktree path, branch) ride the user turn. Its **Choices** rule ends every
+  reply that offers a choice with the mission's fenced `options` block (2-6
+  short, actionable labels; never otherwise), rendered as chips;
 - the conversation history is sent once, on the first turn of the Flow
   session; Core's journal keeps the rest;
 - every mid-turn input is delivered as `delivery: 'interrupt'` (the send
@@ -253,9 +255,9 @@ branch in the git strip, interrupting sends) and a dock above the composer.
 | Piece | Behaviour |
 | --- | --- |
 | Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Flow. The user turn carries `Flow: offerable` only when `FlowTurnContext.offerable` says so (Flow available, conversation pinned, no open Flow), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, recommended}) renders `FlowOfferCard`; fence promotion re-tags it from generic JSON on both sides. |
-| Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. Unavailable ⇒ disabled with the missing capabilities in plain words. |
+| Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
 | Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `recommendedMode`, `chosenMode`, `config.flowId`) and `flow-hand-off`; unique per (kind, proposalIndex). Flow kinds are accepted even with mission rail cards off. |
-| Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. |
+| Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
 | Paused / needs-review | Compact bar: Resume Flow; needs-review explains the missing worktree, no destructive action. |
 | This is it | Client-only: bar and treatment animate out and `FlowHandOffCard` (the rail launch card in hand-off mode: Flow spec, `factory:flow-spec`, a free empty rail) calls `POST /flow/:id/hand-off`. Refusals render inline; "Not yet" returns to the Flow. |
 | Board | `metadata.flow.state` `active`/`paused` ⇒ "In Flow" label linking to the conversation; the spec cannot be dragged to a rail; inside a rail (handed off) or `delivered` ⇒ no label. |

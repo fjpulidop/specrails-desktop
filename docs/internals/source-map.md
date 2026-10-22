@@ -1444,7 +1444,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts)
 - [agent-failure-briefing.ts](../../server/modules/missions/runtime/agent-failure-briefing.ts) · [test](../../server/modules/missions/runtime/agent-failure-briefing.test.ts)
 - [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts)
-- [agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts)
+- [agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts) · [test](../../server/modules/missions/runtime/agent-flow-prompt.test.ts)
 - [agent-input-store.ts](../../server/modules/missions/runtime/agent-input-store.ts) · [test](../../server/modules/missions/runtime/agent-input-store.test.ts)
 - [agent-operator-prompt.ts](../../server/modules/missions/runtime/agent-operator-prompt.ts) · [test](../../server/modules/missions/runtime/agent-operator-prompt.test.ts)
 - [agent-session-store.ts](../../server/modules/missions/runtime/agent-session-store.ts)

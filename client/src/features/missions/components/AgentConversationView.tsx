@@ -331,13 +331,14 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
                 // Option chips are clickable only on the newest settled message —
-                // a streaming turn suppresses them everywhere.
-                isLast={!isStreaming && i === messages.length - 1}
+                // a streaming turn suppresses them everywhere, except in a mode
+                // that interrupts while busy (Flow): there a pick cuts the turn.
+                isLast={(!isStreaming || !!conversationMode?.interruptWhileBusy) && i === messages.length - 1}
                 // Problem-frame readings stay affordable (but disabled) while a
                 // turn streams, so the card doesn't silently go static mid-turn.
                 isLatest={i === messages.length - 1}
                 isStreaming={isStreaming}
-                onPickOption={(option) => void send(option)}
+                onPickOption={(option) => void send(option, isStreaming && conversationMode?.interruptWhileBusy ? { deliveryMode: 'interrupt' } : undefined)}
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}
                 contextRefs={m.context_refs}
