@@ -97,6 +97,8 @@ import type { ReasoningEffort } from '../../../providers/types'
 
 export interface IsolatedLaunchInput {
   launchConfig?: Record<string, unknown>
+  /** Spec triage (launch-triage): recorded on the delivery row for triage accuracy. */
+  loopChoice?: { recommendedLoop: string | null; chosenLoop: string | null } | null
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Registered write targets. When omitted, use the specs' targets, then primary. */
   repositoryIds?: string[]
@@ -1124,6 +1126,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   if (prMode) {
     const generation = createPrDeliveryGeneration(ctx.db, {
       launchConfig: input.launchConfig,
+      loopChoice: input.loopChoice ?? null,
       parentDeliveryId: input.repositoryExecution?.parentDeliveryId,
       repositoryId: input.repositoryExecution?.repositoryId,
       repositoryPath: input.repositoryExecution ? baseRepo : undefined,

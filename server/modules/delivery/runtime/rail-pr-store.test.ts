@@ -790,3 +790,18 @@ describe('launch spec snapshot + settle evidence (migration 56)', () => {
     expect(getPrDelivery(db, 'a')!.settle_evidence).toBeNull()
   })
 })
+
+describe('spec triage loop choice (launch-triage)', () => {
+  it('records recommended and chosen loop and aggregates root-delivery accuracy', async () => {
+    const { getTriageAccuracy } = await import('./rail-pr-store')
+    mk('d1', 0, { loopChoice: { recommendedLoop: 'factory:sdd-quick-openspec', chosenLoop: 'factory:sdd-quick-openspec' } })
+    mk('d2', 1, { loopChoice: { recommendedLoop: 'factory:sdd-quick-openspec', chosenLoop: 'factory:implement' } })
+    mk('d3', 2, { loopChoice: { recommendedLoop: null, chosenLoop: 'factory:implement' } })
+    mk('d4', 3)
+    mk('child', 0, { parentDeliveryId: 'd1', loopChoice: { recommendedLoop: 'factory:implement', chosenLoop: 'x' } })
+    expect(getPrDelivery(db, 'd2')).toMatchObject({ recommended_loop: 'factory:sdd-quick-openspec', chosen_loop: 'factory:implement' })
+    expect(getPrDelivery(db, 'd4')).toMatchObject({ recommended_loop: null, chosen_loop: null })
+    expect(getTriageAccuracy(db)).toEqual({ total: 2, matched: 1, rate: 0.5 })
+    expect(getTriageAccuracy(db, { since: '2999-01-01T00:00:00.000Z' })).toEqual({ total: 0, matched: 0, rate: null })
+  })
+})
