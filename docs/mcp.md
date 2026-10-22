@@ -117,6 +117,17 @@ failure and act only on the user's confirmation:
 | `runtime_dismiss` | write | Dismiss a runtime continuation card |
 | `runtime_cancel` | destructive | Cancel an active runtime continuation |
 
+## Agent actions audit
+
+`specrails_jobs(audit)` (read tier) returns what the agents of a run read,
+wrote, executed, called over MCP or fetched: pass `jobId` for one run, or omit
+it and pass `from`/`to` for a project-wide window. `format` is `jsonl`
+(default) or `csv`; the result carries `rows` and the export text in `data`.
+Reads are only as complete as each provider's stream. Every tool call made by
+an in-app mission agent in a pinned project is itself recorded as an `mcp` row
+(`tool:action`, never its arguments). See
+[agent actions audit](internals/agent-actions-audit.md).
+
 `specrails_rails(list)` rails carry `availability` — `free`, `busy` (active job
 or loop run), `pending_decision` (an undecided PR delivery) or `on_review` (a
 spec parked on review). Inside the app's own agent chat, a launch proposal is a

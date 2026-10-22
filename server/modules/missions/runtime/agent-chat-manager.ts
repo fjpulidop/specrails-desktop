@@ -67,6 +67,7 @@ import {
 } from './agent-input-store'
 import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteering } from './agent-steering'
 import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
+import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
@@ -126,6 +127,7 @@ export class AgentChatManager {
   private readonly _active = new Map<string, ChildProcess>()
   /** Missions' Core agent sessions (null = legacy transports only). */
   private _coreSessions: MissionCoreSessions | null = null
+  private _agentAudit: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null = null
   private readonly _nativeInputNotifiers = new Map<string, () => void>()
   /** Conversations with a turn in-flight but not yet spawned. Closes the TOCTOU
    *  window the attachment-extraction await opens between the busy guard and
@@ -167,6 +169,11 @@ export class AgentChatManager {
   /** Composition-time wiring of Core agent sessions (see agent-sessions module). */
   setCoreSessions(coreSessions: MissionCoreSessions | null): void {
     this._coreSessions = coreSessions
+  }
+
+  /** Composition-time wiring of the agent actions audit (per pinned project). */
+  setAgentAudit(resolve: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null): void {
+    this._agentAudit = resolve
   }
 
   /** Conversation deleted: close its Core session (reads the row before it is dropped). */
@@ -925,6 +932,14 @@ export class AgentChatManager {
                 }
                 break
               case 'tool-use':
+                // Core-session turns are audited by the session projector (full
+                // input); native provider turns are audited here from the preview.
+                if (!coreContext && this._agentAudit && conversation.pinned_project_id) {
+                  try {
+                    const recorder = this._agentAudit(conversation.pinned_project_id)
+                    if (recorder) recordToolCall(recorder, { runId: conversationId, role: 'mission', source: 'provider-stream' }, ev.name, ev.inputPreview)
+                  } catch { /* audit is observing only */ }
+                }
                 if (this._isTurnLive(conversationId)) {
                   this._broadcast({
                     type: 'agent_tool',

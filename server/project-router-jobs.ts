@@ -40,6 +40,9 @@ import {
   resolveTicketsFromCommand
 } from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
+import { createAgentAuditService } from './modules/audit'
+import { registerAgentAuditHttp } from './modules/audit/adapters/http'
+import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
@@ -504,6 +507,12 @@ const accepted = loopPaused
   }
 
   // ─── Jobs export (must be before /:projectId/jobs/:id) ─────────────────────
+  // Agent actions audit exports (JSONL/CSV): one run, or a project-wide window.
+  registerAgentAuditHttp(router, (req) => {
+    const context = ctx(req)
+    return context.agentAudit?.service ?? createAgentAuditService({ store: createSqliteAgentActionStore(context.db) })
+  })
+
   router.get('/:projectId/jobs/export', (req: Request, res: Response) => {
     const format = (req.query.format as string) || 'json'
     if (format !== 'json' && format !== 'csv') {

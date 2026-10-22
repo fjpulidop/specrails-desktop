@@ -50,7 +50,8 @@ export function jobsTools(): McpToolSpec[] {
         'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +
         'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
         'runtime_settle (write — prepare delivery for a succeeded-but-unsettled run), runtime_dismiss (write — dismiss a settled continuation from the rail card), ' +
-        'runtime_cancel (destructive — cancel an active runtime continuation).',
+        'runtime_cancel (destructive — cancel an active runtime continuation), ' +
+        'audit (read — what the agents of jobId read, wrote, executed, called over MCP or fetched, as JSONL or CSV via format; omit jobId for a project-wide export bounded by from/to; reads are only as complete as each provider\'s stream).',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
@@ -98,6 +99,7 @@ export function jobsTools(): McpToolSpec[] {
             'runtime_settle',
             'runtime_dismiss',
             'runtime_cancel',
+            'audit',
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
@@ -146,7 +148,7 @@ export function jobsTools(): McpToolSpec[] {
         confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
         allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
         // ── export ──
-        format: z.enum(['json', 'csv']).optional().describe('Export format (default json)'),
+        format: z.enum(['json', 'csv', 'jsonl']).optional().describe('Export format: export json|csv (default json); audit jsonl|csv (default jsonl)'),
         // ── default_spec_model ──
         provider: z.string().optional().describe('Provider to resolve the default spec model for (default_spec_model)'),
         // ── runtime_* (mission-rail-cards: the agent's eyes + hands on a failed run) ──
@@ -272,6 +274,22 @@ export function jobsTools(): McpToolSpec[] {
             }
             const qs = new URLSearchParams({ jobIds: jobIds.join(',') })
             return apiCall(ctx, 'GET', `${base}/jobs/compare?${qs.toString()}`)
+          }
+
+          case 'audit': {
+            const format = (args.format as string | undefined) === 'csv' ? 'csv' : 'jsonl'
+            const qs = new URLSearchParams({ format })
+            const id = args.jobId as string | undefined
+            if (!id) {
+              if (args.from) qs.set('from', args.from as string)
+              if (args.to) qs.set('to', args.to as string)
+            }
+            const path = id ? `${base}/jobs/${encodeURIComponent(id)}/audit?${qs.toString()}` : `${base}/agent-actions?${qs.toString()}`
+            const raw = await apiCall(ctx, 'GET', path)
+            // The loopback client parses a single JSONL line as JSON; keep the export textual.
+            const data = typeof raw === 'string' ? raw : raw == null ? '' : `${JSON.stringify(raw)}\n`
+            const rows = data ? data.split('\n').filter(Boolean).length - (format === 'csv' ? 1 : 0) : 0
+            return { format, ...(id ? { jobId: id } : {}), rows, note: 'Reads are only as complete as each provider stream reports them.', data }
           }
 
           case 'export': {

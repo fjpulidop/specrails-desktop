@@ -415,6 +415,18 @@
       }
     }
   },
+  "agentAudit": {
+    "title": "Agent actions audit",
+    "description": "A per-project log of what agents read, wrote, executed, called over MCP or fetched — exportable as JSONL or CSV from each job and the review packet.",
+    "retentionLabel": "Keep entries for",
+    "daysUnit": "days",
+    "caveat": "Older entries are removed at startup and daily. Reads are only as complete as each provider's stream; contents and environment values are never stored.",
+    "save": "Save retention",
+    "saved_one": "Agent actions kept for {{count}} day",
+    "saved_other": "Agent actions kept for {{count}} days",
+    "saveFailed": "Could not save the audit retention",
+    "invalidDays": "Enter a whole number of days between 1 and {{max}}"
+  },
   "reviewWip": {
     "title": "Review limit",
     "description": "Cap how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",

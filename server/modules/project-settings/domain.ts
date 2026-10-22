@@ -49,6 +49,8 @@ export interface ProjectSettings {
    *  forwards the Desktop environment as before; `minimal` forwards only an
    *  allowlist, the passthrough names and the provider's own auth/config names. */
   agentEnvMode: AgentEnvMode
+  /** Days the agent actions audit log keeps rows (1-3650, default 30). */
+  agentAuditRetentionDays: number
 }
 
 /** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
@@ -68,6 +70,17 @@ export type AgentEnvMode = 'inherit' | 'minimal'
 export function parseAgentEnvMode(value: unknown): AgentEnvMode {
   if (value === 'inherit' || value === 'minimal') return value
   throw new SettingsValidationError("agentEnvMode must be 'inherit' or 'minimal'")
+}
+
+export const DEFAULT_AGENT_AUDIT_RETENTION_DAYS = 30
+export const MAX_AGENT_AUDIT_RETENTION_DAYS = 3650
+
+/** Strict integer day count; values outside 1-3650 are rejected. */
+export function parseAgentAuditRetentionDays(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_AGENT_AUDIT_RETENTION_DAYS) {
+    throw new SettingsValidationError(`agentAuditRetentionDays must be an integer between 1 and ${MAX_AGENT_AUDIT_RETENTION_DAYS}`)
+  }
+  return value
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -161,6 +174,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
     if (typeof values.reviewerFamilySuggestionDismissed !== 'boolean') throw new SettingsValidationError('reviewerFamilySuggestionDismissed must be a boolean')
     patch.reviewerFamilySuggestionDismissed = values.reviewerFamilySuggestionDismissed
   }
+  if (values.agentAuditRetentionDays !== undefined) patch.agentAuditRetentionDays = parseAgentAuditRetentionDays(values.agentAuditRetentionDays)
   if (values.integrationBranch !== undefined) {
     const branch = values.integrationBranch
     if (typeof branch !== 'string') throw new SettingsValidationError('integrationBranch must be a string')

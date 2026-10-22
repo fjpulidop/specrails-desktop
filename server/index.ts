@@ -767,8 +767,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       const context = registry.getContext(conversation.pinned_project_id)
       return context ? getProjectSettings(context.db).subagentRuntime : null
     },
+    // Agent actions audit: mission tool calls land in the pinned project's log.
+    agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
+  agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
   registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
   registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
   // Publish the instance to the process-wide registry so the rails layer can

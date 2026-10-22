@@ -588,6 +588,16 @@ export interface ReviewPacket {
   chainCostUsd: number | null
   chainCostEstimated: boolean
   driftNudges: PacketDriftNudge[]
+  /** "What the agent did" (agent actions audit); absent/null when nothing was recorded. */
+  agentActions?: PacketAgentActions | null
+}
+
+export type AgentActionKind = 'read' | 'write' | 'exec' | 'mcp' | 'network'
+
+export interface PacketAgentActions {
+  counts: Record<AgentActionKind, number>
+  total: number
+  runIds: string[]
 }
 
 /** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */

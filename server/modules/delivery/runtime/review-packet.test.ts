@@ -674,3 +674,24 @@ describe('PR review follow-up on the packet (pr-follow-up-fixes)', () => {
     expect(delivery().followUp).toBeNull()
   })
 })
+
+describe('agentActions ("What the agent did")', () => {
+  it('is null when the delivery runs recorded nothing', () => {
+    expect(delivery().agentActions).toBeNull()
+  })
+
+  it('counts recorded actions by kind across the delivery runs and lists the runs to export', () => {
+    const insert = db.prepare("INSERT INTO agent_actions (run_id, job_id, role, kind, target, ts, source) VALUES (?, ?, 'developer', ?, ?, '2026-10-21T10:00:00.000Z', 'claude-stream')")
+    insert.run('run-1', 'run-1', 'read', 'a.ts')
+    insert.run('run-1', 'run-1', 'read', 'b.ts')
+    insert.run('run-1', 'run-1', 'exec', 'npm test')
+    insert.run('run-2', 'run-2', 'write', 'c.ts')
+    insert.run('other', 'other', 'network', 'https://example.com')
+    const packet = delivery({ runIds: ['run-1', 'run-2', 'run-3'] })
+    expect(packet.agentActions).toEqual({
+      counts: { read: 2, write: 1, exec: 1, mcp: 0, network: 0 },
+      total: 4,
+      runIds: ['run-1', 'run-2'],
+    })
+  })
+})

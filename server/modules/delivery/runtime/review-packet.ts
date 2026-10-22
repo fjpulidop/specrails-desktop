@@ -41,6 +41,8 @@ import {
 import { extractSpecNarrative } from './pr-body'
 import { sumInvocationCostForRuns } from '../../accounting/runtime/ai-invocations'
 import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from '../../../project-repository-provenance'
+import type { AgentActionCounts } from '../../audit'
+import { createSqliteAgentActionStore } from '../../audit/adapters/sqlite'
 
 /** Which story the packet tells. Chosen from durable outcomes, never guessed. */
 export type PacketVariant = 'success' | 'no-changes' | 'partial' | 'failed'
@@ -154,6 +156,32 @@ export interface ReviewPacket {
   chainCostEstimated: boolean
   /** Advisory reshape-the-spec signals derived from real measurements only. */
   driftNudges: PacketDriftNudge[]
+  /** "What the agent did": recorded agent actions of this generation's runs,
+   * counted by kind (agent actions audit). Null when nothing was recorded or
+   * the log is unavailable — reads are only as complete as each provider stream. */
+  agentActions: PacketAgentActions | null
+}
+
+export interface PacketAgentActions {
+  counts: AgentActionCounts
+  total: number
+  /** Runs with recorded actions — each has a JSONL/CSV export. */
+  runIds: string[]
+}
+
+function agentActionsForRuns(db: DbInstance, runIds: readonly string[]): PacketAgentActions | null {
+  const ids = [...new Set(runIds.filter((id) => typeof id === 'string' && id.length > 0))]
+  if (ids.length === 0) return null
+  try {
+    const store = createSqliteAgentActionStore(db)
+    const counts = store.countByKind(ids)
+    const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
+    if (total === 0) return null
+    const withRows = ids.filter((id) => Object.values(store.countByKind([id])).some((value) => value > 0))
+    return { counts, total, runIds: withRows }
+  } catch {
+    return null
+  }
 }
 
 const TEST_FILE_RE = /(\.test\.|\.spec\.|(^|\/)__tests__\/)/
@@ -556,6 +584,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     chainCostUsd: chainCosts.length > 0 ? chainCosts.reduce((sum, value) => sum + value, 0) : null,
     chainCostEstimated: versions.some((version) => version.costEstimated),
     driftNudges,
+    agentActions: agentActionsForRuns(db, runIds),
   }
 }
 

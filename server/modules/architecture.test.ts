@@ -43,6 +43,10 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
   'terminals/domain/app-urls.ts': [],
+  'audit/domain.ts': [],
+  'audit/ports.ts': ['./domain'],
+  'audit/application.ts': ['./domain', './ports'],
+  'audit/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

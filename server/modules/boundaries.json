@@ -462,6 +462,46 @@
       ]
     }
   },
+  "audit": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "adapters/runtime.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../application",
+        "../domain",
+        "express"
+      ],
+      "adapters/runtime.ts": [
+        "../../../db/types",
+        "../application",
+        "../domain",
+        "./sqlite",
+        "node:crypto"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
   "browser": {
     "publicEntries": [
       "runtime/browser-capture-manager.ts",
@@ -683,6 +723,7 @@
         "../../../project-repository-provenance",
         "../../../types",
         "child_process",
+        "crypto",
         "fs",
         "path"
       ],
@@ -1298,6 +1339,8 @@
         "../../../db",
         "../../../project-repository-provenance",
         "../../accounting/runtime/ai-invocations",
+        "../../audit",
+        "../../audit/adapters/sqlite",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./pr-body",
@@ -1443,6 +1486,7 @@
         "../../accounting/runtime/result-event",
         "../../agents/runtime/agent-defaults",
         "../../agents/runtime/profile-manager",
+        "../../audit",
         "../../code/runtime/file-provenance",
         "../../delivery/runtime/rail-isolation",
         "../../loops/runtime/legacy-launch-telemetry",
@@ -1653,6 +1697,7 @@
         "../../agent-runtime/runtime/agent-runtime-accounting",
         "../../agent-runtime/runtime/agent-runtime-events",
         "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rails-store",
         "../../execution/runtime/interactive-job-session",
@@ -1757,6 +1802,7 @@
         "../../../workspace-resolution",
         "../../accounting/runtime/result-event",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "../../conversations/runtime/explore-draft-title",
         "../../execution/runtime/spawn-lifecycle",
         "./agent-context-resolver",
@@ -1859,6 +1905,7 @@
         "../../agent-sessions",
         "../../agent-sessions/runtime/session-host-registry",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "./agent-session-store",
         "./core-session-runner",
         "./mission-session-projector"
@@ -1877,6 +1924,7 @@
         "../../accounting/runtime/result-event",
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "./agent-session-store"
       ]
     }

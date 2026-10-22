@@ -415,6 +415,18 @@
       }
     }
   },
+  "agentAudit": {
+    "title": "Protokoll der Agentenaktionen",
+    "description": "Ein Projektprotokoll darüber, was Agenten gelesen, geschrieben, ausgeführt, per MCP aufgerufen oder abgerufen haben — als JSONL oder CSV aus jedem Job und dem Review-Paket exportierbar.",
+    "retentionLabel": "Einträge aufbewahren für",
+    "daysUnit": "Tage",
+    "caveat": "Ältere Einträge werden beim Start und täglich entfernt. Lesezugriffe sind nur so vollständig wie der Stream des jeweiligen Anbieters; Inhalte und Umgebungswerte werden nie gespeichert.",
+    "save": "Aufbewahrung speichern",
+    "saved_one": "Agentenaktionen werden {{count}} Tag aufbewahrt",
+    "saved_other": "Agentenaktionen werden {{count}} Tage aufbewahrt",
+    "saveFailed": "Die Aufbewahrung des Protokolls konnte nicht gespeichert werden",
+    "invalidDays": "Gib eine ganze Zahl von Tagen zwischen 1 und {{max}} ein"
+  },
   "reviewWip": {
     "title": "Review-Limit",
     "description": "Begrenze, wie viele Lieferungen gleichzeitig auf dein Review warten dürfen, damit neue Arbeit sich nicht schneller stapelt, als du entscheiden kannst.",

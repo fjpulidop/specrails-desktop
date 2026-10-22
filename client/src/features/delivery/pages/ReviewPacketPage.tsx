@@ -26,6 +26,7 @@ import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
 import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
+import { AgentActionsSummary } from '../components/review-packet/AgentActionsSummary'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -727,6 +728,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           ))}
         </ul>
       </Section>
+
+      {packet.agentActions && packet.agentActions.total > 0 ? (
+        <Section
+          title={t('sections.whatTheAgentDid')}
+          badge={(
+            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              {t('agentActions.total', { count: packet.agentActions.total })}
+            </span>
+          )}
+        >
+          <AgentActionsSummary actions={packet.agentActions} />
+        </Section>
+      ) : null}
 
       <Section
         title={t('sections.howItWasChecked')}

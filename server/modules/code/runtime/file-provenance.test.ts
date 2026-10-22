@@ -4,6 +4,8 @@ import { mkdtempSync, writeFileSync, rmSync, appendFileSync, unlinkSync, renameS
 import { tmpdir } from 'os'
 import { join } from 'path'
 import Database from 'better-sqlite3'
+import { createHash } from 'crypto'
+import { initDb } from '../../../db'
 import type { DbInstance } from '../../../db'
 import { gitExecEnv } from './file-provenance'
 import {
@@ -381,6 +383,27 @@ describe('recordProvenanceForJob', () => {
       patch: 'diff --git a/x.ts b/x.ts\n+hello',
       truncated: false,
     })
+  })
+})
+
+describe('agent actions audit from provenance', () => {
+  it('writes one hashed write row per provenance row, never the diff itself', () => {
+    const db = initDb(':memory:')
+    try {
+      const patch = 'diff --git a/x.ts b/x.ts\n+secret-line'
+      recordProvenanceForJob(db, 'p1', 'job-1', 1, [{ path: 'x.ts', status: 'M' }, { path: 'y.ts', status: 'D' }], Date.parse('2026-10-21T10:00:00.000Z'), new Map([['x.ts', { patch, truncated: false }]]))
+      const rows = db.prepare('SELECT run_id, job_id, role, kind, target, hash, ts, source FROM agent_actions ORDER BY id').all()
+      expect(rows).toEqual([
+        { run_id: 'job-1', job_id: 'job-1', role: 'run', kind: 'write', target: 'x.ts', hash: createHash('sha256').update(patch).digest('hex'), ts: '2026-10-21T10:00:00.000Z', source: 'file-provenance' },
+        { run_id: 'job-1', job_id: 'job-1', role: 'run', kind: 'write', target: 'y.ts', hash: null, ts: '2026-10-21T10:00:00.000Z', source: 'file-provenance' },
+      ])
+      expect(JSON.stringify(rows)).not.toContain('secret-line')
+    } finally { db.close() }
+  })
+
+  it('a database without the audit table still records provenance', () => {
+    const db = initTestDb()
+    expect(recordProvenanceForJob(db, 'p1', 'job-1', 1, [{ path: 'x.ts', status: 'A' }], 100)).toHaveLength(1)
   })
 })
 

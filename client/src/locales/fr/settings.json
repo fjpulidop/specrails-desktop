@@ -415,6 +415,18 @@
       }
     }
   },
+  "agentAudit": {
+    "title": "Journal des actions des agents",
+    "description": "Un journal par projet de ce que les agents ont lu, écrit, exécuté, appelé via MCP ou récupéré — exportable en JSONL ou CSV depuis chaque job et le dossier de revue.",
+    "retentionLabel": "Conserver les entrées pendant",
+    "daysUnit": "jours",
+    "caveat": "Les entrées anciennes sont supprimées au démarrage puis chaque jour. Les lectures ne sont complètes que selon le flux de chaque fournisseur ; contenus et valeurs d'environnement ne sont jamais stockés.",
+    "save": "Enregistrer la rétention",
+    "saved_one": "Actions des agents conservées {{count}} jour",
+    "saved_other": "Actions des agents conservées {{count}} jours",
+    "saveFailed": "Impossible d'enregistrer la rétention du journal",
+    "invalidDays": "Saisissez un nombre entier de jours entre 1 et {{max}}"
+  },
   "reviewWip": {
     "title": "Limite de revue",
     "description": "Limitez le nombre de livraisons qui peuvent attendre votre revue en même temps, pour que le nouveau travail ne s’accumule pas plus vite que vous ne pouvez décider.",

@@ -6,6 +6,7 @@ const initial: ProjectSettings = {
   prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null, reviewerFamilySuggestionDismissed: false,
   reviewWipLimit: null,
   agentEnvMode: 'inherit',
+  agentAuditRetentionDays: 30,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -127,5 +128,17 @@ describe('agentEnvMode', () => {
       expect(() => service.updateSettings({ agentEnvMode: bad })).toThrow(SettingsValidationError)
     }
     expect(repository.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('agentAuditRetentionDays', () => {
+  it('accepts whole days within 1-3650 and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ agentAuditRetentionDays: 90 })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ agentAuditRetentionDays: 90 })
+    for (const value of [0, -1, 3651, 1.5, '30', null]) {
+      expect(() => service.updateSettings({ agentAuditRetentionDays: value })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).toHaveBeenCalledOnce()
   })
 })

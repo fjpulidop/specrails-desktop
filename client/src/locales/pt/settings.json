@@ -415,6 +415,18 @@
       }
     }
   },
+  "agentAudit": {
+    "title": "Registro de ações dos agentes",
+    "description": "Um registro por projeto do que os agentes leram, escreveram, executaram, chamaram via MCP ou buscaram — exportável em JSONL ou CSV a partir de cada job e do pacote de revisão.",
+    "retentionLabel": "Manter entradas por",
+    "daysUnit": "dias",
+    "caveat": "Entradas antigas são removidas na inicialização e diariamente. As leituras são tão completas quanto o stream de cada provedor; conteúdos e valores de ambiente nunca são armazenados.",
+    "save": "Salvar retenção",
+    "saved_one": "Ações dos agentes mantidas por {{count}} dia",
+    "saved_other": "Ações dos agentes mantidas por {{count}} dias",
+    "saveFailed": "Não foi possível salvar a retenção do registro",
+    "invalidDays": "Informe um número inteiro de dias entre 1 e {{max}}"
+  },
   "reviewWip": {
     "title": "Limite de revisão",
     "description": "Limite quantas entregas podem aguardar sua revisão ao mesmo tempo, para que o trabalho novo não se acumule mais rápido do que você consegue decidir.",

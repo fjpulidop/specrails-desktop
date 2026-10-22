@@ -1,7 +1,10 @@
 // Public application API. Infrastructure adapters are wired only at composition roots.
 export { createProjectSettingsService, type ProjectSettingsService } from './application'
 export {
+  DEFAULT_AGENT_AUDIT_RETENTION_DAYS,
   DEFAULT_FREESTYLE_PRE_PROMPT,
+  MAX_AGENT_AUDIT_RETENTION_DAYS,
+  parseAgentAuditRetentionDays,
   WORKTREE_ENV_NAME_RE,
   normalizeWorktreeEnvPassthrough,
   parseAgentEnvMode,

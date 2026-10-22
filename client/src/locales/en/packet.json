@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "What you asked for",
     "whatIDid": "What was done",
-    "howItWasChecked": "How it was checked"
+    "howItWasChecked": "How it was checked",
+    "whatTheAgentDid": "What the agent did"
   },
   "churn": {
     "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",
@@ -166,5 +167,21 @@
       "unreported": "Not reported"
     },
     "noReport": "The run did not report this addendum. Check the changes and evidence below."
+  },
+  "agentActions": {
+    "total_one": "{{count}} action",
+    "total_other": "{{count}} actions",
+    "countsLabel": "Recorded agent actions by kind",
+    "kinds": {
+      "read": "reads",
+      "write": "writes",
+      "exec": "commands",
+      "mcp": "MCP calls",
+      "network": "web requests"
+    },
+    "caveat": "Recorded from the agents' own streams: reads are only as complete as each provider reports them. Contents and environment values are never stored.",
+    "run": "Run {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Could not download the agent actions"
   }
 }
