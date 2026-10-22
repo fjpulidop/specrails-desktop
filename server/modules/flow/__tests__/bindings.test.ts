@@ -265,7 +265,7 @@ describe('missions FlowTurnContext binding', () => {
     })
     expect(context.forConversation('conv-1')).toEqual({
       flowId: 'flow-1', cwd: '/wt/flow-1/ticket-7', branch: 'feat/7', coreSessionId: 'flow:flow-1',
-      systemPrompt: FLOW_SYSTEM_PROMPT, policy: { permissions: 'workspace-write', tools: { mode: 'default' } },
+      systemPrompt: FLOW_SYSTEM_PROMPT, policy: { permissions: 'bypass', tools: { mode: 'default' } },
     })
     expect(context.forConversation('unpinned')).toBeNull()
     for (const patch of [{ state: 'paused' as const }, { step: 'handoff:freeze' as const }, { coreSessionId: null }, { state: 'handed_off' as const }]) {

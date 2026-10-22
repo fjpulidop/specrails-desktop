@@ -161,7 +161,7 @@ export class MissionCoreSessions {
 
   /**
    * A Flow turn: its own Core session (`flow:<flowId>`) with the worktree as
-   * cwd, workspace-write permissions, default tools and the same Specrails MCP
+   * cwd, the rail write-role permissions (FLOW_SESSION_BOUNDARY), default tools and the same Specrails MCP
    * the mission presents. Sub-agents follow the mission's project policy
    * ("Allow sub-agents", "Run sub-agents with"); they inherit the session's cwd
    * and permissions (Core gives delegated children the parent's cwd). The Flow

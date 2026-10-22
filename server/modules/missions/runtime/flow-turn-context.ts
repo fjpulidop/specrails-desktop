@@ -30,8 +30,17 @@ export interface FlowTurnContext {
   offerable?(conversationId: string): Promise<boolean>
 }
 
-/** The Flow session boundary: writes in the worktree, default tools. */
+/**
+ * The Flow session boundary, the same one rail write roles run with: no
+ * interactive approvals (Claude `--dangerously-skip-permissions`, Codex
+ * `danger-full-access`) so the agent can run the typecheck, tests and
+ * installs a headless session cannot get approved, default tools. Containment
+ * is the same as a rail's, not an OS sandbox: cwd = the Flow worktree, the
+ * persona rule never to touch anything outside it, and the worktree's own
+ * branch (docs/internals/flow-mode.md#permissions). Normal mission turns keep
+ * their read-only boundary (missionSessionBoundary).
+ */
 export const FLOW_SESSION_BOUNDARY: FlowTurn['policy'] = Object.freeze({
-  permissions: 'workspace-write',
+  permissions: 'bypass',
   tools: Object.freeze({ mode: 'default' }),
 }) as FlowTurn['policy']

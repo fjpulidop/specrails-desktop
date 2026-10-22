@@ -167,13 +167,14 @@ describe('Flow turns in missions', () => {
     await manager.sendMessage(conversation.id, 'hello')
     await waitFor(() => doneCount() === 1)
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id, cwd: '/tmp/agent-cwd-test', metadata: { surface: 'mission' } })
-    expect((opens()[0]!.params.policy as { permissions: string }).permissions).not.toBe('workspace-write')
+    // The read-only mission boundary (PR #793): bypass + read-only tools, never the Flow boundary.
+    expect(opens()[0]!.params.policy).toMatchObject({ permissions: 'bypass', tools: { mode: 'read-only' } })
     expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Specrails Flow')
     expect(db.prepare('SELECT surface FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual([{ surface: 'agent-chat' }])
     expect(manager.isFlowActive(conversation.id)).toBe(false)
   })
 
-  it('a Flow turn runs in its own Core session in the worktree with workspace-write and the Flow persona', async () => {
+  it('a Flow turn runs in its own Core session in the worktree with the rail write-role permissions and the Flow persona', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     updateAgentConversation(db, conversation.id, { session_id: 'mission-provider-session' })
     addAgentMessage(db, { conversationId: conversation.id, role: 'user', content: 'earlier mission question' })
@@ -185,7 +186,7 @@ describe('Flow turns in missions', () => {
     expect(open).toMatchObject({
       sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', driver: 'claude', systemPrompt: FLOW_SYSTEM_PROMPT,
       metadata: { conversationId: conversation.id, surface: 'flow', flowId: 'f1' },
-      policy: { subagents: 'disabled', permissions: 'workspace-write', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
+      policy: { subagents: 'disabled', permissions: 'bypass', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
     })
     expect(open.providerSessionRef).toBeUndefined()
     expect(String(open.systemPrompt)).not.toContain('Sub-agents in Flow')
@@ -202,6 +203,25 @@ describe('Flow turns in missions', () => {
     const sends = host.requests.filter((request) => request.method === 'session.send')
     expect(String((sends.at(-1)!.params.input as { text: string }).text)).not.toContain('earlier mission question')
     expect(host.requests.filter((request) => request.method === 'session.open' && request.params.resume).at(-1)!.params).toMatchObject({ resume: { sessionId: 'flow:f1' } })
+  })
+
+  it.each([
+    ['claude', 'haiku'],
+    ['codex', 'gpt-5'],
+  ])('a %s Flow turn runs without interactive approvals (Core: claude skip-permissions, codex danger-full-access); its mission turn stays read-only', async (provider, model) => {
+    host.initialize = { ...host.initialize, drivers: [{ ...host.initialize.drivers[0]!, id: provider, displayName: provider }] }
+    const conversation = createAgentConversation(db, { provider, model })
+    await manager.sendMessage(conversation.id, 'explain the project')
+    await waitFor(() => doneCount() === 1)
+    const mission = opens()[0]!.params
+    expect(mission).toMatchObject({ sessionId: conversation.id, driver: provider })
+    expect(mission.policy).not.toMatchObject({ permissions: 'bypass', tools: { mode: 'default' } })
+    expect((mission.policy as { tools?: { mode: string } }).tools?.mode === 'read-only' || (mission.policy as { permissions: string }).permissions === 'read-only').toBe(true)
+    flow = flowTurn()
+    await manager.sendMessage(conversation.id, 'start the app')
+    await waitFor(() => doneCount() === 2)
+    const open = opens().find((request) => request.params.sessionId === 'flow:f1')!.params
+    expect(open).toMatchObject({ driver: provider, cwd: '/wt/f1/ticket-7', policy: { permissions: 'bypass', tools: { mode: 'default' } } })
   })
 
   it('mid-turn input in Flow interrupts the running turn (no session.interrupt first)', async () => {
@@ -294,7 +314,7 @@ describe('Flow turns in missions', () => {
       await manager.sendMessage(conversation.id, 'build')
       await waitFor(() => doneCount() === 1)
       const open = opens()[0]!.params
-      expect(open).toMatchObject({ sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', policy: { subagents: 'enabled', permissions: 'workspace-write', subagentRuntime: { mode: 'native' } } })
+      expect(open).toMatchObject({ sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', policy: { subagents: 'enabled', permissions: 'bypass', subagentRuntime: { mode: 'native' } } })
       // Persona first, byte-identical; the addendum is separate and static.
       expect(open.systemPrompt).toBe(`${FLOW_SYSTEM_PROMPT}\n\n${FLOW_SUBAGENTS_ADDENDUM}`)
       expect(String(open.systemPrompt)).not.toContain('subagent_start')
