@@ -407,6 +407,8 @@ export function createLocalAdapter(connection: LocalConnection): LocalProviderAd
     id: connection.id,
     displayName,
     binary: resolveLocalRunnerNode(),
+    // The runner reads its API key from the variable the connection names.
+    envAllowlist: connection.apiKeyEnv ? [connection.apiKeyEnv] : [],
     minCliVersion: null,
     projectDirName: LOCAL_PROJECT_DIR,
     instructionsFilename: 'AGENTS.md',

@@ -130,6 +130,8 @@
         "../../../db",
         "../../../project-env",
         "../../../project-registry",
+        "../../../providers/registry",
+        "../../../providers/runtime",
         "../../../util/win-spawn",
         "../../../workspace-resolution",
         "../../delivery/runtime/multi-repo-execution-store",
@@ -403,8 +405,10 @@
       ],
       "runtime/agent-refine-manager.ts": [
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
+        "../../../providers/runtime",
         "../../../types",
         "../../../workspace-resolution",
         "../../accounting/runtime/ai-invocations",
@@ -757,6 +761,7 @@
         "../../../command-resolver",
         "../../../db",
         "../../../plugins/codex-spawn",
+        "../../../project-env",
         "../../../project-repositories",
         "../../../providers",
         "../../../providers/registry",
@@ -1347,6 +1352,7 @@
         "../ports"
       ],
       "domain/daily-budget.ts": [],
+      "domain/agent-env.ts": [],
       "domain/job-accounting.ts": [],
       "domain/scheduling.ts": [],
       "domain/usage.ts": [
@@ -1357,6 +1363,7 @@
         "./application/record-job-invocations",
         "./application/recover-job-usage",
         "./domain/daily-budget",
+        "./domain/agent-env",
         "./domain/job-accounting",
         "./domain/scheduling",
         "./domain/usage",
@@ -1737,6 +1744,7 @@
         "../../../feature-flags",
         "../../../mcp/agent-capability",
         "../../../plugins/codex-spawn",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/live-session",
         "../../../providers/live-session-types",
@@ -1924,6 +1932,7 @@
       "runtime/contract-refine-runner.ts": [
         "../../../db",
         "../../../process-admission",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../transient-children",
@@ -1943,6 +1952,7 @@
       "runtime/proposal-manager.ts": [
         "../../../command-resolver",
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../providers/types",
@@ -1958,6 +1968,7 @@
       ],
       "runtime/smash-runner.ts": [
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../transient-children",
@@ -1990,6 +2001,7 @@
       "runtime/spec-launcher-manager.ts": [
         "../../../command-resolver",
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../types",

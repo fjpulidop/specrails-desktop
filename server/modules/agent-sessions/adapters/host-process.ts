@@ -12,7 +12,9 @@ export interface CoreHostLauncherOptions {
   /** Absolute path of Core's `dist/agent-runtime/cli.js`; defaults to the selected Core runtime. */
   cli?: () => string | null
   node?: () => string
-  env?: NodeJS.ProcessEnv
+  /** Host environment, or a resolver per scope (a project's agent environment
+   *  mode applies to its host). Resolved when the host process starts. */
+  env?: NodeJS.ProcessEnv | ((scope: string) => NodeJS.ProcessEnv)
   host?: { name: string; version: string }
   /** Grace for `host.shutdown` before the process tree is killed. */
   shutdownGraceMs?: number
@@ -37,7 +39,7 @@ export class CoreHostLauncher implements HostProcessLauncher {
   async launch(scope: string): Promise<LaunchedHost> {
     const cli = (this.options.cli ?? findCoreAgentRuntimeCli)()
     if (!cli) throw new SessionRequestError('The selected Core runtime does not include the agent runtime CLI', { code: 'driver_unavailable', retryable: false })
-    const env = windowsSpawnEnv(this.options.env ?? process.env)
+    const env = windowsSpawnEnv((typeof this.options.env === 'function' ? this.options.env(scope) : this.options.env) ?? process.env)
     const args = [cli, 'host', '--stdio', '--scope', scope]
     const command = (this.options.node ?? resolveCoreNodeRuntime)()
     const child = (this.options.spawnProcess ?? ((cmd, argv, opts) => spawn(cmd, argv, { env: opts.env, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })))(command, args, { env })

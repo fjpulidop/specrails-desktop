@@ -1,4 +1,5 @@
 import { ProjectSubagentsSection } from '../components/SubagentsSettingsSection'
+import { ProjectAgentEnvModeSection } from '../components/AgentEnvModeSection'
 import { useEffect, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -120,6 +121,8 @@ export default function SettingsPage() {
       <ProjectIntegrationBranchSection />
 
       <ProjectWorktreeEnvSection />
+
+      <ProjectAgentEnvModeSection />
 
       <ProjectBudgetSection />
 

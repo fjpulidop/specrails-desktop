@@ -18,7 +18,8 @@ import treeKill from 'tree-kill'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
 import { getAdapter, type AdapterEvent, type ProviderAdapter, type SpawnOptions } from '../../../providers'
-import { buildProviderEnv, pureOutputToolPolicy, requireToolPolicy, supportsContractRefine } from '../../../providers/runtime'
+import { projectAgentSourceEnv } from '../../../project-env'
+import { buildProviderEnv, providerEnvAllowlist, pureOutputToolPolicy, requireToolPolicy, supportsContractRefine } from '../../../providers/runtime'
 import {
   buildContractRefineSystemPrompt,
   parseContractLayerBlock,
@@ -491,7 +492,7 @@ export async function runContractRefine(
       binary: adapter.binary,
       argv: invocationArgs,
       cwd,
-      env: buildProviderEnv(adapter, invocationOptions, refineEnv ?? process.env),
+      env: buildProviderEnv(adapter, invocationOptions, projectAgentSourceEnv(deps.db, providerEnvAllowlist(adapter), refineEnv ?? process.env)),
       spawn,
       timeoutMs,
       onSpawn: (child) => trackTransientChild(deps.projectId, child),
@@ -735,7 +736,7 @@ export async function runContractRefineForQuick(
     env: buildProviderEnv(
       adapter,
       built.options,
-      quickExec.relocated ? { ...process.env, ...quickExec.env } : process.env,
+      projectAgentSourceEnv(deps.db, providerEnvAllowlist(adapter), quickExec.relocated ? { ...process.env, ...quickExec.env } : process.env),
     ),
     spawn,
     timeoutMs,

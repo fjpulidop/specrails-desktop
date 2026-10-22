@@ -32,7 +32,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.integration_branch', 'config.worktree_env_passthrough',
       'config.allow_subagents', 'config.subagent_runtime',
       'config.reviewer_family_suggestion_dismissed',
-      'config.review_wip_limit'
+      'config.review_wip_limit',
+      'config.agent_env_mode'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -54,6 +55,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
     reviewerFamilySuggestionDismissed: settings.get('config.reviewer_family_suggestion_dismissed')?.value === 'true',
     reviewWipLimit: readReviewWipLimit(settings.get('config.review_wip_limit')?.value),
+    // Anything other than the explicit opt-in reads as the default.
+    agentEnvMode: settings.get('config.agent_env_mode')?.value === 'minimal' ? 'minimal' : 'inherit',
   }
 }
 
@@ -121,6 +124,10 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
     const limit = parseReviewWipLimit(patch.reviewWipLimit)
     if (limit === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.review_wip_limit'`).run()
     else db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.review_wip_limit', ?)`).run(String(limit))
+  }
+  if (patch.agentEnvMode !== undefined) {
+    if (patch.agentEnvMode === 'minimal') db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.agent_env_mode', 'minimal')`).run()
+    else db.prepare(`DELETE FROM queue_state WHERE key = 'config.agent_env_mode'`).run()
   }
   if (patch.worktreeEnvPassthrough !== undefined) {
     const names = normalizeWorktreeEnvPassthrough(patch.worktreeEnvPassthrough)

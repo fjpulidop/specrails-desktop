@@ -1,6 +1,14 @@
 import type { DbInstance } from './db'
 import { getProjectSettings } from './db'
 import {
+  AGENT_ENV_BASE_ALLOWLIST,
+  AGENT_ENV_SPECRAILS_ALLOWLIST,
+  AGENT_ENV_WINDOWS_ALLOWLIST,
+  buildAgentEnv,
+  minimalAgentEnvNames,
+  type AgentEnvMode,
+} from './modules/execution'
+import {
   readEnvFromLoginShell,
   readEnvFromLoginShellSyncDetailed,
   resolveLoginShellProbeTimeoutMs,
@@ -342,4 +350,99 @@ export function worktreeEnvPassthroughWarning(db: DbInstance, env: NodeJS.Proces
     : 'configure it in the login shell or launch from a terminal'
   if (parts.length === 1) return `[environment] ${parts[0].name} not available (${parts[0].status}); ${hint}`
   return `[environment] ${parts.map(p => `${p.name} (${p.status})`).join(', ')} not available; ${hint.replace(' it ', ' them ')}`
+}
+
+// ─── Agent environment mode (inherit | minimal) ──────────────────────────────
+// The single base-environment builder for every project agent spawn path.
+// Callers add their Specrails overlays (telemetry, profile, relocation,
+// provider overrides) on top of the result.
+
+/** The project's agent environment mode; a closed connection reads as inherit. */
+export function projectAgentEnvMode(db: DbInstance): AgentEnvMode {
+  try {
+    return getProjectSettings(db).agentEnvMode
+  } catch {
+    return 'inherit'
+  }
+}
+
+export interface ProjectAgentEnvOptions {
+  /** Auth/config name patterns of the provider(s) this spawn may run
+   *  (`providerEnvAllowlist(adapter)`). Used only in minimal mode. */
+  providerAllowlist?: readonly string[]
+  /** This spawn path's environment today, returned unchanged in inherit mode.
+   *  Defaults to the process environment plus the passthrough overlay. */
+  inherit?: () => NodeJS.ProcessEnv
+  /** Environment the minimal filter reads from (default process.env). A caller
+   *  whose base already carries Specrails' SPECRAILS_* overlay passes it here;
+   *  those names are allowlisted, so the overlay survives the filter. */
+  sourceEnv?: NodeJS.ProcessEnv
+}
+
+/** Base environment for one agent process of this project. Inherit mode is
+ *  byte-identical to the caller's previous construction; minimal mode keeps
+ *  only the allowlist, Specrails' own names, the provider's names and the
+ *  project's passthrough values (with login-shell recovery). */
+export function resolveProjectAgentEnv(db: DbInstance, options: ProjectAgentEnvOptions = {}): NodeJS.ProcessEnv {
+  if (projectAgentEnvMode(db) !== 'minimal') {
+    return options.inherit ? options.inherit() : applyWorktreeEnvPassthrough(db, process.env)
+  }
+  return buildAgentEnv({
+    mode: 'minimal',
+    sourceEnv: options.sourceEnv ?? process.env,
+    passthrough: resolveWorktreeEnvPassthrough(db, process.env),
+    providerAllowlist: options.providerAllowlist,
+  })
+}
+
+/** For spawn paths that never applied the passthrough overlay in `inherit`
+ *  mode: `sourceEnv` unchanged (also with no project), the minimal environment
+ *  read from it when the project opted in. */
+export function projectAgentSourceEnv(
+  db: DbInstance | null | undefined,
+  providerAllowlist?: readonly string[],
+  sourceEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  return db ? resolveProjectAgentEnv(db, { providerAllowlist, sourceEnv, inherit: () => sourceEnv }) : sourceEnv
+}
+
+export interface AgentEnvProviderInput {
+  id: string
+  displayName: string
+  allowlist: readonly string[]
+}
+
+/** Value-free report of the minimal agent environment for this project. */
+export interface AgentEnvStatusReport {
+  mode: AgentEnvMode
+  /** Allowlist patterns shared by every agent process. */
+  patterns: { base: string[]; windows: string[]; specrails: string[] }
+  /** Names of the Desktop environment that pass the shared allowlist. */
+  names: string[]
+  /** Configured passthrough names (their resolution lives in env-passthrough/status). */
+  passthrough: string[]
+  /** Per provider: its declared patterns and the extra names they admit. */
+  providers: Array<{ id: string; displayName: string; patterns: string[]; names: string[] }>
+}
+
+export function getProjectAgentEnvStatus(db: DbInstance, providers: readonly AgentEnvProviderInput[]): AgentEnvStatusReport {
+  const shared = minimalAgentEnvNames({ sourceEnv: process.env, passthrough: {} })
+  const sharedSet = new Set(shared)
+  return {
+    mode: projectAgentEnvMode(db),
+    patterns: {
+      base: [...AGENT_ENV_BASE_ALLOWLIST],
+      windows: [...AGENT_ENV_WINDOWS_ALLOWLIST],
+      specrails: [...AGENT_ENV_SPECRAILS_ALLOWLIST],
+    },
+    names: shared,
+    passthrough: configuredNames(db),
+    providers: providers.map(provider => ({
+      id: provider.id,
+      displayName: provider.displayName,
+      patterns: [...provider.allowlist],
+      names: minimalAgentEnvNames({ sourceEnv: process.env, passthrough: {}, providerAllowlist: provider.allowlist })
+        .filter(name => !sharedSet.has(name)),
+    })),
+  }
 }

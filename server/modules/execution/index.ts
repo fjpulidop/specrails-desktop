@@ -7,3 +7,14 @@ export { sanitizeRecoveredResult, type JobUsage } from './domain/usage'
 export type { UsageRecoveryPorts, DurableUsageRow, NormalizedRecoveryUsage } from './ports'
 export { enforceDailyBudgets, evaluateDailyBudgets, type BudgetSnapshot, type BudgetEnforcementPorts, type BudgetEvaluationPorts } from './application/enforce-budget'
 export { dailyBudgetRejection, dailyBudgetResetsAt, isDailyBudgetExceeded, localDayStartIso, type DailyBudgetBreach, type DailyBudgetRejection, type DailyBudgetScope } from './domain/daily-budget'
+export {
+  AGENT_ENV_BASE_ALLOWLIST,
+  AGENT_ENV_SPECRAILS_ALLOWLIST,
+  AGENT_ENV_WINDOWS_ALLOWLIST,
+  agentEnvAllowlist,
+  buildAgentEnv,
+  matchesEnvPattern,
+  minimalAgentEnvNames,
+  type AgentEnvInput,
+  type AgentEnvMode,
+} from './domain/agent-env'

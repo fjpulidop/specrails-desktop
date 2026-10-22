@@ -336,6 +336,33 @@
     "statusUnavailable": "Could not read the environment status.",
     "unresolvedTitle": "Runs start without these variables:"
   },
+  "agentEnv": {
+    "title": "Agent environment",
+    "description": "Choose which environment variables this project's agents receive: rail jobs, loops, missions, chats and spec helpers.",
+    "modes": {
+      "inherit": {
+        "label": "Inherit (default)",
+        "description": "Agents receive the full environment Specrails started with, plus the names above. Same behavior as before."
+      },
+      "minimal": {
+        "label": "Minimal",
+        "description": "Agents receive only an allowlist (PATH, HOME, locale, temp, terminal, proxy and certificates), Specrails' own variables, the selected provider's sign-in variables and the names above. Everything else, such as cloud or database credentials, is withheld."
+      }
+    },
+    "saved": {
+      "inherit": "Agents inherit the full environment",
+      "minimal": "Agents now receive the minimal environment"
+    },
+    "saveFailed": "Could not save the agent environment",
+    "namesTitle": "Variables passed in minimal mode",
+    "shared": "Every agent",
+    "passthrough": "Project names (above)",
+    "noPassthrough": "No project names configured.",
+    "provider": "Plus for {{provider}}",
+    "noProviderNames": "None set now (accepts {{patterns}}).",
+    "namesHelp": "Only names are shown; values are never displayed. Changes apply to agents started afterwards; open mission sessions keep their environment until they restart. If a tool needs another variable, add its name above.",
+    "statusUnavailable": "Could not read the list of variables."
+  },
   "effects": {
     "heading": "Effects",
     "description": "Visual flourishes across the app. Each one can be switched off here.",

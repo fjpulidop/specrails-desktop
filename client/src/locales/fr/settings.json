@@ -336,6 +336,33 @@
     "statusUnavailable": "Impossible de lire l'état de l'environnement.",
     "unresolvedTitle": "Les exécutions démarrent sans ces variables :"
   },
+  "agentEnv": {
+    "title": "Environnement des agents",
+    "description": "Choisissez les variables d'environnement reçues par les agents de ce projet : jobs de rail, loops, missions, chats et assistants de specs.",
+    "modes": {
+      "inherit": {
+        "label": "Hériter (par défaut)",
+        "description": "Les agents reçoivent tout l'environnement avec lequel Specrails a démarré, plus les noms ci-dessus. Comportement inchangé."
+      },
+      "minimal": {
+        "label": "Minimal",
+        "description": "Les agents ne reçoivent qu'une liste autorisée (PATH, HOME, langue, temporaires, terminal, proxy et certificats), les variables propres à Specrails, les variables de connexion du fournisseur choisi et les noms ci-dessus. Le reste, comme les identifiants cloud ou de base de données, est retenu."
+      }
+    },
+    "saved": {
+      "inherit": "Les agents héritent de tout l'environnement",
+      "minimal": "Les agents reçoivent désormais l'environnement minimal"
+    },
+    "saveFailed": "Impossible d'enregistrer l'environnement des agents",
+    "namesTitle": "Variables transmises en mode minimal",
+    "shared": "Tous les agents",
+    "passthrough": "Noms du projet (ci-dessus)",
+    "noPassthrough": "Aucun nom de projet configuré.",
+    "provider": "En plus pour {{provider}}",
+    "noProviderNames": "Aucune définie pour l'instant (accepte {{patterns}}).",
+    "namesHelp": "Seuls les noms sont affichés, jamais les valeurs. Les changements s'appliquent aux agents lancés ensuite ; les sessions de mission ouvertes conservent leur environnement jusqu'à leur redémarrage. Si un outil a besoin d'une autre variable, ajoutez son nom ci-dessus.",
+    "statusUnavailable": "Impossible de lire la liste des variables."
+  },
   "effects": {
     "heading": "Effets",
     "description": "Touches visuelles de l'app. Chacune peut être désactivée ici.",

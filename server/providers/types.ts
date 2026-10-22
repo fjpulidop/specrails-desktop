@@ -248,6 +248,15 @@ export interface ProviderAdapter {
   buildEnv?(opts: SpawnOptions): Readonly<Record<string, string | undefined>>
 
   /**
+   * Authentication and configuration variable names this provider's CLI reads
+   * from its environment. A project in `minimal` agent environment mode
+   * forwards only these (plus the shared allowlist and the project's
+   * passthrough names) to the agent. A trailing `*` matches a name prefix.
+   * Omitted means the provider needs nothing beyond the shared allowlist.
+   */
+  readonly envAllowlist?: readonly string[]
+
+  /**
    * Translate a Core workflow invocation into provider-native syntax/prompt.
    * `cwd` is the provider artifact root; adapters that materialize a headless
    * skill locally (Kimi) require it and fail closed when it is absent.

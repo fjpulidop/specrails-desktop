@@ -15,7 +15,9 @@ import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeContro
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { resolveLoopBaseEnv, resolveProjectExecution } from '../../../workspace-resolution'
-import { applyWorktreeEnvPassthrough } from '../../../project-env'
+import { resolveProjectAgentEnv } from '../../../project-env'
+import { listAdapters } from '../../../providers/registry'
+import { providerEnvAllowlist } from '../../../providers/runtime'
 import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor, readDefinitionForkTarget, readDefinitionExecutionClaim } from '../../loops/runtime/loop-runs-store'
 import { readExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { appendEvent } from '../../../db'
@@ -309,7 +311,8 @@ export class AgentRuntimeControls {
     if (!fs.existsSync(hostFile)) throw new RuntimeControlError(409, 'runtime_host_unavailable', 'The original runtime host settings are missing. Start a new implementation.')
     const host = JSON.parse(fs.readFileSync(hostFile, 'utf8')) as { schemaVersion?: number; cwd?: string; env?: Record<string, string> }
     if (host.schemaVersion !== 1 || typeof host.cwd !== 'string' || ![frozen.backlogRoot, ...frozen.repositories.map((repository) => repository.path)].includes(host.cwd) || !host.env || typeof host.env !== 'object' || Array.isArray(host.env) || Object.entries(host.env).some(([key, value]) => !(RUNTIME_HOST_ENV_KEYS as readonly string[]).includes(key) || typeof value !== 'string')) throw new RuntimeControlError(409, 'runtime_host_invalid', 'The saved runtime host settings are invalid')
-    const env = { ...resolveLoopBaseEnv(this.ctx.project, undefined, applyWorktreeEnvPassthrough(this.ctx.db, process.env)) }
+    // Core may resume any role provider: minimal mode passes every adapter's names.
+    const env = { ...resolveLoopBaseEnv(this.ctx.project, undefined, resolveProjectAgentEnv(this.ctx.db, { providerAllowlist: providerEnvAllowlist(listAdapters()) })) }
     for (const key of RUNTIME_HOST_ENV_KEYS) delete env[key]
     Object.assign(env, host.env, { SPECRAILS_EXECUTION_CONTEXT: file })
     return { file, frozen, cwd: host.cwd, env }

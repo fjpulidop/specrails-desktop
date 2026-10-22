@@ -13,7 +13,8 @@ import {
   isModelAvailableForAdapter,
   reasoningEffortsForModel,
 } from '../../../providers'
-import { buildProviderEnv, parseStreamEvents, pureOutputToolPolicy } from '../../../providers/runtime'
+import { buildProviderEnv, parseStreamEvents, providerEnvAllowlist, pureOutputToolPolicy } from '../../../providers/runtime'
+import { projectAgentSourceEnv } from '../../../project-env'
 import { isLocalAdapterId } from '../../../providers/registry'
 import type { ReasoningEffort, AdapterEvent, NormalisedResult, ProviderAdapter } from '../../../providers/types'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
@@ -312,6 +313,14 @@ export class AgentChatManager {
   }
 
   /** Plugin MCP servers for a project-pinned mission (empty for providers without plugin MCP entries). */
+  /** Base environment of a mission agent: the pinned project's agent
+   *  environment mode when that project is loaded, otherwise the Desktop
+   *  environment (unchanged in `inherit` mode). */
+  private _agentBaseEnv(projectId: string | null, adapter: ProviderAdapter): NodeJS.ProcessEnv {
+    const db = projectId ? this._registry?.getContext(projectId)?.db : undefined
+    return projectAgentSourceEnv(db, providerEnvAllowlist(adapter))
+  }
+
   private _pluginMcpServers(providerId: string, projectId: string | null): AgentMcpServerSpec[] {
     const project = projectId ? this._registry?.getProjectRow?.(projectId) : null
     if (!project) return []
@@ -890,7 +899,7 @@ export class AgentChatManager {
           adapter,
           action,
           cwd,
-          env: buildProviderEnv(adapter, buildOpts, { ...process.env, ...mcpEnv }),
+          env: buildProviderEnv(adapter, buildOpts, { ...this._agentBaseEnv(conversation.pinned_project_id, adapter), ...mcpEnv }),
           spawn: this._spawnOwned.bind(this),
           buildOpts,
           inactivityTimeoutMs: Number.parseInt(process.env.SPECRAILS_AGENT_INACTIVITY_MS ?? '', 10) || 5 * 60_000,

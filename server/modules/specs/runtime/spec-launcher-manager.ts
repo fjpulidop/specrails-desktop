@@ -14,7 +14,9 @@ import {
   buildProviderRepoAccessArgs,
   formatProviderCommand,
   parseStreamEvents,
+  providerEnvAllowlist,
 } from '../../../providers/runtime'
+import { projectAgentSourceEnv } from '../../../project-env'
 import { expandCommands } from '../../loops/runtime/loop-command-catalog'
 import { resolveProjectExecution, type ProjectExecution } from '../../../workspace-resolution'
 
@@ -193,10 +195,10 @@ export class SpecLauncherManager {
     const args = this._adapter.buildArgs('spec-gen', spawnOptions)
 
     const child = spawnAiCli(this._adapter.binary, args, {
-      env: buildProviderEnv(this._adapter, spawnOptions, {
+      env: buildProviderEnv(this._adapter, spawnOptions, projectAgentSourceEnv(this._db, providerEnvAllowlist(this._adapter), {
         ...process.env,
         ...execution.env,
-      }),
+      })),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: execution.cwd,
     })

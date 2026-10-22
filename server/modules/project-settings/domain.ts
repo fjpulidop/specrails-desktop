@@ -45,6 +45,10 @@ export interface ProjectSettings {
   /** Review WIP limit: how many deliveries may wait for review at once
    *  (building, on review, or an open app PR). null = no limit (default). */
   reviewWipLimit: number | null
+  /** Environment given to this project's agent processes. `inherit` (default)
+   *  forwards the Desktop environment as before; `minimal` forwards only an
+   *  allowlist, the passthrough names and the provider's own auth/config names. */
+  agentEnvMode: AgentEnvMode
 }
 
 /** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
@@ -57,6 +61,13 @@ export function parseReviewWipLimit(value: unknown): number | null {
     throw new SettingsValidationError(`reviewWipLimit must be an integer from 1 to ${REVIEW_WIP_LIMIT_MAX}, or null for no limit`)
   }
   return value
+}
+
+export type AgentEnvMode = 'inherit' | 'minimal'
+
+export function parseAgentEnvMode(value: unknown): AgentEnvMode {
+  if (value === 'inherit' || value === 'minimal') return value
+  throw new SettingsValidationError("agentEnvMode must be 'inherit' or 'minimal'")
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -140,6 +151,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
     }
   }
   if (values.reviewWipLimit !== undefined) patch.reviewWipLimit = parseReviewWipLimit(values.reviewWipLimit)
+  if (values.agentEnvMode !== undefined) patch.agentEnvMode = parseAgentEnvMode(values.agentEnvMode)
   if (values.subagentRuntime !== undefined) patch.subagentRuntime = parseSubagentRuntimeSetting(values.subagentRuntime)
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')

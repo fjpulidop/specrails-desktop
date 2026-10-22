@@ -352,6 +352,8 @@ export const codexAdapter = {
   id: 'codex',
   displayName: 'Codex CLI',
   binary: 'codex',
+  // Config/auth home and API-key auth.
+  envAllowlist: ['CODEX_*', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_ORGANIZATION', 'OPENAI_PROJECT'],
   minCliVersion: CODEX_MIN_VERSION,
   projectDirName: '.codex',
   instructionsFilename: 'AGENTS.md',

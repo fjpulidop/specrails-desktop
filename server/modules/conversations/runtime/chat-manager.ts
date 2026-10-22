@@ -28,9 +28,11 @@ import {
   buildProviderEnv,
   formatProviderCommand,
   parseStreamEvents,
+  providerEnvAllowlist,
   pureOutputToolPolicy,
   supportsToolPolicy,
 } from '../../../providers/runtime'
+import { projectAgentSourceEnv } from '../../../project-env'
 import {
   buildScopedSystemPromptPrefix, toolFlagsForScope, normalizeContextScope,
   defaultBootScope, type ContextScope,
@@ -1063,7 +1065,9 @@ export class ChatManager {
     // mcp=false keeps its explore-cwd path (no relocation env — it reaches the
     // repo via the explore-cwd `./project` link). Legacy ⇒ process.env
     // (byte-identical).
-    let spawnEnv: NodeJS.ProcessEnv = process.env
+    // Agent environment mode: `inherit` keeps the Desktop environment
+    // untouched; `minimal` keeps only the allowlist + passthrough names.
+    let spawnEnv: NodeJS.ProcessEnv = projectAgentSourceEnv(this._db, providerEnvAllowlist(adapter))
     const exploreMcp =
       conversation.kind === 'explore' &&
       !!conversationScope?.mcp &&
@@ -1071,7 +1075,7 @@ export class ChatManager {
     if (conversation.kind !== 'explore' || exploreMcp) {
       const exec = this._resolveNonExploreExecution()
       if (exec?.relocated) {
-        spawnEnv = { ...process.env, ...exec.env }
+        spawnEnv = { ...spawnEnv, ...exec.env }
         if (adapter.id === 'gemini') spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
       }
     }

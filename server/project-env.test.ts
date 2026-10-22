@@ -11,6 +11,10 @@ import {
   startProjectEnvWarmup,
   stopProjectEnvWarmup,
   worktreeEnvPassthroughWarning,
+  resolveProjectAgentEnv,
+  projectAgentSourceEnv,
+  projectAgentEnvMode,
+  getProjectAgentEnvStatus,
   PROJECT_ENV_FAILURE_TTL_MS,
   PROJECT_ENV_SUCCESS_TTL_MS,
 } from './project-env'
@@ -318,5 +322,61 @@ describe('project-env status and run-log warning are value-free', () => {
     const db = project(['NODE_AUTH_TOKEN'])
     expect(worktreeEnvPassthroughWarning(db, { NODE_AUTH_TOKEN: SECRET })).toBeNull()
     expect(worktreeEnvPassthroughWarning(project(), {})).toBeNull()
+  })
+})
+
+describe('project agent environment mode', () => {
+  it('defaults to inherit: identical to the previous passthrough construction', () => {
+    vi.stubEnv('NODE_AUTH_TOKEN', 'npm-fixture')
+    vi.stubEnv('SR_UNRELATED_SECRET', 'fixture')
+    const db = project(['NODE_AUTH_TOKEN'])
+    expect(projectAgentEnvMode(db)).toBe('inherit')
+    expect(resolveProjectAgentEnv(db)).toEqual(applyWorktreeEnvPassthrough(db, process.env))
+    // Paths that never used the overlay keep the very same object.
+    expect(projectAgentSourceEnv(db, ['ANTHROPIC_*'])).toBe(process.env)
+    const relocated = { ...process.env, SPECRAILS_REPO_DIR: '/repo' }
+    expect(projectAgentSourceEnv(db, [], relocated)).toBe(relocated)
+    expect(projectAgentSourceEnv(null)).toBe(process.env)
+  })
+
+  it('minimal keeps the allowlist, provider names, Specrails overlay and passthrough values only', () => {
+    vi.stubEnv('NODE_AUTH_TOKEN', 'npm-fixture')
+    vi.stubEnv('SR_UNRELATED_SECRET', 'fixture')
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-fixture')
+    vi.stubEnv('OPENAI_API_KEY', 'sk-openai-fixture')
+    const db = project(['NODE_AUTH_TOKEN'])
+    updateProjectSettings(db, { agentEnvMode: 'minimal' })
+    const env = resolveProjectAgentEnv(db, { providerAllowlist: ['ANTHROPIC_*'] })
+    expect(env.NODE_AUTH_TOKEN).toBe('npm-fixture')
+    expect(env.ANTHROPIC_API_KEY).toBe('sk-ant-fixture')
+    expect(env.PATH).toBe(process.env.PATH)
+    expect(env).not.toHaveProperty('SR_UNRELATED_SECRET')
+    expect(env).not.toHaveProperty('OPENAI_API_KEY')
+    const overlaid = projectAgentSourceEnv(db, [], { ...process.env, SPECRAILS_REPO_DIR: '/repo' })
+    expect(overlaid.SPECRAILS_REPO_DIR).toBe('/repo')
+    expect(overlaid).not.toHaveProperty('ANTHROPIC_API_KEY')
+    expect(overlaid).not.toHaveProperty('SR_UNRELATED_SECRET')
+  })
+
+  it('a closed project connection reads as inherit', () => {
+    const db = initDb(':memory:')
+    db.close()
+    expect(projectAgentEnvMode(db)).toBe('inherit')
+  })
+
+  it('status lists variable names per provider and never values', () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-fixture')
+    vi.stubEnv('SR_UNRELATED_SECRET', 'fixture')
+    const db = project(['NODE_AUTH_TOKEN'])
+    updateProjectSettings(db, { agentEnvMode: 'minimal' })
+    const report = getProjectAgentEnvStatus(db, [{ id: 'claude', displayName: 'Claude', allowlist: ['ANTHROPIC_*'] }])
+    expect(report.mode).toBe('minimal')
+    expect(report.passthrough).toEqual(['NODE_AUTH_TOKEN'])
+    expect(report.names).toContain('PATH')
+    expect(report.names).not.toContain('SR_UNRELATED_SECRET')
+    expect(report.providers[0]).toMatchObject({ id: 'claude', patterns: ['ANTHROPIC_*'] })
+    expect(report.providers[0].names).toContain('ANTHROPIC_API_KEY')
+    expect(report.providers[0].names).not.toContain('PATH')
+    expect(JSON.stringify(report)).not.toContain('fixture')
   })
 })

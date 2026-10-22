@@ -336,6 +336,33 @@
     "statusUnavailable": "Não foi possível ler o estado do ambiente.",
     "unresolvedTitle": "As execuções começam sem estas variáveis:"
   },
+  "agentEnv": {
+    "title": "Ambiente dos agentes",
+    "description": "Escolha quais variáveis de ambiente os agentes deste projeto recebem: jobs de rail, loops, missões, chats e assistentes de specs.",
+    "modes": {
+      "inherit": {
+        "label": "Herdar (padrão)",
+        "description": "Os agentes recebem todo o ambiente com que o Specrails iniciou, mais os nomes acima. Mesmo comportamento de antes."
+      },
+      "minimal": {
+        "label": "Mínimo",
+        "description": "Os agentes recebem só uma lista permitida (PATH, HOME, idioma, temporários, terminal, proxy e certificados), as variáveis do próprio Specrails, as de login do provedor escolhido e os nomes acima. O resto, como credenciais de nuvem ou de banco de dados, é retido."
+      }
+    },
+    "saved": {
+      "inherit": "Os agentes herdam todo o ambiente",
+      "minimal": "Os agentes agora recebem o ambiente mínimo"
+    },
+    "saveFailed": "Não foi possível salvar o ambiente dos agentes",
+    "namesTitle": "Variáveis passadas no modo mínimo",
+    "shared": "Todos os agentes",
+    "passthrough": "Nomes do projeto (acima)",
+    "noPassthrough": "Nenhum nome de projeto configurado.",
+    "provider": "Além disso, para {{provider}}",
+    "noProviderNames": "Nenhuma definida agora (aceita {{patterns}}).",
+    "namesHelp": "Só os nomes são mostrados; os valores nunca aparecem. As mudanças valem para agentes iniciados depois; sessões de missão abertas mantêm o ambiente até reiniciar. Se uma ferramenta precisar de outra variável, adicione o nome dela acima.",
+    "statusUnavailable": "Não foi possível ler a lista de variáveis."
+  },
   "effects": {
     "heading": "Efeitos",
     "description": "Detalhes visuais da app. Cada um pode ser desativado aqui.",
