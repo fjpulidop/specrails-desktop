@@ -795,6 +795,22 @@ function applyDesktopMigrations(db: DbInstance): void {
         CREATE INDEX IF NOT EXISTS idx_agent_subagents_session ON agent_subagents(conversation_id, core_session_id);
       `)
     },
+    // 36: mission-core-session-generations — a Core session is bound to the
+    // driver that opened it, so a provider switch (or a closed session) moves
+    // the mission to a new session. Generation 0 keeps the historical id (the
+    // conversation id); generation n uses `<conversationId>:g<n>`. `provider`
+    // records the driver the current generation was opened with (null =
+    // unknown for pre-existing sessions; the turn verifies it against Core).
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_core_sessions (
+          conversation_id TEXT PRIMARY KEY REFERENCES agent_conversations(id) ON DELETE CASCADE,
+          generation INTEGER NOT NULL DEFAULT 0 CHECK (generation >= 0),
+          provider TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

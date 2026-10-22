@@ -123,9 +123,9 @@ interface QueuedTurn {
 /** A projection rebuild was requested while a turn is running. */
 export class SessionRebuildBusyError extends Error {}
 
-/** Core refused the turn because the Flow session is closed (or unknown after a restart). */
+/** Core refused the turn because the session is closed (or unknown after a restart), or another driver opened it. */
 export function isClosedFlowSessionError(error: string | null | undefined, code?: string | null): boolean {
-  if (code === 'session_closed' || code === 'session_not_found') return true
+  if (code === 'session_closed' || code === 'session_not_found' || code === 'session_driver_mismatch') return true
   return !!error && /\bsession\b[^\n]{0,200}\bis closed\b|session_closed/i.test(error)
 }
 
@@ -757,6 +757,7 @@ export class AgentChatManager {
         errorCode?: string
       }
 
+      let missionCoreTurn = false
       const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
         // A stale-session retry is another process: its capability and bearer
         // file must be new so late calls from the old bridge stay revoked.
@@ -771,6 +772,7 @@ export class AgentChatManager {
         const coreContext = this._coreSessions
           ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id), flow: flowTurn })
           : null
+        if (coreContext && !flowTurn) missionCoreTurn = true
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
             adapterId: adapter.id, conversationId, invocationId, cwd,
@@ -803,7 +805,8 @@ export class AgentChatManager {
         )
 
         const buildOpts = {
-          prompt: effectivePrompt(useResume),
+          // A new mission session generation is seeded with the conversation history.
+          prompt: effectivePrompt(useResume && !coreContext?.freshSession),
           systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
           model,
           sessionId: useResume && !flowTurn ? conversation.session_id ?? undefined : undefined,
@@ -1222,6 +1225,31 @@ export class AgentChatManager {
             record(r, 'aborted')
             return
           }
+        }
+      }
+
+      // The mission's Core session is closed or was opened by another provider
+      // (e.g. a switch before this process knew the session's driver): continue
+      // in a new generation, seeded with the history, once. Nothing ran.
+      if (
+        !flowTurn && missionCoreTurn && this._coreSessions &&
+        !r.spawnFailed && !r.fullText && !r.checkpointed &&
+        !r.events.some((event) => event.kind === 'tool-use' || event.kind === 'tool-result') &&
+        isClosedFlowSessionError(r.error, r.errorCode)
+      ) {
+        const renewed = await this._coreSessions.renewMissionSession(conversation, adapter.id, r.errorCode === 'session_driver_mismatch' ? 'driver_mismatch' : 'session_closed')
+        console.log(`[agent-chat] mission Core session unusable (${r.errorCode ?? r.error}) — retrying in ${renewed} conv=${conversationId}`)
+        persistSession(null)
+        r = await invoke(false)
+        if (this._disposed || r.disposed) return
+        if (!getAgentConversation(this._db, conversationId)) {
+          record(r, 'aborted')
+          return
+        }
+        if (this._abortedTurns.delete(conversationId)) {
+          settleAborted(r)
+          record(r, 'aborted')
+          return
         }
       }
 

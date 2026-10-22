@@ -25,6 +25,9 @@ export interface MissionSessionProjection {
   coreSessionId?: string
   /** Accounting surface of its invocations: the Flow session bills `flow`. */
   surface?: 'agent-chat' | 'flow'
+  /** A later generation of the mission's OWN session (`<id>:g<n>`): broadcasts
+   *  stay untagged and its process end releases the mission capability. */
+  mission?: boolean
 }
 
 interface BackgroundTurn {
@@ -46,11 +49,13 @@ export class MissionSessionProjector implements ProjectionSink {
   private readonly surface: 'agent-chat' | 'flow'
   /** Extra fields on every broadcast of a non-mission session (the client tells them apart). */
   private readonly tag: Record<string, unknown>
+  private readonly missionSession: boolean
 
   constructor(private readonly conversationId: string, private readonly deps: MissionSessionProjectorDeps, projection: MissionSessionProjection = {}) {
     this.coreSessionId = projection.coreSessionId ?? conversationId
     this.surface = projection.surface ?? 'agent-chat'
-    this.tag = this.coreSessionId === conversationId ? {} : { coreSessionId: this.coreSessionId }
+    this.missionSession = this.coreSessionId === conversationId || projection.mission === true
+    this.tag = this.missionSession ? {} : { coreSessionId: this.coreSessionId }
   }
 
   cursor(_sessionId: string): number {
@@ -150,7 +155,7 @@ export class MissionSessionProjector implements ProjectionSink {
     for (const message of outbox) this.deps.broadcast(message)
     if (audited.length > 0) this.recordAudit(audited)
     // The mission's capability belongs to its own resident process only.
-    if (processEnded && this.coreSessionId === conversationId) this.deps.onProcessEnded?.(conversationId)
+    if (processEnded && this.missionSession) this.deps.onProcessEnded?.(conversationId)
   }
 
   /** After commit: the audit observes; it never joins the projection transaction. */

@@ -197,3 +197,42 @@ export function pageSubagentEvents(db: DbInstance, conversationId: string, subag
     hasMore: rows.length > limit,
   }
 }
+
+// ── Mission Core session generations ─────────────────────────────────────────
+// A Core session is bound to the driver that opened it. A mission that changes
+// provider (or whose session Core closed) continues in a NEW session: gen 0
+// keeps the historical id (the conversation id, compatible with existing
+// journals), gen n is `<conversationId>:g<n>`.
+
+export interface MissionCoreSessionRow {
+  generation: number
+  /** Driver the current generation was opened with; null = unknown (pre-generation sessions). */
+  provider: string | null
+}
+
+export function missionCoreSessionId(conversationId: string, generation: number): string {
+  return generation > 0 ? `${conversationId}:g${generation}` : conversationId
+}
+
+/** True for any generation of the mission's own session (never a Flow's). */
+export function isMissionCoreSessionId(conversationId: string, sessionId: string): boolean {
+  return sessionId === conversationId || new RegExp(`^${conversationId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:g\\d+$`).test(sessionId)
+}
+
+export function getMissionCoreSession(db: DbInstance, conversationId: string): MissionCoreSessionRow {
+  const row = db.prepare('SELECT generation, provider FROM agent_core_sessions WHERE conversation_id = ?').get(conversationId) as { generation: number; provider: string | null } | undefined
+  return row ? { generation: row.generation, provider: row.provider } : { generation: 0, provider: null }
+}
+
+/** Record the driver of the current generation (first turn of a session). */
+export function setMissionCoreSessionProvider(db: DbInstance, conversationId: string, provider: string): void {
+  db.prepare(`INSERT INTO agent_core_sessions (conversation_id, generation, provider) VALUES (?, 0, ?)
+    ON CONFLICT(conversation_id) DO UPDATE SET provider = excluded.provider, updated_at = datetime('now')`).run(conversationId, provider)
+}
+
+/** Move the mission to its next session generation, opened with `provider`. Returns the new row. */
+export function renewMissionCoreSession(db: DbInstance, conversationId: string, provider: string): MissionCoreSessionRow {
+  db.prepare(`INSERT INTO agent_core_sessions (conversation_id, generation, provider) VALUES (?, 1, ?)
+    ON CONFLICT(conversation_id) DO UPDATE SET generation = generation + 1, provider = excluded.provider, updated_at = datetime('now')`).run(conversationId, provider)
+  return getMissionCoreSession(db, conversationId)
+}
