@@ -286,6 +286,28 @@ and no shared prompt cache. The UI asks for confirmation before leaving the
 default. The setting is read-only over the Specrails MCP. See
 [agent sessions](agent-sessions.md#sub-agent-runtime-who-launches-them).
 
+### Spec triage and role engines
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_SPEC_TRIAGE` | Default on. A created or edited `draft`/`todo` spec is triaged automatically (debounced, asynchronous). Set to `false` to stop the automatic triggers; **Recalculate** (`POST /tickets/:id/triage`) keeps working. See [spec triage](spec-triage.md). |
+
+Desktop-owned role engines live in `<workspace>/.specrails/loop-role-engines.json`
+(`GET/PUT /:projectId/agent-runtime/loop-roles`), next to Core's
+`agent-runtime.json`. Each role is `{ provider, model?, effort? }`; an absent
+role falls back as described:
+
+| Role | Used by | Default when absent |
+|------|---------|---------------------|
+| `verifier` | Loop ai-steps under a `roles` rail launch | The rail's primary engine |
+| `decider` | The Loop Decider under a `roles` rail launch | The rail's primary engine |
+| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
+
+A role whose provider is no longer detected falls back to its default. A stale
+model falls back to the provider's default model. The triage role must name a
+provider that can enforce a pure-output tool policy, otherwise the triage is
+recorded as unavailable.
+
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 
 ---
