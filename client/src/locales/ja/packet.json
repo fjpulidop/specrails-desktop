@@ -168,6 +168,44 @@
     },
     "noReport": "実行はこの補足について報告しませんでした。以下の変更と証拠を確認してください。"
   },
+  "brief": {
+    "title": "確認すべき点",
+    "caveat": "AI レビュアーによる参考情報です。人が最初に確認すべき箇所を示します。検証結果ではなく、判断をブロックすることもありません。",
+    "severity": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "area": {
+      "data": "データ",
+      "security": "セキュリティ",
+      "api": "API",
+      "ux": "UX",
+      "performance": "パフォーマンス",
+      "ops": "運用",
+      "other": "その他"
+    },
+    "sections": {
+      "risks": "リスク",
+      "behaviourChanges": "動作の変更",
+      "invariantsTouched": "影響を受ける不変条件",
+      "untested": "テストされていないパス",
+      "humanChecks": "人による確認",
+      "divergences": "仕様との相違"
+    },
+    "userVisible": "ユーザーに見える",
+    "invariantStatus": {
+      "kept": "維持",
+      "changed": "変更",
+      "at-risk": "リスクあり"
+    },
+    "diagnostic": "レビュアーの概要の一部を使用できませんでした:",
+    "dropped_one": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
+    "dropped_other": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
+    "topRisk": "最大のリスク",
+    "moreRisks_one": "他 {{count}} 件",
+    "moreRisks_other": "他 {{count}} 件"
+  },
   "agentActions": {
     "total_one": "{{count}} 件のアクション",
     "total_other": "{{count}} 件のアクション",

@@ -641,3 +641,74 @@ it('heals missing definition evidence through retained status and never falls ba
   const withFileConfidence = { ...base, units: [{ ...base.units[0], confidence: { changeName: 'change', overall: 91, aspects: {}, flags: [], raw: {} } }] }
   expect(healRuntimeEvidence(withFileConfidence, '/legacy', { readFile }, new Map([['run-1', definitionProbe([scopedReview])]]))?.units[0].confidence?.overall).toBe(91)
 })
+
+describe('reviewer risk brief harvest (Core reviewBrief: 1)', () => {
+  const dir = '/ws/.specrails/pipeline/run-9'
+  const briefPath = `${dir}/review-brief.json`
+  const brief = {
+    risks: [{ severity: 'medium', area: 'api', whatToLookAt: 'Renamed field', ref: 'a.ts:2' }, { severity: 'high', area: 'data', whatToLookAt: 'Drops a default', ref: 'm.ts:9' }],
+    humanChecks: ['Check the copy'],
+  }
+  const record = { schemaVersion: 1, change: 'c', approved: true, score: 90, recordedAt: '2026-10-21T10:00:00.000Z', brief }
+  const io = (files: Record<string, string>, over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
+    readEvents: () => [], listDir: () => [], fileExists: (p) => p in files, readFile: (p) => files[p],
+    now: () => new Date('2026-10-21T00:00:00.000Z'), reviewBrief: true, ...over,
+  })
+  const unit = { ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }
+
+  it('harvests the pipeline record with risks ordered high first', () => {
+    const out = harvestDeliveryEvidence(io({ [briefPath]: JSON.stringify(record) }), [unit])
+    expect(out.harvest).toBe('ok')
+    expect(out.units[0].reviewBrief).toMatchObject({ source: 'pipeline', approved: true, score: 90, diagnostic: null })
+    expect(out.units[0].reviewBrief?.brief?.risks.map((risk) => risk.severity)).toEqual(['high', 'medium'])
+    expect(readSettleEvidence(JSON.stringify(out))?.units[0].reviewBrief?.brief?.humanChecks).toEqual(['Check the copy'])
+  })
+
+  it('leaves evidence identical when Core does not announce the capability', () => {
+    const files = { [briefPath]: JSON.stringify(record) }
+    const gated = harvestDeliveryEvidence(io(files, { reviewBrief: false }), [unit])
+    const legacy = harvestDeliveryEvidence(io(files, { reviewBrief: undefined }), [unit])
+    expect('reviewBrief' in gated.units[0]).toBe(false)
+    expect(JSON.stringify(gated)).toBe(JSON.stringify(legacy))
+  })
+
+  it('records nothing without a brief source', () => {
+    const out = harvestDeliveryEvidence(io({}), [unit])
+    expect('reviewBrief' in out.units[0]).toBe(false)
+    expect(out.harvest).toBe('ok')
+  })
+
+  it('keeps a partial brief and a malformed file as a diagnostic, never failing the harvest', () => {
+    const partial = harvestDeliveryEvidence(io({ [briefPath]: JSON.stringify({ ...record, brief: { risks: [{ severity: 'bogus', whatToLookAt: 'x' }], untested: [{ path: 'a.ts' }] } }) }), [unit])
+    expect(partial.units[0].reviewBrief).toMatchObject({ droppedEntries: 1, brief: { risks: [], untested: [{ path: 'a.ts', why: null }] } })
+    const malformed = harvestDeliveryEvidence(io({ [briefPath]: '{oops' }), [unit])
+    expect(malformed.harvest).toBe('ok')
+    expect(malformed.units[0].reviewBrief).toMatchObject({ brief: null, diagnostic: expect.stringContaining('not valid JSON') })
+    const unreadable = harvestDeliveryEvidence(io({ [briefPath]: 'x' }, { readFile: (p) => { if (p === briefPath) throw new Error('EACCES'); return '' } }), [unit])
+    expect(unreadable.harvest).toBe('failed')
+    expect(unreadable.units[0].reviewBrief).toBeUndefined()
+  })
+
+  it('reads engine 2 implementation output review.brief from committed scopes', () => {
+    const probe = definitionProbe([{ ...scopedReview, output: { review: { ...scopedReview.output.review, brief } } }])
+    const out = harvestDeliveryEvidence(io({}), [{ ...unit, definitionStatus: probe }])
+    expect(out.units[0].reviewBrief).toMatchObject({ source: 'definition', approved: true, score: 88 })
+    expect(out.units[0].reviewBrief?.brief?.risks[0].whatToLookAt).toBe('Drops a default')
+  })
+
+  it('falls back to confidence-score.json brief for approved verdicts', () => {
+    const scorePath = '/wt/a/openspec/changes/c/confidence-score.json'
+    const out = harvestDeliveryEvidence(io({ [scorePath]: JSON.stringify({ overall: 93, brief }) }, { listDir: () => ['c'] }), [{ ticketId: 8, runId: 'run-9', worktreePath: '/wt/a' }])
+    expect(out.units[0].reviewBrief).toMatchObject({ source: 'confidence-score', approved: true, score: 93 })
+  })
+
+  it('heals older evidence once the capability is announced', () => {
+    const files = { '/ws/pipeline/run-9/review-brief.json': JSON.stringify(record) }
+    const base = harvestDeliveryEvidence(io({}, { reviewBrief: false }), [{ ticketId: 8, runId: 'run-9', worktreePath: null }])
+    const fsIo = { fileExists: (p: string) => p in files, readFile: (p: string) => files[p as keyof typeof files] }
+    expect(healRuntimeEvidence(base, '/ws/pipeline', fsIo)).toBeNull()
+    const healed = healRuntimeEvidence(base, '/ws/pipeline', fsIo, new Map(), { reviewBrief: true })
+    expect(healed?.units[0].reviewBrief?.brief?.risks).toHaveLength(2)
+    expect(healRuntimeEvidence(healed!, '/ws/pipeline', fsIo, new Map(), { reviewBrief: true })).toBeNull()
+  })
+})

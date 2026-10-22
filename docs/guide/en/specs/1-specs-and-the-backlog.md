@@ -50,6 +50,10 @@ Which one you reach for depends on how clear the idea already is. Know exactly w
 
 When a spec already has work behind it — a PR under review, a merged feature — and you want *more*, don't rewrite its description: that drifts the spec (and syncs the drift to Jira) and makes the next run re-plan everything. Open the spec and add an **addendum** instead: a short note with a kind (change request, review feedback, clarification, constraint) and your words. Open addenda ride automatically into the next launch of that spec on any loop — Implement, SDD Quick, Freestyle — so the run changes only what you asked, and the review packet reports each one as applied, partially applied or blocked. If the run fails or you discard the delivery, they return to **Open** on their own. The mission agent can add them for you when you ask it to change something about an existing spec.
 
+## Reviewing a delivery — what to look at first
+
+When a run finishes, its review packet opens with **What to look at**: the AI reviewer's short brief listing the riskiest spots first (high, then medium, then low, each with a file and line), the behaviour that changes, the rules the change leans on, the code paths no test exercises and the checks only a person can do. The same risks, untested paths and checks appear in a short block at the top of the pull request, and the mission card shows the top risk in one line. The brief is advice for your review, not a verification result: it never blocks Accept. Runs made with an older Specrails Core have no brief, and their packet looks as before.
+
 ## Where to go next
 
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — the fastest way to turn an idea into a spec.

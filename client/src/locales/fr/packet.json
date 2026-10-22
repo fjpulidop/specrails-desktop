@@ -168,6 +168,44 @@
     },
     "noReport": "L'exécution n'a rien signalé pour cet addendum. Vérifiez les changements et les preuves ci-dessous."
   },
+  "brief": {
+    "title": "Points à examiner",
+    "caveat": "Note indicative du relecteur IA : où un humain doit regarder en premier. Ce n'est pas un résultat de vérification et cela ne bloque jamais une décision.",
+    "severity": {
+      "high": "Élevé",
+      "medium": "Moyen",
+      "low": "Faible"
+    },
+    "area": {
+      "data": "données",
+      "security": "sécurité",
+      "api": "API",
+      "ux": "UX",
+      "performance": "performances",
+      "ops": "exploitation",
+      "other": "autre"
+    },
+    "sections": {
+      "risks": "Risques",
+      "behaviourChanges": "Changements de comportement",
+      "invariantsTouched": "Invariants touchés",
+      "untested": "Chemins non testés",
+      "humanChecks": "Vérifications humaines",
+      "divergences": "Écarts avec la spec"
+    },
+    "userVisible": "Visible par les utilisateurs",
+    "invariantStatus": {
+      "kept": "Préservé",
+      "changed": "Modifié",
+      "at-risk": "Menacé"
+    },
+    "diagnostic": "Une partie de la note du relecteur n'a pas pu être utilisée :",
+    "dropped_one": "{{count}} entrée de la note ne respectait pas le format attendu et a été ignorée.",
+    "dropped_other": "{{count}} entrées de la note ne respectaient pas le format attendu et ont été ignorées.",
+    "topRisk": "Risque principal",
+    "moreRisks_one": "+{{count}} autre",
+    "moreRisks_other": "+{{count}} autres"
+  },
   "agentActions": {
     "total_one": "{{count}} action",
     "total_other": "{{count}} actions",

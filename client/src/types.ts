@@ -410,6 +410,8 @@ export interface RailPrStateSnapshot {
   runIds: string[]
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
+  /** Reviewer risk brief summary (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
   /** Durable generation ordering evidence for stale-snapshot arbitration. */
   createdAt?: string
   updatedAt?: string
@@ -551,6 +553,29 @@ export interface PacketDriftNudge {
   values: Record<string, string | number>
 }
 
+export type ReviewRiskSeverity = 'high' | 'medium' | 'low'
+
+/** Reviewer risk brief summary (Core `reviewBrief: 1`); mirrors server PrDeliveryRiskSummary. */
+export interface PrDeliveryRiskSummary {
+  highCount: number
+  mediumCount: number
+  lowCount: number
+  top: { severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null } | null
+  diagnostic: boolean
+}
+
+/** "What to look at": the reviewer's advisory brief merged across units (server PacketWhatToLookAt). */
+export interface PacketWhatToLookAt {
+  risks: Array<{ ticketId: number; severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null }>
+  behaviourChanges: Array<{ ticketId: number; what: string; where: string | null; userVisible: boolean | null }>
+  invariantsTouched: Array<{ ticketId: number; invariant: string; evidence: string | null; status: 'kept' | 'changed' | 'at-risk' | null }>
+  untested: Array<{ ticketId: number; path: string; why: string | null }>
+  humanChecks: Array<{ ticketId: number; text: string }>
+  divergences: Array<{ ticketId: number; capability: string; requirement: string; observed: string }>
+  diagnostics: Array<{ ticketId: number; message: string }>
+  droppedEntries: number
+}
+
 export interface ReviewPacket {
   schemaVersion: 1
   prDeliveryId: string
@@ -571,6 +596,10 @@ export interface ReviewPacket {
   proof: PacketProofItem[]
   watchOut: PacketProofItem[]
   confidence: PacketConfidence | null
+  /** Reviewer risk brief; absent/null for runs without one (older Core). */
+  whatToLookAt?: PacketWhatToLookAt | null
+  /** Risk counts for this delivery; absent/null without a brief. */
+  riskSummary?: PrDeliveryRiskSummary | null
   cost: { totalUsd: number | null; estimated: boolean }
   evidenceUnavailable: boolean
   runIds: string[]

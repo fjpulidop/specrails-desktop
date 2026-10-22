@@ -2,7 +2,9 @@ import { publishDraftPr } from '../../runtime/pr-publisher'
 import { deliverRailAsPr } from '../../runtime/rail-pr-delivery'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle } from '../../runtime/pr-naming'
-import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from '../../runtime/pr-body'
+import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges, type PrBodyReviewBrief } from '../../runtime/pr-body'
+import { readSettleEvidence } from '../../runtime/delivery-evidence'
+import { buildWhatToLookAt } from '../../runtime/review-brief'
 import { sumInvocationCostForRuns } from '../../../accounting/runtime/ai-invocations'
 import {
   toPrDeliverySnapshot, type PrDecision, type PrDeliveryPatch, type RailPrDeliveryRow
@@ -102,6 +104,17 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     costUsd = null
   }
 
+  // Reviewer risk brief (Core `reviewBrief: 1`), read from durable settle
+  // evidence only; absent for older Cores, so the body is unchanged there.
+  let reviewBrief: PrBodyReviewBrief | null = null
+  try {
+    const evidence = readSettleEvidence(row.settle_evidence)
+    const merged = evidence ? buildWhatToLookAt(evidence.units) : null
+    reviewBrief = merged ? { risks: merged.risks, untested: merged.untested, humanChecks: merged.humanChecks.map((check) => check.text) } : null
+  } catch {
+    reviewBrief = null
+  }
+
   const title = buildPrTitle(ticketData, { loopName: row.loop_name })
   const body = buildCanonicalPrBody({
     loopName: row.loop_name,
@@ -109,6 +122,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId) })),
     changes,
     costUsd,
+    reviewBrief,
   })
 
   let next: PrDecision

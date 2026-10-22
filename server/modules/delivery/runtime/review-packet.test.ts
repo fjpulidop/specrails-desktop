@@ -1,7 +1,7 @@
 import { freezeFollowUp, parseFollowUpInput } from './pr-follow-up'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
-import { createPrDelivery, getPrDelivery, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
+import { createPrDelivery, getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import {
   DRIFT_REVISION_COUNT,
@@ -693,5 +693,56 @@ describe('agentActions ("What the agent did")', () => {
       total: 4,
       runIds: ['run-1', 'run-2'],
     })
+  })
+})
+
+describe('composeReviewPacket — what to look at (reviewer risk brief)', () => {
+  const record = {
+    source: 'pipeline' as const, approved: true, score: 90, recordedAt: null, diagnostic: null, droppedEntries: 0,
+    brief: {
+      behaviourChanges: [{ what: 'Retries stop at 3', where: 'retry.ts:41', userVisible: true }],
+      invariantsTouched: [{ invariant: 'Queue order', evidence: 'queue.ts:120', status: 'kept' as const }],
+      untested: [{ path: 'retry.ts', why: 'timeout branch' }],
+      risks: [{ severity: 'high' as const, area: 'data', whatToLookAt: 'Drops a default', ref: 'm.ts:9' }, { severity: 'medium' as const, area: 'api', whatToLookAt: 'Renamed field', ref: 'a.ts:2' }],
+      humanChecks: ['Check the copy'],
+      divergences: [],
+    },
+  }
+
+  it('carries the full brief and a risk summary for analytics', () => {
+    delivery({ evidence: evidence({ reviewBrief: record }) })
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
+    expect(packet.whatToLookAt?.risks.map((risk) => risk.severity)).toEqual(['high', 'medium'])
+    expect(packet.whatToLookAt?.behaviourChanges[0]).toMatchObject({ ticketId: 1, what: 'Retries stop at 3' })
+    expect(packet.whatToLookAt?.humanChecks).toEqual([{ ticketId: 1, text: 'Check the copy' }])
+    expect(packet.riskSummary).toMatchObject({ highCount: 1, mediumCount: 1, top: { whatToLookAt: 'Drops a default' } })
+  })
+
+  it('renders a partial brief and a dropped brief as a diagnostic', () => {
+    delivery({ evidence: evidence({ reviewBrief: { ...record, brief: { ...record.brief, risks: [], behaviourChanges: [], invariantsTouched: [] } } }) })
+    expect(composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! }).whatToLookAt).toMatchObject({ risks: [], untested: [{ path: 'retry.ts' }] })
+    db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(JSON.stringify(evidence({ reviewBrief: { ...record, brief: null, diagnostic: 'Review brief dropped after the repair turn' } })), 'del-1')
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
+    expect(packet.whatToLookAt).toMatchObject({ risks: [], diagnostics: [{ ticketId: 1, message: 'Review brief dropped after the repair turn' }] })
+    expect(packet.riskSummary).toMatchObject({ top: null, diagnostic: true })
+  })
+
+  it('is absent for runs without a brief, so older packets look as before', () => {
+    delivery()
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
+    expect(packet.whatToLookAt).toBeNull()
+    expect(packet.riskSummary).toBeNull()
+  })
+
+  it('carries the top risk on snapshots, cards and rail.pr_state only when a brief exists', () => {
+    delivery({ evidence: evidence({ reviewBrief: record }) })
+    const snap = toPrDeliverySnapshot(getPrDelivery(db, 'del-1')!)
+    expect(snap.riskSummary).toMatchObject({ highCount: 1, top: { severity: 'high', whatToLookAt: 'Drops a default' } })
+    expect(toPrDecisionCardEnvelope('p1', snap).riskSummary).toEqual(snap.riskSummary)
+    expect(toRailPrStateMessage('p1', snap).riskSummary).toEqual(snap.riskSummary)
+    db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(JSON.stringify(evidence()), 'del-1')
+    const plain = toPrDeliverySnapshot(getPrDelivery(db, 'del-1')!)
+    expect('riskSummary' in plain).toBe(false)
+    expect('riskSummary' in toPrDecisionCardEnvelope('p1', plain)).toBe(false)
   })
 })

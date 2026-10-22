@@ -810,6 +810,16 @@ export interface RailWorktreeProgressMessage {
  * RailUpdatedMessage convention). Replaces the retired one-shot
  * `rail.pr_delivered` event.
  */
+/** Top-risk summary of the reviewer's risk brief (Core `reviewBrief: 1`) carried
+ *  by delivery snapshots and cards. Absent when no brief was recorded. */
+export interface PrDeliveryRiskSummary {
+  highCount: number
+  mediumCount: number
+  lowCount: number
+  top: { severity: 'high' | 'medium' | 'low'; area: string | null; whatToLookAt: string; ref: string | null } | null
+  diagnostic: boolean
+}
+
 export interface RailPrStateMessage {
   executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
   repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
@@ -865,6 +875,8 @@ export interface RailPrStateMessage {
   updatedAt?: string
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
+  /** Reviewer risk brief summary (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
 }
 
 /**
@@ -1691,6 +1703,8 @@ export interface PrDecisionCardEnvelope {
   /** Settle-time snapshot of the run's runtime state + failure; the client
    *  prefers live `useRuntimeRuns` data while the run is active. */
   runtime?: MissionRunRuntime | null
+  /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'

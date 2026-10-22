@@ -168,6 +168,44 @@
     },
     "noReport": "运行未报告此附录。请查看下方的变更与证据。"
   },
+  "brief": {
+    "title": "需要关注的地方",
+    "caveat": "AI 评审者给出的参考摘要：说明人工应优先查看的位置。它不是验证结果，也不会阻止任何决定。",
+    "severity": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "area": {
+      "data": "数据",
+      "security": "安全",
+      "api": "API",
+      "ux": "用户体验",
+      "performance": "性能",
+      "ops": "运维",
+      "other": "其他"
+    },
+    "sections": {
+      "risks": "风险",
+      "behaviourChanges": "行为变化",
+      "invariantsTouched": "涉及的不变量",
+      "untested": "未测试的路径",
+      "humanChecks": "人工检查",
+      "divergences": "与规范的偏差"
+    },
+    "userVisible": "用户可见",
+    "invariantStatus": {
+      "kept": "保持",
+      "changed": "已改变",
+      "at-risk": "有风险"
+    },
+    "diagnostic": "评审摘要的部分内容无法使用：",
+    "dropped_one": "{{count}} 条摘要条目格式不符，已跳过。",
+    "dropped_other": "{{count}} 条摘要条目格式不符，已跳过。",
+    "topRisk": "首要风险",
+    "moreRisks_one": "另有 {{count}} 项",
+    "moreRisks_other": "另有 {{count}} 项"
+  },
   "agentActions": {
     "total_one": "{{count}} 项操作",
     "total_other": "{{count}} 项操作",

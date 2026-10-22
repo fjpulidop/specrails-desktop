@@ -44,7 +44,7 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from '../../loops/runtime/loop-effect'
 import { composeReviewPacket } from './review-packet'
-import { readSettleEvidence, healRuntimeEvidence } from './delivery-evidence'
+import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
@@ -1578,7 +1578,7 @@ export function createRailsRouter(): Router {
           const pipelineDir = path.join(resolveProjectExecution({ slug: c.project.slug, path: c.project.path }).specrailsDir, 'pipeline')
           const definitionStatuses = await probeDefinitionRuns({ db: c.db, cwd: c.project.path, env: process.env },
             existing.units.filter(unit => !unit.runtime && unit.runId && getLoopRun(c.db, unit.runId)?.engine_version === 2).map(unit => unit.runId!), true)
-          const healed = healRuntimeEvidence(existing, pipelineDir, {}, definitionStatuses)
+          const healed = healRuntimeEvidence(existing, pipelineDir, {}, definitionStatuses, { reviewBrief: await coreAnnouncesReviewBrief() })
           if (healed) { updatePrDeliverySettleEvidence(c.db, row.id, healed); row = { ...row, settle_evidence: JSON.stringify(healed) } }
         }
       } catch (err) {

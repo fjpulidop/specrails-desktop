@@ -168,6 +168,44 @@
     },
     "noReport": "La ejecución no informó sobre este anexo. Revisa los cambios y la evidencia más abajo."
   },
+  "brief": {
+    "title": "Qué mirar",
+    "caveat": "Resumen orientativo del revisor de IA: dónde debería mirar primero una persona. No es un resultado de verificación y nunca bloquea una decisión.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Medio",
+      "low": "Bajo"
+    },
+    "area": {
+      "data": "datos",
+      "security": "seguridad",
+      "api": "API",
+      "ux": "UX",
+      "performance": "rendimiento",
+      "ops": "operaciones",
+      "other": "otro"
+    },
+    "sections": {
+      "risks": "Riesgos",
+      "behaviourChanges": "Cambios de comportamiento",
+      "invariantsTouched": "Invariantes afectados",
+      "untested": "Rutas sin test",
+      "humanChecks": "Comprobaciones humanas",
+      "divergences": "Divergencias con la spec"
+    },
+    "userVisible": "Visible para usuarios",
+    "invariantStatus": {
+      "kept": "Se mantiene",
+      "changed": "Cambia",
+      "at-risk": "En riesgo"
+    },
+    "diagnostic": "Parte del resumen del revisor no se pudo usar:",
+    "dropped_one": "{{count}} entrada del resumen no tenía el formato esperado y se omitió.",
+    "dropped_other": "{{count}} entradas del resumen no tenían el formato esperado y se omitieron.",
+    "topRisk": "Riesgo principal",
+    "moreRisks_one": "+{{count}} más",
+    "moreRisks_other": "+{{count}} más"
+  },
   "agentActions": {
     "total_one": "{{count}} acción",
     "total_other": "{{count}} acciones",

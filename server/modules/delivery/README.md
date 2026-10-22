@@ -155,3 +155,13 @@ The recovered checkout's Git common directory is checked before settlement.
 Reconstruction grants no automatic worktree/overlay cleanup authority, captures
 no new ignored-release baseline, and leaves missing provenance baselines null.
 The original request, ticket destination and accounting remain unchanged.
+
+## Reviewer risk brief
+
+[review-brief.ts](runtime/review-brief.ts) is the pure normalizer for Core's
+advisory reviewer brief (`reviewBrief: 1`). The settle harvest stores it per unit
+in `settle_evidence` only when the active Core announces the capability; the
+review packet (`whatToLookAt`, `riskSummary`), the PR body block and the card
+`riskSummary` derive from that durable record. No decision reads it. See
+[review packet](../../../docs/internals/review-packet.md).
+
