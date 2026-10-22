@@ -35,7 +35,7 @@ import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNo
 import { FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
 import {
-  isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
+  assertRepositoryHasCommits, isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
   type IsolatedBranchOwnership, type IsolatedWorktreeIO, type IsolatedWorktreeOwnership,
 } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
@@ -1019,6 +1019,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const worktreeBaseRef = await resolveWorktreeBaseRef(git, {
     repoDir: baseRepo, integration, fetchOk: fetchResult.ok,
   })
+  // Unborn HEAD: refuse before the decision row, branches or worktrees exist.
+  await assertRepositoryHasCommits(git, baseRepo, worktreeBaseRef.baseRef)
   if (worktreeBaseRef.warning) {
     console.warn(`[rail-isolated] ${worktreeBaseRef.warning} (repo ${baseRepo})`)
     try {

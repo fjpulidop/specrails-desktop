@@ -98,7 +98,7 @@ function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number,
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview' | 'reviewLimit'
 /** Per-rail terminal outcome of a (batched) launch attempt. */
-type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit'
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit' | 'noCommits'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -1388,6 +1388,11 @@ export default function DashboardPage() {
           if (!silent) toast.error(reviewWipRejectionMessage(t, wip), { description: reviewWipActionMessage(t), duration: 10000 })
           return 'reviewLimit'
         }
+        // Unborn HEAD in a repository the launch must isolate: nothing spawned.
+        if (res.status === 409 && data.error === 'repository_has_no_commits') {
+          if (!silent) toast.error(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000 })
+          return 'noCommits'
+        }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
           if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
@@ -1484,6 +1489,7 @@ export default function DashboardPage() {
     let skippedLate = 0
     let overBudget = 0
     let overReviewLimit = 0
+    let noCommits = 0
     for (const s of settled) {
       const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
       if (v === 'launched') launched++
@@ -1491,6 +1497,7 @@ export default function DashboardPage() {
       else if (v === 'skipped') skippedLate++
       else if (v === 'budget') overBudget++
       else if (v === 'reviewLimit') overReviewLimit++
+      else if (v === 'noCommits') noCommits++
       else failed++
     }
     // One compact summary toast: launched count + per-reason skip breakdown.
@@ -1511,6 +1518,7 @@ export default function DashboardPage() {
     }
     if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
     if (overBudget > 0) parts.push(t('launchAll.skipBudget', { count: overBudget }))
+    if (noCommits > 0) parts.push(t('toasts.launchRepositoryHasNoCommits'))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
     if (launched > 0) {

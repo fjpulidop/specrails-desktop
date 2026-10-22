@@ -50,6 +50,7 @@ import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 
 /** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
@@ -1287,6 +1288,9 @@ export function createRailsRouter(): Router {
               // Explicit-target validation failures are the USER's answer being
               // unusable — fail closed with the machine-readable code; never
               // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof RepositoryHasNoCommitsError) {
+                res.status(409).json({ error: err.code, detail: err.message }); return
+              }
               if (err instanceof FlowWorktreeMismatchError) {
                 res.status(409).json({ error: err.code, detail: err.message }); return
               }

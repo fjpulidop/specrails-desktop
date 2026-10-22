@@ -48,25 +48,42 @@ checkout is active.
 
 ## 3. Run Desktop dev against it
 
-Recommended: an isolated home, so your real `~/.specrails`, projects and token
-stay untouched.
+Run with your real `HOME`, after backing up the SQLite databases.
 
-```sh
-cd /Users/javi/repos/wt/desktop-local
-mkdir -p /tmp/sr-feedback-home
-HOME=/tmp/sr-feedback-home \
-SPECRAILS_REGISTRY_HOME=/tmp/sr-feedback-home \
-SPECRAILS_CORE_BIN=/Users/javi/repos/wt/core-local/bin/specrails-core.mjs \
-SPECRAILS_CORE_RUNTIME_PATH=/Users/javi/repos/wt/core-local/dist/agent-runtime/index.js \
-SPECRAILS_FRAMEWORK_AUTOSWAP=false \
-npm run dev
-```
+**Why not an isolated `HOME`.** On macOS, changing `HOME` breaks the provider
+logins: the Claude CLI keeps its credentials in the login keychain keyed to
+the real home, so `claude`, `codex` and `gemini` look unauthenticated and every
+run fails. Running against your real data is safe because migrations 72–77 of
+this branch are additive (new tables and columns only): the released Desktop
+keeps working on the same databases after you go back to it.
 
-- With an isolated `HOME`, the provider CLIs (`claude`, `codex`, `gemini`) also
-  look for their logins under it. Either log in again inside that home, or run
-  without the `HOME=` line (then keep `SPECRAILS_FRAMEWORK_AUTOSWAP=false`).
-  `desktop.sqlite`, `desktop.token` and the per-project `jobs.sqlite` always
-  live under `HOME`.
+1. Close the released Desktop app, then back up every SQLite file
+   (`desktop.sqlite` and each project's `jobs.sqlite`, with their WAL/SHM
+   siblings), skipping the tool and runtime caches:
+
+   ```sh
+   BACKUP=~/specrails-db-backup-$(date +%Y%m%d)
+   mkdir -p "$BACKUP" && cd ~/.specrails && find . -name "*.sqlite*" -not -path "./tools/*" -not -path "./runtimes/*" | cpio -pdm "$BACKUP"
+   ```
+
+2. Start Desktop dev against the local Core:
+
+   ```sh
+   cd /Users/javi/repos/wt/desktop-local
+   SPECRAILS_CORE_BIN=/Users/javi/repos/wt/core-local/bin/specrails-core.mjs \
+   SPECRAILS_CORE_RUNTIME_PATH=/Users/javi/repos/wt/core-local/dist/agent-runtime/index.js \
+   SPECRAILS_FRAMEWORK_AUTOSWAP=false \
+   npm run dev
+   ```
+
+   Keep `SPECRAILS_FRAMEWORK_AUTOSWAP=false`: without it the newer local Core
+   is materialized into `~/.specrails/framework/<version>` and `current` moves
+   there, which the released Desktop then cannot resolve.
+
+3. Restore (only if needed): close both the dev server and the released app,
+   then copy the backup back over `~/.specrails`
+   (`cd "$BACKUP" && find . -name "*.sqlite*" | cpio -pdmu ~/.specrails`).
+
 - Use other ports if your normal Desktop is running:
   `SPECRAILS_DEV_SERVER_PORT=4300 SPECRAILS_DEV_CLIENT_PORT=4301`.
 - After rebuilding Core, restart `npm run dev` (`tsx watch` only watches
@@ -81,7 +98,7 @@ Open `http://127.0.0.1:4201`.
 ## 4. Verify which Core is active
 
 ```sh
-TOKEN=$(cat /tmp/sr-feedback-home/.specrails/desktop.token)   # or ~/.specrails/desktop.token
+TOKEN=$(cat ~/.specrails/desktop.token)
 curl -s -H "x-desktop-token: $TOKEN" http://127.0.0.1:4200/api/core-update/status   # runtimeSource: "override", runtimeVersion
 curl -s -H "x-desktop-token: $TOKEN" http://127.0.0.1:4200/api/meta                 # apiVersion and versions
 curl -si http://127.0.0.1:4200/api/health | grep -i x-specrails-api-version
@@ -104,6 +121,11 @@ mkdir -p openspec/specs/search src && printf '### Requirement: Finds by title\nT
 printf '# Rules\n- API calls use getApiBase()\n- Copy is reviewed by design\n' > AGENTS.md
 git add -A && git commit -qm init
 ```
+
+Test projects need at least one commit: Flow and isolated rail launches
+create a worktree from the base branch, so a repository with an unborn HEAD is
+refused with "This repository has no commits yet" (`409
+repository_has_no_commits`). The `git commit` above covers it.
 
 Add it in Desktop (Add project), configure a provider, and set
 `.specrails/agent-runtime.json` verification to `npm test` (or accept the

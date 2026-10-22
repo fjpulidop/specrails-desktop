@@ -33,7 +33,8 @@
     "railWorktreesNoCommits": "Worktree-Isolation nicht verfügbar: Das Repository hat noch keine Commits — erstelle einen ersten Commit und starte neu.",
     "railWorktreesError": "Worktree-Isolation fehlgeschlagen — dieser Lauf läuft OHNE den PR-Review-Flow weiter (keine Implementierungskarte). Siehe Fehlerdetail unten.",
     "onReviewCannotMoveToRail": "Diese Spec wartet auf die PR-Prüfung — löse zuerst die PR-Entscheidung",
-    "onReviewNotLaunchable": "Eine Spec auf diesem Rail wartet auf die PR-Prüfung — löse die PR-Entscheidung vor dem Start"
+    "onReviewNotLaunchable": "Eine Spec auf diesem Rail wartet auf die PR-Prüfung — löse die PR-Entscheidung vor dem Start",
+    "launchRepositoryHasNoCommits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails einen isolierten Worktree anlegen kann."
   },
   "railPr": {
     "operation": {

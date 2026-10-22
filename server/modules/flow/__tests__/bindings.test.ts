@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import express from 'express'
+import request from 'supertest'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -14,6 +16,8 @@ import { FLOW_SYSTEM_PROMPT } from '../../missions/runtime/agent-flow-prompt'
 import { isFlowHeldTicket, readStore } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, type FlowSession } from '..'
+import { createFlowService } from '../application'
+import { registerFlowHttp } from '../adapters/http'
 import { changeNameFromArchive, createFlowHandOffAuthority, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
 import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
@@ -134,6 +138,40 @@ describe('worktree reservation binding (real git)', () => {
     await expect(worktrees.release({ flowId: 'flow-1', ticketId: 1, worktreePath: repo, branch: 'main' })).rejects.toThrow(/not a Flow-owned worktree/)
     await expect(worktrees.release({ flowId: 'flow-2', ticketId: 1, worktreePath: null, branch: null })).resolves.toBeUndefined()
     expect(git(['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main')
+  })
+})
+
+describe('Flow start on a repository with no commits (real git)', () => {
+  it('answers 409 repository_has_no_commits and leaves no active Flow, spec, branch or worktree', async () => {
+    const empty = path.join(tmp, 'empty-repo')
+    fs.mkdirSync(empty)
+    git(['init', '-q', '-b', 'main'], empty)
+    const base = context()
+    const ctx = { ...base, project: { ...base.project, slug: 'emptyproj', path: empty } } as unknown as ProjectContext
+    const repository = createSqliteFlowRepository(ctx.db)
+    const ports = createFlowPorts({
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
+      agentHost: () => ({ assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}) }) as never,
+      availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+      clock: { now: () => '2026-10-22T10:00:00.000Z' },
+    })
+    const service = createFlowService(ports, { warn: vi.fn() })
+    const server = express()
+    server.use(express.json())
+    registerFlowHttp(server as unknown as express.Router, () => service)
+    const conversation = createAgentConversation(ctx.desktopDb, { provider: 'claude', pinnedProjectId: 'proj-1' })
+
+    const response = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Build a kanban board', flowId: 'flow-empty' })
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({
+      error: 'repository_has_no_commits',
+      detail: 'This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.',
+    })
+    expect(repository.findOpenByConversation(conversation.id)).toBeFalsy()
+    expect(repository.get('flow-empty')?.state).toBe('discarded')
+    expect(Object.keys(readStore(ticketStorePathForProject(ctx.project)).tickets)).toEqual([])
+    expect(git(['for-each-ref', 'refs/heads'], empty)).toBe('')
+    expect(fs.existsSync(path.join(isolatedWorktreesRoot('emptyproj'), 'flow-empty'))).toBe(false)
   })
 })
 

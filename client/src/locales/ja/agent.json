@@ -662,7 +662,8 @@
       "illegal_transition": "その間に Flow の状態が変わりました",
       "feature_unavailable": "Flow は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました — 何も起動していません。",
-      "review_wip_limit_reached": "レビュー上限に達しました — 何も起動していません。"
+      "review_wip_limit_reached": "レビュー上限に達しました — 何も起動していません。",
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
     },
     "stub": {
       "launched": "起動しました → レール {{rail}}",
@@ -879,7 +880,8 @@
       "flow_already_handed_off": "この Flow はすでにレールに引き渡されています。",
       "flow_freeze_failed": "引き渡しのために Flow の worktree を保存できませんでした。",
       "flow_head_mismatch": "引き渡し中に worktree が変わりました。もう一度お試しください。",
-      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継がずに開始しました。"
+      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継がずに開始しました。",
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
     },
     "entry": {
       "heading": "Flow を開始",

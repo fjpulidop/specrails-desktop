@@ -21,6 +21,7 @@ import { createPrDelivery, createPrDeliveryGeneration, getActivePrDeliveryByRail
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from '../../../process-admission'
 import { ExplicitPrTargetError } from './active-pr-continuation'
+import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { withRepoLock } from '../../../repo-lock'
 import * as profileManager from '../../agents/runtime/profile-manager'
 import { defaultGitRunner } from '../../../worktree-manager'
@@ -1577,6 +1578,19 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     expect(res.body.error).toBe('isolation_failed')
     expect(res.body.detail).toContain('git worktree add failed')
     expect(res.body.isolated).toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('409 repository_has_no_commits (not the raw Git error) when a repository to isolate has no commits', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockRejectedValue(new RepositoryHasNoCommitsError('/repo'))
+    const run = vi.fn()
+    const res = await request(launchApp({ loopRunManager: { run } })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'repository_has_no_commits',
+      detail: 'This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.',
+    })
     expect(run).not.toHaveBeenCalled()
   })
 

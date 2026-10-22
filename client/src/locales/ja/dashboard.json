@@ -33,7 +33,8 @@
     "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。",
     "railWorktreesError": "ワークツリー分離に失敗しました — この実行は PR レビューフローなし（実装カードなし）で続行されます。下のエラー詳細を確認してください。",
     "onReviewCannotMoveToRail": "このスペックは PR レビュー待ちです — まず PR の決定を処理してください",
-    "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです — 起動する前に PR の決定を処理してください"
+    "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです — 起動する前に PR の決定を処理してください",
+    "launchRepositoryHasNoCommits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
   },
   "railPr": {
     "operation": {

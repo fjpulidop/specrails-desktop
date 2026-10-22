@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
+import { execFileSync } from 'child_process'
 import { initDb } from '../../../db'
 import { __resetFetchOriginCache } from '../../../integration-branch'
 import type { ProjectContext } from '../../../project-registry'
 import type { WorktreeHandle } from '../../../worktree-manager'
 import {
-  isolatedWorktreesRoot, materializeIsolatedWorktree, prepareIsolatedWorktree,
+  RepositoryHasNoCommitsError, isolatedWorktreesRoot, materializeIsolatedWorktree, prepareIsolatedWorktree,
   type IsolatedWorktreeIO, type OverlaySources,
 } from './isolated-worktree'
 import { ticketBranchName } from './pr-naming'
@@ -162,5 +165,30 @@ describe('prepareIsolatedWorktree', () => {
     await expect(prepareIsolatedWorktree({ ctx: ctx(), ticketId: 8, provider: 'claude', branch: 'b', onDegraded }, io)).rejects.toThrow('cannot reuse existing branch')
     expect(onDegraded).toHaveBeenCalledWith(['git fetch origin failed; using local ref'])
     expect(io.remove).not.toHaveBeenCalled()
+  })
+
+  it('refuses a repository with no commits before creating any branch, worktree or overlay (real git)', async () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-unborn-'))
+    try {
+      execFileSync('git', ['init', '-q', '-b', 'main', repo])
+      const slug = `unborn-${path.basename(repo)}`
+      const project = { ...ctx(), project: { id: 'proj', slug, path: repo } } as unknown as ProjectContext
+      const io = { overlay: vi.fn() as never, linkNodeModules: vi.fn() as never }
+      const error = await prepareIsolatedWorktree({ ctx: project, ticketId: 6, provider: 'claude', runId: 'run-unborn', onDegraded: vi.fn() }, io)
+        .catch((err: unknown) => err)
+      expect(error).toBeInstanceOf(RepositoryHasNoCommitsError)
+      expect(error).toMatchObject({ code: 'repository_has_no_commits', message: expect.stringContaining('no commits yet') })
+      expect(execFileSync('git', ['for-each-ref', 'refs/heads'], { cwd: repo, encoding: 'utf8' })).toBe('')
+      expect(execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: repo, encoding: 'utf8' }).match(/^worktree /gm)).toHaveLength(1)
+      expect(fs.existsSync(isolatedWorktreesRoot(slug))).toBe(false)
+      expect(io.overlay).not.toHaveBeenCalled()
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('does not misreport a repository whose base ref resolves', async () => {
+    const { git } = gitRecorder((args) => args[0] === 'rev-parse' && args.includes('HEAD^{commit}') ? { code: 1, stdout: '', stderr: '' } : undefined)
+    await expect(prepareIsolatedWorktree({ ctx: ctx(), ticketId: 9, provider: 'claude' }, { ...baseIo(), git })).resolves.toMatchObject({ baseSha: BASE_SHA })
   })
 })

@@ -662,7 +662,8 @@
       "illegal_transition": "The Flow changed state meanwhile",
       "feature_unavailable": "Flow is not available",
       "daily_budget_exceeded": "Daily budget reached — nothing was launched.",
-      "review_wip_limit_reached": "Review limit reached — nothing was launched."
+      "review_wip_limit_reached": "Review limit reached — nothing was launched.",
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",
@@ -879,7 +880,8 @@
       "flow_already_handed_off": "This Flow was already handed to a rail.",
       "flow_freeze_failed": "The Flow worktree could not be saved for the hand-off.",
       "flow_head_mismatch": "The worktree changed during the hand-off. Try again.",
-      "flow_handoff_not_adopted": "The rail started without taking over the Flow worktree."
+      "flow_handoff_not_adopted": "The rail started without taking over the Flow worktree.",
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree."
     },
     "entry": {
       "heading": "Start a Flow",

@@ -1366,6 +1366,7 @@
         "./active-pr-continuation",
         "./delivery-evidence",
         "./flow-worktree-handoff",
+        "./isolated-worktree",
         "./multi-repo-bases",
         "./multi-repo-checkout",
         "./multi-repo-execution",

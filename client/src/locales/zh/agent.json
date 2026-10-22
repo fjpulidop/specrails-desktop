@@ -662,7 +662,8 @@
       "illegal_transition": "Flow 的状态已发生变化",
       "feature_unavailable": "Flow 不可用",
       "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
-      "review_wip_limit_reached": "已达到评审上限——未启动任何任务。"
+      "review_wip_limit_reached": "已达到评审上限——未启动任何任务。",
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建隔离的 worktree。"
     },
     "stub": {
       "launched": "已启动 → Rail {{rail}}",
@@ -879,7 +880,8 @@
       "flow_already_handed_off": "此 Flow 已交给某个轨道。",
       "flow_freeze_failed": "无法为交接保存 Flow 的 worktree。",
       "flow_head_mismatch": "交接期间 worktree 发生了变化。请重试。",
-      "flow_handoff_not_adopted": "轨道启动时没有接管 Flow 的 worktree。"
+      "flow_handoff_not_adopted": "轨道启动时没有接管 Flow 的 worktree。",
+      "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建隔离的 worktree。"
     },
     "entry": {
       "heading": "开始 Flow",

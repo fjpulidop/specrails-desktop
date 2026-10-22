@@ -309,6 +309,33 @@ describe('DashboardPage — Launch all control', () => {
     expect(persisted[0].status).toBe('idle')
   })
 
+  it('summary toast explains a repository without commits instead of counting a raw failure', async () => {
+    mockTickets = [ticket(1)]
+    seedRails([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
+    ])
+    global.fetch = mockFetch({
+      onRequest: (u, init) => {
+        if (/\/api\/rails\/0\/launch$/.test(u) && init?.method === 'POST') {
+          return {
+            ok: false, status: 409,
+            json: () => Promise.resolve({ error: 'repository_has_no_commits', detail: 'fatal: invalid reference: HEAD' }),
+          } as unknown as Response
+        }
+      },
+    })
+    render(<DashboardPage />)
+    fireEvent.click(screen.getByText('Launch all').closest('button')!)
+    fireEvent.click(await screen.findByText('Launch 1 rail'))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    const [, opts] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((opts as { description: string }).description).toContain('This repository has no commits yet.')
+    expect((opts as { description: string }).description).not.toContain('failed')
+    expect((opts as { description: string }).description).not.toContain('invalid reference')
+  })
+
   it('cancel closes the dialog without launching', async () => {
     mockTickets = [ticket(1)]
     seedRails([

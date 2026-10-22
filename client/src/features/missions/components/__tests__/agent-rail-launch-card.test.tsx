@@ -518,6 +518,16 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
   })
 
+  it('renders repository_has_no_commits as a localized message without the raw Git detail', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'repository_has_no_commits', detail: 'fatal: invalid reference: HEAD' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    const error = await screen.findByTestId('rail-card-error')
+    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    expect(error).not.toHaveTextContent('invalid reference')
+  })
+
   it('renders a 409 inline and stays editable', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'tickets_in_flight', detail: 'spec #12 is running', action: 'wait for it' } }) })
     renderCard()

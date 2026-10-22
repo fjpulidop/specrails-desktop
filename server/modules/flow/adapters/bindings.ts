@@ -27,7 +27,7 @@ import { resolveDefaultSpecModel } from '../../../project-router-helpers'
 import { getPrDelivery, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
 import type { SpecProvider } from '../../specs/runtime/spec-models'
-import { isolatedWorktreesRoot, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
+import { RepositoryHasNoCommitsError, isolatedWorktreesRoot, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
 import { FlowHandOffNotReadyError, type FlowHandOffAuthority } from '../../delivery/runtime/flow-worktree-handoff'
 import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
@@ -176,13 +176,19 @@ export function createFlowWorktrees(
   const flowRoot = (flowId: string) => path.join(isolatedWorktreesRoot(ctx.project.slug), flowId)
   return {
     async reserve(input) {
-      const prepared = await (deps.prepare ?? prepareIsolatedWorktree)({
-        ctx: ctx as ProjectContext,
-        ticketId: input.ticketId,
-        provider: deps.providerFor(input.conversationId),
-        // The Flow id is the mount id: the worktree path is provably Flow-owned.
-        runId: input.flowId,
-      }, { git })
+      let prepared: Awaited<ReturnType<typeof prepareIsolatedWorktree>>
+      try {
+        prepared = await (deps.prepare ?? prepareIsolatedWorktree)({
+          ctx: ctx as ProjectContext,
+          ticketId: input.ticketId,
+          provider: deps.providerFor(input.conversationId),
+          // The Flow id is the mount id: the worktree path is provably Flow-owned.
+          runId: input.flowId,
+        }, { git })
+      } catch (error) {
+        if (error instanceof RepositoryHasNoCommitsError) throw new FlowConflictError(error.code, error.message)
+        throw error
+      }
       return { branch: prepared.branch, worktreePath: prepared.worktreePath, baseSha: prepared.baseSha, headSha: prepared.initialSha }
     },
     async release(input) {

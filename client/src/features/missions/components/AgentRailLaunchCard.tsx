@@ -457,6 +457,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       // Review WIP limit: localized count + remedy (review-wip-limit).
       const wip = readReviewWipRejection(body)
       if (wip) return { error: 'review_wip_limit_reached', detail: reviewWipRejectionMessage(t, wip), action: reviewWipActionMessage(t) }
+      // Unborn HEAD: the localized headline is the whole message (no raw Git text).
+      if (body.error === 'repository_has_no_commits') return { error: 'repository_has_no_commits' }
       return {
         error: typeof body.error === 'string' ? body.error : `HTTP ${r.status}`,
         detail: typeof body.detail === 'string' ? body.detail : undefined,

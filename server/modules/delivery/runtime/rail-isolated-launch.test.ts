@@ -7,6 +7,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { resolveHome } from '../../../artifact-registry'
 import { buildSpecSnapshot, launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { initDb } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
@@ -254,6 +255,24 @@ describe('launchIsolatedRail', () => {
     expect(create).toHaveBeenCalledWith(io.git, expect.objectContaining({ ticketId: 1 }))
     const runArg = (run as ReturnType<typeof vi.fn>).mock.calls[0][0] as { spec: { ticketIds: number[] } }
     expect(runArg.spec.ticketIds).toEqual([1, 2]) // the one run covers all tickets
+  })
+
+  it('refuses a repository with no commits before any delivery row, ledger row, branch or worktree exists', async () => {
+    process.env.SPECRAILS_RAIL_DELIVER_PR = '1'
+    const { ctx, db, run } = fakeCtx()
+    const create = vi.fn()
+    const unborn = async (args: string[]) => {
+      if (args[0] === 'symbolic-ref' && args[1] === '-q' && args[2] === 'HEAD') return { code: 0, stdout: 'refs/heads/main\n', stderr: '' }
+      if (args[0] === 'rev-parse' || args[0] === 'symbolic-ref' || args[0] === 'fetch') return { code: 1, stdout: '', stderr: 'fatal' }
+      return { code: 0, stdout: '', stderr: '' }
+    }
+    const io: IsolatedLaunchIO = { git: { run: unborn }, create, remove: vi.fn(async () => {}) }
+
+    await expect(launchIsolatedRail(input([1], ctx), io)).rejects.toBeInstanceOf(RepositoryHasNoCommitsError)
+    expect(create).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    expect(listRailWorktrees(db, 0)).toEqual([])
+    expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
   })
 
   it('tears down partial allocation and throws when a worktree fails (all-or-nothing)', async () => {

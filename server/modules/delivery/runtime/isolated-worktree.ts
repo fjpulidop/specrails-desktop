@@ -38,6 +38,36 @@ import type { ProjectContext } from '../../../project-registry'
 
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
+/** The repository has an unborn HEAD (no commits yet), so no isolated worktree
+ *  can be branched from it. Raised before anything is created. */
+export class RepositoryHasNoCommitsError extends Error {
+  readonly code = 'repository_has_no_commits'
+  constructor(readonly repoDir: string) {
+    super('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    this.name = 'RepositoryHasNoCommitsError'
+  }
+}
+
+/**
+ * Fail closed with `RepositoryHasNoCommitsError` when `repoDir` is a Git
+ * repository with an unborn HEAD, no local branch at all, and a `baseRef` that
+ * does not resolve to a commit. Any other Git failure (not a repository, a
+ * missing branch next to real commits) is left to the regular worktree path so
+ * its own error stays visible. Read-only: nothing is created.
+ */
+export async function assertRepositoryHasCommits(git: GitRunner, repoDir: string, baseRef: string): Promise<void> {
+  const base = await git.run(['rev-parse', '--verify', '--quiet', `${baseRef}^{commit}`], repoDir)
+  if (base.code === 0) return
+  const head = await git.run(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], repoDir)
+  if (head.code === 0) return
+  // An unborn HEAD is still a symbolic ref; a non-repository is not.
+  const symbolic = await git.run(['symbolic-ref', '-q', 'HEAD'], repoDir)
+  if (symbolic.code !== 0) return
+  const anyBranch = await git.run(['for-each-ref', '--count=1', '--format=%(refname)', 'refs/heads'], repoDir)
+  if (anyBranch.code !== 0 || anyBranch.stdout.trim() !== '') return
+  throw new RepositoryHasNoCommitsError(repoDir)
+}
+
 /** Injectable git/worktree IO for worktree preparation (defaults to the real
  *  implementations). `IsolatedLaunchIO` extends this shape. */
 export interface IsolatedWorktreeIO {
@@ -351,6 +381,8 @@ export async function prepareIsolatedWorktree(
       projectSetting: primary?.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch,
     })
     const worktreeBaseRef = await resolveWorktreeBaseRef(git, { repoDir: baseRepo, integration, fetchOk: fetchResult.ok })
+    // Unborn HEAD: refuse before any branch, worktree or overlay exists.
+    await assertRepositoryHasCommits(git, baseRepo, worktreeBaseRef.baseRef)
     if (worktreeBaseRef.warning) onDegraded([worktreeBaseRef.warning])
     const frozen = await git.run(['rev-parse', '--verify', `${worktreeBaseRef.baseRef}^{commit}`], baseRepo)
     const frozenSha = frozen.code === 0 ? frozen.stdout.trim() : ''

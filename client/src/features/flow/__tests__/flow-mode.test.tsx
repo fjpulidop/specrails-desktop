@@ -97,6 +97,25 @@ describe('FlowEntryCard', () => {
     expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'Try a calmer dashboard' })
   })
 
+  it('explains a repository without commits in plain words instead of the raw Git error', async () => {
+    current = null
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/flow') && init?.method === 'POST') {
+        return respond(409, { error: 'repository_has_no_commits', detail: 'git worktree add failed: fatal: invalid reference: HEAD' })
+      }
+      return base(input, init)
+    })
+    const onStarted = vi.fn()
+    render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    const error = await screen.findByTestId('flow-entry-error')
+    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    expect(error).not.toHaveTextContent('invalid reference')
+    expect(onStarted).not.toHaveBeenCalled()
+  })
+
   it('is disabled with the missing capabilities in plain words when Flow is unavailable', async () => {
     availability = { available: false, reason: 'update Core', missing: ['flowSessions', 'deriveChange'] }
     render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
