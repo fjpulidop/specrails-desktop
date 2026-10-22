@@ -36,10 +36,11 @@ describe('surface maps · tolerance (surface plumbing)', () => {
 
   it('Object.keys still reports only the known surfaces (iteration unaffected by the proxy)', () => {
     const keys = Object.keys(SURFACE_LABEL)
-    expect(keys).toContain('setup')
+    expect(keys).toContain('job')
     expect(keys).toContain('flow')
+    expect(keys).toContain('triage')
     expect(keys).toContain('setup')
     expect(keys).not.toContain('brand-new-surface-9000')
-    expect(keys).toHaveLength(13)
+    expect(keys).toHaveLength(14)
   })
 })

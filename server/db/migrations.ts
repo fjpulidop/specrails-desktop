@@ -1806,6 +1806,15 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 76: spec triage (launch-triage). Each rail launch records the
+  // loop the triage recommended and the loop actually launched, so loop
+  // economics can compute triage accuracy (matched / total). NULL on history.
+  (db) => {
+    const cols = new Set((db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name))
+    if (!cols.has('recommended_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN recommended_loop TEXT`)
+    if (!cols.has('chosen_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN chosen_loop TEXT`)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

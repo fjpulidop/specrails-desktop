@@ -227,6 +227,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
   }
   const generation = createPrDeliveryGeneration(ctx.db, {
     launchConfig: input.launchConfig,
+    loopChoice: input.loopChoice ?? null,
     id: parentId, railIndex: input.railIndex, loopId: input.loopId, railKey: `${input.railIndex}-${input.loopId}`,
     ticketIds: input.ticketIds, baseBranch: input.baseBranch ?? '', loopName: input.loopName,
     originSurface: input.originSurface ?? 'dashboard', originConversationId: input.originConversationId,

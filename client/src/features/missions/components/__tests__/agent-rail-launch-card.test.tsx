@@ -598,3 +598,25 @@ describe('useRailLaunchProposals', () => {
     expect(result.current.pinned.map((p) => p.messageId)).toEqual(['c'])
   })
 })
+
+describe('AgentRailLaunchCard spec triage (launch-triage)', () => {
+  const triage = { status: 'ready', size: 'S', filesLikely: [], publicInterfaces: false, dataModel: false, securitySurface: false, recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', rationale: 'Single file, no schema change', confidence: 'high', inputsHash: 'sha256:h', model: 'haiku', costUsd: 0.01, computedAt: 't' }
+
+  it('shows the structured triage instead of the prose rationale', async () => {
+    mockFetch({ '/tickets': () => ({ status: 200, body: { tickets: [{ ...ticketsPayload.tickets[0], metadata: { triage } }, ticketsPayload.tickets[1]] } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-triage')).toBeInTheDocument())
+    const block = screen.getByTestId('rail-card-triage')
+    expect(block).toHaveTextContent('#12')
+    expect(block).toHaveTextContent('SDD Quick (OpenSpec)')
+    expect(block).toHaveTextContent('Single file, no schema change')
+    expect(screen.queryByText('both touch auth')).not.toBeInTheDocument()
+  })
+
+  it('keeps the prose rationale when no spec is triaged', async () => {
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByText('both touch auth')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-card-triage')).not.toBeInTheDocument()
+  })
+})

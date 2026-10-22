@@ -702,7 +702,8 @@
       "refresh": "更新",
       "retry": "読み込みを再試行",
       "checkScope": "実行前にリポジトリの選択を確認してください。"
-    }
+    },
+    "triageLabel": "トリアージ"
   },
   "runCard": {
     "status": {

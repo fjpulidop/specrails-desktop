@@ -100,6 +100,7 @@ import { getConfig } from './config'
 import { createFlowService, type FlowService } from './modules/flow'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
 import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
+import { SpecTriageService } from './modules/specs/runtime/triage'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
@@ -186,6 +187,8 @@ export interface ProjectContext {
   flowHandOff?: FlowHandOffAuthority
   /** Periodic retry of due Flow settlement effects (stopped on teardown). */
   flowSettlement?: { stop(): void }
+  /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
+  specTriage?: SpecTriageService
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -460,6 +463,7 @@ export class ProjectRegistry {
       // provider child, rejects queued work, and detaches the watcher — BEFORE
       // db.close() so a completing generation can't write to the closed handle.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
+      try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
@@ -661,6 +665,7 @@ export class ProjectRegistry {
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
+      try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
@@ -708,6 +713,7 @@ export class ProjectRegistry {
     let milestoneProgress: MilestoneProgressBroadcaster | null = null
     let milestoneChains: MilestoneChainManager | null = null
     let flowService: FlowService | null = null
+    let specTriage: SpecTriageService | null = null
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
@@ -715,6 +721,8 @@ export class ProjectRegistry {
       // emit its own `milestone.chain_changed`; the progress tap then coalesces.
       milestoneChains?.observe(msg)
       milestoneProgress?.observe(msg)
+      // Spec triage: a created/edited spec schedules a debounced triage scan.
+      specTriage?.observe(msg)
       // Flow settlement: a Flow delivery that reached review settles its Flow.
       if (msg.type === 'rail.pr_state' && flowService) {
         const deliveryId = (msg as { prDeliveryId?: unknown }).prDeliveryId
@@ -1546,6 +1554,15 @@ export class ProjectRegistry {
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
+    // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
+    // now so the existing backlog is only triaged on edit or on demand.
+    specTriage = new SpecTriageService({
+      project, db, ticketsPath: ticketStorePath, broadcast: boundBroadcast,
+      notifyDesktopWrite: (revision) => ticketWatcher.notifyDesktopWrite(revision),
+      flowAvailable: async () => (await flowAvailability()).available,
+    })
+    specTriage.start()
+    ctx.specTriage = specTriage
     // Flow mode: use cases bound to THIS project's connection; the mission host
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)

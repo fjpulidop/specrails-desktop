@@ -25,9 +25,9 @@ describe('loop role engines (hybrid-role-engines)', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('exposes the sentinel and the two loop roles', () => {
+  it('exposes the sentinel and the loop roles', () => {
     expect(ROLES_ENGINE).toBe('roles')
-    expect([...LOOP_ROLES]).toEqual(['verifier', 'decider'])
+    expect([...LOOP_ROLES]).toEqual(['verifier', 'decider', 'triage'])
   })
 
   it('validates roles against the detected providers and the provider catalog', () => {

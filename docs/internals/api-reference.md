@@ -367,6 +367,7 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `POST` | `/tickets/from-draft` | Commit a draft (flip-in-place) or insert a new ticket |
 | `POST` | `/tickets/from-prompt` | Create a ticket directly from a prompt |
 | `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket. `202` scheduled, `404` unknown ticket, `409` when the effective provider cannot enforce the required tool policy (`contract_refine_unsupported_for_<provider>`; this includes Kimi), the kill switch is active (`feature_disabled_by_env`), or the ticket has no origin conversation. Kimi is rejected before spawn or mutation |
+| `POST` | `/tickets/:id/triage` | Recalculate the [spec triage](spec-triage.md) (forced, even when the inputs hash is unchanged). `200 { triage }` with the stored `metadata.triage` record (`ready`, `unavailable` or `failed`), `400` invalid id, `404` unknown ticket, `409 { error: 'triage_not_applicable', reason }` for a cancelled spec, an epic or a Flow-held spec, `503 triage_unavailable` when the project has no triage service. The record is also broadcast as `ticket_updated` |
 | `POST` | `/tickets/:id/smash` | SMASH an epic into sub-specs |
 | `POST` | `/tickets/:id/smash/undo` | Undo a SMASH operation |
 | `DELETE` | `/tickets/:id/children` | Delete all children of an epic |

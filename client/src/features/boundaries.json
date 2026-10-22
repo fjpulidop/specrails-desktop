@@ -373,6 +373,7 @@
       "components/CreateTicketModal.tsx",
       "components/SpecCard.tsx",
       "components/SpecComparePicker.tsx",
+      "components/SpecTriageChip.tsx",
       "components/SpecsBoard.tsx",
       "components/TicketDetailModal.tsx",
       "components/explore-spec/useSmoothStream.ts",
@@ -384,6 +385,7 @@
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
       "lib/spec-sort.ts",
+      "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
       "types/spec-sort.ts"
     ],

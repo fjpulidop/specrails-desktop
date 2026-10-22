@@ -34,7 +34,8 @@ import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDi
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
-import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId } from '../../rails/lib/rail-loops'
+import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId, offeredRecommendation } from '../../rails/lib/rail-loops'
+import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
@@ -1288,7 +1289,13 @@ export default function DashboardPage() {
 
     // rails-as-loops: every rail launches a Loop. Factory modes resolve to their
     // built-in loop; a custom (loop) rail needs an explicit pick.
-    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')))
+    // Spec triage (launch-triage): the same recommendation the rail header
+    // preselects (first triaged spec, only when the picker offers it).
+    const recommendedLoopId = offeredRecommendation(
+      recommendedLoopForTickets(rail.ticketIds.map((id) => ticketMap.get(id))),
+      { freestyleAvailable: !isRolesEngine(rail.aiEngine) && providerSupportsFreestyle(railProvider(rail)), loopsEnabled: FEATURE_LOOPS_SECTION },
+    )
+    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')), recommendedLoopId)
     if (!launchLoopId) {
       if (!silent) toast.error(t('railControls.pickLoop'))
       return 'failed'

@@ -70,6 +70,7 @@ import { withRepoLock } from '../../../repo-lock'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from '../../missions/runtime/mission-run-notify'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
+import { recommendedLoopForTickets } from '../../specs/domain/triage'
 import { readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import type { ReasoningEffort } from '../../../providers/types'
@@ -187,6 +188,18 @@ function onReviewTicketIds(c: ProjectContext): Set<number> {
     return new Set(Object.values(store.tickets).filter((t) => t.status === 'on_review').map((t) => t.id))
   } catch {
     return new Set()
+  }
+}
+
+/** Spec triage (launch-triage): the loop recommended by the first triaged spec
+ *  of the rail, in rail order (best-effort: an unreadable store ⇒ null). */
+function recommendedLoopForRail(c: ProjectContext, ticketIds: readonly number[]): string | null {
+  try {
+    const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
+    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(c.project.path))
+    return recommendedLoopForTickets(ticketIds.map((id) => store.tickets[String(id)]))
+  } catch {
+    return null
   }
 }
 
@@ -1224,6 +1237,7 @@ export function createRailsRouter(): Router {
               if (relaunchSource && restoreRelaunchRail(c, railIndex, relaunchSource)) broadcastRailUpdated(c, railIndex, 'tickets')
               const ids = await launchIsolatedRail({
                 launchConfig,
+                loopChoice: { recommendedLoop: recommendedLoopForRail(c, rail.ticketIds), chosenLoop: loopId },
                 runtimeProviderOverride,
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,

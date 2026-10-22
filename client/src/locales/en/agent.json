@@ -702,7 +702,8 @@
       "refresh": "Refresh",
       "retry": "Retry loading",
       "checkScope": "Review the repository selection before launching."
-    }
+    },
+    "triageLabel": "Triage"
   },
   "runCard": {
     "status": {

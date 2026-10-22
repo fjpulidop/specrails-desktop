@@ -40,6 +40,8 @@ import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSelector'
 import type { LocalTicket } from '../../../types'
 import { openAddenda } from '../../specs/lib/spec-addenda-core'
+import { readyTriage, type SpecTriageReady } from '../../specs/lib/spec-triage'
+import { TriageSummaryLine } from '../../specs/components/SpecTriageChip'
 import type { ProfileListEntry } from '../../agents/components/types'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
@@ -327,6 +329,13 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const validTicketIds = useMemo(
     () => (tickets ? config.ticketIds.filter((id) => ticketById.has(id)) : config.ticketIds),
     [config.ticketIds, ticketById, tickets],
+  )
+  const triagedSpecs = useMemo(
+    () => validTicketIds.flatMap((id) => {
+      const triage = readyTriage(ticketById.get(id))
+      return triage ? [{ id, triage } as { id: number; triage: SpecTriageReady }] : []
+    }),
+    [validTicketIds, ticketById],
   )
   const droppedTickets = tickets ? config.ticketIds.filter((id) => !ticketById.has(id)) : []
   const requiredRepositoryIds = requiredRepositories(tickets ?? [], validTicketIds, repositories)
@@ -644,7 +653,22 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       </div>
 
       <div className="space-y-2.5 px-3.5 py-3">
-        {proposal.rationale && (
+        {/* Spec triage (launch-triage): the structured per-spec triage replaces
+            the agent's prose rationale whenever the specs carry one. */}
+        {triagedSpecs.length > 0 ? (
+          <ul className="space-y-1" data-testid="rail-card-triage">
+            {triagedSpecs.map(({ id, triage }) => (
+              <li key={id} className="flex min-w-0 items-start gap-1.5 text-xs text-foreground/70">
+                <Gauge className="mt-0.5 h-3 w-3 shrink-0 text-accent-info/80" aria-label={t('railCard.triageLabel')} />
+                <span className="shrink-0 font-mono text-foreground/55">#{id}</span>
+                <span className="min-w-0">
+                  <TriageSummaryLine triage={triage} className="text-accent-info" />
+                  {triage.rationale && <span className="block italic text-foreground/60">{triage.rationale}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : proposal.rationale && (
           <p className="flex items-start gap-1.5 text-xs italic text-foreground/60">
             <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-accent-primary/70" />
             <span>{proposal.rationale}</span>

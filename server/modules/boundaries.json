@@ -1265,6 +1265,7 @@
         "../../../ids",
         "../../../types",
         "../../../worktree-overlay",
+        "../../specs/domain/triage",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./multi-repo-execution-store",
@@ -1336,6 +1337,7 @@
         "../../loops/runtime/loops-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "../../specs/domain/triage",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
@@ -2079,6 +2081,7 @@
   },
   "specs": {
     "publicEntries": [
+      "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
       "runtime/generated-spec-parser.ts",
       "runtime/proposal-manager.ts",
@@ -2091,9 +2094,11 @@
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/ticket-store.ts",
-      "runtime/ticket-watcher.ts"
+      "runtime/ticket-watcher.ts",
+      "runtime/triage.ts"
     ],
     "dependencies": {
+      "domain/triage.ts": [],
       "runtime/contract-refine-runner.ts": [
         "../../../db",
         "../../../process-admission",
@@ -2208,6 +2213,7 @@
         "../../../providers/types"
       ],
       "runtime/ticket-store.ts": [
+        "../domain/triage",
         "./spec-addenda-core",
         "fs",
         "path"
@@ -2218,6 +2224,38 @@
         "chokidar",
         "fs",
         "path"
+      ],
+      "runtime/triage-runner.ts": [
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/result-event",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/triage.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../feature-flags",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../repo-map",
+        "../../../types",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/pricing",
+        "../../loops/runtime/loop-factory",
+        "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-role-engines",
+        "../../loops/runtime/loops-store",
+        "../domain/triage",
+        "./spec-models",
+        "./ticket-store",
+        "./triage-runner",
+        "crypto"
       ]
     }
   },

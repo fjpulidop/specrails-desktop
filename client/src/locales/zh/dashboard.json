@@ -229,7 +229,9 @@
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
     "execLines": "{{count}} 行",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "推荐",
+    "recommendedOption": "{{label}} · 推荐"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

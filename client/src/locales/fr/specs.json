@@ -135,5 +135,35 @@
     "current": "Actuel",
     "all": "Tous les sprints",
     "ariaLabel": "Filtrer par sprint"
+  },
+  "triage": {
+    "compute": "Triage",
+    "computeTitle": "Estimer la taille et recommander une boucle pour cette spec",
+    "recalculate": "Recalculer",
+    "recalculating": "Recalcul…",
+    "recalculateFailed": "Échec du recalcul — réessayez",
+    "ariaLabel": "Triage de la spec #{{id}}",
+    "recommends": "Recommande {{loop}}",
+    "confidence": {
+      "high": "élevée",
+      "medium": "moyenne",
+      "low": "faible"
+    },
+    "flags": {
+      "publicInterfaces": "API publique",
+      "dataModel": "Modèle de données",
+      "securitySurface": "Sécurité",
+      "none": "Aucun impact sur l'API publique, les données ou la sécurité"
+    },
+    "flowHint": "Flow suggéré",
+    "filesLikely": "Fichiers probables",
+    "moreFiles_one": "+{{count}} fichier de plus",
+    "moreFiles_other": "+{{count}} fichiers de plus",
+    "modelCost": "{{model}} · {{cost}} $",
+    "modelOnly": "{{model}} · coût non communiqué",
+    "unavailable": "Triage n/d",
+    "unavailableDetail": "Aucun modèle n'est disponible pour le triage ({{reason}}).",
+    "failed": "Échec du triage",
+    "failedDetail": "Le triage n'a pas pu aboutir : {{error}}"
   }
 }

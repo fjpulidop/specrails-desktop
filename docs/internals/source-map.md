@@ -6,10 +6,14 @@ the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Includes 1050 source/build files. Nearby tests are linked where names
 =======
 Includes 1057 source/build files. Nearby tests are linked where names
 >>>>>>> origin/feat/agent-actions-audit
+=======
+Includes 1070 source/build files. Nearby tests are linked where names
+>>>>>>> origin/feat/spec-triage
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -674,6 +678,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
 - [SpecSprintFilterDropdown.tsx](../../client/src/features/specs/components/SpecSprintFilterDropdown.tsx)
 - [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx)
+- [SpecTriageChip.tsx](../../client/src/features/specs/components/SpecTriageChip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecTriageChip.test.tsx)
 - [SpecsBoard.tsx](../../client/src/features/specs/components/SpecsBoard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecsBoard.test.tsx)
 - [SpecsViewTierToggle.tsx](../../client/src/features/specs/components/SpecsViewTierToggle.tsx)
 - [TicketContextMenu.tsx](../../client/src/features/specs/components/TicketContextMenu.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketContextMenu.test.tsx)
@@ -724,6 +729,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
+- [spec-triage.ts](../../client/src/features/specs/lib/spec-triage.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-triage.test.ts)
 - [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
 - [ticket-refine.ts](../../client/src/features/specs/lib/ticket-refine.ts) · [test](../../client/src/features/specs/lib/__tests__/ticket-refine.test.ts)
 
@@ -1390,6 +1396,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [http.ts](../../server/modules/project-settings/adapters/http.ts)
 - [sqlite.ts](../../server/modules/project-settings/adapters/sqlite.ts)
 
+## server/modules/specs/domain
+
+- [triage.ts](../../server/modules/specs/domain/triage.ts) · [test](../../server/modules/specs/domain/triage.test.ts)
+
 ## server/modules/specs/runtime
 
 - [contract-refine-runner.ts](../../server/modules/specs/runtime/contract-refine-runner.ts) · [test](../../server/modules/specs/runtime/contract-refine-runner.test.ts)
@@ -1403,6 +1413,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
 - [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
 - [ticket-watcher.ts](../../server/modules/specs/runtime/ticket-watcher.ts) · [test](../../server/modules/specs/runtime/ticket-watcher.test.ts)
+- [triage-runner.ts](../../server/modules/specs/runtime/triage-runner.ts)
+- [triage.ts](../../server/modules/specs/runtime/triage.ts) · [test](../../server/modules/specs/runtime/triage.test.ts)
 
 ## server/modules/subscription-usage
 

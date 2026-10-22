@@ -464,6 +464,8 @@ export interface LocalTicket {
       startedAt?: string
       chosenMode?: 'flow' | 'implement'
     }
+    /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
+    triage?: import('./features/specs/lib/spec-triage').SpecTriage
   }
   attachments?: Attachment[]
   origin_conversation_id?: string | null

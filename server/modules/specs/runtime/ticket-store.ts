@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
+import type { TicketTriage } from '../domain/triage'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -49,6 +50,10 @@ export interface Ticket {
      * the "In Flow" label while `active` or `paused`; Jira never receives a
      * ticket in those states. Desktop-only; Core ignores it. */
     flow?: FlowTicketMetadata
+    /** Spec triage (schema 1.5, annex D.2): size, likely files, recommended
+     * loop… keyed by `inputsHash`. Desktop-only; Core ignores it. See
+     * server/modules/specs/domain/triage.ts. */
+    triage?: TicketTriage
   }
   comments?: Array<{
     id: number

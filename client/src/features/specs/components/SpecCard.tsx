@@ -6,6 +6,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Trash2, AlertTriangle, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
+import { SpecTriageChip } from './SpecTriageChip'
 import type { LocalTicket, TicketPriority } from '../../../types'
 
 const PRIORITY_VARIANT: Record<TicketPriority, 'destructive' | 'default' | 'warning' | 'outline'> = {
@@ -272,6 +273,7 @@ export function SpecCard({
           {openAddendaCount}
         </Badge>
       ) : null}
+      {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
         <Badge variant="outline" className="text-[9px] shrink-0 border-accent-secondary/60 text-accent-secondary">
           {t('common:status.draft')}

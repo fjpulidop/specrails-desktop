@@ -9,7 +9,8 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
-import { deriveRailMode, effectiveLoopId } from '../lib/rail-loops'
+import { deriveRailMode, effectiveLoopId, offeredRecommendation } from '../lib/rail-loops'
+import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { SpecCard } from '../../specs/components/SpecCard'
 import { RailProfileSelector } from '../../agents/components/RailProfileSelector'
 import { RailEngineSelector } from '../../agents/components/RailEngineSelector'
@@ -132,12 +133,16 @@ export function RailRow({
   // profile/model/effort pickers give way to a chip (each role is configured
   // in Settings ▸ Specrails Agents) and capability checks use the primary.
   const hasAddenda = tickets.some((ticket) => ticket.addenda?.some((a) => a.status === 'open'))
-  const effectiveMode = deriveRailMode(effectiveLoopId(selectedLoopId, mode, hasAddenda))
   const rolesEngine = isRolesEngine(aiEngine)
   const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
   const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
   // Freestyle is provider-owned prose; the roles engine has no single provider.
   const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(effectiveProvider)
+  // Spec triage (launch-triage): the first triaged spec's loop is preselected
+  // while the rail has no explicit pick — only when the picker offers it.
+  const recommendedLoopId = offeredRecommendation(recommendedLoopForTickets(tickets), { freestyleAvailable, loopsEnabled: loopAvailable })
+  const railLoopId = effectiveLoopId(selectedLoopId, mode, hasAddenda, recommendedLoopId)
+  const effectiveMode = deriveRailMode(railLoopId)
   // Which secondary selectors are visible right now. When any is shown we move
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
@@ -499,7 +504,8 @@ export function RailRow({
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
-              value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
+              value={railLoopId}
+              recommendedId={recommendedLoopId}
               onChange={onLoopChange}
               freestyleAvailable={freestyleAvailable}
               loopsEnabled={loopAvailable}
@@ -734,7 +740,8 @@ export function RailRow({
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
-                  value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
+                  value={railLoopId}
+              recommendedId={recommendedLoopId}
                   onChange={onLoopChange}
                   freestyleAvailable={freestyleAvailable}
                   loopsEnabled={loopAvailable}

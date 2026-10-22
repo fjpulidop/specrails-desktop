@@ -7,6 +7,7 @@
  * decision. Pure data access; the PR plumbing lives in rail-pr-delivery /
  * pr-publisher and the launch wiring in rail-isolated-launch.
  */
+import { triageAccuracy, type TriageAccuracy } from '../../specs/domain/triage'
 import { readFollowUp, type PrFollowUp } from './pr-follow-up'
 import { readSpecAddendaSnapshot, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
@@ -117,6 +118,10 @@ export interface RailPrDeliveryRow {
   decided_at?: string | null
   published_at?: string | null
   merged_at?: string | null
+  /** Spec triage (migration 76): loop recommended by the rail's first triaged spec. */
+  recommended_loop?: string | null
+  /** Spec triage (migration 76): loop the launch actually ran. */
+  chosen_loop?: string | null
   parent_delivery_id?: string | null
   repository_id?: string | null
   repository_path?: string | null
@@ -207,6 +212,8 @@ export interface CreatePrDeliveryInput {
   followUp?: PrFollowUp | null
   /** Frozen identity of the spec addenda this launch carries (spec-addenda); null when none. */
   specAddenda?: SpecAddendaSnapshotEntry[] | null
+  /** Spec triage (launch-triage): recommended vs launched loop, for triage accuracy. */
+  loopChoice?: { recommendedLoop: string | null; chosenLoop: string | null } | null
 }
 
 /**
@@ -222,9 +229,10 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda, launch_config_json
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda, launch_config_json,
+       recommended_loop, chosen_loop
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -248,8 +256,25 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.followUp ? JSON.stringify(input.followUp) : null,
     input.specAddenda && input.specAddenda.length > 0 ? JSON.stringify(input.specAddenda) : null,
     input.launchConfig ? JSON.stringify(input.launchConfig) : null,
+    input.loopChoice?.recommendedLoop ?? null,
+    input.loopChoice?.chosenLoop ?? null,
   )
   return getPrDelivery(db, id)!
+}
+
+/**
+ * Triage accuracy for loop economics (launch-triage): over root deliveries
+ * (one per launch) that carried a recommendation, how many launched exactly
+ * the recommended loop. Optional ISO lower bound on `created_at`.
+ */
+export function getTriageAccuracy(db: DbInstance, opts: { since?: string } = {}): TriageAccuracy {
+  const rows = db.prepare(
+    `SELECT recommended_loop AS recommendedLoop, chosen_loop AS chosenLoop
+       FROM rail_pr_deliveries
+      WHERE parent_delivery_id IS NULL AND recommended_loop IS NOT NULL
+        ${opts.since ? 'AND created_at >= datetime(?)' : ''}`,
+  ).all(...(opts.since ? [opts.since] : [])) as Array<{ recommendedLoop: string | null; chosenLoop: string | null }>
+  return triageAccuracy(rows)
 }
 
 /**

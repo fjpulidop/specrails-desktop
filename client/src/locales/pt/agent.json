@@ -702,7 +702,8 @@
       "refresh": "Atualizar",
       "retry": "Tentar carregar novamente",
       "checkScope": "Reveja a seleção de repositórios antes de lançar."
-    }
+    },
+    "triageLabel": "Triagem"
   },
   "runCard": {
     "status": {

@@ -960,6 +960,26 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     }
   })
 
+  // POST /:projectId/tickets/:id/triage — Recalculate the spec triage
+  // (launch-triage). Forced: runs even when the inputs hash is unchanged. The
+  // record is stored in metadata.triage and announced as ticket_updated.
+  router.post('/:projectId/tickets/:id/triage', async (req: Request, res: Response) => {
+    const ticketId = String(req.params.id ?? '')
+    if (!/^\d+$/.test(ticketId)) { res.status(400).json({ error: 'Invalid ticket ID' }); return }
+    const service = ctx(req).specTriage
+    if (!service) { res.status(503).json({ error: 'triage_unavailable' }); return }
+    try {
+      const outcome = await service.triageNow(Number(ticketId), { force: true })
+      if (outcome.kind === 'not_found') { res.status(404).json({ error: 'Ticket not found' }); return }
+      if (outcome.kind === 'not_applicable') { res.status(409).json({ error: 'triage_not_applicable', reason: outcome.reason }); return }
+      if (outcome.kind === 'stored' || outcome.kind === 'unchanged') { res.json({ triage: outcome.triage }); return }
+      res.status(503).json({ error: 'triage_unavailable' })
+    } catch (err) {
+      console.error('[project-router] ticket triage error:', err)
+      res.status(500).json({ error: 'Failed to triage ticket' })
+    }
+  })
+
   // POST /:projectId/tickets/:id/contract-refine — Manually re-fire refine
   router.post('/:projectId/tickets/:id/contract-refine', async (req: Request, res: Response) => {
     const ticketId = Number.parseInt(String(req.params.id ?? ''), 10)

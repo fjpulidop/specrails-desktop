@@ -15,6 +15,7 @@ export type Surface =
   | 'setup'
   /** Flow mode turns (app ledger; real provider-billed cost only). */
   | 'flow'
+  | 'triage'
 export type SurfaceFilter = Surface | 'all'
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -284,6 +285,7 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   'agent-studio': 'analytics:surfaces.agentStudio',
   setup: 'analytics:surfaces.setup',
   flow: 'analytics:surfaces.flow',
+  triage: 'analytics:surfaces.triage',
 }
 
 export interface SurfaceAccent {
@@ -381,7 +383,13 @@ const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = {
     text: 'text-accent-info',
     ring: 'ring-accent-info/40',
     dot: 'bg-accent-info',
-  }
+  },
+  triage: {
+    bg: 'bg-accent-info/15',
+    text: 'text-accent-info',
+    ring: 'ring-accent-info/40',
+    dot: 'bg-accent-info',
+  },
 }
 
 /**

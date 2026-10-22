@@ -20,8 +20,11 @@ export function RailLoopSelector({
   freestyleAvailable = true,
   loopsEnabled = true,
   disabled = false,
+  recommendedId = null,
 }: {
   disabled?: boolean
+  /** Spec triage recommendation (launch-triage): its option is marked as recommended. */
+  recommendedId?: string | null
   value: string | null | undefined
   onChange: (loopId: string) => void
   /** Offer the provider-owned Freestyle built-in when the adapter supports it. */
@@ -49,6 +52,9 @@ export function RailLoopSelector({
     return () => { cancelled = true }
   }, [loopsEnabled])
 
+  const withRecommendation = (label: string, id: string): string =>
+    id === recommendedId ? t('railControls.recommendedOption', { label }) : label
+
   const builtIn = FACTORY_RAIL_LOOPS.filter(
     (f) => (freestyleAvailable || !f.requiresFreestyle) && (loopsEnabled || !f.requiresLoops),
   )
@@ -56,7 +62,7 @@ export function RailLoopSelector({
   return (
     <div
       className="inline-flex items-center"
-      title={t('railControls.loopTitle')}
+      title={recommendedId && value === recommendedId ? `${t('railControls.loopTitle')} · ${t('railControls.recommended')}` : t('railControls.loopTitle')}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -66,19 +72,20 @@ export function RailLoopSelector({
         disabled={disabled}
         aria-label={t('railControls.loop')}
         data-testid="rail-loop-selector"
+        data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px]"
+        className={`h-5 text-[10px] rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
       >
         <option value="" disabled>{t('railControls.pickLoop')}</option>
         <optgroup label={t('railControls.builtInLoops')}>
           {builtIn.map((f) => (
-            <option key={f.id} value={f.id}>{builtinRows.get(f.id)?.builtinModified ? builtinRows.get(f.id)!.name : t(f.labelKey)}</option>
+            <option key={f.id} value={f.id}>{withRecommendation(builtinRows.get(f.id)?.builtinModified ? builtinRows.get(f.id)!.name : t(f.labelKey), f.id)}</option>
           ))}
         </optgroup>
         {published.length > 0 && (
           <optgroup label={t('railControls.customLoops')}>
             {published.map((l) => (
-              <option key={l.id} value={l.id}>{l.name}</option>
+              <option key={l.id} value={l.id}>{withRecommendation(l.name, l.id)}</option>
             ))}
           </optgroup>
         )}
