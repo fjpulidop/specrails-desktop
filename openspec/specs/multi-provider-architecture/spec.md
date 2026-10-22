@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-multi-provider-support. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: ProviderAdapter interface is the single integration point
 
 The app SHALL define a TypeScript interface `ProviderAdapter` in `server/providers/provider-adapter.ts` that every provider implements. Manager code (chat, queue, agent-refine, setup, profile, plugin, explore-cwd, result-event, project-router) MUST consume the adapter exclusively for spawn-time decisions (argv shape, stream parsing, session-id capture, result normalisation, MCP registration mode, filesystem-convention paths). No new `if (provider === '<id>')` branch SHALL be introduced in manager code; existing such branches MUST be migrated to capability-flag or method dispatches as those managers are touched.
@@ -171,14 +173,18 @@ Fields the provider does not report MUST be `undefined` (NULL when persisted). C
 ### Requirement: Adapter declares baseline agents and detects installation
 
 Every adapter MUST implement:
-- `baselineAgents(): readonly string[]` — the agent ids profile validation considers mandatory (e.g. `['sr-architect', 'sr-developer', 'sr-reviewer', 'sr-merge-resolver']`)
+- `baselineAgents(): readonly string[]` — the role identifiers profile validation considers mandatory in any profile's chain (e.g. `['sr-architect', 'sr-developer', 'sr-reviewer']`). These are identifiers of runtime-defined roles, never installed files: no adapter or caller MAY require a file named after them to exist.
 - `detectInstalled(): Promise<DetectionResult>` — returns `{ installed: boolean; executable: boolean; version?: string; meetsMinimum?: boolean }`. Implementations MUST complete within 3 seconds; longer must resolve to `{ installed: false }` rather than hang.
 
-`baselineAgents()` is consumed by `ProfileManager.validateStructural` to know which agent ids must be present in any profile's chain.
+`baselineAgents()` is consumed by `ProfileManager.validateStructural` to know which agent ids must be present in any profile's chain, and by profile migration to seed those ids with the adapter's default model.
 
 #### Scenario: Both default adapters declare the same baseline
 - **WHEN** `claudeAdapter.baselineAgents()` and `codexAdapter.baselineAgents()` are compared
 - **THEN** they return arrays with the same set of strings (order may differ)
+
+#### Scenario: Profile migration without role files
+- **WHEN** `POST /profiles/migrate-from-settings` runs on a project whose catalog holds no `sr-*` file
+- **THEN** a `default` profile is created with the baseline ids and the adapter's default model, and the request does not fail
 
 #### Scenario: detectInstalled honours minVersion when set
 - **GIVEN** `codexAdapter.minCliVersion === '0.128.0'`
@@ -300,4 +306,3 @@ The reverse mapping that collapses concrete model ids back to a catalog alias SH
 
 - **WHEN** a stream or stored row reports the model `claude-opus-5-5`
 - **THEN** normalisation SHALL collapse it to the catalog value `opus`
-

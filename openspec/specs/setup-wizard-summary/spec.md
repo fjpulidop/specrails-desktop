@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change truthful-setup-summary. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Setup summary reports per-namespace command counts
 
 The setup summary produced at the end of an install run SHALL report command counts separately for the `/specrails:*` and `/opsx:*` namespaces, and SHALL NOT include counts for the deprecated `/sr:*` namespace.
@@ -52,7 +54,7 @@ The setup process SHALL delete the `.claude/commands/sr/` directory on every ins
 
 ### Requirement: Completion screen renders truthful tile grid
 
-The setup wizard's completion step SHALL render a tile grid that matches the namespaces and counts reported by `SetupSummary`, with labels the user will actually type.
+The setup wizard's completion step SHALL render a tile grid that matches the namespaces and counts reported by `SetupSummary`, with labels the user will actually type. The `Agents` tile reports the project's custom roles (`summary.agents`); the baseline roles are runtime-defined and are not counted.
 
 #### Scenario: Quick tier renders three tiles
 - **WHEN** the completion step renders with `summary.tier === 'quick'`
@@ -68,7 +70,10 @@ The setup wizard's completion step SHALL render a tile grid that matches the nam
 #### Scenario: Full tier with zero personas
 - **WHEN** the completion step renders with `summary.tier === 'full'` and `summary.personas === 0`
 - **THEN** the `Personas` tile is not rendered
-- **AND** the grid contains exactly three tiles
+
+#### Scenario: Install without custom roles
+- **WHEN** the completion step renders after an install that produced commands and no custom roles
+- **THEN** the `Agents` tile shows `0` and the completion step still reports success
 
 ### Requirement: Completion screen announces legacy /sr: cleanup
 
@@ -93,4 +98,3 @@ The paragraph above the tile grid SHALL only mention capability categories that 
 #### Scenario: Full tier intro
 - **WHEN** the completion step renders with `summary.tier === 'full'` and `summary.personas > 0`
 - **THEN** the paragraph above the grid mentions agents, personas, and commands
-

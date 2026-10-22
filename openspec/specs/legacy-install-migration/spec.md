@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change global-core-zero-friction. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Legacy projects are detected and migrated at startup
 
 At server startup, the app SHALL identify registered projects that are non-relocated (two-part activation gate) AND have a repo-resident core install (`<repo>/.specrails/specrails-version` present), and SHALL migrate each to the relocated workspace automatically, in the background, serialized per project, without user prompting. Migration SHALL be gated by the kill switch `SPECRAILS_LEGACY_MIGRATION` (default on; `false` disables).
@@ -25,11 +27,11 @@ Migration SHALL move (not copy) app/core-owned per-project state from `<repo>/.s
 
 ### Requirement: Repo cleanup is manifest-driven and never touches user files
 
-Repo cleanup SHALL delete only paths that exactly match a manifest computed from the bundled framework's file listing (framework-owned `sr-*` agents, `specrails`/`opsx` command directories, framework skills/rules, instruction-file copies the installer owns) plus app-owned `.specrails/` leftovers, UNION narrow historical patterns covering files older core versions installed that no longer exist in the current listing (`<providerDir>/agents/sr-*.md`, `<providerDir>/commands/{sr,specrails,opsx}/`, framework-owned skills/rules dir names). Patterns MUST follow framework naming conventions only, so user files can never match. The following MUST never be deleted or modified: `openspec/**`, `.claude/worktrees/**`, `custom-*.md` agent files, user-authored instruction files (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` are left as-is even when the old installer appended to them), user settings files, and `.mcp.json` keys not owned by the app (surgical key-level removal only).
+Repo cleanup SHALL delete only paths that exactly match a manifest computed from the bundled framework's file listing (`specrails`/`opsx` command directories, framework skills, instruction-file copies the installer owns) plus app-owned `.specrails/` leftovers, UNION narrow historical patterns covering files older core versions installed that no longer exist in the current listing (`<providerDir>/agents/sr-*.md`, `<providerDir>/commands/{sr,specrails,opsx}/`, `skills/(rails/)?sr-*`, framework-owned skills/rules dir names). Patterns MUST follow framework naming conventions only, so user files can never match. The following MUST never be deleted or modified: `openspec/**`, `.claude/worktrees/**`, `custom-*.md` agent files, user-authored instruction files (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` are left as-is even when the old installer appended to them), user settings files, and `.mcp.json` keys not owned by the app (surgical key-level removal only).
 
 #### Scenario: User files planted among framework files survive
-- **WHEN** a repo contains `.claude/agents/sr-architect.md` (framework) and `.claude/agents/custom-mine.md` (user)
-- **THEN** cleanup deletes `sr-architect.md` and leaves `custom-mine.md` untouched
+- **WHEN** a repo contains `.claude/agents/sr-architect.md` (installed by an older core) and `.claude/agents/custom-mine.md` (user)
+- **THEN** cleanup deletes `sr-architect.md` through the historical pattern and leaves `custom-mine.md` untouched
 
 #### Scenario: openspec and worktrees are carve-outs
 - **WHEN** cleanup runs on a repo with `openspec/` specs and `.claude/worktrees/` entries

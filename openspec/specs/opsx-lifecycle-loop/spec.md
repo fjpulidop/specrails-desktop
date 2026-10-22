@@ -2,17 +2,23 @@
 
 ## Purpose
 TBD - created by archiving change opsx-lifecycle-loop-template. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: OpenSpec Lifecycle Loop Template
 
-The system SHALL provide a starter loop template named `opsx-lifecycle` that, given a single Specrails ticket, drives the full OpenSpec lifecycle (generate artifacts → implement → verify → archive) with a single AI agent and no multi-agent pipeline. The template SHALL be a hand-authored `LoopGraph` (not a compiled `PortSpec`) because it combines an AI-step spine, a decider, a `shell` archive node, and a terminal action on the decider's `stop` branch — a shape the stock `aiLoopGraph`/`fixLoopGraph` builders do not produce.
+The system SHALL provide the OpenSpec lifecycle graph (`opsxLifecycleGraph`) that, given a single Specrails ticket, drives the OpenSpec lifecycle with a single AI agent and no multi-agent pipeline. It SHALL be used as the legacy variant of the `factory:sdd-quick-openspec` built-in loop and SHALL NOT be offered in the loop template catalog. The graph SHALL be hand-authored because it combines AI steps with `shell` validation and archive nodes.
 
-#### Scenario: Template is offered in the catalog
+#### Scenario: Graph is not offered as a template
 - **WHEN** a client requests the loop template catalog
-- **THEN** an `opsx-lifecycle` template is present with a valid graph that passes `validateLoopGraph`
+- **THEN** no `opsx-lifecycle` template is present
 
-#### Scenario: Template is launchable from a ticket
-- **WHEN** a rail launches the `opsx-lifecycle` template with a ticket
+#### Scenario: Graph is valid
+- **WHEN** `opsxLifecycleGraph()` is validated
+- **THEN** it passes `validateLoopGraph`
+
+#### Scenario: Built-in launch interpolates the ticket
+- **WHEN** a rail launches the SDD Quick (OpenSpec) built-in on a Core without the definition engine
 - **THEN** the run starts at the first `opsx:ff` step with the ticket's `{{spec.title}}` and `{{spec.description}}` interpolated into the prompt
 
 ### Requirement: Lifecycle Step Sequence
@@ -115,4 +121,3 @@ The lifecycle graph used by `SDD Quick (OpenSpec)` SHALL instruct the agent that
 - **WHEN** implementation diverges from the active OpenSpec artifacts
 - **THEN** the verify step SHALL report FAIL
 - **AND** the loop SHALL continue instead of archiving the change
-

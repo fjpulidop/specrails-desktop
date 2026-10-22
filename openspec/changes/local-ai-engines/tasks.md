@@ -69,3 +69,11 @@
 - [x] 9.1 `npm run typecheck`, `npm test`, `npm run test:coverage`, `cd client && npm run test:coverage` all green at the mandated thresholds
 - [ ] 9.2 Manual smoke against the user's endpoint (`http://192.168.68.74:8080/v1`, `qwen3.5-9b:latest`): Test connection, sidebar chat turn + resume, Explore turn, mission listing specs via bridge, freestyle rail, implement rail; record results in the internals doc
 - [ ] 9.3 Kill-switch smoke: `SPECRAILS_LOCAL_ENGINES=false` ⇒ selectors show CLIs only, runtime role radio still offers `local`
+
+Status 2026-10-21: remaining — 9.2: the 2026-09-14 smoke in `docs/internals/local-agent-runner.md` covers runner one-
+shot/resume, test-connection and detection, but the in-app UI pass (Settings card, selectors, chat, Explore, mission
+via the bridge, freestyle and implement rails) is recorded as pending; 9.3: kill-switch behaviour has unit tests but
+the manual `SPECRAILS_LOCAL_ENGINES=false` smoke is not recorded.
+
+The multi-provider-architecture delta was rebased on 2026-10-21 onto the canonical text synced from
+retire-installed-role-agents (role ids are not files; profile migration scenario kept).

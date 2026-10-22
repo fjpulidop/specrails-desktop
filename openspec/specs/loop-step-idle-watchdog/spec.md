@@ -9,7 +9,7 @@ TBD - created by archiving change premium-milestone-progress. Update Purpose aft
 The loop engine SHALL arm an inactivity watchdog on every loop AI step (one-shot and interactive) that fires when the step's provider process has produced no stream activity — the same activity that updates the step's `loop_step_recovery` checkpoint — for the configured idle threshold. The watchdog SHALL apply regardless of the loop's per-step timeout: a step with `aiStepTimeoutMinutes > 0` keeps that hard cap AND the idle bound; a step with `aiStepTimeoutMinutes = 0` (every factory loop) is bounded by inactivity only. When the watchdog fires the engine SHALL tear the step's process/session down and record a `loop_step_end` event with `status: 'stalled'`, `reason: 'idle_timeout'` and the observed idle duration.
 
 #### Scenario: Factory loop step with no output is torn down
-- **WHEN** a `factory:batch` AI step's provider emits no stream frame for the idle threshold
+- **WHEN** a `factory:implement` AI step's provider emits no stream frame for the idle threshold
 - **THEN** the engine tears the step down and persists a `loop_step_end` with `status: 'stalled'` and `reason: 'idle_timeout'`
 
 #### Scenario: Activity resets the watchdog
