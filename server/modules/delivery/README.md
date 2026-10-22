@@ -32,7 +32,9 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
+- [runtime/flow-worktree-handoff.ts](runtime/flow-worktree-handoff.ts)
 - [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
+- [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
 - [runtime/multi-repo-execution.ts](runtime/multi-repo-execution.ts)
 - [runtime/pr-publisher.ts](runtime/pr-publisher.ts)
@@ -56,8 +58,22 @@ continuation, delivery rows and the rail ledger. `prepareIsolatedWorktree` is
 the self-contained entry for a second consumer (Flow): it takes the repository
 lock, fetches, resolves the integration base and a fresh conventional branch,
 then materializes. It writes no `rail_worktrees` row; the caller owns release
-using the returned ownership flags. The manifest lists it as a public subpath
-once a consumer outside `delivery` imports it.
+using the returned ownership flags. Flow mode is its second consumer.
+
+### Flow hand-off
+
+`IsolatedLaunchInput.requiredFlowWorktree` ([contract](runtime/flow-worktree-handoff.ts))
+makes a launch adopt a Flow worktree instead of allocating one: the exact
+mount is reused (`reuseBranchWorktree: true`, `fresh: false`) and its path,
+branch and HEAD must equal the frozen Flow values, else
+`FlowWorktreeMismatchError` (409). Branch and worktree ownership become
+`adopted`: release treats it like `created` (the rail owns it after the
+hand-off) while allocation rollback never removes it. The `rail_worktrees`
+row and the Flow's `handed_off` state commit in one transaction through the
+contract's `adopt` callback; a rollback after adoption deletes the row and
+calls `release`. The rails launch route accepts `flowId` and resolves the
+contract through `ProjectContext.flowHandOff`. Delivery never imports the
+Flow module. See [Flow mode](../../../docs/internals/flow-mode.md).
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

@@ -22,7 +22,7 @@ import { nativeLiveSessionRunner } from '../../../providers/live-session'
 import { LiveInputDeliveryError, type LiveInputSink } from '../../../providers/live-session-types'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { finaliseInvocationResult, finaliseNormalisedResult } from '../../accounting/runtime/result-event'
-import { recordAgentInvocation, type AgentInvocationStatus } from '../../../desktop-db'
+import { recordAgentInvocation, type AgentInvocationStatus, type AgentInvocationSurface } from '../../../desktop-db'
 import { isMissionFailureTurnEnabled } from '../../../feature-flags'
 import type { RunFailureRow } from '../../../types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
@@ -70,6 +70,7 @@ import { registerAgentSteering, notifyAgentSteering, acknowledgeNativeAgentSteer
 import { createCoreSessionRunner, type CoreInvocationResult } from './core-session-runner'
 import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
+import type { FlowTurn, FlowTurnContext } from './flow-turn-context'
 import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
@@ -129,6 +130,10 @@ export class AgentChatManager {
   /** Missions' Core agent sessions (null = legacy transports only). */
   private _coreSessions: MissionCoreSessions | null = null
   private _agentAudit: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null = null
+  /** Flow mode port (null = no Flow: every turn is a normal mission turn). */
+  private _flowTurns: FlowTurnContext | null = null
+  /** Flow Core sessions that already received the conversation history. */
+  private readonly _briefedFlowSessions = new Set<string>()
   private readonly _nativeInputNotifiers = new Map<string, () => void>()
   /** Conversations with a turn in-flight but not yet spawned. Closes the TOCTOU
    *  window the attachment-extraction await opens between the busy guard and
@@ -175,6 +180,47 @@ export class AgentChatManager {
   /** Composition-time wiring of the agent actions audit (per pinned project). */
   setAgentAudit(resolve: ((projectId: string) => Pick<AgentAuditRecorder, 'record'> | null) | null): void {
     this._agentAudit = resolve
+  }
+
+  /** Composition-time wiring of Flow mode (the Flow module binds the port). */
+  setFlowTurnContext(flowTurns: FlowTurnContext | null): void {
+    this._flowTurns = flowTurns
+  }
+
+  /** The active Flow of a conversation, or null (never throws into a turn). */
+  private _flowTurn(conversationId: string): FlowTurn | null {
+    if (!this._flowTurns) return null
+    try {
+      return this._flowTurns.forConversation(conversationId)
+    } catch (error) {
+      console.error(`[agent-chat] Flow lookup failed (${conversationId}):`, error)
+      return null
+    }
+  }
+
+  /** True while the conversation runs in Flow (mid-turn input interrupts). */
+  isFlowActive(conversationId: string): boolean {
+    return this._flowTurn(conversationId) !== null
+  }
+
+  /** Throws when this conversation's provider cannot run a Flow session now. */
+  async assertFlowSupport(conversationId: string): Promise<void> {
+    const conversation = getAgentConversation(this._db, conversationId)
+    if (!conversation) throw new Error('Unknown conversation')
+    if (!this._coreSessions) throw new Error('Flow needs Core agent sessions, which are not configured')
+    await this._coreSessions.assertFlowSupport(conversation, conversation.provider)
+  }
+
+  /** Stop a running Flow turn and close the Flow's Core session. Never throws. */
+  async closeFlowSession(conversationId: string, coreSessionId: string, reason: string): Promise<void> {
+    if (this._disposed) return
+    try {
+      if (this.isBusy(conversationId)) this.abort(conversationId)
+      const conversation = getAgentConversation(this._db, conversationId)
+      if (conversation && this._coreSessions) await this._coreSessions.closeFlowSession(conversation, coreSessionId, reason)
+    } catch (error) {
+      console.warn(`[agent-chat] closing Flow session ${coreSessionId} failed:`, error)
+    }
   }
 
   /** Conversation deleted: close its Core session (reads the row before it is dropped). */
@@ -495,6 +541,13 @@ export class AgentChatManager {
     const conversationId = conversation.id
     const tierLevel = normalizeLevel(options.tierLevel ?? conversation.tier_level)
     const adapter = getAdapter(conversation.provider)
+    // Flow mode: an active Flow turns this mission turn into a Flow turn (its own
+    // Core session in the worktree). There is no legacy transport for Flow.
+    const flowTurn = this._flowTurn(conversationId)
+    if (flowTurn && !this._coreSessions) {
+      this._emitError(conversationId, 'Flow needs Core agent sessions; this turn was not started.', { code: 'flow_sessions_unavailable', provider: adapter.id })
+      return
+    }
     // Resolve a model that is VALID for this provider. A stale model from another
     // provider (e.g. claude's "sonnet" after switching to codex) is rejected by
     // the provider — fall back to the provider's default instead of failing.
@@ -583,7 +636,8 @@ export class AgentChatManager {
     const localProtocolNote = isLocalAdapterId(adapter.id)
       ? ' | Protocol: fenced protocol blocks MUST be tagged exactly problem-frame, spec-draft or options (never json); never ask the user to type #noframe'
       : ''
-    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}`
+    const flowNote = flowTurn ? ` | Flow: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)` : ''
+    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}${flowNote}`
     const contextPrefix = conversation.pinned_project_id
       ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`
       : `[No project pinned (Home) | ${turnSettings}]`
@@ -596,11 +650,15 @@ export class AgentChatManager {
       ? `[Mission input ID: ${JSON.stringify(options.queueId)}. After reading this message, confirm receipt with specrails_mission(action:"acknowledge_inputs", inputIds:[this exact ID]). This records reading, not completion of the requested work.]\n\n`
       : ''
     const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${userWithAttachments}`
+    const basePrompt = flowTurn ? flowTurn.systemPrompt : buildOperatorSystemPrompt()
     const systemPrompt = hasAttachments
-      ? `${buildOperatorSystemPrompt()}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
-      : buildOperatorSystemPrompt()
+      ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
+      : basePrompt
     const effectivePrompt = (useResume: boolean): string => {
-      const freshPrompt = !useResume && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
+      // A Flow session receives the conversation history once (its own Core
+      // session journals the rest); a mission turn includes it when fresh.
+      const withHistory = flowTurn ? !this._briefedFlowSessions.has(flowTurn.coreSessionId) : !useResume
+      const freshPrompt = withHistory && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
       return adapter.capabilities.systemPromptArg ? freshPrompt : `${systemPrompt}\n\n---\n\n${freshPrompt}`
     }
     // Only pass native image paths to providers that can vision-load them (codex
@@ -609,7 +667,7 @@ export class AgentChatManager {
 
     // Native read-only boundary for legacy transports (one-shot and native live
     // sessions). Core sessions get the matching session policy instead.
-    const spawnPolicy = missionSpawnPolicy(adapter)
+    const spawnPolicy = flowTurn ? {} : missionSpawnPolicy(adapter)
     let currentCapability: string | null = null
     let currentInvocationId: string | undefined
     try {
@@ -622,9 +680,11 @@ export class AgentChatManager {
       const needsConversationMcpCwd =
         !!projectMcpPath &&
         path.dirname(projectMcpPath) !== '.'
-      const cwd = needsConversationMcpCwd
-        ? ensureAgentConversationCwd(conversationId)
-        : ensureAgentCwd()
+      const cwd = flowTurn
+        ? flowTurn.cwd
+        : needsConversationMcpCwd
+          ? ensureAgentConversationCwd(conversationId)
+          : ensureAgentCwd()
       const timestamp = (): string => new Date().toISOString()
 
       interface TurnOutcome {
@@ -661,7 +721,7 @@ export class AgentChatManager {
         // Core agent sessions: a resident session presents this turn's capability
         // through structured MCP specs (no provider-specific argv).
         const coreContext = this._coreSessions
-          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id) })
+          ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id), flow: flowTurn })
           : null
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
@@ -698,7 +758,7 @@ export class AgentChatManager {
           prompt: effectivePrompt(useResume),
           systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
           model,
-          sessionId: useResume ? conversation.session_id ?? undefined : undefined,
+          sessionId: useResume && !flowTurn ? conversation.session_id ?? undefined : undefined,
           extraArgs: mcpArgs,
           imagePaths: spawnImagePaths,
           reasoning_effort: reasoningEffort,
@@ -1047,7 +1107,8 @@ export class AgentChatManager {
       // is still the one this turn actually ran on (a foreign session id must not
       // pollute the new provider's freshly-reset state).
       const persistSession = (sessionId: string | null): void => {
-        if (this._disposed) return
+        // A Flow turn's provider session belongs to the Flow's Core session, never the mission's.
+        if (this._disposed || flowTurn) return
         const fresh = getAgentConversation(this._db, conversationId)
         if (fresh && fresh.provider === conversation.provider) {
           updateAgentConversation(this._db, conversationId, { session_id: sessionId })
@@ -1069,10 +1130,10 @@ export class AgentChatManager {
       // start (NULL = Home / app-global).
       const record = (outcome: TurnOutcome, status: AgentInvocationStatus): void => {
         if (this._disposed || outcome.disposed) return
-        this._recordTurn(conversation, adapter, model, outcome, status)
+        this._recordTurn(conversation, adapter, model, outcome, status, flowTurn ? 'flow' : 'agent-chat')
       }
 
-      const canResume = !!conversation.session_id && adapter.capabilities.nativeResume
+      const canResume = !flowTurn && !!conversation.session_id && adapter.capabilities.nativeResume
       let r = await invoke(canResume)
       if (this._disposed || r.disposed) return
 
@@ -1137,6 +1198,7 @@ export class AgentChatManager {
         return
       }
 
+      if (flowTurn) this._briefedFlowSessions.add(flowTurn.coreSessionId)
       if (r.text || r.checkpointed) {
         const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)
@@ -1180,6 +1242,7 @@ export class AgentChatManager {
     model: string,
     outcome: { events: AdapterEvent[]; startedAt: string; sessionId: string | null; usage?: NormalisedResult },
     status: AgentInvocationStatus,
+    surface: AgentInvocationSurface = 'agent-chat',
   ): void {
     if (this._disposed) return
     try {
@@ -1194,6 +1257,7 @@ export class AgentChatManager {
         conversation_id: conversation.id,
         project_id: conversation.pinned_project_id ?? null,
         provider: adapter.id,
+        surface,
         status,
         started_at: outcome.startedAt,
         finished_at: finishedAt,

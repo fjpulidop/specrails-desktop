@@ -1,0 +1,46 @@
+// Public application API of the Flow module. Adapters (SQLite, HTTP, port
+// bindings) are wired only at composition roots through their subpaths.
+export {
+  createFlowService,
+  type FlowCost,
+  type FlowService,
+  type HandOffFlowInput,
+  type StartFlowInput,
+} from './application'
+export {
+  FlowConflictError,
+  FlowLaunchRejectedError,
+  FlowNotFoundError,
+  FlowTransitionError,
+  FlowUnavailableError,
+  FlowValidationError,
+  FLOW_SPEC_LOOP_ID,
+  OPEN_FLOW_STATES,
+  flowCoreSessionId,
+  isOpenFlow,
+  isTerminalFlow,
+  placeholderTitle,
+  transition,
+  type FlowCommand,
+  type FlowEffect,
+  type FlowSession,
+  type FlowState,
+  type FlowStep,
+  type FlowTicketState,
+} from './domain'
+export type {
+  Clock,
+  FlowAgentSession,
+  FlowDiffFile,
+  FlowDiffSummary,
+  FlowLaunchOptions,
+  FlowNotifier,
+  FlowPorts,
+  FlowPublication,
+  FlowRailLauncher,
+  FlowRepository,
+  FlowTickets,
+  FlowUsage,
+  ReservedWorktree,
+  WorktreeReservation,
+} from './ports'

@@ -2,7 +2,7 @@ import type { DbInstance } from '../../../db'
 import { prepareAgentMcpSpec, removeAgentCapabilityFile, type AgentMcpServerSpec } from '../../../agent-mcp-config'
 import type { ResolvedExternalServer } from '../../../external-mcp'
 import type { ProviderAdapter } from '../../../providers/types'
-import { resolveSubagentRuntime, type CoreSessionsAvailability, type DriverDescriptor, type SessionPolicyInput, type SubagentRuntimeChoice } from '../../agent-sessions'
+import { hostSupportsFlowSessions, resolveSubagentRuntime, type CoreSessionsAvailability, type DriverDescriptor, type SessionPolicyInput, type SubagentRuntimeChoice } from '../../agent-sessions'
 import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import type { AgentAuditRecorder } from '../../audit'
 import { getAgentConversation, type AgentConversation } from '../../agents/runtime/agent-store'
@@ -10,6 +10,16 @@ import { ensureSessionCursor, getSessionCursor, listSubagents, resetSessionProje
 import { sessionPolicyFor, type CoreSessionTurnContext, type TurnHandle } from './core-session-runner'
 import { MissionSessionProjector } from './mission-session-projector'
 import { missionSessionBoundary } from './mission-tool-policy'
+import type { FlowTurn } from './flow-turn-context'
+
+/** Why a Flow turn cannot run on Core sessions (there is no legacy Flow path). */
+export class FlowSessionUnavailableError extends Error {
+  readonly code = 'flow_sessions_unavailable'
+  constructor(message: string) {
+    super(message)
+    this.name = 'FlowSessionUnavailableError'
+  }
+}
 
 export interface MissionCoreSessionsDeps {
   db: DbInstance
@@ -61,7 +71,8 @@ export class MissionCoreSessions {
    * The Core turn context for this mission turn, or null when the turn must use
    * the legacy runners (sessions disabled, scope degraded, provider not served).
    */
-  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[] }): Promise<CoreSessionTurnContext | null> {
+  async prepareTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow?: FlowTurn | null }): Promise<CoreSessionTurnContext | null> {
+    if (turn.flow) return this.prepareFlowTurn(conversation, adapter, { ...turn, flow: turn.flow })
     const availability = await this.deps.availability()
     if (!availability.enabled) return null
     const scope = this.scopeOf(conversation)
@@ -116,6 +127,76 @@ export class MissionCoreSessions {
         this.handles.delete(conversationId)
         this.activeTurns.delete(conversationId)
       },
+    }
+  }
+
+  /**
+   * Can this conversation's provider run a Flow session in its scope right now?
+   * Resolves the host client; throws `FlowSessionUnavailableError` otherwise.
+   */
+  async assertFlowSupport(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, providerId: string) {
+    const availability = await this.deps.availability()
+    if (!availability.enabled) throw new FlowSessionUnavailableError(`Flow needs Core agent sessions: ${availability.reason}`)
+    const scope = this.scopeOf(conversation)
+    if (!this.deps.registry.available(scope)) throw new FlowSessionUnavailableError(`Core sessions are unavailable for ${scope} (${this.deps.registry.status(scope)})`)
+    let client
+    try {
+      client = await this.deps.registry.acquire(scope)
+    } catch (error) {
+      throw new FlowSessionUnavailableError(`Core sessions are unavailable for ${scope}: ${(error as Error).message}`)
+    }
+    if (!hostSupportsFlowSessions(client.initialize)) throw new FlowSessionUnavailableError('The Core session host does not support Flow sessions (flowSessions); update Core')
+    if (!(client.initialize?.drivers ?? []).some((driver) => driver.id === providerId)) {
+      throw new FlowSessionUnavailableError(`Core has no session driver for ${providerId}; Flow cannot run with this provider`)
+    }
+    return { scope, client }
+  }
+
+  /**
+   * A Flow turn: its own Core session (`flow:<flowId>`) with the worktree as
+   * cwd, workspace-write permissions, default tools and the same Specrails MCP
+   * the mission presents. Sub-agents are disabled: the Flow session is not
+   * projected like the mission's, so their usage could not be accounted.
+   */
+  private async prepareFlowTurn(conversation: AgentConversation, adapter: ProviderAdapter, turn: { capability: string; external: ResolvedExternalServer[]; plugins?: AgentMcpServerSpec[]; flow: FlowTurn }): Promise<CoreSessionTurnContext> {
+    const { client } = await this.assertFlowSupport(conversation, adapter.id)
+    const conversationId = conversation.id
+    const mcpServers = prepareAgentMcpSpec({ conversationId, port: this.deps.port, capability: turn.capability, external: turn.external })
+    for (const plugin of turn.plugins ?? []) if (!mcpServers.some((server) => server.name === plugin.name)) mcpServers.push(plugin)
+    const previous = this.capabilities.get(conversationId)
+    this.capabilities.set(conversationId, turn.capability)
+    this.activeTurns.add(conversationId)
+    if (previous && previous !== turn.capability) this.deps.revokeCapability(previous)
+    const policy: SessionPolicyInput = {
+      subagents: 'disabled',
+      ...turn.flow.policy,
+      mcp: { inheritUserScope: true },
+    }
+    return {
+      sessionId: turn.flow.coreSessionId,
+      client,
+      driver: adapter.id,
+      policy,
+      mcpServers,
+      inputDelivery: 'interrupt',
+      metadata: { conversationId, surface: 'flow', flowId: turn.flow.flowId },
+      onHandle: (handle) => {
+        if (handle) { this.handles.set(conversationId, handle); return }
+        this.handles.delete(conversationId)
+        this.activeTurns.delete(conversationId)
+      },
+    }
+  }
+
+  /** Close a Flow's Core session (pause, discard, hand-off). Core keeps its
+   * journal; a later turn resumes it. Never throws. */
+  async closeFlowSession(conversation: Pick<AgentConversation, 'id' | 'pinned_project_id'>, coreSessionId: string, reason: string): Promise<void> {
+    try {
+      const client = await this.deps.registry.acquire(this.scopeOf(conversation))
+      await client.request('session.close', { sessionId: coreSessionId, reason })
+    } catch (error) {
+      if ((error as { code?: string }).code === 'session_not_found' || (error as { code?: string }).code === 'session_closed') return
+      console.warn(`[agent-chat] could not close Flow session ${coreSessionId}: ${(error as Error).message}`)
     }
   }
 

@@ -33,6 +33,7 @@ Protocol: Core's `docs/agent-sessions/protocol.md`.
 - **Projection:** Core's journal is the execution source of truth. A surface's tables are a rebuildable projection: the sink writes operations and the cursor in one transaction, events apply once by `(sessionId, seq)`, and gaps are filled from `session.events`.
 - **Unknown event types** from a newer Core are skipped. Contract drift is reported by `checkSessionContract`.
 - **Degraded scope:** after repeated failures within the window, new turns in that scope must use the legacy transport until a manual retry.
+- **Flow sessions (additive):** Core contract 5.3 adds `session.send` delivery `interrupt`, per-driver `capabilities.interrupt` and the `flowSessions` capability. `checkSessionContract` reports `flowSessions` without affecting `compatible`; `hostSupportsFlowSessions` reads `initialize`; `resolveFlowAvailability` (runtime: `flowAvailability`) offers Flow only with `flowSessions` and `deriveChange`. Desktop never calls `session.interrupt` before an interrupt delivery.
 - **One host per scope:** a project's sessions live in Core's `~/.specrails/sessions/<scope>/`. Desktop never starts a second host for a scope.
 
 ## Verify

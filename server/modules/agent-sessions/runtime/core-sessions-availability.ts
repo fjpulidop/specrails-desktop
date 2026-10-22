@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { parseCoreSessionsFlag, resolveCoreSessionsAvailability, type CoreSessionsAvailability } from '../domain/availability'
+import { parseCoreSessionsFlag, resolveCoreSessionsAvailability, resolveFlowAvailability, type CoreSessionsAvailability, type FlowAvailability } from '../domain/availability'
 import { checkSessionContract, type SessionContractBlock } from '../domain/protocol'
 
 /** Read `agentRuntime.sessions` from the selected Core package next to its runtime CLI. */
@@ -31,4 +31,19 @@ export async function coreSessionsAvailability(env: NodeJS.ProcessEnv = process.
   } catch (error) {
     return { enabled: false, flag, reason: `Core runtime probe failed: ${(error as Error).message}` }
   }
+}
+
+/**
+ * Whether Flow mode can be offered with the selected Core: Core sessions are
+ * usable and the runtime advertises `flowSessions` and `deriveChange`.
+ */
+export async function flowAvailability(env: NodeJS.ProcessEnv = process.env): Promise<FlowAvailability> {
+  const sessions = await coreSessionsAvailability(env)
+  let capabilities: Record<string, number> | undefined
+  try {
+    capabilities = (await loadCoreAgentRuntime()).api?.capabilities
+  } catch {
+    capabilities = undefined
+  }
+  return resolveFlowAvailability(sessions, capabilities)
 }

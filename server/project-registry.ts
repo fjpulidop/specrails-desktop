@@ -97,6 +97,11 @@ import {
   type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
+import { createFlowService, type FlowService } from './modules/flow'
+import { createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
+import { createFlowHandOffAuthority, createFlowPorts, systemClock } from './modules/flow/adapters/bindings'
+import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
   beginProjectProcessQuiescence,
   openProjectProcessAdmission,
@@ -175,6 +180,10 @@ export interface ProjectContext {
   milestoneChains?: MilestoneChainManager
   /** Agent actions audit (batched writer, exports, retention). Absent in bare test contexts. */
   agentAudit?: ProjectAgentAudit
+  /** Flow mode: this project's Flow use cases (absent in bare test contexts). */
+  flow?: FlowService
+  /** Flow -> rail hand-off authority the rails launch route consults for `flowId`. */
+  flowHandOff?: FlowHandOffAuthority
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -1514,6 +1523,15 @@ export class ProjectRegistry {
 
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
+    // Flow mode: use cases bound to THIS project's connection; the mission host
+    // is app-global and late-bound (agent chat starts after the registry).
+    const flowRepository = createSqliteFlowRepository(db)
+    const flowPorts = createFlowPorts({
+      ctx, repository: flowRepository, internalApi, availability: () => flowAvailability(),
+      agentHost: () => getAgentChatManager(),
+    })
+    ctx.flow = createFlowService(flowPorts)
+    ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session))
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
@@ -1535,6 +1553,12 @@ export class ProjectRegistry {
         void reconcileRailWorktrees(db, project.path)
           .then(async (n) => {
             if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+            // Flow sessions never survive a restart; unfinished sagas complete
+            // or compensate before admission opens (never throws).
+            if (this._contexts.get(project.id) === ctx && ctx.flow) {
+              const flows = await ctx.flow.reconcile()
+              if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Flow session(s) for ${project.slug}`)
+            }
             if (this._contexts.get(project.id) === ctx) {
               const effectDeps = {
                 db,

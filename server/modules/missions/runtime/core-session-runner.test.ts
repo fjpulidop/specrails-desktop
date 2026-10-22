@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { SessionRequestError, type SessionEvent, type SessionEventEnvelope, type SessionHostClient } from '../../agent-sessions'
 import type { LiveInputSink, LiveSessionHooks } from '../../../providers/live-session-types'
 import type { AdapterEvent } from '../../../providers/types'
-import { createCoreSessionRunner, type TurnHandle } from './core-session-runner'
+import { addUsage, createCoreSessionRunner, type TurnHandle } from './core-session-runner'
 
 const at = '2026-10-07T10:00:00.000Z'
 const tick = async () => { for (let index = 0; index < 6; index++) await new Promise((resolve) => setImmediate(resolve)) }
@@ -206,5 +206,88 @@ describe('CoreSessionTurnRunner', () => {
     const refused = new FakeCore()
     refused.request = async () => { throw new SessionRequestError('Driver "claude" cannot disable sub-agents', { code: 'policy_unenforceable', retryable: false }) }
     expect(await createCoreSessionRunner(context(refused))(hooks().value)).toMatchObject({ code: 1, events: [expect.objectContaining({ message: expect.stringContaining('cannot disable') })] })
+  })
+
+  it('Flow: an interrupt cuts the turn, follows the correction and sums the usage of both turns', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId, delivery) => delivery === 'interrupt'
+      ? [
+          { type: 'turn.completed', turnId: 't1', status: 'interrupted', text: 'Start', usage },
+          { type: 'input.state', inputId, state: 'started' },
+          { type: 'turn.started', turnId: 't2', origin: 'user', inputIds: [inputId] },
+          { type: 'turn.output', turnId: 't2', channel: 'text', delta: 'Corrected' },
+          { type: 'turn.completed', turnId: 't2', status: 'completed', text: 'Corrected', usage: { ...usage, costUsd: 0.02, inputTokens: 50 } },
+        ]
+      : [
+          { type: 'input.state', inputId, state: 'started' },
+          { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] },
+          { type: 'turn.output', turnId: 't1', channel: 'text', delta: 'Start' },
+        ]
+    const h = hooks()
+    const running = createCoreSessionRunner(context(core, { sessionId: 'conv-1', inputDelivery: 'interrupt' }))(h.value)
+    await tick()
+    let accepted = false
+    expect(await h.sink()!.send({ id: 'fix-1', text: 'use blue instead' }, () => { accepted = true })).toBe(true)
+    expect(accepted).toBe(true)
+    // Desktop never stops the turn first: the delivery itself cuts it.
+    expect(core.requests.some((request) => request.method === 'session.interrupt')).toBe(false)
+    expect(core.requests.find((request) => request.method === 'session.send' && (request.params.input as { inputId: string }).inputId === 'fix-1')!.params)
+      .toMatchObject({ input: { inputId: 'fix-1', text: 'use blue instead', delivery: 'interrupt' } })
+    const result = await running
+    expect(result).toMatchObject({ code: 0, coreTurnId: 't2', usage: { tokens_in: 150, total_cost_usd: 0.032 } })
+    expect(h.events.filter((event) => event.kind === 'text-delta').map((event) => (event as { text: string }).text)).toEqual(['Start', 'Corrected'])
+  })
+
+  it('Flow: a turn that finishes before the stop still hands over to the correction', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId, delivery) => delivery === 'interrupt'
+      ? [
+          { type: 'turn.completed', turnId: 't1', status: 'completed', text: 'Done early', usage },
+          { type: 'turn.started', turnId: 't2', origin: 'user', inputIds: [inputId] },
+          { type: 'turn.completed', turnId: 't2', status: 'completed', text: 'Then fixed', usage },
+        ]
+      : [{ type: 'input.state', inputId, state: 'started' }, { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] }]
+    const h = hooks()
+    const running = createCoreSessionRunner(context(core, { inputDelivery: 'interrupt' }))(h.value)
+    await tick()
+    await h.sink()!.send({ id: 'fix-2', text: 'and this' })
+    expect(await running).toMatchObject({ code: 0, coreTurnId: 't2', usage: { tokens_in: 200 } })
+    expect(h.events.filter((event) => event.kind === 'text-delta').map((event) => (event as { text: string }).text)).toEqual(['Done early', 'Then fixed'])
+  })
+
+  it('Flow: a rejected correction ends the turn with an explicit error and a failed send is never pending', async () => {
+    const core = new FakeCore()
+    core.onInput = (inputId, delivery) => delivery === 'interrupt'
+      ? [
+          { type: 'turn.completed', turnId: 't1', status: 'interrupted', text: '', usage },
+          { type: 'input.state', inputId, state: 'rejected', reason: 'provider_refused' },
+        ]
+      : [{ type: 'input.state', inputId, state: 'started' }, { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] }]
+    const h = hooks()
+    const running = createCoreSessionRunner(context(core, { inputDelivery: 'interrupt' }))(h.value)
+    await tick()
+    await h.sink()!.send({ id: 'fix-3', text: 'nope' })
+    const result = await running
+    expect(result.code).toBe(1)
+    expect(result.events.at(-1)).toMatchObject({ kind: 'error', message: expect.stringContaining('provider_refused') })
+
+    const failing = new FakeCore()
+    failing.onInput = (inputId) => [{ type: 'input.state', inputId, state: 'started' }, { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: [inputId] }]
+    const h2 = hooks()
+    const run2 = createCoreSessionRunner(context(failing, { inputDelivery: 'interrupt' }))(h2.value)
+    await tick()
+    const original = failing.request.bind(failing)
+    failing.request = async (method, params) => { if (method === 'session.send') throw new Error('host busy'); return original(method, params) }
+    await expect(h2.sink()!.send({ id: 'fix-4', text: 'x' })).rejects.toThrow('host busy')
+    failing.request = original
+    failing.push([{ type: 'turn.completed', turnId: 't1', status: 'completed', text: 'ok', usage }])
+    expect((await run2).code).toBe(0)
+  })
+
+  it('adds per-turn usage keeping unknown values unknown and estimates flagged', () => {
+    const unknown = { inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd: null, costEstimated: false, model: null }
+    expect(addUsage(null, null)).toBeNull()
+    expect(addUsage(unknown, unknown)).toEqual(unknown)
+    expect(addUsage(usage, { ...unknown, costEstimated: true, model: 'sonnet' })).toMatchObject({ inputTokens: 100, costUsd: 0.012, costEstimated: true, model: 'sonnet' })
   })
 })

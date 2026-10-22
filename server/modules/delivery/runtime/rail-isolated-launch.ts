@@ -31,7 +31,8 @@ import { newId } from '../../../ids'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
-import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
+import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
+import { FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
 import {
   isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
@@ -158,6 +159,10 @@ export interface IsolatedLaunchInput {
     prNumber: number | null
     deliverySha: string
   }
+  /** Flow hand-off contract (Flow mode): adopt exactly this Flow worktree —
+   * same mount, branch and frozen HEAD — instead of allocating a fresh one.
+   * Any discrepancy throws `FlowWorktreeMismatchError` before agents start. */
+  requiredFlowWorktree?: RequiredFlowWorktree
   /** Explicit user-designated target PR (deliver-rail-into-existing-pr).
    * When present, this launch continues that exact open PR — automatic
    * continuation discovery is skipped and validation failure throws
@@ -456,6 +461,25 @@ async function verifyContinuationWorktree(
   return headSha
 }
 
+function canonicalPath(value: string): string {
+  try { return fs.realpathSync.native(value) } catch { return path.resolve(value) }
+}
+
+/** The adopted mount must be the Flow's own path, on its branch, at its frozen HEAD. */
+async function verifyFlowWorktree(git: GitRunner, mounted: WorktreeHandle, required: RequiredFlowWorktree): Promise<string> {
+  if (canonicalPath(mounted.worktreePath) !== canonicalPath(required.worktreePath)) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree is not mounted at ${required.worktreePath}`)
+  }
+  if (mounted.branch !== required.branch) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree is on ${mounted.branch}, not ${required.branch}`)
+  }
+  const head = await readHeadSha(git, mounted.worktreePath)
+  if (!head || head !== required.headSha) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree HEAD ${head ?? 'unknown'} does not match the frozen ${required.headSha}`)
+  }
+  return head
+}
+
 async function branchHasDelta(git: GitRunner, cwd: string, baseRef: string): Promise<boolean | null> {
   try {
     const result = await git.run(['diff', '--quiet', `${baseRef}...HEAD`, '--'], cwd)
@@ -752,7 +776,8 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
     // A resumed non-PR branch may already contain reviewable commits from an
     // earlier attempt, even when this iteration itself did not add one.
     let resumedBranchDelta: boolean | null = null
-    if (!changed && a.continuationTarget === null && a.branchOwnership === 'preexisting') {
+    // An adopted Flow branch already carries the Flow's commits ahead of base.
+    if (!changed && a.continuationTarget === null && (a.branchOwnership === 'preexisting' || a.branchOwnership === 'adopted')) {
       resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
       if (resumedBranchDelta === null) {
         const detail = `cannot prove whether resumed branch ${a.handle.branch} has commits ahead of ${a.baseRef}`
@@ -1087,6 +1112,16 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       ticketIds: units.flatMap((unit) => unit.ticketIds),
     }]
   }
+  // A Flow hand-off adopts ONE existing worktree for the Flow's single spec.
+  // It never combines with continuation, revision or retry contracts. Checked
+  // before the delivery row exists, so a rejection leaves nothing behind.
+  const flowWorktree = input.requiredFlowWorktree ?? null
+  if (flowWorktree && (
+    units.length !== 1 || launchContinuation || input.requiredPrContinuation || input.revision ||
+    input.retryOfDelivery || input.repositoryExecution || input.explicitPrTarget
+  )) {
+    throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly its own spec on a fresh delivery')
+  }
 
   if (prMode) {
     const generation = createPrDeliveryGeneration(ctx.db, {
@@ -1167,6 +1202,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
   }
   const unitBranchName = (ticketId: number): { branch: string; ownership: AllocatedRun['branchOwnership'] } => {
+    if (flowWorktree) {
+      takenBranches.add(flowWorktree.branch)
+      return { branch: flowWorktree.branch, ownership: 'adopted' }
+    }
     const revisionBranch = revisionBranches.get(ticketId)
     if (revisionBranch) return { branch: revisionBranch.branch, ownership: 'preexisting' }
     const continuation = launchContinuation && continuationTargets.get(ticketId)
@@ -1209,14 +1248,15 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           worktreesRoot: path.join(worktreesRoot, runId),
           slug,
           ticketId: unit.ticketId,
-          baseRef: revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          baseRef: flowWorktree?.baseSha ?? revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
           branch: branchPlan.branch,
           branchOwnership: branchPlan.ownership,
-          pinBranchOwnership: Boolean(continuationTarget),
+          pinBranchOwnership: Boolean(continuationTarget || flowWorktree),
           refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
-          fresh: !revisionBranch && !continuationTarget,
-          reuseBranchWorktree: Boolean(revisionBranch || continuationTarget),
+          fresh: !revisionBranch && !continuationTarget && !flowWorktree,
+          reuseBranchWorktree: Boolean(revisionBranch || continuationTarget || flowWorktree),
           verifyHead: async (mounted) => {
+            if (flowWorktree) return verifyFlowWorktree(git, mounted, flowWorktree)
             if (continuationTarget) {
               return verifyContinuationWorktree(
                 git,
@@ -1238,16 +1278,29 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         }, io)
         handle = prepared.handle
         branchOwnership = prepared.branchOwnership
-        worktreeOwnership = prepared.worktreeOwnership
+        // The verified Flow mount pre-existed by construction; the rail adopts it.
+        worktreeOwnership = flowWorktree && prepared.worktreeOwnership === 'preexisting' ? 'adopted' : prepared.worktreeOwnership
         initialSha = prepared.initialSha
         const { overlayExcludes, overlayCleanupEvidence, warmLinkEvidence, provenanceSnapshot } = prepared
         const ledgerId = newId()
-        createRailWorktree(ctx.db, {
+        const ledgerRow = {
           id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
           repositoryId: input.repositoryExecution?.repositoryId,
           repositoryPath: input.repositoryExecution ? baseRepo : undefined,
           branch: handle.branch, worktreePath: handle.worktreePath,
-        })
+        }
+        if (flowWorktree) {
+          // Ownership transfer: the rail ledger row and the Flow's handed_off
+          // state commit together or not at all.
+          const adoptedHead = initialSha
+          if (!adoptedHead) throw new FlowWorktreeMismatchError('The Flow worktree HEAD could not be verified')
+          ctx.db.transaction(() => {
+            createRailWorktree(ctx.db, ledgerRow)
+            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: prDeliveryId, headSha: adoptedHead })
+          })()
+        } else {
+          createRailWorktree(ctx.db, ledgerRow)
+        }
         allocated.push({
           ticketId: unit.ticketId,
           ticketIds: unit.ticketIds,
@@ -1259,8 +1312,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           warmLinkEvidence,
           provenanceSnapshot,
           continuationTarget,
-          baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
-          hygieneBaseSha,
+          baseRef: flowWorktree?.baseSha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          hygieneBaseSha: flowWorktree?.baseSha ?? hygieneBaseSha,
           initialSha,
           branchOwnership,
           worktreeOwnership,
@@ -1306,6 +1359,19 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   } catch (err) {
     for (const a of allocated) {
       if (claimedAddendaByRun.has(a.runId)) broadcastSpecAddendaChange(msg => ctx.broadcast(msg as never), ctx.project.id, settleSpecAddendaAt(addendaStorePath, a.ticketIds, a.runId, 'failed'))
+      if (a.worktreeOwnership === 'adopted' && flowWorktree) {
+        // Never remove an adopted Flow worktree on rollback: give it back.
+        try {
+          ctx.db.transaction(() => {
+            deleteRailWorktree(ctx.db, a.ledgerId)
+            flowWorktree.release(errorDetail(err))
+          })()
+        } catch (releaseError) {
+          console.error(`[rail-isolated] could not return Flow worktree ${a.handle.worktreePath}: ${errorDetail(releaseError)}`)
+          updateRailWorktreeState(ctx.db, a.ledgerId, 'needs-review')
+        }
+        continue
+      }
       if (a.worktreeOwnership === 'created') {
         await remove(git, {
           repoDir: baseRepo,

@@ -496,11 +496,18 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     }
     const tierLevel = body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : undefined
     const model = typeof body.model === 'string' ? body.model : undefined
-    if (body.deliveryMode !== undefined && body.deliveryMode !== 'queue' && body.deliveryMode !== 'steer') {
-      res.status(400).json({ error: 'deliveryMode must be queue or steer' })
+    if (body.deliveryMode !== undefined && body.deliveryMode !== 'queue' && body.deliveryMode !== 'steer' && body.deliveryMode !== 'interrupt') {
+      res.status(400).json({ error: 'deliveryMode must be queue, steer or interrupt' })
       return
     }
-    const deliveryMode = body.deliveryMode as 'queue' | 'steer' | undefined
+    // Flow mode: `interrupt` cuts the running Flow turn (Core flowSessions). In a
+    // Flow every mid-turn input travels as an interrupt, so it is admitted as a
+    // native steer and the Flow session delivers it with `delivery: 'interrupt'`.
+    if (body.deliveryMode === 'interrupt' && !manager.isFlowActive(conversation.id)) {
+      res.status(409).json({ error: 'interrupt_requires_flow', detail: 'Only an active Flow accepts interrupt delivery' })
+      return
+    }
+    const deliveryMode = body.deliveryMode === 'interrupt' ? 'steer' : body.deliveryMode as 'queue' | 'steer' | undefined
     let attachmentIds: string[] = []
     const rawAtt = body.attachments
     if (rawAtt && typeof rawAtt === 'object' && Array.isArray((rawAtt as { ids?: unknown }).ids)) {
@@ -532,7 +539,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
         : undefined
       res.status(202).json({
         accepted: true, queued: stillQueued,
-        ...(stillQueued ? { deliveryMode: pending?.deliveryMode ?? input?.options.deliveryMode ?? deliveryMode ?? 'queue' } : {}),
+        ...(stillQueued ? { deliveryMode: body.deliveryMode === 'interrupt' ? 'interrupt' : pending?.deliveryMode ?? input?.options.deliveryMode ?? deliveryMode ?? 'queue' } : {}),
         ...(previous ? { duplicate: true } : {}),
         ...(input?.status === 'cancelled' && !input.messageId ? { removed: true } : {}),
         ...(message ? { message } : {}),

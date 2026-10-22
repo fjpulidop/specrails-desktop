@@ -56,8 +56,11 @@ export interface IsolatedWorktreeIO {
   snapshot?: typeof snapshotWorkingTree
 }
 
-export type IsolatedBranchOwnership = 'created' | 'preexisting' | 'borrowed-pr'
-export type IsolatedWorktreeOwnership = 'created' | 'preexisting'
+/** `adopted`: a Flow worktree/branch the rail took over at hand-off. From the
+ * adoption on the rail owns it fully, so release treats it like `created`;
+ * allocation rollback never removes it (ownership returns to the Flow). */
+export type IsolatedBranchOwnership = 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
+export type IsolatedWorktreeOwnership = 'created' | 'preexisting' | 'adopted'
 
 /** Where the per-worktree overlay reads the framework surface from. */
 export interface OverlaySources {

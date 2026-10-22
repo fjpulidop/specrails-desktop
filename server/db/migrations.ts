@@ -1750,6 +1750,37 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 74: Flow mode (server/modules/flow). One row per Flow; it owns its
+  // worktree until a rail adopts it (the adoption inserts the rail_worktrees row
+  // and sets state='handed_off' in one transaction). `ticket_id` is NULL only
+  // while the start saga has not created the placeholder spec: the row is the
+  // saga's durable anchor, and the partial unique index arbitrates concurrent
+  // starts (at most one active or paused Flow per conversation).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS flow_sessions (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        ticket_id       INTEGER,
+        state           TEXT NOT NULL CHECK (state IN ('active','paused','handed_off','delivered','discarded','needs-review')),
+        branch          TEXT,
+        worktree_path   TEXT,
+        base_sha        TEXT,
+        head_sha        TEXT,
+        core_session_id TEXT,
+        rail_index      INTEGER,
+        delivery_id     TEXT,
+        step            TEXT CHECK (step IS NULL OR step IN ('start:ticket','start:worktree','start:session','handoff:freeze','handoff:launch')),
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_sessions_open_conversation
+        ON flow_sessions(conversation_id) WHERE state IN ('active','paused');
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_conversation ON flow_sessions(conversation_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_ticket ON flow_sessions(ticket_id);
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

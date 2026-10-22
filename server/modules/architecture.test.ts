@@ -47,6 +47,11 @@ const coreDependencies: Record<string, string[]> = {
   'audit/ports.ts': ['./domain'],
   'audit/application.ts': ['./domain', './ports'],
   'audit/index.ts': ['./application', './domain', './ports'],
+  // Flow: pure state machine; use cases depend only on their own ports.
+  'flow/domain.ts': [],
+  'flow/ports.ts': ['./domain'],
+  'flow/application.ts': ['./domain', './ports'],
+  'flow/index.ts': ['./application', './domain', './ports'],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>
@@ -71,6 +76,13 @@ describe('module contracts', () => {
       }
     }
     expect(cores.sort()).toEqual(Object.keys(coreDependencies).sort())
+  })
+  it('missions never depend on Flow or delivery (Flow reaches missions through an injected port)', () => {
+    const rules: Record<string, string[]> = manifest.missions.dependencies
+    const offending = Object.entries(rules).flatMap(([file, refs]) => refs
+      .filter((ref) => /(^|\/)(flow|delivery)\//.test(ref) || ref === '../../flow')
+      .map((ref) => `${file} -> ${ref}`))
+    expect(offending).toEqual([])
   })
   it('delivery workflow modules form an acyclic dependency graph', () => {
     const rules: Record<string, string[]> = manifest.delivery.dependencies

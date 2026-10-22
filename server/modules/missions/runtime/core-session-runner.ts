@@ -31,6 +31,10 @@ export interface CoreSessionTurnContext {
   metadata?: Record<string, unknown>
   /** Appended to the system prompt (e.g. how to delegate sub-agents in this mission). */
   systemPromptAddendum?: string
+  /** How mid-turn user input reaches the running turn. `interrupt` (Flow, Core
+   * flowSessions) cuts the turn and runs the input next; the runner follows the
+   * new turn and reports the summed usage of every turn it covered. */
+  inputDelivery?: 'steer' | 'interrupt'
   onHandle?: (handle: TurnHandle | null) => void
 }
 
@@ -46,6 +50,24 @@ export interface CoreInvocationResult extends InvocationResult {
   coreTurnId?: string
   /** A Core error a host can explain to the user (e.g. `policy_unenforceable`). */
   errorCode?: string
+}
+
+/** Sum per-turn usage deltas; null stays null only when every side is unknown. */
+export function addUsage(a: Usage | null, b: Usage | null | undefined): Usage | null {
+  if (!b) return a
+  if (!a) return b
+  const sum = (x: number | null, y: number | null): number | null => (x === null && y === null ? null : (x ?? 0) + (y ?? 0))
+  return {
+    inputTokens: sum(a.inputTokens, b.inputTokens),
+    outputTokens: sum(a.outputTokens, b.outputTokens),
+    cacheReadTokens: sum(a.cacheReadTokens, b.cacheReadTokens),
+    cacheWriteTokens: sum(a.cacheWriteTokens, b.cacheWriteTokens),
+    totalTokens: sum(a.totalTokens, b.totalTokens),
+    costUsd: sum(a.costUsd, b.costUsd),
+    // One estimated part makes the total an estimate.
+    costEstimated: a.costEstimated || b.costEstimated,
+    model: b.model ?? a.model,
+  }
 }
 
 function toNormalised(usage: Usage | null | undefined): NormalisedResult | undefined {
@@ -82,6 +104,11 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
     let initialAccepted = false
     let settled = false
     let lastSeq = 0
+    // Interrupt delivery: inputs sent to cut the running turn, and whether the
+    // cut turn ended so the runner now follows the correction's turn.
+    const pendingInterrupts = new Set<string>()
+    let awaitingCorrection = false
+    let carriedUsage: Usage | null = null
     const unsubscribers: Array<() => void> = []
     let resolveDone!: (value: CoreInvocationResult) => void
     const done = new Promise<CoreInvocationResult>((resolve) => { resolveDone = resolve })
@@ -91,7 +118,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       context.onHandle?.(null)
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe()
       if (extra.error) emit({ kind: 'error', message: extra.error })
-      const usage = toNormalised(extra.usage)
+      const usage = toNormalised(addUsage(carriedUsage, extra.usage))
       resolveDone({ code, timedOut: false, spawnFailed: false, events, lastResultEvent: null, sessionId: providerRef ?? opts?.sessionId ?? null, stderrTail: '', child: null, ...(usage ? { usage } : {}), ...(turnId ? { coreTurnId: turnId } : {}), ...(extra.errorCode ? { errorCode: extra.errorCode } : {}) })
     }
 
@@ -105,6 +132,12 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           emit({ kind: 'session-started', sessionId: event.providerSessionRef })
           return
         case 'input.state':
+          if (pendingInterrupts.has(event.inputId)) {
+            if (event.state !== 'rejected' && event.state !== 'interrupted') return
+            pendingInterrupts.delete(event.inputId)
+            if (awaitingCorrection && pendingInterrupts.size === 0) finish(1, { error: `The agent did not take the correction (${event.reason ?? event.state}).` })
+            return
+          }
           if (event.inputId !== inputId) return
           if ((event.state === 'queued' || event.state === 'started') && !initialAccepted) {
             initialAccepted = true
@@ -114,6 +147,13 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           return
         case 'turn.started':
           if (event.inputIds.includes(inputId)) turnId = event.turnId
+          else if (awaitingCorrection && event.inputIds.some((id) => pendingInterrupts.has(id))) {
+            // Follow the correction's turn: its output continues this user turn.
+            for (const id of event.inputIds) pendingInterrupts.delete(id)
+            awaitingCorrection = false
+            turnId = event.turnId
+            streamed = ''
+          }
           return
         case 'turn.output':
           if (event.turnId !== turnId || event.channel !== 'text') return
@@ -127,6 +167,14 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
           return
         case 'turn.completed': {
           if (event.turnId !== turnId) return
+          if (pendingInterrupts.size > 0) {
+            // Cut by (or finished before) a correction: keep its usage and wait for the correction's turn.
+            if (event.status === 'completed' && event.text.startsWith(streamed) && event.text.length > streamed.length) emit({ kind: 'text-delta', text: event.text.slice(streamed.length) })
+            carriedUsage = addUsage(carriedUsage, event.usage)
+            turnId = null
+            awaitingCorrection = true
+            return
+          }
           // Core's text is authoritative; emit whatever live deltas missed (e.g. after a lag).
           if (event.text.startsWith(streamed) && event.text.length > streamed.length) emit({ kind: 'text-delta', text: event.text.slice(streamed.length) })
           if (event.status === 'completed') finish(0, { usage: event.usage })
@@ -184,7 +232,7 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
       lastSeq = snapshot.lastSeq ?? 0
 
       context.onHandle?.({ interrupt: async () => { await client.request('session.interrupt', { sessionId }).catch(() => undefined) } })
-      hooks.onInputReady?.(createSteerSink(client, sessionId, () => !settled && turnId !== null))
+      hooks.onInputReady?.(createSteerSink(client, sessionId, () => !settled && (turnId !== null || awaitingCorrection), context.inputDelivery ?? 'steer', pendingInterrupts))
       await client.request('session.send', {
         sessionId,
         input: {
@@ -202,16 +250,24 @@ export function createCoreSessionRunner(context: CoreSessionTurnContext): (hooks
   }
 }
 
-/** Native steering into the running turn of the resident session. */
-function createSteerSink(client: SessionHostClient, sessionId: string, turnOpen: () => boolean): LiveInputSink {
+/** Native steering (or Flow interrupt) into the running turn of the resident session. */
+function createSteerSink(client: SessionHostClient, sessionId: string, turnOpen: () => boolean, delivery: 'steer' | 'interrupt', pendingInterrupts: Set<string>): LiveInputSink {
   return {
     acceptedReceipt: 'received',
     async send(input, onAccepted) {
       if (!turnOpen()) return false
-      await client.request('session.send', {
-        sessionId,
-        input: { inputId: input.id, text: input.text, delivery: 'steer', ...(input.imagePaths?.length ? { attachments: input.imagePaths.map((path) => ({ kind: 'image', path })) } : {}) },
-      })
+      // Registered before the request: Core may cut the turn before it answers.
+      // Never `session.interrupt` first — the delivery itself cuts the turn.
+      if (delivery === 'interrupt') pendingInterrupts.add(input.id)
+      try {
+        await client.request('session.send', {
+          sessionId,
+          input: { inputId: input.id, text: input.text, delivery, ...(input.imagePaths?.length ? { attachments: input.imagePaths.map((path) => ({ kind: 'image', path })) } : {}) },
+        })
+      } catch (error) {
+        pendingInterrupts.delete(input.id)
+        throw error
+      }
       // Core journals the input before it reaches the provider: it will never be replayed.
       onAccepted?.()
       return true
