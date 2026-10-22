@@ -138,14 +138,15 @@ older clients drop the whole PR card — and supersession already means "a newer
 attempt replaced the previous one". Version lineage, crash-restore and
 one-active-generation-per-rail all come free from the shipped machinery.
 
-**The loop.** `factory:revision` is the fourth factory loop: `{{cmd:revise}}` (a
-distilled step that applies the one requested change on top of the branch and
-then runs the reviewer role (`sr-reviewer`) over the resulting diff, so packet v2 keeps its reviewer
-tier) followed by the standard `{{cmd:verify}}`. No Architect step — the plan and
-the code already exist. It is resolvable by id but deliberately NOT listed in the
-public catalog: its prompt consumes `{{const:REVISION_REQUEST}}`, which only a
-revision launch injects. The router forces this loop for any revision whatever
-the rail's stored mode is; without that, every tweak would re-run implement.
+**The loop.** There is no dedicated Revision loop. `factory:revision` survives
+only as a legacy persisted id: `loop-factory.ts` aliases it to
+`factory:sdd-quick-openspec` (SDD Quick) and it is neither listed nor run as its
+own graph. A revision launch without an explicit workflow (no `loopId` and no
+`mode` in the body) runs SDD Quick; an explicit `loopId`/`mode` takes
+precedence. The revision intent travels as `{{const:REVISION_REQUEST}}`, which
+`rail-isolated-launch.ts` fills from the revision seed and the loop executors
+append to each AI step's prompt, so the run applies the requested change on top
+of the delivered branch instead of re-running Implement from scratch.
 
 **Fresh session by contract** (`server/modules/execution/runtime/revision-seed.ts`). The run is seeded from
 durable state — the instruction, the frozen spec, the branch that carries the

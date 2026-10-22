@@ -173,7 +173,7 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     // execution cwd (including relocated workspaces) and understands Kimi's
     // materialized headless skills rather than probing only Claude markdown.
     if (!ctx(req).proposalManager.canStartExploration()) {
-      res.status(400).json({ error: 'This project does not have the /specrails:propose-feature command installed. Run "npx specrails-core@latest" to update.' }); return
+      res.status(400).json({ error: 'This project does not have the /specrails:propose-feature command installed. Update Specrails Core from Settings → Updates.' }); return
     }
     const id = uuidv4()
     createProposal(ctx(req).db, { id, idea: idea.trim() })

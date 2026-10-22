@@ -402,9 +402,9 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   a core problem and must not trigger \`specrails_setup(install)\`. If global
   core is stale, offer \`core_update_check\` + \`core_update_apply\`. If global
   core is current but a real job still reports missing core definitions, ask for
-  the job error/diagnostic and give the manual fallback for standalone/legacy
-  core installs: from the project root, run \`npx specrails-core@latest update\`,
-  then retry the job.
+  the job error/diagnostic and report a framework-loading bug. Core 6 has no
+  standalone \`update\` command: Core updates go through \`core_update_check\`
+  + \`core_update_apply\` (humans: Settings → Updates in the app).
 - **Loops lifecycle** (\`specrails_loops\`): Draft → \`publish\` (graph-validated)
   → runnable; \`update\` reverts to Draft and returns 409 while running;
   \`preview\` dry-runs token resolution without spawning; constants are shared

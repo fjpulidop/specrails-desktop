@@ -2,16 +2,26 @@
 
 ## What gets tracked
 
-Six surfaces, all per-project:
+Every AI CLI call a project makes writes one `ai_invocations` row tagged with a **surface** (the closed list lives in `server/modules/accounting/runtime/ai-invocations.ts`). There are twelve:
 
 | Surface | What it captures |
 |---------|------------------|
-| **`job`** | Every rail run (the Architect → Developer → Reviewer → Ship pipeline, plus Freestyle runs) |
+| **`job`** | Every queued job: rail runs on the CLI pipeline (Implement, Freestyle), plus the AI steps of a local merge-back (verify / resolve-merge / fix) |
+| **`loop`** | Every AI step of a Loop run (the built-in Implement / SDD Quick loops and your custom loops) |
 | **`quick-spec`** | One-shot Quick spec generation (including a Quick-mode Contract Refine run) |
 | **`explore-spec`** | Every Explore conversation turn (including the Explore Contract Refine run) |
 | **`ai-edit`** | The **AI Edit / Refine** overlay (refining an agent or a ticket) |
 | **`smash`** | SMASH runs that break an epic spec into sub-specs |
-| **`file-summary`** | Code-explorer AI summaries of individual files |
+| **`file-summary`** | Code-explorer AI summaries and file stories |
+| **`chat-sidebar`** | Turns in the project chat sidebar |
+| **`spec-launcher`** | The OpenSpec fast-forward launcher that turns a spec into an OpenSpec change |
+| **`proposal`** | Spec proposals (explore an idea, refine it with feedback) |
+| **`agent-studio`** | Custom-agent generation and test runs in the Agents studio |
+| **`setup`** | AI turns of the legacy setup/enrich chat (`/setup/start`, `/enrich/start`; used by API/MCP callers, not by the app UI) |
+
+**Missions are tracked too, in a separate ledger.** Mission (agent chat) turns and their sub-agents record to the app-level `agent_invocations` table. A mission pinned to a project is folded into that project's Analytics next to the surfaces above; unpinned (Home) missions appear only in Desktop Analytics.
+
+Adding a project does not spend tokens: the background workspace assembly runs specrails-core `init` offline and makes no model call.
 
 > Cost averages exclude `failed`/`aborted` rows, but those rows still count toward the total run count and the failure rate.
 
@@ -26,10 +36,6 @@ On multi-provider projects, a **Provider breakdown** card splits spend across th
 
 > **Fail-soft on unknown models.** The rate card lists specific models (the current Codex catalogs). If an invocation uses a model that isn't in the table, the app **does not fabricate a number** — it stores no cost (`total_cost_usd` is left empty), so that row simply shows a blank cost rather than a misleading estimate.
 
-## What's NOT tracked (intentionally)
-
-- **Setup wizard** — the install/enrich flow when you add a project. It *does* spawn an AI CLI (a genuine model invocation), but it's an interactive one-time wizard rather than a repeatable pipeline job, so it's deliberately left uninstrumented.
-
 ## The Analytics page
 
 Open **Analytics** from the project right sidebar.
@@ -37,7 +43,7 @@ Open **Analytics** from the project right sidebar.
 ### Sticky filter header
 
 - **Period** — `7d`, `30d`, `90d`, or `All`. (There's no 24-hour or custom-range option here — the custom calendar range lives on Desktop Analytics, below.)
-- **Surface** — chips for `All` plus each of the six surfaces (Jobs, Explore, Quick, Refine, SMASH, File summaries). All are included by default; toggle chips to narrow the view.
+- **Surface** — chips for `All` plus Jobs, Explore, Quick, Refine, SMASH, File summaries and Loops. All surfaces (including the ones without a chip) are included by default; toggle chips to narrow the view.
 - **Engine** — one chip per installed provider plus `All`. These appear **only on multi-provider projects** and let you filter activity by engine.
 
 The period and surface filters are URL-synced, so you can share or bookmark a view.
@@ -55,7 +61,7 @@ When the project has zero invocations in the period (e.g. you just started), the
 
 ### Daily stacked timeline
 
-A daily bar chart for the period, stacked by surface. It plots five series — **Jobs, Explore, Quick, Refine, and File summaries**. SMASH spend is still tracked and shows up elsewhere (the Hero per-surface bar, Top models, and the raw table), but it is not currently a separate bar in this chart. Days with zero activity are zero-filled so the x-axis stays regular.
+A daily bar chart for the period, stacked by surface. It plots seven series — **Jobs, Explore, Quick, Refine, File summaries, SMASH and Loops**. The smaller surfaces (chat sidebar, spec launcher, proposals, Agent Studio, setup) still count in the Hero total, the per-surface breakdown bar, Top models and the raw table. Days with zero activity are zero-filled so the x-axis stays regular.
 
 Surface colours are consistent wherever a surface appears across the page:
 
@@ -65,6 +71,7 @@ Surface colours are consistent wherever a surface appears across the page:
 - `ai-edit` → green (`accent-success`)
 - `smash` → highlight (`accent-highlight`)
 - `file-summary` → yellow (`accent-warning`)
+- `loop` → primary (`accent-primary`)
 
 ### Quick vs Explore card
 

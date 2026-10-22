@@ -249,7 +249,7 @@ function nextSteps(topic: SupportTopic): string[] {
         'For specrails-core installation questions, evaluate only global core status and prerequisites. Do not treat project setup checkpoints as evidence of a core problem.',
         'If global core status is current/healthy and the user has not provided an actual job error, say the core installation looks healthy and ask for the concrete failing job/error before recommending repair.',
         'If a job explicitly reports missing agents, missing skills, unresolved slash commands, or missing /specrails:* commands, explain that those definitions come from the app-global specrails-core framework.',
-        'If an update is available, offer core_update_check followed by core_update_apply with confirmation. If no update is available but the job still fails with missing core definitions, give the manual fallback: run `npx specrails-core@latest update` from the project root, then retry, or collect the job diagnostic for a framework-loading bug.',
+        'If an update is available, offer core_update_check followed by core_update_apply with confirmation. If no update is available but the job still fails with missing core definitions, do not suggest a CLI command (Core 6 has no standalone `update`): collect the job diagnostic (specrails_jobs diagnostic) and report it as a framework-loading bug. A human can re-check and apply Core updates from Settings → Updates in the app.',
         'Never recommend specrails_setup(install) or a project reinstall solely because setup/checkpoints show pending or 0 agents/commands.',
       ]
     case 'rails_jobs':
@@ -327,7 +327,7 @@ function repairActions(topic: SupportTopic): string[] {
   if (topic === 'framework_install') {
     return [
       'specrails_support(core_update_check) then specrails_support(core_update_apply) - apply requires operate/ai-spawn and only makes sense when a newer global specrails-core framework is available.',
-      'Manual fallback when no update is available but a real job still cannot load core definitions: run `npx specrails-core@latest update` from the project root, then retry or collect a job diagnostic.',
+      'When no update is available but a real job still cannot load core definitions: collect a job diagnostic (specrails_jobs diagnostic) and report a framework-loading bug. Humans use Settings → Updates in the app; Core 6 has no standalone `update` command.',
     ]
   }
   if (topic !== 'project_setup' && topic !== 'installation') return []

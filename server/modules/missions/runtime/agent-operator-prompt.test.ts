@@ -189,7 +189,8 @@ describe('OPERATOR_INSTRUCTIONS — support and framework repair', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Do NOT infer a MyProject problem from\n  `setup/checkpoints`')
     expect(OPERATOR_INSTRUCTIONS).toContain('is NOT a\n  reason to run `specrails_setup(install)`')
     expect(OPERATOR_INSTRUCTIONS).toContain('do not claim MyProject')
-    expect(OPERATOR_INSTRUCTIONS).toContain('npx specrails-core@latest update')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Core 6 has no standalone\n  `update`')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('npx specrails-core@latest update')
   })
 })
 

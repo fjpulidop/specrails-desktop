@@ -16,7 +16,7 @@
 "+ Add Project" shows an **Existing | New** pre-screen (`AddProjectDialog`,
 `chooser-existing` / `chooser-new` cards) when both `FEATURE_PROJECT_BUILDER`
 (client) and the parent-wired `onOpenBuilder` callback are present. *Existing*
-continues into the unchanged AddProjectDialog/setup-wizard flow; *New* calls
+continues into the AddProjectDialog register flow (silent background workspace assembly, no wizard); *New* calls
 `AgentChatContext.builderMode.enter()` — the AGENT transforms into the Builder
 (change `reskin-project-builder-into-agent-panel`; the original full-screen
 `ProjectBuilderShell` overlay is deleted). Flags:

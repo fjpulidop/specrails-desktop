@@ -286,8 +286,9 @@ Two distinct version concepts — don't conflate them:
   (Claude = `null` / none pinned, Codex = `0.128.0`, Gemini = `0.11.0`,
   Kimi = `0.27.0`). It
   guards stream-format / flag availability for that one CLI.
-- **`specrails-core@^4.12.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
-  the single shared package floor the app installs/probes for **all** providers.
+- **`specrails-core@^6.0.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
+  the single shared package range the app installs/probes for **all** providers
+  (`SUPPORTED_CORE_MAJORS` still reads Core 4 and 5 workspaces).
   It matters when your provider's **rails** rely on core-side scaffolding: core
   must emit the provider's command/agent/skill tree (e.g. Gemini needed core
   `4.8.0` to ship the `.gemini/` commands + `sr-*` agents, while Kimi requires

@@ -6,15 +6,17 @@ Ouvrez-la depuis la barre latérale droite (elle est intitulée **Analytics**). 
 
 ## Ce qui compte comme dépense
 
-Specrails suit cinq types d'activité IA, appelés *surfaces*. Chacune dispose d'un code couleur cohérent sur tous les graphiques, pour que vous puissiez la repérer d'un coup d'œil :
+Specrails associe chaque exécution IA à une *surface* : la partie de l'app qui a engagé la dépense. Les surfaces principales ont chacune une couleur fixe et leur propre puce de filtre, pour que vous les repériez d'un coup d'œil :
 
-- **Job** — un rail de pipeline qui enchaîne Architect → Developer → Reviewer → Ship.
+- **Job** — un job de pipeline mis en file (Architect → Developer → Reviewer → Ship), y compris les exécutions Freestyle.
+- **Loop** — chaque étape IA d'une exécution de loop. Les rails s'exécutent en loops par défaut, donc l'essentiel de la dépense des rails apparaît ici.
 - **Quick spec** — une spec générée par la voie rapide d'Add Spec.
 - **Explore spec** — une conversation Explore où vous façonnez une spec en discutant.
 - **AI edit** — un affinage assisté par l'IA sur un agent ou un fichier.
-- **File summary** — les résumés en langage clair qui alimentent le Code explorer.
+- **SMASH** — le découpage d'une spec épique en specs plus petites.
+- **File summary** — les résumés en langage clair et les histoires de fichiers qui alimentent le Code explorer.
 
-Deux activités ne sont délibérément *pas* suivies : le panneau de chat latéral et l'assistant de configuration lancent tous deux des CLI IA, mais ils n'apparaissent jamais dans vos dépenses. Le tableau de bord reflète ainsi un travail réel et reproductible plutôt que des échanges anecdotiques.
+Des surfaces secondaires sont également suivies, sans puce dédiée : le panneau de chat latéral, le lanceur de specs OpenSpec, les propositions de specs, Agent Studio et l'ancien chat de configuration. Les missions épinglées au projet comptent aussi dans sa dépense. Rien de ce qui exécute une CLI IA n'est laissé de côté : les totaux reflètent toute l'activité IA du projet.
 
 ## Lire le tableau de bord
 

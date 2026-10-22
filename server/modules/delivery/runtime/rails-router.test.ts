@@ -169,6 +169,14 @@ describe('rails-router PUT /:railIndex/tickets', () => {
     expect(getRail(db, 1).mode).toBe('implement')
   })
 
+  it('accepts the legacy ultracode mode (old Companion builds) as freestyle', async () => {
+    setRailTickets(db, 1, [1], 'implement', 'old')
+    const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode: 'ultracode' })
+    expect(res.status).toBe(200)
+    expect(res.body.rail.mode).toBe('freestyle')
+    expect(getRail(db, 1).mode).toBe('freestyle')
+  })
+
   it('normalizes a stored legacy batch mode to implement when preserving it', async () => {
     setRailTickets(db, 0, [1], 'batch-implement')
     const res = await request(appWith(db)).put('/rails/0/tickets').send({ ticketIds: [2] })
@@ -2520,6 +2528,23 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     expect(res.body.mode).toBe('implement')
     expect(enqueue).toHaveBeenCalledOnce()
     expect(enqueue.mock.calls[0][0]).toBe('/specrails:implement #1 #2 #3 --yes')
+  })
+
+  it('legacy path: the pre-rename ultracode mode launches as freestyle', async () => {
+    setRailTickets(db, 0, [5])
+    const enqueue = vi.fn().mockReturnValue({ id: 'job-uc', queuePosition: 0 })
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    try {
+      const res = await request(appWith(db, { queueManager: { enqueue } }))
+        .post('/rails/0/launch').send({ mode: 'ultracode' })
+      expect(res.status).toBe(202)
+      expect(res.body.mode).toBe('freestyle')
+      expect(enqueue).toHaveBeenCalledOnce()
+      expect(enqueue.mock.calls[0][0]).toBe('/specrails:freestyle #5 --yes')
+      expect(info).toHaveBeenCalledWith('[rails-router] legacy mode "ultracode" accepted as "freestyle"')
+    } finally {
+      info.mockRestore()
+    }
   })
 
   it('400s an unknown launch mode', async () => {

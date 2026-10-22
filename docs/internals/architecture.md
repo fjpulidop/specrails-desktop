@@ -92,7 +92,7 @@ Each project in the `ProjectRegistry` gets its own `ProjectContext`:
 | `db` | SQLite connection to `projects/<slug>/jobs.sqlite` |
 | `QueueManager` | Serialized job queue for this project (one active job at a time) |
 | `ChatManager` | Isolated conversation manager (Explore + sidebar chat) |
-| `SetupManager` | Wizard state for projects being onboarded |
+| `SetupManager` | Background workspace assembly for added projects (plus the legacy API/MCP install flow) |
 | `cwd` | Absolute path to the project directory on disk |
 
 The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so managers don't need per-project constructor arguments.
@@ -110,18 +110,19 @@ The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so
 | `desktop-router.ts` | `/api/*` routes: projects, settings, themes, specrails-tech proxy, cross-project analytics |
 | `project-router.ts` | `/api/projects/:id/*` routes: all project-scoped operations |
 | `db.ts`, `db/` | Stable persistence facade with separate connection, migrations and domain repositories; see [source boundaries](source-architecture.md) |
-| `queue-manager.ts` | Job queue: spawn provider CLI processes serially per project |
-| `chat-manager.ts` | Chat/Explore: spawn provider CLI for conversational turns |
-| `setup-manager.ts` | Setup wizard: orchestrate `specrails-core` install + `/setup` chat |
+| `modules/execution/runtime/queue-manager.ts` | Legacy job queue: spawn provider CLI processes serially per project |
+| `modules/loops/runtime/loop-run-manager.ts` | Loop runs: the default rail execution path, concurrent across rails |
+| `modules/conversations/runtime/chat-manager.ts` | Chat/Explore: spawn provider CLI for conversational turns |
+| `setup-manager.ts` | Silent workspace assembly (`startSilentAssemble`) plus the legacy API/MCP install and `/setup` chat |
 | `config.ts` | Command discovery: scan `<project>/.claude/commands/sr/*.md` |
 | `hooks.ts` | Pipeline event handler: process phase transition events |
-| `spending.ts` | Cost/analytics aggregation (single source of truth) |
-| `ai-invocations.ts` | `recordInvocation` — writes one billable row per AI CLI call |
-| `pricing.ts` | Rate-card cost fallback for providers without native billing |
-| `result-event.ts` | `finaliseInvocationResult` — combines adapter result + pricing |
-| `telemetry-receiver.ts` | OTLP/JSON receiver mounted at `/otlp` |
-| `desktop-analytics.ts` | App-level analytics aggregated across all projects |
-| `metrics.ts` | Per-project health metrics |
+| `modules/accounting/runtime/spending.ts` | Cost/analytics aggregation (single source of truth) |
+| `modules/accounting/runtime/ai-invocations.ts` | `recordInvocation` — writes one billable row per AI CLI call |
+| `modules/accounting/runtime/pricing.ts` | Rate-card cost fallback for providers without native billing |
+| `modules/accounting/runtime/result-event.ts` | `finaliseInvocationResult` — combines adapter result + pricing |
+| `modules/accounting/runtime/telemetry-receiver.ts` | OTLP/JSON receiver mounted at `/otlp` |
+| `modules/accounting/runtime/desktop-analytics.ts` | App-level analytics aggregated across all projects |
+| `modules/accounting/runtime/metrics.ts` | Per-project health metrics |
 | `docs-router.ts` | Serve the embedded docs portal (`/api/docs`) |
 | `path-resolver.ts` | Resolve a usable PATH for GUI-launched desktop spawns |
 | `types.ts` | Shared TypeScript interfaces |
@@ -135,38 +136,28 @@ Provider, terminal, profile, plugin, code-explorer, and explore subsystems each 
 ```
 client/src/
 ├── App.tsx                     # Mounts DesktopProvider + DesktopApp unconditionally
-├── components/
-│   ├── TabBar.tsx              # Project tab switcher
+├── components/                 # App shell and shared primitives
+│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar (projects, Loops, Plugins, …)
 │   ├── ProjectLayout.tsx       # Per-project three-panel wrapper
-│   ├── ProjectNavbar.tsx       # Left/right sidebar pin + collapse toggles
-│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar
 │   ├── ProjectRightSidebar.tsx # Project nav (Jobs, Analytics, Agents, Code, …)
 │   ├── TitleBar.tsx            # Custom frameless titlebar (desktop)
-│   ├── CommandGrid.tsx         # Command launcher
-│   ├── RecentJobs.tsx          # Job history card list
-│   ├── ProjectHealthWidget.tsx # Per-project health indicators
-│   ├── AddProjectDialog.tsx    # Register project modal (provider multi-select)
-│   ├── WelcomeScreen.tsx       # Zero-state landing
-│   └── SetupWizard.tsx         # Configure / Install / Done onboarding wizard
+│   └── WelcomeScreen.tsx       # Zero-state landing
+├── features/<capability>/      # One folder per capability: pages/, components/, hooks/, lib/
+│   ├── dashboard/pages/DashboardPage.tsx     # Specs board + Rails board
+│   ├── analytics/pages/AnalyticsPage.tsx     # Per-project cost analytics (+ DesktopAnalyticsPage)
+│   ├── agents/pages/AgentsPage.tsx           # Agent profiles + catalog
+│   ├── code/pages/CodePage.tsx               # Code explorer
+│   ├── jobs/pages/JobDetailPage.tsx          # Full log viewer for a single job (+ JobsPage)
+│   ├── settings/pages/                       # SettingsPage (project route), GlobalSettingsPage
+│   └── projects/components/                  # AddProjectDialog, OnboardingWizard (product tour)
 ├── hooks/
 │   ├── useDesktop.tsx          # DesktopProvider context: project list, active project
 │   ├── useProjectCache.ts      # Stale-while-revalidate per-project cache
-│   ├── useSpecGenTracker.tsx   # Quick-spec generation state (localStorage)
-│   ├── usePipeline.ts          # Pipeline phase state
 │   └── useSharedWebSocket.tsx  # Single WS connection, per-project filtering
-├── pages/
-│   ├── DashboardPage.tsx       # Specs board + Rails board + pipeline state
-│   ├── AnalyticsPage.tsx       # Per-project cost analytics
-│   ├── DesktopAnalyticsPage.tsx # Cross-project spending roll-up
-│   ├── AgentsPage.tsx          # Agent profiles + catalog
-│   ├── CodePage.tsx            # Code explorer: file tree + Monaco viewer + edit (flag-gated)
-│   ├── SettingsPage.tsx        # Per-project settings
-│   ├── GlobalSettingsPage.tsx  # App settings
-│   └── JobDetailPage.tsx       # Full log viewer for a single job
-└── lib/
-    ├── api.ts                  # getApiBase(): dynamic API prefix per active project
-    ├── pending-specs.ts        # Quick-spec state persistence (localStorage)
-    └── route-memory.ts         # Per-project URL route save/restore
+├── lib/
+│   ├── api.ts                  # getApiBase(): dynamic API prefix per active project
+│   └── route-memory.ts         # Per-project URL route save/restore
+└── locales/<lang>/*.json       # i18n strings for the 8 supported locales
 ```
 
 ### App bootstrap
@@ -250,8 +241,9 @@ App-level messages (no `projectId`) are processed by all handlers.
 
 `QueueManager` and `ChatManager` spawn the project's provider CLI (`claude`, `codex`, `gemini`, or `kimi`) as subprocesses, always with `cwd` set so the process runs in the correct directory. The exact binary and argv are chosen by the resolved `ProviderAdapter` — managers never branch on the provider id (see [Multi-provider adapters](#feature-subsystems)).
 
-- **Within a project, jobs run strictly one at a time.** Each `ProjectContext` has exactly one `QueueManager` with a single `_activeJobId`; `_drainQueue()` early-returns while a job is active, so the next rail job queues behind the current one.
-- **Parallelism is across projects only** — each project has its own `QueueManager`, so jobs in different projects run simultaneously. There is no "max concurrent jobs" setting; the only automatic queue-pause is budget-based (daily budget / per-job cost alert).
+- **The legacy job queue is serial per project.** Each `ProjectContext` has exactly one `QueueManager` with a single `_activeJobId`; `_drainQueue()` early-returns while a job is active, so the next queued job waits behind the current one.
+- **Rails run concurrently.** With Loops enabled (the default), each rail launch is a `LoopRunManager` run, not a queued job, so several rails in one project run at the same time. Repo-mutating runs get their own git worktree (default-on; `SPECRAILS_RAIL_WORKTREES=0` restores the shared cwd), and a launch whose tickets are already in flight on another rail is refused with `409 tickets_in_flight`.
+- **Projects never contend.** Each project has its own `QueueManager` and loop runs. There is no "max concurrent jobs" setting; the only automatic queue-pause is budget-based (daily budget / per-job cost alert).
 - **Cancelling a job** sends `SIGTERM`, waits **5 seconds**, then `SIGKILL`. (The terminal panel's 2-second shutdown grace is a separate subsystem.)
 - A zombie-job watchdog terminates a stuck job after a default of **30 minutes**, overridable via `WM_ZOMBIE_TIMEOUT_MS`.
 - Log lines stream back over WebSocket in real time.
@@ -265,8 +257,8 @@ The app is more than the job pipeline. Each subsystem owns its modules; this is 
 | Subsystem | Server modules | Notes |
 |-----------|---------------|-------|
 | **Multi-provider adapters** | `server/providers/{types,claude-adapter,codex-adapter,gemini-adapter,kimi-adapter,registry,index}.ts`, `server/provider-selection.ts` | **Four first-class providers — Claude, Codex, Gemini, and Kimi — enabled by default** behind a `ProviderAdapter` contract. Claude reports native cost and supports persistent stdin; Codex (`≥ 0.128.0`) and Gemini (`≥ 0.11.0`) expose estimated usage; Kimi (`≥ 0.27.0`) runs CLI-only prompt-mode JSONL, resumes through terminal hints, uses `.kimi-code` skills/MCP, and leaves absent cost/tokens unavailable. A project can install any subset; `providers[]` is a JSON column, the first entry is primary. Per-invocation provider is late-bound. Provider availability is gated by executable detection, Core target compatibility, and the existing Codex/Gemini emergency switches. See [`adding-a-provider.md`](adding-a-provider.md), [`../codex.md`](../codex.md), [`../gemini.md`](../gemini.md), and [`../kimi.md`](../kimi.md). |
-| **Spending analytics** | `server/modules/accounting/runtime/spending.ts`, `server/modules/accounting/runtime/ai-invocations.ts`, `server/modules/accounting/runtime/pricing.ts` | `recordInvocation` writes an `ai_invocations` row per AI CLI call across six surfaces (`job`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`); powers the Analytics page and `spending.invalidated`. |
-| **Agent profiles** | `server/modules/agents/runtime/profile-manager.ts`, `server/modules/agents/runtime/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0` in general and the Core 4.12 Kimi target for Kimi roles (the app-wide install floor is `^4.12.0`). Claude and Kimi advertise profile support; other adapters force legacy/no-profile mode. |
+| **Spending analytics** | `server/modules/accounting/runtime/spending.ts`, `server/modules/accounting/runtime/ai-invocations.ts`, `server/modules/accounting/runtime/pricing.ts` | `recordInvocation` writes an `ai_invocations` row per AI CLI call across twelve surfaces (`job`, `loop`, `quick-spec`, `explore-spec`, `ai-edit`, `smash`, `file-summary`, `chat-sidebar`, `spec-launcher`, `proposal`, `agent-studio`, `setup`); mission turns record to the app-level `agent_invocations` ledger and are folded into a pinned project's spending. Powers the Analytics page and `spending.invalidated`. |
+| **Agent profiles** | `server/modules/agents/runtime/profile-manager.ts`, `server/modules/agents/runtime/profiles-router.ts` | Declarative JSON in `.specrails/profiles/*.json`, snapshot-per-job, `SPECRAILS_PROFILE_PATH` env injection. Requires `specrails-core ≥ 4.1.0` in general and the Core 4.12 Kimi target for Kimi roles (the app installs Core 6: `CORE_PACKAGE_SPEC` in `server/core-package.ts`). Claude and Kimi advertise profile support; other adapters force legacy/no-profile mode. |
 | **Plugins (Integrations)** | `server/plugin-manager.ts`, `server/plugins/` | Bundled-only, MCP-based, additivity invariant, surgical `.mcp.json` merge, `plugin.*` WS events. Serena ships today. |
 | **Terminal panel** | `server/modules/terminals/runtime/terminal-manager.ts` | `node-pty` sessions over the dedicated `/ws/terminal/:id` socket, OSC shell-integration marks. See [`../terminal.md`](../terminal.md). |
 | **Code explorer** | `server/modules/code/runtime/code-explorer-router.ts`, `server/modules/code/runtime/file-provenance.ts`, `server/modules/code/runtime/file-summary-manager.ts` | A non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *touched-by-AI* provenance chips per ticket/job, plus opt-in in-app editing of existing files (overwrite-only via `PUT /file` — no create/rename; refuses binaries `415`, enforces a 2 MB cap `413`, `404` on a missing path, respects deny-list/`.gitignore`). |
@@ -280,15 +272,15 @@ Most client feature sections are gated by VITE flags, and they share one polarit
 
 ---
 
-## Setup wizard flow
+## Project add and workspace assembly
 
-When a project is added without specrails-core, the setup wizard runs. The client renders a **3-step** indicator: **Configure → Install → Done**.
+There is no setup wizard in the app UI. `POST /api/projects` (`server/desktop-router.ts`) registers the project with the auto-detected providers, answers `201`, and then calls `SetupManager.startSilentAssemble` in the background (skipped when the workspace is already populated):
 
-1. **Configure** — confirm path and pick provider(s) and model presets. (Multi-provider projects get one Configure step per provider.)
-2. **Install** — the app writes `.specrails/install-config.yaml` and runs `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <tempPath>`, streaming the log. The package spec is the constant `CORE_PACKAGE_SPEC` — a deliberately pinned major range (the floor is `4.12.0`, the release that ships the Kimi provider target), so a future core `5.x` doesn't auto-land. Override the binary locally with `SPECRAILS_CORE_BIN`. For multi-provider projects each provider's install runs sequentially.
-3. **Done** — per-provider completion summary.
+1. **Assemble** — one specrails-core `init` per detected provider, sequential, with per-provider failure isolation. The bundled Core is preferred (`spawnBundledCoreInit` in `server/offline-assemble.ts`, offline, with the bundled OpenSpec); without a bundle the fallback is `npx` with `CORE_PACKAGE_SPEC` from `server/core-package.ts` (currently `specrails-core@^6.0.0`, a deliberately pinned major range). `SPECRAILS_CORE_BIN` overrides the binary locally. Local (OpenAI-compatible) engines have no Core target and are skipped.
+2. **Relocation** — the framework lands in `~/.specrails/projects/<slug>/workspace` (`workspacePathFor`), never in the user's repository.
+3. **Progress** — the app-level `project.assemble_progress` WS event (`{projectId, provider, status}`) drives the sidebar indicator; a failure never rolls back registration, and `POST /api/projects/:id/assemble-retry` re-runs only the failed providers.
 
-`SetupManager` (server) owns wizard state; `DesktopProvider` (client) tracks which projects are in setup via `setupProjectIds`. The wizard does spawn a real AI CLI for the `/setup` chat, but that spawn is deliberately left uninstrumented (it writes no `ai_invocations` row).
+After a Core update swap, `reseedStaleWorkspaces` (`server/framework-reseed.ts`) re-assembles stale workspaces. The legacy per-project `/setup/*` and `/enrich/*` routes (`server/project-router-setup.ts`) stay mounted for the MCP `specrails_setup` tool and API callers; their AI turns record under the `setup` spending surface.
 
 ---
 

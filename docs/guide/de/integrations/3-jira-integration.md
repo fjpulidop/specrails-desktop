@@ -15,7 +15,7 @@ Alle Rückschreibungen laufen über eine dauerhafte, absturzsichere Outbox, soda
 
 ## Ein Board verbinden
 
-Du verbindest dich über die **Einstellungen**-Seite eines Projekts (am Ende des „Projekt hinzufügen“-Assistenten gibt es zusätzlich einen optionalen Schritt „Jira konfigurieren“). Der Verbindungsassistent führt dich durch:
+Du verbindest dich über die Seite **Plugins** in der linken Seitenleiste: Klicke auf der Jira-Karte auf **Installieren** und wähle das Projekt. Der Verbindungsassistent führt dich durch:
 
 1. **Testen** — gib deine Jira-URL und deine Zugangsdaten ein, und Specrails überprüft die Verbindung.
 2. **Projekt wählen** — wähle aus, mit welchem Jira-Projekt synchronisiert werden soll.
@@ -52,7 +52,7 @@ So kannst du frei experimentieren — anschalten, ein paar Rails laufen lassen, 
 
 ## Im Alltag
 
-Nach dem Verbinden zeigt die Einstellungen-Seite des Projekts eine **Verbunden-Karte**, auf der du:
+Nach dem Verbinden zeigt die Jira-Karte auf der Seite **Plugins** **Verwalten**. Wähle dort das Projekt, um seine **Verbunden-Karte** zu öffnen, auf der du:
 
 - **Jetzt synchronisieren** — ein sofortiges Pollen erzwingen, statt auf den Timer zu warten.
 - **Dead-Letter erneut versuchen** — alle hängengebliebenen Rückschreibungen erneut ausführen.
@@ -69,4 +69,4 @@ Specs, die mit Jira hinterlegt sind, zeigen ein **Jira-Schlüssel-Badge** (etwa 
 
 ## Ausschalten
 
-Wenn du jemals vollständig aussteigen möchtest, **trenne** einfach in den Einstellungen. Deine Specs kehren zum reinen Lokal-Verhalten zurück, und die Jira-Metadaten liegen einfach ungenutzt herum — es wird nichts zerstört.
+Wenn du jemals vollständig aussteigen möchtest, **trenne** einfach über die Verbunden-Karte. Deine Specs kehren zum reinen Lokal-Verhalten zurück, und die Jira-Metadaten liegen einfach ungenutzt herum — es wird nichts zerstört.

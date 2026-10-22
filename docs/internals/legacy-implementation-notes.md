@@ -6,6 +6,19 @@ reflect older implementations; current code, tests, AGENTS.md and the architectu
 decision take precedence. Search the relevant feature instead of loading the
 whole document. Relative links below were originally relative to the repo root.
 
+Known superseded entries (verified 2026-10-21; the current behaviour wins):
+
+- **Revision loop.** `factory:revision` is no longer a fourth factory loop; it is a
+  legacy id aliased to `factory:sdd-quick-openspec` (see [review packet](review-packet.md)).
+- **Setup wizard.** Retired; projects are added silently with background workspace
+  assembly (see [architecture](architecture.md#project-add-and-workspace-assembly)).
+- **Ultracode.** Renamed Freestyle; `ultracode` survives only as an input alias that
+  `normalizeRailMode` maps to `freestyle` for older Companion builds.
+- **`sr:why` / explanations, health-check, compat-check, refactor-recommender.**
+  Retired from Core; Core 6 ships only the `implement` and `retry` commands.
+- **Core pins.** Any `^4.x` / `^5.x` range quoted below is historical; the current
+  range is `CORE_PACKAGE_SPEC` in `server/core-package.ts`.
+
 ---
 
 # CLAUDE.md

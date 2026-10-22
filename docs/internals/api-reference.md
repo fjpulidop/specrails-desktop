@@ -63,8 +63,9 @@ A non-localhost `Origin` header is rejected by the CORS middleware with `403 For
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/projects` | List registered projects |
-| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini`, `kimi` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered or Kimi fails its executable/version/Core-target checks. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled). Kimi has no beta flag: it requires a usable `kimi` CLI ≥ 0.27.0 and a Core build that advertises the Kimi target. Kimi 0.27 has no safe non-billing authentication probe, so login/model configuration is confirmed by the first real turn |
+| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini`, `kimi` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to register with the auto-detected provider set (`["claude"]` when nothing is detected yet). After `201` the workspace is assembled in the background for the detected providers; progress arrives as `project.assemble_progress` WS events. 409 if the path is already registered or Kimi fails its executable/version/Core-target checks. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled). Kimi has no beta flag: it requires a usable `kimi` CLI ≥ 0.27.0 and a Core build that advertises the Kimi target. Kimi 0.27 has no safe non-billing authentication probe, so login/model configuration is confirmed by the first real turn |
 | `DELETE` | `/projects/:id` | Unregister (does not delete the project directory) |
+| `POST` | `/projects/:id/assemble-retry` | Re-run the background workspace assembly for the providers that failed (every detected provider when none is recorded as failed). `202 { retrying: [...] }`, or `202 { alreadyRunning: true }` while one is running; `409` when no provider is detected; progress via `project.assemble_progress` |
 | `GET` | `/resolve?path=…` | Find a project by **exact** canonical filesystem path. No parent-directory walking — a subdirectory returns 404 |
 
 Example — register a project that uses both Claude and Gemini:
@@ -85,7 +86,7 @@ Example — register a project that uses both Claude and Gemini:
 |--------|------|-------|
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
 | `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, `gemini`, or `kimi` — runs the registered adapter's version probe. Registry-driven |
-| `GET` | `/available-providers` | Provider catalogue used by the setup wizard. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
+| `GET` | `/available-providers` | Provider catalogue used by the Add Project dialog (no-provider warning), mission and provider pickers. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
@@ -359,20 +360,20 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `POST` | `/chat/conversations/:id/minimize` | Park the session (arms the idle-kill timer) |
 | `POST` | `/chat/conversations/:id/restore` | Cancel the idle-kill timer |
 
-### Setup wizard
+### Setup (API / MCP only)
 
-The setup wizard is a three-step flow (Configure / Install / Done). The `enrich/*` and `setup/start`+`setup/message` endpoints back the legacy AI-enriched flow that the app UI does not expose; they remain mounted for forward compatibility.
+The app UI has no setup wizard: adding a project assembles its workspace in the background (see `POST /api/projects` and `POST /api/projects/:id/assemble-retry`). These per-project routes remain mounted for the MCP `specrails_setup` tool and other API callers. The `enrich/*` and `setup/start`+`setup/message` endpoints back the legacy AI-enriched flow.
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `POST` | `/setup/install-config` | Write `.specrails/install-config.yaml` to the project |
-| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned core release — currently `specrails-core@^4.12.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
+| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned Core range `CORE_PACKAGE_SPEC` from `server/core-package.ts` — currently `specrails-core@^6.0.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
 | `POST` | `/setup/start` | Legacy setup-chat session start |
 | `POST` | `/setup/message` | Legacy setup-chat turn |
 | `POST` | `/enrich/start` | Legacy AI-enrich session start |
 | `POST` | `/enrich/message` | Legacy AI-enrich turn |
 | `GET` | `/setup/checkpoints` | Checkpoint state + last log lines |
-| `POST` | `/setup/abort` | Abort the wizard |
+| `POST` | `/setup/abort` | Abort the in-progress install |
 
 ### Proposals
 
@@ -732,7 +733,9 @@ Every project-scoped message includes a `projectId` field. App-level messages ha
 | `jira.outbox_changed` | project | The durable write-back outbox changed (op enqueued/drained/dead-lettered) |
 | `jira.degraded` | project | A write-back op was dead-lettered or a path is blocked; sync continues |
 
-### Setup wizard
+### Setup (API / MCP install flow)
+
+Emitted by the legacy per-project `/setup/*` install flow (MCP `specrails_setup`). Background workspace assembly after `POST /api/projects` reports through the app-level `project.assemble_progress` event instead.
 
 | Type | Scope | Notes |
 |------|-------|-------|

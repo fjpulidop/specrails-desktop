@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '../test-utils'
 import App from '../App'
+import { openAppSettings } from '../lib/app-settings-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
 
@@ -56,7 +57,9 @@ vi.mock('../features/projects/components/AddProjectDialog', () => ({
 }))
 
 vi.mock('../features/settings/pages/GlobalSettingsPage', () => ({
-  default: () => <div data-testid="settings-dialog" />,
+  default: ({ open, initialSection }: { open: boolean; initialSection?: string }) => (
+    <div data-testid="settings-dialog" data-open={String(open)} data-section={initialSection} />
+  ),
 }))
 
 vi.mock('../components/ProjectLayout', () => ({
@@ -130,4 +133,15 @@ it.each([['Loops', 'loops-modal'], ['Plugins', 'plugins-modal']])('opens %s insi
     expect(await screen.findByTestId(modal)).toBeInTheDocument()
     expect(popup).not.toHaveBeenCalled()
   } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
+})
+
+
+it('opens the app settings modal on the section a feature page requests', async () => {
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+  render(<App />)
+  const dialog = await screen.findByTestId('settings-dialog')
+  expect(dialog).toHaveAttribute('data-open', 'false')
+  act(() => openAppSettings('updates'))
+  await waitFor(() => expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-open', 'true'))
+  expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-section', 'updates')
 })

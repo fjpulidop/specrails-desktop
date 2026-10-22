@@ -20,7 +20,7 @@ From that point forward, pipeline jobs in that project record telemetry. Other p
 
 ### What's covered
 
-Telemetry applies to **pipeline jobs** (the queued Architect → Developer → Reviewer → Ship rail runs). Interactive sessions like chat and the setup wizard are intentionally left out — telemetry is meant for the repeatable, inspectable pipeline runs, not one-off conversations.
+Telemetry applies to jobs that run through the project's **job queue**: CLI pipeline runs (rails when Loops are disabled, and `implement` commands sent from the `specrails-desktop` CLI). Loop runs — the default way rails run — and interactive sessions such as chat, Explore and missions are not instrumented.
 
 ## Where the data lives
 

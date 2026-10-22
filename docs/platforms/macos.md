@@ -40,7 +40,7 @@ You only need this once per build. It does not apply to the notarized installers
 
 ## Prerequisites
 
-When you add a project, the app checks for the tools it needs and surfaces them in a **prerequisites panel** (in the `Add Project` dialog and the setup wizard). It checks:
+When you add a project, the app checks for the tools it needs and surfaces them in a **prerequisites panel** in the `Add Project` dialog. It checks:
 
 - **Bundled tools** — `node`, `npm`, `npx`, `git`.
 

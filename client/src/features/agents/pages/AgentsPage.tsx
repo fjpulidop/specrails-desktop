@@ -7,6 +7,7 @@ import { AgentsCatalogTab } from '../components/AgentsCatalogTab'
 import { ProfileAnalyticsCard } from '../components/ProfileAnalyticsCard'
 import { useMinimizedChats } from '../../missions/context/MinimizedChatsContext'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { openAppSettings } from '../../../lib/app-settings-events'
 
 type Tab = 'profiles' | 'usage' | 'catalog'
 
@@ -91,11 +92,17 @@ export default function AgentsPage() {
                 i18nKey="page.banner.body"
                 values={{
                   version: coreStatus!.version ?? t('page.banner.unknownVersion'),
-                  command: 'npx specrails-core@latest update',
                 }}
                 components={{ code: <code className="px-1 rounded bg-yellow-500/20 aurora-light:bg-accent-warning/20" /> }}
               />
             </div>
+            <button
+              type="button"
+              onClick={() => openAppSettings('updates')}
+              className="mt-1.5 font-medium text-yellow-500 underline underline-offset-2 hover:text-yellow-400 aurora-light:text-accent-warning"
+            >
+              {t('page.banner.openUpdates')}
+            </button>
           </div>
         </div>
       )}

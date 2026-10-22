@@ -2,16 +2,27 @@
      "Verified routing clarification" first — it corrects an internal tension in
      the body about which engine a bare-mode launch uses. -->
 
-# ⚠️ Verified routing clarification (read first)
+# Current status (verified against code 2026-10-21) — read first
 
-The single fact that scopes the whole gap, verified directly in code:
+The body below is the original gap analysis from 2026-06-25. **Every desktop-side
+change it requested (Phase 0, sections 4.1–4.5) has shipped.** Where the body says
+"today", "dropped" or "stripped", it describes the pre-fix state. Current behaviour:
 
-`server/modules/delivery/runtime/rails-router.ts:301` — `if (isLoopsEnabled() && loopId) → LoopRunManager (loop.run_*, no jobId); else → QueueManager (jobId, rail.job_*)`.
+| Item | Status | Where |
+| --- | --- | --- |
+| 4.1 Forward `loopId`, `reasoning_effort`, `interactive` on launch | Shipped | `v1.post('/projects/:pid/rails/:i/launch')` in `server/mobile/mobile-router.ts` narrows and forwards all three |
+| 4.2 Loop read routes on the allow-list | Shipped | `GET /v1/loops`, `GET /v1/loops/factory`, `GET /v1/projects/:pid/loop-runs/:id` in `mobile-router.ts` and `MOBILE_ALLOWLIST` |
+| 4.3 Loop identity on the rails GET | Shipped | `activeLoopRuns[railIndex]` carries `loopRunId`, `loopId`, `loopName`, `provider`, `model`, `iteration`, `startedAt`, `steps`, `lines` (`rails-router.ts`) |
+| 4.4 `loop.run_*` WS reaches mobile | Shipped | `topicFor()` in `server/mobile/mobile-ws.ts` maps `loop.run_started/progress/stopped/completed` onto the existing `'rails'` topic (verbatim; no compat synthesis) |
+| 4.5 Drop `reasoning` at the mobile boundary | Shipped | `toMobileWire()` in `mobile-ws.ts` strips `reasoning` from `loop.run_progress` |
 
-- **Phone-initiated launches** send bare `{mode}` with **no `loopId`** (`desktop_repository.dart:116-123`) → fall to the **`else` / QueueManager** path → real `jobId` → `rail.job_*` → **the v1 companion mirrors them correctly (view + log tail + completion push). NO regression.**
-- **Desktop-initiated launches** now **always** send a `loopId`: the loop picker uses `effectiveLoopId = selectedLoopId || factoryIdForMode(mode)` (`client/src/features/rails/lib/rail-loops.ts:43-44`) so even a plain "Implement" rail sends `loopId='factory:implement'`, and `doLaunchRail` always passes it (`client/src/features/dashboard/pages/DashboardPage.tsx:824,869`) → **LoopRunManager** → `loop.run_*` (no `jobId`) → **dropped at the mobile boundary** (`mobile-ws.ts topicFor` default→null).
+Two further facts supersede the body:
 
-**Net:** the mirror gap is NOT in the phone's own launches — it is in **mirroring rails the user launches from the desktop** (the normal case), which now emit `loop.run_*` the boundary never forwards. So a connected phone shows desktop-launched loop rails as **idle, with no live progress and no completion notification.** The frozen wire is untouched (additive only). Everything below stands with this scoping.
+- **Bare-`mode` launches also run as loops now.** With Loops enabled (the default), a launch without `loopId` (MCP, mobile, direct REST) resolves the factory loop for its mode (`factoryLoopForMode` in `rails-router.ts`), so phone launches go through `LoopRunManager` and emit `loop.run_*`, exactly like dashboard launches. The QueueManager/`jobId` path is used only when Loops are disabled.
+- **Accepted launch modes:** `VALID_MODES = {implement, freestyle, loop}`. `batch-implement`/`batch` normalize to `implement`, and the pre-rename `ultracode` (sent by older Companion builds) normalizes to `freestyle` (`normalizeRailMode`).
+
+The Companion-side items (section 5, Phases 1–2) live in the Companion repository
+and are tracked there.
 
 ---
 

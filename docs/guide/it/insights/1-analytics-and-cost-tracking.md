@@ -6,15 +6,17 @@ Aprila dalla barra laterale destra (è etichettata **Analytics**). Tutto ciò ch
 
 ## Cosa conta come spesa
 
-Specrails tiene traccia di cinque tipi di attività AI, chiamati *origini*. A ciascuna è associato un colore coerente in tutti i grafici, così puoi riconoscerla a colpo d'occhio:
+Specrails etichetta ogni esecuzione AI con un'*origine*: la parte dell'app che ha generato la spesa. Le origini principali hanno ciascuna un colore fisso e un proprio chip di filtro, così le riconosci a colpo d'occhio:
 
-- **Job** — un rail della pipeline che esegue Architect → Developer → Reviewer → Ship.
+- **Job** — un job della pipeline messo in coda (Architect → Developer → Reviewer → Ship), comprese le esecuzioni Freestyle.
+- **Loop** — ogni passo AI di un'esecuzione di loop. I rail girano come loop per impostazione predefinita, quindi gran parte della spesa dei rail finisce qui.
 - **Quick** — una spec generata tramite il percorso rapido di Add Spec.
 - **Explore** — una conversazione Explore in cui dai forma a una spec chiacchierando.
 - **Raffinamento** — un raffinamento assistito dall'AI su un agente o su un file.
-- **Riepiloghi file** — i riepiloghi in linguaggio semplice che alimentano il Code explorer.
+- **SMASH** — la suddivisione di una spec epica in spec più piccole.
+- **Riepiloghi file** — i riepiloghi in linguaggio semplice e le storie dei file che alimentano il Code explorer.
 
-Un paio di cose, di proposito, *non* vengono tracciate: sia la chat nella barra laterale sia il setup wizard avviano CLI AI, ma non compaiono mai nella tua spesa. Così la dashboard riflette lavoro reale e ripetibile, non chiacchiere occasionali.
+Vengono tracciate anche origini minori, senza un chip proprio: la chat nella barra laterale, il launcher di spec OpenSpec, le proposte di spec, Agent Studio e la vecchia chat di setup. Anche le missioni fissate al progetto contano nella sua spesa. Nulla di ciò che esegue una CLI AI viene escluso, quindi i totali riflettono tutta l'attività AI del progetto.
 
 ## Leggere la dashboard
 

@@ -168,7 +168,7 @@ export class SpecLauncherManager {
       ? `${expandCommands('{{cmd:opsx:ff}}', { provider: this._adapter.id })} ${description}`
       : resolvedPrompt
     if (providerCommand === rawCommand) {
-      this._broadcastError(launchId, 'This project does not have the /opsx:ff command installed. Run "npx specrails-core@latest" to install it.')
+      this._broadcastError(launchId, 'This project does not have the /opsx:ff command installed. Update Specrails Core from Settings → Updates.')
       return
     }
     let prompt: string

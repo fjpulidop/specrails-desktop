@@ -6,15 +6,17 @@ Du öffnest ihn über die rechte Seitenleiste (Beschriftung **Analytics**). Alle
 
 ## Was als Ausgabe zählt
 
-Specrails verfolgt fünf Arten von KI-Aktivität, sogenannte *Surfaces*. Jede ist in allen Diagrammen einheitlich farblich gekennzeichnet, damit du sie auf einen Blick erkennst:
+Specrails versieht jeden KI-Lauf mit einer *Surface*: dem Teil der App, der die Ausgabe verursacht hat. Die wichtigsten Surfaces haben jeweils eine feste Farbe und einen eigenen Filter-Chip, sodass du sie auf einen Blick erkennst:
 
-- **Job** – ein Pipeline-Rail, das Architect → Developer → Reviewer → Ship durchläuft.
-- **Quick-Spec** – eine Spec, die über den schnellen „Spec hinzufügen“-Weg erstellt wurde.
-- **Explore-Spec** – eine Explore-Unterhaltung, in der du eine Spec im Gespräch ausarbeitest.
+- **Job** – ein in der Queue eingereihter Pipeline-Job (Architect → Developer → Reviewer → Ship), einschließlich Freestyle-Läufen.
+- **Loop** – jeder KI-Schritt eines Loop-Laufs. Rails laufen standardmäßig als Loops, daher landet der Großteil der Rail-Ausgaben hier.
+- **Quick-Spec** – eine Spec, die über den schnellen „Spec hinzufügen“-Weg erzeugt wurde.
+- **Explore-Spec** – eine Explore-Unterhaltung, in der du eine Spec im Gespräch formst.
 - **KI-Bearbeitung** – eine KI-gestützte Verfeinerung an einem Agenten oder einer Datei.
-- **Dateizusammenfassung** – die verständlichen Zusammenfassungen, die den Code-Explorer speisen.
+- **SMASH** – das Aufteilen einer Epic-Spec in kleinere Specs.
+- **Dateizusammenfassung** – die verständlichen Zusammenfassungen und Datei-Geschichten, die den Code-Explorer speisen.
 
-Ein paar Dinge werden bewusst *nicht* verfolgt: Sowohl die Chat-Seitenleiste als auch der Einrichtungsassistent starten KI-CLIs, tauchen aber nie in deinen Ausgaben auf. So spiegelt das Dashboard echte, wiederholbare Arbeit wider statt beiläufigem Geplauder.
+Kleinere Surfaces werden ebenfalls erfasst, nur ohne eigenen Chip: die Chat-Seitenleiste, der OpenSpec-Spec-Launcher, Spec-Vorschläge, Agent Studio und der ältere Einrichtungs-Chat. Auch an das Projekt angeheftete Missionen zählen zu seinen Ausgaben. Nichts, was eine KI-CLI ausführt, bleibt außen vor – die Summen spiegeln also die gesamte KI-Aktivität des Projekts wider.
 
 ## Das Dashboard lesen
 

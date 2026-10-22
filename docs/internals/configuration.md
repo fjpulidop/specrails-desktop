@@ -143,12 +143,12 @@ specrails-desktop remove <project-id>    # Unregister a project by ID
 specrails-desktop implement "#42"                  # Queue /specrails:implement for spec #42
 specrails-desktop implement "#40" "#41" "#43"        # One aggregate implement run over several specs
 specrails-desktop "any raw prompt"                 # Pass a raw prompt straight to the AI CLI
-specrails-desktop /specrails:health-check          # Pass any slash command directly
+specrails-desktop /specrails:retry                 # Pass any slash command directly
 ```
 
 > **Always quote issue refs.** An unquoted `#` starts a shell comment, so `implement #40 #41` silently drops the refs. Quote each one: `"#40" "#41"`.
 
-**Known verbs** (automatically prefixed with `/specrails:`): `implement`, `why`, `get-backlog-specs`, `auto-propose-backlog-specs`, `propose-spec`, `refactor-recommender`, `health-check`, `compat-check`, `enrich`. The removed `batch-implement` verb is mapped to `implement`. Any other first argument is passed as a raw prompt.
+**Known verbs** (automatically prefixed with `/specrails:`; `KNOWN_VERBS` in `cli/args.ts`): `implement`, `retry` — the only `/specrails:*` commands Core 6 ships. The removed `batch-implement` verb is mapped to `implement`. Any other first argument (including retired Core commands such as `why` or `health-check`) is passed as a raw prompt.
 
 ### Port override example
 

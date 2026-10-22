@@ -6,15 +6,17 @@
 
 ## 什么算作支出
 
-Specrails 会追踪五类 AI 活动，我们称之为*来源*（surface）。每一类在所有图表中都使用统一的配色，方便你一眼认出：
+Specrails 会给每一次 AI 运行打上*来源*（surface）标签，也就是产生这笔支出的应用部分。主要来源各有固定的颜色和专属的筛选标签，让你一眼就能认出：
 
-- **任务（Job）**——一条跑着 Architect → Developer → Reviewer → Ship 的流水线 rail。
+- **任务（Job）**——排入队列的流水线任务（Architect → Developer → Reviewer → Ship），包括 Freestyle 运行。
+- **循环（Loop）**——循环运行中的每一个 AI 步骤。rail 默认以循环方式运行，所以 rail 的大部分支出都记在这里。
 - **Quick spec**——通过快捷的 Add Spec 路径生成的 spec。
 - **Explore spec**——通过聊天来打磨 spec 的 Explore 会话。
 - **AI 编辑（AI edit）**——对某个 agent 或文件做的 AI 辅助优化。
-- **文件摘要（File summary）**——为 Code 浏览器提供支撑的那些通俗易懂的摘要。
+- **SMASH**——把一个史诗级 spec 拆分成更小的 spec。
+- **文件摘要（File summary）**——为 Code 浏览器提供支撑的通俗摘要和文件故事。
 
-有两样东西是我们*故意*不去追踪的：聊天侧边栏和安装向导虽然也会启动 AI CLI，但它们永远不会出现在你的支出里。这样仪表盘反映的就是真实、可重复的工作，而不是顺手发生的闲聊。
+一些较小的来源也会被记录，只是没有专属的筛选标签：聊天侧边栏、OpenSpec spec 启动器、spec 提案、Agent Studio 以及旧版的安装聊天。固定到该项目的任务会话（mission）也计入它的支出。凡是运行 AI CLI 的活动都不会被遗漏，因此总额反映了项目的全部 AI 活动。
 
 ## 读懂仪表盘
 

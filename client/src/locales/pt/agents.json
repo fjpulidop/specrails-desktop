@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "O pipeline com suporte de perfis requer specrails-core {{required}}+",
-      "body": "Este projeto tem <code>{{version}}</code>. Execute <code>{{command}}</code> dentro do projeto para desbloquear o modo de perfis. Os perfis que criar aqui continuam a ser guardados; simplesmente não afetam o pipeline até o core ser atualizado.",
-      "unknownVersion": "desconhecida"
+      "body": "O workspace deste projeto foi preparado com specrails-core <code>{{version}}</code>. Atualize o Specrails Core em Definições → Atualizações; os workspaces dos projetos são atualizados automaticamente após a atualização. Os perfis que criar aqui continuam a ser guardados; simplesmente não afetam o pipeline até o workspace ser atualizado.",
+      "unknownVersion": "desconhecida",
+      "openUpdates": "Abrir atualizações do Core"
     }
   },
   "catalog": {

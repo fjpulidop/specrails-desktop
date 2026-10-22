@@ -63,11 +63,11 @@ Updates use the signed NSIS `-setup.exe` for the same architecture. Installation
 
 Normal quit and updates request an authenticated graceful shutdown of the owned sidecar first, giving processes and persistent logs time to close before a bounded force-stop fallback.
 
-## Setup wizard
+## Project setup
 
 Adding a project assembles the framework from the bundled or newer compatible activated core. The installed app includes the Node-native core and OpenSpec resources, so normal project setup does not require a separate core installation. Core updates preserve the previous active framework if switching the Windows junction fails.
 
-Online fallback uses the range in `server/core-package.ts` (currently `specrails-core@^5.0.0`). Runtime selection and the activated version are shared with the Settings view so a restart cannot silently downgrade a newer working core. `SPECRAILS_CORE_BIN` remains available for a deliberately selected local core executable. Legacy pre-4.1 bash/Python installers are not used for Windows setup.
+Online fallback uses the range in `server/core-package.ts` (currently `specrails-core@^6.0.0`). Runtime selection and the activated version are shared with the Settings view so a restart cannot silently downgrade a newer working core. `SPECRAILS_CORE_BIN` remains available for a deliberately selected local core executable. Legacy pre-4.1 bash/Python installers are not used for Windows setup.
 
 Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are preserved across re-runs per the contract documented in [specrails-core's README](https://github.com/fjpulidop/specrails-core#reserved-paths).
 

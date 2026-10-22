@@ -20,7 +20,7 @@ La télémétrie se configure **par projet** :
 
 ### Ce qui est couvert
 
-La télémétrie s'applique aux **jobs de pipeline** (les exécutions de rail en file Architect → Developer → Reviewer → Ship). Les sessions interactives comme le chat et l'assistant de configuration en sont volontairement exclues — la télémétrie est conçue pour les exécutions de pipeline répétables et inspectables, pas pour les conversations ponctuelles.
+La télémétrie s'applique aux jobs qui passent par la **file de jobs** du projet : les exécutions de pipeline de la CLI (les rails quand les Loops sont désactivés, et les commandes `implement` envoyées depuis la CLI `specrails-desktop`). Les exécutions de loop — le mode d'exécution par défaut des rails — et les sessions interactives comme le chat, Explore et les missions ne sont pas instrumentées.
 
 ## Où vivent les données
 
