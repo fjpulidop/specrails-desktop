@@ -50,6 +50,10 @@ Quale scegliere dipende da quanto è già chiara l'idea. Sai esattamente cosa vu
 
 Quando una spec ha già del lavoro alle spalle — una PR in revisione, una funzionalità già unita — e vuoi *di più*, non riscriverne la descrizione: snatura la spec (e sincronizza la deriva su Jira) e costringe l'esecuzione successiva a ripianificare tutto. Apri la spec e aggiungi invece un **addendum**: una breve nota con un tipo (richiesta di modifica, feedback di revisione, chiarimento, vincolo) e le tue parole. Gli addenda aperti viaggiano automaticamente con il prossimo lancio di quella spec su qualsiasi loop — Implement, SDD Quick, Freestyle — così l'esecuzione cambia solo ciò che hai chiesto, e il pacchetto di revisione riporta ciascuno come applicato, parzialmente applicato o bloccato. Se l'esecuzione fallisce o scarti la consegna, tornano da soli ad **Aperto**. L'agente di missione può aggiungerli per te quando gli chiedi di cambiare qualcosa in una spec esistente.
 
+## Rivedere una consegna: cosa guardare per primo
+
+Quando un'esecuzione termina, il suo pacchetto di revisione si apre con **Cosa guardare**: la breve nota del revisore IA che elenca prima i punti più rischiosi (alto, poi medio, poi basso, ciascuno con file e riga), il comportamento che cambia, le regole su cui la modifica si appoggia, i percorsi di codice che nessun test esercita e i controlli che solo una persona può fare. Gli stessi rischi, percorsi senza test e controlli compaiono in un breve blocco in cima alla pull request, e la scheda della missione mostra il rischio principale in una riga. La nota aiuta la revisione, non è un risultato di verifica: non blocca mai Accetta. Le esecuzioni fatte con uno Specrails Core precedente non hanno la nota e il loro pacchetto resta come prima.
+
 ## Dove andare adesso
 
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — il modo più rapido per trasformare un'idea in una spec.

@@ -50,6 +50,10 @@ Le choix dépend du degré de clarté de votre idée. Vous savez exactement ce q
 
 Quand une spec a déjà du travail derrière elle — une PR en revue, une fonctionnalité fusionnée — et que vous en voulez *plus*, ne réécrivez pas sa description : cela fait dériver la spec (et synchronise la dérive vers Jira) et force la prochaine exécution à tout replanifier. Ouvrez la spec et ajoutez plutôt un **addendum** : une courte note avec un type (demande de changement, retour de revue, clarification, contrainte) et vos mots. Les addenda ouverts accompagnent automatiquement le prochain lancement de cette spec sur n'importe quelle boucle — Implement, SDD Quick, Freestyle — de sorte que l'exécution ne change que ce que vous avez demandé, et le paquet de revue signale chacun comme appliqué, partiellement appliqué ou bloqué. Si l'exécution échoue ou si vous écartez la livraison, ils reviennent d'eux-mêmes à **Ouvert**. L'agent de mission peut les ajouter pour vous quand vous lui demandez de modifier une spec existante.
 
+## Relire une livraison : par où commencer
+
+À la fin d'une exécution, son dossier de revue s'ouvre sur **Points à examiner** : la courte note du relecteur IA qui liste d'abord les endroits les plus risqués (élevé, puis moyen, puis faible, chacun avec un fichier et une ligne), le comportement qui change, les règles sur lesquelles le changement s'appuie, les chemins de code qu'aucun test n'exerce et les vérifications que seul un humain peut faire. Les mêmes risques, chemins non testés et vérifications figurent dans un court bloc en haut de la pull request, et la carte de mission affiche le risque principal sur une ligne. La note guide votre relecture, ce n'est pas un résultat de vérification : elle ne bloque jamais Accepter. Les exécutions faites avec un Specrails Core plus ancien n'ont pas de note et leur dossier reste identique.
+
 ## Pour aller plus loin
 
 - [Ajouter une spec — mode Quick](add-spec-quick-mode.md) — la façon la plus rapide de transformer une idée en spec.

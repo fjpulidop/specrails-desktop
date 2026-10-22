@@ -50,6 +50,10 @@ A cuál recurrir depende de lo clara que tengas ya la idea. ¿Sabes exactamente 
 
 Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad ya fusionada) y quieres *más*, no reescribas su descripción: eso desvirtúa la spec (y sincroniza la desviación con Jira) y obliga a la siguiente ejecución a replanificarlo todo. Abre la spec y añade un **anexo**: una nota breve con un tipo (petición de cambio, feedback de revisión, aclaración, restricción) y tus palabras. Los anexos abiertos viajan automáticamente con el próximo lanzamiento de esa spec en cualquier loop (Implement, SDD Quick, Freestyle), de modo que la ejecución cambia solo lo que pediste, y el paquete de revisión informa de cada uno como aplicado, aplicado parcialmente o bloqueado. Si la ejecución falla o descartas la entrega, vuelven solos a **Abierto**. El agente de misión puede añadirlos por ti cuando le pides cambiar algo de una spec existente.
 
+## Revisar una entrega: qué mirar primero
+
+Cuando termina una ejecución, su paquete de revisión empieza por **Qué mirar**: el breve resumen del revisor de IA con los puntos más arriesgados primero (alto, luego medio y luego bajo, cada uno con fichero y línea), el comportamiento que cambia, las reglas en las que se apoya el cambio, las rutas de código que ningún test ejercita y las comprobaciones que solo puede hacer una persona. Los mismos riesgos, rutas sin test y comprobaciones aparecen en un bloque corto al principio de la pull request, y la tarjeta de la misión muestra el riesgo principal en una línea. El resumen es una ayuda para revisar, no un resultado de verificación: nunca bloquea Aceptar. Las ejecuciones hechas con un Specrails Core anterior no tienen resumen y su paquete se ve como antes.
+
 ## Adónde ir después
 
 - [Añadir spec — Modo Quick](add-spec-quick-mode.md): la forma más rápida de convertir una idea en una spec.

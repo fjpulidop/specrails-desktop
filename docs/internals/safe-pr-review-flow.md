@@ -436,6 +436,14 @@ diff collection), fully unit-tested.
   fails — diff problems can only degrade the body, NEVER block PR creation. The v1
   `buildBatchPrBody` and its "_Draft PR produced by specrails — the engineer owns the merge._"
   footer are gone.
+- **Reviewer risk brief in the PR body** (review-risk-brief-surfaces) — when the delivery's
+  `settle_evidence` carries the reviewer brief (Core `reviewBrief: 1`), `create.ts` merges the
+  units' briefs (`buildWhatToLookAt`) and `buildReviewBriefBlock` adds a short `## What to look at`
+  block right under the summary paragraph: high and medium risks (severity, area, text, `file:line`),
+  untested paths and human checks as an unchecked task list, under an "advisory, not a verification
+  result" line. Low risks, behaviour changes and invariants stay in the review packet. No brief
+  (older Core, no reviewer verdict) or nothing to list ⇒ no block, so the body is byte-identical
+  to before. The cost footer stays last. The brief never feeds a decision or the approval gate.
 
 ## The sync contract (two surfaces, zero desync)
 
