@@ -415,7 +415,7 @@ export function recordProvenanceForJob(
     insertContribution = null
   }
 
-  // Agent actions audit (migration 72): every provenance row is a write the
+  // Agent actions audit (migration 73): every provenance row is a write the
   // run made. Same transaction; guarded like insertPatch so a pre-migration DB
   // (or an audit insert failure) never affects provenance itself. The hash is
   // the sha256 of the recorded diff — the file content is never stored.

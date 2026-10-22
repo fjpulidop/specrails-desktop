@@ -121,7 +121,7 @@ Cancelled specs, epics and Flow-held specs are never triaged. The kill switch
 
 The launch route reads the ticket store on the server, so the measurement does
 not trust the client. It records two columns on the isolated delivery row
-(migration 74):
+(migration 76):
 
 - `recommended_loop`: the recommendation of the first triaged spec in rail
   order.

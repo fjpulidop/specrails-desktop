@@ -24,7 +24,7 @@ function flow(patch: Partial<FlowSession> = {}): FlowSession {
   }
 }
 
-describe('SQLite Flow repository (migration 72)', () => {
+describe('SQLite Flow repository (migration 74)', () => {
   it('round-trips every field and isolates projects', () => {
     const projectA = createSqliteFlowRepository(db())
     const projectB = createSqliteFlowRepository(db())
@@ -121,7 +121,7 @@ describe('Flow hand-off authority (ownership transfer inside delivery transactio
   })
 })
 
-describe('SQLite Flow settlement effects (migration 73)', () => {
+describe('SQLite Flow settlement effects (migration 75)', () => {
   it('enqueues idempotently, saves attempts and lists pending Flows per project', () => {
     const database = db()
     const effects = createSqliteFlowEffectsStore(database)

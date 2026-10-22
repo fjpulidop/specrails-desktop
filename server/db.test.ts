@@ -398,7 +398,7 @@ describe('db', () => {
       }
     })
 
-    it('migration 72 creates flow_sessions with one open Flow per conversation and is restart-safe', () => {
+    it('migration 74 creates flow_sessions with one open Flow per conversation and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
       let db = initDb(dbPath)
@@ -408,10 +408,10 @@ describe('db', () => {
         expect(() => insert('b', 'paused')).toThrow(/UNIQUE/)
         insert('c', 'discarded')
         insert('d', 'handed_off')
-        db.prepare('DELETE FROM schema_migrations WHERE version = 72').run()
+        db.prepare('DELETE FROM schema_migrations WHERE version = 74').run()
         db.close(); db = initDb(dbPath)
         expect(db.prepare('SELECT COUNT(*) AS n FROM flow_sessions').get()).toEqual({ n: 3 })
-        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 72').get()).toEqual({ version: 72 })
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 74').get()).toEqual({ version: 74 })
         expect(db.prepare('PRAGMA table_info(flow_sessions)').all()).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'ticket_id', notnull: 0 })]))
       } finally {
         db.close(); fs.rmSync(dir, { recursive: true, force: true })

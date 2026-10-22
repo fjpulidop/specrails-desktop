@@ -2,7 +2,7 @@ import type { DbInstance } from '../../../db/types'
 import { FlowConflictError, type FlowEffectStatus, type FlowSession, type FlowSettlementEffect, type FlowSettlementKind, type FlowState, type FlowStep } from '../domain'
 import type { FlowEffectsStore, FlowRepository } from '../ports'
 
-/** `flow_sessions` row (migration 72, project database). */
+/** `flow_sessions` row (migration 74, project database). */
 interface FlowSessionRow {
   id: string
   conversation_id: string
@@ -90,7 +90,7 @@ export function createSqliteFlowRepository(db: DbInstance): FlowRepository {
   }
 }
 
-/** `flow_effects` row (migration 73, project database). */
+/** `flow_effects` row (migration 75, project database). */
 interface FlowEffectRow {
   effect_key: string
   flow_id: string

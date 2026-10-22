@@ -5,7 +5,7 @@ Implement requires a spec before anything is built, and the external feedback of
 ## What Changes
 
 - New server capability module `server/modules/flow` (hexagonal, like project settings): a pure state machine (`active`, `paused`, `handed_off`, `delivered`, `discarded`, `needs-review`) with saga steps, use cases (start, pause, resume, discard, hand-off, delivered, reconcile) and ports for the repository, placeholder spec, worktree reservation, Core agent session, rail launch, usage, notifier and clock.
-- Migration 72: `flow_sessions` in the project database, with a partial unique index (one active or paused Flow per conversation).
+- Migration 74: `flow_sessions` in the project database, with a partial unique index (one active or paused Flow per conversation).
 - Placeholder spec: ticket `source: 'flow'`, `status: in_progress`, `metadata.flow`; ticket store schema 1.4 → 1.5. Jira never creates an issue for a spec whose Flow is active or paused.
 - Worktrees: Flow reserves one with delivery's `prepareIsolatedWorktree` and owns it in `flow_sessions`. The rail launch gains `requiredFlowWorktree`: it adopts the exact worktree (path, branch, frozen HEAD, else `FlowWorktreeMismatchError` 409), with ownership `adopted`, and the `rail_worktrees` row plus the Flow's `handed_off` state commit in one transaction. The rails launch route accepts `flowId`.
 - Missions: an injected `FlowTurnContext` port turns a mission turn into a Flow turn: its own Core session `flow:<flowId>`, worktree cwd, `workspace-write`, default tools, the mission MCP, a static Flow persona, mid-turn input delivered as `interrupt`. No legacy transport for Flow. The send route accepts `deliveryMode: 'interrupt'` in an active Flow.

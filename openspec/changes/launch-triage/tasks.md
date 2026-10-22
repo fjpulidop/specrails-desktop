@@ -16,7 +16,7 @@
 
 ## 3. Delivery recording
 
-- [x] 3.1 Migration 74: `rail_pr_deliveries.recommended_loop`, `chosen_loop`
+- [x] 3.1 Migration 76: `rail_pr_deliveries.recommended_loop`, `chosen_loop`
 - [x] 3.2 `loopChoice` threaded from the launch route through `launchIsolatedRail` / multi-repo into the delivery row (+ route test)
 - [x] 3.3 `getTriageAccuracy(db, { since? })` (+ store test)
 

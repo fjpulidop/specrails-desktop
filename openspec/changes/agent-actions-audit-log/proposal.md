@@ -28,7 +28,7 @@ Desktop already consumes every stream that carries this information: provider JS
 
 ## Impact
 
-- Server: `server/db/migrations.ts` (migration 72), new `server/modules/audit/`, `queue-manager.ts`, `interactive-job-session.ts`, `loop-run-manager.ts`, `mission-session-projector.ts`, `mission-core-sessions.ts`, `agent-chat-manager.ts`, `file-provenance.ts`, `mcp/tools/types.ts`, `mcp/tools/jobs.ts`, `review-packet.ts`, `project-router-jobs.ts`, `project-registry.ts`, `index.ts`, project-settings module.
+- Server: `server/db/migrations.ts` (migration 73), new `server/modules/audit/`, `queue-manager.ts`, `interactive-job-session.ts`, `loop-run-manager.ts`, `mission-session-projector.ts`, `mission-core-sessions.ts`, `agent-chat-manager.ts`, `file-provenance.ts`, `mcp/tools/types.ts`, `mcp/tools/jobs.ts`, `review-packet.ts`, `project-router-jobs.ts`, `project-registry.ts`, `index.ts`, project-settings module.
 - Client: review packet page, project settings section, 8 locales.
 - Docs: `docs/internals/agent-actions-audit.md`, API reference, configuration, MCP guide, review packet, `SECURITY.md`.
 - Migration numbering: other open PRs also append migrations; renumbering at merge is expected.

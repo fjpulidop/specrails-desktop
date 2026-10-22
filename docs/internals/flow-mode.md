@@ -191,7 +191,7 @@ When the Flow's delivery reaches review, the Flow settles. Triggers:
   scheduler retries due effects.
 
 `onFlowDelivered` records `delivered`, labels the spec `delivered` and
-enqueues three durable effects in `flow_effects` (migration 73, project
+enqueues three durable effects in `flow_effects` (migration 75, project
 database) with keys `flow:<flowId>:rewrite-spec`, `:jira-create`,
 `:jira-review`. They run in `seq` order with attempts and exponential backoff
 (15 s doubling, capped at 5 min); a pending effect that is not due blocks the

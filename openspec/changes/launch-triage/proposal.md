@@ -38,7 +38,7 @@ preselect, and whose accuracy can be measured later by loop economics.
   The mission rail-launch card shows the structured triage instead of prose when
   the specs carry one.
 - **Delivery records.** Each isolated rail launch stores `recommended_loop` and
-  `chosen_loop` on `rail_pr_deliveries` (migration 74) and `getTriageAccuracy`
+  `chosen_loop` on `rail_pr_deliveries` (migration 76) and `getTriageAccuracy`
   returns matched/total for loop economics.
 
 ## Capabilities
@@ -55,7 +55,7 @@ preselect, and whose accuracy can be measured later by loop economics.
   stack), `project-registry.ts` (composition + broadcast tap),
   `project-router-tickets.ts` (route), `loop-role-engines.ts` (`triage` role),
   `accounting` surfaces, `rails-router.ts` / `rail-isolated-launch.ts` /
-  `rail-pr-store.ts` (loop choice), `db/migrations.ts` (74).
+  `rail-pr-store.ts` (loop choice), `db/migrations.ts` (76).
 - **Client:** `SpecTriageChip` (new), `SpecCard`, `rail-loops.ts`, `RailRow`,
   `RailLoopSelector`, `DashboardPage`, `AgentRailLaunchCard`, analytics surfaces,
   i18n `specs`/`dashboard`/`analytics`/`agent` ×8.

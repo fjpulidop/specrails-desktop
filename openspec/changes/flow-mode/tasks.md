@@ -7,7 +7,7 @@
 
 - [x] 2.1 `domain.ts`: state machine, saga steps, effects, invariants, reconciliation
 - [x] 2.2 `ports.ts` and `application.ts`: start/pause/resume/discard/hand-off sagas with compensation, `onFlowDelivered`, reconcile, diff and cost read models
-- [x] 2.3 Migration 72 `flow_sessions` and `adapters/sqlite.ts`
+- [x] 2.3 Migration 74 `flow_sessions` and `adapters/sqlite.ts`
 - [x] 2.4 `adapters/http.ts`: project-scoped routes and error mapping
 - [x] 2.5 `adapters/bindings.ts`: placeholder spec, worktree reservation/freeze/release/diff, agent session, rail launch, usage, notifier, hand-off authority, missions turn context
 - [x] 2.6 Composition: project registry (per project, reconciliation before admission), project router, missions port in `index.ts`; `flow.state` WebSocket event

@@ -57,7 +57,7 @@ blocking spec creation on AI; triaging the historical backlog automatically.
 7. **Recording at launch is server-side.** The launch route reads the ticket
    store and records `recommended_loop` (first triaged spec in rail order) and
    `chosen_loop` (the launched canonical loop id) on the delivery row, so the
-   measurement does not trust the client. Migration 74 appends both columns.
+   measurement does not trust the client. Migration 76 appends both columns.
 
 ## Risks / Trade-offs
 

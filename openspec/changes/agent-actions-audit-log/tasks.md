@@ -1,6 +1,6 @@
 ## 1. Storage
 
-- [x] 1.1 Append migration 72 to `server/db/migrations.ts`: `agent_actions` with the kind CHECK and `(run_id, ts)`, `(ts)` indexes.
+- [x] 1.1 Append migration 73 to `server/db/migrations.ts`: `agent_actions` with the kind CHECK and `(run_id, ts)`, `(ts)` indexes.
 - [x] 1.2 Migration test (columns, indexes, CHECK).
 
 ## 2. Audit module

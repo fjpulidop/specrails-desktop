@@ -12,7 +12,7 @@ post-run diff (`file_provenance`), which is provider-independent.
 
 ## Table
 
-Migration 72 adds `agent_actions` to the project database (`jobs.sqlite`):
+Migration 73 adds `agent_actions` to the project database (`jobs.sqlite`):
 
 | Column | Meaning |
 | --- | --- |
