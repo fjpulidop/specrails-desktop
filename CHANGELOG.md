@@ -1,5 +1,61 @@
 # Changelog
 
+## [2.65.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.2...v2.65.0) (2026-10-22)
+
+
+### Features
+
+* **agent-sessions:** accept interrupt delivery and gate Flow on Core capabilities ([00a5ec6](https://github.com/fjpulidop/specrails-desktop/commit/00a5ec61c7f7bef3b15612ddd7ac578f0bd2899e))
+* **analytics:** serve loop economics per loop ([06abb4b](https://github.com/fjpulidop/specrails-desktop/commit/06abb4b3ea6c0d64e05677a064101a8e27ced1e8))
+* **analytics:** serve time to decision and merge per project and loop ([31767c4](https://github.com/fjpulidop/specrails-desktop/commit/31767c40f68635bcc3ec7771bb6589cfd65e40de))
+* **analytics:** show decision times card on the Analytics page ([9724153](https://github.com/fjpulidop/specrails-desktop/commit/97241532619675729624dc1664f2b15e3b92afce))
+* **analytics:** show loop economics card on the Analytics page ([4a65483](https://github.com/fjpulidop/specrails-desktop/commit/4a65483c74643f38ec77d136080cdb2756659ded))
+* API version header, /api/meta and stable/latest update channels ([d882aa0](https://github.com/fjpulidop/specrails-desktop/commit/d882aa0fe51587e020389cb4b445eabcf15c9a43))
+* **audit:** add the agent actions audit module and table ([e0ad9a4](https://github.com/fjpulidop/specrails-desktop/commit/e0ad9a4920dc6d38c1f14d34e526ff8b3718593d))
+* **audit:** export agent actions, show them in the packet, add retention ([7424f4d](https://github.com/fjpulidop/specrails-desktop/commit/7424f4d8201a2554ab7f3954c0231fe34ff32944))
+* **audit:** record agent actions from run, mission and MCP streams ([6f3efe3](https://github.com/fjpulidop/specrails-desktop/commit/6f3efe31dd53ff58a834be9cc2e31f54c4e2e8b6))
+* **budget:** enforce the daily budget on rail and loop launches ([feacbe0](https://github.com/fjpulidop/specrails-desktop/commit/feacbe028ad8ffc1735d0fba7300aad5679b6969))
+* **budget:** surface budget refusals and budget_paused runs in the UI ([01cec5e](https://github.com/fjpulidop/specrails-desktop/commit/01cec5e53b323e802e2ea873ee0f99a148492b50))
+* **delivery:** derivation section in the review packet and PR body ([bd4e5e7](https://github.com/fjpulidop/specrails-desktop/commit/bd4e5e7142ffcff4f49c4a78c6b64fd2f013e396))
+* **delivery:** enforce the review WIP limit at every rail launch door ([479b91d](https://github.com/fjpulidop/specrails-desktop/commit/479b91dd26a1bc6a8d71470391fbbf42e0cca2bd))
+* **delivery:** harvest the reviewer risk brief into packet, PR body and cards ([c00837e](https://github.com/fjpulidop/specrails-desktop/commit/c00837e8c6bfead685fc1574dbab32fcd15a9b8f))
+* **delivery:** record first-write-wins decision, publish and merge instants ([9fba3bb](https://github.com/fjpulidop/specrails-desktop/commit/9fba3bb36fb608c1bf6e538f5890ac7f6402c3f0))
+* **delivery:** record the recommended and chosen loop per launch ([11b491b](https://github.com/fjpulidop/specrails-desktop/commit/11b491b03dd0e3c03715e9f189a07b8711ad54ac))
+* **delivery:** show What to look at first in the packet and the top risk on cards ([995abbf](https://github.com/fjpulidop/specrails-desktop/commit/995abbfaa4583d3ebdaa96d7b0424fb15b8c7fa4))
+* feedback-2026-10 program (integration of [#786](https://github.com/fjpulidop/specrails-desktop/issues/786)–[#804](https://github.com/fjpulidop/specrails-desktop/issues/804)) ([8613eec](https://github.com/fjpulidop/specrails-desktop/commit/8613eec13d992d4a036f2503d4dce305ec96dd9c))
+* **flow:** durable settlement of Flow deliveries ([30175a6](https://github.com/fjpulidop/specrails-desktop/commit/30175a65888f219a0d3364ca61806e534b9e3532))
+* **flow:** Flow mode in the mission chat ([deb7c27](https://github.com/fjpulidop/specrails-desktop/commit/deb7c277ebec29cec84e136d8ffd596ea1dc4ab3))
+* **flow:** In Flow board label, analytics surface, locales and docs ([0ab530c](https://github.com/fjpulidop/specrails-desktop/commit/0ab530c0ca9ddfbfb1e7e61fd15f4054eac9d0b9))
+* **flow:** server side of Flow mode ([c5b6137](https://github.com/fjpulidop/specrails-desktop/commit/c5b6137f1c8718d7865982429b20f9ce67f43c63))
+* **jira:** make issue creation durable through the outbox ([aea76d5](https://github.com/fjpulidop/specrails-desktop/commit/aea76d5c0da16f39928d4ff8dbd395e383524d21))
+* **loops:** Flow → Spec built-in loop over Core derive-change ([53f15a3](https://github.com/fjpulidop/specrails-desktop/commit/53f15a3acff512570ad2029a5d38be2e0530c9c8))
+* **missions:** offer Flow as the fourth pre-launch option ([b1fdf70](https://github.com/fjpulidop/specrails-desktop/commit/b1fdf7055ebc2b718efb2a5c691960d8989d10ce))
+* **missions:** open mission apps via LAN links instead of the Companion in-app preview ([#779](https://github.com/fjpulidop/specrails-desktop/issues/779)) ([26e3872](https://github.com/fjpulidop/specrails-desktop/commit/26e38727ef2ef88cd82be1f63d250606b70ac664))
+* **missions:** run mission agents read-only at the CLI level ([22fab1e](https://github.com/fjpulidop/specrails-desktop/commit/22fab1e8a4c1a6551d5aa53026282198b921e82f))
+* **providers:** enable Freestyle on Codex and Gemini ([cc15079](https://github.com/fjpulidop/specrails-desktop/commit/cc15079c97abfabfd2d445b5a87e54fd197bf0d2))
+* **rails:** show the review WIP limit on the board and in settings ([11f3147](https://github.com/fjpulidop/specrails-desktop/commit/11f3147ae31f35688082fa3999efa0aa09fa8fe9))
+* **scripts:** add a metrics baseline export ([b7c6cda](https://github.com/fjpulidop/specrails-desktop/commit/b7c6cda496b42d16ed81dbed87d9e41719c744ea))
+* **security:** minimal agent environment mode per project ([f40b9ba](https://github.com/fjpulidop/specrails-desktop/commit/f40b9ba2aba2a6a9dc1729caef973f91b25370c9))
+* **settings:** agent environment card in project settings ([2ba3d51](https://github.com/fjpulidop/specrails-desktop/commit/2ba3d518ce15232e380fa7944a1cd7a003500cf2))
+* **settings:** suggest a different model family for the reviewer ([c373fae](https://github.com/fjpulidop/specrails-desktop/commit/c373fae9d35c0d6ff166b687cb386966e8ff8e54))
+* **specs:** link bug tickets to the delivery that introduced them ([c7fc4d9](https://github.com/fjpulidop/specrails-desktop/commit/c7fc4d9a9043751859983acaca45a481188cd054))
+* **specs:** triage chip, rail preselection and structured launch card ([5a56a34](https://github.com/fjpulidop/specrails-desktop/commit/5a56a34afd32615e3ac73e8d5ce975ef1bcbcf43))
+* **specs:** triage each spec with one cheap structured call ([ebcd31f](https://github.com/fjpulidop/specrails-desktop/commit/ebcd31f327310d25c9f6e7433c0fcd0f6d0a7bfb))
+
+
+### Bug Fixes
+
+* **agents:** point the Core upgrade banner at Settings → Updates ([2a11fdc](https://github.com/fjpulidop/specrails-desktop/commit/2a11fdc95559f634da6b606b873e3dd58c557fad))
+* **core-update:** stop pointing agents and errors at the removed npx update command ([3eb6573](https://github.com/fjpulidop/specrails-desktop/commit/3eb6573e93d4cc455eaf58076f0860d3f229147b))
+* **deps:** bump rand from 0.9.5 to 0.10.3 in /src-tauri ([#745](https://github.com/fjpulidop/specrails-desktop/issues/745)) ([84e23ad](https://github.com/fjpulidop/specrails-desktop/commit/84e23ad0731ae5a756dbec72cff1687099ecca40))
+* **deps:** land open Dependabot updates (zod 4, Babel 8, Tauri 2.12, Actions) ([#783](https://github.com/fjpulidop/specrails-desktop/issues/783)) ([e25c3f3](https://github.com/fjpulidop/specrails-desktop/commit/e25c3f38425aa0dc7096971ab9fbd036b40b1389))
+* **integration:** CI git identity for the Flow freeze test; allowlist redaction test fixtures for gitleaks ([f68d6e6](https://github.com/fjpulidop/specrails-desktop/commit/f68d6e6c654c4d23777d1bf4d4e98461ce7f46b0))
+* **integration:** renumber the merged migrations 72-76 in tests and docs ([36ea0b3](https://github.com/fjpulidop/specrails-desktop/commit/36ea0b3d554483e2d63d3de693927a6f730eea58))
+* **integration:** skip the Flow offer probe when Flow is not wired ([a59412f](https://github.com/fjpulidop/specrails-desktop/commit/a59412f4c120f91c0df6e9ed7fb32489b6c25296))
+* **jira:** recover lost create responses by an issue creation marker ([c2f5345](https://github.com/fjpulidop/specrails-desktop/commit/c2f53453f9bf34bf9e15985ce53eaf067e3cae11))
+* **rails:** accept legacy ultracode mode as freestyle ([60c2dec](https://github.com/fjpulidop/specrails-desktop/commit/60c2dec72b45375ea3cf1ee0793b14c5c5475bda))
+* **runtime:** trust the workspace for Core-spawned Gemini ([460076a](https://github.com/fjpulidop/specrails-desktop/commit/460076a76a222c2eecc23c8548278256c394164b))
+
 ## [2.64.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.64.1...v2.64.2) (2026-10-20)
 
 
