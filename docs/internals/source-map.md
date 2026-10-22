@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1145 source/build files. Nearby tests are linked where names
+Includes 1146 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -534,6 +534,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionSessionsContext.tsx](../../client/src/features/missions/context/MissionSessionsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSessionsContext.test.tsx)
 - [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
+- [usePrCardResync.ts](../../client/src/features/missions/context/usePrCardResync.ts)
 
 ## client/src/features/missions/hooks
 

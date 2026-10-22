@@ -50,6 +50,7 @@ import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
+import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
@@ -586,6 +587,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const transcriptEventsRef = useRef(new Map<string, AgentMessage[]>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
   const prSnapshotVersionRef = useRef(0)
+  // Latest `agent_pr_decision` envelope per conversation/delivery: replayed
+  // over a conversation load so a broadcast that lands while the load's fetch
+  // is in flight is not overwritten by the older snapshot (stale-guarded).
+  const prEnvelopeEventsRef = useRef(new Map<string, Map<string, AgentPrDecisionEnvelope>>())
+  // Bound after the resync hook below; WS handlers call through this ref.
+  const requestCardResyncRef = useRef<() => void>(() => {})
   const conversationLoadEpochRef = useRef(0)
   const localTurnStartedAtRef = useRef(new Map<string, string>())
 
@@ -732,6 +739,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       if (fixedConversationId && msg.conversationId && msg.conversationId !== fixedConversationId) return
       if (msg.type === 'desktop.project_recovered') {
         setProjectRecoveryRevision((revision) => revision + 1)
+        return
+      }
+      if (msg.type === 'rail.pr_state') {
+        // The delivery moved but the active card still shows another state:
+        // its card broadcast was missed (or never sent) — re-read the cards.
+        if (railStateDiffersFromCard(messagesRef.current, raw)) requestCardResyncRef.current()
         return
       }
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
@@ -969,6 +982,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         }
       } else if (msg.type === 'agent_pr_decision') {
         markUnread(convId)
+        const recorded = coercePrDecisionEnvelope(raw)
+        if (recorded) {
+          const byDelivery = prEnvelopeEventsRef.current.get(convId) ?? new Map<string, AgentPrDecisionEnvelope>()
+          byDelivery.delete(recorded.prDeliveryId)
+          byDelivery.set(recorded.prDeliveryId, recorded)
+          if (byDelivery.size > 50) byDelivery.delete(byDelivery.keys().next().value as string)
+          prEnvelopeEventsRef.current.set(convId, byDelivery)
+        }
         // PR-decision card (safe-pr-review-flow): the WS message carries the
         // persisted envelope's fields top-level. Only the ACTIVE thread's
         // `messages` slice is held in state — upsert its card in place (match
@@ -1007,7 +1028,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return
     }
     prSnapshotVersionRef.current++
-    const msgs = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    const merged = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
+      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), merged)
     for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
     setActive(conversation)
     messagesRef.current = msgs
@@ -1026,15 +1049,15 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   // Reconcile persisted cards and checkpoint deliveries after missed WS events.
   // Older servers still use the card-only convergence path.
-  const hydrateActivePrCards = useCallback(async (): Promise<void> => {
+  const hydrateActivePrCards = useCallback(async (): Promise<boolean> => {
     const conversationId = activeIdRef.current
-    if (!conversationId) return
+    if (!conversationId) return true
     const version = prSnapshotVersionRef.current
     const eventVersion = conversationEventVersionRef.current.get(conversationId) ?? 0
     const metaVersion = metadataVersion.current.get(conversationId) ?? 0
     try {
       const fresh = await getAgentConversation(conversationId)
-      if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return
+      if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return true
       if (metaVersion === (metadataVersion.current.get(conversationId) ?? 0)) {
         setActive(current => current?.id === conversationId ? fresh.conversation : current)
         setConversations(current => current.map(item => item.id === conversationId ? fresh.conversation : item))
@@ -1055,7 +1078,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         .filter((message) => message.role === 'system')
         .map((message) => parsePrDecisionEnvelope(message.content))
         .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
-      if (envelopes.length === 0) return
+      if (envelopes.length === 0) return true
       setMessages((current) => {
         const next = envelopes.reduce(
           (projected, envelope) => upsertPrDecisionMessage(projected, conversationId, envelope),
@@ -1064,10 +1087,22 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         messagesRef.current = next
         return next
       })
+      return true
     } catch {
-      /* Advisory convergence path; the next focus/reconnect can retry. */
+      /* Advisory convergence path; the next focus/reconnect/poll retries. */
+      return false
     }
   }, [patchLive])
+
+  // Self-healing cards: visibility/focus/resume resync plus a gentle poll while
+  // a card is still building, so a missed broadcast never needs a reload.
+  const unsettledPrCard = useMemo(() => hasUnsettledPrCard(messages), [messages])
+  const requestCardResync = usePrCardResync({
+    enabled: FEATURE_AGENT_CHAT && active !== null,
+    resync: hydrateActivePrCards,
+    unsettled: unsettledPrCard,
+  })
+  requestCardResyncRef.current = requestCardResync
 
   const reconcileActiveTurns = useCallback(async (): Promise<void> => {
     try {
@@ -1120,10 +1155,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [])
 
   useEffect(() => {
-    const onFocus = () => { void refreshConversations(); void hydrateActivePrCards() }
+    // Card hydration on focus runs through usePrCardResync (deduplicated).
+    const onFocus = () => { void refreshConversations() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [hydrateActivePrCards, refreshConversations])
+  }, [refreshConversations])
 
   useEffect(() => {
     if (!projectRecoveryRevision) return

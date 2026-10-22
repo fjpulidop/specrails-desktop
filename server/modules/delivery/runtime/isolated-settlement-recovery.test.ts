@@ -136,3 +136,28 @@ it('recognizes the same Git directory despite differing realpath display spellin
     expect(getPrDelivery(db, 'delivery')?.decision).toBe('on_review')
   } finally { spelling.mockRestore(); syncBuiltinESMExports() }
 })
+
+it('refreshes the origin mission card when a recovered settlement reaches review (restart mid-run)', async () => {
+  const { setAgentChatManager } = await import('../../missions/runtime/agent-chat-registry')
+  const updatePrDecisionCard = vi.fn()
+  setAgentChatManager({ updatePrDecisionCard } as never)
+  try {
+    db.prepare("UPDATE rail_pr_deliveries SET origin_surface='agent-chat', origin_conversation_id='mission' WHERE id='delivery'").run()
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')?.decision).toBe('on_review')
+    expect(updatePrDecisionCard).toHaveBeenCalledWith('mission', expect.objectContaining({
+      kind: 'pr_decision', prDeliveryId: 'delivery', decision: 'on_review', statusCode: 'ready_for_review',
+    }))
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.pr_state', prDeliveryId: 'delivery', decision: 'on_review' }))
+  } finally { setAgentChatManager(null) }
+})
+
+it('leaves no card behind for a recovered delivery without an origin mission', async () => {
+  const { setAgentChatManager } = await import('../../missions/runtime/agent-chat-registry')
+  const updatePrDecisionCard = vi.fn()
+  setAgentChatManager({ updatePrDecisionCard } as never)
+  try {
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(updatePrDecisionCard).not.toHaveBeenCalled()
+  } finally { setAgentChatManager(null) }
+})

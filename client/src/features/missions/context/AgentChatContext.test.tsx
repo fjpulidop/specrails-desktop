@@ -894,3 +894,65 @@ describe('AgentChatContext native window ownership', () => {
     expect(screen.getByTestId('favorites')).not.toHaveTextContent('c1')
   })
 })
+
+describe('self-healing mission cards (missed broadcasts)', () => {
+  const building = prMessage('c1', prEnvelope({ decision: 'building', updatedAt: '2026-10-22T19:34:21.000Z' }), 'card')
+  const settled = prMessage('c1', prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }), 'card')
+
+  it('a missed card broadcast heals on reconnect', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    wsConnectionStatus = 'disconnected'
+    const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled // settled server-side while the socket was down: no broadcast reached us
+    wsConnectionStatus = 'connected'
+    view.rerender(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a missed card broadcast heals when the window becomes visible again', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a rail.pr_state that disagrees with the card re-reads the cards; a matching one does not', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    const calls = vi.mocked(agentApi.getAgentConversation).mock.calls.length
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'building' }) })
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'other', prDeliveryId: 'd1', decision: 'on_review' }) })
+    expect(vi.mocked(agentApi.getAgentConversation).mock.calls.length).toBe(calls)
+    persisted = settled
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'on_review' }) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('keeps a card broadcast that lands while the conversation load is in flight', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => {
+      await gate
+      return { conversation: api.conv1, messages: [building] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    act(() => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.getAgentConversation).toHaveBeenCalled())
+    await act(async () => {
+      wsHandler?.({ type: 'agent_pr_decision', conversationId: 'c1', ...prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }) })
+    })
+    await act(async () => { release() })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+    expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('building')
+  })
+})

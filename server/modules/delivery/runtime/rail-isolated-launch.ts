@@ -2174,7 +2174,18 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
   }
   for (const row of allRows) {
     const latest = getPrDelivery(ctx.db, row.id)
-    if (latest) ctx.broadcast(toRailPrStateMessage(ctx.project.id, toPrDeliverySnapshot(latest)))
+    if (!latest) continue
+    const snapshot = toPrDeliverySnapshot(latest)
+    ctx.broadcast(toRailPrStateMessage(ctx.project.id, snapshot))
+    // A recovered settlement (server restart mid-run, then resume/reattach)
+    // has no launch closure left to refresh the origin mission card. Without
+    // this the persisted card stays `building` after the delivery reached
+    // review, and every client hydration faithfully re-reads the stale card.
+    if (latest.origin_conversation_id) {
+      try {
+        getAgentChatManager()?.updatePrDecisionCard(latest.origin_conversation_id, toPrDecisionCardEnvelope(ctx.project.id, snapshot))
+      } catch { /* the durable row is authoritative; startup reprojection heals */ }
+    }
   }
 }
 
