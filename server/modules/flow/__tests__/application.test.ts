@@ -7,9 +7,11 @@ import {
   FlowValidationError,
   createFlowService,
   transition,
+  type FlowEffectsStore,
   type FlowPorts,
   type FlowRepository,
   type FlowSession,
+  type FlowSettlementEffect,
 } from '..'
 
 const HEAD = 'a'.repeat(40)
@@ -34,14 +36,46 @@ function memoryRepository(): FlowRepository & { rows: Map<string, FlowSession> }
     findOpenByConversation: (conversationId) => open(conversationId),
     latestByConversation: (conversationId) => [...rows.values()].filter((row) => row.conversationId === conversationId).at(-1) ?? null,
     listUnsettled: () => [...rows.values()].filter((row) => row.state === 'active' || row.state === 'paused' || row.step !== null),
+    listHandedOff: () => [...rows.values()].filter((row) => row.state === 'handed_off'),
+    findByDelivery: (deliveryId) => [...rows.values()].find((row) => row.deliveryId === deliveryId) ?? null,
+  }
+}
+
+/** In-memory `flow_effects` honouring INSERT OR IGNORE. */
+export function memoryEffects(): FlowEffectsStore & { rows: Map<string, FlowSettlementEffect> } {
+  const rows = new Map<string, FlowSettlementEffect>()
+  return {
+    rows,
+    enqueue(effects) { for (const effect of effects) if (!rows.has(effect.key)) rows.set(effect.key, { ...effect }) },
+    list: (flowId) => [...rows.values()].filter((row) => row.flowId === flowId).sort((a, b) => a.seq - b.seq).map((row) => ({ ...row })),
+    save(effect) { rows.set(effect.key, { ...effect }) },
+    pendingFlowIds: () => [...new Set([...rows.values()].filter((row) => row.status === 'pending').map((row) => row.flowId))],
   }
 }
 
 function setup(overrides: Partial<FlowPorts> = {}) {
+  const timeShift = { ms: 0 }
   const repository = memoryRepository()
   let clock = 0
   let ids = 0
-  const tickets = { createPlaceholder: vi.fn(() => 7), setFlowState: vi.fn(), deletePlaceholder: vi.fn() }
+  const tickets = {
+    createPlaceholder: vi.fn(() => 7), setFlowState: vi.fn(), deletePlaceholder: vi.fn(), markDelivered: vi.fn(),
+    read: vi.fn(() => ({ title: 'Try a kanban board', description: 'Try a kanban board', status: 'on_review' })),
+  }
+  const effects = memoryEffects()
+  const jira = {
+    connected: vi.fn(() => true),
+    enqueueCreate: vi.fn((): 'enqueued' | 'already_linked' | 'inactive' | 'failed' => 'enqueued'),
+    linked: vi.fn(() => true),
+    enqueueReview: vi.fn(),
+  }
+  const publication = {
+    deliveryState: vi.fn(() => ({ delivered: true }) as { delivered: boolean } | null),
+    derivedChange: vi.fn(async () => ({ changeName: 'kanban-board', proposal: '## Why\nBoard', design: '## Blast radius\n- a.ts', diffstat: ' a.ts | 3 +++' })),
+    conversationSummary: vi.fn(() => '---\ntranscriptTurns: 1\n---\n'),
+    rewriteSpec: vi.fn(async (): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true })),
+    jira,
+  }
   const worktrees = {
     reserve: vi.fn(async ({ flowId, ticketId }: { flowId: string; ticketId: number }) => ({ branch: `feat/${ticketId}-idea`, worktreePath: `/wt/${flowId}/ticket-${ticketId}`, baseSha: BASE, headSha: HEAD })),
     release: vi.fn(async () => {}),
@@ -66,14 +100,14 @@ function setup(overrides: Partial<FlowPorts> = {}) {
   const notifier = { changed: vi.fn() }
   const availability = vi.fn(async () => ({ available: true, reason: 'ok', missing: [] as string[] }))
   const ports: FlowPorts = {
-    repository, tickets, worktrees, agent, rails, usage, notifier,
-    clock: { now: () => `2026-10-21T10:00:${String(clock++).padStart(2, '0')}.000Z` },
+    repository, tickets, worktrees, agent, rails, usage, notifier, effects, publication,
+    clock: { now: () => new Date(Date.parse('2026-10-21T10:00:00.000Z') + 1000 * clock++ + timeShift.ms).toISOString() },
     ids: () => `flow-${++ids}`,
     availability,
     ...overrides,
   }
   const warn = vi.fn()
-  return { service: createFlowService(ports, { warn }), repository, tickets, worktrees, agent, rails, usage, notifier, availability, warn }
+  return { service: createFlowService(ports, { warn }), repository, tickets, worktrees, agent, rails, usage, notifier, availability, warn, effects, publication, jira, timeShift }
 }
 
 const startInput = { conversationId: 'conv-1', idea: 'Try a kanban board\nwith drag and drop' }
@@ -337,3 +371,112 @@ describe('read models', () => {
     await expect(ctx.service.availability()).resolves.toMatchObject({ available: true })
   })
 })
+
+describe('settlement (arch 4.6)', () => {
+  async function delivered(overrides: Partial<FlowPorts> = {}) {
+    const ctx = setup(overrides)
+    await ctx.service.startFlow(startInput)
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    return ctx
+  }
+  const statuses = (ctx: ReturnType<typeof setup>) => Object.fromEntries(ctx.effects.list('flow-1').map((effect) => [effect.kind, effect.status]))
+
+  it('runs rewrite, Jira create and Jira review in order, once', async () => {
+    const ctx = await delivered()
+    const order: string[] = []
+    ctx.publication.rewriteSpec.mockImplementation(async () => { order.push('rewrite'); return { ok: true } })
+    ctx.jira.enqueueCreate.mockImplementation(() => { order.push('create'); return 'enqueued' })
+    ctx.jira.enqueueReview.mockImplementation(() => { order.push('review') })
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(order).toEqual(['rewrite', 'create', 'review'])
+    expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'done', 'jira-create': 'done', 'jira-review': 'done' })
+    expect(ctx.tickets.markDelivered).toHaveBeenCalledWith(7, { openspecChangeName: 'kanban-board' })
+    expect(ctx.jira.enqueueCreate).toHaveBeenCalledWith(7, 'flow:flow-1:create')
+    expect(ctx.jira.enqueueReview).toHaveBeenCalledWith(7, 'delivery-1')
+    const text = ctx.publication.rewriteSpec.mock.calls[0]![0].text
+    expect(text).toContain('ALREADY EXISTS')
+    expect(text).toContain('## Derived proposal (proposal.md)')
+    expect(text).toContain('a.ts | 3 +++')
+    // Idempotent: a second delivery signal and replay change nothing.
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.replaySettlement()
+    expect(order).toEqual(['rewrite', 'create', 'review'])
+    expect(ctx.effects.rows.size).toBe(3)
+  })
+
+  it('skips Jira for a project that is not connected', async () => {
+    const ctx = await delivered()
+    ctx.jira.connected.mockReturnValue(false)
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'done', 'jira-create': 'skipped', 'jira-review': 'skipped' })
+    expect(ctx.jira.enqueueCreate).not.toHaveBeenCalled()
+    expect(ctx.jira.enqueueReview).not.toHaveBeenCalled()
+  })
+
+  it('keeps the placeholder when the rewrite fails, then still publishes to Jira', async () => {
+    const ctx = await delivered()
+    ctx.publication.rewriteSpec.mockResolvedValue({ ok: false, error: 'spec-gen exited 1' })
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    // First failure: retry later, later effects wait (order is kept).
+    expect(ctx.effects.list('flow-1')[0]).toMatchObject({ status: 'pending', attempts: 1, note: 'rewrite_failed', lastError: 'spec-gen exited 1' })
+    expect(ctx.jira.enqueueCreate).not.toHaveBeenCalled()
+    for (let i = 0; i < 3; i++) { ctx.timeShift.ms += 10 * 60_000; await ctx.service.runDueSettlements() }
+    expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'failed', 'jira-create': 'done', 'jira-review': 'done' })
+    expect(ctx.publication.rewriteSpec).toHaveBeenCalledTimes(3)
+    // The delivered label and change name never wait for the rewrite.
+    expect(ctx.tickets.markDelivered).toHaveBeenCalledWith(7, { openspecChangeName: 'kanban-board' })
+    expect(ctx.service.settlementForDelivery('delivery-1')).toEqual({ specRewrite: 'failed', jiraCreate: 'done', jiraReview: 'done' })
+  })
+
+  it('retries while Jira is down and waits for the issue link before the review transition', async () => {
+    const ctx = await delivered()
+    ctx.jira.enqueueCreate.mockReturnValueOnce('failed')
+    ctx.jira.linked.mockReturnValue(false)
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'done', 'jira-create': 'pending', 'jira-review': 'pending' })
+    ctx.timeShift.ms += 60_000
+    await ctx.service.runDueSettlements()
+    expect(statuses(ctx)['jira-create']).toBe('done')
+    expect(ctx.effects.list('flow-1')[2]).toMatchObject({ status: 'pending', note: 'awaiting_issue' })
+    expect(ctx.jira.enqueueReview).not.toHaveBeenCalled()
+    ctx.jira.linked.mockReturnValue(true)
+    ctx.timeShift.ms += 10 * 60_000
+    await ctx.service.runDueSettlements()
+    expect(statuses(ctx)['jira-review']).toBe('done')
+    expect(ctx.jira.enqueueReview).toHaveBeenCalledTimes(1)
+  })
+
+  it('replays after a restart: a delivery that reached review while down settles, pending effects resume', async () => {
+    const ctx = await delivered()
+    // Restart: a fresh service over the same rows (nothing was enqueued yet).
+    const restarted = createFlowService(portsOf(ctx), { warn: vi.fn() })
+    await restarted.replaySettlement()
+    await restarted.runSettlement('flow-1')
+    expect(ctx.repository.get('flow-1')?.state).toBe('delivered')
+    expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'done', 'jira-create': 'done', 'jira-review': 'done' })
+  })
+
+  it('observes only Flow deliveries that reached review', async () => {
+    const ctx = await delivered()
+    ctx.publication.deliveryState.mockReturnValueOnce({ delivered: false })
+    await expect(ctx.service.observeDelivery('delivery-1')).resolves.toBeNull()
+    await expect(ctx.service.observeDelivery('unknown')).resolves.toBeNull()
+    await expect(ctx.service.observeDelivery('delivery-1')).resolves.toMatchObject({ state: 'delivered' })
+    // A Flow with a delivery row never settles from a bare run completion.
+    await expect(ctx.service.onRailRunCompleted({ flowId: 'flow-1', runId: 'run-1' })).resolves.toBeNull()
+  })
+})
+
+/** Rebuild the port bag of a setup() context (fresh service, same stores). */
+function portsOf(ctx: ReturnType<typeof setup>): FlowPorts {
+  return {
+    repository: ctx.repository, tickets: ctx.tickets, worktrees: ctx.worktrees, agent: ctx.agent, rails: ctx.rails, usage: ctx.usage,
+    notifier: ctx.notifier, effects: ctx.effects, publication: ctx.publication,
+    clock: { now: () => new Date(Date.parse('2026-10-21T11:00:00.000Z') + ctx.timeShift.ms).toISOString() },
+    ids: () => 'flow-x', availability: ctx.availability,
+  }
+}

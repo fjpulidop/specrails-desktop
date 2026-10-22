@@ -1,6 +1,6 @@
 import type { DbInstance } from '../../../db/types'
-import { FlowConflictError, type FlowSession, type FlowState, type FlowStep } from '../domain'
-import type { FlowRepository } from '../ports'
+import { FlowConflictError, type FlowEffectStatus, type FlowSession, type FlowSettlementEffect, type FlowSettlementKind, type FlowState, type FlowStep } from '../domain'
+import type { FlowEffectsStore, FlowRepository } from '../ports'
 
 /** `flow_sessions` row (migration 72, project database). */
 interface FlowSessionRow {
@@ -81,6 +81,57 @@ export function createSqliteFlowRepository(db: DbInstance): FlowRepository {
     listUnsettled() {
       const rows = db.prepare(`SELECT * FROM flow_sessions WHERE state IN ('active','paused') OR step IS NOT NULL ORDER BY created_at`).all() as FlowSessionRow[]
       return rows.map(toSession)
+    },
+    listHandedOff() {
+      const rows = db.prepare(`SELECT * FROM flow_sessions WHERE state = 'handed_off' ORDER BY created_at`).all() as FlowSessionRow[]
+      return rows.map(toSession)
+    },
+    findByDelivery: (deliveryId) => select('delivery_id = ? ORDER BY created_at DESC LIMIT 1', deliveryId),
+  }
+}
+
+/** `flow_effects` row (migration 73, project database). */
+interface FlowEffectRow {
+  effect_key: string
+  flow_id: string
+  kind: string
+  seq: number
+  status: string
+  attempts: number
+  last_error: string | null
+  note: string | null
+  next_attempt_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+function toEffect(row: FlowEffectRow): FlowSettlementEffect {
+  return {
+    key: row.effect_key, flowId: row.flow_id, kind: row.kind as FlowSettlementKind, seq: row.seq,
+    status: row.status as FlowEffectStatus, attempts: row.attempts, lastError: row.last_error, note: row.note,
+    nextAttemptAt: row.next_attempt_at, createdAt: row.created_at, updatedAt: row.updated_at,
+  }
+}
+
+/** Settlement effects bound to ONE project connection. */
+export function createSqliteFlowEffectsStore(db: DbInstance): FlowEffectsStore {
+  return {
+    enqueue(effects) {
+      const insert = db.prepare(`INSERT OR IGNORE INTO flow_effects (effect_key, flow_id, kind, seq, status, attempts, last_error, note,
+        next_attempt_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      db.transaction(() => {
+        for (const e of effects) insert.run(e.key, e.flowId, e.kind, e.seq, e.status, e.attempts, e.lastError, e.note, e.nextAttemptAt, e.createdAt, e.updatedAt)
+      })()
+    },
+    list(flowId) {
+      return (db.prepare(`SELECT * FROM flow_effects WHERE flow_id = ? ORDER BY seq`).all(flowId) as FlowEffectRow[]).map(toEffect)
+    },
+    save(e) {
+      db.prepare(`UPDATE flow_effects SET status = ?, attempts = ?, last_error = ?, note = ?, next_attempt_at = ?, updated_at = ?
+        WHERE effect_key = ?`).run(e.status, e.attempts, e.lastError, e.note, e.nextAttemptAt, e.updatedAt, e.key)
+    },
+    pendingFlowIds() {
+      return (db.prepare(`SELECT DISTINCT flow_id FROM flow_effects WHERE status = 'pending' ORDER BY flow_id`).all() as Array<{ flow_id: string }>).map((row) => row.flow_id)
     },
   }
 }

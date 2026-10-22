@@ -90,8 +90,10 @@ export interface GenerateSpecFromTextInput {
   /** Evaluated at persist time for new tickets; throwing fails persistence. */
   resolveRepositoryScope?: () => { repositoryIds?: string[] }
   attachments?: SpecGenerationAttachments
-  /** Schedule the Contract Layer (`runContractRefineForQuick`) after persist. */
-  contractRefine?: { model: string | null } | null
+  /** Schedule the Contract Layer (`runContractRefineForQuick`) after persist.
+   *  `await: true` (Flow settlement) runs it before the outcome resolves, so
+   *  whatever follows (a Jira issue create) sees the complete spec. */
+  contractRefine?: { model: string | null; await?: boolean } | null
   /** Correlation id (accounting `surface_ref_id`). Default: random. */
   requestId?: string
   /** Accounting surface. Default `quick-spec`. */
@@ -421,7 +423,9 @@ export function startSpecGeneration(
           const refineTitle = persisted.ticket.title
           const refineDescription = persisted.ticket.description
           const refineModel = input.contractRefine.model
-          process.nextTick(() => {
+          if (input.contractRefine.await) {
+            if (admission.isCurrent()) await scheduleContractLayer(deps, provider, refineTicketId, refineTitle, refineDescription, refineModel)
+          } else process.nextTick(() => {
             if (!admission.isCurrent()) return
             void scheduleContractLayer(deps, provider, refineTicketId, refineTitle, refineDescription, refineModel)
           })

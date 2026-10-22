@@ -1,4 +1,4 @@
-import type { FlowSession, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -20,6 +20,20 @@ export interface FlowRepository {
   latestByConversation(conversationId: string): FlowSession | null
   /** Flows reconciliation must inspect (not terminal and not handed off). */
   listUnsettled(): FlowSession[]
+  /** Flows a rail adopted and whose delivery has not settled yet. */
+  listHandedOff(): FlowSession[]
+  /** The Flow a rail delivery belongs to. */
+  findByDelivery(deliveryId: string): FlowSession | null
+}
+
+/** Durable settlement effects (`flow_effects`, project database). */
+export interface FlowEffectsStore {
+  /** Insert planned effects; existing keys are left untouched (idempotent). */
+  enqueue(effects: FlowSettlementEffect[]): void
+  list(flowId: string): FlowSettlementEffect[]
+  save(effect: FlowSettlementEffect): void
+  /** Flows with at least one pending effect. */
+  pendingFlowIds(): string[]
 }
 
 /** The placeholder spec ("In Flow"). Created through the non-promoting path. */
@@ -28,6 +42,12 @@ export interface FlowTickets {
   setFlowState(ticketId: number, state: FlowTicketState): void
   /** Idempotent: a missing ticket is not an error. */
   deletePlaceholder(ticketId: number): void
+  /** Settlement: `metadata.flow.state = 'delivered'` (the "In Flow" label
+   * disappears), `metadata.openspecChangeName`, status `on_review` unless the
+   * ticket already moved on. Idempotent. */
+  markDelivered(ticketId: number, input: { openspecChangeName: string | null }): void
+  /** Current title, idea (description) and status; null when the ticket is gone. */
+  read(ticketId: number): { title: string; description: string; status: string } | null
 }
 
 export interface ReservedWorktree {
@@ -108,10 +128,27 @@ export interface FlowNotifier {
   changed(session: FlowSession): void
 }
 
-/** Settlement publication (Jira create + review transition). Bound by the
- * flow-spec loop PR; this PR records the transition only. */
+/** Settlement publication (arch section 4.6): what the settlement reads from
+ * the delivery and writes to specs and Jira. Bound per project. */
 export interface FlowPublication {
-  publish(input: { flowId: string; ticketId: number; deliveryId: string }): void
+  /** Whether the rail delivery reached review (on_review or later with a
+   * succeeded implementation). Null when the delivery row is unknown. */
+  deliveryState(deliveryId: string): { delivered: boolean } | null
+  /** The derived OpenSpec change on the delivered branch (proposal, design,
+   * diffstat). Throws when Git cannot be read (the effect retries). */
+  derivedChange(input: { flowId: string; deliveryId: string | null; ticketId: number; branch: string | null; baseSha: string | null }): Promise<DerivedChangeText>
+  /** Bounded conversation summary (user messages + decisions). */
+  conversationSummary(input: { conversationId: string; ticketId: number; from: string; to: string | null }): string
+  /** Rewrite the spec in place (current format) and run the Contract Layer. */
+  rewriteSpec(input: { ticketId: number; text: string }): Promise<{ ok: true } | { ok: false; error: string }>
+  jira: {
+    connected(): boolean
+    /** Durable create through the Jira outbox (never throws). */
+    enqueueCreate(ticketId: number, idempotencyKey: string): 'enqueued' | 'already_linked' | 'inactive' | 'failed'
+    linked(ticketId: number): boolean
+    /** Transition to the status mapped for `on_review` (idempotent by refId). */
+    enqueueReview(ticketId: number, refId: string): void
+  }
 }
 
 export interface Clock {
@@ -124,6 +161,8 @@ export interface FlowPorts {
   worktrees: WorktreeReservation
   agent: FlowAgentSession
   rails: FlowRailLauncher
+  effects: FlowEffectsStore
+  publication: FlowPublication
   usage: FlowUsage
   notifier: FlowNotifier
   clock: Clock

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { FlowConflictError, FlowTransitionError, type FlowSession } from '..'
-import { createSqliteFlowRepository } from '../adapters/sqlite'
+import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
+import { plannedSettlementEffects, failedAttempt } from '../domain'
 import { createFlowHandOffAuthority } from '../adapters/bindings'
 import { FlowHandOffNotReadyError } from '../../delivery/runtime/flow-worktree-handoff'
 import { createRailWorktree, listRailWorktrees } from '../../delivery/runtime/rail-worktrees-store'
@@ -117,5 +118,31 @@ describe('Flow hand-off authority (ownership transfer inside delivery transactio
     required.release('addenda claim failed')
     expect(repository.get('flow-1')).toMatchObject({ state: 'paused', step: 'handoff:launch', deliveryId: null })
     expect(changed).toHaveLength(1)
+  })
+})
+
+describe('SQLite Flow settlement effects (migration 73)', () => {
+  it('enqueues idempotently, saves attempts and lists pending Flows per project', () => {
+    const database = db()
+    const effects = createSqliteFlowEffectsStore(database)
+    const planned = plannedSettlementEffects('flow-1', '2026-10-21T10:00:00.000Z')
+    effects.enqueue(planned)
+    effects.save(failedAttempt(planned[0]!, 'boom', '2026-10-21T10:00:01.000Z', 'rewrite_failed'))
+    effects.enqueue(plannedSettlementEffects('flow-1', '2026-10-21T11:00:00.000Z'))
+    const listed = effects.list('flow-1')
+    expect(listed.map((effect) => effect.kind)).toEqual(['rewrite-spec', 'jira-create', 'jira-review'])
+    expect(listed[0]).toMatchObject({ status: 'pending', attempts: 1, lastError: 'boom', note: 'rewrite_failed', createdAt: '2026-10-21T10:00:00.000Z' })
+    expect(effects.pendingFlowIds()).toEqual(['flow-1'])
+    for (const effect of listed) effects.save({ ...effect, status: 'done' })
+    expect(effects.pendingFlowIds()).toEqual([])
+    expect(createSqliteFlowEffectsStore(db()).list('flow-1')).toEqual([])
+  })
+
+  it('finds a Flow by its delivery and lists handed-off Flows', () => {
+    const repository = createSqliteFlowRepository(db())
+    repository.insert(flow({ state: 'handed_off', deliveryId: 'delivery-9', coreSessionId: null }))
+    expect(repository.findByDelivery('delivery-9')?.id).toBe('flow-1')
+    expect(repository.findByDelivery('nope')).toBeNull()
+    expect(repository.listHandedOff().map((session) => session.id)).toEqual(['flow-1'])
   })
 })

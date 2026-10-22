@@ -14,8 +14,10 @@ import { FLOW_SYSTEM_PROMPT } from '../../missions/runtime/agent-flow-prompt'
 import { isFlowHeldTicket, readStore } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, type FlowSession } from '..'
-import { createFlowPorts, createFlowTickets, createFlowTurnContext, createFlowWorktrees } from '../adapters/bindings'
-import { createSqliteFlowRepository } from '../adapters/sqlite'
+import { changeNameFromArchive, createFlowHandOffAuthority, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
+import { addAgentMessage } from '../../agents/runtime/agent-store'
+import { defaultGitRunner } from '../../../worktree-manager'
+import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
 
 const ORIGINAL_HOME = process.env.SPECRAILS_REGISTRY_HOME
 let tmp: string
@@ -138,7 +140,7 @@ describe('Flow port composition', () => {
     const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}) }
     const call = overrides.internal ?? vi.fn(async () => ({ ok: true, status: 202, body: { loopRunIds: ['run-1'], prDeliveryId: 'd-1' } }))
     const bound = createFlowPorts({
-      ctx, repository, internalApi: { call } as never,
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call } as never,
       agentHost: () => (overrides.agentHost === null ? null : host) as never,
       availability: async () => ({ available: true, reason: 'ok', missing: [] }),
       clock: { now: () => 'now' },
@@ -230,5 +232,77 @@ describe('missions FlowTurnContext binding', () => {
     }
     flows.set('proj-1', null)
     expect(context.forConversation('conv-1')).toBeNull()
+  })
+})
+
+describe('settlement publication bindings', () => {
+  function commitDerived(): { base: string; head: string } {
+    const base = git(['rev-parse', 'HEAD'])
+    fs.mkdirSync(path.join(repo, 'openspec/changes/archive/2026-10-21-kanban-board/specs/board'), { recursive: true })
+    fs.writeFileSync(path.join(repo, 'openspec/changes/archive/2026-10-21-kanban-board/proposal.md'), '## Why\nA board\n')
+    fs.writeFileSync(path.join(repo, 'openspec/changes/archive/2026-10-21-kanban-board/design.md'), '## Blast radius\n- src/board.ts\n')
+    fs.mkdirSync(path.join(repo, 'src'))
+    fs.writeFileSync(path.join(repo, 'src/board.ts'), 'export const board = 1\n')
+    git(['add', '.'])
+    git(['commit', '-q', '-m', 'flow'])
+    return { base, head: git(['rev-parse', 'HEAD']) }
+  }
+
+  it('reads the archived derived change, its name and a diffstat from the delivered commit', async () => {
+    const { base, head } = commitDerived()
+    const derived = await readDerivedChange(defaultGitRunner, repo, { ref: head, baseSha: base, changeName: null })
+    expect(derived).toMatchObject({ changeName: 'kanban-board', proposal: '## Why\nA board\n', design: '## Blast radius\n- src/board.ts\n' })
+    expect(derived.diffstat).toContain('src/board.ts')
+    expect(changeNameFromArchive('2026-10-21-x-y')).toBe('x-y')
+    // Nothing derived on the branch: null texts (the settlement retries, then keeps the placeholder).
+    await expect(readDerivedChange(defaultGitRunner, repo, { ref: head, baseSha: head, changeName: null })).resolves.toMatchObject({ proposal: null, design: null })
+  })
+
+  it('labels the spec delivered, records the change name and moves it to review once', () => {
+    const ctx = context()
+    const tickets = createFlowTickets(ctx, { now: () => '2026-10-21T10:00:00.000Z' })
+    const id = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Kanban', description: 'Try a kanban', startedAt: '2026-10-21T10:00:00.000Z' })
+    tickets.markDelivered(id, { openspecChangeName: 'kanban-board' })
+    const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(id)]!
+    expect(ticket).toMatchObject({ status: 'on_review', metadata: { openspecChangeName: 'kanban-board', flow: { state: 'delivered' } } })
+    expect(isFlowHeldTicket(ticket)).toBe(false)
+    const calls = vi.mocked(ctx.broadcast).mock.calls.length
+    tickets.markDelivered(id, { openspecChangeName: null })
+    expect(vi.mocked(ctx.broadcast).mock.calls.length).toBe(calls)
+    expect(tickets.read(id)).toMatchObject({ title: 'Kanban', status: 'on_review' })
+    expect(tickets.read(999)).toBeNull()
+  })
+
+  it('rewrites in place with the Contract Layer awaited, and maps Jira through the sync manager', async () => {
+    const ctx = context()
+    const jira = { isActive: vi.fn(() => true), enqueuePromote: vi.fn(() => 'enqueued'), onRailReview: vi.fn() }
+    ;(ctx as unknown as { jiraSyncManager: unknown }).jiraSyncManager = jira
+    const generate = vi.fn(async () => ({ ok: true as const, requestId: 'r', ticket: {} as never, kind: 'rewritten' as const, spec: {} as never }))
+    const publication = createFlowPublication(ctx, { generate })
+    await expect(publication.rewriteSpec({ ticketId: 3, text: 'derived' })).resolves.toEqual({ ok: true })
+    expect(generate.mock.calls[0]![1]).toMatchObject({ ticketId: 3, text: 'derived', surface: 'flow', provider: 'claude', contractRefine: { await: true } })
+    expect(publication.deliveryState('unknown')).toBeNull()
+    expect(publication.jira.connected()).toBe(true)
+    expect(publication.jira.enqueueCreate(3, 'flow:f:create')).toBe('enqueued')
+    expect(jira.enqueuePromote).toHaveBeenCalledWith(3, 'flow:f:create')
+    expect(publication.jira.linked(3)).toBe(false)
+    publication.jira.enqueueReview(3, 'delivery-1')
+    expect(jira.onRailReview).toHaveBeenCalledWith([3], 'delivery-1')
+  })
+
+  it('summarizes the Flow conversation for the hand-off (user messages and decisions)', () => {
+    const ctx = context()
+    const conversation = createAgentConversation(ctx.desktopDb, { title: 'm' } as never)
+    addAgentMessage(ctx.desktopDb, { conversationId: conversation.id, role: 'user', content: 'Build a board' })
+    addAgentMessage(ctx.desktopDb, { conversationId: conversation.id, role: 'assistant', content: 'ok\nDecision: three columns' })
+    const summary = flowConversationSummary(ctx.desktopDb, { conversationId: conversation.id, idea: 'Kanban', from: '1970-01-01', to: null })
+    expect(summary).toContain('transcriptTurns: 1')
+    expect(summary).toContain('- three columns')
+    const repository = createSqliteFlowRepository(ctx.db)
+    repository.insert({ id: 'flow-1', conversationId: conversation.id, ticketId: 7, state: 'paused', branch: 'b', worktreePath: '/wt', baseSha: null, headSha: 'a'.repeat(40), coreSessionId: null, railIndex: 1, deliveryId: null, step: 'handoff:launch', createdAt: 't', updatedAt: 't' })
+    const authority = createFlowHandOffAuthority(repository, { now: () => 't' }, undefined, () => summary)
+    expect(authority.resolve('flow-1').summary).toBe(summary)
+    const failing = createFlowHandOffAuthority(repository, { now: () => 't' }, undefined, () => { throw new Error('db') })
+    expect(failing.resolve('flow-1').summary).toBe('')
   })
 })
