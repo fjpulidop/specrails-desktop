@@ -83,8 +83,8 @@ export function jobsTools(): McpToolSpec[] {
         'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
         'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle), ' +
         'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
-        'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures and verification invalidation reasons; use before recommending retry or relaunch), ' +
-        'runtime_evidence (read the durable runtime evidence of jobId; page with evidenceId/section/sourceId/cursor/limit), ' +
+        'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures, verification invalidation reasons and `reviewer` — the latest reviewer verdict: approved, score, issues, summary, failing host checks, Flow → Spec derivation coverage; use before recommending retry or relaunch and to explain a rejected review), ' +
+        'runtime_evidence (read the durable runtime evidence of jobId; the overview page also carries `reviewer`; page with evidenceId/section/sourceId/cursor/limit), ' +
         'runtime_steer (write — queue steeringText in an engine v2 run with a stable requestId; acceptance is not consumption; inspect runtime_runs steering receipts), ' +
         'runtime_resume (ai-spawn — continue a resumable run: optional approve/recover/invalidate step-id lists + answer for a pending question; act ONLY after the user confirmed on the card), ' +
         'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +

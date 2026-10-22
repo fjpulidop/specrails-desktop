@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1141 source/build files. Nearby tests are linked where names
+Includes 1142 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1354,6 +1354,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
 - [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
 - [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
+- [run-review-diagnosis.ts](../../server/modules/delivery/runtime/run-review-diagnosis.ts) · [test](../../server/modules/delivery/runtime/run-review-diagnosis.test.ts)
 
 ## server/modules/execution
 

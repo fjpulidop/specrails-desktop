@@ -129,6 +129,11 @@ identical failures recommend repairing the precondition before retrying;
 `canResume` remains an admission flag, not a claim that retry fixes the error.
 Older retained Core packages without failure history report unknown counts.
 No provider, mutation, automatic retry or checkpoint migration is performed.
+`reviewer` (also on the `/evidence` overview page) is the latest reviewer
+verdict — approved, score, bounded issues, summary lines, failing host checks
+and Flow → Spec derivation coverage — read through delivery's
+[`readRunReviewDiagnosis`](../delivery/runtime/run-review-diagnosis.ts) for
+engine 1 and engine 2 runs alike (`null` when no review attempt recorded one).
 
 ## Scoped recovery
 

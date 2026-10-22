@@ -49,6 +49,7 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 - [runtime/rails-store.ts](runtime/rails-store.ts)
 - [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
 - [runtime/run-records.ts](runtime/run-records.ts)
+- [runtime/run-review-diagnosis.ts](runtime/run-review-diagnosis.ts)
 
 ## Phase-3 run records
 
@@ -116,6 +117,13 @@ failure stays a failure. After startup admission,
 reviewer verdict, re-reads the retained run read-only through the settle
 harvest (`probeDefinitionRuns` + `healRuntimeEvidence({ refreshMissingReview })`).
 Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts).
+
+[`readRunReviewDiagnosis`](runtime/run-review-diagnosis.ts) gives the
+operator's diagnosis tools (`runtime_diagnose`, the `runtime_evidence`
+overview) the run's latest reviewer verdict, failing host checks and Flow →
+Spec derivation coverage: stored settle evidence first, else the retained run
+through the same `healRuntimeEvidence` projection (engine 2 probe, engine 1
+pipeline dir). Bounded, read-only, never throws.
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

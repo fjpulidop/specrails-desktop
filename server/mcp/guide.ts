@@ -349,7 +349,10 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   Truncated scans or skipped files do not prove that a symbol is absent.
 - **Run failures & recovery**: Start with \`specrails_jobs(runtime_diagnose, jobId)\`
   for original scope, completed steps, repeated failures and receipt validity.
-  Availability of Resume is not a repair recommendation. After the same failure,
+  Its \`reviewer\` field is the latest reviewer verdict of the run (approved,
+  score, bounded issues, summary lines, failing host checks and, for Flow →
+  Spec, derivation coverage with unexplained files); read it to explain why a
+  review said no — never present that as a hypothesis. Availability of Resume is not a repair recommendation. After the same failure,
   identify and validate a changed precondition before retrying; do not default
   to Relaunch. Evidence can be paged with evidenceId/section/sourceId/cursor/limit.
   \`specrails_jobs(runtime_runs, jobId)\` reads

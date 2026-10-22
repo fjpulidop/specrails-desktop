@@ -137,6 +137,8 @@
         "../../../util/win-spawn",
         "../../../workspace-resolution",
         "../../delivery/runtime/multi-repo-execution-store",
+        "../../delivery/runtime/run-review-diagnosis",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-run-manager",
         "../../loops/runtime/loop-runs-store",
         "./agent-runtime-bridge",
@@ -884,7 +886,8 @@
       "runtime/rails-router.ts",
       "runtime/rails-store.ts",
       "runtime/review-wip-gate.ts",
-      "runtime/run-records.ts"
+      "runtime/run-records.ts",
+      "runtime/run-review-diagnosis.ts"
     ],
     "dependencies": {
       "adapters/decisions/chains.ts": [
@@ -1433,6 +1436,14 @@
       "runtime/run-records.ts": [
         "fs",
         "path"
+      ],
+      "runtime/run-review-diagnosis.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-runs-store",
+        "./delivery-evidence",
+        "./flow-review-outcome",
+        "node:fs"
       ]
     }
   },

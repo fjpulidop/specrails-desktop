@@ -24,6 +24,8 @@ import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
 import type { ProjectContext } from '../../../project-registry'
 import { invokeRuntimeRecovery, recoveryRequestSchema } from './agent-runtime-recovery'
+import { readRunReviewDiagnosis, type RunReviewDiagnosis } from '../../delivery/runtime/run-review-diagnosis'
+import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const LEGACY_STEP_IDS = ['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive']
@@ -226,7 +228,7 @@ export class AgentRuntimeControls {
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
   private collectingRetention = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl; reviewer?: (runId: string) => Promise<RunReviewDiagnosis | null> } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {
     // Startup recovery never blocks runtime controls; unrecovered entries stay in
     // quarantine, where they also block package collection until reviewed.
     try {
@@ -329,7 +331,23 @@ export class AgentRuntimeControls {
     const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'evidence', '--context', file, ...flags], { cwd: frozen.backlogRoot, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' })
     const result = JSON.parse(stdout)
     if (result.schemaVersion !== 1 || typeof result.available !== 'boolean' || typeof result.truncated !== 'boolean') throw new RuntimeControlError(503, 'evidence_unavailable', 'Core evidence is unavailable or incompatible')
+    // The overview page also answers "why did the review say no".
+    if (query.id === undefined && query.cursor === undefined) return { ...result, reviewer: await this.reviewer(runId) }
     return result
+  }
+
+  /** The reviewer's latest verdict for the run (settle evidence, else the retained run, read-only). Never throws. */
+  private async reviewer(runId: string): Promise<RunReviewDiagnosis | null> {
+    try {
+      if (this.dependencies.reviewer) return await this.dependencies.reviewer(runId)
+      return await readRunReviewDiagnosis({
+        db: this.ctx.db, runId,
+        pipelineDir: path.join(resolveProjectExecution(this.ctx.project).specrailsDir, 'pipeline'),
+        probe: (runIds) => probeDefinitionRuns({ db: this.ctx.db, cwd: this.ctx.project.path, env: process.env }, runIds, true),
+      })
+    } catch {
+      return null
+    }
   }
 
   async recovery(runId: string, input: unknown): Promise<unknown> {
@@ -387,10 +405,11 @@ export class AgentRuntimeControls {
       reason: 'The run was rejected before Core started, so there is no runtime state or evidence. Fix the reported precondition (or change the launch settings) before launching again; Resume is not possible.',
       launchError, repeatFailureCount: null, recentFailures: [],
     }
+    const reviewer = await this.reviewer(runId)
     if (summary.historical || summary.status === 'unavailable') return {
       runId, summary, recommendation: 'inspect_saved_evidence',
       reason: 'Live original runtime scope is unavailable. Preserve saved work and inspect the missing scope before proposing a fresh run.',
-      repeatFailureCount: null, recentFailures: [],
+      repeatFailureCount: null, recentFailures: [], reviewer,
     }
     const { file, frozen, cwd, env } = this.context(runId)
     const state = await this.dependencies.status(file, cwd, env)
@@ -424,10 +443,12 @@ export class AgentRuntimeControls {
       verification: state.inspection?.verification ? { valid: state.inspection.verification.valid, reasons: state.inspection.verification.reasons } : null,
       acceptance: state.inspection?.acceptance ? { valid: state.inspection.acceptance.valid, reasons: state.inspection.acceptance.reasons } : null,
       resumePhase: state.inspection?.resumePhase ?? null,
+      reviewer,
       limitations: [
         'Recent failure history is bounded to eight attempts; null means the retained Core does not expose it.',
         'Completed steps are historical outcomes. Resume revalidates receipts and may repeat verification/review after changes; do not promise zero cost.',
         'This diagnostic does not execute repairs, resume, relaunch, publish or discard work.',
+        'reviewer is the latest recorded verdict (AI-reported, bounded); failingChecks are host-run. null means no review attempt recorded one.',
       ],
     }
   }
