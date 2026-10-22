@@ -13,6 +13,7 @@ import { modelsForProvider } from '../lib/loop-run-models'
 import { loopAgentRoles } from '../lib/core-authoring'
 import { CORE_DEFAULT_MAX_TURNS, roleAgent, withRoleAgent } from '../lib/loop-role-agents'
 import { LoopTurnLimits } from './LoopTurnLimits'
+import { ReviewerFamilySuggestion } from './ReviewerFamilySuggestion'
 import type { LoopGraph, LoopAgentConfig } from '../lib/loops-api'
 
 const field = 'w-full rounded-md border border-input bg-background px-2 py-1 text-xs'
@@ -100,6 +101,7 @@ export function LoopAgentsEditor({ value, onChange, selectedRole, graph, mode = 
     {mode !== 'step' && <Button size="sm" variant="secondary" disabled={!activeProjectId || !defaults || importing} onClick={() => void importProject()}>{t('loopAgents.import')}</Button>}
     {value && <>
       {mode === 'all' && hasUnused && <label className="flex gap-2 text-xs"><input type="checkbox" checked={showUnused} onChange={event => setShowUnused(event.target.checked)} />{t('loopAgents.showUnused')}</label>}
+      {showAgents && (!visibleRoles || visibleRoles.includes('reviewer')) && <ReviewerFamilySuggestion value={value} onChange={onChange} />}
       {showAgents && builtinRoles.filter(role => !visibleRoles || visibleRoles.includes(role)).map(role => <details key={role} open={selectedRole === role} className="rounded-md border border-border p-2">
         <summary className="cursor-pointer text-sm font-medium">{role}</summary>
         <div className="mt-3 space-y-3">{engine(role)}

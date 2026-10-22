@@ -24,7 +24,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.pipeline_telemetry_enabled', 'config.orchestrator_model',
       'config.pre_prompt', 'config.freestyle_pre_prompt',
       'config.integration_branch', 'config.worktree_env_passthrough',
-      'config.allow_subagents', 'config.subagent_runtime'
+      'config.allow_subagents', 'config.subagent_runtime',
+      'config.reviewer_family_suggestion_dismissed'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -44,6 +45,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
     allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
     subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
+    reviewerFamilySuggestionDismissed: settings.get('config.reviewer_family_suggestion_dismissed')?.value === 'true',
   }
 }
 
@@ -98,6 +100,10 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
     } else {
       db.prepare(`DELETE FROM queue_state WHERE key = 'config.allow_subagents'`).run()
     }
+  }
+  if (patch.reviewerFamilySuggestionDismissed !== undefined) {
+    if (patch.reviewerFamilySuggestionDismissed) db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.reviewer_family_suggestion_dismissed', 'true')`).run()
+    else db.prepare(`DELETE FROM queue_state WHERE key = 'config.reviewer_family_suggestion_dismissed'`).run()
   }
   if (patch.subagentRuntime !== undefined) {
     if (patch.subagentRuntime === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.subagent_runtime'`).run()

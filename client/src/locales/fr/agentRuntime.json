@@ -620,5 +620,12 @@
       "input": "Nombre maximal de tours pour {{steps}} (rôle {{role}})",
       "stepHint": "Le rôle {{role}} s'arrête après {{turns}} tours. Les étapes qui partagent ce rôle partagent la limite ; elle s'applique aux nouveaux lancements après publication."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Suggestion de famille de modèles pour le relecteur",
+    "title": "Exécutez le relecteur avec {{provider}} : une autre famille de modèles repère d'autres erreurs",
+    "body": "Le développeur et le relecteur utilisent actuellement le même fournisseur. Ce n'est qu'une suggestion : rien ne change tant que vous ne l'appliquez pas.",
+    "apply": "Appliquer",
+    "dismiss": "Ignorer"
   }
 }

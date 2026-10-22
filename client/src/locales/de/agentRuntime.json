@@ -620,5 +620,12 @@
       "input": "Maximale Runden für {{steps}} (Rolle {{role}})",
       "stepHint": "Die Rolle {{role}} stoppt nach {{turns}} Runden. Schritte mit dieser Rolle teilen das Limit; es gilt nach dem Veröffentlichen für neue Starts."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Vorschlag zur Modellfamilie des Reviewers",
+    "title": "Reviewer mit {{provider}} ausführen – eine andere Modellfamilie findet andere Fehler",
+    "body": "Entwickler und Reviewer laufen derzeit auf demselben Anbieter. Dies ist nur ein Vorschlag: Nichts ändert sich, solange du ihn nicht anwendest.",
+    "apply": "Anwenden",
+    "dismiss": "Verwerfen"
   }
 }

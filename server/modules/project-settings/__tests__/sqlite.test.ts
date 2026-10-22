@@ -58,3 +58,15 @@ describe('subagentRuntime persistence', () => {
   })
 })
 
+
+describe('reviewerFamilySuggestionDismissed persistence', () => {
+  it('defaults to shown, persists the dismissal per project and clears its row when reset', () => {
+    const first = setup(), second = setup()
+    expect(first.service.getSettings().reviewerFamilySuggestionDismissed).toBe(false)
+    expect(first.service.updateSettings({ reviewerFamilySuggestionDismissed: true }).reviewerFamilySuggestionDismissed).toBe(true)
+    expect(first.service.getSettings().reviewerFamilySuggestionDismissed).toBe(true)
+    expect(second.service.getSettings().reviewerFamilySuggestionDismissed).toBe(false)
+    first.service.updateSettings({ reviewerFamilySuggestionDismissed: false })
+    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.reviewer_family_suggestion_dismissed'").get()).toBeUndefined()
+  })
+})

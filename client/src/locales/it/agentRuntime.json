@@ -620,5 +620,12 @@
       "input": "Numero massimo di turni per {{steps}} (ruolo {{role}})",
       "stepHint": "Il ruolo {{role}} si ferma dopo {{turns}} turni. I passi che condividono questo ruolo condividono il limite; vale per i nuovi avvii dopo la pubblicazione."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Suggerimento sulla famiglia di modelli del revisore",
+    "title": "Esegui il revisore con {{provider}}: una famiglia di modelli diversa individua errori diversi",
+    "body": "Lo sviluppatore e il revisore usano attualmente lo stesso provider. È solo un suggerimento: non cambia nulla finché non lo applichi.",
+    "apply": "Applica",
+    "dismiss": "Ignora"
   }
 }
