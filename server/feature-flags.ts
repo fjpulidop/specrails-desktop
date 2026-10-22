@@ -107,3 +107,12 @@ export function isMissionFailureTurnEnabled(): boolean {
 export function isMissionReadOnlyEnabled(): boolean {
   return process.env.SPECRAILS_MISSION_READ_ONLY !== 'false'
 }
+
+/**
+ * Spec triage (launch-triage): automatic triage of specs on create/edit.
+ * Default ON; set SPECRAILS_SPEC_TRIAGE="false" to stop the automatic triggers
+ * (on-demand `POST /tickets/:id/triage` keeps working).
+ */
+export function isSpecTriageAutoEnabled(): boolean {
+  return process.env.SPECRAILS_SPEC_TRIAGE !== 'false'
+}

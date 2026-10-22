@@ -45,6 +45,8 @@ const coreDependencies: Record<string, string[]> = {
   'flow/ports.ts': ['./domain'],
   'flow/application.ts': ['./domain', './ports'],
   'flow/index.ts': ['./application', './domain', './ports'],
+  // Spec triage: pure rules (canonical inputs, parsing, recommendation).
+  'specs/domain/triage.ts': [],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

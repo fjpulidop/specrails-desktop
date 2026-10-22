@@ -11,6 +11,9 @@
 //   - `verifier` — every non-core ai-step of the factory loop (verify, fix,
 //     freestyle-less prose steps) and the provider a custom loop's ai-steps run on.
 //   - `decider`  — the Loop Decider (a cheap/fast model is the natural pick).
+//   - `triage`   — spec triage (launch-triage): one structured-output call per
+//     spec. Not a loop step: it is resolved by specs/runtime/triage.ts, whose
+//     default when absent is the primary provider's CHEAPEST priced model.
 // A rail whose engine is `roles` launches WITHOUT a provider override (Core
 // keeps the per-role settings) and resolves the loop steps from this file.
 //
@@ -26,7 +29,7 @@ import type { ReasoningEffort } from '../../../providers/types'
 
 /** The rail engine value meaning "per-role engines, no flattening override". */
 export const ROLES_ENGINE = 'roles'
-export const LOOP_ROLES = ['verifier', 'decider'] as const
+export const LOOP_ROLES = ['verifier', 'decider', 'triage'] as const
 export type LoopRole = (typeof LOOP_ROLES)[number]
 export interface RoleEngine { provider: string; model?: string; effort?: string }
 export type LoopRoleEngines = Partial<Record<LoopRole, RoleEngine>>
