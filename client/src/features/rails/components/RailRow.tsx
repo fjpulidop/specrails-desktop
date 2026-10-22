@@ -789,7 +789,7 @@ export function RailRow({
                     e.stopPropagation()
                   }}
                 >
-                  <SpecCard ticket={ticket} onClick={onTicketClick} dragDisabled={status === 'running'} />
+                  <SpecCard ticket={ticket} onClick={onTicketClick} dragDisabled={status === 'running'} onRail />
                 </div>
               ))}
             </SortableContext>

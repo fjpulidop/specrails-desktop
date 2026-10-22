@@ -34,6 +34,30 @@ holds the background-turn bubble, the continuation label, session notices and
 the deferred-settings notice. Usage appears only after a sub-agent ends, and
 Relaunch only drafts a request — nothing is relaunched silently.
 
+## Extension seam (Flow mode)
+
+Capabilities built on top of missions plug in through
+[MissionExtensionsContext](context/MissionExtensionsContext.tsx) instead of
+being imported here. The composition root (`App.tsx`) provides one stable
+value with three optional slots:
+
+- `fenceCards`: renderers for extra fenced blocks in assistant messages.
+  [AgentMessage](components/AgentMessage.tsx) strips a registered block with
+  [extractExtensionFences](components/agent-extension-fences.ts) and renders the
+  card (`flow-offer` today); unregistered tags stay markdown.
+- `useConversationMode`: surface `data-*` attributes (`data-flow="active"`),
+  a read-only branch for [AgentGitBar](components/AgentGitBar.tsx) and
+  `interruptWhileBusy`, which makes [AgentComposer](components/AgentComposer.tsx)
+  send `deliveryMode: 'interrupt'` while a turn runs.
+- `ConversationDock`: a component above the composer (the Flow bar and the
+  hand-off card).
+
+Without a provider every slot is inert. Missions never depend on `flow`
+(`npm run audit:architecture`). [AgentRailLaunchCard](components/AgentRailLaunchCard.tsx)
+has a `handOff` mode (owner-provided launch, fixed loop, "Not yet") that Flow
+uses for "This is it". Card decisions on `agent_messages.intent` are unique per
+`(kind, proposalIndex)`: `rail-launch`, `flow-offer`, `flow-hand-off`.
+
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -46,6 +70,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/AgentModeSurface.tsx](components/AgentModeSurface.tsx)
 - [components/AgentModelSelector.tsx](components/AgentModelSelector.tsx)
 - [components/AgentPrPinnedDock.tsx](components/AgentPrPinnedDock.tsx)
+- [components/AgentRailLaunchCard.tsx](components/AgentRailLaunchCard.tsx)
 - [components/AgentToolbarSelector.tsx](components/AgentToolbarSelector.tsx)
 - [components/AgentWorkspaceSidebar.tsx](components/AgentWorkspaceSidebar.tsx)
 - [components/MissionWindowAction.tsx](components/MissionWindowAction.tsx)
@@ -57,6 +82,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)
 - [context/MinimizedChatsContext.tsx](context/MinimizedChatsContext.tsx)
+- [context/MissionExtensionsContext.tsx](context/MissionExtensionsContext.tsx)
 - [context/MissionSessionsContext.tsx](context/MissionSessionsContext.tsx)
 - [context/MissionWindowsContext.tsx](context/MissionWindowsContext.tsx)
 - [hooks/useAgentRefActions.ts](hooks/useAgentRefActions.ts)

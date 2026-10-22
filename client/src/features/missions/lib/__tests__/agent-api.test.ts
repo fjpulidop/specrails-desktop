@@ -57,6 +57,26 @@ describe('agent-api', () => {
     expect(ab).toHaveBeenCalledWith(expect.stringContaining('/c1/abort'), expect.objectContaining({ method: 'POST' }))
   })
 
+  it('sends a Flow interrupt and falls back to a normal send when the Flow already ended', async () => {
+    const ok = mockFetch({ accepted: true, queued: true, deliveryMode: 'interrupt' })
+    expect(await api.sendAgentMessage('c1', 'make it blue', { queueId: 'q-9', deliveryMode: 'interrupt' })).toEqual({ queued: true, deliveryMode: 'interrupt' })
+    expect(JSON.parse(String((ok.mock.calls[0] as [string, RequestInit])[1].body))).toMatchObject({ deliveryMode: 'interrupt', queueId: 'q-9' })
+    const responses = [
+      { ok: false, status: 409, body: { error: 'interrupt_requires_flow' } },
+      { ok: true, status: 202, body: { accepted: true, queued: true } },
+    ]
+    const fallback = vi.fn(async () => {
+      const r = responses.shift()!
+      const res = { ok: r.ok, status: r.status, text: async () => JSON.stringify(r.body), json: async () => r.body, clone: () => res }
+      return res
+    })
+    vi.stubGlobal('fetch', fallback)
+    expect(await api.sendAgentMessage('c1', 'late', { queueId: 'q-10', deliveryMode: 'interrupt' })).toEqual({ queued: true })
+    const second = JSON.parse(String((fallback.mock.calls[1] as unknown as [string, RequestInit])[1].body))
+    expect(second).toMatchObject({ text: 'late', queueId: 'q-10' })
+    expect(second).not.toHaveProperty('deliveryMode')
+  })
+
   it('reads + enables MCP', async () => {
     mockFetch({ enabled: true, running: true })
     expect((await api.getMcpStatus()).enabled).toBe(true)
