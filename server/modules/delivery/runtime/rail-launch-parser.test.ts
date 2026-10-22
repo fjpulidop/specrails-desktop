@@ -7,6 +7,20 @@ import { promoteAgentProtocolFences } from '../../missions/runtime/agent-fence-p
 const block = (obj: unknown) => '```rail-launch\n' + JSON.stringify(obj) + '\n```'
 
 describe('extractRailLaunchProposals', () => {
+  it('treats a null or empty workspaceSelection and a null repositoryIds as omitted, as Codex emits them', () => {
+    for (const [repositoryIds, workspaceSelection] of [[null, null], [undefined, {}], [null, {}]] as const) {
+      const result = coerceRailLaunchProposal({ ticketIds: [9], railIndex: 0, mode: 'implement', aiEngine: 'codex', repositoryIds, workspaceSelection })
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.proposal.repositoryIds).toBeUndefined()
+        expect(result.proposal.workspaceSelection).toBeUndefined()
+      }
+    }
+    const filled = coerceRailLaunchProposal({ ticketIds: [9], repositoryIds: ['primary-1'], workspaceSelection: {} })
+    expect(filled.ok && filled.proposal.repositoryIds).toEqual(['primary-1'])
+    expect(coerceRailLaunchProposal({ ticketIds: [9], repositoryIds: [] }).ok).toBe(false)
+  })
+
   it('parses a full proposal, strips the fence and keeps the prose', () => {
     const text = 'I suggest this:\n' + block({
       version: 1, railIndex: 1, ticketIds: [12, '#14'], mode: 'implement', aiEngine: 'claude', model: 'opus',

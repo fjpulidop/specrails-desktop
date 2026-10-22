@@ -119,8 +119,11 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
   // The removed Batch mode folds into implement (one aggregate run per rail).
   const mode = modeRaw === 'batch' || modeRaw === 'batch-implement' ? 'implement' : modeRaw
   if (!(RAIL_LAUNCH_MODES as readonly string[]).includes(mode)) return { ok: false, reason: 'invalid_mode' }
-  const repositoryIds = value.repositoryIds
-  const workspaceSelection = value.workspaceSelection
+  // Agents (Codex in particular) spell "no restriction" as null or an empty
+  // map. Treat exactly those as omitted; any other malformed selection still
+  // rejects the card so a bad selection can never broaden the scope.
+  const repositoryIds = value.repositoryIds === null ? undefined : value.repositoryIds
+  const workspaceSelection = value.workspaceSelection === null || (isRecord(value.workspaceSelection) && Object.keys(value.workspaceSelection).length === 0) ? undefined : value.workspaceSelection
   if (repositoryIds !== undefined && (!Array.isArray(repositoryIds) || !repositoryIds.length || repositoryIds.length > 50 || repositoryIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(repositoryIds).size !== repositoryIds.length)) return { ok: false, reason: 'invalid_workspace_selection' }
   if (workspaceSelection !== undefined && (!isRecord(workspaceSelection) || !Object.keys(workspaceSelection).length || Object.keys(workspaceSelection).length > 50 || Object.entries(workspaceSelection).some(([id, paths]) => !id.trim() || !Array.isArray(paths) || !paths.length || paths.length > 50 || paths.some(item => typeof item !== 'string' || !item.trim() || item.length > 4096) || new Set(paths).size !== paths.length))) return { ok: false, reason: 'invalid_workspace_selection' }
   const newRailRaw = value.newRail
