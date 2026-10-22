@@ -41,6 +41,7 @@ import {
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
 import { coreAnnouncesReviewBrief, harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
+import { phase3HarvestOptions } from './phase3-harvest'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
 import { getLoopRun, readDefinitionRun, readDefinitionForkTarget, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
@@ -206,6 +207,8 @@ export interface IsolatedLaunchIO extends IsolatedWorktreeIO {
   harvestEvidence?: typeof harvestDeliveryEvidence
   /** Core `reviewBrief: 1` probe (injectable for tests). */
   reviewBriefCapability?: () => Promise<boolean>
+  /** Phase-3 Core capabilities (spec trace, baseline, rules); injectable for tests. */
+  phase3Capabilities?: () => Promise<import('../../agent-runtime/runtime/core-capabilities').CorePhase3Capabilities>
   /** gh-backed PR discovery for continuing already-open PR branches. */
   exec?: Exec
 }
@@ -1874,8 +1877,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env },
           results.filter(result => getLoopRun(ctx.db, result.run.runId)?.engine_version === 2).map(result => result.run.runId), true)
         const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
+        const phase3 = await phase3HarvestOptions({ db: ctx.db, project: ctx.project, capabilities: io.phase3Capabilities })
         settleEvidence = harvest(
-          { readEvents: (runId) => getJobEvents(ctx.db, runId), reviewBrief },
+          { readEvents: (runId) => getJobEvents(ctx.db, runId), reviewBrief, ...phase3 },
           results.map((result) => ({
             ticketId: result.run.ticketId,
             runId: result.run.runId,
@@ -2132,8 +2136,11 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
       const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results.map(item => item.run.runId), true)
       const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
-      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id), reviewBrief }, results.map(item => ({
+      const phase3 = await phase3HarvestOptions({ db: ctx.db, project: ctx.project, capabilities: io.phase3Capabilities })
+      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id), reviewBrief, ...phase3 }, results.map(item => ({
         ticketId: item.run.ticketId, runId: item.run.runId, worktreePath: item.run.handle.worktreePath,
+        // Phase-3 run records only (spec trace, baseline); runtime evidence keeps its probe.
+        recordsDir: path.join((io.resolveExecution ?? resolveProjectExecution)(ctx.project).specrailsDir, 'pipeline', item.run.runId),
         definitionStatus: definitionEvidence.get(item.run.runId),
         reviewerStepId: readDefinitionRun(ctx.db, item.run.runId)?.request.graph.config.reviewerStepId,
       })))

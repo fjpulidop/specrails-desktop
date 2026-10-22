@@ -20,7 +20,8 @@
   },
   "cost": {
     "thisBuild": "Ce travail a coûté {{amount}}",
-    "allVersions": "Toutes les versions cumulées : {{amount}}"
+    "allVersions": "Toutes les versions cumulées : {{amount}}",
+    "baselinePart": " · dont {{amount}} de baseline"
   },
   "accept": {
     "create-pr": "Accepter et ouvrir une pull request",
@@ -242,5 +243,49 @@
     "run": "Exécution {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Impossible de télécharger les actions de l'agent"
+  },
+  "requirements": {
+    "title": "Exigences démontrées {{demonstrated}}/{{total}}",
+    "touched": "Touchées par ce changement : {{demonstrated}}/{{total}} démontrées",
+    "caveat": "Mesuré par Specrails : une exigence compte quand un test étiqueté avec son id a tourné dans une vérification réussie. Indicatif ; cela ne change pas la revue.",
+    "caveatNoReceipt": "Une partie de cette trace n'a pas de reçu de vérification, ces exigences ne peuvent donc pas encore compter comme démontrées.",
+    "undemonstratedTitle_one": "{{count}} exigence non démontrée",
+    "undemonstratedTitle_other": "{{count}} exigences non démontrées",
+    "demonstratedTitle_one": "{{count}} exigence démontrée",
+    "demonstratedTitle_other": "{{count}} exigences démontrées",
+    "reason": {
+      "no-test": "aucun test étiqueté",
+      "not-executed": "le test étiqueté n'a pas tourné",
+      "failed": "le test étiqueté a échoué"
+    },
+    "touchedBadge": "modifiée ici",
+    "untagged_one": "{{count}} étiquette de test ne correspond à aucune exigence ({{tags}}) : une coquille ou une exigence renommée.",
+    "untagged_other": "{{count}} étiquettes de test ne correspondent à aucune exigence ({{tags}}) : des coquilles ou des exigences renommées.",
+    "showAll_one": "Afficher {{count}} de plus",
+    "showAll_other": "Afficher {{count}} de plus",
+    "showLess": "Afficher moins"
+  },
+  "baseline": {
+    "title": "Spec créée là où le travail est passé",
+    "status": {
+      "planned": "Baseline prévue : {{requirements}} exigences tel-que-construit, {{tests}} tests de caractérisation",
+      "passed": "Baseline prouvée sur le code inchangé : {{requirements}} exigences tel-que-construit, {{tests}} tests de caractérisation",
+      "failed": "Baseline bloquée : les tests de caractérisation n'ont pas passé sur le code inchangé, le module n'a donc pas été modifié",
+      "violated": "Baseline bloquée : l'étape de baseline a modifié du code autre que des tests, le run s'est donc arrêté",
+      "not-needed": "Pas de baseline nécessaire : les specs couvrent déjà le code touché par ce changement"
+    },
+    "module": "Module décrit :",
+    "more_one": "et {{count}} fichier de plus",
+    "more_other": "et {{count}} fichiers de plus",
+    "spec": "Spec tel-que-construit :",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} démontrées)",
+    "cost": "Coût de la baseline {{amount}} sur {{turns}} tours, compté à part du changement",
+    "costUnknown": "Coût de la baseline non communiqué par le fournisseur",
+    "caveat": "Les tests de caractérisation décrivent le comportement actuel ; Core les a exécutés sur le code inchangé avant toute modification."
+  },
+  "humanEyes": {
+    "title_one": "Regard humain requis : {{count}} règle du projet",
+    "title_other": "Regard humain requis : {{count}} règles du projet",
+    "caveat": "Règles écrites pour ce projet qu'aucun contrôle automatique ne peut faire respecter. Vérifiez-les vous-même avant d'accepter."
   }
 }

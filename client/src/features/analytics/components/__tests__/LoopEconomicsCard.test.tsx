@@ -90,3 +90,14 @@ describe('LoopEconomicsCard', () => {
     expect(parseLoopEconomics(payload).byLoop).toHaveLength(3)
   })
 })
+
+describe('LoopEconomicsCard — requirements demonstrated', () => {
+  it('shows X/Y with the percentage once spec traces exist', async () => {
+    const traced = { ...payload, sources: { ...payload.sources, requirementsDemonstrated: 'measured' }, byLoop: [{ loopId: 'factory:implement', loopName: 'Implement', ...group({ requirementsDemonstrated: { demonstrated: 3, total: 4, deliveries: 2 } }) }] }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(traced)))
+    render(<LoopEconomicsCard projectId="p1" period="30d" />)
+    const [row] = await screen.findAllByTestId('loop-economics-row')
+    expect(row.textContent).toContain('3/4')
+    expect(row.textContent).toContain('75%')
+  })
+})

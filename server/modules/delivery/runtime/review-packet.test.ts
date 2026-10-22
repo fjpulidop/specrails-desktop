@@ -746,3 +746,24 @@ describe('composeReviewPacket — what to look at (reviewer risk brief)', () => 
     expect('riskSummary' in toPrDecisionCardEnvelope('p1', plain)).toBe(false)
   })
 })
+
+describe('composeReviewPacket — phase-3 sections', () => {
+  it('shows requirements demonstrated, the baseline and the human-only rules from settle evidence', () => {
+    const settle = evidence({
+      specTrace: { evidence: 'receipt', receiptId: 'r', generatedAt: null, changes: ['c'], requirements: 3, demonstrated: [{ id: 's/a', name: 'A', tests: [] }, { id: 's/b', name: 'B', tests: [] }], undemonstrated: [{ id: 's/c', name: 'C', reason: 'no-test', tests: [] }], untagged: [], touched: ['s/c'], touchedUndemonstrated: ['s/c'], omitted: 0 },
+      baseline: { status: 'passed', change: 'c', recordedAt: null, uncovered: ['src/x.ts'], covered: 0, tests: ['src/x.test.ts'], receiptId: 'r0', reason: null, capabilities: [{ capability: 's', requirements: 1, demonstrated: 0 }], cost: { invocations: 2, costUsd: 0.25, inputTokens: null, outputTokens: null } },
+    })
+    settle.humanRules = [{ text: 'Copy reviewed by design', source: 'AGENTS.md:9' }]
+    const packet = delivery({ evidence: settle })
+    expect(packet.requirementsDemonstrated).toMatchObject({ demonstrated: 2, total: 3, touched: 1, touchedDemonstrated: 0 })
+    expect(packet.baseline).toEqual([expect.objectContaining({ ticketId: 1, status: 'passed', cost: expect.objectContaining({ costUsd: 0.25 }) })])
+    expect(packet.needsHumanEyes).toEqual([{ text: 'Copy reviewed by design', source: 'AGENTS.md:9' }])
+  })
+
+  it('omits the sections for evidence without phase-3 records', () => {
+    const packet = delivery()
+    expect(packet.requirementsDemonstrated).toBeNull()
+    expect(packet.baseline).toBeNull()
+    expect(packet.needsHumanEyes).toBeNull()
+  })
+})

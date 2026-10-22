@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Revisione",
       "description": "Applica l'unica modifica richiesta sopra il lavoro già consegnato, fa rivalutare dal revisore e verifica fino al verde. Non ripianifica da zero."
+    },
+    "drift-sweep": {
+      "name": "Controllo del drift",
+      "description": "Sola lettura: confronta ciò che afferma la spec di ogni capability con ciò che fa il codice ed elenca ogni contraddizione con file:riga. Non modifica nulla; eseguilo su richiesta."
     }
   },
   "import": {

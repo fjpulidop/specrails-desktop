@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Revisão",
       "description": "Aplica a única alteração que pediu sobre o trabalho já entregue, faz o revisor pontuar de novo e verifica até ficar verde. Não replaneia do zero."
+    },
+    "drift-sweep": {
+      "name": "Varredura de drift",
+      "description": "Somente leitura: compara o que a spec de cada capacidade afirma com o que o código faz e lista cada contradição com arquivo:linha. Não altera nada; execute quando quiser."
     }
   },
   "import": {

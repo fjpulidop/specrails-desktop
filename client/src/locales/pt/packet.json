@@ -20,7 +20,8 @@
   },
   "cost": {
     "thisBuild": "Este trabalho custou {{amount}}",
-    "allVersions": "Todas as versões juntas: {{amount}}"
+    "allVersions": "Todas as versões juntas: {{amount}}",
+    "baselinePart": " · {{amount}} de baseline"
   },
   "accept": {
     "create-pr": "Aceitar e abrir um pull request",
@@ -242,5 +243,49 @@
     "run": "Execução {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Não foi possível baixar as ações do agente"
+  },
+  "requirements": {
+    "title": "Requisitos demonstrados {{demonstrated}}/{{total}}",
+    "touched": "Tocados por esta mudança: {{demonstrated}}/{{total}} demonstrados",
+    "caveat": "Medido pelo Specrails: um requisito conta quando um teste marcado com o seu id rodou numa verificação aprovada. Indicativo; não altera a revisão.",
+    "caveatNoReceipt": "Parte deste rastreio não tem recibo de verificação, então esses requisitos ainda não podem contar como demonstrados.",
+    "undemonstratedTitle_one": "{{count}} requisito não demonstrado",
+    "undemonstratedTitle_other": "{{count}} requisitos não demonstrados",
+    "demonstratedTitle_one": "{{count}} requisito demonstrado",
+    "demonstratedTitle_other": "{{count}} requisitos demonstrados",
+    "reason": {
+      "no-test": "sem teste marcado",
+      "not-executed": "o teste marcado não rodou",
+      "failed": "o teste marcado falhou"
+    },
+    "touchedBadge": "alterado aqui",
+    "untagged_one": "{{count}} marcação de teste não corresponde a nenhum requisito ({{tags}}): um erro de digitação ou um requisito renomeado.",
+    "untagged_other": "{{count}} marcações de teste não correspondem a nenhum requisito ({{tags}}): erros de digitação ou requisitos renomeados.",
+    "showAll_one": "Mostrar mais {{count}}",
+    "showAll_other": "Mostrar mais {{count}}",
+    "showLess": "Mostrar menos"
+  },
+  "baseline": {
+    "title": "Spec criada por onde o trabalho passou",
+    "status": {
+      "planned": "Baseline planejado: {{requirements}} requisitos as-built, {{tests}} testes de caracterização",
+      "passed": "Baseline comprovado no código inalterado: {{requirements}} requisitos as-built, {{tests}} testes de caracterização",
+      "failed": "Baseline bloqueado: os testes de caracterização não passaram no código inalterado, então o módulo não foi editado",
+      "violated": "Baseline bloqueado: a etapa de baseline editou código que não era de teste, então a execução parou",
+      "not-needed": "Não é preciso baseline: as specs já cobrem o código que esta mudança toca"
+    },
+    "module": "Módulo descrito:",
+    "more_one": "e mais {{count}} arquivo",
+    "more_other": "e mais {{count}} arquivos",
+    "spec": "Spec as-built:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} demonstrados)",
+    "cost": "Custo do baseline {{amount}} em {{turns}} turnos, contado à parte da mudança",
+    "costUnknown": "Custo do baseline não informado pelo provedor",
+    "caveat": "Os testes de caracterização descrevem o comportamento atual; o Core os executou no código inalterado antes de qualquer edição."
+  },
+  "humanEyes": {
+    "title_one": "Precisa de olhos humanos: {{count}} regra do projeto",
+    "title_other": "Precisa de olhos humanos: {{count}} regras do projeto",
+    "caveat": "Regras escritas para este projeto que nenhuma verificação automática consegue impor. Confira-as você mesmo antes de aceitar."
   }
 }

@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Révision",
       "description": "Applique l'unique changement demandé par-dessus le travail déjà livré, fait re-noter par le relecteur, puis vérifie jusqu'au vert. Aucune replanification."
+    },
+    "drift-sweep": {
+      "name": "Balayage de dérive",
+      "description": "Lecture seule : compare ce qu'affirme la spec de chaque capacité avec ce que fait le code et liste chaque contradiction avec fichier:ligne. Ne modifie rien ; à lancer à la demande."
     }
   },
   "import": {

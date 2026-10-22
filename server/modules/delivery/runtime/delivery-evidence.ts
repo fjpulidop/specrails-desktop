@@ -17,6 +17,7 @@ import { FACTORY_REVISION_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 export { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 import { parseReviewBriefRecord, reviewBriefFromReviewerOutput, REVIEW_BRIEF_FILE, type DeliveryReviewBriefRecord } from './review-brief'
+import { baselineCapabilities, readBaseline, readSpecTrace, type DeliveryBaseline, type DeliveryBaselineCost, type DeliverySpecTrace } from './run-records'
 
 /** Bounded tail of the verify step's raw output persisted per unit. */
 export const VERIFY_TAIL_CAP = 4096
@@ -121,7 +122,16 @@ export interface DeliveryUnitEvidence {
    *  active Core does not announce the capability or no verdict recorded one —
    *  older evidence rows therefore stay byte-identical. */
   reviewBrief?: DeliveryReviewBriefRecord
+  /** Requirement traceability report (Core `specTrace: 1`). Absent without the
+   *  capability or before the first passing verification. */
+  specTrace?: DeliverySpecTrace
+  /** Baseline-on-touch record (Core `baselineOnTouch: 1`). Absent without the
+   *  capability or when the setting was off for the run. */
+  baseline?: DeliveryBaseline
 }
+
+/** A human-only project rule (`.specrails/rules.json`, Core `rulesInventory: 1`). */
+export interface DeliveryHumanRule { text: string; source: string | null }
 
 export interface DeliverySettleEvidence {
   schemaVersion: 1
@@ -130,6 +140,9 @@ export interface DeliverySettleEvidence {
   harvest: 'ok' | 'partial' | 'failed'
   harvestedAt: string
   units: DeliveryUnitEvidence[]
+  /** "Needs human eyes": the project's human-only rules frozen at settle
+   *  (absent without the rules inventory capability or an inventory). */
+  humanRules?: DeliveryHumanRule[]
 }
 
 export interface EvidenceHarvestUnit {
@@ -147,6 +160,9 @@ export interface EvidenceHarvestUnit {
   /** The programmatic runtime's pipeline dir for this run
    *  (`<workspace>/.specrails/pipeline/<runId>`), when the caller knows it. */
   runtimeDir?: string | null
+  /** Where Core's phase-3 run records live when `runtimeDir` is not given
+   *  (recovered settlements); defaults to `runtimeDir`. */
+  recordsDir?: string | null
 }
 
 export interface EvidenceHarvestIO {
@@ -162,6 +178,14 @@ export interface EvidenceHarvestIO {
   /** True only when the active Core announces `reviewBrief: 1`. Without it the
    *  brief is never read and the evidence record is exactly as before. */
   reviewBrief?: boolean
+  /** Core `specTrace: 1`: read `spec-trace.json` per unit. */
+  specTrace?: boolean
+  /** Core `baselineOnTouch: 1`: read `baseline.json` per unit. */
+  baselineOnTouch?: boolean
+  /** Baseline spend of a run (efficiencySummary.baseline), when known. */
+  baselineCost?: (runId: string) => DeliveryBaselineCost | null
+  /** Human-only project rules to freeze into the evidence (Core `rulesInventory: 1`). */
+  humanRules?: DeliveryHumanRule[] | null
 }
 
 interface ParsedStep {
@@ -513,6 +537,21 @@ export function harvestDeliveryEvidence(
         unitErrored = true
       }
     }
+    const recordsDir = unit.recordsDir ?? unit.runtimeDir
+    if (recordsDir && (io.specTrace || io.baselineOnTouch)) {
+      try {
+        const trace = io.specTrace ? readSpecTrace(recordsDir, fsIo) : null
+        if (trace) evidence.specTrace = trace
+        const baseline = io.baselineOnTouch ? readBaseline(recordsDir, fsIo) : null
+        if (baseline) {
+          baseline.capabilities = baselineCapabilities(trace)
+          baseline.cost = unit.runId ? io.baselineCost?.(unit.runId) ?? null : null
+          evidence.baseline = baseline
+        }
+      } catch {
+        unitErrored = true
+      }
+    }
     if (unitErrored) errored++
     return evidence
   })
@@ -521,6 +560,7 @@ export function harvestDeliveryEvidence(
     harvest: units.length > 0 && errored === units.length ? 'failed' : errored > 0 ? 'partial' : 'ok',
     harvestedAt: (io.now?.() ?? new Date()).toISOString(),
     units: harvested,
+    ...(io.humanRules?.length ? { humanRules: io.humanRules.slice(0, 100) } : {}),
   }
 }
 

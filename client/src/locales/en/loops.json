@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Revision",
       "description": "Applies the one change you asked for on top of work already delivered, has the reviewer re-grade it, then verifies until green. It does not re-plan from scratch."
+    },
+    "drift-sweep": {
+      "name": "Drift sweep",
+      "description": "Read-only: compares what every capability's spec claims with what the code does and lists each contradiction with file:line. Changes nothing; run it on demand."
     }
   },
   "import": {

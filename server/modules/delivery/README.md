@@ -45,6 +45,21 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 - [runtime/rails-router.ts](runtime/rails-router.ts)
 - [runtime/rails-store.ts](runtime/rails-store.ts)
 - [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
+- [runtime/run-records.ts](runtime/run-records.ts)
+
+## Phase-3 run records
+
+[`runtime/run-records.ts`](runtime/run-records.ts) parses Core's
+`spec-trace.json`, `baseline.json` and `clarifications.json` (run dir first,
+then the newest engine-2 `<runId>-impl-*` dir; schema 1 only, bounded, a
+malformed file reads as absent) and builds the packet sections "Requirements
+demonstrated X/Y" and "Spec created where the work passed".
+[`runtime/phase3-harvest.ts`](runtime/phase3-harvest.ts) turns the active Core's
+capabilities into harvest options: `specTrace`, `baselineOnTouch` (with the
+run's baseline spend) and the project's human-only rules frozen into
+`settle_evidence.humanRules`. Without a capability the evidence is
+byte-identical to before. See
+[existing-project anchoring](../../../docs/internals/existing-project-anchoring.md).
 
 ### Isolated worktree preparation
 

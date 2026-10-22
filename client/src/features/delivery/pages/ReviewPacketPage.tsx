@@ -29,6 +29,9 @@ import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
 import { AgentActionsSummary } from '../components/review-packet/AgentActionsSummary'
 import { WhatToLookAt } from '../components/review-packet/WhatToLookAt'
 import { PacketDerivation } from '../components/review-packet/PacketDerivation'
+import { RequirementsDemonstrated } from '../components/review-packet/RequirementsDemonstrated'
+import { PacketBaseline } from '../components/review-packet/PacketBaseline'
+import { NeedsHumanEyes } from '../components/review-packet/NeedsHumanEyes'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -314,6 +317,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
     .map((tier) => ({ tier, items: packet.proof.filter((item) => item.tier === tier) }))
     .filter((group) => group.items.length > 0)
 
+  // Baseline-on-touch spend, reported apart (only when every baseline reported a cost).
+  const baselineCosts = (packet.baseline ?? []).map((entry) => entry.cost?.costUsd ?? null)
+  const baselineCostUsd = baselineCosts.length > 0 && baselineCosts.every((value) => value !== null)
+    ? baselineCosts.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null
   const costLabel = packet.cost.totalUsd === null
     ? '—'
     : `${packet.cost.estimated ? '~' : ''}$${packet.cost.totalUsd.toFixed(2)}`
@@ -391,6 +398,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <CircleDollarSign className="size-3.5" aria-hidden />
             {t('cost.thisBuild', { amount: costLabel })}
+            {baselineCostUsd !== null ? (
+              <span className="text-muted-foreground/80" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: `$${baselineCostUsd.toFixed(2)}` })}</span>
+            ) : null}
           </span>
           {packet.prUrl ? (
             <a
@@ -536,6 +546,17 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       {packet.whatToLookAt ? (
         <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
       ) : null}
+
+      {/* ── Needs human eyes: the project's human-only rules (rules inventory) */}
+      {packet.needsHumanEyes?.length ? <NeedsHumanEyes rules={packet.needsHumanEyes} /> : null}
+
+      {/* ── Requirements demonstrated X/Y (spec trace) ─────────────────────── */}
+      {packet.requirementsDemonstrated ? (
+        <RequirementsDemonstrated section={packet.requirementsDemonstrated} multiTicket={packet.ticketIds.length > 1} />
+      ) : null}
+
+      {/* ── Spec created where the work passed (baseline on touch) ─────────── */}
+      {packet.baseline?.length ? <PacketBaseline entries={packet.baseline} multiTicket={packet.ticketIds.length > 1} /> : null}
 
       {packet.driftNudges.length > 0 ? (
         <div className="rounded-lg border border-accent-highlight/30 bg-accent-highlight/5 p-4" data-testid="packet-drift-nudges">

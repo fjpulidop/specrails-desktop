@@ -20,7 +20,8 @@
   },
   "cost": {
     "thisBuild": "Questo lavoro è costato {{amount}}",
-    "allVersions": "Tutte le versioni insieme: {{amount}}"
+    "allVersions": "Tutte le versioni insieme: {{amount}}",
+    "baselinePart": " · di cui {{amount}} di baseline"
   },
   "accept": {
     "create-pr": "Accetta e apri una pull request",
@@ -242,5 +243,49 @@
     "run": "Esecuzione {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Impossibile scaricare le azioni dell'agente"
+  },
+  "requirements": {
+    "title": "Requisiti dimostrati {{demonstrated}}/{{total}}",
+    "touched": "Toccati da questa modifica: {{demonstrated}}/{{total}} dimostrati",
+    "caveat": "Misurato da Specrails: un requisito conta quando un test etichettato con il suo id è stato eseguito in una verifica riuscita. Indicativo; non cambia la revisione.",
+    "caveatNoReceipt": "Parte di questa traccia non ha una ricevuta di verifica, quindi quei requisiti non possono ancora contare come dimostrati.",
+    "undemonstratedTitle_one": "{{count}} requisito non dimostrato",
+    "undemonstratedTitle_other": "{{count}} requisiti non dimostrati",
+    "demonstratedTitle_one": "{{count}} requisito dimostrato",
+    "demonstratedTitle_other": "{{count}} requisiti dimostrati",
+    "reason": {
+      "no-test": "nessun test etichettato",
+      "not-executed": "il test etichettato non è stato eseguito",
+      "failed": "il test etichettato è fallito"
+    },
+    "touchedBadge": "modificato qui",
+    "untagged_one": "{{count}} etichetta di test non corrisponde a nessun requisito ({{tags}}): un refuso o un requisito rinominato.",
+    "untagged_other": "{{count}} etichette di test non corrispondono a nessun requisito ({{tags}}): refusi o requisiti rinominati.",
+    "showAll_one": "Mostra altri {{count}}",
+    "showAll_other": "Mostra altri {{count}}",
+    "showLess": "Mostra meno"
+  },
+  "baseline": {
+    "title": "Spec creata dove è passato il lavoro",
+    "status": {
+      "planned": "Baseline pianificata: {{requirements}} requisiti as-built, {{tests}} test di caratterizzazione",
+      "passed": "Baseline dimostrata sul codice invariato: {{requirements}} requisiti as-built, {{tests}} test di caratterizzazione",
+      "failed": "Baseline bloccata: i test di caratterizzazione non sono passati sul codice invariato, quindi il modulo non è stato modificato",
+      "violated": "Baseline bloccata: il passo di baseline ha modificato codice diverso dai test, quindi il run si è fermato",
+      "not-needed": "Nessuna baseline necessaria: le spec coprono già il codice toccato da questa modifica"
+    },
+    "module": "Modulo descritto:",
+    "more_one": "e {{count}} altro file",
+    "more_other": "e altri {{count}} file",
+    "spec": "Spec as-built:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} dimostrati)",
+    "cost": "Costo della baseline {{amount}} in {{turns}} turni, contato a parte rispetto alla modifica",
+    "costUnknown": "Costo della baseline non riportato dal provider",
+    "caveat": "I test di caratterizzazione descrivono il comportamento attuale; Core li ha eseguiti sul codice invariato prima di qualsiasi modifica."
+  },
+  "humanEyes": {
+    "title_one": "Serve un occhio umano: {{count}} regola del progetto",
+    "title_other": "Serve un occhio umano: {{count}} regole del progetto",
+    "caveat": "Regole scritte per questo progetto che nessun controllo automatico può far rispettare. Verificale tu prima di accettare."
   }
 }

@@ -499,7 +499,7 @@ export function supportsCoreTemplates(capabilities?: Record<string, number>): bo
  *  Core) is the legacy graph. Order, ids, names, categories and tags are stable. */
 export function loopTemplatesForCapabilities(capabilities?: Record<string, number>): LoopTemplate[] {
   if (!supportsCoreTemplates(capabilities)) return LOOP_TEMPLATES
-  return LOOP_TEMPLATES.map((template) => {
+  return [...LOOP_TEMPLATES.map((template) => {
     if (!isCoreStarterId(template.id)) return template
     const readOnly = CORE_STARTER_SHAPES[template.id] === 'watch'
     return {
@@ -508,7 +508,54 @@ export function loopTemplatesForCapabilities(capabilities?: Record<string, numbe
       ...(readOnly ? { readOnly: true } : {}),
       graph: coreStarterGraph(template.id, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1, capabilities),
     }
-  })
+  }), ...phase3Templates(capabilities)]
+}
+
+/** Drift sweep (feedback-2026-10 task 3.3): the reviewer's check 9 ("the spec
+ *  of a capability against its code") run on demand across every capability.
+ *  Read-only; listed only when Core announces `specTrace: 1`. */
+export const DRIFT_SWEEP_TEMPLATE_ID = 'drift-sweep'
+
+const DRIFT_SWEEP_PROMPT = [
+  'Drift sweep. Read-only: do not modify any file, branch, pull request or ticket.',
+  'For every capability under `openspec/specs/<capability>/spec.md`, read each `### Requirement:` and its scenarios, then read the code that implements it. A requirement id is `<capability>/<slug>` (the heading, lowercased, every run of non-alphanumerics one `-`).',
+  'Report every claim the code contradicts as a divergence: the requirement id, what the spec says and what the code does instead, with `file:line`. Do not report style, missing tests or wishes: only behaviour the spec states and the code does not have. List the capabilities you could not check and why.',
+  'End with a short table: capability, requirements checked, divergences.',
+  'Finish with exactly `{{const:VERIFICATION_PASS}}` when no divergence was found, otherwise `{{const:VERIFICATION_FAIL}} — <n> divergences in <capabilities>`.',
+].join('\n\n')
+
+/** One read-only pass; both verdicts end the run (the report is the output). */
+export function driftSweepGraph(): LoopGraph {
+  return {
+    nodes: [
+      { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
+      { id: 'sweep', type: 'core', position: { x: COL_X, y: ROW_GAP }, data: { kind: 'prompt', params: { text: DRIFT_SWEEP_PROMPT, access: 'read', sentinel: 'verification' } } },
+      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 2 }, data: { outcome: 'success', requiresVerified: false } },
+      { id: 'failed', type: 'end', position: { x: COL_RIGHT_X, y: ROW_GAP * 2 }, data: { outcome: 'failure' } },
+    ],
+    edges: [
+      { id: 'e-start', source: 'start', target: 'sweep' },
+      { id: 'e-sweep-pass', source: 'sweep', target: 'done', label: 'pass' },
+      { id: 'e-sweep-fail', source: 'sweep', target: 'done', label: 'fail' },
+      { id: 'e-sweep-failed', source: 'sweep', target: 'failed', label: 'failed' },
+    ],
+    config: { maxIterations: 1, timeoutMinutes: STARTER_TIMEOUT_MIN, journal: 'ledger-only', change: 'none' },
+  }
+}
+
+export const DRIFT_SWEEP_TEMPLATE: LoopTemplate = {
+  id: DRIFT_SWEEP_TEMPLATE_ID,
+  name: 'Drift sweep',
+  description: 'Read-only: compares what every capability\'s spec claims with what the code does and lists each contradiction with file:line. Changes nothing; run it on demand.',
+  category: 'Quality',
+  tags: ['specs', 'drift', 'read-only'],
+  readOnly: true,
+  graph: driftSweepGraph(),
+}
+
+/** Templates gated on phase-3 Core capabilities (appended after the catalog). */
+function phase3Templates(capabilities?: Record<string, number>): LoopTemplate[] {
+  return supportsCoreTemplates(capabilities) && capabilities?.specTrace === 1 ? [{ ...DRIFT_SWEEP_TEMPLATE, graph: driftSweepGraph() }] : []
 }
 
 export function getLoopTemplate(id: string, capabilities?: Record<string, number>): LoopTemplate | undefined {

@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Überarbeitung",
       "description": "Wendet die eine erbetene Änderung auf bereits gelieferte Arbeit an, lässt sie vom Reviewer neu bewerten und prüft bis grün. Keine Neuplanung."
+    },
+    "drift-sweep": {
+      "name": "Drift-Prüfung",
+      "description": "Nur lesend: vergleicht, was die Spec jeder Capability behauptet, mit dem, was der Code tut, und listet jeden Widerspruch mit Datei:Zeile. Ändert nichts; bei Bedarf ausführen."
     }
   },
   "import": {

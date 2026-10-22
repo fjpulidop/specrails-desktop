@@ -300,6 +300,10 @@
     "factory_revision": {
       "name": "Revisión",
       "description": "Aplica el único cambio que pediste sobre el trabajo ya entregado, hace que el revisor lo vuelva a puntuar y verifica hasta que esté verde. No replanifica desde cero."
+    },
+    "drift-sweep": {
+      "name": "Barrido de drift",
+      "description": "Solo lectura: compara lo que afirma la spec de cada capacidad con lo que hace el código y lista cada contradicción con fichero:línea. No cambia nada; ejecútalo cuando quieras."
     }
   },
   "import": {

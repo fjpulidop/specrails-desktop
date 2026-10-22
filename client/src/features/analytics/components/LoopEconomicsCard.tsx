@@ -32,7 +32,7 @@ export interface LoopEconomicsGroup {
     fixerPerDelivery: number | null
   }
   escapedDefects: number | null
-  requirementsDemonstrated: { demonstrated: number; total: number } | null
+  requirementsDemonstrated: { demonstrated: number; total: number; deliveries?: number } | null
   triageAccuracy: { matched: number; total: number } | null
 }
 
@@ -157,7 +157,12 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     value(group.rounds.reviewPerDelivery === null ? null : fmtRatio(group.rounds.reviewPerDelivery)),
     value(group.rounds.fixerPerDelivery === null ? null : fmtRatio(group.rounds.fixerPerDelivery)),
     group.escapedDefects === null ? noData : group.escapedDefects,
-    group.requirementsDemonstrated === null ? noData : `${group.requirementsDemonstrated.demonstrated}/${group.requirementsDemonstrated.total}`,
+    group.requirementsDemonstrated === null ? noData : (
+      <span key="r">
+        {group.requirementsDemonstrated.demonstrated}/{group.requirementsDemonstrated.total}
+        {group.requirementsDemonstrated.total > 0 && <span className="text-muted-foreground"> · {fmtPercent(group.requirementsDemonstrated.demonstrated / group.requirementsDemonstrated.total)}</span>}
+      </span>
+    ),
     group.triageAccuracy === null ? noData : `${group.triageAccuracy.matched}/${group.triageAccuracy.total}`,
   ]
 

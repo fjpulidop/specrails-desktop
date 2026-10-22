@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { LOOP_TEMPLATES, LOOP_CATEGORIES, CORE_STARTER_TEMPLATE_IDS, getLoopTemplate, fixLoopGraph } from './loop-templates'
+import { LOOP_TEMPLATES, LOOP_CATEGORIES, CORE_STARTER_TEMPLATE_IDS, DRIFT_SWEEP_TEMPLATE_ID, getLoopTemplate, fixLoopGraph, loopTemplatesForCapabilities } from './loop-templates'
 import { validateLoopGraph, type LoopGraph } from './loop-graph'
+import { compileLoopToDefinition } from './loop-definition'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS } from './loop-constants'
 
@@ -178,5 +179,26 @@ describe('fixLoopGraph — configurable verification gate', () => {
     const custom = fixLoopGraph(['{{cmd:implement}}'], goal, 12, 30, undefined, '{{cmd:revision-verify}}', true)
     expect(custom.nodes.map((n) => n.id)).toEqual(generic.nodes.map((n) => n.id))
     expect(custom.edges).toEqual(generic.edges)
+  })
+})
+
+describe('drift sweep template (Core specTrace)', () => {
+  const core = { engineV2: 1, workflowDefinitions: 1 }
+  it('appears only when Core announces specTrace with workflow definitions', () => {
+    expect(loopTemplatesForCapabilities(core).some((template) => template.id === DRIFT_SWEEP_TEMPLATE_ID)).toBe(false)
+    expect(loopTemplatesForCapabilities({ specTrace: 1 }).some((template) => template.id === DRIFT_SWEEP_TEMPLATE_ID)).toBe(false)
+    const sweep = getLoopTemplate(DRIFT_SWEEP_TEMPLATE_ID, { ...core, specTrace: 1 })!
+    expect(sweep).toMatchObject({ readOnly: true, category: 'Quality' })
+    expect(LOOP_CATEGORIES).toContain(sweep.category)
+  })
+  it('is one read-only pass whose verdicts both end the run', () => {
+    const graph = getLoopTemplate(DRIFT_SWEEP_TEMPLATE_ID, { ...core, specTrace: 1 })!.graph
+    const sweep = graph.nodes.find((node) => node.id === 'sweep')!
+    expect(sweep.data).toMatchObject({ kind: 'prompt', params: { access: 'read', sentinel: 'verification' } })
+    expect(graph.edges.filter((edge) => edge.source === 'sweep').map((edge) => [edge.label, edge.target])).toEqual([['pass', 'done'], ['fail', 'done'], ['failed', 'failed']])
+    expect(graph.config).toMatchObject({ maxIterations: 1, change: 'none' })
+    expect(validateLoopGraph(graph).valid).toBe(true)
+    const compiled = compileLoopToDefinition(graph, { provider: 'claude', constants: { VERIFICATION_PASS: 'VERIFICATION: PASS', VERIFICATION_FAIL: 'VERIFICATION: FAIL' } })
+    expect(JSON.stringify(compiled)).toContain('Drift sweep')
   })
 })
