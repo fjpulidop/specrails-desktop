@@ -16,6 +16,7 @@ import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-rec
 import { FACTORY_REVISION_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 export { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
+import { parseReviewBriefRecord, reviewBriefFromReviewerOutput, REVIEW_BRIEF_FILE, type DeliveryReviewBriefRecord } from './review-brief'
 
 /** Bounded tail of the verify step's raw output persisted per unit. */
 export const VERIFY_TAIL_CAP = 4096
@@ -93,6 +94,10 @@ export interface DeliveryUnitEvidence {
   /** Bounded tail of the verify step's output (raw text, never summarized). */
   verifyTail: string | null
   confidence: DeliveryConfidenceScore | null
+  /** The reviewer's risk brief record (Core `reviewBrief: 1`). Absent when the
+   *  active Core does not announce the capability or no verdict recorded one —
+   *  older evidence rows therefore stay byte-identical. */
+  reviewBrief?: DeliveryReviewBriefRecord
 }
 
 export interface DeliverySettleEvidence {
@@ -131,6 +136,9 @@ export interface EvidenceHarvestIO {
   /** Modification time in ms — the freshness seam for revision evidence. */
   fileMtimeMs?: (filePath: string) => number
   now?: () => Date
+  /** True only when the active Core announces `reviewBrief: 1`. Without it the
+   *  brief is never read and the evidence record is exactly as before. */
+  reviewBrief?: boolean
 }
 
 interface ParsedStep {
@@ -469,6 +477,14 @@ export function harvestDeliveryEvidence(
     } catch {
       unitErrored = true
     }
+    if (io.reviewBrief) {
+      try {
+        const brief = readUnitReviewBrief(unit, evidence, fsIo)
+        if (brief) evidence.reviewBrief = brief
+      } catch {
+        unitErrored = true
+      }
+    }
     if (unitErrored) errored++
     return evidence
   })
@@ -576,6 +592,47 @@ function parseRuntimeReview(value: unknown): DeliveryRuntimeReview | null {
   return null
 }
 
+/**
+ * The reviewer's risk brief for one unit, in source order:
+ *  1. `<pipelineDir>/<runId>/review-brief.json` (engine 1, rewritten at every verdict);
+ *  2. the engine 2 reviewer output in the committed definition scopes
+ *     (`implementation` → `review.brief`, reviewer step, reviewer role turn);
+ *  3. `confidence-score.json` → `brief` (approved verdicts only).
+ * Returns null when no source carries a brief record.
+ */
+function readUnitReviewBrief(unit: EvidenceHarvestUnit, evidence: DeliveryUnitEvidence, fsIo: EvidenceFsIO): DeliveryReviewBriefRecord | null {
+  if (unit.runtimeDir) {
+    const file = path.join(unit.runtimeDir, REVIEW_BRIEF_FILE)
+    if (fsIo.fileExists(file)) return parseReviewBriefRecord(fsIo.readFile(file))
+  }
+  if (unit.definitionStatus) {
+    const fromDefinition = definitionReviewBrief(unit.definitionStatus, unit.reviewerStepId)
+    if (fromDefinition) return fromDefinition
+  }
+  const raw = evidence.confidence?.raw
+  if (isRecord(raw) && raw.brief !== undefined) {
+    const record = reviewBriefFromReviewerOutput({ ...raw, approved: true, score: evidence.confidence?.overall ?? null }, 'confidence-score')
+    if (record) return record
+  }
+  return null
+}
+
+/** Latest reviewer brief found in committed definition scopes (null when none). */
+export function definitionReviewBrief(status: DefinitionRunProbe, reviewerStepId?: string): DeliveryReviewBriefRecord | null {
+  if (status.status === 'unavailable' || !status.scopes) return null
+  let found: DeliveryReviewBriefRecord | null = null
+  for (const scope of status.scopes) {
+    if (!['succeeded', 'failed'].includes(scope.status) || !isRecord(scope.output)) continue
+    const output = scope.output
+    const reviewer = scope.kind === 'implementation' ? output.review
+      : scope.kind === 'implementation-step' && output.phase === 'reviewer' ? output
+      : reviewerStepId === scope.nodePath && scope.kind === 'role-turn' ? (output.structured ?? output) : null
+    const record = reviewBriefFromReviewerOutput(reviewer)
+    if (record) found = record
+  }
+  return found
+}
+
 /** Pure projection of exact committed scopes; never read Core's private database. */
 export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, reviewerStepId?: string): DeliveryRuntimeEvidence | null {
   if (status.status === 'unavailable' || !status.scopes) return null
@@ -616,6 +673,7 @@ export function healRuntimeEvidence(
   pipelineDir: string,
   fsIo: Partial<EvidenceFsIO> = {},
   definitionStatuses: ReadonlyMap<string, DefinitionRunProbe> = new Map(),
+  options: { reviewBrief?: boolean } = {},
 ): DeliverySettleEvidence | null {
   const io: EvidenceFsIO = {
     readFile: fsIo.readFile ?? ((p) => fs.readFileSync(p, 'utf8')),
@@ -625,6 +683,25 @@ export function healRuntimeEvidence(
   }
   let changed = false
   const units = evidence.units.map((unit) => {
+    const healed = healUnitRuntime(unit)
+    if (!options.reviewBrief || !healed.runId || healed.reviewBrief) return healed
+    // Deliveries settled before the brief harvest (or recovered without a
+    // pipeline dir) pick the brief up once the Core that wrote it is active.
+    let reviewBrief: DeliveryReviewBriefRecord | null = null
+    try {
+      reviewBrief = readUnitReviewBrief({
+        ticketId: healed.ticketId, runId: healed.runId, worktreePath: null,
+        runtimeDir: path.join(pipelineDir, healed.runId),
+        definitionStatus: definitionStatuses.get(healed.runId), reviewerStepId: healed.reviewerStepId,
+      }, healed, io)
+    } catch { reviewBrief = null }
+    if (!reviewBrief) return healed
+    changed = true
+    return { ...healed, reviewBrief }
+  })
+  return changed ? { ...evidence, units } : null
+
+  function healUnitRuntime(unit: DeliveryUnitEvidence): DeliveryUnitEvidence {
     if (!unit.runId || unit.runtime) return unit
     const definition = definitionStatuses.get(unit.runId)
     if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined) return unit
@@ -636,8 +713,21 @@ export function healRuntimeEvidence(
       ? { changeName: null, overall: runtime.review.score, aspects: runtime.review.aspects, flags: runtime.review.issues, raw: null }
       : null)
     return { ...unit, runtime, confidence }
-  })
-  return changed ? { ...evidence, units } : null
+  }
+}
+
+/**
+ * Whether the active Core announces the reviewer risk brief (`reviewBrief: 1`
+ * from `runtime api`). Any failure reads as "not announced", so an older or
+ * missing Core leaves settle evidence exactly as it was.
+ */
+export async function coreAnnouncesReviewBrief(): Promise<boolean> {
+  try {
+    const { loadCoreAgentRuntime } = await import('../../agent-runtime/runtime/agent-runtime-loader')
+    return (await loadCoreAgentRuntime()).api?.capabilities?.reviewBrief === 1
+  } catch {
+    return false
+  }
 }
 
 /** Parse a persisted settle_evidence column value (null-tolerant). */

@@ -835,12 +835,14 @@
       ],
       "adapters/decisions/create.ts": [
         "../../../accounting/runtime/ai-invocations",
+        "../../runtime/delivery-evidence",
         "../../runtime/pr-body",
         "../../runtime/pr-naming",
         "../../runtime/pr-publisher",
         "../../runtime/rail-pr-delivery",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",
+        "../../runtime/review-brief",
         "./contracts",
         "./evidence",
         "./metadata",
@@ -993,9 +995,11 @@
       ],
       "runtime/delivery-evidence.ts": [
         "../../../types",
+        "../../agent-runtime/runtime/agent-runtime-loader",
         "../../execution/runtime/verification-sentinel",
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-factory",
+        "./review-brief",
         "fs",
         "path"
       ],
@@ -1176,7 +1180,8 @@
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./multi-repo-execution-store",
-        "./pr-follow-up"
+        "./pr-follow-up",
+        "./review-brief"
       ],
       "runtime/rail-pr-ticket-effects.ts": [
         "../../../db",
@@ -1268,6 +1273,7 @@
       "runtime/rails-store.ts": [
         "../../../db"
       ],
+      "runtime/review-brief.ts": [],
       "runtime/review-packet.ts": [
         "../../../db",
         "../../../project-repository-provenance",
@@ -1276,7 +1282,8 @@
         "./delivery-evidence",
         "./pr-body",
         "./pr-follow-up",
-        "./rail-pr-store"
+        "./rail-pr-store",
+        "./review-brief"
       ]
     }
   },

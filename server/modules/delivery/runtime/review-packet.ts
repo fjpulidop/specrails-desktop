@@ -39,6 +39,8 @@ import {
   type RailPrDeliveryRow,
 } from './rail-pr-store'
 import { extractSpecNarrative } from './pr-body'
+import { buildWhatToLookAt, summarizeReviewBriefs, type DeliveryRiskSummary, type PacketWhatToLookAt } from './review-brief'
+export { buildWhatToLookAt, type PacketWhatToLookAt } from './review-brief'
 import { sumInvocationCostForRuns } from '../../accounting/runtime/ai-invocations'
 import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from '../../../project-repository-provenance'
 
@@ -130,6 +132,10 @@ export interface ReviewPacket {
   /** Reviewer flags + risk hints derived from real signals only. */
   watchOut: PacketProofItem[]
   confidence: DeliveryConfidenceScore | null
+  /** Reviewer risk brief, first section of the packet; null = no brief (older Core/run). */
+  whatToLookAt: PacketWhatToLookAt | null
+  /** Risk counts per delivery (analytics + cards); null when no brief was recorded. */
+  riskSummary: DeliveryRiskSummary | null
   cost: PacketCost
   /** True when the settle harvest could not read anything at all. */
   evidenceUnavailable: boolean
@@ -543,6 +549,8 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     proof: buildProof(units, evidence?.units ?? null, churn, confidence),
     watchOut: buildWatchOut(confidence, churn, variant),
     confidence,
+    whatToLookAt: buildWhatToLookAt(evidence?.units ?? []),
+    riskSummary: summarizeReviewBriefs((evidence?.units ?? []).map((unit) => unit.reviewBrief)),
     cost: { totalUsd: costSum?.totalUsd ?? null, estimated: costSum?.estimated ?? false },
     evidenceUnavailable: evidence === null || evidence.harvest === 'failed',
     runIds,

@@ -12,7 +12,8 @@ import { readSpecAddendaSnapshot, type SpecAddendaSnapshotEntry } from '../../sp
 import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
-import type { PrDecisionCardEnvelope, RailPrStateMessage } from '../../../types'
+import { summarizeReviewBriefs } from './review-brief'
+import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
 
@@ -869,8 +870,22 @@ export interface PrDeliverySnapshot {
   followUp: PrFollowUp | null
   /** Frozen spec addenda this generation was launched with (null when the specs carried none). */
   specAddenda: SpecAddendaSnapshotEntry[] | null
+  /** Reviewer risk brief summary from settle evidence; absent without a brief. */
+  riskSummary?: PrDeliveryRiskSummary
   createdAt: string
   updatedAt: string
+}
+
+/** Risk summary of a row's harvested reviewer brief (null when none recorded).
+ *  The substring guard keeps snapshots of brief-less rows from parsing JSON. */
+export function readDeliveryRiskSummary(settleEvidence: string | null | undefined): PrDeliveryRiskSummary | null {
+  if (!settleEvidence || !settleEvidence.includes('"reviewBrief"')) return null
+  try {
+    const evidence = JSON.parse(settleEvidence) as Partial<DeliverySettleEvidence> | null
+    return Array.isArray(evidence?.units) ? summarizeReviewBriefs(evidence.units.map((unit) => unit?.reviewBrief)) : null
+  } catch {
+    return null
+  }
 }
 
 function parseJsonArray<T>(raw: string): T[] {
@@ -925,6 +940,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     originConversationId: row.origin_conversation_id,
     followUp: readFollowUp(row.follow_up),
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
+    ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -965,6 +981,7 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     units: snap.units,
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
+    ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
   }
@@ -1003,6 +1020,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     prState: snap.prState,
     branch: snap.branch,
     runIds: snap.runIds,
+    ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
     // mission-rail-cards: coarse phase so the card renders the run header
