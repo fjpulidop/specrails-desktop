@@ -38,7 +38,7 @@ import {
   FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
-import type { Clock, FlowDiffFile, FlowEffectsStore, FlowPorts, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
+import type { Clock, FlowDiffFile, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
 import type { FlowService } from '../application'
 
 /** What Flow needs from the mission agent host (implemented by AgentChatManager). */
@@ -287,6 +287,9 @@ export interface FlowBindingDeps {
   /** The app-global mission host (null while agent chat is disabled). */
   agentHost: () => FlowAgentHost | null
   availability: FlowPorts['availability']
+  /** Stops the Flow's background processes (bound to the process registry at
+   * composition). Absent ⇒ the Flow never started any. */
+  processes?: FlowProcesses
   clock?: Clock
   git?: GitRunner
 }
@@ -363,6 +366,7 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
         }
       },
     },
+    processes: deps.processes ?? { stop: async () => {} },
     effects: deps.effects,
     publication: createFlowPublication(ctx, { git: deps.git }),
     usage: { costSoFar: (input) => sumFlowInvocations(ctx.desktopDb, input) },

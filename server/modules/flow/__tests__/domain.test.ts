@@ -105,10 +105,11 @@ describe('Flow state machine — transition table', () => {
     }
   }
 
-  it('pause closes the session and labels the spec paused; repeating it is a no-op', () => {
+  it('pause stops its apps, closes the session and labels the spec paused; repeating it is a no-op', () => {
     const paused = transition(flow(), commands.pause)
     expect(paused.session).toMatchObject({ state: 'paused', coreSessionId: null })
     expect(paused.effects).toEqual([
+      { kind: 'stopProcesses' },
       { kind: 'closeAgentSession', coreSessionId: 'flow:flow-1' },
       { kind: 'setTicketFlowState', ticketId: 7, state: 'paused' },
     ])
@@ -124,14 +125,17 @@ describe('Flow state machine — transition table', () => {
     expect(() => transition(flow({ state: 'paused', worktreePath: null }), commands.resume)).toThrow(FlowTransitionError)
   })
 
-  it('discard releases only Flow resources and is forbidden after a hand-off', () => {
+  it('discard stops its apps before releasing only Flow resources and is forbidden after a hand-off', () => {
     const discarded = transition(flow(), commands.discard)
     expect(discarded.session.state).toBe('discarded')
     expect(discarded.effects).toEqual([
+      { kind: 'stopProcesses' },
       { kind: 'closeAgentSession', coreSessionId: 'flow:flow-1' },
       { kind: 'releaseWorktree', ticketId: 7, worktreePath: '/wt/flow-1/ticket-7', branch: 'feat/7-idea' },
       { kind: 'deletePlaceholderTicket', ticketId: 7 },
     ])
+    // A paused Flow has no session to close, but its apps are stopped again (idempotent).
+    expect(transition(flow({ state: 'paused', coreSessionId: null }), commands.discard).effects[0]).toEqual({ kind: 'stopProcesses' })
     expect(() => transition(flow({ state: 'handed_off' }), commands.discard)).toThrow(/cannot discard from handed_off/)
     expect(() => transition(flow({ state: 'paused', step: 'handoff:launch' }), commands.discard)).toThrow(FlowTransitionError)
   })
@@ -141,7 +145,8 @@ describe('Flow state machine — hand-off', () => {
   it('freezes, launches and hands off only the frozen HEAD', () => {
     const begun = transition(flow(), commands.beginHandOff)
     expect(begun.session).toMatchObject({ state: 'paused', step: 'handoff:freeze', railIndex: 2, coreSessionId: null })
-    expect(begun.effects).toEqual([{ kind: 'closeAgentSession', coreSessionId: 'flow:flow-1' }, { kind: 'freezeWorktree' }])
+    // The apps stop before the worktree is frozen and changes owner.
+    expect(begun.effects).toEqual([{ kind: 'stopProcesses' }, { kind: 'closeAgentSession', coreSessionId: 'flow:flow-1' }, { kind: 'freezeWorktree' }])
     const frozen = transition(begun.session, { type: 'frozen', headSha: 'c'.repeat(40), now: LATER })
     expect(frozen.session).toMatchObject({ step: 'handoff:launch', headSha: 'c'.repeat(40) })
     expect(frozen.effects).toEqual([{ kind: 'launchRail', railIndex: 2 }])

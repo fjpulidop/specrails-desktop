@@ -13,10 +13,10 @@ ports-and-adapters slice.
 | Lifecycle states, legal transitions, invariants, saga steps, effects | [domain.ts](domain.ts) (pure, no clock/IO) |
 | Settlement plan (effect keys, order, backoff), conversation summary and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
 | Use cases: start, pause, resume, discard, hand-off, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
-| Outbound contracts (repository, tickets, worktree, agent session, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
+| Outbound contracts (repository, tickets, worktree, agent session, background processes, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
 | `flow_sessions` SQL (migration 74) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
-| Port implementations over delivery, specs, missions/Core, accounting, WebSocket; the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
+| Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
 | Production wiring | [project-registry.ts](../../project-registry.ts) (per project), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
 
@@ -27,6 +27,11 @@ ports-and-adapters slice.
 `needs-review` when a worktree disappeared. `step` records an unfinished
 saga (`start:ticket`, `start:worktree`, `start:session`, `handoff:freeze`,
 `handoff:launch`).
+
+Pause, discard and hand-off first run the `stopProcesses` effect: the dev
+servers the Flow agent started in the worktree (`specrails_jobs
+background_start`, tagged `flowId`) stop before the worktree is frozen,
+removed or handed to a rail. Best effort, like closing the session.
 
 ## Invariants
 

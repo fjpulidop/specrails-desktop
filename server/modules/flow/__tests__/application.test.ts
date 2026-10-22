@@ -88,6 +88,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     open: vi.fn(async ({ flowId }: { flowId: string }) => ({ coreSessionId: `flow:${flowId}` })),
     close: vi.fn(async () => {}),
   }
+  const processes = { stop: vi.fn(async (_input: { flowId: string; conversationId: string }) => {}) }
   // The real launcher adopts inside delivery's transaction; the fake mirrors that commit.
   const rails = {
     launch: vi.fn(async ({ flowId, railIndex }: { flowId: string; railIndex: number }) => {
@@ -100,14 +101,14 @@ function setup(overrides: Partial<FlowPorts> = {}) {
   const notifier = { changed: vi.fn() }
   const availability = vi.fn(async () => ({ available: true, reason: 'ok', missing: [] as string[] }))
   const ports: FlowPorts = {
-    repository, tickets, worktrees, agent, rails, usage, notifier, effects, publication,
+    repository, tickets, worktrees, agent, processes, rails, usage, notifier, effects, publication,
     clock: { now: () => new Date(Date.parse('2026-10-21T10:00:00.000Z') + 1000 * clock++ + timeShift.ms).toISOString() },
     ids: () => `flow-${++ids}`,
     availability,
     ...overrides,
   }
   const warn = vi.fn()
-  return { service: createFlowService(ports, { warn }), repository, tickets, worktrees, agent, rails, usage, notifier, availability, warn, effects, publication, jira, timeShift }
+  return { service: createFlowService(ports, { warn }), repository, tickets, worktrees, agent, processes, rails, usage, notifier, availability, warn, effects, publication, jira, timeShift }
 }
 
 const startInput = { conversationId: 'conv-1', idea: 'Try a kanban board\nwith drag and drop' }
@@ -217,6 +218,41 @@ describe('pause, resume and discard', () => {
     expect(tickets.setFlowState).toHaveBeenLastCalledWith(7, 'active')
     await expect(service.resumeFlow('flow-1')).resolves.toEqual(resumed)
     expect(agent.open).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops the Flow apps before closing the session on pause, discard and hand-off', async () => {
+    const order: string[] = []
+    const ctx = setup()
+    ctx.processes.stop.mockImplementation(async () => { order.push('stop') })
+    ctx.agent.close.mockImplementation(async () => { order.push('close') })
+    ctx.worktrees.release.mockImplementation(async () => { order.push('release') })
+    ctx.worktrees.freeze.mockImplementation(async () => { order.push('freeze'); return { headSha: FROZEN } })
+    await ctx.service.startFlow(startInput)
+    await ctx.service.pauseFlow('flow-1')
+    expect(ctx.processes.stop).toHaveBeenLastCalledWith({ flowId: 'flow-1', conversationId: 'conv-1' })
+    expect(order).toEqual(['stop', 'close'])
+    await ctx.service.resumeFlow('flow-1')
+    order.length = 0
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    expect(order).toEqual(['stop', 'close', 'freeze'])
+
+    const other = setup()
+    other.processes.stop.mockImplementation(async () => { order.push('stop') })
+    other.worktrees.release.mockImplementation(async () => { order.push('release') })
+    await other.service.startFlow(startInput)
+    order.length = 0
+    await other.service.discardFlow('flow-1')
+    expect(order).toEqual(['stop', 'release'])
+  })
+
+  it('a failing app stop never blocks pause or discard', async () => {
+    const { service, processes, warn, worktrees } = setup()
+    await service.startFlow(startInput)
+    processes.stop.mockRejectedValue(new Error('kill failed'))
+    await expect(service.pauseFlow('flow-1')).resolves.toMatchObject({ state: 'paused' })
+    await expect(service.discardFlow('flow-1')).resolves.toMatchObject({ state: 'discarded' })
+    expect(worktrees.release).toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('stopProcesses failed'))
   })
 
   it('a failing label update never blocks pause', async () => {
@@ -474,7 +510,7 @@ describe('settlement (arch 4.6)', () => {
 /** Rebuild the port bag of a setup() context (fresh service, same stores). */
 function portsOf(ctx: ReturnType<typeof setup>): FlowPorts {
   return {
-    repository: ctx.repository, tickets: ctx.tickets, worktrees: ctx.worktrees, agent: ctx.agent, rails: ctx.rails, usage: ctx.usage,
+    repository: ctx.repository, tickets: ctx.tickets, worktrees: ctx.worktrees, agent: ctx.agent, processes: ctx.processes, rails: ctx.rails, usage: ctx.usage,
     notifier: ctx.notifier, effects: ctx.effects, publication: ctx.publication,
     clock: { now: () => new Date(Date.parse('2026-10-21T11:00:00.000Z') + ctx.timeShift.ms).toISOString() },
     ids: () => 'flow-x', availability: ctx.availability,

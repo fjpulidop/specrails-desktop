@@ -23,6 +23,8 @@ export interface BackgroundProcess {
   projectId: string
   repositoryId?: string
   repositoryName?: string
+  /** The Flow whose worktree this process runs in (stopped when the Flow pauses, ends or is handed off). */
+  flowId?: string
   stopRequestedAt?: number
   endedAt?: number
   error?: string
@@ -304,7 +306,7 @@ export function startBackgroundProcess(
   chatId: string,
   projectId: string,
   hooks: BackgroundProcessHooks = {},
-  metadata: { repositoryId?: string; repositoryName?: string } = {},
+  metadata: { repositoryId?: string; repositoryName?: string; flowId?: string } = {},
 ): BackgroundProcess {
   assertProcessAdmission(projectId)
   ensureBackgroundProcessStore()
@@ -598,22 +600,39 @@ export function killBackgroundProcessesForChat(chatId: string, projectId?: strin
   return count
 }
 
-/** Shutdown requests stop for all owned apps and keeps the event loop alive
- * through escalation. Returns unresolved processes rather than claiming exit. */
-export async function awaitBackgroundProcessesStopped(timeoutMs = 6000): Promise<BackgroundProcess[]> {
-  for (const record of backgroundByPid.values()) terminateBackgroundRecord(record)
+/** Request stop for the matching live records and wait (bounded) for their
+ * exit. Returns the processes still unresolved at the deadline. */
+async function stopRecordsAndWait(matches: (record: BackgroundRecord) => boolean, timeoutMs: number): Promise<BackgroundProcess[]> {
+  const pending = () => [...backgroundByPid.values()].filter(matches)
+  for (const record of pending()) terminateBackgroundRecord(record)
   const deadline = Date.now() + Math.max(0, timeoutMs)
-  while (backgroundByPid.size > 0 && Date.now() < deadline) {
+  while (pending().length > 0 && Date.now() < deadline) {
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined
     try {
       await Promise.race([
-        Promise.all([...backgroundByPid.values()].map(probeRecord)),
+        Promise.all(pending().map(probeRecord)),
         new Promise(resolve => { deadlineTimer = setTimeout(resolve, Math.max(0, deadline - Date.now())) }),
       ])
     } finally { if (deadlineTimer) clearTimeout(deadlineTimer) }
-    if (backgroundByPid.size === 0 || Date.now() >= deadline) break
+    if (pending().length === 0 || Date.now() >= deadline) break
     await new Promise(resolve => setTimeout(resolve, Math.min(50, Math.max(0, deadline - Date.now()))))
   }
   try { flushBackgroundProcessPersistence() } catch { /* storage failure must not prevent control/shutdown; close reports it to the app */ }
-  return [...backgroundByPid.values()].map(record => cloneProcess(record.process))
+  return pending().map(record => cloneProcess(record.process))
+}
+
+/** Shutdown requests stop for all owned apps and keeps the event loop alive
+ * through escalation. Returns unresolved processes rather than claiming exit. */
+export async function awaitBackgroundProcessesStopped(timeoutMs = 6000): Promise<BackgroundProcess[]> {
+  return stopRecordsAndWait(() => true, timeoutMs)
+}
+
+/** Stop every live process of a Flow (its worktree is about to be frozen,
+ * removed or handed to a rail) and wait, bounded, for them to exit. Returns
+ * how many were asked to stop and those still unresolved at the deadline. */
+export async function stopBackgroundProcessesForFlow(flowId: string, projectId: string, timeoutMs = 4000): Promise<{ stopped: number; unresolved: BackgroundProcess[] }> {
+  const matches = (record: BackgroundRecord) => record.process.flowId === flowId && record.process.projectId === projectId
+  const stopped = [...backgroundByPid.values()].filter(record => matches(record) && !backgroundTerminal.has(record.process.status)).length
+  if (stopped === 0) return { stopped, unresolved: [] }
+  return { stopped, unresolved: await stopRecordsAndWait(matches, timeoutMs) }
 }

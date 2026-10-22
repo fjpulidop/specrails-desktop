@@ -70,6 +70,9 @@ export type FlowEffect =
   | { kind: 'createPlaceholderTicket' }
   | { kind: 'reserveWorktree'; ticketId: number }
   | { kind: 'openAgentSession' }
+  /** Stop the background processes (dev servers) the Flow started in its
+   * worktree: the worktree is about to be paused, frozen, handed off or removed. */
+  | { kind: 'stopProcesses' }
   | { kind: 'closeAgentSession'; coreSessionId: string }
   /** Remove a worktree Flow created. A null path means the reservation may have
    * happened without being recorded; the adapter derives the Flow-owned path. */
@@ -202,7 +205,7 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
     case 'pause': {
       if (session.state === 'paused' && session.step === null) return { session, effects: [] }
       if (session.state !== 'active' || session.step !== null) illegal(session, command)
-      const effects: FlowEffect[] = []
+      const effects: FlowEffect[] = [{ kind: 'stopProcesses' }]
       if (session.coreSessionId) effects.push({ kind: 'closeAgentSession', coreSessionId: session.coreSessionId })
       if (session.ticketId !== null) effects.push({ kind: 'setTicketFlowState', ticketId: session.ticketId, state: 'paused' })
       return { session: next(session, { state: 'paused', coreSessionId: null }, now), effects }
@@ -219,7 +222,7 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
       if (session.state === 'discarded') return { session, effects: [] }
       // The rail owns the worktree after a hand-off: discarding the delivery is the rail's decision.
       if (!isOpenFlow(session) || session.step !== null) illegal(session, command)
-      const effects: FlowEffect[] = []
+      const effects: FlowEffect[] = [{ kind: 'stopProcesses' }]
       if (session.coreSessionId) effects.push({ kind: 'closeAgentSession', coreSessionId: session.coreSessionId })
       if (session.ticketId !== null) {
         effects.push({ kind: 'releaseWorktree', ticketId: session.ticketId, worktreePath: session.worktreePath, branch: session.branch })
@@ -231,7 +234,7 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
       if (session.state === 'handed_off' && session.railIndex === command.railIndex) return { session, effects: [] }
       if (!isOpenFlow(session) || session.step !== null || !session.worktreePath || session.ticketId === null) illegal(session, command)
       if (!Number.isSafeInteger(command.railIndex) || command.railIndex < 0) throw new FlowTransitionError('invalid_command', 'railIndex must be a non-negative integer')
-      const effects: FlowEffect[] = []
+      const effects: FlowEffect[] = [{ kind: 'stopProcesses' }]
       if (session.coreSessionId) effects.push({ kind: 'closeAgentSession', coreSessionId: session.coreSessionId })
       effects.push({ kind: 'freezeWorktree' })
       return {

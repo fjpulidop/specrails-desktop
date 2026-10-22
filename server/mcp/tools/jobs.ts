@@ -1,11 +1,51 @@
 import { z } from 'zod'
-import type { McpToolSpec } from './types'
-import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository } from './types'
-import { startBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
+import type { McpToolContext, McpToolSpec } from './types'
+import type { ProjectContext } from '../../project-registry'
+import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository, toolTierAllowed } from './types'
+import { startBackgroundProcess, getBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
 import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
 import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
 
 const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give the user each as a clickable markdown link: local opens on this computer; network opens from a phone or another device on the same Wi-Fi/VPN. No network URL means the server only listens on this computer (it was started without its host/LAN flag).'
+
+const FLOW_APP_HINT = 'Started in the Flow worktree. Read background_logs now for the listening URL or a startup failure, then give the user the appUrls as clickable links. The Flow bar shows Preview and Stop while it runs; Specrails stops it when the Flow is paused, discarded or handed off.'
+
+/**
+ * The ACTIVE Flow of the authenticated conversation in this project, through
+ * the project's Flow use cases (bound at composition). A paused or settling
+ * Flow, a missing Flow service or a failing lookup all mean "no Flow".
+ */
+export function activeFlowWorkspace(projectCtx: Pick<ProjectContext, 'flow'>, conversationId: string | null | undefined): { flowId: string; worktreePath: string } | null {
+  if (!conversationId) return null
+  try {
+    const flow = projectCtx.flow?.getByConversation(conversationId)
+    if (!flow || flow.state !== 'active' || flow.step !== null || !flow.worktreePath) return null
+    return { flowId: flow.id, worktreePath: flow.worktreePath }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Entering Flow already granted write and execution in the Flow worktree, so
+ * inside an ACTIVE Flow the in-app agent may start (with the user's explicit
+ * confirmation) and stop that Flow's background processes below the
+ * Autonomous level. Everything else keeps the ladder.
+ */
+function flowBackgroundException(ctx: McpToolContext, args: Record<string, unknown>): boolean {
+  const action = args.action
+  if (action !== 'background_start' && action !== 'background_kill') return false
+  if (action === 'background_start' && args.confirmed !== true) return false
+  let projectCtx: ProjectContext
+  try { projectCtx = requireProject(ctx, args.projectId as string | undefined) } catch { return false }
+  const flow = activeFlowWorkspace(projectCtx, ctx.originConversationId)
+  if (!flow) return false
+  if (action === 'background_start') return true
+  const pid = args.pid
+  if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) return false
+  const process = getBackgroundProcess(pid, typeof args.processId === 'string' ? args.processId : undefined)
+  return process?.flowId === flow.flowId && process.projectId === projectCtx.project.id && process.chatId === ctx.originConversationId
+}
 
 function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
   if (!ctx.firstPartyAgent || !ctx.originConversationId) {
@@ -32,7 +72,7 @@ export function jobsTools(): McpToolSpec[] {
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
         'Actions: list, get, queue, spawn (ai-spawn — enqueues a direct slash-command job in the primary repository only, returns {jobId,position}, async; repositoryId is required for multi-repository projects; use specrails_rails launch for spec implementations or specrails_loops run for coordinated secondary/multi-repository work; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation), background_list (read scoped running/recent applications), background_logs (read bounded stdout/stderr and actual lifecycle), background_kill (in-app-agent-only destructive; stopping is not yet stopped), ' +
+        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation; inside an active Flow it runs in the Flow worktree, is tagged with the Flow and is allowed below the Autonomous level), background_list (read scoped running/recent applications), background_logs (read bounded stdout/stderr and actual lifecycle), background_kill (in-app-agent-only destructive; stopping is not yet stopped; a Flow\'s own processes can be stopped from that Flow below the Autonomous level), ' +
         'cancel (destructive — requests cancellation of a running/queued job; it does not delete terminal history), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -60,6 +100,7 @@ export function jobsTools(): McpToolSpec[] {
         if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss', 'runtime_steer'].includes(action)) return 'write'
         return 'read'
       },
+      tierException: flowBackgroundException,
       inputSchema: {
         action: z
           .enum([
@@ -141,7 +182,7 @@ export function jobsTools(): McpToolSpec[] {
         text: z.string().optional().describe('Prompt text for interactive_turn'),
         chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
         repositoryId: z.string().min(1).optional().describe('spawn/background_start: repository membership ID; required when the project has several repositories. spawn accepts only the primary repository; use specrails_rails launch or specrails_loops run for other repositories.'),
-        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root. For tests/dev servers, discover workspacePaths with specrails_projects get and pass the intended code workspace cwd explicitly'),
+        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root (inside an active Flow: inside the Flow worktree, and repositoryId is ignored). For tests/dev servers, discover workspacePaths with specrails_projects get and pass the intended code workspace cwd explicitly'),
         pid: z.number().int().positive().optional().describe('Background process pid for background_logs/background_kill'),
         processId: z.string().min(1).max(200).optional().describe('Background execution UUID returned by background_start/list. Pass with pid on logs/kill to avoid targeting a reused PID.'),
         includeFinished: z.boolean().optional().describe('background_list: include persisted completed/disconnected executions (default true). Active applications are listed first; use limit/offset for older history.'),
@@ -453,6 +494,18 @@ export function jobsTools(): McpToolSpec[] {
             if (args.confirmed !== true) throw new Error('background_start requires confirmed:true after explicit user confirmation for this exact command.')
             const chatId = requireFirstPartyConversation(ctx, 'background_start')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            // Inside an active Flow the app runs in the Flow worktree (never the
+            // project checkout), tagged with the Flow so it stops with it. The
+            // worktree is isolated, so the project's busy guard does not apply.
+            const flow = activeFlowWorkspace(projectCtx, chatId)
+            if (flow) {
+              const cwd = resolveBackgroundCwd(flow.worktreePath, args.cwd as string | undefined, 'the Flow worktree')
+              const process = startBackgroundProcess(command.trim(), cwd, chatId.trim(), projectCtx.project.id,
+                backgroundProcessHooks(ctx.broadcast), { flowId: flow.flowId })
+              return { ok: true, flowId: flow.flowId, cwd, process, hint: FLOW_APP_HINT }
+            }
+            // The Flow exception admitted this call, but the Flow ended meanwhile.
+            if (ctx.agentTierLevel !== undefined && !toolTierAllowed(ctx, 'destructive')) throw new Error('The Flow is no longer active, so background_start needs the Autonomous permission level again.')
             const busyReason = backgroundStartBusyReason(projectCtx)
             if (busyReason && args.allowWhileBusy !== true) {
               throw new Error(`background_start refused because ${busyReason}. Wait for it to finish, or pass allowWhileBusy:true only after explicit user confirmation.`)

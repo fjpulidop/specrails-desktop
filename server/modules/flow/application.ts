@@ -34,7 +34,7 @@ const MAX_IDEA_LENGTH = 20_000
 const FLOW_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 
 /** Effects whose failure must not mask the user's decision (logged, never thrown). */
-const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket'])
+const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['stopProcesses', 'closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket'])
 
 export interface StartFlowInput {
   flowId?: string
@@ -99,6 +99,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
 
   async function execute(session: FlowSession, effect: FlowEffect): Promise<void> {
     switch (effect.kind) {
+      case 'stopProcesses':
+        await ports.processes.stop({ flowId: session.id, conversationId: session.conversationId })
+        return
       case 'closeAgentSession':
         await ports.agent.close({ flowId: session.id, conversationId: session.conversationId, coreSessionId: effect.coreSessionId })
         return
@@ -236,7 +239,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       const begun = transition(session, { type: 'begin-hand-off', railIndex: input.railIndex, now: ports.clock.now() })
       session = commit(begun.session)
       try {
-        await settle(session, begun.effects.filter((effect) => effect.kind === 'closeAgentSession'))
+        await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
         const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha })
         session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
         const launched = await ports.rails.launch({

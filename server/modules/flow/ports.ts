@@ -98,6 +98,14 @@ export interface FlowAgentSession {
   close(input: { flowId: string; conversationId: string; coreSessionId: string }): Promise<void>
 }
 
+/** Background processes (dev servers) the Flow agent started in its worktree
+ * through Specrails (`specrails_jobs background_start`). */
+export interface FlowProcesses {
+  /** Stop every live process tagged with this Flow and wait, bounded, for
+   * them to exit. Best effort: never throws for a process that is already gone. */
+  stop(input: { flowId: string; conversationId: string }): Promise<void>
+}
+
 export interface FlowLaunchOptions {
   loopId?: string
   aiEngine?: string
@@ -160,6 +168,7 @@ export interface FlowPorts {
   tickets: FlowTickets
   worktrees: WorktreeReservation
   agent: FlowAgentSession
+  processes: FlowProcesses
   rails: FlowRailLauncher
   effects: FlowEffectsStore
   publication: FlowPublication

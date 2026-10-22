@@ -6,12 +6,13 @@ import { canonicalRepositoryPath, isRepositoryPathWithin, RepositoryValidationEr
 import { getBackgroundProcess, killOwnedBackgroundProcess, type BackgroundProcess, type BackgroundProcessHooks, type BackgroundProcessOutputEvent } from '../../../transient-children'
 import { withAppUrls } from './app-urls'
 
-/** The same scope and lifecycle policy applies to REST and the mission MCP. */
-export function resolveBackgroundCwd(repositoryRoot: string, cwd: unknown): string {
+/** The same scope and lifecycle policy applies to REST and the mission MCP.
+ * `scope` names the root in the refusal (a repository, or a Flow worktree). */
+export function resolveBackgroundCwd(repositoryRoot: string, cwd: unknown, scope = 'the selected repository'): string {
   if (cwd !== undefined && typeof cwd !== 'string') throw new RepositoryValidationError('cwd must be a string')
   const resolved = path.resolve(repositoryRoot, typeof cwd === 'string' && cwd.trim() ? cwd : '.')
   if (!isRepositoryPathWithin(canonicalRepositoryPath(repositoryRoot), canonicalRepositoryPath(resolved))) {
-    throw new RepositoryValidationError('background_start cwd must stay within the selected repository.')
+    throw new RepositoryValidationError(`background_start cwd must stay within ${scope}.`)
   }
   return resolved
 }

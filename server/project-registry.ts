@@ -28,7 +28,7 @@ import { BrowserCaptureManager } from './modules/browser/runtime/browser-capture
 import { SharedBrowserContextPool } from './modules/browser/runtime/browser-context-pool'
 import { removeExploreCwd } from './modules/conversations/runtime/explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
-import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
+import { killTransientChildren, purgeBackgroundProcessHistory, stopBackgroundProcessesForFlow } from './transient-children'
 import { dropBlobStatesForProject } from './modules/accounting/runtime/telemetry-receiver'
 import {
   mirrorProjectEntryWithPrevious,
@@ -1591,6 +1591,13 @@ export class ProjectRegistry {
     const flowPorts = createFlowPorts({
       ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
       agentHost: () => getAgentChatManager(),
+      // Dev servers the Flow agent started in the worktree stop with the Flow.
+      processes: {
+        async stop({ flowId }) {
+          const { unresolved } = await stopBackgroundProcessesForFlow(flowId, project.id)
+          if (unresolved.length) console.warn(`[flow] ${unresolved.length} background process(es) of Flow ${flowId} did not confirm exit`)
+        },
+      },
     })
     ctx.flow = createFlowService(flowPorts)
     flowService = ctx.flow

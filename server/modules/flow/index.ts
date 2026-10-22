@@ -51,6 +51,7 @@ export type {
   FlowLaunchOptions,
   FlowNotifier,
   FlowPorts,
+  FlowProcesses,
   FlowPublication,
   FlowRailLauncher,
   FlowRepository,
