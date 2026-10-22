@@ -439,5 +439,58 @@
     "saved_other": "Limite de revue fixée à {{count}}",
     "removed": "Limite de revue supprimée",
     "saveFailed": "Impossible d’enregistrer la limite de revue"
+  },
+  "anchoring": {
+    "title": "Ancrage dans les projets existants",
+    "description": "Comportements optionnels qui aident les runs à respecter ce que le projet fait déjà. Chacun nécessite un Core qui le prend en charge.",
+    "coreRequired": "Le Core installé ne le prend pas encore en charge. Mettez Core à jour pour l'activer.",
+    "saveFailed": "Impossible d'enregistrer le réglage",
+    "jiraPostClarifications": {
+      "label": "Publier les clarifications de l'architecte dans Jira",
+      "description": "Quand un run se met en pause avec les questions de l'architecte, ou continue sur des hypothèses, elles sont publiées en commentaire sur l'issue Jira liée. Une réponse y est enregistrée sur la spec comme clarification.",
+      "enabled": "Les clarifications seront publiées dans Jira",
+      "disabled": "Les clarifications resteront dans Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline au contact",
+      "description": "Quand un changement atteint du code qu'aucune spec ne décrit, écrire d'abord des tests de caractérisation (prouvés sur le code inchangé) et une spec tel-que-construit minimale. Ajoute un coût, affiché à part.",
+      "enabled": "Baseline au contact activée",
+      "disabled": "Baseline au contact désactivée"
+    }
+  },
+  "rules": {
+    "title": "Règles du projet",
+    "description": "Les contrôles que le projet exécute déjà et chaque règle écrite, classée comme appliquée, automatisable ou humaine uniquement. Les règles humaines apparaissent dans chaque dossier de revue.",
+    "rerun": "Relancer l'inventaire",
+    "running": "Inventaire en cours…",
+    "coreRequired": "Le Core installé ne prend pas en charge l'inventaire des règles. Mettez Core à jour pour le lancer.",
+    "missing": "Pas encore d'inventaire. Lancez-le pour lister les contrôles et les règles du projet.",
+    "invalid": "Le fichier de règles n'a pas pu être lu : {{message}}",
+    "inventoryDone": "Inventaire des règles mis à jour",
+    "inventoryFailed": "L'inventaire des règles a échoué",
+    "specCreated": "Spec #{{id}} créée",
+    "specFailed": "Impossible de créer la spec",
+    "status": {
+      "automatable": "Automatisable",
+      "humanOnly": "Humaine uniquement",
+      "enforcedBy": "Appliquée",
+      "unclassified": "Non classée"
+    },
+    "generatedAt": "Généré {{date}}",
+    "gates_one": "{{count}} contrôle",
+    "gates_other": "{{count}} contrôles",
+    "gatesHint": "Les commandes de contrôle simples sont proposées en premier comme vérifications dans les réglages de l'agent runtime quand aucune n'est configurée.",
+    "enforcedBy": "Appliquée par {{check}}",
+    "proposedCheck": "Contrôle proposé : {{check}}",
+    "createSpec": "Créer la spec",
+    "dropped_one": "{{count}} entrée ne respectait pas le format et a été ignorée",
+    "dropped_other": "{{count}} entrées ne respectaient pas le format et ont été ignorées",
+    "classification": {
+      "offline": "Les règles ont été inventoriées hors ligne et ne sont pas encore classées. Relancez l'inventaire avec un fournisseur configuré.",
+      "unavailable": "Aucun fournisseur n'est configuré pour classer les règles.",
+      "failed": "Le classement des règles a échoué.",
+      "empty": "Aucune règle écrite n'a été trouvée.",
+      "unknown": "Les règles ne sont pas classées."
+    }
   }
 }

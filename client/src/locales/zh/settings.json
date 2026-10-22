@@ -439,5 +439,58 @@
     "saved_other": "评审上限已设为 {{count}}",
     "removed": "已移除评审上限",
     "saveFailed": "无法保存评审上限"
+  },
+  "anchoring": {
+    "title": "在现有项目中落地",
+    "description": "帮助运行尊重项目既有做法的可选行为。每一项都需要支持它的 Core。",
+    "coreRequired": "已安装的 Core 尚不支持此功能。请更新 Core 以启用。",
+    "saveFailed": "无法保存设置",
+    "jiraPostClarifications": {
+      "label": "将架构师的澄清问题发布到 Jira",
+      "description": "当运行因架构师的问题而暂停，或基于假设继续时，将其作为评论发布到关联的 Jira 问题。在那里的回复会作为澄清记录到规格上。",
+      "enabled": "澄清问题将发布到 Jira",
+      "disabled": "澄清问题将保留在 Specrails 中"
+    },
+    "baselineOnTouch": {
+      "label": "触及时建立基线",
+      "description": "当变更触及没有任何规格描述的代码时，先编写特征测试（在未修改的代码上证明）和一份最小的现状规格。会增加成本，并单独显示。",
+      "enabled": "已启用触及时建立基线",
+      "disabled": "已停用触及时建立基线"
+    }
+  },
+  "rules": {
+    "title": "项目规则",
+    "description": "项目已运行的检查，以及每条书面规则，分为已执行、可自动化或仅限人工。仅限人工的规则会出现在每个评审包中。",
+    "rerun": "重新盘点",
+    "running": "正在盘点…",
+    "coreRequired": "已安装的 Core 不支持规则盘点。请更新 Core 后再运行。",
+    "missing": "尚无盘点结果。运行它以列出项目的关卡和规则。",
+    "invalid": "无法读取规则文件：{{message}}",
+    "inventoryDone": "规则盘点已更新",
+    "inventoryFailed": "规则盘点失败",
+    "specCreated": "已创建规格 #{{id}}",
+    "specFailed": "无法创建规格",
+    "status": {
+      "automatable": "可自动化",
+      "humanOnly": "仅限人工",
+      "enforcedBy": "已执行",
+      "unclassified": "未分类"
+    },
+    "generatedAt": "生成于 {{date}}",
+    "gates_other": "{{count}} 个关卡",
+    "gatesHint": "未配置验证检查时，简单的关卡命令会在 Agent Runtime 设置中优先作为验证检查提供。",
+    "enforcedBy": "由 {{check}} 执行",
+    "proposedCheck": "建议的检查：{{check}}",
+    "createSpec": "创建规格",
+    "dropped_other": "{{count}} 个条目不符合格式，已跳过",
+    "classification": {
+      "offline": "规则是离线盘点的，尚未分类。请在配置提供方后重新盘点。",
+      "unavailable": "未配置用于分类规则的提供方。",
+      "failed": "规则分类失败。",
+      "empty": "未找到书面规则。",
+      "unknown": "规则尚未分类。"
+    },
+    "gates_one": "{{count}} 个关卡",
+    "dropped_one": "{{count}} 个条目不符合格式，已跳过"
   }
 }

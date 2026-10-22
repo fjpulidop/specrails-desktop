@@ -439,5 +439,58 @@
     "saved_other": "Review limit set to {{count}}",
     "removed": "Review limit removed",
     "saveFailed": "Could not save the review limit"
+  },
+  "anchoring": {
+    "title": "Existing-project anchoring",
+    "description": "Optional behaviours that help runs respect what the project already does. Each one needs a Core that supports it.",
+    "coreRequired": "The installed Core does not support this yet. Update Core to enable it.",
+    "saveFailed": "Could not save the setting",
+    "jiraPostClarifications": {
+      "label": "Post architect clarifications to Jira",
+      "description": "When a run pauses with the architect's questions, or proceeds on assumptions, post them as a comment on the linked Jira issue. A reply there is recorded on the spec as a clarification.",
+      "enabled": "Clarifications will be posted to Jira",
+      "disabled": "Clarifications will stay in Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline on touch",
+      "description": "When a change reaches code no spec describes, first write characterization tests (proven on the unchanged code) and a minimal as-built spec. Adds cost, reported apart.",
+      "enabled": "Baseline on touch enabled",
+      "disabled": "Baseline on touch disabled"
+    }
+  },
+  "rules": {
+    "title": "Project rules",
+    "description": "The checks this project already runs and every written rule, classified as enforced, automatable or human-only. Human-only rules appear in each review packet.",
+    "rerun": "Re-run inventory",
+    "running": "Running inventory…",
+    "coreRequired": "The installed Core does not support the rules inventory. Update Core to run it.",
+    "missing": "No inventory yet. Run it to list the project's gates and rules.",
+    "invalid": "The rules file could not be read: {{message}}",
+    "inventoryDone": "Rules inventory updated",
+    "inventoryFailed": "The rules inventory failed",
+    "specCreated": "Spec #{{id}} created",
+    "specFailed": "Could not create the spec",
+    "status": {
+      "automatable": "Automatable",
+      "humanOnly": "Human only",
+      "enforcedBy": "Enforced",
+      "unclassified": "Unclassified"
+    },
+    "generatedAt": "Generated {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Plain gate commands are offered first as verification checks in the agent runtime settings when none are configured.",
+    "enforcedBy": "Enforced by {{check}}",
+    "proposedCheck": "Proposed check: {{check}}",
+    "createSpec": "Create spec",
+    "dropped_one": "{{count}} entry did not match the format and was skipped",
+    "dropped_other": "{{count}} entries did not match the format and were skipped",
+    "classification": {
+      "offline": "Rules were inventoried offline and are not classified yet. Re-run the inventory with a configured provider.",
+      "unavailable": "No provider is configured to classify the rules.",
+      "failed": "Classifying the rules failed.",
+      "empty": "No written rules were found.",
+      "unknown": "The rules are not classified."
+    }
   }
 }

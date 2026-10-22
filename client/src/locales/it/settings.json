@@ -439,5 +439,58 @@
     "saved_other": "Limite di revisione impostato a {{count}}",
     "removed": "Limite di revisione rimosso",
     "saveFailed": "Impossibile salvare il limite di revisione"
+  },
+  "anchoring": {
+    "title": "Ancoraggio nei progetti esistenti",
+    "description": "Comportamenti opzionali che aiutano i run a rispettare ciò che il progetto già fa. Ognuno richiede un Core che lo supporti.",
+    "coreRequired": "Il Core installato non lo supporta ancora. Aggiorna Core per attivarlo.",
+    "saveFailed": "Impossibile salvare l'impostazione",
+    "jiraPostClarifications": {
+      "label": "Pubblica i chiarimenti dell'architetto su Jira",
+      "description": "Quando un run si mette in pausa con le domande dell'architetto, o prosegue su ipotesi, vengono pubblicate come commento sull'issue Jira collegata. Una risposta lì viene registrata sulla spec come chiarimento.",
+      "enabled": "I chiarimenti verranno pubblicati su Jira",
+      "disabled": "I chiarimenti resteranno in Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline al contatto",
+      "description": "Quando una modifica raggiunge codice che nessuna spec descrive, scrivi prima test di caratterizzazione (dimostrati sul codice invariato) e una spec as-built minima. Aggiunge costo, mostrato a parte.",
+      "enabled": "Baseline al contatto attivata",
+      "disabled": "Baseline al contatto disattivata"
+    }
+  },
+  "rules": {
+    "title": "Regole del progetto",
+    "description": "I controlli che il progetto già esegue e ogni regola scritta, classificata come applicata, automatizzabile o solo umana. Le regole solo umane compaiono in ogni pacchetto di revisione.",
+    "rerun": "Riesegui l'inventario",
+    "running": "Inventario in corso…",
+    "coreRequired": "Il Core installato non supporta l'inventario delle regole. Aggiorna Core per eseguirlo.",
+    "missing": "Ancora nessun inventario. Eseguilo per elencare i gate e le regole del progetto.",
+    "invalid": "Impossibile leggere il file delle regole: {{message}}",
+    "inventoryDone": "Inventario delle regole aggiornato",
+    "inventoryFailed": "L'inventario delle regole non è riuscito",
+    "specCreated": "Spec #{{id}} creata",
+    "specFailed": "Impossibile creare la spec",
+    "status": {
+      "automatable": "Automatizzabile",
+      "humanOnly": "Solo umana",
+      "enforcedBy": "Applicata",
+      "unclassified": "Non classificata"
+    },
+    "generatedAt": "Generato {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gate",
+    "gatesHint": "I comandi gate semplici vengono proposti per primi come controlli di verifica nelle impostazioni dell'agent runtime quando non ne è configurato nessuno.",
+    "enforcedBy": "Applicata da {{check}}",
+    "proposedCheck": "Controllo proposto: {{check}}",
+    "createSpec": "Crea spec",
+    "dropped_one": "{{count}} voce non rispettava il formato ed è stata saltata",
+    "dropped_other": "{{count}} voci non rispettavano il formato e sono state saltate",
+    "classification": {
+      "offline": "Le regole sono state inventariate offline e non sono ancora classificate. Riesegui l'inventario con un provider configurato.",
+      "unavailable": "Nessun provider è configurato per classificare le regole.",
+      "failed": "La classificazione delle regole non è riuscita.",
+      "empty": "Non sono state trovate regole scritte.",
+      "unknown": "Le regole non sono classificate."
+    }
   }
 }

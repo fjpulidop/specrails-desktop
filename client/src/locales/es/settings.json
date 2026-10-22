@@ -439,5 +439,58 @@
     "saved_other": "Límite de revisión fijado en {{count}}",
     "removed": "Límite de revisión eliminado",
     "saveFailed": "No se pudo guardar el límite de revisión"
+  },
+  "anchoring": {
+    "title": "Anclaje en proyectos existentes",
+    "description": "Comportamientos opcionales que ayudan a que los runs respeten lo que el proyecto ya hace. Cada uno necesita un Core que lo soporte.",
+    "coreRequired": "El Core instalado aún no lo soporta. Actualiza Core para activarlo.",
+    "saveFailed": "No se pudo guardar el ajuste",
+    "jiraPostClarifications": {
+      "label": "Publicar las aclaraciones del arquitecto en Jira",
+      "description": "Cuando un run se pausa con preguntas del arquitecto, o continúa con supuestos, se publican como comentario en la issue de Jira enlazada. Una respuesta allí se registra en la spec como aclaración.",
+      "enabled": "Las aclaraciones se publicarán en Jira",
+      "disabled": "Las aclaraciones se quedarán en Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline al tocar",
+      "description": "Cuando un cambio llega a código que ninguna spec describe, primero escribe tests de caracterización (demostrados sobre el código sin cambios) y una spec as-built mínima. Añade coste, que se muestra aparte.",
+      "enabled": "Baseline al tocar activado",
+      "disabled": "Baseline al tocar desactivado"
+    }
+  },
+  "rules": {
+    "title": "Reglas del proyecto",
+    "description": "Los checks que el proyecto ya ejecuta y cada regla escrita, clasificada como aplicada, automatizable o solo humana. Las reglas solo humanas aparecen en cada packet de revisión.",
+    "rerun": "Volver a inventariar",
+    "running": "Inventariando…",
+    "coreRequired": "El Core instalado no soporta el inventario de reglas. Actualiza Core para ejecutarlo.",
+    "missing": "Aún no hay inventario. Ejecútalo para listar los gates y las reglas del proyecto.",
+    "invalid": "No se pudo leer el fichero de reglas: {{message}}",
+    "inventoryDone": "Inventario de reglas actualizado",
+    "inventoryFailed": "El inventario de reglas falló",
+    "specCreated": "Spec #{{id}} creada",
+    "specFailed": "No se pudo crear la spec",
+    "status": {
+      "automatable": "Automatizable",
+      "humanOnly": "Solo humana",
+      "enforcedBy": "Aplicada",
+      "unclassified": "Sin clasificar"
+    },
+    "generatedAt": "Generado {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Los comandos de gate simples se ofrecen primero como checks de verificación en los ajustes del agent runtime cuando no hay ninguno configurado.",
+    "enforcedBy": "Aplicada por {{check}}",
+    "proposedCheck": "Check propuesto: {{check}}",
+    "createSpec": "Crear spec",
+    "dropped_one": "{{count}} entrada no seguía el formato y se omitió",
+    "dropped_other": "{{count}} entradas no seguían el formato y se omitieron",
+    "classification": {
+      "offline": "Las reglas se inventariaron sin conexión y aún no están clasificadas. Vuelve a inventariar con un proveedor configurado.",
+      "unavailable": "No hay un proveedor configurado para clasificar las reglas.",
+      "failed": "Falló la clasificación de las reglas.",
+      "empty": "No se encontraron reglas escritas.",
+      "unknown": "Las reglas no están clasificadas."
+    }
   }
 }

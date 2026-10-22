@@ -192,6 +192,21 @@ describe('runtime project configuration', () => {
     expect(fs.existsSync(agentRuntimeConfigPath(project()))).toBe(false)
   })
 
+  it('offers the rules inventory gates first when Core announces rulesInventory, plain commands only', async () => {
+    fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ name: 'example', scripts: { test: 'vitest run', lint: 'eslint .' } }))
+    fs.mkdirSync(path.join(directory, '.specrails'), { recursive: true })
+    fs.writeFileSync(path.join(directory, '.specrails', 'rules.json'), JSON.stringify({ gates: [
+      { id: 'eslint', kind: 'lint', command: 'npm run lint' },
+      { id: 'ci', kind: 'ci', command: 'npm test && npm run build' },
+    ], rules: [] }))
+    const before = await request(app).get('/api/projects/example/agent-runtime/verification-suggestions').expect(200)
+    expect(before.body.suggestions.some((item: { reason: string }) => item.reason.startsWith('project rules gate'))).toBe(false)
+    loader.apiCapabilities = { rulesInventory: 1 }
+    const after = await request(app).get('/api/projects/example/agent-runtime/verification-suggestions').expect(200)
+    expect(after.body.suggestions[0]).toEqual({ repositoryId: 'primary-example', command: 'npm', args: ['run', 'lint'], reason: 'project rules gate "eslint" (lint)' })
+    expect(after.body.suggestions.filter((item: { args: string[] }) => item.args.join(' ') === 'run lint')).toHaveLength(1)
+  })
+
   it.each([
     ['wrong version', (c: any) => { c.schemaVersion = 2 }],
     ['unknown field', (c: any) => { c.apiKey = 'sensitive-submitted-value' }],

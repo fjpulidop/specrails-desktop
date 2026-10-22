@@ -9,6 +9,7 @@ import type { ProjectConfig } from '../../../types'
 import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
 import { ProjectRepositoriesSection } from '../components/ProjectRepositoriesSection'
 import { AgentRuntimeSettingsSection } from '../components/AgentRuntimeSettingsSection'
+import { ProjectAnchoringSection, ProjectRulesSection } from '../components/ProjectAnchoringSections'
 import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
@@ -130,6 +131,10 @@ export default function SettingsPage() {
       <ProjectReviewWipSection />
 
       <ProjectAgentAuditSection />
+
+      <ProjectAnchoringSection />
+
+      <ProjectRulesSection />
 
       <TerminalSettingsSection mode="project" />
 
