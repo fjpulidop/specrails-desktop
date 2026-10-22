@@ -227,5 +227,30 @@
       "queue_manager_slash": "Comandos en cola",
       "merge_back": "Integraciones locales"
     }
+  },
+  "decisionTimes": {
+    "title": "Tiempo hasta la decisión",
+    "subtitle": "Desde que está lista para revisión hasta la primera decisión humana y hasta el merge",
+    "toDecision": "Tiempo hasta la decisión",
+    "toMerge": "Tiempo hasta el merge",
+    "median": "mediana",
+    "p90": "p90",
+    "counts": "{{measured}} medidas · {{pending}} pendientes · {{unknown}} desconocidas",
+    "unknownValue": "Desconocido",
+    "loading": "Cargando tiempos de decisión…",
+    "unavailable": "No se pudieron cargar los tiempos de decisión.",
+    "empty": "Ninguna entrega llegó a revisión en este periodo.",
+    "byLoop": "Tiempos de decisión por loop",
+    "loop": "Loop",
+    "deliveries": "Entregas",
+    "decisionMedianP90": "Decisión (mediana · p90)",
+    "mergeMedianP90": "Merge (mediana · p90)",
+    "unnamedLoop": "Loop sin nombre",
+    "note": "Desconocidas cuenta las entregas sin instantes registrados (por ejemplo, las creadas antes de que existiera esta métrica). Nunca se cuentan como cero.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} d"
+    }
   }
 }

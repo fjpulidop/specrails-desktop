@@ -10,7 +10,7 @@ import {
 import { PrDecisionDeps, PrDecisionResult } from './contracts'
 import { retryExistingPrFollowupPush } from './retry'
 import { COMMIT_SHA_RE, commitObjectExists, captureBranchSha, releaseDeliveredRecoveryLineage } from './evidence'
-import { casTransition, finalizeTransition, safetyArchiveRecorder } from './transitions'
+import { casTransition, decisionInstant, finalizeTransition, safetyArchiveRecorder } from './transitions'
 import { loadPrTicketData, batchWorktreeRoot, parsePrNumber } from './metadata'
 import { releasableWorktreeIds } from './ownership'
 
@@ -49,6 +49,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     if (!sourceSha) {
       const detail = `the verified commit for branch '${unit.branch}' (ticket #${unit.ticketId}) is unavailable; refusing to deliver a mutable or unrelated ref`
       const conflict = casTransition(deps, row, 'pr_failed', {
+        decidedAt: decisionInstant(row),
         deliveryOutcome: 'blocked', statusCode: 'branch_verification_failed', statusDetail: detail,
       })
       if (conflict) return conflict
@@ -114,7 +115,8 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
   // Underlying git/gh failure detail for a degraded or failed delivery —
   // relayed on the response and persisted as bounded secondary diagnostics.
   let detail: string | null = null
-  const patch: PrDeliveryPatch = {}
+  // The click on Create PR is the human decision, whatever the outcome.
+  const patch: PrDeliveryPatch = { decidedAt: decisionInstant(row) }
   if (branchEvidenceCaptured) patch.branches = effectiveBranches
   try {
     // A degraded multi-unit attempt already owns an assembled batch branch.

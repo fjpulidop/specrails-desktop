@@ -20,6 +20,7 @@ import { CostScatter } from '../components/CostScatter'
 import { TopTicketsCrossSurface } from '../components/TopTicketsCrossSurface'
 import { InvocationsTable } from '../components/InvocationsTable'
 import { LegacyWorkflowUsage } from '../components/LegacyWorkflowUsage'
+import { DecisionTimesCard } from '../components/DecisionTimesCard'
 
 const PERIODS: { value: Period; labelKey: string }[] = [
   { value: '7d', labelKey: 'periods.d7' },
@@ -433,6 +434,11 @@ export default function AnalyticsPage() {
 
       {/* Block 2b: Agent-mission spend (pinned Agent Chat turns — hidden when empty) */}
       <AgentMissionsCard data={data} loading={loading} />
+
+      {/* Block 2c: Time to decision / merge per delivery (period-scoped only) */}
+      {activeProjectId && (
+        <DecisionTimesCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
+      )}
 
       {/* Blocks 3 + 4 side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

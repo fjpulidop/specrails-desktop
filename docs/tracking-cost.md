@@ -73,6 +73,12 @@ Surface colours are consistent wherever a surface appears across the page:
 - `file-summary` → yellow (`accent-warning`)
 - `loop` → primary (`accent-primary`)
 
+### Time to decision
+
+How long deliveries wait for you. From the moment a delivery becomes reviewable (`on_review`), the card shows the **median** and **p90** time to the first human decision (Create PR, Discard, Merge locally — including a Create PR that failed) and to the merge (in-app local merge or the merge observed on GitHub), for the project and per loop, in the selected period.
+
+Every instant is recorded once and never moved by a retry, a second click or a restart (first write wins). A delivery still waiting counts as **pending**; one without recorded instants — for example created before this metric existed — counts as **unknown**. Neither is ever counted as zero. Discarded deliveries count toward time to decision but never toward time to merge. The same data is available through `specrails_analytics` (`decision_times`).
+
 ### Quick vs Explore card
 
 Share-of-spend between Quick spec generation and Explore conversations, with a small sparkline. If Explore has fewer than 5 runs in the period, a CTA nudges you to try it.

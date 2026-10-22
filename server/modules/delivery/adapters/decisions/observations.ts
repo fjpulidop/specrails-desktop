@@ -82,6 +82,9 @@ export async function settleObservedExistingPr(
     onSafetyArchive: safetyArchiveRecorder(deps, row),
   })
   const conflict = casTransition(deps, row, next, {
+    // Publishing (draft → ready, in-app or observed on GitHub) is stamped once;
+    // an already-ready row keeps its unknown/recorded instant untouched.
+    ...(next === 'pr_ready' && row.decision !== 'pr_ready' ? { publishedAt: new Date().toISOString() } : {}),
     prState: 'pr-created',
     deliveryOutcome: 'delivered',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : next === 'pr_ready' ? 'pr_ready' : 'existing_pr_updated',
@@ -271,6 +274,8 @@ export async function settleMergedPr(deps: PrDecisionDeps, row: RailPrDeliveryRo
   await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
 
   const conflict = casTransitionWithTicketEffect(deps, row, 'merged', {
+    // Observed (poll-merge / publish re-observation) merge instant; first write wins.
+    mergedAt: new Date().toISOString(),
     deliveryOutcome: 'delivered',
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
     statusDetail: null,

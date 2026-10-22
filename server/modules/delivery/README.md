@@ -38,6 +38,15 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/delivery` and any affected consumers.
 
+Decision transitions also record first-write-wins lifecycle instants (migration
+72): entering `on_review`, `pr_ready` and `merged` stamps `on_review_at`,
+`published_at` and `merged_at` inside the same CAS UPDATE; the create-pr,
+discard, acknowledge-no-changes and merge-local adapters pass `decidedAt` = the
+operation-lease claim instant, and observation adapters pass explicit publish /
+merge instants. A human decision is never inferred from a transition (startup
+recovery can leave `on_review`). Grouped deliveries take the earliest repository
+decision. `accounting/runtime/decision-times.ts` aggregates them.
+
 Delivery change requests and same-spec addenda default to Quick SDD, while
 respecting an explicit loop or mode selection (including Implement), using
 the existing supersession/rollback contract. `revisionOfDeliveryId` remains the

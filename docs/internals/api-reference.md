@@ -295,6 +295,7 @@ Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `a
 | `GET` | `/invocations` | Paginated raw `ai_invocations` rows |
 | `GET` | `/tickets/:id/spending-summary` | Per-ticket cross-surface aggregate (powers `TicketSpendingLine`) |
 | `GET` | `/analytics/export?format=csv\|json&mode=summary\|raw&…` | Multi-section summary CSV/JSON, or raw rows (10 000 cap) |
+| `GET` | `/analytics/decision-times?period=7d\|30d\|90d\|all\|custom&from&to` | Time to decision / merge per delivery: `{ period, from, to, project, byLoop[] }`, each group `{ deliveries, toDecision, toMerge }` with `{ measured, pending, unknown, medianMs, p90Ms }`. Window = `on_review_at` (or `created_at` for legacy rows). `medianMs`/`p90Ms` are `null` when nothing is measurable; unknown is never zero. Repository children are excluded (counted via the group parent). 400 on an invalid period or a custom period without `from`/`to` |
 
 Example — the Analytics dashboard payload (abridged):
 

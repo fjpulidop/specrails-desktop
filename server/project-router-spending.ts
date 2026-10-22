@@ -6,6 +6,7 @@ import { getConfig, fetchIssues } from './config'
 import { resolveProjectExecution } from './workspace-resolution'
 import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
 import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
+import { getDecisionTimes } from './modules/accounting/runtime/decision-times'
 import { readStore } from './modules/specs/runtime/ticket-store'
 import { readLegacyLaunchSummary } from './modules/loops/runtime/legacy-launch-telemetry'
 import {
@@ -49,6 +50,26 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
     catch (error) {
       if (error instanceof RangeError) { res.status(400).json({ error: 'invalid_since' }); return }
       res.status(503).json({ error: 'legacy_telemetry_unavailable' })
+    }
+  })
+
+  // Time to decision / merge per delivery (delivery-decision-times). Unknown
+  // instants stay counted as unknown — never folded into a zero duration.
+  router.get('/:projectId/analytics/decision-times', (req: Request, res: Response) => {
+    const filters = parseSpendingFilters(req.query as Record<string, unknown>)
+    if (filters.period && !['7d', '30d', '90d', 'all', 'custom'].includes(filters.period)) {
+      res.status(400).json({ error: 'invalid_period' })
+      return
+    }
+    if (filters.period === 'custom' && (!filters.from || !filters.to)) {
+      res.status(400).json({ error: 'from and to are required for custom period' })
+      return
+    }
+    try {
+      res.json(getDecisionTimes(ctx(req).db, filters))
+    } catch (err) {
+      console.error('[decision-times] query failed:', err)
+      res.status(500).json({ error: 'decision_times_unavailable' })
     }
   })
 

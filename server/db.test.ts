@@ -419,6 +419,30 @@ describe('db', () => {
       }
     })
 
+    it('migration 72 adds nullable decision-time instants, leaves history unknown and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-decision-times-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      const columns = ['on_review_at', 'decided_at', 'published_at', 'merged_at']
+      try {
+        db.prepare("INSERT INTO rail_pr_deliveries (id, rail_index, rail_key, ticket_ids, base_branch, loop_name, origin_surface, decision) VALUES ('old', 0, '0-quick', '[4]', 'main', 'Quick', 'dashboard', 'merged')").run()
+        for (const column of columns) db.exec(`ALTER TABLE rail_pr_deliveries DROP COLUMN ${column}`)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 72').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('PRAGMA table_info(rail_pr_deliveries)').all()).toEqual(expect.arrayContaining(
+          columns.map((name) => expect.objectContaining({ name, type: 'TEXT', notnull: 0, dflt_value: null })),
+        ))
+        // Not derivable exactly from existing columns: unknown, never backfilled.
+        expect(db.prepare("SELECT on_review_at, decided_at, published_at, merged_at FROM rail_pr_deliveries WHERE id='old'").get())
+          .toEqual({ on_review_at: null, decided_at: null, published_at: null, merged_at: null })
+        db.prepare('DELETE FROM schema_migrations WHERE version = 72').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 72').get()).toEqual({ version: 72 })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 70 converts stored Batch rails to implement', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-remove-batch-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

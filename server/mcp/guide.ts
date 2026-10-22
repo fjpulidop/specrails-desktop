@@ -380,6 +380,8 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   economy. TWO budget knobs exist: \`specrails_analytics(budget_set,
   dailyBudgetUsd)\` is PER-PROJECT and pauses that project's queue when
   exceeded; \`specrails_settings(set, dailyBudgetUsd)\` is the APP-WIDE budget.
+  \`decision_times\` reports median/p90 time to decision and to merge per
+  project and loop; \`unknown\` counts missing instants, never zero durations.
 - **Plugins** (\`specrails_plugins\`): per-project MCP integrations; \`preview\`
   the diff before \`install\`; a degraded plugin never blocks rail launches.
 - **Profiles** (\`specrails_agents\`): per-project agent chains; the baseline

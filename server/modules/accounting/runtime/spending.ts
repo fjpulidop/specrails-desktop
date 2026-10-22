@@ -215,7 +215,7 @@ function emptyBySurface(): Record<Surface, { count: number; costUsd: number; unp
   return out
 }
 
-interface ResolvedRange {
+export interface ResolvedRange {
   from: string
   to: string
   prevFrom: string
@@ -245,7 +245,7 @@ function normalizeCustomBound(raw: string, edge: 'start' | 'end', tzOffsetMinute
   return new Date(localStartUtc + 86_400_000 - 1).toISOString()
 }
 
-function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
+export function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
   const period = filters.period ?? '30d'
   const tzOffset = filters.tzOffsetMinutes ?? 0
   // Only take the custom branch when BOTH dates parse — otherwise
