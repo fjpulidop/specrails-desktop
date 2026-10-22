@@ -161,5 +161,15 @@
     "reached_one": "Limite de revisão atingido: {{count}} entrega aguarda revisão (limite {{limit}}). Nada foi iniciado.",
     "reached_other": "Limite de revisão atingido: {{count}} entregas aguardam revisão (limite {{limit}}). Nada foi iniciado.",
     "action": "Decida uma entrega pendente (Criar PR, mesclar ou descartar) ou aumente o limite em Configurações do projeto ▸ Limite de revisão."
+  },
+  "initialCommit": {
+    "action": "Criar commit inicial",
+    "creating": "A criar o commit inicial…",
+    "createdRelaunch": "Commit inicial criado. Lance o rail novamente.",
+    "errors": {
+      "git_identity_missing": "O Git não tem identidade de autor. Configure primeiro user.name e user.email.",
+      "repository_has_commits": "Este repositório já tem commits.",
+      "generic": "Não foi possível criar o commit inicial."
+    }
   }
 }

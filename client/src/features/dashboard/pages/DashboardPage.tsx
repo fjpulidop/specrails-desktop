@@ -62,6 +62,7 @@ import {
 } from '../../specs/lib/specs-view-tier'
 import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { createInitialCommit, initialCommitErrorMessage } from '../../../lib/initial-commit'
 import { pendingReviewFromDecisions, railLaunchAddsReviewWip, readReviewWipRejection, reviewWipActionMessage, reviewWipCapacity, reviewWipRejectionMessage, useReviewWipLimit } from '../../../lib/review-wip'
 
 const INITIAL_RAILS: RailState[] = [
@@ -1273,6 +1274,22 @@ export default function DashboardPage() {
     await doLaunchRail(railId)
   }
 
+  // "Create initial commit" from a repository_has_no_commits toast: one empty
+  // commit in the primary repository, then the user relaunches.
+  function initialCommitAction() {
+    const projectId = activeProjectId
+    return {
+      label: t('common:initialCommit.action'),
+      onClick: () => {
+        if (!projectId) return
+        void createInitialCommit(projectId).then((result) => {
+          if (result.ok) toast.success(t('common:initialCommit.createdRelaunch'))
+          else toast.error(initialCommitErrorMessage(t, result.code))
+        })
+      },
+    }
+  }
+
   async function doLaunchRail(railId: string, opts?: { silent?: boolean }): Promise<LaunchOutcome> {
     const silent = opts?.silent ?? false
     const rail = rails.find((r) => r.id === railId)
@@ -1390,7 +1407,7 @@ export default function DashboardPage() {
         }
         // Unborn HEAD in a repository the launch must isolate: nothing spawned.
         if (res.status === 409 && data.error === 'repository_has_no_commits') {
-          if (!silent) toast.error(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000 })
+          if (!silent) toast.error(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000, action: initialCommitAction() })
           return 'noCommits'
         }
         // The active Core runs only definitions (Core 7): the loop must be converted.
@@ -1521,10 +1538,11 @@ export default function DashboardPage() {
     if (noCommits > 0) parts.push(t('toasts.launchRepositoryHasNoCommits'))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
+    const action = noCommits > 0 ? { action: initialCommitAction() } : {}
     if (launched > 0) {
-      toast.success(t('toasts.launchAllSummary', { count: launched }), description ? { description } : undefined)
+      toast.success(t('toasts.launchAllSummary', { count: launched }), description || noCommits > 0 ? { description, ...action } : undefined)
     } else {
-      toast.error(t('toasts.launchAllFailed'), description ? { description } : undefined)
+      toast.error(t('toasts.launchAllFailed'), description || noCommits > 0 ? { description, ...action } : undefined)
     }
   }
 

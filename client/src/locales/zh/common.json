@@ -161,5 +161,15 @@
     "reached_one": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
     "reached_other": "已达到评审上限:{{count}} 个交付正在等待评审(上限 {{limit}})。未启动任何任务。",
     "action": "请处理一个待决交付(创建 PR、合并或丢弃),或在项目设置 ▸ 评审上限中提高上限。"
+  },
+  "initialCommit": {
+    "action": "创建初始提交",
+    "creating": "正在创建初始提交…",
+    "createdRelaunch": "已创建初始提交。请重新启动该轨道。",
+    "errors": {
+      "git_identity_missing": "Git 没有作者身份。请先设置 user.name 和 user.email。",
+      "repository_has_commits": "此仓库已有提交。",
+      "generic": "无法创建初始提交。"
+    }
   }
 }

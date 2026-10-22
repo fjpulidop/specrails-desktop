@@ -13,6 +13,7 @@ import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/FlowContext'
 import { FlowApiError, type Flow } from '../lib/flow-api'
 import { missingCapabilityKeys } from '../lib/flow-offer'
+import { InitialCommitButton } from '../../../components/InitialCommitButton'
 
 interface Props {
   idea: string
@@ -33,6 +34,7 @@ export function FlowEntryCard({ idea, title, projectId, conversationId, provider
   const availability = useFlowAvailability(projectId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
 
   const missing = availability && !availability.available ? missingCapabilityKeys(availability.missing).map((key) => t(key)) : []
   const blockReason = !projectId || !conversationId
@@ -50,10 +52,12 @@ export function FlowEntryCard({ idea, title, projectId, conversationId, provider
     if (!ctx || !projectId || !conversationId || busy || blockReason || loading) return
     setBusy(true)
     setError(null)
+    setErrorCode(null)
     try {
       onStarted(await ctx.start(projectId, conversationId, idea, title))
     } catch (err) {
       if (err instanceof FlowApiError && err.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
+      setErrorCode(err instanceof FlowApiError ? err.code : null)
       setError(err instanceof FlowApiError ? t(`flow.errors.${err.code}`, { defaultValue: err.detail || err.code }) : t('flow.errors.generic'))
     } finally {
       setBusy(false)
@@ -98,6 +102,10 @@ export function FlowEntryCard({ idea, title, projectId, conversationId, provider
           </div>
         )}
         {error && <p role="alert" data-testid="flow-entry-error" className="text-xs text-destructive">{error}</p>}
+        {errorCode === 'repository_has_no_commits' && projectId && !busy && (
+          // The commit is the only missing step: Start retries on its own.
+          <InitialCommitButton projectId={projectId} onCreated={() => void startFlow()} />
+        )}
         <div className="flex items-center justify-end gap-2">
           <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-foreground/65 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
             {t('flow.entry.cancel')}

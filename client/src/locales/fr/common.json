@@ -161,5 +161,15 @@
     "reached_one": "Limite de revue atteinte : {{count}} livraison attend une revue (limite {{limit}}). Rien n’a été lancé.",
     "reached_other": "Limite de revue atteinte : {{count}} livraisons attendent une revue (limite {{limit}}). Rien n’a été lancé.",
     "action": "Décidez d’une livraison en attente (Créer la PR, fusionner ou abandonner) ou augmentez la limite dans Réglages du projet ▸ Limite de revue."
+  },
+  "initialCommit": {
+    "action": "Créer le commit initial",
+    "creating": "Création du commit initial…",
+    "createdRelaunch": "Commit initial créé. Relancez le rail.",
+    "errors": {
+      "git_identity_missing": "Git n'a pas d'identité d'auteur. Configurez d'abord user.name et user.email.",
+      "repository_has_commits": "Ce dépôt a déjà des commits.",
+      "generic": "Impossible de créer le commit initial."
+    }
   }
 }

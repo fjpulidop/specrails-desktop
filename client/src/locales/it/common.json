@@ -161,5 +161,15 @@
     "reached_one": "Limite di revisione raggiunto: {{count}} consegna attende la revisione (limite {{limit}}). Non è stato avviato nulla.",
     "reached_other": "Limite di revisione raggiunto: {{count}} consegne attendono la revisione (limite {{limit}}). Non è stato avviato nulla.",
     "action": "Decidi una consegna in sospeso (Crea PR, unisci o scarta) oppure alza il limite in Impostazioni progetto ▸ Limite di revisione."
+  },
+  "initialCommit": {
+    "action": "Crea commit iniziale",
+    "creating": "Creazione del commit iniziale…",
+    "createdRelaunch": "Commit iniziale creato. Avvia di nuovo il rail.",
+    "errors": {
+      "git_identity_missing": "Git non ha un'identità autore. Imposta prima user.name e user.email.",
+      "repository_has_commits": "Questo repository ha già dei commit.",
+      "generic": "Impossibile creare il commit iniziale."
+    }
   }
 }

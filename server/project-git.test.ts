@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import express, { Router, type Request } from 'express'
 import { execFileSync } from 'child_process'
 import fs from 'fs'
@@ -303,5 +303,72 @@ describe('git routes', () => {
     const r = await req(makeApp(repo, exec), 'GET', '/api/projects/p1/git/pull-requests/999')
     expect(r.status).toBe(404)
     expect(r.body.error).toBe('pull_request_not_found')
+  })
+
+  describe('POST /git/initial-commit', () => {
+    const IDENTITY_KEYS = ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL', 'GIT_CONFIG_GLOBAL', 'HOME', 'XDG_CONFIG_HOME'] as const
+    let saved: Record<string, string | undefined>
+    let scratch: string
+    beforeEach(() => {
+      saved = Object.fromEntries(IDENTITY_KEYS.map((key) => [key, process.env[key]]))
+      scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-initial-'))
+      // No global identity: an empty global config and a throwaway HOME.
+      const globalConfig = path.join(scratch, 'gitconfig')
+      fs.writeFileSync(globalConfig, '')
+      for (const key of IDENTITY_KEYS) delete process.env[key]
+      process.env.GIT_CONFIG_GLOBAL = globalConfig
+      process.env.HOME = scratch
+      process.env.XDG_CONFIG_HOME = path.join(scratch, 'xdg')
+    })
+    afterEach(() => {
+      for (const key of IDENTITY_KEYS) {
+        if (saved[key] === undefined) delete process.env[key]
+        else process.env[key] = saved[key]
+      }
+      fs.rmSync(scratch, { recursive: true, force: true })
+    })
+    function unbornRepo(): string {
+      const dir = path.join(scratch, 'repo')
+      fs.mkdirSync(dir)
+      execFileSync('git', ['init', '-q', '-b', 'main', dir])
+      // Untracked AND staged files must stay out of the commit.
+      fs.writeFileSync(path.join(dir, 'untracked.txt'), 'u\n')
+      fs.writeFileSync(path.join(dir, 'staged.txt'), 's\n')
+      execFileSync('git', ['add', 'staged.txt'], { cwd: dir })
+      return dir
+    }
+
+    it('creates an empty "Initial commit" with zero files on an unborn HEAD, using the configured identity', async () => {
+      const dir = unbornRepo()
+      execFileSync('git', ['config', 'user.name', 'Ada'], { cwd: dir })
+      execFileSync('git', ['config', 'user.email', 'ada@example.com'], { cwd: dir })
+      const r = await req(makeApp(dir), 'POST', '/api/projects/p1/git/initial-commit', {})
+      expect(r.status).toBe(201)
+      expect(r.body.sha).toMatch(/^[0-9a-f]{40,64}$/)
+      expect(execFileSync('git', ['log', '--format=%s|%an <%ae>'], { cwd: dir, encoding: 'utf8' }).trim()).toBe('Initial commit|Ada <ada@example.com>')
+      expect(execFileSync('git', ['ls-tree', '-r', '--name-only', 'HEAD'], { cwd: dir, encoding: 'utf8' })).toBe('')
+      // The user's index and working tree are untouched.
+      expect(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: dir, encoding: 'utf8' }).trim()).toBe('staged.txt')
+      expect(fs.existsSync(path.join(dir, 'untracked.txt'))).toBe(true)
+
+      const again = await req(makeApp(dir), 'POST', '/api/projects/p1/git/initial-commit', {})
+      expect(again.status).toBe(409)
+      expect(again.body.error).toBe('repository_has_commits')
+      expect(execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()).toBe('1')
+    })
+
+    it('refuses with 409 when the repository already has commits', async () => {
+      const r = await req(makeApp(repo), 'POST', '/api/projects/p1/git/initial-commit', {})
+      expect(r.status).toBe(409)
+      expect(r.body.error).toBe('repository_has_commits')
+    })
+
+    it('refuses with git_identity_missing (and creates nothing) when Git has no author identity', async () => {
+      const dir = unbornRepo()
+      const r = await req(makeApp(dir), 'POST', '/api/projects/p1/git/initial-commit', {})
+      expect(r.status).toBe(409)
+      expect(r.body).toMatchObject({ error: 'git_identity_missing', detail: 'Git has no author identity. Set user.name and user.email first.' })
+      expect(() => execFileSync('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: dir, stdio: 'pipe' })).toThrow()
+    })
   })
 })

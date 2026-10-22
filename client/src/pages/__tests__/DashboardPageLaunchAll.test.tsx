@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '../../test-utils'
+import { render, screen, fireEvent, waitFor, act } from '../../test-utils'
 import { toast } from 'sonner'
 import DashboardPage from '../../features/dashboard/pages/DashboardPage'
 import type { LocalTicket } from '../../types'
@@ -334,6 +334,15 @@ describe('DashboardPage — Launch all control', () => {
     expect((opts as { description: string }).description).toContain('This repository has no commits yet.')
     expect((opts as { description: string }).description).not.toContain('failed')
     expect((opts as { description: string }).description).not.toContain('invalid reference')
+
+    // The summary offers Create initial commit; it posts once and confirms.
+    const action = (opts as { action: { label: string; onClick: () => void } }).action
+    expect(action.label).toBe('Create initial commit')
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockImplementationOnce(async () => ({ ok: true, status: 201, json: async () => ({ sha: 'c'.repeat(40) }) }) as unknown as Response)
+    act(() => action.onClick())
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Initial commit created. Launch the rail again.'))
+    expect(String(fetchMock.mock.calls.at(-1)![0])).toMatch(/\/api\/projects\/proj-1\/git\/initial-commit$/)
   })
 
   it('cancel closes the dialog without launching', async () => {

@@ -45,6 +45,7 @@ import { TriageSummaryLine } from '../../specs/components/SpecTriageChip'
 import type { ProfileListEntry } from '../../agents/components/types'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
+import { InitialCommitButton } from '../../../components/InitialCommitButton'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -894,6 +895,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
               {inlineError.detail && <div className="text-destructive/80">{inlineError.detail}</div>}
               {inlineError.action && <div className="text-foreground/70">{inlineError.action}</div>}
+              {inlineError.error === 'repository_has_no_commits' && projectId && (
+                // After the commit the error clears and Play launches again.
+                <InitialCommitButton projectId={projectId} className="mt-1.5" onCreated={() => setInlineError(null)} />
+              )}
             </div>
           </div>
         )}

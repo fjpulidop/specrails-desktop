@@ -528,6 +528,38 @@ describe('AgentRailLaunchCard', () => {
     expect(error).not.toHaveTextContent('invalid reference')
   })
 
+  it('offers Create initial commit next to repository_has_no_commits and clears the error so Play can relaunch', async () => {
+    let launches = 0
+    mockFetch({
+      '/rails/1/launch': () => (++launches === 1
+        ? { status: 409, body: { error: 'repository_has_no_commits', detail: 'raw' } }
+        : { status: 202, body: { loopRunIds: ['run-1'], railIndex: 1, mode: 'implement', isolated: true } }),
+      '/git/initial-commit': () => ({ status: 201, body: { sha: 'c'.repeat(40), repositoryId: 'primary' } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await act(async () => { fireEvent.click(await screen.findByTestId('initial-commit-create')) })
+    await waitFor(() => expect(screen.queryByTestId('rail-card-error')).not.toBeInTheDocument())
+    const commit = calls.find((c) => c.url.endsWith('/api/projects/p1/git/initial-commit'))!
+    expect(commit.init?.method).toBe('POST')
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(launches).toBe(2))
+  })
+
+  it('explains a missing Git identity when the initial commit is refused', async () => {
+    mockFetch({
+      '/rails/1/launch': () => ({ status: 409, body: { error: 'repository_has_no_commits', detail: 'raw' } }),
+      '/git/initial-commit': () => ({ status: 409, body: { error: 'git_identity_missing', detail: 'raw identity' } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await act(async () => { fireEvent.click(await screen.findByTestId('initial-commit-create')) })
+    expect(await screen.findByTestId('initial-commit-error')).toHaveTextContent('Git has no author identity. Set user.name and user.email first.')
+    expect(screen.getByTestId('rail-card-error')).toBeInTheDocument()
+  })
+
   it('renders a 409 inline and stays editable', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'tickets_in_flight', detail: 'spec #12 is running', action: 'wait for it' } }) })
     renderCard()

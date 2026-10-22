@@ -116,6 +116,27 @@ describe('FlowEntryCard', () => {
     expect(onStarted).not.toHaveBeenCalled()
   })
 
+  it('Create initial commit retries Start on its own after a repository_has_no_commits refusal', async () => {
+    current = null
+    const base = vi.mocked(fetch).getMockImplementation()!
+    let starts = 0
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/flow') && init?.method === 'POST' && ++starts === 1) return respond(409, { error: 'repository_has_no_commits', detail: 'raw' })
+      if (url.endsWith('/git/initial-commit')) { calls.push({ url, method: 'POST', body: null }); return respond(201, { sha: 'c'.repeat(40), repositoryId: 'primary' }) }
+      return base(input, init)
+    })
+    const onStarted = vi.fn()
+    render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await act(async () => { fireEvent.click(await screen.findByTestId('initial-commit-create')) })
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(expect.objectContaining({ id: 'f1' })))
+    expect(starts).toBe(2)
+    expect(calls.some((c) => c.url.endsWith('/api/projects/p1/git/initial-commit'))).toBe(true)
+    expect(screen.queryByTestId('flow-entry-error')).not.toBeInTheDocument()
+  })
+
   it('is disabled with the missing capabilities in plain words when Flow is unavailable', async () => {
     availability = { available: false, reason: 'update Core', missing: ['flowSessions', 'deriveChange'] }
     render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)

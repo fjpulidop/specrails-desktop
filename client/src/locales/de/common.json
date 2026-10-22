@@ -161,5 +161,15 @@
     "reached_one": "Review-Limit erreicht: {{count}} Lieferung wartet auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
     "reached_other": "Review-Limit erreicht: {{count}} Lieferungen warten auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
     "action": "Entscheide über eine offene Lieferung (PR erstellen, mergen oder verwerfen) oder erhöhe das Limit unter Projekteinstellungen ▸ Review-Limit."
+  },
+  "initialCommit": {
+    "action": "Ersten Commit erstellen",
+    "creating": "Ersten Commit wird erstellt…",
+    "createdRelaunch": "Erster Commit erstellt. Starte den Rail erneut.",
+    "errors": {
+      "git_identity_missing": "Git hat keine Autorenidentität. Setze zuerst user.name und user.email.",
+      "repository_has_commits": "Dieses Repository hat bereits Commits.",
+      "generic": "Der erste Commit konnte nicht erstellt werden."
+    }
   }
 }
