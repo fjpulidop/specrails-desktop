@@ -187,5 +187,12 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "未知交付（{{id}}）"
+  },
+  "nonGoals": {
+    "title": "不在范围内",
+    "ariaLabel": "不在范围内，每行一项",
+    "placeholder": "此规格有意不更改或不交付的内容——每行一项",
+    "onePerLine": "每行一项",
+    "add": "添加此规格不涵盖的内容"
   }
 }

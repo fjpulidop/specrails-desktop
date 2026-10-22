@@ -187,5 +187,12 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "n° {{ids}}",
     "missing": "Livraison inconnue ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Hors périmètre",
+    "ariaLabel": "Hors périmètre, un élément par ligne",
+    "placeholder": "Ce que cette spec ne change ni ne livre volontairement — un élément par ligne",
+    "onePerLine": "Un élément par ligne",
+    "add": "Ajouter ce que cette spec laisse de côté"
   }
 }

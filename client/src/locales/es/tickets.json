@@ -187,5 +187,12 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Entrega desconocida ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Fuera de alcance",
+    "ariaLabel": "Fuera de alcance, un elemento por línea",
+    "placeholder": "Lo que esta spec deliberadamente no cambia ni entrega — un elemento por línea",
+    "onePerLine": "Un elemento por línea",
+    "add": "Añade lo que esta spec deja fuera"
   }
 }

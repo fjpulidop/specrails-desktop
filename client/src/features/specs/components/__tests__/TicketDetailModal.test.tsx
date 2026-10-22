@@ -586,3 +586,31 @@ describe('TicketDetailModal regressionOf', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, expect.objectContaining({ metadata: { regressionOf: null } })))
   })
 })
+
+describe('TicketDetailModal — Out of scope (non-goals)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('shows the non-goals under the description and saves an edit', async () => {
+    const onSave = vi.fn(async () => true)
+    render(<TicketDetailModal {...makeDefaultProps({ onSave, ticket: makeTicket({ nonGoals: ['Mobile layout'] }) })} />)
+    const section = screen.getByTestId('ticket-non-goals')
+    expect(section.textContent).toContain('Mobile layout')
+    fireEvent.click(section.querySelector('button')!)
+    const textarea = section.querySelector('textarea')!
+    fireEvent.change(textarea, { target: { value: 'Mobile layout\nPDF export' } })
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeDefined())
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, { nonGoals: ['Mobile layout', 'PDF export'] }))
+  })
+
+  it('does not send non-goals when they did not change', async () => {
+    const onSave = vi.fn(async () => true)
+    render(<TicketDetailModal {...makeDefaultProps({ onSave })} />)
+    fireEvent.change(screen.getByDisplayValue('Medium'), { target: { value: 'high' } })
+    await waitFor(() => screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][1]).not.toHaveProperty('nonGoals')
+  })
+})

@@ -73,7 +73,13 @@
     "criterionAriaLabel": "Acceptance criterion {{number}}",
     "removeCriterionAriaLabel": "Remove criterion {{number}}",
     "addCriterion": "Add criterion",
-    "addCriterionAriaLabel": "Add acceptance criterion"
+    "addCriterionAriaLabel": "Add acceptance criterion",
+    "nonGoalsLabel": "Out of scope",
+    "nonGoalPlaceholder": "Something this spec leaves out",
+    "nonGoalAriaLabel": "Out-of-scope item {{number}}",
+    "removeNonGoalAriaLabel": "Remove out-of-scope item {{number}}",
+    "addNonGoalAriaLabel": "Add an out-of-scope item",
+    "addNonGoal": "Add item"
   },
   "priority": {
     "low": "low",

@@ -29,6 +29,7 @@ import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { RegressionOfPicker, isBugTicket } from './RegressionOfPicker'
+import { NonGoalsSection } from './NonGoalsSection'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
@@ -92,7 +93,7 @@ interface TicketDetailModalProps {
   onClose: () => void
   /** Navigation hook: open a different ticket inside the same modal stack. */
   onOpenTicket?: (ticketId: number) => void
-  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds'>> & { metadata?: { regressionOf?: string | null } }) => Promise<boolean>
+  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }) => Promise<boolean>
   onDelete: (ticketId: number) => Promise<boolean>
   /** Rails available in the project — drives the Move-to-Rail popover. */
   rails?: RailState[]
@@ -157,6 +158,7 @@ export function TicketDetailModal({
   const [labels, setLabels] = useState<string[]>([...(ticket.labels ?? [])])
   const [repositoryIds, setRepositoryIds] = useState(ticket.repositoryIds)
   const [regressionOf, setRegressionOf] = useState<string | null>(ticket.metadata?.regressionOf ?? null)
+  const [nonGoals, setNonGoals] = useState<string[]>([...(ticket.nonGoals ?? [])])
 
   // Edit mode toggles
   const [editingTitle, setEditingTitle] = useState(false)
@@ -233,9 +235,10 @@ export function TicketDetailModal({
       priority !== ticket.priority ||
       JSON.stringify(labels) !== JSON.stringify(ticket.labels) ||
       JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds) ||
-      regressionOf !== (ticket.metadata?.regressionOf ?? null)
+      regressionOf !== (ticket.metadata?.regressionOf ?? null) ||
+      JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])
     )
-  }, [title, description, priority, labels, repositoryIds, regressionOf, ticket])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket])
 
   // Focus on edit start
   useEffect(() => {
@@ -289,13 +292,14 @@ export function TicketDetailModal({
   }, [])
 
   const handleSave = useCallback(async () => {
-    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds'>> & { metadata?: { regressionOf: string | null } } = {}
+    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf: string | null } } = {}
     if (title !== ticket.title) changes.title = title
     if (description !== ticket.description) changes.description = description
     if (priority !== ticket.priority) changes.priority = priority
     if (JSON.stringify(labels) !== JSON.stringify(ticket.labels)) changes.labels = labels
     if (JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds)) changes.repositoryIds = repositoryIds
     if (regressionOf !== (ticket.metadata?.regressionOf ?? null)) changes.metadata = { regressionOf }
+    if (JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])) changes.nonGoals = nonGoals
 
     if (Object.keys(changes).length === 0) {
       onClose()
@@ -312,7 +316,7 @@ export function TicketDetailModal({
     } else {
       toast.error(t('detailModal.toast.updateFailed'))
     }
-  }, [title, description, priority, labels, repositoryIds, regressionOf, ticket, onSave, onClose, t])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket, onSave, onClose, t])
 
   const handleDelete = useCallback(async () => {
     if (deleting) return
@@ -590,6 +594,9 @@ export function TicketDetailModal({
                   </button>
                 )}
               </div>
+
+              {/* Non-goals — "Out of scope" under the description (feedback-2026-10 3.2) */}
+              <NonGoalsSection value={nonGoals} onChange={setNonGoals} disabled={saving} />
 
               {/* Spec addenda — iterate without editing the description (spec-addenda) */}
               <SpecAddendaSection ticket={ticket} />
@@ -1039,6 +1046,7 @@ function ContinueEditingButton({ ticket, title, description, priority, labels, r
           priority,
           repositoryIds,
           acceptanceCriteria: criteria,
+          nonGoals: ticket.nonGoals ?? [],
           // Drives publish-vs-update on commit: a draft PUBLISHES (flips to a
           // real spec), a live spec PATCHes in place. See ExploreSpecShell.
           status: ticket.status,

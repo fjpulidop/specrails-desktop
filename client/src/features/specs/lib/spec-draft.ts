@@ -11,6 +11,8 @@ export interface SpecDraft {
   labels: string[]
   priority: SpecDraftPriority
   acceptanceCriteria: string[]
+  /** Non-goals ("Out of scope", feedback-2026-10 task 3.2). */
+  nonGoals?: string[]
 }
 
 export const SPEC_DRAFT_FIELDS = [
@@ -19,6 +21,7 @@ export const SPEC_DRAFT_FIELDS = [
   'labels',
   'priority',
   'acceptanceCriteria',
+  'nonGoals',
   'repositoryIds',
 ] as const
 
@@ -30,6 +33,7 @@ export const SPEC_DRAFT_DEFAULTS: SpecDraft = {
   labels: [],
   priority: 'medium',
   acceptanceCriteria: [],
+  nonGoals: [],
 }
 
 export interface SpecDraftWsUpdate {

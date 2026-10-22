@@ -73,7 +73,13 @@
     "criterionAriaLabel": "Critère d'acceptation {{number}}",
     "removeCriterionAriaLabel": "Supprimer le critère {{number}}",
     "addCriterion": "Ajouter un critère",
-    "addCriterionAriaLabel": "Ajouter un critère d'acceptation"
+    "addCriterionAriaLabel": "Ajouter un critère d'acceptation",
+    "nonGoalsLabel": "Hors périmètre",
+    "nonGoalPlaceholder": "Quelque chose que cette spec laisse de côté",
+    "nonGoalAriaLabel": "Élément hors périmètre {{number}}",
+    "removeNonGoalAriaLabel": "Supprimer l'élément hors périmètre {{number}}",
+    "addNonGoalAriaLabel": "Ajouter un élément hors périmètre",
+    "addNonGoal": "Ajouter un élément"
   },
   "priority": {
     "low": "basse",

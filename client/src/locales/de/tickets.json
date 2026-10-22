@@ -187,5 +187,12 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unbekannte Lieferung ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Nicht im Umfang",
+    "ariaLabel": "Nicht im Umfang, ein Eintrag pro Zeile",
+    "placeholder": "Was diese Spec bewusst nicht ändert oder liefert — ein Eintrag pro Zeile",
+    "onePerLine": "Ein Eintrag pro Zeile",
+    "add": "Festhalten, was diese Spec ausklammert"
   }
 }

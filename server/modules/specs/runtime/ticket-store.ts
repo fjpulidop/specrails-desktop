@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
 import type { TicketTriage } from '../domain/triage'
+import { normalizeNonGoals } from '../domain/non-goals'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -75,7 +76,8 @@ export interface Ticket {
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
   // 'flow' marks the placeholder spec a Flow session creates (schema 1.5).
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
+  // 'rules' marks a spec created from an automatable project rule (task 4.4).
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue, null for local specs. */
@@ -113,6 +115,15 @@ export interface Ticket {
    * Desktop-owned; specrails-core ignores the field. See server/modules/specs/runtime/spec-addenda-core.ts.
    */
   addenda?: SpecAddendum[]
+  /**
+   * Non-goals ("Out of scope", feedback-2026-10 task 3.2): what this spec
+   * deliberately does NOT cover, one item per entry. Optional and additive at
+   * schema 1.5 (Core ignores unknown ticket fields); absent on older tickets.
+   * Spec generation moves the `## Out of Scope` section here, and every launch
+   * door appends it back to the description it hands an agent. See
+   * server/modules/specs/domain/non-goals.ts.
+   */
+  nonGoals?: string[]
 }
 
 /** `metadata.flow` of a Flow placeholder spec (feedback-2026-10 annex D.7). */
@@ -383,6 +394,9 @@ function normalizeTicket(t: Ticket): Ticket {
   // Schema 1.4 field: spec addenda. Absent ⇒ [], and a malformed entry is
   // dropped rather than crashing the whole store read.
   t.addenda = readSpecAddenda(t.addenda)
+  // Non-goals (3.2): present ⇒ cleaned and bounded; absent stays absent so
+  // older tickets round-trip byte-identically.
+  if (t.nonGoals !== undefined) t.nonGoals = normalizeNonGoals(t.nonGoals)
   return t
 }
 

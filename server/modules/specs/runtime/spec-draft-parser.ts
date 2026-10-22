@@ -14,6 +14,9 @@ export interface SpecDraft {
   labels: string[]
   priority: SpecDraftPriority
   acceptanceCriteria: string[]
+  /** Non-goals ("Out of scope", feedback-2026-10 task 3.2). Optional: drafts
+   *  from older prompts omit it. */
+  nonGoals?: string[]
 }
 
 export interface ParsedSpecDraftBlock {
@@ -54,6 +57,8 @@ function validateBlock(parsed: unknown): ParsedSpecDraftBlock | null {
   if (labels) partial.labels = labels
   const ac = coerceStringArray(obj.acceptanceCriteria)
   if (ac) partial.acceptanceCriteria = ac
+  const nonGoals = coerceStringArray(obj.nonGoals)
+  if (nonGoals) partial.nonGoals = nonGoals
   if (typeof obj.priority === 'string' && VALID_PRIORITIES.has(obj.priority as SpecDraftPriority)) {
     partial.priority = obj.priority as SpecDraftPriority
   }
@@ -110,6 +115,7 @@ export function mergeDraft(prev: Partial<SpecDraft>, next: Partial<SpecDraft>): 
   if (Array.isArray(next.repositoryIds) && next.repositoryIds.length > 0 && next.repositoryIds.every((id) => typeof id === 'string' && id.trim()) && new Set(next.repositoryIds).size === next.repositoryIds.length) out.repositoryIds = next.repositoryIds.slice()
   if (Array.isArray(next.labels)) out.labels = next.labels.slice()
   if (Array.isArray(next.acceptanceCriteria)) out.acceptanceCriteria = next.acceptanceCriteria.slice()
+  if (Array.isArray(next.nonGoals)) out.nonGoals = next.nonGoals.slice()
   if (next.priority && VALID_PRIORITIES.has(next.priority)) out.priority = next.priority
   return out
 }
@@ -138,7 +144,7 @@ export function applyBlocks(
   for (const block of blocks) {
     const before = nextDraft
     nextDraft = mergeDraft(before, block.partial)
-    for (const key of ['title', 'description', 'labels', 'priority', 'acceptanceCriteria', 'repositoryIds'] as const) {
+    for (const key of ['title', 'description', 'labels', 'priority', 'acceptanceCriteria', 'nonGoals', 'repositoryIds'] as const) {
       if (!shallowEqual(before[key], nextDraft[key])) changed.add(key)
     }
     ready = block.ready

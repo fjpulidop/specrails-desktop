@@ -73,7 +73,13 @@
     "criterionAriaLabel": "Akzeptanzkriterium {{number}}",
     "removeCriterionAriaLabel": "Kriterium {{number}} entfernen",
     "addCriterion": "Kriterium hinzufügen",
-    "addCriterionAriaLabel": "Akzeptanzkriterium hinzufügen"
+    "addCriterionAriaLabel": "Akzeptanzkriterium hinzufügen",
+    "nonGoalsLabel": "Nicht im Umfang",
+    "nonGoalPlaceholder": "Etwas, das diese Spec ausklammert",
+    "nonGoalAriaLabel": "Nicht im Umfang, Eintrag {{number}}",
+    "removeNonGoalAriaLabel": "Eintrag {{number}} außerhalb des Umfangs entfernen",
+    "addNonGoalAriaLabel": "Eintrag außerhalb des Umfangs hinzufügen",
+    "addNonGoal": "Eintrag hinzufügen"
   },
   "priority": {
     "low": "niedrig",

@@ -10,6 +10,7 @@ import {
   deleteConversation, getMessages, setQuickContractRefineLast
 } from './db'
 import { getAdapter } from './providers'
+import { extractOutOfScopeSection, validateNonGoals } from './modules/specs/domain/non-goals'
 import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
 import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './modules/conversations/runtime/explore-contract-refine'
 import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './modules/specs/runtime/smash-runner'
@@ -544,6 +545,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           .filter((c) => c.length > 0)
       : []
     const priority = isValidPriority(body.priority) ? body.priority : 'medium'
+    const draftNonGoals = body.nonGoals === undefined ? null : validateNonGoals(body.nonGoals)
+    if (draftNonGoals && !draftNonGoals.ok) {
+      res.status(400).json({ error: draftNonGoals.error }); return
+    }
     // Optional assignee/prerequisites/metadata (same normalization as the
     // PATCH /tickets/:id route) so an MCP commit_draft is a true one-shot
     // insert — no follow-up update call needed for these fields.
@@ -597,6 +602,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (bodyShortSummary === null) {
       bodyShortSummary = deriveFallbackShortSummary(rawTitle, descriptionForStore)
     }
+    // Non-goals (3.2): an explicit `nonGoals` list wins; otherwise a draft's
+    // `## Out of Scope` section moves into the field. Either way the section
+    // leaves the description so the ticket shows it once, under it.
+    const outOfScope = extractOutOfScopeSection(descriptionForStore)
+    const nonGoalsForStore = draftNonGoals?.ok ? draftNonGoals.nonGoals : outOfScope.nonGoals
+    if (draftNonGoals?.ok || outOfScope.nonGoals.length > 0) descriptionForStore = outOfScope.description
 
     try {
       const filePath = ticketPath(req)
@@ -634,6 +645,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           flipTarget.priority = priority
           flipTarget.title = rawTitle
           flipTarget.description = descriptionForStore
+          if (nonGoalsForStore.length > 0 || draftNonGoals?.ok) flipTarget.nonGoals = nonGoalsForStore
           if (labels.length > 0) flipTarget.labels = labels
           // PATCH-route semantics: apply only when the field was supplied;
           // metadata merges keys instead of replacing the object.
@@ -689,6 +701,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           parent_epic_id: null,
           execution_order: null,
           short_summary: bodyShortSummary,
+          ...(nonGoalsForStore.length ? { nonGoals: nonGoalsForStore } : {}),
           created_at: now,
           updated_at: now,
           created_by: 'sr-explore-spec',
@@ -1230,9 +1243,13 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
   // POST /:projectId/tickets — Create new ticket
   router.post('/:projectId/tickets', (req: Request, res: Response) => {
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, source, nonGoals: rawNonGoals } = req.body ?? {}
     if (!title || typeof title !== 'string' || !title.trim()) {
       res.status(400).json({ error: 'title is required' }); return
+    }
+    const createNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
+    if (createNonGoals && !createNonGoals.ok) {
+      res.status(400).json({ error: createNonGoals.error }); return
     }
     const createRegression = normalizeRegressionOfMetadata(typeof rawMetadata === 'object' && rawMetadata !== null ? rawMetadata : {})
     if (!createRegression.ok) {
@@ -1271,6 +1288,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           parent_epic_id: null,
           execution_order: null,
           short_summary: null,
+          ...(createNonGoals?.ok && createNonGoals.nonGoals.length ? { nonGoals: createNonGoals.nonGoals } : {}),
           created_at: now,
           updated_at: now,
           created_by: source === 'mcp' ? 'mcp' : 'hub', // 'hub' = legacy on-disk wire value (tickets.json, shared with specrails-core) — do not rename
@@ -1449,7 +1467,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (!/^\d+$/.test(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' }); return
     }
-    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary } = req.body ?? {}
+    const { title, description, status, priority, labels, assignee, prerequisites, metadata: rawMetadata, acceptanceCriteria, short_summary, nonGoals: rawNonGoals } = req.body ?? {}
+    const patchNonGoals = rawNonGoals === undefined ? null : validateNonGoals(rawNonGoals)
+    if (patchNonGoals && !patchNonGoals.ok) {
+      res.status(400).json({ error: patchNonGoals.error }); return
+    }
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
@@ -1490,6 +1512,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           ticket.description = formatDescriptionWithCriteria(ticket.description ?? '', acceptanceCriteria as string[])
         }
         if (status !== undefined) ticket.status = status
+        // Non-goals (3.2): local-only (never a Jira write-back); [] / null clear.
+        if (patchNonGoals?.ok) {
+          if (patchNonGoals.nonGoals.length) ticket.nonGoals = patchNonGoals.nonGoals
+          else delete ticket.nonGoals
+        }
         if (priority !== undefined) ticket.priority = nextPriority as Ticket['priority']
         if (labels !== undefined && Array.isArray(labels)) ticket.labels = labels.filter((l: unknown) => typeof l === 'string')
         if (assignee !== undefined) ticket.assignee = typeof assignee === 'string' ? assignee : null

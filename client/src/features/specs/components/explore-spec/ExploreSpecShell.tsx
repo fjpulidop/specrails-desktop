@@ -138,6 +138,8 @@ export interface EditTicketSeed {
   repositoryIds?: string[]
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   acceptanceCriteria: string[]
+  /** The ticket's non-goals (3.2); seeded so an in-place edit keeps them. */
+  nonGoals?: string[]
   /** Current ticket status. When `'draft'`, the primary commit PUBLISHES the
    *  draft — it flips the ticket to a real spec (`status='todo'`) via
    *  `from-draft` instead of PATCHing in place — and the button reads
@@ -464,6 +466,7 @@ export function ExploreSpecShell({
           repositoryIds: editTicket.repositoryIds,
           priority: editTicket.priority ?? 'medium',
           acceptanceCriteria: editTicket.acceptanceCriteria,
+          nonGoals: editTicket.nonGoals ?? [],
         }
       : undefined,
   )
@@ -683,6 +686,10 @@ export function ExploreSpecShell({
         ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
             priority: draft.priority,
             acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
+            // Sent only when the ticket was seeded with its non-goals (or the
+            // draft has some), so an older caller never clears them by omission.
+            ...(editTicket.nonGoals !== undefined || (draft.nonGoals ?? []).some((c) => c.trim())
+              ? { nonGoals: (draft.nonGoals ?? []).filter((c) => c.trim().length > 0) } : {}),
           }),
         })
         if (!res.ok) {
@@ -706,6 +713,9 @@ export function ExploreSpecShell({
         ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
           priority: draft.priority,
           acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
+          // Non-goals (3.2): sent only when the draft has some, so the server's
+          // `## Out of Scope` fallback still applies to older drafts.
+          ...((draft.nonGoals ?? []).some((c) => c.trim()) ? { nonGoals: (draft.nonGoals ?? []).filter((c) => c.trim().length > 0) } : {}),
           // Server migrates pendingSpecId/<id>/* → ticket/<realId>/* so the
           // attachments uploaded during the conversation end up bound to the
           // freshly-created ticket.

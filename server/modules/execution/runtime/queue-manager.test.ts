@@ -2820,6 +2820,30 @@ describe('QueueManager', () => {
       }
     })
 
+    it('freestyle: appends the spec non-goals as an Out of Scope section', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('freestyle-nongoals' as any)
+      const projectDir = makeProjectDirWithTickets({
+        '8': {
+          id: 8, title: 'Exports', description: 'CSV export of the board',
+          status: 'todo', priority: 'high', labels: [], assignee: null,
+          prerequisites: [], metadata: {}, nonGoals: ['PDF export'],
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          created_by: 'user', source: 'manual',
+        },
+      })
+      try {
+        const qm = new QueueManager(broadcast, undefined, [], projectDir, { provider: 'claude' })
+        qm.enqueue('/specrails:freestyle #8 --yes')
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+        expect(spawnArgs[spawnArgs.indexOf('-p') + 1]).toContain('CSV export of the board\n\n## Out of Scope\n- PDF export')
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    })
+
     it('freestyle: uses the per-project pre-prompt override when set', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child = createMockChildProcess()

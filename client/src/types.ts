@@ -477,7 +477,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */
@@ -502,6 +502,9 @@ export interface LocalTicket {
   needs_review?: boolean
   /** Spec addenda: structured iteration notes next to the description (see lib/spec-addenda-core). */
   addenda?: SpecAddendum[]
+  /** Non-goals ("Out of scope", feedback-2026-10 task 3.2): shown under the
+   *  description; absent on older tickets. */
+  nonGoals?: string[]
 }
 
 // ─── Review packet (nontech-review-experience) ────────────────────────────────
@@ -634,6 +637,39 @@ export interface ReviewPacket {
   derivation?: PacketDerivation | null
   /** Flow deliveries only: settlement effects (spec rewrite, Jira). */
   flowSettlement?: PacketFlowSettlement | null
+  /** "Requirements demonstrated X/Y" (Core specTrace); absent on older servers. */
+  requirementsDemonstrated?: PacketRequirementsDemonstrated | null
+  /** "Spec created where the work passed" (Core baselineOnTouch), one entry per unit. */
+  baseline?: PacketBaseline[] | null
+  /** "Needs human eyes": the project's human-only rules frozen at settle. */
+  needsHumanEyes?: Array<{ text: string; source: string | null }> | null
+}
+
+export interface PacketTraceTestRef { file: string; line: number | null }
+
+export interface PacketRequirementsDemonstrated {
+  demonstrated: number
+  total: number
+  touched: number
+  touchedDemonstrated: number
+  demonstratedList: Array<{ ticketId: number; id: string; name: string; tests: PacketTraceTestRef[] }>
+  undemonstratedList: Array<{ ticketId: number; id: string; name: string; reason: 'no-test' | 'not-executed' | 'failed'; touched: boolean }>
+  untaggedList: Array<{ ticketId: number; tag: string; file: string; line: number | null }>
+  withoutReceipt: boolean
+}
+
+export interface PacketBaseline {
+  ticketId: number
+  status: 'not-needed' | 'planned' | 'passed' | 'failed' | 'violated'
+  change: string | null
+  recordedAt: string | null
+  uncovered: string[]
+  covered: number
+  tests: string[]
+  receiptId: string | null
+  reason: string | null
+  capabilities: Array<{ capability: string; requirements: number; demonstrated: number }>
+  cost: { invocations: number; costUsd: number | null; inputTokens: number | null; outputTokens: number | null } | null
 }
 
 export type AgentActionKind = 'read' | 'write' | 'exec' | 'mcp' | 'network'

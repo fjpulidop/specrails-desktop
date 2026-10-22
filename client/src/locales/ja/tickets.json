@@ -187,5 +187,12 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "不明な納品（{{id}}）"
+  },
+  "nonGoals": {
+    "title": "対象外",
+    "ariaLabel": "対象外（1行に1項目）",
+    "placeholder": "このスペックで意図的に変更・提供しないこと（1行に1項目）",
+    "onePerLine": "1行に1項目",
+    "add": "このスペックの対象外を追加"
   }
 }

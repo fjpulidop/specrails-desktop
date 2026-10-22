@@ -105,6 +105,20 @@ export function SpecDraftPanel({
             onChange={(items) => onFieldChange('acceptanceCriteria', items)}
           />
         </Field>
+
+        <Field label={t('draftPanel.nonGoalsLabel')} flash={flashFields.includes('nonGoals')}>
+          <CriteriaEditor
+            items={draft.nonGoals ?? []}
+            onChange={(items) => onFieldChange('nonGoals', items)}
+            copy={{
+              placeholder: t('draftPanel.nonGoalPlaceholder'),
+              ariaLabel: (number) => t('draftPanel.nonGoalAriaLabel', { number }),
+              removeAriaLabel: (number) => t('draftPanel.removeNonGoalAriaLabel', { number }),
+              addAriaLabel: t('draftPanel.addNonGoalAriaLabel'),
+              add: t('draftPanel.addNonGoal'),
+            }}
+          />
+        </Field>
       </div>
 
       {/* Sticky footer: attachments (if any) + Create button. Pinning the
@@ -242,8 +256,23 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items: string[]) => void }) {
+interface ListEditorCopy {
+  placeholder: string
+  ariaLabel: (number: number) => string
+  removeAriaLabel: (number: number) => string
+  addAriaLabel: string
+  add: string
+}
+
+function CriteriaEditor({ items, onChange, copy: override }: { items: string[]; onChange: (items: string[]) => void; copy?: ListEditorCopy }) {
   const { t } = useTranslation('explore')
+  const copy: ListEditorCopy = override ?? {
+    placeholder: t('draftPanel.criterionPlaceholder'),
+    ariaLabel: (number) => t('draftPanel.criterionAriaLabel', { number }),
+    removeAriaLabel: (number) => t('draftPanel.removeCriterionAriaLabel', { number }),
+    addAriaLabel: t('draftPanel.addCriterionAriaLabel'),
+    add: t('draftPanel.addCriterion'),
+  }
   function update(idx: number, value: string) {
     const next = items.slice()
     next[idx] = value
@@ -263,15 +292,15 @@ function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items
           <input
             value={item}
             onChange={(e) => update(i, e.target.value)}
-            placeholder={t('draftPanel.criterionPlaceholder')}
+            placeholder={copy.placeholder}
             className="flex-1 px-2 py-1 text-xs rounded border border-border/50 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
-            aria-label={t('draftPanel.criterionAriaLabel', { number: i + 1 })}
+            aria-label={copy.ariaLabel(i + 1)}
           />
           <button
             type="button"
             onClick={() => remove(i)}
             className="text-muted-foreground hover:text-destructive"
-            aria-label={t('draftPanel.removeCriterionAriaLabel', { number: i + 1 })}
+            aria-label={copy.removeAriaLabel(i + 1)}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -281,9 +310,9 @@ function CriteriaEditor({ items, onChange }: { items: string[]; onChange: (items
         type="button"
         onClick={add}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        aria-label={t('draftPanel.addCriterionAriaLabel')}
+        aria-label={copy.addAriaLabel}
       >
-        <Plus className="w-3 h-3" /> {t('draftPanel.addCriterion')}
+        <Plus className="w-3 h-3" /> {copy.add}
       </button>
     </div>
   )

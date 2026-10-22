@@ -73,7 +73,13 @@
     "criterionAriaLabel": "受け入れ基準 {{number}}",
     "removeCriterionAriaLabel": "基準 {{number}} を削除",
     "addCriterion": "基準を追加",
-    "addCriterionAriaLabel": "受け入れ基準を追加"
+    "addCriterionAriaLabel": "受け入れ基準を追加",
+    "nonGoalsLabel": "対象外",
+    "nonGoalPlaceholder": "このスペックで扱わないこと",
+    "nonGoalAriaLabel": "対象外項目 {{number}}",
+    "removeNonGoalAriaLabel": "対象外項目 {{number}} を削除",
+    "addNonGoalAriaLabel": "対象外項目を追加",
+    "addNonGoal": "項目を追加"
   },
   "priority": {
     "low": "低",

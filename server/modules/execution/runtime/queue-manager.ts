@@ -53,6 +53,7 @@ import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } fro
 import type { CommandInfo } from '../../../config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
+import { descriptionWithNonGoals } from '../../specs/domain/non-goals'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from '../../specs/runtime/spec-addenda'
 import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
@@ -1651,7 +1652,7 @@ export class QueueManager {
         for (const ticketId of ticketIds) {
           const ticket = store.tickets[String(ticketId)]
           if (!ticket) continue
-          const body = (ticket.description ?? '').trim()
+          const body = descriptionWithNonGoals(ticket.description, ticket.nonGoals).trim()
           specs.push(`# Spec #${ticketId}: ${ticket.title}\n\n${body || '_(no description)_'}`)
         }
       } catch (err) {

@@ -43,6 +43,9 @@ describe('resolveCommand', () => {
     expect(result).toContain('Do not use any local skill')
     expect(result).toContain('```spec-draft')
     expect(result).toContain('quiero el juego del tetris')
+    // Non-goals ride in their own field, not inside the description (3.2).
+    expect(result).toContain('"nonGoals": [')
+    expect(result).not.toContain('## Out of Scope')
     expect(result).not.toBe('/specrails:explore-spec quiero el juego del tetris')
   })
 
