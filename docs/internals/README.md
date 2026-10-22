@@ -21,6 +21,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |
 | [flow-mode.md](flow-mode.md) | Flow mode server side: lifecycle and sagas, worktree hand-off to a rail, Flow turns with interrupt delivery, capability gating, routes and events |
 | [spec-triage.md](spec-triage.md) | Spec triage: hashed deterministic inputs, the one cheap structured-output call, triggers, rail preselection and the recommended/chosen loop recorded per delivery |
+| [existing-project-anchoring.md](existing-project-anchoring.md) | Existing-project anchoring (feedback-2026-10 phase 3 + rules inventory): ticket non-goals, architect clarifications on Jira, requirements demonstrated, baseline on touch, project rules; every surface gated on its Core capability |
 | [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |
 | [programmatic-agent-runtime-validation.md](programmatic-agent-runtime-validation.md) | Paired implementation test results, packaging evidence and release limitations |
 | [openspec-workflow.md](openspec-workflow.md) | `opsx:*` change lifecycle — used by the app itself for structured change management |

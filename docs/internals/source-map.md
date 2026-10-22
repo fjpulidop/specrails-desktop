@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1119 source/build files. Nearby tests are linked where names
+Includes 1133 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -289,8 +289,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/delivery/components/review-packet
 
 - [AgentActionsSummary.tsx](../../client/src/features/delivery/components/review-packet/AgentActionsSummary.tsx)
+- [NeedsHumanEyes.tsx](../../client/src/features/delivery/components/review-packet/NeedsHumanEyes.tsx)
+- [PacketBaseline.tsx](../../client/src/features/delivery/components/review-packet/PacketBaseline.tsx)
 - [PacketDerivation.tsx](../../client/src/features/delivery/components/review-packet/PacketDerivation.tsx) · [test](../../client/src/features/delivery/components/review-packet/PacketDerivation.test.tsx)
 - [PacketMarkdown.tsx](../../client/src/features/delivery/components/review-packet/PacketMarkdown.tsx)
+- [RequirementsDemonstrated.tsx](../../client/src/features/delivery/components/review-packet/RequirementsDemonstrated.tsx)
 - [WhatToLookAt.tsx](../../client/src/features/delivery/components/review-packet/WhatToLookAt.tsx)
 
 ## client/src/features/delivery/context
@@ -629,6 +632,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
 - [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
 - [PairWebCompanionModal.tsx](../../client/src/features/settings/components/PairWebCompanionModal.tsx)
+- [ProjectAnchoringSections.tsx](../../client/src/features/settings/components/ProjectAnchoringSections.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectAnchoringSections.test.tsx)
 - [ProjectRepositoriesSection.tsx](../../client/src/features/settings/components/ProjectRepositoriesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectRepositoriesSection.test.tsx)
 - [ProjectSettingsDialog.tsx](../../client/src/features/settings/components/ProjectSettingsDialog.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectSettingsDialog.test.tsx)
 - [ProjectSettingsSections.tsx](../../client/src/features/settings/components/ProjectSettingsSections.tsx)
@@ -691,6 +695,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/specs/components
 
 - [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
+- [NonGoalsSection.tsx](../../client/src/features/specs/components/NonGoalsSection.tsx) · [test](../../client/src/features/specs/components/__tests__/NonGoalsSection.test.tsx)
 - [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
 - [RegressionOfPicker.tsx](../../client/src/features/specs/components/RegressionOfPicker.tsx) · [test](../../client/src/features/specs/components/__tests__/RegressionOfPicker.test.tsx)
 - [SpecAddendaSection.tsx](../../client/src/features/specs/components/SpecAddendaSection.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecAddendaSection.test.tsx)
@@ -1020,6 +1025,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-router-helpers.ts](../../server/project-router-helpers.ts)
 - [project-router-jobs.ts](../../server/project-router-jobs.ts)
 - [project-router-loop-runs.ts](../../server/project-router-loop-runs.ts) · [test](../../server/project-router-loop-runs.test.ts)
+- [project-router-rules.ts](../../server/project-router-rules.ts) · [test](../../server/project-router-rules.test.ts)
 - [project-router-settings.ts](../../server/project-router-settings.ts)
 - [project-router-setup.ts](../../server/project-router-setup.ts)
 - [project-router-spending.ts](../../server/project-router-spending.ts) · [test](../../server/project-router-spending.test.ts)
@@ -1045,6 +1051,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [jira-adf.ts](../../server/jira/jira-adf.ts) · [test](../../server/jira/jira-adf.test.ts)
 - [jira-backlog-config.ts](../../server/jira/jira-backlog-config.ts) · [test](../../server/jira/jira-backlog-config.test.ts)
+- [jira-clarifications.ts](../../server/jira/jira-clarifications.ts) · [test](../../server/jira/jira-clarifications.test.ts)
 - [jira-client.ts](../../server/jira/jira-client.ts) · [test](../../server/jira/jira-client.test.ts)
 - [jira-credential-store.ts](../../server/jira/jira-credential-store.ts) · [test](../../server/jira/jira-credential-store.test.ts)
 - [jira-db.ts](../../server/jira/jira-db.ts) · [test](../../server/jira/jira-db.test.ts)
@@ -1153,6 +1160,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
 - [agent-runtime-verification-log.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-log.ts)
 - [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
+- [core-capabilities.ts](../../server/modules/agent-runtime/runtime/core-capabilities.ts)
 
 ## server/modules/agent-sessions
 
@@ -1313,6 +1321,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [multi-repo-delivery.ts](../../server/modules/delivery/runtime/multi-repo-delivery.ts)
 - [multi-repo-execution-store.ts](../../server/modules/delivery/runtime/multi-repo-execution-store.ts)
 - [multi-repo-execution.ts](../../server/modules/delivery/runtime/multi-repo-execution.ts) · [test](../../server/modules/delivery/runtime/multi-repo-execution.test.ts)
+- [phase3-harvest.ts](../../server/modules/delivery/runtime/phase3-harvest.ts) · [test](../../server/modules/delivery/runtime/phase3-harvest.test.ts)
 - [pr-body.ts](../../server/modules/delivery/runtime/pr-body.ts) · [test](../../server/modules/delivery/runtime/pr-body.test.ts)
 - [pr-follow-up-scope.ts](../../server/modules/delivery/runtime/pr-follow-up-scope.ts)
 - [pr-follow-up.ts](../../server/modules/delivery/runtime/pr-follow-up.ts) · [test](../../server/modules/delivery/runtime/pr-follow-up.test.ts)
@@ -1336,6 +1345,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-brief.ts](../../server/modules/delivery/runtime/review-brief.ts) · [test](../../server/modules/delivery/runtime/review-brief.test.ts)
 - [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
 - [review-wip-gate.ts](../../server/modules/delivery/runtime/review-wip-gate.ts)
+- [run-records.ts](../../server/modules/delivery/runtime/run-records.ts) · [test](../../server/modules/delivery/runtime/run-records.test.ts)
 
 ## server/modules/execution
 
@@ -1446,6 +1456,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
 - [mission-tool-policy.ts](../../server/modules/missions/runtime/mission-tool-policy.ts) · [test](../../server/modules/missions/runtime/mission-tool-policy.test.ts)
 
+## server/modules/project-rules
+
+- [domain.ts](../../server/modules/project-rules/domain.ts) · [test](../../server/modules/project-rules/domain.test.ts)
+
+## server/modules/project-rules/adapters
+
+- [http.ts](../../server/modules/project-rules/adapters/http.ts) · [test](../../server/modules/project-rules/adapters/http.test.ts)
+
+## server/modules/project-rules/runtime
+
+- [rules-store.ts](../../server/modules/project-rules/runtime/rules-store.ts) · [test](../../server/modules/project-rules/runtime/rules-store.test.ts)
+
 ## server/modules/project-settings
 
 - [application.ts](../../server/modules/project-settings/application.ts) · [test](../../server/modules/project-settings/__tests__/application.test.ts)
@@ -1460,6 +1482,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/specs/domain
 
+- [non-goals.ts](../../server/modules/specs/domain/non-goals.ts) · [test](../../server/modules/specs/domain/non-goals.test.ts)
 - [triage.ts](../../server/modules/specs/domain/triage.ts) · [test](../../server/modules/specs/domain/triage.test.ts)
 
 ## server/modules/specs/runtime

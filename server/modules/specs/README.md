@@ -6,6 +6,7 @@ subdirectories, where present, enforce inward dependency rules.
 
 ## Reviewed public entry points
 
+- [domain/non-goals.ts](domain/non-goals.ts)
 - [domain/triage.ts](domain/triage.ts)
 - [runtime/contract-refine-runner.ts](runtime/contract-refine-runner.ts)
 - [runtime/generated-spec-parser.ts](runtime/generated-spec-parser.ts)
@@ -39,6 +40,16 @@ criteria), labels, priority and short summary are replaced in the same format.
 `contractRefine` schedules `runContractRefineForQuick` on the same provider after
 persistence. The route keeps HTTP validation, `spec_gen_*`/`ticket_created`
 messages, attachment migration and Jira promotion through `hooks`.
+
+## Non-goals
+
+[`domain/non-goals.ts`](domain/non-goals.ts) is pure (pinned to zero imports):
+validation and bounds of the optional ticket field `nonGoals` ("Out of scope",
+schema 1.5, additive), extraction of a `## Out of Scope` section, and
+`descriptionWithNonGoals`, which the loop spec lookup and the Freestyle prompt
+use so agents keep seeing the non-goals. Quick generation and Explore drafts
+fill the field; the Contract Layer is unchanged. See
+[existing-project anchoring](../../../docs/internals/existing-project-anchoring.md#non-goals-out-of-scope).
 
 ## Spec triage
 

@@ -65,6 +65,13 @@ the value is `false`. It is advisory UI state; no runtime reads it.
 and a stored value that no longer parses reads as no limit. The delivery core enforces it at rail
 launch; the composition passes it through `getProjectSettings`.
 
+`jiraPostClarifications` and `baselineOnTouch` (both default `false`) are strict
+booleans stored as `config.jira_post_clarifications` / `config.baseline_on_touch`
+only while on. The composition reads them where they act: the Jira sync manager
+posts architect clarifications, and loop executors forward `baselineOnTouch` to
+Core (capability-gated in the agent-runtime bridge). See
+[existing-project anchoring](../../../docs/internals/existing-project-anchoring.md).
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

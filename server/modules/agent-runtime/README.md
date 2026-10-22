@@ -11,6 +11,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-controls-router.ts](runtime/agent-runtime-controls-router.ts)
 - [runtime/agent-runtime-controls.ts](runtime/agent-runtime-controls.ts)
 - [runtime/agent-runtime-events.ts](runtime/agent-runtime-events.ts)
+- [runtime/agent-runtime-history.ts](runtime/agent-runtime-history.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
 - [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
@@ -18,6 +19,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-retention-records.ts](runtime/agent-runtime-retention-records.ts)
 - [runtime/agent-runtime-settings-router.ts](runtime/agent-runtime-settings-router.ts)
 - [runtime/agent-runtime-settings.ts](runtime/agent-runtime-settings.ts)
+- [runtime/core-capabilities.ts](runtime/core-capabilities.ts)
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture
@@ -26,6 +28,20 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
+
+## Phase-3 Core capabilities
+
+[`runtime/core-capabilities.ts`](runtime/core-capabilities.ts) projects the
+active Core's `runtime api` into `{ architectClarifications, specTrace,
+baselineOnTouch, rulesInventory }`; any failure reads as "not announced".
+`applyPhase3RuntimeSwitches` (bridge) forwards the project's `baselineOnTouch`
+to Core only with `baselineOnTouch: 1` and strips `architect.clarifications`
+for a Core without `architectClarifications: 1` (older Cores reject unknown
+keys). `runtimeErrorText` spells out the `baseline_characterization_failed`
+blocker. The efficiency summary reader accepts the `baseline` invocation kind
+and keeps `efficiencySummary.baseline` spend. Loop executors receive the
+project switches through `projectRuntime`. See
+[existing-project anchoring](../../../docs/internals/existing-project-anchoring.md).
 
 Readable verification logs fold long quoted assertion-input blocks, including
 blocks spanning runtime events, while preserving the assertion, expected value,
