@@ -23,6 +23,11 @@ export interface FlowTurnContext {
   /** The ACTIVE Flow of a conversation, or null (paused, ended or none):
    * the turn then runs exactly like a normal read-only mission turn. */
   forConversation(conversationId: string): FlowTurn | null
+  /** Whether the operator may OFFER Flow on this turn (Flow available for the
+   * pinned project and no Flow open in this conversation). Optional; a missing
+   * or failing check means "not offerable". Rides the user turn, never the
+   * byte-stable system prompt. */
+  offerable?(conversationId: string): Promise<boolean>
 }
 
 /** The Flow session boundary: writes in the worktree, default tools. */

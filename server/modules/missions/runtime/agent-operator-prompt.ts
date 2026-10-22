@@ -603,7 +603,9 @@ summary later.
 ## Running work & reporting progress
 
 - **Classify small work before launch.** Choose one strategy and say why:
-  Freestyle, SDD Quick (OpenSpec), or Implement. Freestyle is only valid
+  Freestyle, SDD Quick (OpenSpec), Implement, or — when the turn settings say
+  \`Flow: offerable\` and nothing is written yet — Flow (see "Flow or
+  Implement"). Freestyle is only valid
   for ticket-local implementation-only work when OpenSpec artifacts are relevant;
   do not recommend Freestyle for changes that may alter requirements,
   acceptance criteria, design decisions, APIs, states, data models, or
@@ -945,14 +947,58 @@ limit applies only to this automatic briefing, not subsequent user requests to
 investigate and fix. Read runtime_diagnose before recommending a retry.
 `
 
+// ─── Flow or Implement (flow-mode) ───────────────────────────────────────────
+// Flow is the fourth option of the pre-launch classification. The offer is a
+// card (```flow-offer); the app decides whether Flow can run, so the agent
+// offers it only when the user turn says `Flow: offerable`. Static text: the
+// byte-stability contract above applies.
+export const FLOW_OFFER_SECTION = `
+## Flow or Implement
+
+Flow is a mode where the user builds working code WITH an agent in an isolated
+worktree, by conversation and without a spec; when they say "this is it", a rail
+derives the spec from the result. Implement delegates a written spec. Flow is
+for discovering; Implement is for delegating.
+
+Offer Flow only when the user turn's settings include \`Flow: offerable\`. Pick
+by the shape of the request, BEFORE framing or drafting a spec:
+
+- Exploratory, visual, or the shape is uncertain ("I want to try…", "I don't
+  know how it should look", a UI to feel out, a prototype) ⇒ recommend Flow.
+- Well defined — acceptance criteria, business rules, an API or data model the
+  user can already state ⇒ recommend spec + Implement (then frame as usual).
+- Mixed ⇒ recommend the one that fits the first step and say the other remains
+  one click away.
+
+Make the offer as ONE fenced code block tagged \`flow-offer\` with one JSON object:
+
+\`\`\`flow-offer
+{ "idea": "Prototype a calmer onboarding with a progress rail", "reason": "The look is still open; building it is the fastest way to decide.", "recommended": "flow" }
+\`\`\`
+
+- \`idea\`: the user's idea in one sentence (it seeds the Flow and its placeholder spec).
+- \`reason\`: ONE sentence — why this path fits.
+- \`recommended\`: \`flow\` or \`implement\`. The card always shows the other option.
+
+Rules: one suggestion per idea; end the turn after the block; never insist after
+the user declines or picks the other path. Entering Flow does NOT need a
+problem-frame card — Flow writes no spec up front; the user confirms the
+isolated worktree in the app. Choosing Implement continues with the normal
+framing and spec-draft flow. Never start a Flow yourself.
+`
+
 /** The manual written to the agent cwd (flag-aware). */
 export function buildOperatorInstructions(): string {
-  return isMissionRailCardsEnabled() ? `${OPERATOR_INSTRUCTIONS}\n${RAIL_LAUNCH_CARD_SECTION}` : OPERATOR_INSTRUCTIONS
+  const base = isMissionRailCardsEnabled() ? `${OPERATOR_INSTRUCTIONS}\n${RAIL_LAUNCH_CARD_SECTION}` : OPERATOR_INSTRUCTIONS
+  return `${base}\n${FLOW_OFFER_SECTION}`
 }
+
+export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, an exploratory, visual or uncertain-shape request gets one fenced flow-offer JSON block (idea, reason, recommended flow|implement) and a well-defined one gets recommended implement; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
 
 export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 
 /** The per-turn system prompt (flag-aware). */
 export function buildOperatorSystemPrompt(): string {
-  return isMissionRailCardsEnabled() ? `${OPERATOR_SYSTEM_PROMPT}${RAIL_LAUNCH_CARD_SYSTEM_CLAUSE}` : OPERATOR_SYSTEM_PROMPT
+  const base = isMissionRailCardsEnabled() ? `${OPERATOR_SYSTEM_PROMPT}${RAIL_LAUNCH_CARD_SYSTEM_CLAUSE}` : OPERATOR_SYSTEM_PROMPT
+  return `${base}${FLOW_OFFER_SYSTEM_CLAUSE}`
 }

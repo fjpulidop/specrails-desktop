@@ -21,6 +21,13 @@ describe('promoteAgentProtocolFences', () => {
     const body = JSON.stringify({ title: 'T', description: 'D', labels: ['x'], priority: 'high', acceptanceCriteria: ['a'] })
     expect(promoteAgentProtocolFences('```json\n' + body + '\n```')).toContain('```spec-draft\n')
   })
+  it('re-tags a flow-offer-shaped object and ignores an unknown recommendation', () => {
+    const offer = JSON.stringify({ idea: 'Try a darker dashboard', reason: 'Visual and exploratory', recommended: 'flow' })
+    expect(detectProtocolShape(JSON.parse(offer))).toBe('flow-offer')
+    expect(promoteAgentProtocolFences('```json\n' + offer + '\n```')).toContain('```flow-offer\n')
+    expect(detectProtocolShape({ idea: 'x', recommended: 'spike' })).toBeNull()
+    expect(detectProtocolShape({ idea: 'x', recommended: 'implement', reason: 'well defined' })).toBe('flow-offer')
+  })
   it('leaves ambiguous json, invalid json, protocol-tagged and quoted fences alone', () => {
     const plain = '```json\n{"foo": 1}\n```'
     expect(promoteAgentProtocolFences(plain)).toBe(plain)

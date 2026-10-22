@@ -234,6 +234,21 @@ describe('Flow turns in missions', () => {
     expect(host.requests.find((request) => request.method === 'session.close')?.params).toEqual({ sessionId: 'flow:f1', reason: 'flow_closed' })
   })
 
+  it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => true })
+    await manager.sendMessage(conversation.id, 'I want to try a calmer dashboard')
+    await waitFor(() => doneCount() === 1)
+    const send = host.requests.find((request) => request.method === 'session.send')!
+    expect(String((send.params.input as { text: string }).text)).toContain('| Flow: offerable')
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('| Flow: offerable')
+    manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => { throw new Error('probe failed') } })
+    await manager.sendMessage(conversation.id, 'again')
+    await waitFor(() => doneCount() === 2)
+    const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
+    expect(String((last.params.input as { text: string }).text)).not.toContain('| Flow: offerable')
+  })
+
   it('a Flow lookup failure degrades to a normal mission turn', async () => {
     manager.setFlowTurnContext({ forConversation: () => { throw new Error('project db closed') } })
     vi.spyOn(console, 'error').mockImplementation(() => {})

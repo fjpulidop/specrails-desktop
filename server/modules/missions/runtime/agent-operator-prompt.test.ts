@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT, RAIL_LAUNCH_CARD_SECTION, buildOperatorInstructions, buildOperatorSystemPrompt } from './agent-operator-prompt'
+import { FLOW_OFFER_SECTION, FLOW_OFFER_SYSTEM_CLAUSE, OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT, RAIL_LAUNCH_CARD_SECTION, buildOperatorInstructions, buildOperatorSystemPrompt } from './agent-operator-prompt'
 
 // Content pins for the operator prompt's spec-authoring ("super specs") and
 // launch-then-release behaviours. These are prompt-as-contract tests: the
@@ -137,7 +137,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
   })
 
   it('classifies small work with the SDD Quick OpenSpec guardrail', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), or Implement')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
     expect(OPERATOR_INSTRUCTIONS).toContain('ticket-local implementation-only work when OpenSpec artifacts are relevant')
     expect(OPERATOR_INSTRUCTIONS).toContain("loopId:'factory:sdd-quick-openspec'")
     expect(OPERATOR_INSTRUCTIONS).toContain('openspecChangeName')
@@ -487,8 +487,46 @@ describe('rail launch cards (mission-rail-cards)', () => {
     expect(buildOperatorSystemPrompt()).toContain('rail-launch JSON block')
     expect(buildOperatorSystemPrompt().startsWith(OPERATOR_SYSTEM_PROMPT)).toBe(true)
     process.env.SPECRAILS_MISSION_RAIL_CARDS = 'false'
-    expect(buildOperatorInstructions()).toBe(OPERATOR_INSTRUCTIONS)
-    expect(buildOperatorSystemPrompt()).toBe(OPERATOR_SYSTEM_PROMPT)
+    expect(buildOperatorInstructions()).not.toContain(RAIL_LAUNCH_CARD_SECTION)
+    expect(buildOperatorSystemPrompt()).toBe(`${OPERATOR_SYSTEM_PROMPT}${FLOW_OFFER_SYSTEM_CLAUSE}`)
+  })
+})
+
+// ── flow-mode: Flow is the fourth pre-launch option, offered as a card ───────
+describe('Flow or Implement offer (flow-mode)', () => {
+  afterEach(() => { delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
+
+  it('adds Flow to the existing classification instead of a separate rule', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`Flow: offerable`')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('fourth pre-launch option (with Freestyle, SDD Quick and Implement)')
+  })
+
+  it('teaches the flow-offer fence, the routing criterion and the no-insist rule', () => {
+    expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
+    for (const key of ['"idea"', '"reason"', '"recommended"']) expect(FLOW_OFFER_SECTION).toContain(key)
+    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain[\s\S]*recommend Flow/)
+    expect(FLOW_OFFER_SECTION).toMatch(/Well defined[\s\S]*spec \+ Implement/)
+    expect(FLOW_OFFER_SECTION).toContain('one suggestion per idea')
+    expect(FLOW_OFFER_SECTION).toContain('never insist after')
+    expect(FLOW_OFFER_SECTION).toContain('does NOT need a\nproblem-frame card')
+    expect(FLOW_OFFER_SECTION).toContain('Never start a Flow yourself')
+  })
+
+  it('the offer block parses with the fence-promotion shape (example is valid JSON)', async () => {
+    const { detectProtocolShape } = await import('./agent-fence-promotion')
+    const example = FLOW_OFFER_SECTION.split('```flow-offer\n')[1].split('\n```')[0]
+    expect(detectProtocolShape(JSON.parse(example))).toBe('flow-offer')
+  })
+
+  it('appends static, byte-stable text to both prompts regardless of rail cards', () => {
+    expect(FLOW_OFFER_SECTION).not.toMatch(/\$\{/)
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toMatch(/\$\{/)
+    expect(buildOperatorInstructions().endsWith(FLOW_OFFER_SECTION)).toBe(true)
+    expect(buildOperatorSystemPrompt().endsWith(FLOW_OFFER_SYSTEM_CLAUSE)).toBe(true)
+    expect(buildOperatorSystemPrompt()).toBe(buildOperatorSystemPrompt())
+    process.env.SPECRAILS_MISSION_RAIL_CARDS = 'false'
+    expect(buildOperatorInstructions()).toBe(`${OPERATOR_INSTRUCTIONS}\n${FLOW_OFFER_SECTION}`)
   })
 })
 
