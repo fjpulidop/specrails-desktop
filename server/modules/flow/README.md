@@ -11,11 +11,12 @@ ports-and-adapters slice.
 | Change | Owner |
 | --- | --- |
 | Lifecycle states, legal transitions, invariants, saga steps, effects | [domain.ts](domain.ts) (pure, no clock/IO) |
-| Use cases: start, pause, resume, discard, hand-off, delivered, reconcile, read models | [application.ts](application.ts) |
+| Settlement plan (effect keys, order, backoff), conversation summary and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
+| Use cases: start, pause, resume, discard, hand-off, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
 | Outbound contracts (repository, tickets, worktree, agent session, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
-| `flow_sessions` SQL (migration 72, project database) | [adapters/sqlite.ts](adapters/sqlite.ts) |
+| `flow_sessions` SQL (migration 72) and `flow_effects` (migration 73), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
-| Port implementations over delivery, specs, missions/Core, accounting, WebSocket; the hand-off authority and the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
+| Port implementations over delivery, specs, missions/Core, accounting, WebSocket; the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
 | Production wiring | [project-registry.ts](../../project-registry.ts) (per project), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
 
@@ -53,12 +54,15 @@ Domain/application must not import Express, SQLite, Git, process APIs, Core
 or other capabilities ([architecture tests](../architecture.test.ts)).
 Missions never import this module; they receive `FlowTurnContext`.
 
-## Not in this module yet
+## Settlement
 
-The Flow → Spec loop (`factory:flow-spec`), settlement effects (spec
-rewrite, Jira create/review) and the client are later changes.
-`onFlowDelivered` records the transition only; `FlowPublication` is the
-reserved port for settlement.
+When the Flow's delivery reaches review (`rail.pr_state` observer, or the
+completed run without a PR delivery row), `onFlowDelivered` records
+`delivered` and enqueues `flow:<flowId>:rewrite-spec`, `:jira-create`,
+`:jira-review` in `flow_effects`. They run in order with attempts and backoff,
+resume at startup (`replaySettlement`) and every 30 s, and never block or
+revert the delivery. The Flow → Spec loop itself lives in `loops`
+(`factory:flow-spec`). Details: [Flow mode](../../../docs/internals/flow-mode.md#settlement).
 
 ## Verify a change
 
@@ -70,6 +74,7 @@ npm run typecheck
 ```
 
 - [Domain tests](__tests__/domain.test.ts): transition table, invariants, reconciliation.
+- [Settlement tests](__tests__/settlement.test.ts): summary bounds, effect order, backoff, rewrite text.
 - [Application tests](__tests__/application.test.ts): fakes; compensation at each saga step; idempotency.
 - [SQLite tests](__tests__/sqlite.test.ts): isolation, unique index, adoption transaction rollback.
 - [HTTP tests](__tests__/http.test.ts): routes and error mapping.

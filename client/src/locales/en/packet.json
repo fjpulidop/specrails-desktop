@@ -168,6 +168,27 @@
     },
     "noReport": "The run did not report this addendum. Check the changes and evidence below."
   },
+  "derivation": {
+    "title": "Derivation",
+    "coverage": "{{explained}} of {{files}} changed files are explained by the derived design",
+    "change": "OpenSpec change",
+    "requirements": "Requirements",
+    "requirementsValue": "{{added}} added · {{modified}} modified",
+    "confidence": "Deriver confidence",
+    "confidenceLevel": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "confidenceUnknown": "Not reported",
+    "caveat": "Coverage is measured by Specrails from git; the confidence is the agent's own assessment.",
+    "unexplainedTitle_one": "{{count}} changed file is not explained",
+    "unexplainedTitle_other": "{{count}} changed files are not explained",
+    "more_one": "…and {{count}} more file",
+    "more_other": "…and {{count}} more files",
+    "unavailable": "The derivation report of this Flow delivery could not be read. Review the diff directly.",
+    "rewriteFailed": "The spec could not be rewritten from the derived change; it keeps its Flow draft. The OpenSpec change is still the technical record."
+  },
   "brief": {
     "title": "What to look at",
     "caveat": "The AI reviewer's advisory brief: where a human should look first. It is not a verification result and never blocks a decision.",

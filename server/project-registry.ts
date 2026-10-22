@@ -42,7 +42,7 @@ import {
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
 import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
@@ -98,8 +98,8 @@ import {
 } from './desktop-db'
 import { getConfig } from './config'
 import { createFlowService, type FlowService } from './modules/flow'
-import { createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
-import { createFlowHandOffAuthority, createFlowPorts, systemClock } from './modules/flow/adapters/bindings'
+import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
+import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
@@ -184,6 +184,8 @@ export interface ProjectContext {
   flow?: FlowService
   /** Flow -> rail hand-off authority the rails launch route consults for `flowId`. */
   flowHandOff?: FlowHandOffAuthority
+  /** Periodic retry of due Flow settlement effects (stopped on teardown). */
+  flowSettlement?: { stop(): void }
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -449,6 +451,7 @@ export class ProjectRegistry {
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
+      try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
       // Kill any terminal sessions belonging to this project
       try { getTerminalManager().killAllForProject(id) } catch { /* ignore */ }
       // Close the ticket file watcher
@@ -654,6 +657,7 @@ export class ProjectRegistry {
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
+      try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
@@ -703,6 +707,7 @@ export class ProjectRegistry {
     // once the rail maps exist; null until then (startup messages are few).
     let milestoneProgress: MilestoneProgressBroadcaster | null = null
     let milestoneChains: MilestoneChainManager | null = null
+    let flowService: FlowService | null = null
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
@@ -710,6 +715,11 @@ export class ProjectRegistry {
       // emit its own `milestone.chain_changed`; the progress tap then coalesces.
       milestoneChains?.observe(msg)
       milestoneProgress?.observe(msg)
+      // Flow settlement: a Flow delivery that reached review settles its Flow.
+      if (msg.type === 'rail.pr_state' && flowService) {
+        const deliveryId = (msg as { prDeliveryId?: unknown }).prDeliveryId
+        if (typeof deliveryId === 'string') void flowService.observeDelivery(deliveryId).catch((err) => console.error('[flow] delivery settlement failed:', err))
+      }
       if (msg.type === 'queue') {
         for (const job of msg.jobs) {
           if (isTerminalJobStatus(job.status)) {
@@ -1015,8 +1025,10 @@ export class ProjectRegistry {
               // On a replay after the ticket mutation committed but a later rail
               // mutation failed, changedTicketIds is empty. Derive the intended
               // review set from the converged store so Jira still receives it.
+              // A Flow spec reaches Jira only through its Flow settlement
+              // (create, then the review transition), never from here.
               const reviewIds = effectTicketIds.filter(
-                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review'
+                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review' && !isFlowHeldTicket(outcomeStore?.tickets[String(tid)])
               )
               jiraSyncManager.onRailReview(reviewIds, jobId)
             } else {
@@ -1363,8 +1375,11 @@ export class ProjectRegistry {
           if (store && effectTicketIds.length > 0) {
             try {
               if (status === 'completed' && completedStatus === 'on_review') {
+                // Flow specs: the Flow settlement creates the Jira issue first and
+                // then transitions it; an early review here would be a no-op at
+                // best and a double transition at worst.
                 const reviewIds = effectTicketIds.filter(
-                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review',
+                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review' && !isFlowHeldTicket(store?.tickets[String(ticketId)]),
                 )
                 jiraSyncManager.onRailReview(reviewIds, runId)
               } else {
@@ -1389,6 +1404,14 @@ export class ProjectRegistry {
         })
         const delivered = deliver()
         railLoopRuns.delete(runId)
+        // Flow hand-off without a PR delivery row: the completed run settles the
+        // Flow (with a delivery row, the `rail.pr_state` observer does).
+        if (status === 'completed' && flowService) {
+          for (const ticketId of ticketIds) {
+            const flowId = delivered.store?.tickets[String(ticketId)]?.metadata?.flow?.flowId
+            if (flowId) void flowService.onRailRunCompleted({ flowId, runId }).catch((err) => console.error('[flow] run settlement failed:', err))
+          }
+        }
         // Milestone chain fallback hook: records the engine outcome (names the
         // pause reason) and settles delivery-less chunks. Isolated chunks
         // advance from the later `rail.pr_state` settle instead.
@@ -1527,11 +1550,19 @@ export class ProjectRegistry {
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)
     const flowPorts = createFlowPorts({
-      ctx, repository: flowRepository, internalApi, availability: () => flowAvailability(),
+      ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
       agentHost: () => getAgentChatManager(),
     })
     ctx.flow = createFlowService(flowPorts)
-    ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session))
+    flowService = ctx.flow
+    ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
+      // Flow -> Spec: the bounded conversation summary Core's derive-change reads.
+      (session) => flowConversationSummary(this._desktopDb, {
+        conversationId: session.conversationId,
+        idea: session.ticketId !== null ? getTicketSpec(session.ticketId)?.description ?? null : null,
+        from: session.createdAt,
+        to: null,
+      }))
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
@@ -1558,6 +1589,11 @@ export class ProjectRegistry {
             if (this._contexts.get(project.id) === ctx && ctx.flow) {
               const flows = await ctx.flow.reconcile()
               if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Flow session(s) for ${project.slug}`)
+              // Settlement effects survive restarts: deliveries that reached
+              // review while the app was down settle now; pending effects resume.
+              const settled = await ctx.flow.replaySettlement()
+              if (settled > 0) console.log(`[flow] resumed settlement of ${settled} Flow(s) for ${project.slug}`)
+              if (this._contexts.get(project.id) === ctx && !ctx.flowSettlement) ctx.flowSettlement = startFlowSettlementScheduler(ctx.flow)
             }
             if (this._contexts.get(project.id) === ctx) {
               const effectDeps = {

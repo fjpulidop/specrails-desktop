@@ -56,7 +56,7 @@ export interface DefinitionLaunch {
   addendaIds?: readonly string[]
 }
 
-const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'implementation', 'implementation-step'])
+const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'implementation', 'implementation-step', 'derive-change'])
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -147,6 +147,8 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
       if ((kind === 'implementation' || kind === 'implementation-step')) for (const role of ['architect', 'developer', 'reviewer']) roleIds.add(role)
       if ((kind === 'role-turn' || kind === 'decider') && typeof params.roleId === 'string')
         roleIds.add(params.roleId)
+      // Core's derive-change piece always invokes the built-in `deriver` role.
+      if (kind === 'derive-change') roleIds.add('deriver')
       if (kind === 'end' && params.outcome === 'success' && params.requiresVerified === undefined)
         params.requiresVerified = writes
       const ends = Object.fromEntries(
@@ -260,7 +262,7 @@ function pieceWrites(node: LoopNode, roles: DefinitionLaunch['roles']): boolean 
     params = node.data?.params ?? {}
   if (kind === 'prompt') return params.access !== 'read'
   if (kind === 'role-turn') return (roles ?? {})[String(params.roleId)]?.access !== 'read'
-  return ['verify', 'shell', 'openspec-archive', 'implementation', 'implementation-step'].includes(kind ?? '')
+  return ['verify', 'shell', 'openspec-archive', 'implementation', 'implementation-step', 'derive-change'].includes(kind ?? '')
 }
 
 /** Expand templates once. Text inserted by spec/constants cannot introduce another token. */

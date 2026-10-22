@@ -168,6 +168,27 @@
     },
     "noReport": "Der Lauf hat zu diesem Addendum nichts berichtet. Prüfe die Änderungen und Belege unten."
   },
+  "derivation": {
+    "title": "Ableitung",
+    "coverage": "{{explained}} von {{files}} geänderten Dateien werden vom abgeleiteten Design erklärt",
+    "change": "OpenSpec-Änderung",
+    "requirements": "Anforderungen",
+    "requirementsValue": "{{added}} hinzugefügt · {{modified}} geändert",
+    "confidence": "Konfidenz des Ableiters",
+    "confidenceLevel": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "confidenceUnknown": "Nicht angegeben",
+    "caveat": "Die Abdeckung misst Specrails mit git; die Konfidenz ist die Selbsteinschätzung des Agenten.",
+    "unexplainedTitle_one": "{{count}} geänderte Datei ist nicht erklärt",
+    "unexplainedTitle_other": "{{count}} geänderte Dateien sind nicht erklärt",
+    "more_one": "…und {{count}} weitere Datei",
+    "more_other": "…und {{count}} weitere Dateien",
+    "unavailable": "Der Ableitungsbericht dieser Flow-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
+    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Flow-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
+  },
   "brief": {
     "title": "Worauf achten",
     "caveat": "Hinweise des KI-Reviewers: wo ein Mensch zuerst hinschauen sollte. Kein Prüfergebnis und blockiert nie eine Entscheidung.",

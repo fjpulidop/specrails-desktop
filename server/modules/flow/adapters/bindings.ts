@@ -18,19 +18,27 @@ import {
 import { OVERLAY_MANIFEST, applyWorktreeOverlay } from '../../../worktree-overlay'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
 import type { WsMessage } from '../../../types'
-import { getAgentConversation } from '../../agents/runtime/agent-store'
+import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
+import { getLinkByLocalId } from '../../../jira/jira-db'
+import { getAdapter } from '../../../providers'
+import { supportsContractRefine } from '../../../providers/runtime'
+import { captureProcessAdmission } from '../../../process-admission'
+import { resolveDefaultSpecModel } from '../../../project-router-helpers'
+import { getPrDelivery, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
+import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
+import type { SpecProvider } from '../../specs/runtime/spec-models'
 import { isolatedWorktreesRoot, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
 import { FlowHandOffNotReadyError, type FlowHandOffAuthority } from '../../delivery/runtime/flow-worktree-handoff'
 import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
 import { FLOW_SESSION_BOUNDARY, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
-import { mutateStore, type Ticket } from '../../specs/runtime/ticket-store'
+import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, flowCoreSessionId, transition,
-  type FlowSession,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, transition,
+  type DerivedChangeText, type FlowSession,
 } from '../domain'
-import type { Clock, FlowDiffFile, FlowPorts, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
+import type { Clock, FlowDiffFile, FlowEffectsStore, FlowPorts, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
 import type { FlowService } from '../application'
 
 /** What Flow needs from the mission agent host (implemented by AgentChatManager). */
@@ -114,6 +122,27 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
         deleted = true
       })
       if (deleted) announce(store.revision, { type: 'ticket_deleted', ticketId, projectId: ctx.project.id, timestamp: clock.now() })
+    },
+    markDelivered(ticketId, input) {
+      let updated: Ticket | undefined
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(ticketId)]
+        if (!ticket?.metadata?.flow) return
+        const changeName = input.openspecChangeName ?? (typeof ticket.metadata.openspecChangeName === 'string' ? ticket.metadata.openspecChangeName : null)
+        const unchanged = ticket.metadata.flow.state === 'delivered' && ticket.metadata.openspecChangeName === (changeName ?? undefined)
+          && ticket.status !== 'in_progress' && ticket.status !== 'todo'
+        if (unchanged) return
+        ticket.metadata = { ...ticket.metadata, flow: { ...ticket.metadata.flow, state: 'delivered' }, ...(changeName ? { openspecChangeName: changeName } : {}) }
+        // The delivery is on review; never pull back a ticket that moved on (done, cancelled).
+        if (ticket.status === 'in_progress' || ticket.status === 'todo') ticket.status = 'on_review'
+        ticket.updated_at = clock.now()
+        updated = ticket
+      })
+      if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
+    },
+    read(ticketId) {
+      const ticket = readStore(file()).tickets[String(ticketId)]
+      return ticket ? { title: ticket.title, description: ticket.description, status: ticket.status } : null
     },
   }
 }
@@ -247,6 +276,7 @@ export function createFlowWorktrees(
 export interface FlowBindingDeps {
   ctx: ProjectContext
   repository: FlowRepository
+  effects: FlowEffectsStore
   internalApi: InternalApi
   /** The app-global mission host (null while agent chat is disabled). */
   agentHost: () => FlowAgentHost | null
@@ -327,6 +357,8 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
         }
       },
     },
+    effects: deps.effects,
+    publication: createFlowPublication(ctx, { git: deps.git }),
     usage: { costSoFar: (input) => sumFlowInvocations(ctx.desktopDb, input) },
     notifier: {
       changed(session) {
@@ -346,7 +378,10 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
  * `adopt` and `release` run inside delivery's SQLite transaction on the same
  * project connection, so the ownership transfer is atomic.
  */
-export function createFlowHandOffAuthority(repository: FlowRepository, clock: Clock = systemClock, onChanged?: (session: FlowSession) => void): FlowHandOffAuthority {
+export function createFlowHandOffAuthority(
+  repository: FlowRepository, clock: Clock = systemClock, onChanged?: (session: FlowSession) => void,
+  summarize?: (session: FlowSession) => string,
+): FlowHandOffAuthority {
   return {
     resolve(flowId) {
       const session = repository.get(flowId)
@@ -361,6 +396,8 @@ export function createFlowHandOffAuthority(repository: FlowRepository, clock: Cl
         worktreePath: session.worktreePath,
         headSha: session.headSha,
         baseSha: session.baseSha,
+        // A summary failure never blocks the hand-off: Core derives from the diff alone.
+        summary: (() => { try { return summarize?.(session) ?? '' } catch { return '' } })(),
         adopt(adoption) {
           const current = repository.get(flowId)
           if (!current) throw new FlowHandOffNotReadyError('The Flow disappeared during the hand-off')
@@ -402,4 +439,135 @@ export function createFlowTurnContext(deps: {
       }
     },
   }
+}
+
+// ─── Settlement publication (arch section 4.6) ───────────────────────────────
+
+/** Decisions that mean the delivery reached review (or went beyond it). */
+const DELIVERED_DECISIONS = new Set(['on_review', 'pr_draft', 'pr_ready', 'completed', 'merged'])
+const ARCHIVED_CHANGE = /^openspec\/changes\/archive\/([^/]+)\/(proposal|design)\.md$/
+const ACTIVE_CHANGE = /^openspec\/changes\/(?!archive\/)([^/]+)\/(proposal|design)\.md$/
+const TEXT_CAP = 64 * 1024
+
+/** The bounded summary of a Flow conversation (user messages + decisions). */
+export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null }): string {
+  const messages = listAgentMessages(desktopDb, input.conversationId)
+    .filter((message) => message.created_at >= input.from && (input.to === null || message.created_at <= input.to))
+    .map((message) => ({ role: message.role, content: message.content }))
+  return buildFlowSummary({ idea: input.idea, messages })
+}
+
+/** Strip OpenSpec's `YYYY-MM-DD-` archive prefix. */
+export function changeNameFromArchive(directory: string): string {
+  return directory.replace(/^\d{4}-\d{2}-\d{2}-/, '')
+}
+
+/**
+ * Read the derived OpenSpec change from the delivered commit: the archived
+ * (or still active) change directory the run added since the Flow base, its
+ * proposal and design, and a bounded diffstat. Pure Git reads; never mutates.
+ */
+export async function readDerivedChange(git: GitRunner, repo: string, input: { ref: string; baseSha: string | null; changeName: string | null }): Promise<DerivedChangeText> {
+  const base = input.baseSha ?? `${input.ref}~1`
+  const added = await git.run(['-c', 'core.quotepath=false', 'diff', '--name-only', '--diff-filter=A', base, input.ref, '--', 'openspec/changes'], repo)
+  if (added.code !== 0) throw new Error(`git diff failed: ${added.stderr.trim() || added.code}`)
+  const candidates = added.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
+  const directories = new Map<string, { name: string; files: Map<string, string> }>()
+  for (const file of candidates) {
+    const archived = ARCHIVED_CHANGE.exec(file)
+    const active = archived ? null : ACTIVE_CHANGE.exec(file)
+    const match = archived ?? active
+    if (!match) continue
+    const dir = file.slice(0, file.lastIndexOf('/'))
+    const entry = directories.get(dir) ?? { name: archived ? changeNameFromArchive(match[1]!) : match[1]!, files: new Map() }
+    entry.files.set(match[2]!, file)
+    directories.set(dir, entry)
+  }
+  const ranked = [...directories.entries()].sort(([a], [b]) => Number(b.includes('/archive/')) - Number(a.includes('/archive/')))
+  const chosen = ranked.find(([, entry]) => input.changeName && entry.name === input.changeName) ?? ranked[0]
+  const show = async (file: string | undefined): Promise<string | null> => {
+    if (!file) return null
+    const result = await git.run(['show', `${input.ref}:${file}`], repo)
+    return result.code === 0 ? result.stdout.slice(0, TEXT_CAP) : null
+  }
+  const stat = await git.run(['diff', '--stat=120', base, input.ref, '--'], repo)
+  return {
+    changeName: chosen?.[1].name ?? input.changeName,
+    proposal: await show(chosen?.[1].files.get('proposal')),
+    design: await show(chosen?.[1].files.get('design')),
+    diffstat: stat.code === 0 ? stat.stdout.slice(0, 8000) : null,
+  }
+}
+
+export function createFlowPublication(
+  ctx: Pick<ProjectContext, 'project' | 'db' | 'desktopDb' | 'broadcast' | 'ticketWatcher' | 'jiraSyncManager'>,
+  deps: { git?: GitRunner; generate?: typeof generateSpecFromText } = {},
+): FlowPublication {
+  const git = deps.git ?? defaultGitRunner
+  const ticketFile = () => ticketStorePathForProject(ctx.project)
+  const readTicket = (ticketId: number) => readStore(ticketFile()).tickets[String(ticketId)]
+  return {
+    deliveryState(deliveryId) {
+      const row = getPrDelivery(ctx.db, deliveryId)
+      if (!row) return null
+      return { delivered: DELIVERED_DECISIONS.has(row.decision) && row.implementation_outcome === 'succeeded' }
+    },
+    async derivedChange(input) {
+      const row = input.deliveryId ? getPrDelivery(ctx.db, input.deliveryId) : undefined
+      let units: DeliverBranchRecord[] = []
+      try { units = row ? JSON.parse(row.branches) as DeliverBranchRecord[] : [] } catch { units = [] }
+      const unit = units.find((entry) => entry.ticketId === input.ticketId) ?? units[0]
+      const ref = unit?.finalSha ?? unit?.branch ?? row?.branch ?? input.branch
+      if (!ref) throw new Error('The delivered branch of this Flow is unknown')
+      const metadata = readTicket(input.ticketId)?.metadata
+      const changeName = typeof metadata?.openspecChangeName === 'string' ? metadata.openspecChangeName : null
+      return readDerivedChange(git, ctx.project.path, { ref, baseSha: input.baseSha, changeName })
+    },
+    conversationSummary(input) {
+      return flowConversationSummary(ctx.desktopDb, { conversationId: input.conversationId, idea: readTicket(input.ticketId)?.description ?? null, from: input.from, to: input.to })
+    },
+    async rewriteSpec({ ticketId, text }) {
+      const provider = (ctx.project.provider ?? 'claude') as SpecProvider
+      const scope = { specrails: false, openspec: false, full: false, mcp: false, contractRefine: true, userMcp: false }
+      if (!resolveSpecGenerationToolPolicy(provider, scope)) return { ok: false, error: `Provider ${provider} cannot run spec generation` }
+      const model = resolveDefaultSpecModel({ projectPath: ctx.project.path, slug: ctx.project.slug, provider })
+      const outcome = await (deps.generate ?? generateSpecFromText)({
+        db: ctx.db,
+        project: ctx.project as never,
+        ticketStorePath: ticketFile(),
+        ticketWatcher: ctx.ticketWatcher,
+        broadcast: ctx.broadcast as (message: unknown) => void,
+        admission: captureProcessAdmission(ctx.project.id),
+      }, {
+        text, provider, model, scope, ticketId, surface: 'flow',
+        // Contract Layer always (feedback-2026-10 decision 6.2), awaited so the
+        // Jira issue that follows is born with the complete spec.
+        contractRefine: supportsContractRefine(getAdapter(provider)) ? { model: null, await: true } : null,
+        hooks: {
+          onPersisted: (ticket) => {
+            try { ctx.broadcast({ type: 'ticket_updated', ticket: ticket as never, projectId: ctx.project.id, timestamp: new Date().toISOString() }) } catch { /* clients rehydrate */ }
+          },
+        },
+      })
+      return outcome.ok ? { ok: true } : { ok: false, error: outcome.error }
+    },
+    jira: {
+      connected: () => { try { return ctx.jiraSyncManager.isActive() } catch { return false } },
+      enqueueCreate: (ticketId, key) => ctx.jiraSyncManager.enqueuePromote(ticketId, key),
+      linked: (ticketId) => { try { const link = getLinkByLocalId(ctx.db, ticketId); return Boolean(link && !link.tombstoned) } catch { return false } },
+      enqueueReview: (ticketId, refId) => ctx.jiraSyncManager.onRailReview([ticketId], refId),
+    },
+  }
+}
+
+/** Periodic retry of due settlement effects (backoff lives in the rows). */
+export function startFlowSettlementScheduler(service: Pick<FlowService, 'runDueSettlements'>, intervalMs = 30_000): { stop(): void } {
+  let running = false
+  const timer = setInterval(() => {
+    if (running) return
+    running = true
+    void service.runDueSettlements().catch(() => undefined).finally(() => { running = false })
+  }, intervalMs)
+  timer.unref?.()
+  return { stop: () => clearInterval(timer) }
 }

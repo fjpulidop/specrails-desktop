@@ -15,7 +15,7 @@ import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, r
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
@@ -28,6 +28,7 @@ import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { terminalResultError } from '../../../providers/terminal-result'
 import { readClaudeBackgroundTasks } from '../../../providers/claude-background-tasks'
 import { FOREGROUND_RULE } from './loop-constants'
+import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES } from './loop-flow-spec-recipe'
 import type { RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
@@ -165,6 +166,27 @@ function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string 
   return args.length > 0 ? args : undefined
 }
 
+/**
+ * Flow -> Spec: the bounded conversation summary Core's derive-change piece
+ * reads (`summaryPath`, relative to `.specrails/pipeline/<runId>/`). Written
+ * once, atomically, never through a symlink; a retry of the same run keeps
+ * the first file. Oversized input is truncated at the byte bound (the builder
+ * already bounds it; this is the last line of defence).
+ */
+export function writeFlowSummary(pipelineDir: string, summary: string): void {
+  const file = join(pipelineDir, FLOW_SUMMARY_FILE)
+  if (lstatSync(file, { throwIfNoEntry: false })) return
+  let body = Buffer.from(summary, 'utf8')
+  if (body.length > FLOW_SUMMARY_LIMIT_BYTES) body = Buffer.from(body.subarray(0, FLOW_SUMMARY_LIMIT_BYTES).toString('utf8').replace(/\uFFFD+$/, ''), 'utf8')
+  const temp = `${file}.${process.pid}.${Date.now()}.tmp`
+  try {
+    writeFileSync(temp, body, { flag: 'wx', mode: 0o600 })
+    renameSync(temp, file)
+  } finally {
+    rmSync(temp, { force: true })
+  }
+}
+
 export function createLoopExecutors(
   opts: {
     /** Base spawn env, or a LAZY provider re-resolved per step. Project-bound
@@ -230,6 +252,9 @@ export function createLoopExecutors(
       if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'artifact-contract'))) {
         if (runtime.api?.capabilities?.workflowAgentSteps !== 1) throw new Error('engine_unsupported: Update Core to run configurable workflow agent steps')
       }
+      if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'derive-change'))) {
+        if (runtime.api?.capabilities?.deriveChange !== 1) throw new Error('engine_unsupported: Update Core to run the Flow → Spec derive-change step')
+      }
       if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'implementation-step'))) {
         if (runtime.api?.capabilities?.implementationSteps !== 1) throw new Error('engine_unsupported: Update Core to run independent implementation steps')
         if (!graph.config.agents) throw new Error('Independent implementation steps require loop-owned agents')
@@ -256,7 +281,10 @@ export function createLoopExecutors(
       const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
-      const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths })
+      const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths,
+        // Flow -> Spec: Core measures the change from the Flow's reservation commit.
+        ...(request.flowDerivation?.baseSha ? { repositoryBaseSha: request.flowDerivation.baseSha } : {}) })
+      if (request.flowDerivation) writeFlowSummary(dirname(core.contextPath), request.flowDerivation.summary)
       const result = await runAgentRuntimeInvocation({
         contextPath: core.contextPath, cwd: request.cwd, env: core.env,
         configPath: runtimeConfigPath(request.cwd), engineVersion: 2,

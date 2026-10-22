@@ -331,6 +331,10 @@ export interface LoopRunRequest {
    *  EVERY ai-step prompt — after the follow-up, before the history. A note
    *  edited mid-run never changes what this run received. */
   addenda?: { ids: string[]; briefing: string }
+  /** Flow -> Spec (Flow mode): the Flow reservation commit Core measures the
+   *  change from (`repositories[].baseSha`) and the bounded conversation
+   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`. */
+  flowDerivation?: { baseSha: string | null; summary: string }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/

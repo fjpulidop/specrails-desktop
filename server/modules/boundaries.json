@@ -903,6 +903,7 @@
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",
         "../../runtime/review-brief",
+        "../../runtime/review-packet",
         "./contracts",
         "./evidence",
         "./metadata",
@@ -1368,6 +1369,7 @@
         "../../accounting/runtime/ai-invocations",
         "../../audit",
         "../../audit/adapters/sqlite",
+        "../../loops/runtime/loop-factory",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./pr-body",
@@ -1564,7 +1566,12 @@
         "../../../desktop-db",
         "../../../ids",
         "../../../internal-api",
+        "../../../jira/jira-db",
+        "../../../process-admission",
         "../../../project-registry",
+        "../../../project-router-helpers",
+        "../../../providers",
+        "../../../providers/runtime",
         "../../../repo-lock",
         "../../../types",
         "../../../worktree-manager",
@@ -1573,10 +1580,13 @@
         "../../agents/runtime/agent-store",
         "../../delivery/runtime/flow-worktree-handoff",
         "../../delivery/runtime/isolated-worktree",
+        "../../delivery/runtime/rail-pr-store",
         "../../delivery/runtime/rails-store",
         "../../missions/runtime/agent-flow-prompt",
         "../../missions/runtime/flow-turn-context",
         "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/spec-generation",
+        "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
         "../application",
         "../domain",
@@ -1724,6 +1734,7 @@
         "./loop-constants",
         "./loop-decider",
         "./loop-definition",
+        "./loop-flow-spec-recipe",
         "./loop-run-manager",
         "./loop-shell-invocation",
         "./loop-step-idle",
@@ -1734,8 +1745,12 @@
       ],
       "runtime/loop-factory.ts": [
         "./loop-core-factory",
+        "./loop-flow-spec-recipe",
         "./loop-graph",
         "./loop-templates"
+      ],
+      "runtime/loop-flow-spec-recipe.ts": [
+        "./loop-graph"
       ],
       "runtime/loop-graph.ts": [
         "./loop-agents"

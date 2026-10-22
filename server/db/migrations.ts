@@ -1781,6 +1781,31 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 75: Flow settlement effects (Flow -> Spec, arch section 4.6).
+  // One row per durable effect, keyed `flow:<flowId>:<kind>`; executed in
+  // `seq` order with attempts/backoff and replayed at startup. A failure
+  // never blocks the delivery.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS flow_effects (
+        effect_key      TEXT PRIMARY KEY,
+        flow_id         TEXT NOT NULL,
+        kind            TEXT NOT NULL CHECK (kind IN ('rewrite-spec','jira-create','jira-review')),
+        seq             INTEGER NOT NULL,
+        status          TEXT NOT NULL CHECK (status IN ('pending','done','skipped','failed')),
+        attempts        INTEGER NOT NULL DEFAULT 0,
+        last_error      TEXT,
+        note            TEXT,
+        next_attempt_at TEXT,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_flow_effects_flow ON flow_effects(flow_id, seq);
+      CREATE INDEX IF NOT EXISTS idx_flow_effects_pending ON flow_effects(status) WHERE status = 'pending';
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_delivery ON flow_sessions(delivery_id);
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

@@ -30,7 +30,8 @@
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
-import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
+import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryDerivation, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
+import { FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
 import {
   getPrDelivery,
   readSpecSnapshot,
@@ -111,6 +112,24 @@ export interface PacketCost {
   estimated: boolean
 }
 
+/**
+ * Flow -> Spec derivation (Core `derive-change`): coverage is Core's own
+ * measurement (app-verified tier); the deriver's confidence is AI-reported.
+ * `unavailable` means a Flow -> Spec delivery whose report could not be read
+ * — said out loud, never silently omitted.
+ */
+export type PacketDerivation =
+  | ({ status: 'available' } & DeliveryDerivation)
+  | { status: 'unavailable' }
+
+/** Flow settlement progress (spec rewrite, Jira issue) for a Flow delivery. */
+export type FlowSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
+export interface PacketFlowSettlement {
+  specRewrite: FlowSettlementEffectState | null
+  jiraCreate: FlowSettlementEffectState | null
+  jiraReview: FlowSettlementEffectState | null
+}
+
 export interface ReviewPacket {
   schemaVersion: 1
   repositoryId?: string
@@ -166,6 +185,10 @@ export interface ReviewPacket {
    * counted by kind (agent actions audit). Null when nothing was recorded or
    * the log is unavailable — reads are only as complete as each provider stream. */
   agentActions: PacketAgentActions | null
+  /** Flow -> Spec only: the derivation coverage report; null for other loops. */
+  derivation: PacketDerivation | null
+  /** Flow deliveries only: settlement effects (spec rewrite, Jira); null otherwise. */
+  flowSettlement: PacketFlowSettlement | null
 }
 
 export interface PacketAgentActions {
@@ -461,6 +484,15 @@ export interface ComposeReviewPacketInput {
   row: RailPrDeliveryRow
   repositoryId?: string
   includeLegacyProvenance?: boolean
+  /** Flow settlement state read by the caller from the Flow module (durable rows). */
+  flowSettlement?: PacketFlowSettlement | null
+}
+
+/** The derivation a Flow -> Spec delivery recorded at settle (first unit that has one). */
+export function packetDerivation(row: Pick<RailPrDeliveryRow, 'loop_id'>, evidence: DeliverySettleEvidence | null): PacketDerivation | null {
+  const found = (evidence?.units ?? []).map((unit) => unit.runtime?.derivation).find((value): value is DeliveryDerivation => Boolean(value))
+  if (found) return { status: 'available', ...found }
+  return row.loop_id === FLOW_SPEC_LOOP_ID ? { status: 'unavailable' } : null
 }
 
 /** Where a follow-up run's `FOLLOW-UP REPORT` can be found after settle: the
@@ -471,7 +503,7 @@ function followUpReportSource(evidence: DeliverySettleEvidence | null): string |
   return parts.length > 0 ? parts.join('\n') : null
 }
 
-export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false }: ComposeReviewPacketInput): ReviewPacket {
+export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false, flowSettlement = null }: ComposeReviewPacketInput): ReviewPacket {
   const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
   const units = safeParse<DeliverBranchRecord[]>(row.branches, [])
@@ -593,6 +625,8 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     chainCostEstimated: versions.some((version) => version.costEstimated),
     driftNudges,
     agentActions: agentActionsForRuns(db, runIds),
+    derivation: packetDerivation(row, evidence),
+    flowSettlement,
   }
 }
 

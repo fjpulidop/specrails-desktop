@@ -6,9 +6,10 @@ the user decides the result is right, a rail adopts the worktree and derives
 the spec (the Flow → Spec loop). Implement is for delegating; Flow is for
 discovering.
 
-This guide covers the server side that exists today. The client (Flow bar,
-cards, composer, board label), the `factory:flow-spec` loop and settlement
-effects (spec rewrite, Jira create and review transition) are later changes.
+This guide covers the server side: the Flow lifecycle, the `factory:flow-spec`
+loop and the delivery settlement (spec rewrite, Jira create and review
+transition). The client (Flow bar, cards, composer, board label) is a separate
+change.
 OpenSpec change: [`flow-mode`](../../openspec/changes/flow-mode/).
 
 ## Where each responsibility lives
@@ -123,8 +124,8 @@ branch and deletes the placeholder spec. Discard after a hand-off is illegal.
    commit in one transaction; a rollback after adoption returns ownership.
 5. Any failure before that commit reverts the Flow to `paused`.
 
-`onFlowDelivered` records `delivered` and sets `metadata.flow.state` to
-`delivered`; the settlement effects are enqueued by the Flow → Spec change.
+See [Flow → Spec loop](#flow--spec-loop) and [Settlement](#settlement) for
+what happens after the hand-off.
 
 ### Restart
 
@@ -133,6 +134,85 @@ opens: `active` Flows become `paused` (sessions never survive a restart);
 `start:ticket`/`start:worktree` are compensated; `start:session` and
 `handoff:*` complete as `paused`; a missing worktree becomes `needs-review`
 (nothing is deleted). Handed-off and terminal Flows are untouched.
+
+## Flow → Spec loop
+
+`factory:flow-spec` ([recipe](../../server/modules/loops/runtime/loop-flow-spec-recipe.ts))
+is a built-in `mode: 'loop'` factory that exists only when Core advertises
+`engineV2`, `workflowDefinitions` and `deriveChange: 1`. It is listed by
+`GET /api/loops/factory` with `launchable: false`, is not an editable built-in
+(not in `EDITABLE_BUILTIN_LOOP_IDS`, never seeded into the loop library) and
+runs only from a Flow hand-off: the rails route answers `400 flow_id_required`
+without `flowId` and `409 engine_unsupported` when the selected Core lacks
+`deriveChange` (the run itself re-checks in `assertDefinitionSupport`).
+
+The graph mirrors Core's reference definition (`flow-spec.json`, Core PR #438):
+
+```
+init → derive (derive-change) ─pass→ check (verify, additionalCommandsFrom: derive)
+          │fail                       → review (role-turn reviewer) → review-policy
+          └→ repair-guard (1 repair)  → archive (openspec-archive) → verify → done
+```
+
+- Strict `openspec validate` and the archive preflight run inside the
+  `derive-change` piece; its `fail` outcome is the one-visit repair loop, so
+  there is no separate `openspec-validate` node.
+- Roles: `deriver` (always added for a `derive-change` node) and `reviewer`.
+  The reviewer receives `{{outputs.derive.derivation}}` and treats every
+  unexplained file as an issue; the policy gate is `approved == true`.
+- Config: `change: 'new'`, `journal: 'ledger-only'`, `reviewerStepId: 'review'`.
+
+Before the run, Desktop prepares the derivation inputs:
+
+- **Base.** `requiredFlowWorktree.baseSha` (the Flow reservation commit)
+  travels as `LoopRunRequest.flowDerivation.baseSha` and becomes
+  `repositories[].baseSha` in the frozen Core context, so Core measures the
+  change from the reservation, not from the frozen hand-off commit (which
+  would be an empty change set).
+- **Summary.** The hand-off authority builds a bounded summary of the Flow
+  conversation (`buildFlowSummary`: the idea, the user's messages and the
+  persona's `Decision:` lines only; ≤ 32 KB of UTF-8, oldest user messages
+  dropped first; front matter `transcriptTurns: <n>`). The executor writes it
+  once, `0600`, to `.specrails/pipeline/<runId>/flow-summary.md`, which the
+  node reads as `summaryPath`. A summary failure never blocks the hand-off:
+  Core then derives from the diff alone.
+
+## Settlement
+
+When the Flow's delivery reaches review, the Flow settles. Triggers:
+
+- a `rail.pr_state` broadcast for the Flow's `deliveryId` whose decision is
+  `on_review`, `pr_draft`, `pr_ready`, `completed` or `merged` with a
+  succeeded implementation (`observeDelivery`);
+- without a PR delivery row (PR delivery disabled), the completed run itself
+  (`onRailRunCompleted`, keyed by the run id);
+- at startup, `replaySettlement` settles handed-off Flows whose delivery
+  reached review while the app was down and resumes pending effects; a 30 s
+  scheduler retries due effects.
+
+`onFlowDelivered` records `delivered`, labels the spec `delivered` and
+enqueues three durable effects in `flow_effects` (migration 73, project
+database) with keys `flow:<flowId>:rewrite-spec`, `:jira-create`,
+`:jira-review`. They run in `seq` order with attempts and exponential backoff
+(15 s doubling, capped at 5 min); a pending effect that is not due blocks the
+ones after it, and a failure never reverts the delivery.
+
+| Effect | Does | Gives up |
+| --- | --- | --- |
+| `rewrite-spec` | Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer | 3 attempts → `failed`: the spec keeps its Flow draft and the packet says so |
+| `jira-create` | Projects with an active Jira connection only: `enqueuePromote(ticketId, 'flow:<flowId>:create')` (durable outbox create with marker recovery) | 8 attempts; `skipped` when not connected |
+| `jira-review` | Once the issue link exists: `onRailReview([ticketId], deliveryId)` → the status mapped for `on_review` | 60 polls while the outbox creates the issue; `skipped` when no issue was created |
+
+Why a dedicated table instead of the Jira outbox or `rail_pr_ticket_effects`:
+the spec rewrite is not a Jira operation, the three effects are ordered across
+two systems (specs, then Jira) and keyed by the Flow rather than the delivery
+decision. The Jira writes still go through the Jira outbox, so retry, marker
+recovery and dead-lettering stay where they are.
+
+Nothing reaches Jira during Flow or on discard: `isFlowHeldTicket` blocks every
+create while the Flow is `active`/`paused`, and the run settlement in
+`project-registry` excludes Flow-held specs from its own `onRailReview`, so a
+Flow spec is never transitioned before its issue exists nor transitioned twice.
 
 ## Jira
 
@@ -144,18 +224,31 @@ limit). Unlinked tickets never receive outbound writes otherwise.
 ## Events and cost
 
 `flow.state { projectId, conversationId, flowId, flow, timestamp }` is
-broadcast on every committed change. `GET /flow/:flowId/cost` sums only
-provider-billed Flow turns in the Flow's lifetime and reports
-`unpricedTurns` separately; project spending exposes `flowCostUsd` and
-`flowTurns` inside the agent-mission summary.
+broadcast on every committed change (and when a settlement effect finishes).
+`GET /flow/:flowId/cost` sums only provider-billed Flow turns in the Flow's
+lifetime and reports `unpricedTurns` separately; project spending exposes
+`flowCostUsd` and `flowTurns` inside the agent-mission summary. The spec
+rewrite is recorded with surface `flow`.
+
+## Review packet
+
+A Flow → Spec delivery adds a **Derivation** section before "What to watch
+out for": coverage (`explained/files`, Core's measurement from git), the
+unexplained files, requirements added/modified and the deriver's confidence
+(AI-reported). It comes from the derive-change scope in `runtime status`
+(`output.derivation`, or `derivation.json` at `output.derivationPath`),
+harvested into the settle evidence. A missing report renders as unavailable,
+never silently. The draft PR body gets one derivation line. See
+[review packet](review-packet.md).
 
 ## Known limitations
 
-- The Flow → Spec loop is not registered yet. A hand-off without `loopId`
-  requests `factory:flow-spec` (never the rail's default loop), which the
-  launch route refuses until the flow-spec-loop change registers it; pass an
-  explicit `loopId` meanwhile. `factory:flow-spec` without `flowId` is
-  already refused.
 - A conversation re-pinned to another project while a Flow is open stops
   resolving the Flow (turns become normal mission turns).
 - Sub-agents are disabled in Flow sessions.
+- The reviewer brief of Core PR #436 is not rendered in the packet yet.
+- Without PR delivery, the derived change is read from the run's branch,
+  which the legacy merge-back may already have removed; the rewrite then
+  fails and the spec keeps its draft.
+- End-to-end coverage uses unit and integration tests with fakes; the paired
+  Core harness does not exercise `derive-change` until Core ships it.

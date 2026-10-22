@@ -32,8 +32,8 @@
 - [ ] 5.2 Mission panel integration (`data-flow`), composer interrupt delivery, board "In Flow" label
 - [ ] 5.3 i18n in the eight locales, accessibility, client tests
 
-## 6. Flow -> Spec loop and settlement (later change)
+## 6. Flow -> Spec loop and settlement
 
-- [ ] 6.1 `factory:flow-spec` loop with `derive-change`, conversation summary file
-- [ ] 6.2 Settlement effects (spec rewrite, Jira create and review), packet "Derivation"
+- [x] 6.1 `factory:flow-spec` loop with `derive-change`, conversation summary file
+- [x] 6.2 Settlement effects (spec rewrite, Jira create and review), packet "Derivation"
 - [ ] 6.3 Real smoke with Claude and Codex end to end

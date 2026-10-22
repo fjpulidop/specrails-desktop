@@ -12,7 +12,7 @@ export type LoopStatus = 'draft' | 'published'
 export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
 export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'assign' | 'verify' | 'shell'
   | 'openspec-validate' | 'openspec-archive' | 'approval' | 'question' | 'gate' | 'map' | 'join'
-  | 'artifact-contract' | 'component' | 'implementation' | 'implementation-step' | 'end'
+  | 'artifact-contract' | 'component' | 'implementation' | 'implementation-step' | 'derive-change' | 'end'
 export type LoopJoin = 'AND' | 'OR'
 /** Which Decider verdict routes down an edge: 'continue' = loop, 'stop' = exit. */
 export type LoopBranch = 'continue' | 'stop'

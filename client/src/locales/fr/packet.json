@@ -168,6 +168,27 @@
     },
     "noReport": "L'exécution n'a rien signalé pour cet addendum. Vérifiez les changements et les preuves ci-dessous."
   },
+  "derivation": {
+    "title": "Dérivation",
+    "coverage": "{{explained}} des {{files}} fichiers modifiés sont expliqués par la conception dérivée",
+    "change": "Changement OpenSpec",
+    "requirements": "Exigences",
+    "requirementsValue": "{{added}} ajoutées · {{modified}} modifiées",
+    "confidence": "Confiance du dériveur",
+    "confidenceLevel": {
+      "high": "Élevée",
+      "medium": "Moyenne",
+      "low": "Faible"
+    },
+    "confidenceUnknown": "Non indiquée",
+    "caveat": "La couverture est mesurée par Specrails avec git ; la confiance est l'auto-évaluation de l'agent.",
+    "unexplainedTitle_one": "{{count}} fichier modifié n'est pas expliqué",
+    "unexplainedTitle_other": "{{count}} fichiers modifiés ne sont pas expliqués",
+    "more_one": "…et {{count}} autre fichier",
+    "more_other": "…et {{count}} autres fichiers",
+    "unavailable": "Le rapport de dérivation de cette livraison Flow n'a pas pu être lu. Examinez directement le diff.",
+    "rewriteFailed": "La spec n'a pas pu être réécrite à partir du changement dérivé ; elle conserve son brouillon Flow. Le changement OpenSpec reste la trace technique."
+  },
   "brief": {
     "title": "Points à examiner",
     "caveat": "Note indicative du relecteur IA : où un humain doit regarder en premier. Ce n'est pas un résultat de vérification et cela ne bloque jamais une décision.",

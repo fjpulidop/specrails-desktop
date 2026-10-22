@@ -6,6 +6,7 @@ import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges, type Pr
 import { readSettleEvidence } from '../../runtime/delivery-evidence'
 import { buildWhatToLookAt } from '../../runtime/review-brief'
 import { sumInvocationCostForRuns } from '../../../accounting/runtime/ai-invocations'
+import { packetDerivation } from '../../runtime/review-packet'
 import {
   toPrDeliverySnapshot, type PrDecision, type PrDeliveryPatch, type RailPrDeliveryRow
 } from '../../runtime/rail-pr-store'
@@ -123,6 +124,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     changes,
     costUsd,
     reviewBrief,
+    derivation: (() => { const d = packetDerivation(row, readSettleEvidence(row.settle_evidence)); return d?.status === 'available' ? d : null })(),
   })
 
   let next: PrDecision

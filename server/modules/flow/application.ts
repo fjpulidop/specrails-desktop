@@ -1,4 +1,13 @@
 import {
+  buildSpecRewriteText,
+  failedAttempt,
+  finishedEffect,
+  flowJiraCreateKey,
+  nextDueEffect,
+  plannedSettlementEffects,
+  summarizeSettlement,
+  type FlowSettlementEffect,
+  type FlowSettlementSummary,
   FlowConflictError,
   FlowNotFoundError,
   FlowTransitionError,
@@ -248,17 +257,141 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     })
   }
 
-  /** Delivery settled (`on_review`): record the transition. Settlement effects
-   * (spec rewrite, Jira create/review) are enqueued by the flow-spec loop PR. */
-  function onFlowDelivered(input: { flowId: string; deliveryId: string }): Promise<FlowSession> {
-    return serialized(`flow:${input.flowId}`, async () => {
+  /**
+   * Delivery settled (reached review): record `delivered`, label the spec
+   * delivered and enqueue the durable settlement effects (arch 4.6). The
+   * effects then run in the background, in order; their failure never
+   * reverts the delivery. Idempotent by flowId.
+   */
+  async function onFlowDelivered(input: { flowId: string; deliveryId?: string | null }): Promise<FlowSession> {
+    const delivered = await serialized(`flow:${input.flowId}`, async () => {
       const session = load(input.flowId)
-      const result = transition(session, { type: 'delivered', deliveryId: input.deliveryId, now: ports.clock.now() })
-      if (result.session === session) return session
-      const delivered = commit(result.session)
-      await settle(delivered, result.effects)
-      return delivered
+      const deliveryId = session.deliveryId ?? input.deliveryId ?? null
+      if (!deliveryId) throw new FlowValidationError('delivery_required', 'A delivered Flow needs its delivery id')
+      const result = transition(session, { type: 'delivered', deliveryId, now: ports.clock.now() })
+      let current = session
+      if (result.session !== session) {
+        current = commit(result.session)
+        await settle(current, result.effects)
+      }
+      if (current.state === 'delivered') ports.effects.enqueue(plannedSettlementEffects(current.id, ports.clock.now()))
+      return current
     })
+    void runSettlement(delivered.id).catch((error) => log.warn(`[flow] settlement of ${delivered.id} failed: ${error instanceof Error ? error.message : String(error)}`))
+    return delivered
+  }
+
+  /** A `rail.pr_state` change: settle the Flow whose delivery reached review. */
+  async function observeDelivery(deliveryId: string): Promise<FlowSession | null> {
+    const session = ports.repository.findByDelivery(deliveryId)
+    if (!session || session.state !== 'handed_off') return null
+    if (!ports.publication.deliveryState(deliveryId)?.delivered) return null
+    return onFlowDelivered({ flowId: session.id, deliveryId })
+  }
+
+  /** A Flow rail completed without a PR delivery row (PR delivery off): the
+   * run itself is the delivery reference. */
+  async function onRailRunCompleted(input: { flowId: string; runId: string }): Promise<FlowSession | null> {
+    const session = ports.repository.get(input.flowId)
+    if (!session || session.state !== 'handed_off' || session.deliveryId) return null
+    return onFlowDelivered({ flowId: session.id, deliveryId: input.runId })
+  }
+
+  async function executeEffect(session: FlowSession, effect: FlowSettlementEffect, all: readonly FlowSettlementEffect[]): Promise<FlowSettlementEffect> {
+    const now = ports.clock.now()
+    const ticketId = session.ticketId
+    if (ticketId === null) return finishedEffect(effect, 'skipped', now, 'ticket_missing')
+    switch (effect.kind) {
+      case 'rewrite-spec': {
+        let derived
+        try {
+          derived = await ports.publication.derivedChange({ flowId: session.id, deliveryId: session.deliveryId, ticketId, branch: session.branch, baseSha: session.baseSha })
+        } catch (error) {
+          // Label and change name never wait for Git: the delivery is real.
+          ports.tickets.markDelivered(ticketId, { openspecChangeName: null })
+          return failedAttempt(effect, error instanceof Error ? error.message : String(error), now, 'derived_change_unreadable')
+        }
+        ports.tickets.markDelivered(ticketId, { openspecChangeName: derived.changeName })
+        if (!derived.proposal?.trim() && !derived.design?.trim()) return failedAttempt(effect, 'The derived OpenSpec change was not found on the delivered branch', now, 'derived_change_missing')
+        const ticket = ports.tickets.read(ticketId)
+        if (!ticket) return finishedEffect(effect, 'skipped', now, 'ticket_missing')
+        const summary = ports.publication.conversationSummary({ conversationId: session.conversationId, ticketId, from: session.createdAt, to: null })
+        const result = await ports.publication.rewriteSpec({ ticketId, text: buildSpecRewriteText({ title: ticket.title, derived, summary }) })
+        return result.ok ? finishedEffect(effect, 'done', now) : failedAttempt(effect, result.error, now, 'rewrite_failed')
+      }
+      case 'jira-create': {
+        if (!ports.publication.jira.connected()) return finishedEffect(effect, 'skipped', now, 'jira_not_connected')
+        const outcome = ports.publication.jira.enqueueCreate(ticketId, flowJiraCreateKey(session.id))
+        if (outcome === 'enqueued' || outcome === 'already_linked') return finishedEffect(effect, 'done', now, outcome)
+        if (outcome === 'inactive') return finishedEffect(effect, 'skipped', now, 'jira_not_connected')
+        return failedAttempt(effect, 'The Jira create could not be enqueued', now, 'enqueue_failed')
+      }
+      case 'jira-review': {
+        const create = all.find((candidate) => candidate.kind === 'jira-create')
+        if (create && create.status !== 'done') return finishedEffect(effect, 'skipped', now, 'no_jira_issue')
+        if (!ports.publication.jira.linked(ticketId)) return failedAttempt(effect, 'Waiting for the Jira issue to be created', now, 'awaiting_issue')
+        ports.publication.jira.enqueueReview(ticketId, session.deliveryId ?? session.id)
+        return finishedEffect(effect, 'done', now)
+      }
+    }
+  }
+
+  /** Run the due settlement effects of one Flow, in order. Serialized per Flow;
+   * a pending effect that is not due yet stops the walk (order is kept). */
+  function runSettlement(flowId: string): Promise<FlowSettlementSummary> {
+    return serialized(`settle:${flowId}`, async () => {
+      const session = load(flowId)
+      for (let guard = 0; guard < 16; guard++) {
+        const effects = ports.effects.list(flowId)
+        const effect = nextDueEffect(effects, ports.clock.now())
+        if (!effect) break
+        let next: FlowSettlementEffect
+        try {
+          next = await executeEffect(session, effect, effects)
+        } catch (error) {
+          next = failedAttempt(effect, error instanceof Error ? error.message : String(error), ports.clock.now())
+        }
+        ports.effects.save(next)
+        if (next.status !== 'pending') ports.notifier.changed(load(flowId))
+      }
+      return summarizeSettlement(ports.effects.list(flowId))
+    })
+  }
+
+  /** Startup replay: settle Flows whose delivery reached review while the app
+   * was down, then resume every pending effect. Never throws. */
+  async function replaySettlement(): Promise<number> {
+    let resumed = 0
+    for (const session of ports.repository.listHandedOff()) {
+      try {
+        if (session.deliveryId && ports.publication.deliveryState(session.deliveryId)?.delivered) {
+          await onFlowDelivered({ flowId: session.id, deliveryId: session.deliveryId })
+          resumed++
+        }
+      } catch (error) {
+        log.warn(`[flow] settlement replay failed for ${session.id}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    return resumed + await runDueSettlements()
+  }
+
+  /** Retry tick: run every Flow with pending effects (due ones execute). */
+  async function runDueSettlements(): Promise<number> {
+    let ran = 0
+    for (const flowId of ports.effects.pendingFlowIds()) {
+      try { await runSettlement(flowId); ran++ } catch (error) {
+        log.warn(`[flow] settlement retry failed for ${flowId}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+    return ran
+  }
+
+  /** Packet view: settlement progress of the Flow a delivery belongs to. */
+  function settlementForDelivery(deliveryId: string): FlowSettlementSummary | null {
+    const session = ports.repository.findByDelivery(deliveryId)
+    if (!session) return null
+    const effects = ports.effects.list(session.id)
+    return effects.length ? summarizeSettlement(effects) : { specRewrite: 'pending', jiraCreate: 'pending', jiraReview: 'pending' }
   }
 
   /** Startup reconciliation (arch 4.7): never leaves a Flow mid-saga or `active` without a session. */
@@ -314,6 +447,12 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     discardFlow,
     handOffFlow,
     onFlowDelivered,
+    observeDelivery,
+    onRailRunCompleted,
+    runSettlement,
+    replaySettlement,
+    runDueSettlements,
+    settlementForDelivery,
     reconcile,
     getFlow,
     getByConversation,

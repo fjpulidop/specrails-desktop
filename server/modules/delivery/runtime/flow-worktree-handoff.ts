@@ -27,6 +27,9 @@ export interface RequiredFlowWorktree {
   headSha: string
   /** Commit the Flow branched from: the delivery hygiene and change baseline. */
   baseSha?: string | null
+  /** Bounded conversation summary (user messages and decisions) that the
+   * Flow -> Spec loop hands Core's derive-change piece. */
+  summary?: string
   /** Runs inside the launch transaction that inserts the `rail_worktrees` row.
    * Throwing aborts the transaction and the launch. */
   adopt(adoption: FlowAdoption): void

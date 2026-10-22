@@ -20,7 +20,7 @@ import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
+import { isFactoryLoopId, factoryLoopMode, canonicalFactoryLoopId, factoryLoopForMode, FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
@@ -53,7 +53,7 @@ import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolate
 import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 
 /** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
-export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
+export { FLOW_SPEC_LOOP_ID }
 import { resolveRailRelaunch, restoreRelaunchRail, RailRelaunchError, type RailRelaunch } from './rail-relaunch'
 import { repoIsolationStatus, defaultGitRunner } from '../../../worktree-manager'
 import { isValidBranchName } from '../../../integration-branch'
@@ -658,7 +658,7 @@ export function createRailsRouter(): Router {
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
-      loopId = getFactoryLoop(loopId)!.id // canonicalize saved legacy aliases
+      loopId = canonicalFactoryLoopId(loopId)! // canonicalize saved legacy aliases
       mode = fmode
     }
     if (relaunchSource) relaunchSource.config = { ...relaunchSource.config, mode }
@@ -927,6 +927,10 @@ export function createRailsRouter(): Router {
           // last Published snapshot while an edit is Draft); otherwise the
           // current code default for this Core.
           const f = builtinSelection
+          // Flow -> Spec exists only on a Core that advertises `deriveChange`.
+          if (!f && loopId === FLOW_SPEC_LOOP_ID) {
+            res.status(409).json({ error: 'engine_unsupported', detail: 'Update Core to run the Flow → Spec loop (derive-change).' }); return
+          }
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           if (f.source !== 'default') {
             const validation = validateLoopGraph(f.graph)
@@ -1626,7 +1630,7 @@ export function createRailsRouter(): Router {
       } catch (err) {
         console.warn('[rails-router] packet evidence heal skipped:', err instanceof Error ? err.message : String(err))
       }
-      const packet = composeReviewPacket({ db: c.db, row, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
+      const packet = composeReviewPacket({ db: c.db, row, flowSettlement: c.flow?.settlementForDelivery(row.id) ?? null, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the
       // confirm-gated local path rather than blocking the packet.
       const acceptCapability = await resolveAcceptCapability({ repoDir: frozenRepository?.sourcePath ?? c.project.path, exec: defaultExec })

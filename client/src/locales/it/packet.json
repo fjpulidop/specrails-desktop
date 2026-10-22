@@ -168,6 +168,27 @@
     },
     "noReport": "L'esecuzione non ha riportato nulla su questo addendum. Controlla le modifiche e le evidenze qui sotto."
   },
+  "derivation": {
+    "title": "Derivazione",
+    "coverage": "{{explained}} di {{files}} file modificati sono spiegati dal design derivato",
+    "change": "Modifica OpenSpec",
+    "requirements": "Requisiti",
+    "requirementsValue": "{{added}} aggiunti · {{modified}} modificati",
+    "confidence": "Fiducia del derivatore",
+    "confidenceLevel": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Bassa"
+    },
+    "confidenceUnknown": "Non indicata",
+    "caveat": "La copertura è misurata da Specrails con git; la fiducia è la valutazione dell'agente stesso.",
+    "unexplainedTitle_one": "{{count}} file modificato non è spiegato",
+    "unexplainedTitle_other": "{{count}} file modificati non sono spiegati",
+    "more_one": "…e {{count}} altro file",
+    "more_other": "…e altri {{count}} file",
+    "unavailable": "Non è stato possibile leggere il rapporto di derivazione di questa consegna Flow. Esamina direttamente il diff.",
+    "rewriteFailed": "Non è stato possibile riscrivere la spec dalla modifica derivata; mantiene la bozza Flow. La modifica OpenSpec resta il riferimento tecnico."
+  },
   "brief": {
     "title": "Cosa guardare",
     "caveat": "Nota orientativa del revisore IA: dove una persona dovrebbe guardare per prima. Non è un risultato di verifica e non blocca mai una decisione.",
