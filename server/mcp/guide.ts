@@ -195,7 +195,7 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
     larger sets across several rails (they run in parallel) or sequential
     launches. There is no separate batch mode.
   - Freestyle: sends a free-form autonomous prompt to a capable provider — one
-    job per ticket; Claude and Kimi; \`model\` picker. Claude additionally
+    job per ticket; Claude, Codex, Gemini, Kimi and local engines; \`model\` picker. Claude additionally
     supports optional \`interactive\` in-job chat (settle with
     \`specrails_jobs(finalize)\`). To launch it through the API, pass the canonical mode value \`freestyle\`. In user-facing language, call
     the feature "Freestyle".
@@ -312,7 +312,7 @@ can run Contract Refine require AI-spawn, including Explore conversions.
 
 - Installed providers are per-project; AI-spawning calls may pick any installed
   one (\`aiEngine\`); rails carry a per-rail engine.
-- Claude and Kimi support Freestyle mode (pass the canonical
+- Claude, Codex, Gemini, Kimi and local engines support Freestyle mode (pass the canonical
   API value \`freestyle\`; call the feature "Freestyle" to users). Persistent
   interactive jobs remain Claude-only.
 - Kimi prompt mode cannot enforce a no-tools or read-only boundary. Consequently

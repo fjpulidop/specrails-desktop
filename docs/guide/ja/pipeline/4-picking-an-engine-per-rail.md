@@ -19,7 +19,7 @@
 | エンジン | こんなときに | 補足 |
 |--------|--------------------|-------|
 | **Claude** | native cost、persistent interaction、strict tool policy が必要。 | Profile、Freestyle、structured transform。 |
-| **Codex** | OpenAI Codex CLI を好むとき、あるいはプロバイダー間で実装を比べたいとき。 | `codex` ≥ 0.128.0。ネイティブのコスト報告なし — アプリが料金表からコストを補います。プロファイルは適用されません。 |
+| **Codex** | OpenAI Codex CLI を好むとき、あるいはプロバイダー間で実装を比べたいとき。 | `codex` ≥ 0.128.0。ネイティブのコスト報告なし — アプリが料金表からコストを補います。プロファイルは適用されません。Freestyle はインタラクティブチャットなしで動作します。 |
 
 ## 実用的なワークフロー
 

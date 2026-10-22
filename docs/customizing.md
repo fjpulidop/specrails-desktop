@@ -67,7 +67,7 @@ A custom instruction appended to every **Implement** rail job, after the ticket 
 
 ### Freestyle pre-prompt
 
-The instruction sent to the selected provider for **Freestyle** rails. Freestyle skips the OpenSpec pipeline — it hands that provider this pre-prompt plus the spec text and lets it implement autonomously. Claude currently advertise Freestyle support. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
+The instruction sent to the selected provider for **Freestyle** rails. Freestyle skips the OpenSpec pipeline — it hands that provider this pre-prompt plus the spec text and lets it implement autonomously. Claude, Codex, Gemini, Kimi and local engines support Freestyle; only Claude adds the interactive in-job chat. The spec text is appended automatically after the pre-prompt. Leave it blank to use the built-in default.
 
 ### Telemetry
 

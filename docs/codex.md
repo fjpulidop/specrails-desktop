@@ -77,7 +77,7 @@ still takes precedence.
 | **Reasoning efforts** | `low`–`xhigh` | model-dependent | none | `low`/`high`/`max`, K3 only |
 | **Agent profiles** | ✅ | legacy | legacy | ✅ provider-scoped |
 | **Implement** | ✅ | ✅ | ✅ | ✅ |
-| **Freestyle** | ✅ | ❌ | ❌ | ✅ |
+| **Freestyle** | ✅ (+ interactive chat) | ✅ non-interactive | ✅ non-interactive | ✅ non-interactive |
 | **Pure-output transforms** | capability-dependent | capability-dependent | capability-dependent | ❌ fail closed |
 | **Session resume** | `--resume` | `exec resume` | `--resume` | bound `--session=<id>` after resume hint |
 | **Native cost report** | exact | estimated | estimated | unavailable |

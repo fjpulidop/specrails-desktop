@@ -8,7 +8,7 @@ describe('provider-aware MCP tool descriptions', () => {
     const tool = railsTools()[0]
     expect(tool.description).toContain('Kimi')
     expect(tool.description).not.toContain('claude/codex/gemini')
-    expect(tool.inputSchema.mode.description).toContain('Claude and Kimi')
+    expect(tool.inputSchema.mode.description).toContain('Claude, Codex, Gemini, Kimi and local engines; only Claude is interactive')
     expect(tool.inputSchema.model.description).toContain('Kimi')
     expect(tool.inputSchema.model.description).not.toContain('Claude-only')
   })

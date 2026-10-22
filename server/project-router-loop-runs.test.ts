@@ -91,12 +91,18 @@ describe('project-router standalone loop runs', () => {
     expect((await request(app).post('/api/projects/p1/loop-runs').send({})).status).toBe(400)
   })
 
-  it('rejects a claude-only loop on a non-claude project', async () => {
-    const id = publish('freestyle', '{{cmd:freestyle}}')
-    const res = await request(buildApp({ provider: 'codex', providers: ['codex'] }))
-      .post('/api/projects/p1/loop-runs').send({ loopId: id })
-    expect(res.status).toBe(400)
-    expect(run).not.toHaveBeenCalled()
+  it.each([true, false])('gates a {{cmd:freestyle}} loop on the project provider capability (codex freestyle=%s)', async (capable) => {
+    const { getAdapter } = await import('./providers/registry')
+    const capabilities = getAdapter('codex').capabilities
+    capabilities.freestyle = capable
+    try {
+      const id = publish('freestyle', '{{cmd:freestyle}}')
+      const res = await request(buildApp({ provider: 'codex', providers: ['codex'] }))
+        .post('/api/projects/p1/loop-runs').send({ loopId: id })
+      expect(res.status).toBe(capable ? 202 : 400)
+      if (capable) expect(run).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex' }))
+      else expect(run).not.toHaveBeenCalled()
+    } finally { capabilities.freestyle = true }
   })
 
   it('defaults to the provider default model when none is given', async () => {

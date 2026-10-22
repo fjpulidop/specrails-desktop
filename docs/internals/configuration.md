@@ -71,7 +71,7 @@ Project settings apply to a single project. Open them from the project's **Setti
 |---------|------------------|
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
-| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (Claude and Kimi advertise this autonomous rail mode). |
+| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (every CLI provider and local engine advertises this autonomous rail mode; only Claude adds the interactive in-job chat). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
 | **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. |

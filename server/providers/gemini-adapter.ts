@@ -266,7 +266,10 @@ export const geminiAdapter = {
     toolPolicies: ['read-only'],
     profiles: false,
     customRoles: false,
-    freestyle: false,
+    // Non-interactive Freestyle verified with a real run (Core spawns trust the
+    // workspace via GEMINI_CLI_TRUST_WORKSPACE); interactive stays Claude only.
+    // Evidence: openspec/changes/freestyle-codex-gemini/design.md.
+    freestyle: true,
     userMcp: false,
   },
   modelCatalog: () => GEMINI_MODELS,

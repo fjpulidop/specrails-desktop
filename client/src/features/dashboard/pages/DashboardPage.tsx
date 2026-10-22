@@ -1161,7 +1161,7 @@ export default function DashboardPage() {
       await persistRailEngine(railId, aiEngine)
       return
     }
-    // Preserve provider-owned Freestyle for capable adapters (Claude and Kimi).
+    // Preserve provider-owned Freestyle for capable adapters.
     // When switching to an adapter without it, fall back to Implement so launch
     // cannot fail validation. Provider-specific model and effort selections are
     // also reset if the previous value is not accepted by the new adapter.
