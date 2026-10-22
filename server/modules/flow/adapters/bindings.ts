@@ -185,6 +185,14 @@ function readOverlayManifest(worktreePath: string): string[] {
   }
 }
 
+async function forkPoint(git: GitRunner, worktreePath: string, repo: string): Promise<string | null> {
+  const branch = await git.run(['symbolic-ref', '--quiet', '--short', 'HEAD'], repo)
+  if (branch.code !== 0 || !branch.stdout.trim()) return null
+  const base = await git.run(['merge-base', 'HEAD', branch.stdout.trim()], worktreePath)
+  const sha = base.code === 0 ? base.stdout.trim() : ''
+  return /^[0-9a-f]{40,64}$/i.test(sha) ? sha : null
+}
+
 function excludedFromDiff(file: string, overlay: readonly string[]): boolean {
   if (file === OVERLAY_MANIFEST) return true
   if (file === 'node_modules' || file.startsWith('node_modules/') || file.includes('/node_modules/')) return true
@@ -216,7 +224,9 @@ export function createFlowWorktrees(
         if (error instanceof RepositoryHasNoCommitsError) throw new FlowConflictError(error.code, error.message)
         throw error
       }
-      return { branch: prepared.branch, worktreePath: prepared.worktreePath, baseSha: prepared.baseSha, headSha: prepared.initialSha }
+      // The Flow's base is the reservation SHA; never leave it unknown (a null
+      // base would measure the diff against HEAD and lose committed work).
+      return { branch: prepared.branch, worktreePath: prepared.worktreePath, baseSha: prepared.baseSha ?? prepared.initialSha, headSha: prepared.initialSha }
     },
     async release(input) {
       const root = flowRoot(input.flowId)
@@ -261,7 +271,9 @@ export function createFlowWorktrees(
     },
     async diff(input) {
       const overlay = readOverlayManifest(input.worktreePath)
-      const base = input.baseSha ?? 'HEAD'
+      // Legacy sessions without a recorded base: the fork point from the
+      // project's checked-out branch, never HEAD (frozen commits would vanish).
+      const base = input.baseSha ?? await forkPoint(git, input.worktreePath, repo) ?? 'HEAD'
       const files = new Map<string, FlowDiffFile>()
       const nameStatus = await git.run(['-c', 'core.quotepath=false', 'diff', '--no-renames', '--name-status', base, '--'], input.worktreePath)
       if (nameStatus.code === 0) {

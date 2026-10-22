@@ -126,6 +126,19 @@ describe('worktree reservation binding (real git)', () => {
     expect(git(['status', '--porcelain', '--', 'README.md', 'board.ts'], reserved.worktreePath)).toBe('')
     expect(git(['log', '-1', '--format=%s'], reserved.worktreePath)).toBe(`Flow #${ticketId}: Try a board`)
 
+    // Back to Flow after the hand-off: the frozen commit still counts against
+    // the Flow's base (the reservation SHA), plus anything new on top.
+    const afterFreeze = await worktrees.diff({ worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, branch: reserved.branch })
+    expect(afterFreeze.files.map((file) => [file.path, file.status])).toEqual([['README.md', 'modified'], ['board.ts', 'added']])
+    fs.writeFileSync(path.join(reserved.worktreePath, 'fx.ts'), 'export const fx = 1\n')
+    fs.appendFileSync(path.join(reserved.worktreePath, 'board.ts'), 'export const more = 2\n')
+    const withNew = await worktrees.diff({ worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, branch: reserved.branch })
+    expect(withNew.files.map((file) => [file.path, file.status])).toEqual([['README.md', 'modified'], ['board.ts', 'added'], ['fx.ts', 'untracked']])
+    expect(withNew.totals).toMatchObject({ files: 3, additions: 3 })
+    // A legacy session that never recorded its base measures from the fork point, not HEAD.
+    const legacy = await worktrees.diff({ worktreePath: reserved.worktreePath, baseSha: null, branch: reserved.branch })
+    expect(legacy.files.map((file) => file.path)).toEqual(['README.md', 'board.ts', 'fx.ts'])
+
     await worktrees.release({ flowId: 'flow-1', ticketId, worktreePath: reserved.worktreePath, branch: reserved.branch })
     expect(fs.existsSync(reserved.worktreePath)).toBe(false)
     expect(git(['branch', '--list', reserved.branch])).toBe('')

@@ -524,7 +524,10 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
 
   async function diffSummary(flowId: string): Promise<FlowDiffSummary> {
     const session = load(flowId)
-    if (!session.worktreePath || !isOpenFlow(session) || !ports.worktrees.exists(session.worktreePath)) {
+    // Measured against the Flow's base (the reservation SHA): committed (frozen
+    // at hand-off) and uncommitted work alike. A handed-off Flow still owns the
+    // same changes, so the bar never flashes "0 files" around Back to Flow.
+    if (!session.worktreePath || !(isOpenFlow(session) || session.state === 'handed_off') || !ports.worktrees.exists(session.worktreePath)) {
       return { branch: session.branch, baseSha: session.baseSha, headSha: session.headSha, files: [], totals: { files: 0, additions: 0, deletions: 0 } }
     }
     return ports.worktrees.diff({ worktreePath: session.worktreePath, baseSha: session.baseSha, branch: session.branch })
