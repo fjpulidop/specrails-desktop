@@ -67,6 +67,10 @@ export type PrDeliveryStatusCode =
   | 'discarded'
   | 'superseded'
   | 'cleanup_incomplete'
+  /** Flow → Spec ended because the reviewer (or the checks) still requested changes after the bounded repair rounds. */
+  | 'review_changes_requested'
+  /** The adopted Flow worktree went back to its Flow ("Back to Flow"); this delivery is closed. */
+  | 'returned_to_flow'
 
 export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 

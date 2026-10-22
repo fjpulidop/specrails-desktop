@@ -82,7 +82,9 @@
     "cleanup_incomplete": "Bereinigung unvollständig",
     "status_failed": "Worktree-Statusprüfung fehlgeschlagen",
     "ref_mismatch": "Branch-Referenz stimmt nicht überein",
-    "restart_pending": "Wartet auf Wiederherstellung des Workflows"
+    "restart_pending": "Wartet auf Wiederherstellung des Workflows",
+    "review_changes_requested": "Reviewer hat Änderungen angefordert",
+    "returned_to_flow": "An Flow zurückgegeben"
   },
   "prRecovery": {
     "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher – versuche es gleich noch einmal.",

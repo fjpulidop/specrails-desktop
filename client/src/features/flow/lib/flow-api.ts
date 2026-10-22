@@ -22,6 +22,8 @@ export interface Flow {
   railIndex: number | null
   deliveryId: string | null
   step: FlowStep | null
+  /** Back to Flow: the review the agent receives on its next turn (absent once delivered). */
+  returnBriefing?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -125,6 +127,14 @@ export const flowApi = {
   },
   async handOff(projectId: string, flowId: string, input: { railIndex: number; loopId?: string; aiEngine?: string; model?: string; reasoningEffort?: string }): Promise<FlowHandOffResult> {
     return call<FlowHandOffResult>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/hand-off`, post(input))
+  },
+  /** Back to Flow: the stopped Flow → Spec delivery gives the worktree back to its Flow. */
+  async returnToFlow(projectId: string, deliveryId: string): Promise<Flow> {
+    return (await call<{ flow: Flow }>(`${flowBase(projectId)}/by-delivery/${encodeURIComponent(deliveryId)}/return`, post())).flow
+  },
+  /** Run Flow → Spec again on the same worktree (same rail and engine choices). */
+  async relaunch(projectId: string, deliveryId: string): Promise<FlowHandOffResult> {
+    return call<FlowHandOffResult>(`${flowBase(projectId)}/by-delivery/${encodeURIComponent(deliveryId)}/relaunch`, post())
   },
   async diff(projectId: string, flowId: string): Promise<FlowDiff> {
     return call<FlowDiff>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/diff`)

@@ -476,6 +476,8 @@ export interface AgentPrDecisionEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: import('../../../types').PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks. */
+  flowReview?: import('../../../types').PrDeliveryFlowReview
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -573,6 +575,7 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(typeof o.railName === 'string' ? { railName: o.railName } : {}),
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
     ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
+    ...(snapshot.flowReview ? { flowReview: snapshot.flowReview } : {}),
   }
 }
 

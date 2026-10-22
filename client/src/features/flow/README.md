@@ -19,9 +19,10 @@ into the missions extension seam
 | `fenceCards['flow-offer']` | [FlowOfferCard](components/FlowOfferCard.tsx): Flow or spec + Implement, with the recommendation, its reason and the other option one click away; Flow opens [FlowEntryCard](components/FlowEntryCard.tsx) |
 | `useConversationMode` | `data-flow="active"` on the conversation surface ([flow.css](flow.css)), the worktree branch in the git strip, interrupting sends |
 | `ConversationDock` | [FlowDock](components/FlowDock.tsx): [FlowBar](components/FlowBar.tsx) (active, paused, needs-review) or [FlowHandOffCard](components/FlowHandOffCard.tsx) |
+| `RunCardActions` | [FlowRunCardActions](components/FlowRunCardActions.tsx): on a Flow → Spec run card that stopped with requested changes (`review_changes_requested`), **Back to Flow** (`POST /flow/by-delivery/:id/return`: the worktree returns to its Flow, the session reopens, the agent receives the review on its next turn) and **Relaunch** (`…/relaunch`: Flow → Spec again on the same worktree). The card itself ([AgentFlowReviewBlock](../missions/components/AgentFlowReviewBlock.tsx)) shows the reviewer's issues and failing checks |
 
 A registry/slot seam was chosen over render props threaded through missions
-because the Flow UI appears in three places (messages, surface, dock) of two
+because the Flow UI appears in four places (messages, surface, dock, run cards) of two
 hosts (floating panel and Agent Mode, including split panes); one context value
 reaches all of them and keeps the dependency one-way (`flow → missions`).
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  coerceFlowReview,
   coerceRailPrStateSnapshot,
+  isKnownPrDeliveryStatusCode,
   comparePrSnapshotUpdatedAt,
   derivePrDeliveryPresentation,
   isInterruptedPrDeliveryOperation,
@@ -390,5 +392,19 @@ describe('authoritative PR snapshot coercion', () => {
         ticketId: 8, runId: 'run-8', finalSha: 'b', changed: true, worktreePath: '/tmp/worktree-8',
       }],
     })
+  })
+})
+
+describe('Flow → Spec review outcome on the wire', () => {
+  it('coerces the review defensively and rides the snapshot', () => {
+    const review = { reason: 'review', summary: 'Blocked', issues: ['a', '', 7, 'b'], issuesOmitted: 2, score: 58, failingChecks: [{ command: 'npm test', exitCode: 1 }, { command: '', exitCode: 1 }, null, { command: 'tsc', exitCode: 'x' }] }
+    expect(coerceFlowReview(review)).toEqual({ reason: 'review', summary: 'Blocked', issues: ['a', 'b'], issuesOmitted: 2, score: 58, failingChecks: [{ command: 'npm test', exitCode: 1 }, { command: 'tsc', exitCode: null }] })
+    expect(coerceFlowReview({ reason: 'other' })).toBeNull()
+    expect(coerceFlowReview(null)).toBeNull()
+    const snap = coerceRailPrStateSnapshot({ prDeliveryId: 'd1', railIndex: 0, decision: 'implementation_failed', statusCode: 'review_changes_requested', flowReview: review })
+    expect(snap?.flowReview).toMatchObject({ reason: 'review', score: 58 })
+    expect(coerceRailPrStateSnapshot({ prDeliveryId: 'd1', railIndex: 0, decision: 'implementation_failed' })).not.toHaveProperty('flowReview')
+    expect(isKnownPrDeliveryStatusCode('review_changes_requested')).toBe(true)
+    expect(isKnownPrDeliveryStatusCode('returned_to_flow')).toBe(true)
   })
 })

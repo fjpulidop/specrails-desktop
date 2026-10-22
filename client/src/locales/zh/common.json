@@ -82,7 +82,9 @@
     "cleanup_incomplete": "清理未完成",
     "status_failed": "worktree 状态检查失败",
     "ref_mismatch": "分支引用不匹配",
-    "restart_pending": "等待工作流恢复"
+    "restart_pending": "等待工作流恢复",
+    "review_changes_requested": "审阅者要求修改",
+    "returned_to_flow": "已退回 Flow"
   },
   "prRecovery": {
     "inProgress": "项目恢复仍在进行中。你的交付内容是安全的，请稍后重试。",

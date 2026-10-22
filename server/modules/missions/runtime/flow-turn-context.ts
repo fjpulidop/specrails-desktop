@@ -17,6 +17,9 @@ export interface FlowTurn {
   systemPrompt: string
   /** Permission/tool fields of the Flow session policy. */
   policy: Required<Pick<SessionPolicyInput, 'permissions' | 'tools'>>
+  /** Back to Flow: the review the agent must see on this turn (rides the user
+   * turn, never the byte-stable system prompt). Absent once delivered. */
+  briefing?: string
 }
 
 export interface FlowTurnContext {
@@ -28,6 +31,8 @@ export interface FlowTurnContext {
    * or failing check means "not offerable". Rides the user turn, never the
    * byte-stable system prompt. */
   offerable?(conversationId: string): Promise<boolean>
+  /** A turn that carried `briefing` completed: the Flow clears it. Optional; never throws into a turn. */
+  briefingDelivered?(conversationId: string, flowId: string): Promise<void>
 }
 
 /**

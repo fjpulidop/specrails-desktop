@@ -1,4 +1,5 @@
 import {
+  buildReturnBriefing,
   buildSpecRewriteText,
   failedAttempt,
   finishedEffect,
@@ -34,7 +35,7 @@ const MAX_IDEA_LENGTH = 20_000
 const FLOW_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 
 /** Effects whose failure must not mask the user's decision (logged, never thrown). */
-const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['stopProcesses', 'closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket'])
+const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['stopProcesses', 'closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket', 'reopenTicket'])
 
 export interface StartFlowInput {
   flowId?: string
@@ -114,6 +115,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       case 'setTicketFlowState':
         ports.tickets.setFlowState(effect.ticketId, effect.state)
         return
+      case 'reopenTicket':
+        ports.tickets.reopen(effect.ticketId)
+        return
       default:
         // Forward saga effects are driven explicitly by their use case.
         throw new FlowTransitionError('invalid_command', `Effect ${effect.kind} is not a settlement effect`)
@@ -188,21 +192,24 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     })
   }
 
+  /** Open the agent session of a paused Flow (caller holds the Flow's serialization). */
+  async function resumeSession(flowId: string): Promise<FlowSession> {
+    const session = load(flowId)
+    const result = transition(session, { type: 'resume', now: ports.clock.now() })
+    if (result.effects.length === 0) return session
+    await assertAvailable()
+    await ports.agent.assertReady({ conversationId: session.conversationId })
+    if (!session.worktreePath || !ports.worktrees.exists(session.worktreePath)) {
+      throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; review it before continuing', flowId)
+    }
+    const opened = await ports.agent.open({ flowId, conversationId: session.conversationId, worktreePath: session.worktreePath })
+    const resumed = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
+    await settle(resumed, result.effects.filter((effect) => effect.kind !== 'openAgentSession'))
+    return resumed
+  }
+
   function resumeFlow(flowId: string): Promise<FlowSession> {
-    return serialized(`flow:${flowId}`, async () => {
-      const session = load(flowId)
-      const result = transition(session, { type: 'resume', now: ports.clock.now() })
-      if (result.effects.length === 0) return session
-      await assertAvailable()
-      await ports.agent.assertReady({ conversationId: session.conversationId })
-      if (!session.worktreePath || !ports.worktrees.exists(session.worktreePath)) {
-        throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; review it before continuing', flowId)
-      }
-      const opened = await ports.agent.open({ flowId, conversationId: session.conversationId, worktreePath: session.worktreePath })
-      const resumed = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
-      await settle(resumed, result.effects.filter((effect) => effect.kind !== 'openAgentSession'))
-      return resumed
-    })
+    return serialized(`flow:${flowId}`, () => resumeSession(flowId))
   }
 
   function discardFlow(flowId: string): Promise<FlowSession> {
@@ -228,35 +235,121 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
    * commit reverts the Flow to `paused` with its worktree and spec intact.
    */
   function handOffFlow(input: HandOffFlowInput): Promise<{ flow: FlowSession; loopRunIds: string[]; deliveryId: string | null }> {
-    return serialized(`flow:${input.flowId}`, async () => {
-      let session = load(input.flowId)
-      if (session.state === 'handed_off') {
-        if (session.railIndex === input.railIndex) return { flow: session, loopRunIds: [], deliveryId: session.deliveryId }
-        throw new FlowConflictError('flow_already_handed_off', `This Flow was handed off to rail ${session.railIndex}`, session.id)
+    return serialized(`flow:${input.flowId}`, () => handOff(input))
+  }
+
+  /** The hand-off saga (caller holds the Flow's serialization). */
+  async function handOff(input: HandOffFlowInput): Promise<{ flow: FlowSession; loopRunIds: string[]; deliveryId: string | null }> {
+    let session = load(input.flowId)
+    if (session.state === 'handed_off') {
+      if (session.railIndex === input.railIndex) return { flow: session, loopRunIds: [], deliveryId: session.deliveryId }
+      throw new FlowConflictError('flow_already_handed_off', `This Flow was handed off to rail ${session.railIndex}`, session.id)
+    }
+    if (!Number.isSafeInteger(input.railIndex) || input.railIndex < 0) throw new FlowValidationError('invalid_rail_index', 'railIndex must be a non-negative integer')
+    await assertAvailable()
+    const begun = transition(session, { type: 'begin-hand-off', railIndex: input.railIndex, now: ports.clock.now() })
+    session = commit(begun.session)
+    try {
+      await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
+      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha })
+      session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
+      const launched = await ports.rails.launch({
+        flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},
+      })
+      const after = load(session.id)
+      if (after.state !== 'handed_off') {
+        throw new FlowConflictError('flow_handoff_not_adopted', 'The rail launched without adopting the Flow worktree', session.id)
       }
-      if (!Number.isSafeInteger(input.railIndex) || input.railIndex < 0) throw new FlowValidationError('invalid_rail_index', 'railIndex must be a non-negative integer')
-      await assertAvailable()
-      const begun = transition(session, { type: 'begin-hand-off', railIndex: input.railIndex, now: ports.clock.now() })
-      session = commit(begun.session)
+      ports.notifier.changed(after)
+      return { flow: after, loopRunIds: launched.loopRunIds, deliveryId: launched.deliveryId ?? after.deliveryId }
+    } catch (error) {
+      const latest = ports.repository.get(session.id) ?? session
+      // A launch that committed the ownership transfer is not rolled back.
+      if (latest.state !== 'handed_off') commit(transition(latest, { type: 'hand-off-failed', now: ports.clock.now() }).session)
+      throw error
+    }
+  }
+
+  /** Give the stopped delivery's worktree back to its Flow (caller holds the Flow's serialization). */
+  async function returnWorktree(session: FlowSession, deliveryId: string): Promise<{ session: FlowSession; railIndex: number | null; options: FlowLaunchOptions }> {
+    if (isOpenFlow(session) && session.deliveryId === deliveryId && session.step === null) return { session, railIndex: null, options: {} }
+    if (session.state !== 'handed_off' || session.deliveryId !== deliveryId) {
+      throw new FlowConflictError('flow_not_handed_off', 'This Flow is not waiting on that delivery', session.id)
+    }
+    if (!session.worktreePath || !ports.worktrees.exists(session.worktreePath)) {
+      throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; it cannot go back to the Flow', session.id)
+    }
+    const stopped = ports.rails.stoppedDelivery(deliveryId)
+    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null), now: ports.clock.now() })
+    // Delivery owns the transaction: its ledger row disappears and this Flow
+    // becomes the owner again, or neither happens.
+    ports.rails.returnWorktree({
+      deliveryId,
+      worktreePath: session.worktreePath,
+      detail: 'Returned to Flow: the worktree is back in its Flow for the requested changes.',
+      commit: () => ports.repository.save(result.session),
+    })
+    ports.notifier.changed(result.session)
+    await settle(result.session, result.effects)
+    return { session: result.session, railIndex: stopped?.railIndex ?? null, options: stopped?.options ?? {} }
+  }
+
+  function flowOfDelivery(deliveryId: string): FlowSession {
+    const session = typeof deliveryId === 'string' && deliveryId ? ports.repository.findByDelivery(deliveryId) : null
+    if (!session) throw new FlowNotFoundError(deliveryId)
+    return session
+  }
+
+  /**
+   * Back to Flow: the Flow → Spec run stopped with requested changes. The
+   * worktree (intact, with the run's changes) returns from the rail ledger to
+   * the Flow, the spec is "In Flow" again and the agent session reopens; the
+   * agent receives the review on its next turn. Idempotent by delivery. A
+   * session that cannot open (provider, Core) leaves the Flow paused: the
+   * ownership already moved and the Flow bar resumes it.
+   */
+  async function returnToFlow(input: { deliveryId: string }): Promise<FlowSession> {
+    const session = flowOfDelivery(input.deliveryId)
+    return serialized(`flow:${session.id}`, async () => {
+      const returned = await returnWorktree(load(session.id), input.deliveryId)
+      if (returned.session.state !== 'paused') return returned.session
       try {
-        await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
-        const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha })
-        session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
-        const launched = await ports.rails.launch({
-          flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},
-        })
-        const after = load(session.id)
-        if (after.state !== 'handed_off') {
-          throw new FlowConflictError('flow_handoff_not_adopted', 'The rail launched without adopting the Flow worktree', session.id)
-        }
-        ports.notifier.changed(after)
-        return { flow: after, loopRunIds: launched.loopRunIds, deliveryId: launched.deliveryId ?? after.deliveryId }
+        return await resumeSession(session.id)
       } catch (error) {
-        const latest = ports.repository.get(session.id) ?? session
-        // A launch that committed the ownership transfer is not rolled back.
-        if (latest.state !== 'handed_off') commit(transition(latest, { type: 'hand-off-failed', now: ports.clock.now() }).session)
-        throw error
+        log.warn(`[flow] ${session.id} returned paused; its session did not open: ${error instanceof Error ? error.message : String(error)}`)
+        return load(session.id)
       }
+    })
+  }
+
+  /**
+   * Relaunch: run Flow → Spec again on the SAME worktree — the delivery gives
+   * it back, then the ordinary hand-off freezes it and launches the same rail
+   * with the same launch choices. The new run re-derives the existing change.
+   */
+  async function relaunchFlow(input: { deliveryId: string }): Promise<{ flow: FlowSession; loopRunIds: string[]; deliveryId: string | null }> {
+    const session = flowOfDelivery(input.deliveryId)
+    return serialized(`flow:${session.id}`, async () => {
+      const current = load(session.id)
+      if (current.state === 'handed_off' && current.deliveryId !== input.deliveryId) {
+        // Already relaunched: the Flow is on its new delivery.
+        return { flow: current, loopRunIds: [], deliveryId: current.deliveryId }
+      }
+      const stopped = ports.rails.stoppedDelivery(input.deliveryId)
+      const returned = await returnWorktree(current, input.deliveryId)
+      const railIndex = returned.railIndex ?? stopped?.railIndex ?? null
+      if (railIndex === null) throw new FlowConflictError('flow_rail_unknown', 'The rail of the stopped run is unknown; hand off from the Flow bar', session.id)
+      return handOff({ flowId: session.id, railIndex, options: { ...(stopped?.options ?? {}), ...returned.options } })
+    })
+  }
+
+  /** A Flow turn carried the return briefing to the agent: clear it. Never throws for an unknown Flow. */
+  function briefingDelivered(flowId: string): Promise<FlowSession | null> {
+    return serialized(`flow:${flowId}`, async () => {
+      const session = ports.repository.get(flowId)
+      if (!session) return null
+      const result = transition(session, { type: 'briefing-delivered', now: ports.clock.now() })
+      return result.session === session ? session : commit(result.session)
     })
   }
 
@@ -449,6 +542,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     resumeFlow,
     discardFlow,
     handOffFlow,
+    returnToFlow,
+    relaunchFlow,
+    briefingDelivered,
     onFlowDelivered,
     observeDelivery,
     onRailRunCompleted,

@@ -870,6 +870,7 @@
       "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
       "runtime/flow-worktree-handoff.ts",
+      "runtime/flow-worktree-return.ts",
       "runtime/isolated-settlement-reconstruction.ts",
       "runtime/isolated-worktree.ts",
       "runtime/multi-repo-execution-store.ts",
@@ -1083,7 +1084,18 @@
         "fs",
         "path"
       ],
+      "runtime/flow-review-outcome.ts": [
+        "../../../types",
+        "./delivery-evidence"
+      ],
       "runtime/flow-worktree-handoff.ts": [],
+      "runtime/flow-worktree-return.ts": [
+        "../../../db",
+        "../../../types",
+        "../../missions/runtime/agent-chat-registry",
+        "./flow-review-outcome",
+        "./rail-pr-store"
+      ],
       "runtime/isolated-settlement-reconstruction.ts": [
         "../../../db",
         "../../loops/runtime/loop-runs-store",
@@ -1227,6 +1239,7 @@
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./flow-review-outcome",
         "./flow-worktree-handoff",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
@@ -1290,6 +1303,7 @@
         "../../specs/domain/triage",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
+        "./flow-review-outcome",
         "./multi-repo-execution-store",
         "./pr-follow-up",
         "./review-brief"
@@ -1610,9 +1624,11 @@
         "../../../worktree-overlay",
         "../../agents/runtime/agent-store",
         "../../delivery/runtime/flow-worktree-handoff",
+        "../../delivery/runtime/flow-worktree-return",
         "../../delivery/runtime/isolated-worktree",
         "../../delivery/runtime/rail-pr-store",
         "../../delivery/runtime/rails-store",
+        "../../missions/runtime/agent-failure-briefing",
         "../../missions/runtime/agent-flow-prompt",
         "../../missions/runtime/flow-turn-context",
         "../../specs/runtime/spec-addenda",
@@ -1628,7 +1644,6 @@
       "adapters/http.ts": [
         "..",
         "express"
-        "../../missions/runtime/agent-failure-briefing",
       ],
       "adapters/sqlite.ts": [
         "../../../db/types",
@@ -1904,6 +1919,7 @@
       "runtime/agent-chat-manager.ts",
       "runtime/agent-chat-registry.ts",
       "runtime/agent-chat-router.ts",
+      "runtime/agent-failure-briefing.ts",
       "runtime/agent-flow-prompt.ts",
       "runtime/agent-spec-framing.ts",
       "runtime/agent-steering.ts",
@@ -1919,7 +1935,6 @@
         "../../../db",
         "../../../desktop-db",
         "../../../external-mcp",
-      "runtime/agent-failure-briefing.ts",
         "../../../feature-flags",
         "../../../mcp/agent-capability",
         "../../../plugins/codex-spawn",

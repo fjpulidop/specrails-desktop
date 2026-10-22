@@ -414,6 +414,8 @@ export interface RailPrStateSnapshot {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
   /** Durable generation ordering evidence for stale-snapshot arbitration. */
   createdAt?: string
   updatedAt?: string
@@ -578,6 +580,17 @@ export interface PrDeliveryRiskSummary {
   lowCount: number
   top: { severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null } | null
   diagnostic: boolean
+}
+
+/** Flow → Spec stopped with requested changes; mirrors server PrDeliveryFlowReview.
+ *  `review`: the latest review rejected the work; `check`: the host checks still fail. */
+export interface PrDeliveryFlowReview {
+  reason: 'review' | 'check'
+  summary: string | null
+  issues: string[]
+  issuesOmitted: number
+  score: number | null
+  failingChecks: Array<{ command: string; exitCode: number | null }>
 }
 
 /** "What to look at": the reviewer's advisory brief merged across units (server PacketWhatToLookAt). */

@@ -163,7 +163,9 @@
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
     "mergeLocalFailed": "Merge locale fallito: {{detail}}",
     "mergedLocally": "Integrato in {{base}} in locale",
-    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
+    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
+    "reviewChangesRequested": "Modifiche richieste",
+    "reviewChangesRequestedHint": "Flow → Spec richiede ancora modifiche. Apri la scheda della missione per tornare in Flow o rilanciare."
   },
   "railsBoard": {
     "title": "Rails",

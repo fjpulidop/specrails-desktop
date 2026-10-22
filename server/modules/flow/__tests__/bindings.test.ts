@@ -398,3 +398,62 @@ describe('settlement publication bindings', () => {
     expect(failing.resolve('flow-1').summary).toBe('')
   })
 })
+
+describe('Back to Flow binding (real SQLite ownership transfer)', () => {
+  it('returns the adopted worktree to the Flow atomically, reopens the spec "In Flow" and leaves the worktree intact', async () => {
+    const ctx = context()
+    const worktreePath = path.join(tmp, 'worktrees', 'flow-1', 'ticket-8')
+    git(['worktree', 'add', '-q', '-b', 'feat/8-effects', worktreePath])
+    fs.writeFileSync(path.join(worktreePath, 'effects.ts'), 'export const effects = 27\n')
+    const tickets = createFlowTickets(ctx, { now: () => '2026-10-22T13:00:00.000Z' })
+    const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Add more visual effects', description: 'effects', startedAt: '2026-10-22T12:49:06.950Z' })
+    // The failed run moved the spec back to todo.
+    const { mutateStore } = await import('../../specs/runtime/ticket-store')
+    mutateStore(ticketStorePathForProject(ctx.project), (store) => { store.tickets[String(ticketId)]!.status = 'todo' })
+    const repository = createSqliteFlowRepository(ctx.db)
+    repository.insert({ id: 'flow-1', conversationId: 'conv-1', ticketId, state: 'handed_off', branch: 'feat/8-effects', worktreePath, baseSha: 'b'.repeat(40), headSha: 'a'.repeat(40), coreSessionId: null, railIndex: 0, deliveryId: 'delivery-1', step: null, createdAt: '2026-10-22T12:49:06.950Z', updatedAt: '2026-10-22T13:48:50.000Z' })
+    const { createPrDelivery, getPrDelivery, transitionDecision } = await import('../../delivery/runtime/rail-pr-store')
+    const { createRailWorktree, getRailWorktree } = await import('../../delivery/runtime/rail-worktrees-store')
+    createPrDelivery(ctx.db, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1', launchConfig: { mode: 'loop', loopId: 'factory:flow-spec', aiEngine: 'claude', model: 'sonnet', reasoning_effort: 'medium' } })
+    ctx.db.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['run-1']), 'delivery-1')
+    createRailWorktree(ctx.db, { id: 'ledger-1', railIndex: 0, ticketId, runId: 'run-1', branch: 'feat/8-effects', worktreePath, mergeState: 'needs-review' })
+    transitionDecision(ctx.db, 'delivery-1', 'building', 'implementation_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'review_changes_requested', statusDetail: 'The reviewer requested changes', worktreeIds: ['ledger-1'],
+      branches: [{ ticketId, branch: 'feat/8-effects', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'a', failureCode: 'review_changes_requested', branchOwnership: 'adopted', worktreePath }],
+      settleEvidence: { schemaVersion: 1, harvest: 'ok', harvestedAt: 'now', units: [{ ticketId, runId: 'run-1', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null,
+        runtime: { commands: [], checks: [], findings: [], review: { approved: false, score: 58, aspects: {}, issues: ['Tag the tests with [spec:visual-effects/toggles]'], summary: 'Blocked by missing tests' } } }] } as never,
+    })
+    const bound = createFlowPorts({
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
+      // No Core session host here: the Flow returns paused and the Flow bar resumes it.
+      agentHost: () => null,
+      availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+      clock: { now: () => '2026-10-22T14:00:00.000Z' },
+    })
+    expect(bound.rails.stoppedDelivery('delivery-1')).toMatchObject({ railIndex: 0, options: { loopId: 'factory:flow-spec', aiEngine: 'claude', model: 'sonnet', reasoningEffort: 'medium' }, findings: { reason: 'review', score: 58 } })
+    const service = createFlowService(bound, { warn: vi.fn() })
+
+    const returned = await service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(returned).toMatchObject({ id: 'flow-1', state: 'paused', step: null, deliveryId: 'delivery-1', worktreePath })
+    expect(returned.returnBriefing).toContain('Tag the tests with [spec:visual-effects/toggles]')
+    expect(repository.get('flow-1')?.returnBriefing).toContain('Blocked by missing tests')
+    expect(getRailWorktree(ctx.db, 'ledger-1')).toBeUndefined()
+    expect(getPrDelivery(ctx.db, 'delivery-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
+    expect(fs.readFileSync(path.join(worktreePath, 'effects.ts'), 'utf8')).toBe('export const effects = 27\n')
+    const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(ticketId)]!
+    expect(ticket.status).toBe('in_progress')
+    expect(ticket.metadata?.flow?.state).toBe('paused')
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.pr_state', prDeliveryId: 'delivery-1', statusCode: 'returned_to_flow' }))
+  })
+
+  it('hands the return briefing to the next Flow turn and clears it once delivered', async () => {
+    const briefingDelivered = vi.fn(async () => null)
+    const session = { id: 'flow-1', state: 'active', step: null, worktreePath: '/wt', coreSessionId: 'flow:flow-1', branch: 'b', returnBriefing: '[Back from Flow → Spec] fix it' } as unknown as FlowSession
+    const context = createFlowTurnContext({ conversationProject: () => 'proj-1', flowServiceFor: () => ({ getByConversation: () => session, briefingDelivered }) })
+    expect(context.forConversation('conv-1')?.briefing).toBe('[Back from Flow → Spec] fix it')
+    await context.briefingDelivered!('conv-1', 'flow-1')
+    expect(briefingDelivered).toHaveBeenCalledWith('flow-1')
+    const without = createFlowTurnContext({ conversationProject: () => 'proj-1', flowServiceFor: () => ({ getByConversation: () => ({ ...session, returnBriefing: null }) }) })
+    expect(without.forConversation('conv-1')).not.toHaveProperty('briefing')
+  })
+})

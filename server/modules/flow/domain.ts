@@ -5,10 +5,10 @@
  *
  *            start            pause              handOff            delivered
  * (none) ──────────► active ◄──────► paused ──────────► handed_off ───────────► delivered
- *                      │   resume                         │
- *                      │ discard                          │ hand-off failed
- *                      ▼                                  ▼
- *                  discarded                            paused
+ *                      │   resume       ▲                 │
+ *                      │ discard        │ returned        │ hand-off failed
+ *                      ▼                └─────────────────┤ (Back to Flow: the
+ *                  discarded                            paused  review requested changes)
  *
  * `needs-review` is reached only by startup reconciliation, when the worktree a
  * Flow owns has disappeared. Sagas (start, hand-off) record their progress in
@@ -41,8 +41,11 @@ export interface FlowSession {
   /** Core agent session id (`flow:<flowId>`), null when no session is open. */
   coreSessionId: string | null
   railIndex: number | null
+  /** The delivery that adopted the worktree; kept after a return (Back to Flow) so the return is idempotent. */
   deliveryId: string | null
   step: FlowStep | null
+  /** Back to Flow: the review the agent must address in its next turn (null once delivered). */
+  returnBriefing?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -63,6 +66,10 @@ export type FlowCommand =
   /** The launch rolled back after adopting the worktree: ownership returns to the Flow. */
   | { type: 'adoption-reverted'; now: string }
   | { type: 'delivered'; deliveryId: string; now: string }
+  /** Back to Flow: the delivery stopped with requested changes and gave the worktree back. */
+  | { type: 'returned'; deliveryId: string; briefing: string; now: string }
+  /** A Flow turn carried the return briefing to the agent. */
+  | { type: 'briefing-delivered'; now: string }
   /** Startup reconciliation: sessions never survive a restart. */
   | { type: 'restart'; worktreePresent: boolean; now: string }
 
@@ -81,6 +88,8 @@ export type FlowEffect =
   | { kind: 'setTicketFlowState'; ticketId: number; state: FlowTicketState }
   | { kind: 'freezeWorktree' }
   | { kind: 'launchRail'; railIndex: number }
+  /** Back to Flow: the placeholder spec is worked on again ("In Flow", in progress). */
+  | { kind: 'reopenTicket'; ticketId: number }
 
 export interface FlowTransition {
   session: FlowSession
@@ -238,7 +247,8 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
       if (session.coreSessionId) effects.push({ kind: 'closeAgentSession', coreSessionId: session.coreSessionId })
       effects.push({ kind: 'freezeWorktree' })
       return {
-        session: next(session, { state: 'paused', coreSessionId: null, railIndex: command.railIndex, step: 'handoff:freeze' }, now),
+        // A pending return briefing is obsolete once the work goes back to a rail.
+        session: next(session, { state: 'paused', coreSessionId: null, railIndex: command.railIndex, step: 'handoff:freeze', returnBriefing: null }, now),
         effects,
       }
     }
@@ -271,6 +281,19 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
         session: next(session, { state: 'delivered', deliveryId: command.deliveryId }, now),
         effects: session.ticketId !== null ? [{ kind: 'setTicketFlowState', ticketId: session.ticketId, state: 'delivered' }] : [],
       }
+    case 'returned': {
+      // Idempotent: this delivery already gave the worktree back.
+      if (isOpenFlow(session) && session.deliveryId === command.deliveryId && session.step === null) return { session, effects: [] }
+      if (session.state !== 'handed_off' || session.step !== null || session.deliveryId !== command.deliveryId || !session.worktreePath) illegal(session, command)
+      const briefing = command.briefing.trim()
+      return {
+        session: next(session, { state: 'paused', step: null, coreSessionId: null, railIndex: null, returnBriefing: briefing || null }, now),
+        effects: session.ticketId !== null ? [{ kind: 'reopenTicket', ticketId: session.ticketId }] : [],
+      }
+    }
+    case 'briefing-delivered':
+      if (!session.returnBriefing) return { session, effects: [] }
+      return { session: next(session, { returnBriefing: null }, now), effects: [] }
     case 'restart':
       return restart(session, command.worktreePresent, now)
   }
@@ -574,12 +597,56 @@ export function buildFlowSummary(input: { idea: string | null; messages: readonl
     '',
   ].join('\n')
   let text = render()
-  while (byteLength(text) > limit && users.length > 0) { users = users.slice(1); text = render() }
+  while (byteLength(text) > limit && turns.length > 0) { turns = turns.slice(1); text = render() }
   while (byteLength(text) > limit && decisions.length > 0) { decisions = decisions.slice(1); text = render() }
   if (byteLength(text) <= limit) return text
   // Only the idea can still exceed the bound (tiny limits): cut at the byte bound.
   const bytes = new TextEncoder().encode(text).slice(0, limit)
-  return new TextDecoder().decode(bytes).replace(/�+$/, '')
+  return new TextDecoder().decode(bytes).replace(/\uFFFD+$/, '')
+}
+
+/** What a Flow → Spec run that stopped with requested changes left for the Flow (read from the delivery evidence). */
+export interface FlowReviewFindings {
+  /** `review`: the reviewer rejected the latest round; `check`: the host checks still fail. */
+  reason: 'review' | 'check'
+  summary: string | null
+  issues: readonly string[]
+  issuesOmitted: number
+  score: number | null
+  failingChecks: ReadonlyArray<{ command: string; exitCode: number | null }>
+}
+
+/** Upper bound of the return briefing a Flow turn carries. */
+export const FLOW_RETURN_BRIEFING_LIMIT = 8_000
+
+/**
+ * Back to Flow: the context the Flow agent receives on its next turn — why
+ * Flow → Spec stopped, the reviewer's issues and the failing checks, and the
+ * conduct (address them with the person in this worktree, keep the scope,
+ * then hand off again). Untrusted review text is quoted, never obeyed.
+ */
+export function buildReturnBriefing(findings: FlowReviewFindings | null): string {
+  const lines = ['[Back from Flow → Spec — automatic context, not typed by the user]']
+  if (!findings) {
+    lines.push('The Flow → Spec run stopped before delivery and the worktree is back in this Flow, with every change the run made. Ask the person how to proceed before changing anything.')
+    return lines.join('\n')
+  }
+  lines.push(findings.reason === 'review'
+    ? `The Flow → Spec run stopped: the reviewer requested changes${findings.score !== null ? ` (score ${findings.score})` : ''} that the automatic correction rounds did not resolve.`
+    : 'The Flow → Spec run stopped: the host checks still fail after the automatic correction rounds.')
+  lines.push('The worktree is back in this Flow with every change the run made (the derived OpenSpec change under openspec/changes/ included).')
+  if (findings.summary) lines.push('', `Reviewer summary: ${clip(findings.summary, 1_200)}`)
+  if (findings.issues.length) {
+    lines.push('', 'Issues to address:')
+    findings.issues.forEach((issue, index) => lines.push(`${index + 1}. ${clip(issue, 600).replace(/\n/g, ' ')}`))
+    if (findings.issuesOmitted > 0) lines.push(`(+${findings.issuesOmitted} more in the run's review)`)
+  }
+  if (findings.failingChecks.length) {
+    lines.push('', `Failing checks: ${findings.failingChecks.map((check) => `${check.command}${check.exitCode !== null ? ` (exit ${check.exitCode})` : ''}`).join('; ')}`)
+  }
+  lines.push('', 'Conduct: summarise these findings for the person in a few lines and agree what to do. Fix what they confirm in this worktree; add the missing tests and tag each one with `[spec:<capability>/<requirement-slug>]` for the requirement it proves. A behaviour the person did not ask for is removed or explicitly confirmed by them, never kept silently. Then offer to hand off to Flow → Spec again.')
+  const text = lines.join('\n')
+  return text.length <= FLOW_RETURN_BRIEFING_LIMIT ? text : `${text.slice(0, FLOW_RETURN_BRIEFING_LIMIT - 1).trimEnd()}…`
 }
 
 export interface DerivedChangeText {

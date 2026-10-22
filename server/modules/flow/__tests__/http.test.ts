@@ -28,6 +28,8 @@ function service(overrides: Partial<Record<keyof FlowService, unknown>> = {}): F
     getFlow: vi.fn(() => FLOW),
     getByConversation: vi.fn(() => FLOW),
     diffSummary: vi.fn(async () => ({ branch: 'b', baseSha: null, headSha: null, files: [], totals: { files: 0, additions: 0, deletions: 0 } })),
+    returnToFlow: vi.fn(async () => ({ ...FLOW, deliveryId: 'd-1' })),
+    relaunchFlow: vi.fn(async () => ({ flow: { ...FLOW, state: 'handed_off' }, loopRunIds: ['run-2'], deliveryId: 'd-2' })),
     costSoFar: vi.fn(() => ({ flowId: 'flow-1', costUsd: 0.5, turns: 2, unpricedTurns: 0, tokensIn: 10, tokensOut: 5 })),
     availability: vi.fn(async () => ({ available: true, reason: 'ok', missing: [] })),
     ...overrides,
@@ -92,5 +94,30 @@ describe('Flow HTTP routes', () => {
     const response = await request(app(undefined)).get('/p1/flow/availability')
     expect(response.status).toBe(409)
     expect(response.body.error).toBe('feature_unavailable')
+  })
+})
+
+describe('Back to Flow and Relaunch routes', () => {
+  it('return and relaunch by delivery id', async () => {
+    const flows = service()
+    const server = app(flows)
+    const returned = await request(server).post('/p1/flow/by-delivery/d-1/return')
+    expect(returned.status).toBe(200)
+    expect(returned.body).toEqual({ flow: { ...FLOW, deliveryId: 'd-1' } })
+    expect(flows.returnToFlow).toHaveBeenCalledWith({ deliveryId: 'd-1' })
+    const relaunched = await request(server).post('/p1/flow/by-delivery/d-1/relaunch')
+    expect(relaunched.status).toBe(202)
+    expect(relaunched.body).toMatchObject({ loopRunIds: ['run-2'], deliveryId: 'd-2' })
+    expect(flows.relaunchFlow).toHaveBeenCalledWith({ deliveryId: 'd-1' })
+  })
+
+  it('validates the delivery id and maps refusals to 404/409', async () => {
+    expect((await request(app(service())).post('/p1/flow/by-delivery/bad%20id/return')).status).toBe(400)
+    const missing = app(service({ returnToFlow: vi.fn(async () => { throw new FlowNotFoundError('d-9') }) }))
+    expect((await request(missing).post('/p1/flow/by-delivery/d-9/return')).status).toBe(404)
+    const refused = app(service({ relaunchFlow: vi.fn(async () => { throw new FlowConflictError('flow_return_not_allowed', 'not stopped', 'flow-1') }) }))
+    const response = await request(refused).post('/p1/flow/by-delivery/d-1/relaunch')
+    expect(response.status).toBe(409)
+    expect(response.body).toMatchObject({ error: 'flow_return_not_allowed', flowId: 'flow-1' })
   })
 })

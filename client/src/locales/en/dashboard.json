@@ -163,7 +163,9 @@
       "noChanges": "no changes",
       "succeeded": "ready"
     },
-    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
+    "reviewChangesRequested": "Changes requested",
+    "reviewChangesRequestedHint": "Flow → Spec still needs changes. Open its mission card to go back to Flow or relaunch."
   },
   "railsBoard": {
     "title": "Rails",

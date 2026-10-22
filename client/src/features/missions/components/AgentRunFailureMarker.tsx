@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronDown, ChevronRight, Sparkles } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, MessageSquareWarning, Sparkles } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { focusPrCard, type RunFailureRow } from './agent-run-failure'
 import { AgentContextInlineTokens } from './AgentMessage'
@@ -15,14 +15,22 @@ import type { AgentContextReference } from '../lib/agent-api'
  */
 export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
   const { t } = useTranslation('agent')
+  // Flow → Spec still needs changes: a review outcome, not a crash.
+  const changes = row.code === 'review_changes_requested'
   return (
     <div
       data-testid="agent-run-failure-marker"
-      className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/[0.06] px-3 py-1.5 text-[11px] text-foreground/70 backdrop-blur-sm"
+      data-code={row.code}
+      className={cn('flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] text-foreground/70 backdrop-blur-sm',
+        changes ? 'border-accent-warning/30 bg-accent-warning/[0.06]' : 'border-destructive/30 bg-destructive/[0.06]')}
     >
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
+      {changes
+        ? <MessageSquareWarning className="h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
+        : <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />}
       <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium text-destructive">{t('runFailure.marker', { rail: row.railIndex + 1, code: row.code })}</span>
+        <span className={cn('font-medium', changes ? 'text-accent-warning' : 'text-destructive')}>
+          {changes ? t('runFailure.reviewChanges', { rail: row.railIndex + 1 }) : t('runFailure.marker', { rail: row.railIndex + 1, code: row.code })}
+        </span>
         {row.detail && <span className="text-foreground/55"> · {row.detail}</span>}
       </span>
       <button
@@ -30,7 +38,8 @@ export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
         data-agent-interactive
         data-testid="agent-run-failure-open"
         onClick={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId] })}
-        className="shrink-0 rounded-md border border-destructive/35 px-2 py-0.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+        className={cn('shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors',
+          changes ? 'border-accent-warning/35 text-accent-warning hover:bg-accent-warning/10' : 'border-destructive/35 text-destructive hover:bg-destructive/10')}
       >
         {t('runFailure.openCard')}
       </button>

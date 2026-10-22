@@ -263,6 +263,26 @@ describe('Flow turns in missions', () => {
     expect(host.requests.find((request) => request.method === 'session.close')?.params).toEqual({ sessionId: 'flow:f1', reason: 'flow_closed' })
   })
 
+  it('Back to Flow: the review rides the next USER turn once (system prompt unchanged), then the Flow clears it', async () => {
+    const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+    const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
+    flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+    manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
+    await manager.sendMessage(conversation.id, 'ok, lets fix it')
+    await waitFor(() => doneCount() === 1)
+    const send = host.requests.find((request) => request.method === 'session.send')!
+    const text = String((send.params.input as { text: string }).text)
+    expect(text).toContain('1. Tag the tests')
+    expect(text.indexOf('Back from Flow → Spec')).toBeLessThan(text.indexOf('ok, lets fix it'))
+    expect(String(opens()[0]!.params.systemPrompt)).not.toContain('Back from Flow')
+    await waitFor(() => briefingDelivered.mock.calls.length === 1)
+    expect(briefingDelivered).toHaveBeenCalledWith(conversation.id, 'f1')
+    await manager.sendMessage(conversation.id, 'next')
+    await waitFor(() => doneCount() === 2)
+    const last = host.requests.filter((request) => request.method === 'session.send').at(-1)!
+    expect(String((last.params.input as { text: string }).text)).not.toContain('Back from Flow')
+  })
+
   it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => true })

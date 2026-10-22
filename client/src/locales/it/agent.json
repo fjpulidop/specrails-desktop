@@ -312,7 +312,9 @@
       "implementation_failed": "Implementazione non riuscita",
       "pr_failed": "Creazione della PR non riuscita",
       "merged": "Merge della PR effettuato",
-      "discarded": "Scartata"
+      "discarded": "Scartata",
+      "review_changes_requested": "Il revisore ha richiesto modifiche",
+      "returned_to_flow": "Tornato in Flow"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
     "buildingExistingPrHint": "Specrails sta lavorando sul branch della PR esistente e invierà le modifiche di review a quella stessa PR.",
@@ -714,7 +716,9 @@
       "failed": "Fallito",
       "stalled": "Bloccato",
       "cancelled": "Annullato",
-      "unknown": "Sconosciuto"
+      "unknown": "Sconosciuto",
+      "changes_requested": "Modifiche richieste",
+      "returned": "Tornato in Flow"
     },
     "title": {
       "running": "Implementazione nel checkout del progetto…",
@@ -723,7 +727,9 @@
       "failed": "Implementazione fallita",
       "stalled": "Implementazione bloccata",
       "cancelled": "Run annullato",
-      "unknown": "Stato del run sconosciuto"
+      "unknown": "Stato del run sconosciuto",
+      "changes_requested": "Il revisore ha richiesto modifiche",
+      "returned": "Tornato in Flow"
     },
     "noDeliveryNote": "Nessuna fase PR — questo progetto non ha un repository git né commit, quindi il lavoro è stato applicato direttamente nella cartella del progetto.",
     "noDeliveryHint": "Esecuzione diretta nella cartella del progetto (nessun repository git né commit — non verrà proposta alcuna PR).",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "Rail {{index}} rilanciato — una nuova scheda seguirà il run.",
     "relaunchFailed": "Impossibile rilanciare il rail",
-    "relaunchBlockedActive": "Il rail ha ancora un run attivo"
+    "relaunchBlockedActive": "Il rail ha ancora un run attivo",
+    "review": {
+      "title": {
+        "review": "Il revisore ha richiesto modifiche",
+        "check": "I controlli falliscono ancora"
+      },
+      "score": "punteggio {{score}}",
+      "issues_one": "{{count}} punto",
+      "issues_other": "{{count}} punti",
+      "showAll": "Mostra tutti ({{count}})",
+      "showLess": "Mostra meno",
+      "omitted_one": "+{{count}} altro nella revisione dell'esecuzione",
+      "omitted_other": "+{{count}} altri nella revisione dell'esecuzione",
+      "failingChecks": "Falliscono",
+      "check": "{{command}} · uscita {{code}}",
+      "next": "I cicli di correzione automatici non li hanno risolti. Torna in Flow per sistemarli con l'agente, oppure rilancia Flow → Spec sullo stesso worktree.",
+      "returned": "Tornato in Flow: il worktree è tornato al suo Flow con la revisione. Continua dalla barra di Flow."
+    }
   },
   "runFailure": {
     "marker": "Il Rail {{rail}} è fallito: {{code}}",
     "openCard": "Apri scheda",
     "briefing": {
       "title": "Resoconto automatico dell’errore"
-    }
+    },
+    "reviewChanges": "Rail {{rail}}: il revisore ha richiesto modifiche"
   },
   "split": {
     "open": "Vista divisa",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "Lancia",
       "notYet": "Non ancora"
+    },
+    "review": {
+      "backToFlow": "Torna in Flow",
+      "backToFlowHint": "Riapre questo Flow sullo stesso worktree; l'agente riceve la revisione al turno successivo",
+      "relaunch": "Rilancia",
+      "relaunchHint": "Esegue di nuovo Flow → Spec sullo stesso worktree, rail e motore",
+      "returned": "Tornato in Flow: l'agente ha la revisione",
+      "relaunched": "Flow → Spec rilanciato sul rail {{index}}",
+      "returnFailed": "Impossibile tornare in Flow: {{detail}}",
+      "relaunchFailed": "Impossibile rilanciare Flow → Spec: {{detail}}"
     }
   }
 }

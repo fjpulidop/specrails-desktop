@@ -312,7 +312,9 @@
       "implementation_failed": "実装に失敗しました",
       "pr_failed": "PR の作成に失敗しました",
       "merged": "PR がマージされました",
-      "discarded": "破棄済み"
+      "discarded": "破棄済み",
+      "review_changes_requested": "レビュアーが変更を依頼しました",
+      "returned_to_flow": "Flow に戻りました"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -714,7 +716,9 @@
       "failed": "失敗",
       "stalled": "停滞",
       "cancelled": "キャンセル済み",
-      "unknown": "不明"
+      "unknown": "不明",
+      "changes_requested": "変更依頼",
+      "returned": "Flow に戻りました"
     },
     "title": {
       "running": "プロジェクトのチェックアウトで実装中…",
@@ -723,7 +727,9 @@
       "failed": "実装に失敗しました",
       "stalled": "実装が停滞しています",
       "cancelled": "実行はキャンセルされました",
-      "unknown": "実行状態は不明です"
+      "unknown": "実行状態は不明です",
+      "changes_requested": "レビュアーが変更を依頼しました",
+      "returned": "Flow に戻りました"
     },
     "noDeliveryNote": "PR フェーズなし — このプロジェクトには git リポジトリもコミットもないため、作業はプロジェクトフォルダーに直接反映されました。",
     "noDeliveryHint": "プロジェクトフォルダーで直接実行しています（git リポジトリもコミットもないため、PR は提案されません）。",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "レール {{index}} を再起動しました — 新しいカードが実行を追跡します。",
     "relaunchFailed": "レールを再起動できませんでした",
-    "relaunchBlockedActive": "レールにはまだ実行中の処理があります"
+    "relaunchBlockedActive": "レールにはまだ実行中の処理があります",
+    "review": {
+      "title": {
+        "review": "レビュアーが変更を依頼しました",
+        "check": "チェックがまだ失敗しています"
+      },
+      "score": "スコア {{score}}",
+      "issues_one": "指摘 {{count}} 件",
+      "issues_other": "指摘 {{count}} 件",
+      "showAll": "すべて表示（{{count}}）",
+      "showLess": "折りたたむ",
+      "omitted_one": "実行のレビューにさらに {{count}} 件",
+      "omitted_other": "実行のレビューにさらに {{count}} 件",
+      "failingChecks": "失敗",
+      "check": "{{command}} · 終了コード {{code}}",
+      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと対応するか、同じ worktree で Flow → Spec を再実行してください。",
+      "returned": "Flow に戻りました：worktree はレビュー付きで Flow に戻りました。Flow バーから続けてください。"
+    }
   },
   "runFailure": {
     "marker": "レール {{rail}} が失敗しました: {{code}}",
     "openCard": "カードを開く",
     "briefing": {
       "title": "自動障害ブリーフィング"
-    }
+    },
+    "reviewChanges": "レール {{rail}}：レビュアーが変更を依頼しました"
   },
   "split": {
     "open": "分割表示",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "起動",
       "notYet": "まだ"
+    },
+    "review": {
+      "backToFlow": "Flow に戻る",
+      "backToFlowHint": "同じ worktree でこの Flow を再開します。エージェントは次のターンでレビューを受け取ります",
+      "relaunch": "再実行",
+      "relaunchHint": "同じ worktree・レール・エンジンで Flow → Spec を再実行します",
+      "returned": "Flow に戻りました — エージェントはレビューを受け取っています",
+      "relaunched": "レール {{index}} で Flow → Spec を再実行しました",
+      "returnFailed": "Flow に戻れませんでした：{{detail}}",
+      "relaunchFailed": "Flow → Spec を再実行できませんでした：{{detail}}"
     }
   }
 }

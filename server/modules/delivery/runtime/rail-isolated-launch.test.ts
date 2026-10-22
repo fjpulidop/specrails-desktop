@@ -3992,6 +3992,37 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
       units: [{ sentinel: 'fail', sentinelDetail: 'lint broke' }],
     })
   })
+  it('a Flow → Spec run that stopped with a rejected review settles as review_changes_requested, not an opaque failure', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('failed'))
+    const harvestEvidence = vi.fn(() => ({
+      schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'now',
+      units: [{
+        ticketId: 1, runId: 'r', sentinel: 'absent' as const, sentinelDetail: null, verifyTail: null, confidence: null,
+        runtime: { commands: [], checks: [], findings: [], review: { approved: false, score: 58, aspects: {}, issues: ['Tag the tests', 'Test the Options screen'], summary: 'Blocked' } },
+      }],
+    }))
+    await launchIsolatedRail({ ...input([1], ctx), loopId: 'factory:flow-spec', loopName: 'Flow → Spec' }, okIo({ harvestEvidence }))
+
+    await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row.status_code).toBe('review_changes_requested')
+    expect(row.status_detail).toBe('The reviewer requested changes (score 58): Tag the tests (+1 more)')
+    expect(row.status_detail).not.toContain('Programmatic workflow stopped')
+    expect(toPrDeliverySnapshot(row).flowReview).toMatchObject({ reason: 'review', issues: ['Tag the tests', 'Test the Options screen'] })
+    for (const unit of toPrDeliverySnapshot(row).branches) expect(unit.failureCode).not.toBe('settlement_interrupted')
+  })
+
+  it('any other loop keeps the generic failure even with a rejected review', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('failed'))
+    const harvestEvidence = vi.fn(() => ({
+      schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'now',
+      units: [{ ticketId: 1, runId: 'r', sentinel: 'absent' as const, sentinelDetail: null, verifyTail: null, confidence: null,
+        runtime: { commands: [], checks: [], findings: [], review: { approved: false, score: 10, aspects: {}, issues: ['x'], summary: null } } }],
+    }))
+    await launchIsolatedRail(input([1], ctx), okIo({ harvestEvidence }))
+    await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
+    expect(getActivePrDeliveryByRail(db, 0)!.status_code).toBe('implementation_failed')
+  })
 })
 
 describe('launchIsolatedRail — revision generations (Wave 3)', () => {

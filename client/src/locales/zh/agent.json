@@ -312,7 +312,9 @@
       "implementation_failed": "实现失败",
       "pr_failed": "PR 创建失败",
       "merged": "PR 已合并",
-      "discarded": "已丢弃"
+      "discarded": "已丢弃",
+      "review_changes_requested": "审阅者要求修改",
+      "returned_to_flow": "已回到 Flow"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -714,7 +716,9 @@
       "failed": "已失败",
       "stalled": "已停滞",
       "cancelled": "已取消",
-      "unknown": "未知"
+      "unknown": "未知",
+      "changes_requested": "需要修改",
+      "returned": "已回到 Flow"
     },
     "title": {
       "running": "正在项目检出目录中实现…",
@@ -723,7 +727,9 @@
       "failed": "实现失败",
       "stalled": "实现已停滞",
       "cancelled": "运行已取消",
-      "unknown": "运行状态未知"
+      "unknown": "运行状态未知",
+      "changes_requested": "审阅者要求修改",
+      "returned": "已回到 Flow"
     },
     "noDeliveryNote": "无 PR 阶段 — 此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
     "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交 — 不会提议 PR）。",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "Rail {{index}} 已重新启动 — 新卡片将跟踪此运行。",
     "relaunchFailed": "无法重新启动该 Rail",
-    "relaunchBlockedActive": "该 Rail 仍有活动的运行"
+    "relaunchBlockedActive": "该 Rail 仍有活动的运行",
+    "review": {
+      "title": {
+        "review": "审阅者要求修改",
+        "check": "检查仍未通过"
+      },
+      "score": "评分 {{score}}",
+      "issues_one": "{{count}} 个问题",
+      "issues_other": "{{count}} 个问题",
+      "showAll": "显示全部（{{count}}）",
+      "showLess": "收起",
+      "omitted_one": "运行审阅中还有 {{count}} 个",
+      "omitted_other": "运行审阅中还有 {{count}} 个",
+      "failingChecks": "失败",
+      "check": "{{command}} · 退出码 {{code}}",
+      "next": "自动修正轮次未能解决这些问题。回到 Flow 与智能体一起处理，或在同一 worktree 上重新运行 Flow → Spec。",
+      "returned": "已回到 Flow：worktree 已带着审阅意见回到其 Flow。请在 Flow 栏中继续。"
+    }
   },
   "runFailure": {
     "marker": "Rail {{rail}} 失败：{{code}}",
     "openCard": "打开卡片",
     "briefing": {
       "title": "自动故障简报"
-    }
+    },
+    "reviewChanges": "轨道 {{rail}}：审阅者要求修改"
   },
   "split": {
     "open": "拆分视图",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "启动",
       "notYet": "暂不"
+    },
+    "review": {
+      "backToFlow": "回到 Flow",
+      "backToFlowHint": "在同一 worktree 上重新打开此 Flow；智能体会在下一轮收到审阅意见",
+      "relaunch": "重新运行",
+      "relaunchHint": "在同一 worktree、轨道和引擎上再次运行 Flow → Spec",
+      "returned": "已回到 Flow — 智能体已收到审阅意见",
+      "relaunched": "已在轨道 {{index}} 上重新运行 Flow → Spec",
+      "returnFailed": "无法回到 Flow：{{detail}}",
+      "relaunchFailed": "无法重新运行 Flow → Spec：{{detail}}"
     }
   }
 }

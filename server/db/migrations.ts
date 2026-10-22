@@ -1838,6 +1838,15 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 78: Back to Flow (feedback-2026-10 Flow → Spec repair). When a
+  // Flow → Spec delivery stopped with requested changes and its worktree went
+  // back to the Flow, the review the agent must address in its NEXT turn.
+  // Cleared once a turn delivered it (or the Flow is handed off again).
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('return_briefing')) db.exec('ALTER TABLE flow_sessions ADD COLUMN return_briefing TEXT')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

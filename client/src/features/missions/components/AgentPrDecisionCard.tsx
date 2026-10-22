@@ -8,9 +8,11 @@ import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
   ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen, Eye,
-  ShieldCheck, Wrench, Activity,
+  ShieldCheck, Wrench, Activity, MessageSquareWarning, Undo2,
 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
+import { AgentFlowReviewBlock, AgentFlowReturnedNote } from './AgentFlowReviewBlock'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { RepositoryDeliveries } from '../../delivery/components/RepositoryDeliveries'
 import { TopRiskLine } from '../../delivery/components/TopRiskLine'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -171,7 +173,7 @@ function ReviewPacketEntry({ prDeliveryId, projectId }: { prDeliveryId: string; 
 
 // ── mission-rail-cards: run phase + failure ──────────────────────────────────
 
-type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown'
+type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown' | 'changes_requested' | 'returned'
 
 /**
  * The status the run-phase header shows. Live runtime data wins while the run
@@ -179,7 +181,7 @@ type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled
  * decision. Never invents: an unknown state renders as "unknown".
  */
 export function deriveMissionRunStatus(
-  envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'runtime' | 'implementationOutcome'>,
+  envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'runtime' | 'implementationOutcome'> & Partial<Pick<AgentPrDecisionEnvelope, 'statusCode'>>,
   live: { active?: boolean; status?: string } | null,
   paused: boolean,
 ): MissionRunStatus {
@@ -189,6 +191,10 @@ export function deriveMissionRunStatus(
     return 'running'
   }
   if (live?.active) return 'running'
+  // Flow → Spec: the work still needs changes / went back to its Flow — not a crash.
+  const flow = flowCardOutcome(envelope)
+  if (flow === 'changes') return 'changes_requested'
+  if (flow === 'returned') return 'returned'
   const snap = envelope.runtime?.status
   if (snap === 'running') return 'running'
   if (snap === 'failed' || snap === 'stalled' || snap === 'cancelled' || snap === 'succeeded') return snap
@@ -199,6 +205,13 @@ export function deriveMissionRunStatus(
   return 'unknown'
 }
 
+/** Flow → Spec outcome a card presents instead of a generic failure (null for every other run). */
+export function flowCardOutcome(envelope: Partial<Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode'>>): 'changes' | 'returned' | null {
+  if (envelope.decision === 'implementation_failed' && envelope.statusCode === 'review_changes_requested') return 'changes'
+  if (envelope.decision === 'discarded' && envelope.statusCode === 'returned_to_flow') return 'returned'
+  return null
+}
+
 const RUN_STATUS_TONE: Record<MissionRunStatus, string> = {
   running: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   paused: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
@@ -207,6 +220,8 @@ const RUN_STATUS_TONE: Record<MissionRunStatus, string> = {
   stalled: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
   cancelled: 'border-border/60 bg-surface/60 text-foreground/55',
   unknown: 'border-border/60 bg-surface/60 text-foreground/55',
+  changes_requested: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
+  returned: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
 }
 
 function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
@@ -449,6 +464,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const flashClass = flash ? 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background' : ''
   const hasRepositoryDeliveries = Boolean(envelope.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(envelope)
+  const flowOutcome = flowCardOutcome(envelope)
+  const RunCardActions = useMissionExtensions().RunCardActions
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(envelope.statusCode, envelope.statusDetail)
   const recoveredInterruptedOperation = envelope.operation == null && interruptedOperationDetail
   const projectName = projects.find((p) => p.id === envelope.projectId)?.name ?? envelope.projectId
@@ -1022,8 +1039,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     )
   }
 
-  const Icon = HEADER_ICON[decision]
-  const title = presentation.superseded
+  const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
+  const iconTone = flowOutcome === 'changes' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
+  const title = flowOutcome === 'changes'
+    ? t('prCard.title.review_changes_requested')
+    : flowOutcome === 'returned'
+      ? t('prCard.title.returned_to_flow')
+      : presentation.superseded
     ? t('prCard.title.superseded')
     : presentation.noChanges
       ? t('prCard.title.no_changes')
@@ -1182,7 +1204,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // mission-rail-cards: failed / auto-closed deliveries show their failure as
   // text (code + detail + per-unit codes) instead of a hover title. When this
   // block renders, the older status-detail paragraph is skipped (no double).
-  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && (
+  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && (
     !!runFailure
     || decision === 'implementation_failed'
     || (decision === 'discarded' && (!!envelope.statusDetail || envelope.statusCode === 'delivery_failed'))
@@ -1212,7 +1234,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       )}
       {/* Header: state icon + title + project + rail badge */}
       <div className="flex items-center gap-2">
-        <Icon className={cn('h-4 w-4 shrink-0', HEADER_ICON_TONE[decision])} />
+        <Icon className={cn('h-4 w-4 shrink-0', iconTone)} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
         <span className="max-w-[140px] shrink-0 truncate text-[11px] text-foreground/50" title={projectName}>
           {projectName}
@@ -1281,15 +1303,24 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       <OutcomeEvidence envelope={envelope} />
 
       {failureBlockShown && <RunFailureBlock envelope={envelope} />}
+      {flowOutcome === 'changes' && (
+        <AgentFlowReviewBlock review={envelope.flowReview ?? { reason: 'review', summary: envelope.statusDetail ?? null, issues: [], issuesOmitted: 0, score: null, failingChecks: [] }}>
+          {RunCardActions && (
+            <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
+              decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null} />
+          )}
+        </AgentFlowReviewBlock>
+      )}
+      {flowOutcome === 'returned' && <AgentFlowReturnedNote />}
       {runtimeError}
 
-      {statusLabel && (
+      {statusLabel && flowOutcome === null && (
         <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-foreground/45" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
       )}
 
-      {!terminal && presentation.deliveryBlocked && (
+      {!terminal && presentation.deliveryBlocked && flowOutcome === null && (
         <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
@@ -1320,7 +1351,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         </p>
       )}
 
-      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && (
+      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
         <p className="mt-1 text-[10px] leading-4 text-foreground/45" data-testid="agent-pr-status-detail">
           {envelope.statusDetail}
         </p>
@@ -1459,7 +1490,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {decision === 'implementation_failed' && presentation.implementationFailed && (
+          {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
             <div className="space-y-2">
               <p className="flex items-start gap-1.5 text-[11px] leading-4 text-destructive">
                 <AlertTriangle className="mt-px h-3 w-3 shrink-0" />

@@ -76,6 +76,23 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
     res.json({ flow: service.getByConversation(conversationId) })
   }))
 
+  const deliveryId = (req: Request): string => {
+    const id = String(req.params.deliveryId ?? '')
+    if (!ID_RE.test(id)) throw new FlowValidationError('invalid_delivery_id', 'Invalid delivery id')
+    return id
+  }
+
+  // Back to Flow: a Flow -> Spec run stopped with requested changes; its
+  // worktree returns to the Flow (same mount) and the agent session reopens.
+  router.post('/:projectId/flow/by-delivery/:deliveryId/return', withService(async (service, req, res) => {
+    res.json({ flow: await service.returnToFlow({ deliveryId: deliveryId(req) }) })
+  }))
+
+  // Relaunch Flow -> Spec on the SAME worktree (same rail and engine choices).
+  router.post('/:projectId/flow/by-delivery/:deliveryId/relaunch', withService(async (service, req, res) => {
+    res.status(202).json(await service.relaunchFlow({ deliveryId: deliveryId(req) }))
+  }))
+
   router.get('/:projectId/flow/:flowId', withService((service, req, res) => {
     res.json({ flow: service.getFlow(flowId(req)) })
   }))

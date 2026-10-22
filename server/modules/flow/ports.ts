@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -46,6 +46,9 @@ export interface FlowTickets {
    * disappears), `metadata.openspecChangeName`, status `on_review` unless the
    * ticket already moved on. Idempotent. */
   markDelivered(ticketId: number, input: { openspecChangeName: string | null }): void
+  /** Back to Flow: the spec is worked on again (in progress, "In Flow"); a
+   * ticket that moved on (done, cancelled) is left alone. */
+  reopen(ticketId: number): void
   /** Current title, idea (description) and status; null when the ticket is gone. */
   read(ticketId: number): { title: string; description: string; status: string } | null
 }
@@ -117,6 +120,14 @@ export interface FlowLaunchOptions {
  * ownership transfer happens inside that launch, atomically. */
 export interface FlowRailLauncher {
   launch(input: { flowId: string; conversationId: string; ticketId: number; railIndex: number; options: FlowLaunchOptions }): Promise<{ loopRunIds: string[]; deliveryId: string | null }>
+  /** A Flow → Spec delivery that stopped before delivery: its rail, its launch
+   * choices (for Relaunch) and the review findings. Null when unknown. */
+  stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null } | null
+  /** Back to Flow: delivery removes its ledger row for the adopted worktree and
+   * closes the delivery in ONE transaction; `commit` (the Flow's own state
+   * change) runs inside it, so ownership moves atomically. Throws (409) when
+   * the delivery cannot give the worktree back. */
+  returnWorktree(input: { deliveryId: string; worktreePath: string; detail: string; commit: () => void }): void
 }
 
 /** Real (provider-reported) usage of a Flow's turns. Never estimates. */

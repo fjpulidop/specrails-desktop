@@ -32,7 +32,9 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
+- [runtime/flow-review-outcome.ts](runtime/flow-review-outcome.ts)
 - [runtime/flow-worktree-handoff.ts](runtime/flow-worktree-handoff.ts)
+- [runtime/flow-worktree-return.ts](runtime/flow-worktree-return.ts)
 - [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
 - [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
@@ -89,6 +91,18 @@ contract's `adopt` callback; a rollback after adoption deletes the row and
 calls `release`. The rails launch route accepts `flowId` and resolves the
 contract through `ProjectContext.flowHandOff`. Delivery never imports the
 Flow module. See [Flow mode](../../../docs/internals/flow-mode.md).
+
+A Flow → Spec run that settles `implementation_failed` while its evidence
+shows a rejected review or failing checks
+([`flowReviewOutcome`](runtime/flow-review-outcome.ts)) records
+`status_code = review_changes_requested` with the reviewer's first issue,
+and every snapshot/envelope carries `flowReview` (issues, score, failing
+checks). Back to Flow is the inverse of the adoption
+([`returnFlowWorktree`](runtime/flow-worktree-return.ts)): one transaction
+deletes the adopted `rail_worktrees` row, closes the delivery as
+`discarded` / `returned_to_flow` and runs the Flow's commit callback; the
+worktree is never removed. Tests:
+[`runtime/flow-worktree-return.test.ts`](runtime/flow-worktree-return.test.ts).
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

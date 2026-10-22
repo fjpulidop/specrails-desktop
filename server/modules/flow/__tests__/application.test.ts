@@ -59,7 +59,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
   let clock = 0
   let ids = 0
   const tickets = {
-    createPlaceholder: vi.fn(() => 7), setFlowState: vi.fn(), deletePlaceholder: vi.fn(), markDelivered: vi.fn(),
+    createPlaceholder: vi.fn(() => 7), setFlowState: vi.fn(), deletePlaceholder: vi.fn(), markDelivered: vi.fn(), reopen: vi.fn(),
     read: vi.fn(() => ({ title: 'Try a kanban board', description: 'Try a kanban board', status: 'on_review' })),
   }
   const effects = memoryEffects()
@@ -96,6 +96,13 @@ function setup(overrides: Partial<FlowPorts> = {}) {
       repository.save(transition(current, { type: 'handed-off', railIndex, deliveryId: 'delivery-1', headSha: current.headSha!, now: 't-adopt' }).session)
       return { loopRunIds: ['run-1'], deliveryId: 'delivery-1' }
     }),
+    stoppedDelivery: vi.fn((_deliveryId: string) => ({
+      railIndex: 2,
+      options: { aiEngine: 'claude', model: 'sonnet' },
+      findings: { reason: 'review' as const, summary: 'Two gaps remain', issues: ['Tag the tests with [spec:fx/toggles]', 'Test the Options screen'], issuesOmitted: 0, score: 58, failingChecks: [] },
+    }) as ReturnType<FlowPorts['rails']['stoppedDelivery']>),
+    // The real binding runs `commit` inside delivery's ledger transaction.
+    returnWorktree: vi.fn((input: { deliveryId: string; worktreePath: string; detail: string; commit: () => void }) => { input.commit() }),
   }
   const usage = { costSoFar: vi.fn(() => ({ costUsd: 1.25, turns: 3, unpricedTurns: 1, tokensIn: 100, tokensOut: 50 })) }
   const notifier = { changed: vi.fn() }
@@ -516,3 +523,84 @@ function portsOf(ctx: ReturnType<typeof setup>): FlowPorts {
     ids: () => 'flow-x', availability: ctx.availability,
   }
 }
+
+describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
+  async function handedOff(ctx: ReturnType<typeof setup>) {
+    const flow = await ctx.service.startFlow(startInput)
+    await ctx.service.handOffFlow({ flowId: flow.id, railIndex: 2 })
+    return flow
+  }
+
+  it('returns the worktree through delivery, reopens the spec and the session, and keeps the review for the next turn', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    ctx.agent.open.mockClear()
+    const returned = await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(returned).toMatchObject({ id: flow.id, state: 'active', step: null, deliveryId: 'delivery-1', railIndex: null, worktreePath: '/wt/flow-1/ticket-7', coreSessionId: 'flow:flow-1' })
+    expect(ctx.rails.returnWorktree).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: 'delivery-1', worktreePath: '/wt/flow-1/ticket-7' }))
+    expect(ctx.tickets.reopen).toHaveBeenCalledWith(7)
+    expect(ctx.tickets.setFlowState).toHaveBeenCalledWith(7, 'active')
+    expect(ctx.agent.open).toHaveBeenCalledWith({ flowId: flow.id, conversationId: 'conv-1', worktreePath: '/wt/flow-1/ticket-7' })
+    expect(ctx.worktrees.release).not.toHaveBeenCalled()
+    expect(returned.returnBriefing).toContain('the reviewer requested changes (score 58)')
+    expect(returned.returnBriefing).toContain('1. Tag the tests with [spec:fx/toggles]')
+    // Idempotent by delivery.
+    ctx.rails.returnWorktree.mockClear()
+    await expect(ctx.service.returnToFlow({ deliveryId: 'delivery-1' })).resolves.toMatchObject({ id: flow.id, state: 'active' })
+    expect(ctx.rails.returnWorktree).not.toHaveBeenCalled()
+  })
+
+  it('clears the briefing once a turn delivered it, and a new hand-off drops an undelivered one', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect((await ctx.service.briefingDelivered(flow.id))?.returnBriefing ?? null).toBeNull()
+    await expect(ctx.service.briefingDelivered('missing')).resolves.toBeNull()
+    const again = setup()
+    const other = await handedOff(again)
+    await again.service.returnToFlow({ deliveryId: 'delivery-1' })
+    await again.service.handOffFlow({ flowId: other.id, railIndex: 2 })
+    expect(again.repository.get(other.id)?.returnBriefing ?? null).toBeNull()
+  })
+
+  it('stays paused (ownership already returned) when the agent session cannot open', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    ctx.agent.open.mockRejectedValueOnce(new Error('provider down'))
+    const returned = await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(returned).toMatchObject({ id: flow.id, state: 'paused', coreSessionId: null })
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('did not open'))
+  })
+
+  it('leaves the Flow handed off when delivery refuses the return (transaction rolled back)', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    ctx.rails.returnWorktree.mockImplementationOnce(() => { throw new FlowConflictError('flow_return_not_allowed', 'not stopped') })
+    await expect(ctx.service.returnToFlow({ deliveryId: 'delivery-1' })).rejects.toMatchObject({ code: 'flow_return_not_allowed' })
+    expect(ctx.repository.get(flow.id)).toMatchObject({ state: 'handed_off', deliveryId: 'delivery-1' })
+    expect(ctx.tickets.reopen).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unknown delivery and a missing worktree', async () => {
+    const ctx = setup()
+    await expect(ctx.service.returnToFlow({ deliveryId: 'nope' })).rejects.toBeInstanceOf(FlowNotFoundError)
+    const flow = await handedOff(ctx)
+    ctx.worktrees.exists.mockReturnValue(false)
+    await expect(ctx.service.returnToFlow({ deliveryId: 'delivery-1' })).rejects.toMatchObject({ code: 'flow_worktree_missing' })
+    expect(ctx.repository.get(flow.id)?.state).toBe('handed_off')
+  })
+
+  it('relaunches Flow → Spec on the same worktree, rail and engine choices', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    ctx.rails.launch.mockClear()
+    ctx.worktrees.freeze.mockClear()
+    const relaunched = await ctx.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(ctx.rails.returnWorktree).toHaveBeenCalledTimes(1)
+    expect(ctx.worktrees.freeze).toHaveBeenCalledWith(expect.objectContaining({ worktreePath: '/wt/flow-1/ticket-7' }))
+    expect(ctx.rails.launch).toHaveBeenCalledWith(expect.objectContaining({ flowId: flow.id, railIndex: 2, options: { aiEngine: 'claude', model: 'sonnet' } }))
+    expect(relaunched.flow).toMatchObject({ state: 'handed_off', railIndex: 2 })
+    expect(relaunched.flow.returnBriefing ?? null).toBeNull()
+    expect(ctx.agent.open).toHaveBeenCalledTimes(1) // only the start: a relaunch never opens a Flow turn
+  })
+})

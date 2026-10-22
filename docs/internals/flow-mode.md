@@ -45,10 +45,10 @@ reads the new `deliveries`/`capabilities` contract fields additively;
 ```
           start          pause            hand-off          delivered
 (none) ─────────► active ◄─────► paused ───────────► handed_off ─────────► delivered
-                    │  resume                         │
-                    │ discard                         │ launch failed
-                    ▼                                 ▼
-                discarded                           paused
+                    │  resume      ▲                  │
+                    │ discard      │ returned         │ launch failed
+                    ▼              │ (Back to Flow)   ▼
+                discarded          └──────────────  paused
 ```
 
 `needs-review` is set only by startup reconciliation, when the Flow's
@@ -204,7 +204,8 @@ placeholder spec. Discard after a hand-off is illegal.
 5. Any failure before that commit reverts the Flow to `paused`.
 
 See [Flow → Spec loop](#flow--spec-loop) and [Settlement](#settlement) for
-what happens after the hand-off.
+what happens after the hand-off, and [Back to Flow](#back-to-flow-and-relaunch)
+for a run that stopped with requested changes.
 
 ### Restart
 
@@ -225,36 +226,104 @@ runs only from a Flow hand-off: the rails route answers `400 flow_id_required`
 without `flowId` and `409 engine_unsupported` when the selected Core lacks
 `deriveChange` (the run itself re-checks in `assertDefinitionSupport`).
 
-The graph mirrors Core's reference definition (`flow-spec.json`, Core PR #438):
+The graph mirrors Core's reference definition (`flow-spec.json`); a parity
+test compares node kinds, routing and the closed params:
 
 ```
-init → derive (derive-change) ─pass→ check (verify, additionalCommandsFrom: derive)
-          │fail                       → review (role-turn reviewer) → review-policy
-          └→ repair-guard (1 repair)  → archive (openspec-archive) → verify → done
+init → derive (derive-change) ─pass→ check (verify) ─pass→ review → review-policy ─true→ archive → verify → done
+         │fail                       │fail                            │false
+         └→ repair-guard (1 repair)  └──→ check-findings   review-findings ←┘
+                                                 └──→ correction-budget ─exhausted→ changes-requested
+                                                          │ (2 rounds)
+                                          begin-correction → fix (developer, fixer stance, WRITE)
+                                                          → fix-progress ─no change→ changes-requested
+                                                          └→ derive (the change is updated in place)
 ```
 
 - Strict `openspec validate` and the archive preflight run inside the
   `derive-change` piece; its `fail` outcome is the one-visit repair loop, so
-  there is no separate `openspec-validate` node.
-- Roles: `deriver` (always added for a `derive-change` node) and `reviewer`.
-  The reviewer receives `{{outputs.derive.derivation}}` and treats every
-  unexplained file as an issue; the policy gate is `approved == true`.
+  there is no separate `openspec-validate` node. Each correction round resets
+  that repair budget.
+- A rejected review or a failing `check` is not a dead end. Their findings
+  (`{{outputs.review.structured}}`, or the failing host verification) become
+  `$vars.latestFindings` and a bounded correction round runs: `fix` is a
+  `role-turn` of the built-in `developer` role with `stance: 'fixer'` (Core's
+  fixer instructions, the configured fixer engine when there is one, WRITE
+  access in the worktree). It fixes the named defects, adds the tests the
+  review asks for (tagged `[spec:<capability>/<slug>]` for the ADDED/MODIFIED
+  requirement they prove) and never expands scope or edits `openspec/`.
+  `derive` then runs again with `feedback: {{run.latestFindings}}`: the
+  deriver updates the existing change in place so the artifacts describe the
+  code (including behaviour the review said the spec omitted). A round that
+  changes nothing (`fix-progress`) or an exhausted budget
+  (`FLOW_CORRECTION_ROUNDS = 2`) ends at `changes-requested`, a `failure` end
+  whose reason carries the latest findings.
+- Roles: `deriver` (always added for a `derive-change` node), `developer`
+  (the fixer) and `reviewer`. The reviewer receives
+  `{{outputs.derive.derivation}}` and treats every unexplained file as an
+  issue; the policy gate is `approved == true`.
 - Config: `change: 'new'`, `journal: 'ledger-only'`, `reviewerStepId: 'review'`.
 
 Before the run, Desktop prepares the derivation inputs:
 
+- **Change id.** Named after the spec title, never after addenda or the run:
+  kebab-case, diacritics folded, at most 64 characters cut at a word
+  (`flowChangeId`). A name another change holds (present at the Flow base, or
+  archived) gets `-2`, `-3`…; an active change that is absent at the base is
+  this Flow's own earlier derivation and is reused, so a relaunch re-derives
+  it in place. No addenda "delta" briefing applies to Flow.
 - **Base.** `requiredFlowWorktree.baseSha` (the Flow reservation commit)
   travels as `LoopRunRequest.flowDerivation.baseSha` and becomes
   `repositories[].baseSha` in the frozen Core context, so Core measures the
   change from the reservation, not from the frozen hand-off commit (which
   would be an empty change set).
 - **Summary.** The hand-off authority builds a bounded summary of the Flow
-  conversation (`buildFlowSummary`: the idea, the user's messages and the
-  persona's `Decision:` lines only; ≤ 32 KB of UTF-8, oldest user messages
-  dropped first; front matter `transcriptTurns: <n>`). The executor writes it
-  once, `0600`, to `.specrails/pipeline/<runId>/flow-summary.md`, which the
-  node reads as `summaryPath`. A summary failure never blocks the hand-off:
-  Core then derives from the diff alone.
+  conversation (`buildFlowSummary`): the idea, every message the person typed
+  since the Flow started (automatic briefings excluded), the first line of
+  the agent's final reply to each (`↳ Agent: …`) and the persona's
+  `Decision:` lines; ≤ 32 KB of UTF-8, the oldest messages (with their reply)
+  dropped first, then the oldest decisions; front matter
+  `transcriptTurns: <n>` counts the messages kept. Message times are SQLite
+  `datetime('now')` stamps and the Flow start is ISO 8601: the window compares
+  them as instants (`inFlowWindow`, the start floored to its second). Comparing
+  the strings once put every message of the Flow's own day before its start
+  and produced an empty summary. The executor writes the summary once,
+  `0600`, to `.specrails/pipeline/<runId>/flow-summary.md`, which the node
+  reads as `summaryPath`. A summary failure never blocks the hand-off: Core
+  then derives from the diff alone.
+
+## Back to Flow and Relaunch
+
+When the run ends at `changes-requested` (or the latest review rejected, or
+the latest checks fail), settlement reads the settle evidence
+(`flowReviewOutcome`, delivery) and records `status_code =
+review_changes_requested` with the reviewer's first issue as `statusDetail`
+instead of the generic "Programmatic workflow stopped" failure. The
+snapshot, the `rail.pr_state` message and the mission card envelope carry
+`flowReview` (`reason` review|check, summary, ≤ 20 issues, score, failing
+host checks). The mission card shows "The reviewer requested changes" with
+those issues and two actions (the Flow extension's `RunCardActions` slot);
+the rail strip shows a "Changes requested" pill and never offers Discard
+(the Flow worktree must survive). The run-failure briefing offers the same
+two actions.
+
+- **Back to Flow** — `POST /flow/by-delivery/:deliveryId/return`. Delivery
+  owns ONE transaction (`returnFlowWorktree`): it deletes the adopted
+  `rail_worktrees` row, closes the delivery as `discarded` /
+  `returned_to_flow` (the rail is free again) and, inside it, the Flow saves
+  `handed_off → paused` (`returned`: `deliveryId` kept for idempotency,
+  `railIndex` cleared). Any failure rolls both back. The worktree, its branch
+  and the run's changes (the derived change included) are never touched. The
+  spec goes back to in progress, "In Flow" (`reopenTicket`), the agent
+  session reopens (a session that cannot open leaves the Flow paused; the
+  Flow bar resumes it) and `flow_sessions.return_briefing` (migration 78)
+  holds the review: the next Flow turn carries it on the USER turn (never
+  the system prompt) and the Flow clears it once that turn completes
+  (`briefingDelivered`); a new hand-off drops an undelivered one.
+- **Relaunch** — `POST /flow/by-delivery/:deliveryId/relaunch`: the same
+  return, then the ordinary hand-off (freeze, launch) on the same rail with
+  the stopped launch's engine choices. The new run re-derives the existing
+  change in place.
 
 ## Settlement
 

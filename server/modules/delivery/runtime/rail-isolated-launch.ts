@@ -40,6 +40,7 @@ import {
 } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
+import { flowReviewOutcome, flowReviewStatusDetail } from './flow-review-outcome'
 import { coreAnnouncesReviewBrief, harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { phase3HarvestOptions } from './phase3-harvest'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
@@ -1898,14 +1899,23 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         console.warn(`[rail-isolated] evidence harvest failed: ${e instanceof Error ? e.message : String(e)}`)
         settleEvidence = undefined
       }
+      // Flow -> Spec: a run that stopped because the work still needs changes
+      // (review rejected / checks failing after the repair rounds) is not an
+      // opaque implementation failure. Say so, with the reviewer's own words.
+      const flowReview = flowReviewOutcome({ loopId, implementationOutcome, evidence: settleEvidence })
+      const settledStatusCode: PrDeliveryStatusCode = flowReview ? 'review_changes_requested' : statusCode
+      const settledStatusDetail = flowReview ? flowReviewStatusDetail(flowReview) : statusDetail
+      if (flowReview) {
+        for (const unit of settledBranchRecords) if (unit.failureCode === 'settlement_interrupted') unit.failureCode = 'review_changes_requested'
+      }
       const patch = {
         settleEvidence,
         branches: settledBranchRecords,
         worktreeIds,
         implementationOutcome,
         deliveryOutcome,
-        statusCode,
-        statusDetail,
+        statusCode: settledStatusCode,
+        statusDetail: settledStatusDetail,
         deliverySha,
         ...(launchContinuation ? {
           branch: launchContinuation.branch,
@@ -1954,8 +1964,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         if (implementationOutcome === 'failed') {
           const failedUnit = results.find((result) => result.implementationOutcome === 'failed') ?? results[0]
           notifyOriginRunFailure(prDeliveryId, {
-            code: 'implementation_failed',
-            detail: statusDetail,
+            code: flowReview ? 'review_changes_requested' : 'implementation_failed',
+            detail: settledStatusDetail,
             stepId: null,
           }, failedUnit?.run.runId ?? null)
         }

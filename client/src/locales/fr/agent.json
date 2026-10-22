@@ -312,7 +312,9 @@
       "implementation_failed": "Échec de l’implémentation",
       "pr_failed": "Échec de la création de la PR",
       "merged": "PR fusionnée",
-      "discarded": "Abandonnée"
+      "discarded": "Abandonnée",
+      "review_changes_requested": "Le relecteur a demandé des modifications",
+      "returned_to_flow": "Revenu dans Flow"
     },
     "buildingHint": "À la fin, il vous sera proposé de créer la PR.",
     "buildingExistingPrHint": "Specrails travaille sur la branche de la PR existante et poussera les changements de revue vers cette même PR.",
@@ -714,7 +716,9 @@
       "failed": "Échoué",
       "stalled": "Bloqué",
       "cancelled": "Annulé",
-      "unknown": "Inconnu"
+      "unknown": "Inconnu",
+      "changes_requested": "Modifications demandées",
+      "returned": "Revenu dans Flow"
     },
     "title": {
       "running": "Implémentation dans le checkout du projet…",
@@ -723,7 +727,9 @@
       "failed": "L’implémentation a échoué",
       "stalled": "L’implémentation est bloquée",
       "cancelled": "Run annulé",
-      "unknown": "État du run inconnu"
+      "unknown": "État du run inconnu",
+      "changes_requested": "Le relecteur a demandé des modifications",
+      "returned": "Revenu dans Flow"
     },
     "noDeliveryNote": "Pas de phase PR — ce projet n’a ni dépôt git ni commits, le travail a donc été appliqué directement dans le dossier du projet.",
     "noDeliveryHint": "Exécution directe dans le dossier du projet (pas de dépôt git ni de commits — aucune PR ne sera proposée).",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "Rail {{index}} relancé — une nouvelle carte suivra le run.",
     "relaunchFailed": "Impossible de relancer le rail",
-    "relaunchBlockedActive": "Le rail a encore un run actif"
+    "relaunchBlockedActive": "Le rail a encore un run actif",
+    "review": {
+      "title": {
+        "review": "Le relecteur a demandé des modifications",
+        "check": "Les vérifications échouent toujours"
+      },
+      "score": "score {{score}}",
+      "issues_one": "{{count}} point",
+      "issues_other": "{{count}} points",
+      "showAll": "Tout afficher ({{count}})",
+      "showLess": "Afficher moins",
+      "omitted_one": "+{{count}} autre dans la relecture de l'exécution",
+      "omitted_other": "+{{count}} autres dans la relecture de l'exécution",
+      "failingChecks": "En échec",
+      "check": "{{command}} · code {{code}}",
+      "next": "Les cycles de correction automatiques ne les ont pas résolus. Revenez dans Flow pour les régler avec l'agent, ou relancez Flow → Spec sur le même worktree.",
+      "returned": "Revenu dans Flow : le worktree est retourné à son Flow avec la relecture. Continuez dans la barre Flow."
+    }
   },
   "runFailure": {
     "marker": "Le Rail {{rail}} a échoué : {{code}}",
     "openCard": "Ouvrir la carte",
     "briefing": {
       "title": "Compte rendu automatique de l’échec"
-    }
+    },
+    "reviewChanges": "Rail {{rail}} : le relecteur a demandé des modifications"
   },
   "split": {
     "open": "Vue partagée",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "Lancer",
       "notYet": "Pas encore"
+    },
+    "review": {
+      "backToFlow": "Revenir dans Flow",
+      "backToFlowHint": "Rouvre ce Flow sur le même worktree ; l'agent reçoit la relecture à son prochain tour",
+      "relaunch": "Relancer",
+      "relaunchHint": "Relance Flow → Spec sur le même worktree, rail et moteur",
+      "returned": "Revenu dans Flow — l'agent a la relecture",
+      "relaunched": "Flow → Spec relancé sur le rail {{index}}",
+      "returnFailed": "Impossible de revenir dans Flow : {{detail}}",
+      "relaunchFailed": "Impossible de relancer Flow → Spec : {{detail}}"
     }
   }
 }

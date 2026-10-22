@@ -43,6 +43,18 @@ describe('buildFailureBriefing', () => {
     expect(railLabel(2, '  ')).toBe('Rail 3')
   })
 
+  it('offers Back to Flow and Relaunch (never Discard) when Flow → Spec still has requested changes', () => {
+    const text = buildFailureBriefing({
+      runId: 'r', railIndex: 0, ticketIds: [8],
+      failure: { code: 'review_changes_requested', detail: 'The reviewer requested changes (score 58): tag the tests', stepId: null },
+    })
+    expect(text).toContain('stopped: the reviewer still requested changes after the automatic correction rounds')
+    expect(text).toContain('Detail: The reviewer requested changes (score 58): tag the tests')
+    expect(text).toContain('Back to Flow (reopen the Flow on the same worktree')
+    expect(text).toContain('Relaunch (Flow → Spec again on the same worktree)')
+    expect(text).not.toContain('Discard')
+  })
+
   it('emits the compact-render context ref', () => {
     expect(failureBriefingRef('run-1', 3, 'stalled')).toEqual({ kind: FAILURE_BRIEFING_REF_KIND, id: 'run-1', label: 'Run failure briefing', token: '', metadata: { railIndex: 3, code: 'stalled' } })
   })

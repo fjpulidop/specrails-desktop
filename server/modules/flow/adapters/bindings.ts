@@ -24,7 +24,8 @@ import { getAdapter } from '../../../providers'
 import { supportsContractRefine } from '../../../providers/runtime'
 import { captureProcessAdmission } from '../../../process-admission'
 import { resolveDefaultSpecModel } from '../../../project-router-helpers'
-import { getPrDelivery, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
+import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
+import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from '../../delivery/runtime/flow-worktree-return'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
 import type { SpecProvider } from '../../specs/runtime/spec-models'
 import { RepositoryHasNoCommitsError, isolatedWorktreesRoot, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
@@ -39,7 +40,7 @@ import {
   FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
-import type { Clock, FlowDiffFile, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
+import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
 import type { FlowService } from '../application'
 
 /** What Flow needs from the mission agent host (implemented by AgentChatManager). */
@@ -145,7 +146,32 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
       const ticket = readStore(file()).tickets[String(ticketId)]
       return ticket ? { title: ticket.title, description: ticket.description, status: ticket.status } : null
     },
+    reopen(ticketId) {
+      let updated: Ticket | undefined
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(ticketId)]
+        if (!ticket?.metadata?.flow) return
+        // A failed run moved the spec back to todo; Back to Flow works on it again.
+        // Never pull back a ticket that moved on (done, cancelled).
+        const status = ticket.status === 'todo' || ticket.status === 'on_review' ? 'in_progress' : ticket.status
+        if (status === ticket.status && ticket.metadata.flow.state === 'paused') return
+        ticket.status = status
+        ticket.metadata = { ...ticket.metadata, flow: { ...ticket.metadata.flow, state: 'paused' } }
+        ticket.updated_at = clock.now()
+        updated = ticket
+      })
+      if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
+    },
   }
+}
+
+/** The engine choices a stopped Flow → Spec launch used (Relaunch repeats them). */
+export function launchOptionsOf(raw: string | null | undefined): FlowLaunchOptions {
+  let config: Record<string, unknown> = {}
+  try { const parsed: unknown = raw ? JSON.parse(raw) : null; if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) config = parsed as Record<string, unknown> } catch { /* defaults */ }
+  const text = (value: unknown): string | undefined => typeof value === 'string' && value.trim() && value.length <= 200 ? value.trim() : undefined
+  const loopId = text(config.loopId), aiEngine = text(config.aiEngine), model = text(config.model), reasoningEffort = text(config.reasoning_effort ?? config.reasoningEffort)
+  return { ...(loopId ? { loopId } : {}), ...(aiEngine ? { aiEngine } : {}), ...(model ? { model } : {}), ...(reasoningEffort ? { reasoningEffort } : {}) }
 }
 
 // ─── Worktree reservation (delivery's single machinery) ───────────────────────
@@ -366,6 +392,20 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
           deliveryId: typeof body.prDeliveryId === 'string' ? body.prDeliveryId : null,
         }
       },
+      stoppedDelivery(deliveryId) {
+        const row = getPrDelivery(ctx.db, deliveryId)
+        if (!row) return null
+        return { railIndex: row.rail_index, options: launchOptionsOf(row.launch_config_json), findings: toPrDeliverySnapshot(row).flowReview ?? null }
+      },
+      returnWorktree({ deliveryId, worktreePath, detail, commit }) {
+        try {
+          const closed = returnFlowWorktree(ctx.db, { deliveryId, worktreePath, detail }, commit)
+          announceReturnedDelivery(ctx.project.id, closed, (message) => ctx.broadcast(message))
+        } catch (error) {
+          if (error instanceof FlowReturnRejectedError) throw new FlowConflictError(error.code, error.message)
+          throw error
+        }
+      },
     },
     processes: deps.processes ?? { stop: async () => {} },
     effects: deps.effects,
@@ -432,7 +472,7 @@ export function createFlowHandOffAuthority(
  */
 export function createFlowTurnContext(deps: {
   conversationProject: (conversationId: string) => string | null
-  flowServiceFor: (projectId: string) => Pick<FlowService, 'getByConversation'> | null
+  flowServiceFor: (projectId: string) => Pick<FlowService, 'getByConversation'> & Partial<Pick<FlowService, 'briefingDelivered'>> | null
   /** Core capability gate (flowSessions + deriveChange); absent ⇒ never offerable. */
   availability?: () => Promise<{ available: boolean }>
 }): FlowTurnContext {
@@ -458,7 +498,13 @@ export function createFlowTurnContext(deps: {
         coreSessionId: session.coreSessionId,
         systemPrompt: buildFlowSystemPrompt(),
         policy: FLOW_SESSION_BOUNDARY,
+        ...(session.returnBriefing ? { briefing: session.returnBriefing } : {}),
       }
+    },
+    async briefingDelivered(conversationId, flowId) {
+      const projectId = deps.conversationProject(conversationId)
+      if (!projectId) return
+      await deps.flowServiceFor(projectId)?.briefingDelivered?.(flowId)
     },
   }
 }

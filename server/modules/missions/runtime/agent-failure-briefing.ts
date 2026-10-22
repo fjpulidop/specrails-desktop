@@ -36,6 +36,7 @@ export const FAILURE_CODE_LABELS: Record<string, string> = {
   stuck: 'the run appears stuck (no activity checkpoint for a long time)',
   cancelled: 'the run was cancelled',
   push_failed: 'pushing the branch failed',
+  review_changes_requested: 'the reviewer still requested changes after the automatic correction rounds (Flow → Spec)',
 }
 
 export function describeFailureCode(code: string): string {
@@ -82,8 +83,14 @@ export function buildFailureBriefing(input: FailureBriefingInput): string {
   if (r?.pendingApproval) options.push('a step is waiting for approval')
   if (r?.canResume) options.push('Resume (continue from the saved runtime state)')
   if (r?.recoverableSteps?.length) options.push(`Recover & retry the interrupted step(s): ${r.recoverableSteps.join(', ')}`)
-  options.push('Relaunch (a fresh run on the same rail)')
-  options.push('Discard')
+  if (input.failure.code === 'review_changes_requested') {
+    // Flow -> Spec: the worktree can go back to its Flow instead of being discarded.
+    options.push('Back to Flow (reopen the Flow on the same worktree; the agent receives the review)')
+    options.push('Relaunch (Flow → Spec again on the same worktree)')
+  } else {
+    options.push('Relaunch (a fresh run on the same rail)')
+    options.push('Discard')
+  }
   lines.push('')
   lines.push(`The card in this mission offers: ${options.join('; ')}.`)
   if (input.hasDelivery === false) lines.push('This run had no git isolation (shared project folder) — there is no PR phase.')

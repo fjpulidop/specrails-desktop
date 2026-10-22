@@ -53,7 +53,7 @@ Run with your real `HOME`, after backing up the SQLite databases.
 **Why not an isolated `HOME`.** On macOS, changing `HOME` breaks the provider
 logins: the Claude CLI keeps its credentials in the login keychain keyed to
 the real home, so `claude`, `codex` and `gemini` look unauthenticated and every
-run fails. Running against your real data is safe because migrations 72–77 of
+run fails. Running against your real data is safe because migrations 72–78 of
 this branch are additive (new tables and columns only): the released Desktop
 keeps working on the same databases after you go back to it.
 
@@ -149,6 +149,12 @@ Core; without it the feature must be absent and nothing else may change.
 - [ ] **Interrupt.** Send a message while the agent works → it is delivered mid-turn (no queue wait).
 - [ ] **"This is it".** Press it → launch card with **Flow → Spec** preselected; Launch.
 - [ ] **Flow → Spec loop.** The run derives the OpenSpec change; the packet shows **Derivation** (N/M files explained).
+- [ ] **Summary carries the conversation.** `.specrails/pipeline/<runId>/flow-summary.md` lists every message you typed in Flow (`transcriptTurns` > 0) with `↳ Agent:` first lines; the packet's Derivation shows the same turn count.
+- [ ] **Change name.** The derived change is `openspec/changes/<kebab spec title>` (no `ticket-N-addenda-…`).
+- [ ] **Repair round.** When the review rejects (or a check fails), the run log shows `fix` (fixer stance) then `derive` again, and the change is updated in place; an approval after the round archives normally.
+- [ ] **Requested changes.** With rounds exhausted, the mission card reads **The reviewer requested changes** with the issues and failing checks (no "Implementation failed · settlement_interrupted"); the rail strip shows **Changes requested** and no Discard.
+- [ ] **Back to Flow.** Press it → the Flow bar returns on the same worktree (files intact), the spec shows In Flow again, the delivery card reads **Back in Flow**, and your next message reaches the agent with the review.
+- [ ] **Relaunch.** From a requested-changes card, Relaunch → a new Flow → Spec run on the same rail and worktree re-derives the same change.
 - [ ] **Spec rewrite.** After settle, the placeholder spec is rewritten from the derived change (Contract Layer applied).
 - [ ] **Jira on review.** With Jira linked, the Flow spec gets its issue created and moved to review only after settle (never while In Flow).
 - [ ] **Companion «In Flow».** In the companion app (`/Users/javi/repos/wt/companion-in-flow`, commit `02c4b79`), the spec shows the In Flow label.

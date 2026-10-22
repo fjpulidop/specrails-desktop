@@ -302,7 +302,9 @@
       "implementation_failed": "Implementation failed",
       "pr_failed": "PR creation failed",
       "merged": "PR merged",
-      "discarded": "Discarded"
+      "discarded": "Discarded",
+      "review_changes_requested": "The reviewer requested changes",
+      "returned_to_flow": "Back in Flow"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -714,7 +716,9 @@
       "failed": "Failed",
       "stalled": "Stalled",
       "cancelled": "Cancelled",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "changes_requested": "Changes requested",
+      "returned": "Back in Flow"
     },
     "title": {
       "running": "Implementing in the project checkout…",
@@ -723,7 +727,9 @@
       "failed": "Implementation failed",
       "stalled": "Implementation stalled",
       "cancelled": "Run cancelled",
-      "unknown": "Run state unknown"
+      "unknown": "Run state unknown",
+      "changes_requested": "The reviewer requested changes",
+      "returned": "Back in Flow"
     },
     "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
     "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
     "relaunchFailed": "Could not relaunch the rail",
-    "relaunchBlockedActive": "The rail still has an active run"
+    "relaunchBlockedActive": "The rail still has an active run",
+    "review": {
+      "title": {
+        "review": "The reviewer requested changes",
+        "check": "The checks still fail"
+      },
+      "score": "score {{score}}",
+      "issues_one": "{{count}} issue",
+      "issues_other": "{{count}} issues",
+      "showAll": "Show all {{count}}",
+      "showLess": "Show less",
+      "omitted_one": "+{{count}} more in the run's review",
+      "omitted_other": "+{{count}} more in the run's review",
+      "failingChecks": "Failing",
+      "check": "{{command}} · exit {{code}}",
+      "next": "The automatic correction rounds did not resolve these. Go back to Flow to settle them with the agent, or relaunch Flow → Spec on the same worktree.",
+      "returned": "Back in Flow: the worktree returned to its Flow with the review. Continue in the Flow bar."
+    }
   },
   "runFailure": {
     "marker": "Rail {{rail}} failed: {{code}}",
     "openCard": "Open card",
     "briefing": {
       "title": "Automatic failure briefing"
-    }
+    },
+    "reviewChanges": "Rail {{rail}}: the reviewer requested changes"
   },
   "split": {
     "open": "Split view",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "Launch",
       "notYet": "Not yet"
+    },
+    "review": {
+      "backToFlow": "Back to Flow",
+      "backToFlowHint": "Reopen this Flow on the same worktree; the agent receives the review on its next turn",
+      "relaunch": "Relaunch",
+      "relaunchHint": "Run Flow → Spec again on the same worktree, rail and engine",
+      "returned": "Back in Flow — the agent has the review",
+      "relaunched": "Flow → Spec relaunched on rail {{index}}",
+      "returnFailed": "Could not go back to Flow: {{detail}}",
+      "relaunchFailed": "Could not relaunch Flow → Spec: {{detail}}"
     }
   }
 }

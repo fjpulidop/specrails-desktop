@@ -312,7 +312,9 @@
       "implementation_failed": "Implementierung fehlgeschlagen",
       "pr_failed": "PR-Erstellung fehlgeschlagen",
       "merged": "PR gemergt",
-      "discarded": "Verworfen"
+      "discarded": "Verworfen",
+      "review_changes_requested": "Der Reviewer hat Änderungen angefordert",
+      "returned_to_flow": "Zurück in Flow"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -714,7 +716,9 @@
       "failed": "Fehlgeschlagen",
       "stalled": "Festgefahren",
       "cancelled": "Abgebrochen",
-      "unknown": "Unbekannt"
+      "unknown": "Unbekannt",
+      "changes_requested": "Änderungen angefordert",
+      "returned": "Zurück in Flow"
     },
     "title": {
       "running": "Implementierung im Projekt-Checkout…",
@@ -723,7 +727,9 @@
       "failed": "Implementierung fehlgeschlagen",
       "stalled": "Implementierung festgefahren",
       "cancelled": "Run abgebrochen",
-      "unknown": "Run-Status unbekannt"
+      "unknown": "Run-Status unbekannt",
+      "changes_requested": "Der Reviewer hat Änderungen angefordert",
+      "returned": "Zurück in Flow"
     },
     "noDeliveryNote": "Keine PR-Phase — dieses Projekt hat kein Git-Repository und keine Commits, daher wurde die Arbeit direkt im Projektordner abgelegt.",
     "noDeliveryHint": "Läuft direkt im Projektordner (kein Git-Repository und keine Commits — es wird kein PR vorgeschlagen).",
@@ -740,14 +746,32 @@
     },
     "relaunchSent": "Rail {{index}} neu gestartet — eine neue Karte folgt dem Run.",
     "relaunchFailed": "Der Rail konnte nicht neu gestartet werden",
-    "relaunchBlockedActive": "Der Rail hat noch einen aktiven Run"
+    "relaunchBlockedActive": "Der Rail hat noch einen aktiven Run",
+    "review": {
+      "title": {
+        "review": "Der Reviewer hat Änderungen angefordert",
+        "check": "Die Prüfungen schlagen weiterhin fehl"
+      },
+      "score": "Bewertung {{score}}",
+      "issues_one": "{{count}} Punkt",
+      "issues_other": "{{count}} Punkte",
+      "showAll": "Alle {{count}} anzeigen",
+      "showLess": "Weniger anzeigen",
+      "omitted_one": "+{{count}} weiterer im Review des Laufs",
+      "omitted_other": "+{{count}} weitere im Review des Laufs",
+      "failingChecks": "Fehlschlagend",
+      "check": "{{command}} · Exit {{code}}",
+      "next": "Die automatischen Korrekturrunden haben das nicht gelöst. Kehre zu Flow zurück, um es mit dem Agenten zu klären, oder starte Flow → Spec erneut im selben Worktree.",
+      "returned": "Zurück in Flow: Der Worktree ist mit dem Review zu seinem Flow zurückgekehrt. Mach in der Flow-Leiste weiter."
+    }
   },
   "runFailure": {
     "marker": "Rail {{rail}} fehlgeschlagen: {{code}}",
     "openCard": "Karte öffnen",
     "briefing": {
       "title": "Automatischer Fehlerbericht"
-    }
+    },
+    "reviewChanges": "Rail {{rail}}: Der Reviewer hat Änderungen angefordert"
   },
   "split": {
     "open": "Geteilte Ansicht",
@@ -993,6 +1017,16 @@
       "loop": "Flow → Spec",
       "launch": "Starten",
       "notYet": "Noch nicht"
+    },
+    "review": {
+      "backToFlow": "Zurück zu Flow",
+      "backToFlowHint": "Öffnet diesen Flow im selben Worktree erneut; der Agent erhält das Review in seinem nächsten Zug",
+      "relaunch": "Neu starten",
+      "relaunchHint": "Führt Flow → Spec erneut im selben Worktree, auf derselben Rail und Engine aus",
+      "returned": "Zurück in Flow – der Agent hat das Review",
+      "relaunched": "Flow → Spec auf Rail {{index}} neu gestartet",
+      "returnFailed": "Zurück zu Flow nicht möglich: {{detail}}",
+      "relaunchFailed": "Flow → Spec konnte nicht neu gestartet werden: {{detail}}"
     }
   }
 }

@@ -11,10 +11,10 @@ ports-and-adapters slice.
 | Change | Owner |
 | --- | --- |
 | Lifecycle states, legal transitions, invariants, saga steps, effects | [domain.ts](domain.ts) (pure, no clock/IO) |
-| Settlement plan (effect keys, order, backoff), conversation summary and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
-| Use cases: start, pause, resume, discard, hand-off, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
+| Settlement plan (effect keys, order, backoff), conversation summary (message window, reply first lines), Back to Flow briefing and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
+| Use cases: start, pause, resume, discard, hand-off, Back to Flow / Relaunch (by delivery), return-briefing delivery, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
 | Outbound contracts (repository, tickets, worktree, agent session, background processes, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
-| `flow_sessions` SQL (migration 74) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
+| `flow_sessions` SQL (migration 74; `return_briefing` migration 78) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
 | Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
@@ -23,8 +23,9 @@ ports-and-adapters slice.
 ## Lifecycle
 
 `start` → `active` ⇄ `paused` → `handed_off` → `delivered`; `discard` from
-`active`/`paused` → `discarded`; startup reconciliation may set
-`needs-review` when a worktree disappeared. `step` records an unfinished
+`active`/`paused` → `discarded`; `returned` (Back to Flow) from `handed_off`
+→ `paused` when the Flow → Spec run stopped with requested changes; startup
+reconciliation may set `needs-review` when a worktree disappeared. `step` records an unfinished
 saga (`start:ticket`, `start:worktree`, `start:session`, `handoff:freeze`,
 `handoff:launch`).
 
@@ -43,6 +44,11 @@ removed or handed to a rail. Best effort, like closing the session.
   launch rolled back after adoption calls `release`, returning ownership.
 - `handed_off` only with the HEAD the hand-off froze (`flow_head_mismatch`).
 - `discard` is illegal after `handed_off`: the rail's delivery decides.
+- Back to Flow is the inverse of the adoption: delivery's ONE transaction
+  (`returnFlowWorktree`) deletes the `rail_worktrees` row, closes the delivery
+  (`returned_to_flow`) and runs the Flow's `returned` save; the worktree is
+  never touched. The review rides the next Flow turn once
+  (`returnBriefing`), then `briefingDelivered` clears it.
 - Every use case is idempotent by `flowId`; a repeated command whose target
   state already holds is a no-op.
 - Release removes only the Flow mount root (`worktrees/<flowId>`); a worktree
@@ -73,17 +79,17 @@ revert the delivery. The Flow → Spec loop itself lives in `loops`
 
 ```bash
 npx vitest run server/modules/flow server/modules/architecture.test.ts
-npx vitest run server/modules/delivery/runtime/rail-isolated-launch.flow.test.ts server/modules/delivery/runtime/rails-router.flow.test.ts
+npx vitest run server/modules/delivery/runtime/rail-isolated-launch.flow.test.ts server/modules/delivery/runtime/rails-router.flow.test.ts server/modules/delivery/runtime/flow-worktree-return.test.ts
 npx vitest run server/modules/missions/runtime/mission-flow-turns.test.ts server/modules/missions/runtime/core-session-runner.test.ts
 npm run typecheck
 ```
 
 - [Domain tests](__tests__/domain.test.ts): transition table, invariants, reconciliation.
-- [Settlement tests](__tests__/settlement.test.ts): summary bounds, effect order, backoff, rewrite text.
-- [Application tests](__tests__/application.test.ts): fakes; compensation at each saga step; idempotency.
+- [Settlement tests](__tests__/settlement.test.ts): summary bounds, message window (SQLite vs ISO times), reply first lines, effect order, backoff, rewrite text.
+- [Application tests](__tests__/application.test.ts): fakes; compensation at each saga step; idempotency; Back to Flow and Relaunch.
 - [SQLite tests](__tests__/sqlite.test.ts): isolation, unique index, adoption transaction rollback.
 - [HTTP tests](__tests__/http.test.ts): routes and error mapping.
-- [Binding tests](__tests__/bindings.test.ts): placeholder spec, real-git worktree, launch authority, usage, turn context.
+- [Binding tests](__tests__/bindings.test.ts): placeholder spec, real-git worktree, launch authority, usage, turn context, real-shaped conversation summary, Back to Flow over real SQLite.
 
 ## Reviewed public entry points
 

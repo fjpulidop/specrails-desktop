@@ -163,7 +163,9 @@
       "noChanges": "sin cambios",
       "succeeded": "lista"
     },
-    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "reviewChangesRequested": "Cambios solicitados",
+    "reviewChangesRequestedHint": "Flow → Spec aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar."
   },
   "railsBoard": {
     "title": "Rails",

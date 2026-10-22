@@ -82,7 +82,9 @@
     "cleanup_incomplete": "クリーンアップが不完全",
     "status_failed": "worktree の状態確認に失敗",
     "ref_mismatch": "ブランチ参照が一致しません",
-    "restart_pending": "ワークフローの復旧を待機中"
+    "restart_pending": "ワークフローの復旧を待機中",
+    "review_changes_requested": "レビュアーが変更を依頼",
+    "returned_to_flow": "Flow に戻しました"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",

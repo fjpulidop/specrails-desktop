@@ -163,7 +163,9 @@
     "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
     "mergeLocalFailed": "ローカルマージに失敗しました：{{detail}}",
     "mergedLocally": "ローカルで {{base}} に統合しました",
-    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
+    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
+    "reviewChangesRequested": "変更依頼",
+    "reviewChangesRequestedHint": "Flow → Spec にはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。"
   },
   "railsBoard": {
     "title": "レール",

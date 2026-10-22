@@ -848,6 +848,17 @@ export interface PrDeliveryRiskSummary {
   diagnostic: boolean
 }
 
+/** Flow → Spec stopped with requested changes (`review_changes_requested`):
+ *  the reviewer's latest verdict and the failing host checks, bounded. */
+export interface PrDeliveryFlowReview {
+  reason: 'review' | 'check'
+  summary: string | null
+  issues: string[]
+  issuesOmitted: number
+  score: number | null
+  failingChecks: Array<{ command: string; exitCode: number | null }>
+}
+
 export interface RailPrStateMessage {
   executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
   repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
@@ -905,6 +916,8 @@ export interface RailPrStateMessage {
   originConversationId: string | null
   /** Reviewer risk brief summary (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec requested changes (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
 }
 
 /**
@@ -1734,6 +1747,8 @@ export interface PrDecisionCardEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec requested changes: issues + failing checks, Back to Flow / Relaunch (absent otherwise). */
+  flowReview?: PrDeliveryFlowReview
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'

@@ -11,6 +11,9 @@
 //     whether a busy send interrupts the running turn).
 //   - ConversationDock: a component rendered above the composer (sticky bars
 //     and pinned cards owned by the extension).
+//   - RunCardActions: extra actions on a run/PR card whose outcome the
+//     extension owns (Flow: "Back to Flow" and "Relaunch" when Flow → Spec
+//     stopped with requested changes). Returns null when it has nothing.
 //
 // The value must be STABLE for the app's lifetime (useConversationMode is
 // called as a hook). Without a provider every slot is inert and missions
@@ -55,10 +58,22 @@ export interface MissionConversationSlotProps {
   inline: boolean
 }
 
+export interface MissionRunCardActionsProps {
+  projectId: string
+  prDeliveryId: string
+  /** The mission the card lives in (the run's origin conversation). */
+  conversationId: string | null
+  decision: string
+  statusCode: string | null
+  /** Disables the extension's buttons while the card runs another action. */
+  busy: boolean
+}
+
 export interface MissionExtensions {
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
   useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
   ConversationDock?: ComponentType<MissionConversationSlotProps>
+  RunCardActions?: ComponentType<MissionRunCardActionsProps>
 }
 
 const NONE: MissionExtensions = Object.freeze({})

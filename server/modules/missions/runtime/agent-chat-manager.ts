@@ -664,7 +664,9 @@ export class AgentChatManager {
     const inputReceiptNote = options.queueId
       ? `[Mission input ID: ${JSON.stringify(options.queueId)}. After reading this message, confirm receipt with specrails_mission(action:"acknowledge_inputs", inputIds:[this exact ID]). This records reading, not completion of the requested work.]\n\n`
       : ''
-    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${userWithAttachments}`
+    // Back to Flow: the review the Flow agent must address rides this user turn once.
+    const flowBriefing = flowTurn?.briefing ? `${flowTurn.briefing}\n\n` : ''
+    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${flowBriefing}${userWithAttachments}`
     const basePrompt = flowTurn ? flowTurn.systemPrompt : buildOperatorSystemPrompt()
     const systemPrompt = hasAttachments
       ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
@@ -1214,6 +1216,10 @@ export class AgentChatManager {
       }
 
       if (flowTurn) this._briefedFlowSessions.add(flowTurn.coreSessionId)
+      if (flowTurn?.briefing && this._flowTurns?.briefingDelivered) {
+        void this._flowTurns.briefingDelivered(conversationId, flowTurn.flowId).catch((error: unknown) =>
+          console.warn(`[agent-chat] Flow return briefing not cleared (${conversationId}): ${error instanceof Error ? error.message : String(error)}`))
+      }
       if (r.text || r.checkpointed) {
         const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)

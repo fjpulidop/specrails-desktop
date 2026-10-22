@@ -14,6 +14,7 @@ import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import { summarizeReviewBriefs } from './review-brief'
+import { readFlowReviewOutcome, type FlowReviewOutcome } from './flow-review-outcome'
 import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
@@ -962,6 +963,8 @@ export interface PrDeliverySnapshot {
   specAddenda: SpecAddendaSnapshotEntry[] | null
   /** Reviewer risk brief summary from settle evidence; absent without a brief. */
   riskSummary?: PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks (absent otherwise). */
+  flowReview?: FlowReviewOutcome
   createdAt: string
   updatedAt: string
 }
@@ -1031,6 +1034,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     followUp: readFollowUp(row.follow_up),
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
     ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
+    ...(() => { const flowReview = readFlowReviewOutcome(row); return flowReview ? { flowReview } : {} })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -1072,6 +1076,7 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
+    ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
   }
@@ -1111,6 +1116,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     branch: snap.branch,
     runIds: snap.runIds,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
+    ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
     // mission-rail-cards: coarse phase so the card renders the run header

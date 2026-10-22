@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  FLOW_RETURN_BRIEFING_LIMIT,
   FlowTransitionError,
+  buildReturnBriefing,
   flowCoreSessionId,
   isOpenFlow,
   isTerminalFlow,
@@ -39,6 +41,7 @@ const commands: Record<string, FlowCommand> = {
   handOffFailed: { type: 'hand-off-failed', now: LATER },
   adoptionReverted: { type: 'adoption-reverted', now: LATER },
   delivered: { type: 'delivered', deliveryId: 'd-1', now: LATER },
+  returned: { type: 'returned', deliveryId: 'd-1', briefing: '[Back from Flow → Spec] fix the tests', now: LATER },
 }
 
 describe('Flow state machine — start saga', () => {
@@ -92,6 +95,7 @@ describe('Flow state machine — transition table', () => {
     delivered: ['handed_off', 'delivered'],
     adoptionReverted: ['handed_off'],
     handOffFailed: ['handed_off'],
+    returned: ['handed_off'],
   }
   for (const [name, allowed] of Object.entries(legal)) {
     for (const state of states) {
@@ -221,5 +225,56 @@ describe('Flow helpers', () => {
     const long = placeholderTitle(`${'word '.repeat(40)}`)
     expect(long.length).toBeLessThanOrEqual(121)
     expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+describe('Flow state machine — Back to Flow', () => {
+  const handedOff = () => flow({ state: 'handed_off', coreSessionId: null, railIndex: 2, deliveryId: 'd-1', headSha: HEAD })
+
+  it('returns the worktree to a paused Flow that remembers the delivery and the review, and reopens the spec', () => {
+    const returned = transition(handedOff(), commands.returned)
+    expect(returned.session).toMatchObject({ state: 'paused', step: null, coreSessionId: null, railIndex: null, deliveryId: 'd-1', worktreePath: '/wt/flow-1/ticket-7', returnBriefing: '[Back from Flow → Spec] fix the tests', updatedAt: LATER })
+    expect(returned.effects).toEqual([{ kind: 'reopenTicket', ticketId: 7 }])
+    // Idempotent: the same delivery already gave it back (paused or resumed).
+    expect(transition(returned.session, commands.returned)).toEqual({ session: returned.session, effects: [] })
+    const resumed = { ...returned.session, state: 'active' as const, coreSessionId: 'flow:flow-1' }
+    expect(transition(resumed, commands.returned)).toEqual({ session: resumed, effects: [] })
+  })
+
+  it('refuses another delivery, a Flow mid-saga and a Flow without a worktree', () => {
+    expect(() => transition(handedOff(), { ...commands.returned, deliveryId: 'd-2' } as FlowCommand)).toThrow(FlowTransitionError)
+    expect(() => transition({ ...handedOff(), step: 'handoff:launch' }, commands.returned)).toThrow(FlowTransitionError)
+    expect(() => transition({ ...handedOff(), worktreePath: null }, commands.returned)).toThrow(FlowTransitionError)
+    expect(() => transition(flow({ state: 'delivered', deliveryId: 'd-1' }), commands.returned)).toThrow(FlowTransitionError)
+  })
+
+  it('clears the briefing once delivered and when the Flow is handed off again', () => {
+    const returned = transition(handedOff(), commands.returned).session
+    const delivered = transition(returned, { type: 'briefing-delivered', now: LATER })
+    expect(delivered.session.returnBriefing).toBeNull()
+    expect(transition(delivered.session, { type: 'briefing-delivered', now: LATER })).toEqual({ session: delivered.session, effects: [] })
+    expect(transition(returned, commands.beginHandOff).session.returnBriefing).toBeNull()
+  })
+})
+
+describe('Back to Flow briefing', () => {
+  it('quotes the review, the issues and the failing checks with the conduct', () => {
+    const text = buildReturnBriefing({ reason: 'review', summary: 'Two gaps', issues: ['Tag the tests', 'Test the Options\nscreen'], issuesOmitted: 3, score: 58, failingChecks: [{ command: 'npm test', exitCode: 1 }] })
+    expect(text.split('\n')[0]).toBe('[Back from Flow → Spec — automatic context, not typed by the user]')
+    expect(text).toContain('the reviewer requested changes (score 58)')
+    expect(text).toContain('Reviewer summary: Two gaps')
+    expect(text).toContain('1. Tag the tests')
+    expect(text).toContain('2. Test the Options screen')
+    expect(text).toContain('(+3 more')
+    expect(text).toContain('Failing checks: npm test (exit 1)')
+    expect(text).toContain('[spec:<capability>/<requirement-slug>]')
+    expect(text).toContain('hand off to Flow → Spec again')
+  })
+
+  it('explains failing checks, an unknown outcome, and stays bounded', () => {
+    expect(buildReturnBriefing({ reason: 'check', summary: null, issues: [], issuesOmitted: 0, score: null, failingChecks: [{ command: 'npm test', exitCode: null }] })).toContain('the host checks still fail')
+    expect(buildReturnBriefing(null)).toContain('Ask the person how to proceed')
+    const long = buildReturnBriefing({ reason: 'review', summary: 'x'.repeat(5000), issues: Array.from({ length: 40 }, () => 'y'.repeat(600)), issuesOmitted: 0, score: 1, failingChecks: [] })
+    expect(long.length).toBeLessThanOrEqual(FLOW_RETURN_BRIEFING_LIMIT)
   })
 })

@@ -163,7 +163,9 @@
     "mergeLocalBlockedBranch": "Não é possível integrar: seu checkout está em {{current}}, não em {{base}}. Mude para {{base}} e tente de novo.",
     "mergeLocalFailed": "O merge local falhou: {{detail}}",
     "mergedLocally": "Integrado em {{base}} localmente",
-    "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
+    "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
+    "reviewChangesRequested": "Alterações solicitadas",
+    "reviewChangesRequestedHint": "Flow → Spec ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar."
   },
   "railsBoard": {
     "title": "Rails",

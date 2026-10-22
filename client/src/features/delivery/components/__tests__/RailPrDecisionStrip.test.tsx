@@ -206,6 +206,15 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
       })
+
+      it('Flow → Spec with requested changes → review pill, never Discard (the Flow worktree is kept)', () => {
+        renderRail(snapshot({ decision: 'implementation_failed', statusCode: 'review_changes_requested', statusDetail: 'The reviewer requested changes (score 58)' }), density)
+        const strip = screen.getByTestId('rail-pr-strip')
+        expect(within(strip).getByTestId('rail-pr-review-changes')).toHaveTextContent('Changes requested')
+        expect(within(strip).getByTestId('rail-pr-review-changes')).toHaveAttribute('title', 'The reviewer requested changes (score 58)')
+        expect(within(strip).queryByText('Implementation failed')).toBeNull()
+        expect(within(strip).queryByTestId('rail-pr-discard')).toBeNull()
+      })
     })
   }
 })

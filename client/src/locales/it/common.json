@@ -82,7 +82,9 @@
     "cleanup_incomplete": "Pulizia incompleta",
     "status_failed": "Controllo dello stato del worktree non riuscito",
     "ref_mismatch": "Il riferimento del branch non corrisponde",
-    "restart_pending": "In attesa del ripristino del workflow"
+    "restart_pending": "In attesa del ripristino del workflow",
+    "review_changes_requested": "Il revisore ha richiesto modifiche",
+    "returned_to_flow": "Restituito a Flow"
   },
   "prRecovery": {
     "inProgress": "Il ripristino del progetto è ancora in corso. La consegna è al sicuro; riprova tra poco.",

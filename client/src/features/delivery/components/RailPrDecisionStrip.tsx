@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen, MessageSquareWarning } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -762,6 +762,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         {presentation.continuation ? dismissBtn : discardBtn}
       </>
     )
+  } else if (d === 'implementation_failed' && decision.statusCode === 'review_changes_requested') {
+    // Flow → Spec still needs changes: its Flow worktree is kept for "Back to
+    // Flow" / "Relaunch" on the mission card — never discarded from here.
+    pill = (
+      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')} data-testid="rail-pr-review-changes">
+        <MessageSquareWarning className={iconCls} aria-hidden />
+        {t('railPr.reviewChangesRequested')}
+      </span>
+    )
+    actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
     pill = (
       <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={t('railPr.implementationFailedHint')}>
