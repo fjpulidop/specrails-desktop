@@ -18,6 +18,7 @@ import {
   nextFlowCoreSessionId,
   placeholderTitle,
   transition,
+  withDerivedChange,
   type FlowCommand,
   type FlowEffect,
   type FlowSession,
@@ -251,10 +252,14 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     if (!Number.isSafeInteger(input.railIndex) || input.railIndex < 0) throw new FlowValidationError('invalid_rail_index', 'railIndex must be a non-negative integer')
     await assertAvailable()
     const begun = transition(session, { type: 'begin-hand-off', railIndex: input.railIndex, now: ports.clock.now() })
-    session = commit(begun.session)
+    // The change this Flow's earlier Flow → Spec run derived (recorded at the
+    // return, or read from the returned delivery's evidence for Flows returned
+    // before it was recorded): the freeze allows it, the run re-derives it.
+    const derivedChanges = withDerivedChange(begun.session, returnedDeliveryChange(begun.session))
+    session = commit(derivedChanges.length ? { ...begun.session, derivedChanges } : begun.session)
     try {
       await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
-      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha })
+      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [] })
       session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
       const launched = await ports.rails.launch({
         flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},
@@ -273,6 +278,16 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     }
   }
 
+  /** The change the Flow's returned delivery derived (null when none, or unreadable). */
+  function returnedDeliveryChange(session: FlowSession): string | null {
+    if (!session.deliveryId) return null
+    try {
+      return ports.rails.stoppedDelivery(session.deliveryId)?.derivation?.change ?? null
+    } catch {
+      return null
+    }
+  }
+
   /** Give the stopped delivery's worktree back to its Flow (caller holds the Flow's serialization). */
   async function returnWorktree(session: FlowSession, deliveryId: string): Promise<{ session: FlowSession; railIndex: number | null; options: FlowLaunchOptions }> {
     if (isOpenFlow(session) && session.deliveryId === deliveryId && session.step === null) return { session, railIndex: null, options: {} }
@@ -283,7 +298,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; it cannot go back to the Flow', session.id)
     }
     const stopped = ports.rails.stoppedDelivery(deliveryId)
-    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null, stopped?.derivation ?? null), now: ports.clock.now() })
+    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null, stopped?.derivation ?? null), derivedChange: stopped?.derivation?.change ?? null, now: ports.clock.now() })
     // Delivery owns the transaction: its ledger row disappears and this Flow
     // becomes the owner again, or neither happens.
     ports.rails.returnWorktree({

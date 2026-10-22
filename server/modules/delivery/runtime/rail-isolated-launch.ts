@@ -1512,7 +1512,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
         // Flow hand-off: Core derives the change from the Flow reservation commit.
-        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '' } } : {}),
+        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '', ...(input.requiredFlowWorktree.changeId ? { changeId: input.requiredFlowWorktree.changeId } : {}) } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
       if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)

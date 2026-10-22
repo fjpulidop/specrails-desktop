@@ -83,7 +83,9 @@ export interface WorktreeReservation {
   /** Remove only what Flow created. A null path derives the Flow-owned mount. */
   release(input: { flowId: string; ticketId: number; worktreePath: string | null; branch: string | null }): Promise<void>
   /** Commit the worktree's deliverable changes (overlay excluded) and return HEAD. */
-  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null }): Promise<{ headSha: string }>
+  /** `allowedChanges`: active OpenSpec changes this Flow's own Flow → Spec runs
+   * derived; the delivery hygiene still blocks every other new active change. */
+  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[] }): Promise<{ headSha: string }>
   exists(worktreePath: string): boolean
   diff(input: { worktreePath: string; baseSha: string | null; branch: string | null }): Promise<FlowDiffSummary>
 }

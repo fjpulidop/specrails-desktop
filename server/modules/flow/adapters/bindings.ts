@@ -38,7 +38,7 @@ import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../.
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
@@ -265,7 +265,9 @@ export function createFlowWorktrees(
         const warm = linkNodeModulesIntoWorktree(repo, input.worktreePath)
         const excludes = [...new Set([...overlay.createdPaths, ...(warm.authenticated ?? warm.linked ?? [])])]
         const title = ctx.getTicketSpec(input.ticketId)?.title ?? `Flow ${input.flowId}`
-        const commit = await commitWorktreeAndVerify(git, input.worktreePath, `Flow #${input.ticketId}: ${title}`, excludes, input.baseSha ?? undefined)
+        // The Flow's own derived change (a returned Flow → Spec run left it
+        // active) is intended; any other new active change still blocks.
+        const commit = await commitWorktreeAndVerify(git, input.worktreePath, `Flow #${input.ticketId}: ${title}`, excludes, input.baseSha ?? undefined, { allowedActiveChanges: input.allowedChanges })
         if (!commit.clean) {
           throw new FlowConflictError('flow_freeze_failed', `The Flow worktree could not be committed: ${commit.error ?? commit.dirty.slice(0, 5).join(', ')}`, input.flowId)
         }
@@ -485,6 +487,8 @@ export function createFlowHandOffAuthority(
         worktreePath: session.worktreePath,
         headSha: session.headSha,
         baseSha: session.baseSha,
+        // A re-derivation updates the Flow's own change in place (null ⇒ named after the spec).
+        changeId: currentDerivedChange(session),
         // A summary failure never blocks the hand-off: Core derives from the diff alone.
         summary: (() => { try { return summarize?.(session) ?? '' } catch { return '' } })(),
         adopt(adoption) {

@@ -333,8 +333,9 @@ export interface LoopRunRequest {
   addenda?: { ids: string[]; briefing: string }
   /** Flow -> Spec (Flow mode): the Flow reservation commit Core measures the
    *  change from (`repositories[].baseSha`) and the bounded conversation
-   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`. */
-  flowDerivation?: { baseSha: string | null; summary: string }
+   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`.
+   *  `changeId`: the change this Flow's earlier run derived, re-derived in place. */
+  flowDerivation?: { baseSha: string | null; summary: string; changeId?: string | null }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/

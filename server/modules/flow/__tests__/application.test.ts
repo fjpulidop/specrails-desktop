@@ -317,7 +317,7 @@ describe('handOffFlow', () => {
     await service.startFlow(startInput)
     const result = await service.handOffFlow({ flowId: 'flow-1', railIndex: 2, options: { loopId: 'factory:flow-spec' } })
     expect(agent.close).toHaveBeenCalled()
-    expect(worktrees.freeze).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, worktreePath: '/wt/flow-1/ticket-7', baseSha: BASE })
+    expect(worktrees.freeze).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, worktreePath: '/wt/flow-1/ticket-7', baseSha: BASE, allowedChanges: [] })
     expect(rails.launch).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, railIndex: 2, options: { loopId: 'factory:flow-spec' } })
     expect(result).toMatchObject({ loopRunIds: ['run-1'], deliveryId: 'delivery-1', flow: { state: 'handed_off', railIndex: 2, headSha: FROZEN, step: null } })
     expect(notifier.changed).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'handed_off' }))
@@ -662,5 +662,37 @@ describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
     expect(relaunched.flow).toMatchObject({ state: 'handed_off', railIndex: 2 })
     expect(relaunched.flow.returnBriefing ?? null).toBeNull()
     expect(ctx.agent.open).toHaveBeenCalledTimes(1) // only the start: a relaunch never opens a Flow turn
+  })
+
+  it('records the change the stopped run derived and lets the next freeze keep it (relaunch and Back to Flow)', async () => {
+    const ctx = setup()
+    await handedOff(ctx)
+    const derivation = { change: 'ticket-7-addenda-3e1942024602', files: 2, explained: 1, unexplainedFiles: ['a.ts'], unexplainedOmitted: 0 }
+    ctx.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: {}, findings: null, derivation })
+    ctx.worktrees.freeze.mockClear()
+    await ctx.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(ctx.worktrees.freeze).toHaveBeenCalledWith(expect.objectContaining({ allowedChanges: ['ticket-7-addenda-3e1942024602'] }))
+    expect(ctx.repository.get('flow-1')?.derivedChanges).toEqual(['ticket-7-addenda-3e1942024602'])
+  })
+
+  it('reads the derived change of a Flow returned before it was recorded, and never trusts a malformed id', async () => {
+    const ctx = setup()
+    const flow = await handedOff(ctx)
+    ctx.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: {}, findings: null, derivation: null })
+    await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(ctx.repository.get(flow.id)?.derivedChanges).toBeUndefined()
+    // Legacy: the evidence is readable now (or was recorded before this field existed).
+    ctx.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: {}, findings: null, derivation: { change: 'kanban-board', files: 1, explained: 1, unexplainedFiles: [], unexplainedOmitted: 0 } })
+    ctx.worktrees.freeze.mockClear()
+    await ctx.service.handOffFlow({ flowId: flow.id, railIndex: 2 })
+    expect(ctx.worktrees.freeze).toHaveBeenCalledWith(expect.objectContaining({ allowedChanges: ['kanban-board'] }))
+
+    const other = setup()
+    const second = await handedOff(other)
+    other.rails.stoppedDelivery.mockReturnValue({ railIndex: 2, options: {}, findings: null, derivation: { change: '../escape', files: 1, explained: 1, unexplainedFiles: [], unexplainedOmitted: 0 } })
+    other.worktrees.freeze.mockClear()
+    await other.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(other.worktrees.freeze).toHaveBeenCalledWith(expect.objectContaining({ allowedChanges: [] }))
+    expect(other.repository.get(second.id)?.derivedChanges).toBeUndefined()
   })
 })

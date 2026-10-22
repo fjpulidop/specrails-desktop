@@ -189,6 +189,18 @@ export function flowChangeHolder(cwd: string, baseSha: string | null, id: string
   }
 }
 
+/**
+ * The change a Flow -> Spec run derives: the Flow's own earlier change when it
+ * is still active in the worktree and absent at the Flow base (re-derived in
+ * place, whatever its name — legacy `ticket-<n>-addenda-…` included);
+ * otherwise a new one named after the spec title.
+ */
+export function flowDerivationChangeId(cwd: string, flow: { baseSha: string | null; changeId?: string | null }, title: string | null | undefined): string {
+  const own = flow.changeId
+  if (own && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(own) && !own.includes('..') && own !== 'archive' && flowChangeHolder(cwd, flow.baseSha, own) === 'own') return own
+  return flowChangeId(title, (id) => flowChangeHolder(cwd, flow.baseSha, id))
+}
+
 export function writeFlowSummary(pipelineDir: string, summary: string): void {
   const file = join(pipelineDir, FLOW_SUMMARY_FILE)
   if (lstatSync(file, { throwIfNoEntry: false })) return
@@ -296,7 +308,7 @@ export function createLoopExecutors(
       // Flow -> Spec derives ONE change for code that already exists: it is named
       // after the spec title (never addenda), and no delta briefing applies.
       const seeded = request.flowDerivation
-        ? { id: flowChangeId(request.spec?.title, (id) => flowChangeHolder(request.cwd, request.flowDerivation!.baseSha, id)), source: 'flow' as const }
+        ? { id: flowDerivationChangeId(request.cwd, request.flowDerivation, request.spec?.title), source: 'flow' as const }
         : seedChangeId({ ...request, runId })
       const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
         ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`

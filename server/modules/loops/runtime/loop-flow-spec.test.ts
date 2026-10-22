@@ -8,7 +8,7 @@ import { canonicalFactoryLoopId, factoryLoopMode, factoryLoopsForCapabilities, F
 import { FLOW_CHANGES_REQUESTED_END, FLOW_CHANGE_ID_MAX, FLOW_CORRECTION_ROUNDS, FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, flowChangeIdStem, flowSpecGraph } from './loop-flow-spec-recipe'
 import { CORE_NODE_KINDS, validateLoopGraph } from './loop-graph'
 import { builtinLoopDefaults, EDITABLE_BUILTIN_LOOP_IDS } from './builtin-loops'
-import { flowChangeHolder, writeFlowSummary } from './loop-executors'
+import { flowChangeHolder, flowDerivationChangeId, writeFlowSummary } from './loop-executors'
 
 const V2 = { engineV2: 1, workflowDefinitions: 1 }
 const fixture = JSON.parse(readFileSync(join(__dirname, '__fixtures__', 'core-flow-spec.json'), 'utf8')) as {
@@ -149,5 +149,23 @@ describe('Flow change id', () => {
     expect(flowChangeHolder(repo, base, 'new-name')).toBe('free')
     expect(flowChangeHolder(repo, null, 'kanban-board')).toBe('taken')
     expect(flowChangeId('Base change', (id) => flowChangeHolder(repo, base, id))).toBe('base-change-2')
+  })
+
+  it('re-derives the Flow\'s own earlier change in place (legacy addenda name too); title-based only for the first derivation', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'flow-change-seed-'))
+    const git = (...args: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { encoding: 'utf8' }).trim()
+    git('init', '-q')
+    mkdirSync(join(repo, 'openspec', 'changes', 'base-change'), { recursive: true })
+    writeFileSync(join(repo, 'openspec', 'changes', 'base-change', 'proposal.md'), '# base')
+    git('add', '-A'); git('commit', '-qm', 'base')
+    const base = git('rev-parse', 'HEAD')
+    expect(flowDerivationChangeId(repo, { baseSha: base, changeId: null }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
+    mkdirSync(join(repo, 'openspec', 'changes', 'ticket-8-addenda-3e1942024602'), { recursive: true })
+    writeFileSync(join(repo, 'openspec', 'changes', 'ticket-8-addenda-3e1942024602', 'proposal.md'), '# derived')
+    expect(flowDerivationChangeId(repo, { baseSha: base, changeId: 'ticket-8-addenda-3e1942024602' }, 'Arkanoid power-ups')).toBe('ticket-8-addenda-3e1942024602')
+    // Someone else's change (present at the base), a vanished one or a malformed id never wins.
+    expect(flowDerivationChangeId(repo, { baseSha: base, changeId: 'base-change' }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
+    expect(flowDerivationChangeId(repo, { baseSha: base, changeId: 'gone' }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
+    expect(flowDerivationChangeId(repo, { baseSha: base, changeId: '../base-change' }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
   })
 })

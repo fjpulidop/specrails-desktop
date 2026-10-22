@@ -1847,6 +1847,15 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('return_briefing')) db.exec('ALTER TABLE flow_sessions ADD COLUMN return_briefing TEXT')
   },
 
+  // Migration 79: the OpenSpec change ids this Flow's own Flow → Spec runs
+  // derived (JSON array, most recent last). A returned worktree still carries
+  // that active change: the next freeze allows it and the next run re-derives
+  // it in place instead of creating another.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('derived_changes')) db.exec('ALTER TABLE flow_sessions ADD COLUMN derived_changes TEXT')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

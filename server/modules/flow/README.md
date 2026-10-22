@@ -49,6 +49,12 @@ removed or handed to a rail. Best effort, like closing the session.
   (`returned_to_flow`) and runs the Flow's `returned` save; the worktree is
   never touched. The review rides the next Flow turn once
   (`returnBriefing`), then `briefingDelivered` clears it.
+- The stopped run's derived OpenSpec change (`derivation.change` in the
+  delivery evidence) is recorded on the Flow (`derivedChanges`, migration 79;
+  read lazily from the returned delivery for Flows returned before it). The
+  next freeze allows exactly those active changes (any other new active change
+  still blocks) and the next Flow → Spec run re-derives the latest one in place
+  (`flowDerivationChangeId`); only the first derivation is named after the spec.
 - Every use case is idempotent by `flowId`; a repeated command whose target
   state already holds is a no-op.
 - Release removes only the Flow mount root (`worktrees/<flowId>`); a worktree

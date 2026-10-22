@@ -393,7 +393,7 @@ async function auditStagedPaths(
 
 /** Automated delivery must not publish an unfinished change introduced by this
  * checkout. Baseline active changes and archived changes remain legitimate. */
-async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRef: string): Promise<string | undefined> {
+async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRef: string, allowedActiveChanges: readonly string[] = []): Promise<string | undefined> {
   // Agents may create their own commits before settlement. Index-only checks
   // cannot catch an overlay link already in HEAD, even when it is now excluded.
   const changed = parseNulTerminatedPaths(await gitRun(git, ['diff', '--name-only', '--no-renames', '-z', baseRef, 'HEAD', '--'], worktreePath), 'Committed delivery audit')
@@ -424,7 +424,8 @@ async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRe
   }
   const parsed = baseline.code === 0 ? parseNulTerminatedPaths(baseline, 'OpenSpec baseline audit') : { paths: [] }
   if (parsed.error) return parsed.error
-  const known = new Set(parsed.paths)
+  // Baseline changes, plus the caller's own intended changes (exact names).
+  const known = new Set([...parsed.paths, ...allowedActiveChanges.filter(name => name && name !== 'archive' && !/[\\/]/.test(name))])
   try {
     const directory = path.join(worktreePath, 'openspec', 'changes')
     let entries: fs.Dirent[]
@@ -464,9 +465,12 @@ export async function commitWorktreeAndVerify(
   message: string,
   excludePaths: string[] = [],
   baseRef?: string,
+  /** `allowedActiveChanges`: new active OpenSpec change directories the caller
+   * owns (e.g. a Flow's own derived change); every other one still blocks. */
+  options: { allowedActiveChanges?: readonly string[] } = {},
 ): Promise<CommitWorktreeResult> {
   if (baseRef) {
-    const error = await deliveryHygieneError(git, worktreePath, baseRef)
+    const error = await deliveryHygieneError(git, worktreePath, baseRef, options.allowedActiveChanges)
     if (error) return { staged: false, committed: false, clean: false, dirty: [], error }
   }
   const pathspecs = commitPathspecs(excludePaths)

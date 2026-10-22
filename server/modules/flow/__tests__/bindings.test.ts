@@ -22,6 +22,7 @@ import { changeNameFromArchive, createFlowHandOffAuthority, createFlowPorts, cre
 import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
+import { flowDerivationChangeId } from '../../loops/runtime/loop-executors'
 
 const ORIGINAL_HOME = process.env.SPECRAILS_REGISTRY_HOME
 let tmp: string
@@ -120,7 +121,7 @@ describe('worktree reservation binding (real git)', () => {
     ])
     expect(diff.totals).toEqual({ files: 2, additions: 1, deletions: 0 })
 
-    const frozen = await worktrees.freeze({ flowId: 'flow-1', conversationId: 'conv-1', ticketId, worktreePath: reserved.worktreePath, baseSha: reserved.baseSha })
+    const frozen = await worktrees.freeze({ flowId: 'flow-1', conversationId: 'conv-1', ticketId, worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, allowedChanges: [] })
     expect(frozen.headSha).toBe(git(['rev-parse', 'HEAD'], reserved.worktreePath))
     expect(frozen.headSha).not.toBe(reserved.headSha)
     expect(git(['status', '--porcelain', '--', 'README.md', 'board.ts'], reserved.worktreePath)).toBe('')
@@ -472,5 +473,80 @@ describe('Back to Flow binding (real SQLite ownership transfer)', () => {
     expect(briefingDelivered).toHaveBeenCalledWith('flow-1')
     const without = createFlowTurnContext({ conversationProject: () => 'proj-1', flowServiceFor: () => ({ getByConversation: () => ({ ...session, returnBriefing: null }) }) })
     expect(without.forConversation('conv-1')).not.toHaveProperty('briefing')
+  })
+})
+
+describe('Flow freeze after Back to Flow keeps the Flow\'s own derived change (real git + SQLite)', () => {
+  const LEGACY = 'ticket-8-addenda-3e1942024602'
+
+  async function returnedFlow(options: { evidenceChange: string | null }) {
+    const ctx = context()
+    const tickets = createFlowTickets(ctx)
+    const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Arkanoid power-ups', description: 'x', startedAt: 't' })
+    const worktrees = createFlowWorktrees(ctx, { providerFor: () => 'claude' })
+    const reserved = await worktrees.reserve({ flowId: 'flow-1', conversationId: 'conv-1', ticketId })
+    // What the stopped Flow -> Spec run left: code plus its derived change, unarchived.
+    fs.writeFileSync(path.join(reserved.worktreePath, 'powerups.ts'), 'export const powerups = 3\n')
+    fs.mkdirSync(path.join(reserved.worktreePath, 'openspec', 'changes', LEGACY), { recursive: true })
+    fs.writeFileSync(path.join(reserved.worktreePath, 'openspec', 'changes', LEGACY, 'proposal.md'), '## Why\nPower-ups\n')
+    git(['add', '-A'], reserved.worktreePath)
+    git(['commit', '-q', '-m', 'run commit'], reserved.worktreePath)
+    const repository = createSqliteFlowRepository(ctx.db)
+    // Returned before derived changes were recorded: the session carries no list.
+    repository.insert({ id: 'flow-1', conversationId: 'conv-1', ticketId, state: 'paused', branch: reserved.branch, worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, headSha: reserved.headSha, coreSessionId: null, railIndex: null, deliveryId: 'delivery-1', step: null, createdAt: 't', updatedAt: 't' })
+    const { createPrDelivery, transitionDecision } = await import('../../delivery/runtime/rail-pr-store')
+    createPrDelivery(ctx.db, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1', launchConfig: { mode: 'loop', loopId: 'factory:flow-spec' } })
+    transitionDecision(ctx.db, 'delivery-1', 'building', 'implementation_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'review_changes_requested', statusDetail: 'changes requested', worktreeIds: [], branches: [],
+      settleEvidence: { schemaVersion: 1, harvest: 'ok', harvestedAt: 'now', units: [{ ticketId, runId: 'run-1', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null,
+        runtime: { commands: [], checks: [], findings: [], review: null,
+          ...(options.evidenceChange ? { derivation: { change: options.evidenceChange, files: 1, explained: 1, unexplainedFiles: [], unexplainedOmitted: 0, confidence: 'high', requirementsAdded: 1, requirementsModified: 0, tasks: 1, transcriptTurnsUsed: 1 } } : {}) } }] } as never,
+    })
+    const authority = createFlowHandOffAuthority(repository)
+    const resolved: Array<{ changeId?: string | null; worktreePath: string; baseSha?: string | null }> = []
+    const internalApi = {
+      call: vi.fn(async (method: string) => {
+        if (method === 'PUT') return { ok: true, status: 200, body: {} }
+        // The rails launch route: resolve the Flow contract and adopt it.
+        const flow = authority.resolve('flow-1')
+        resolved.push(flow)
+        flow.adopt({ railIndex: 0, runId: 'run-2', ledgerId: 'ledger-2', deliveryId: 'delivery-2', headSha: flow.headSha })
+        return { ok: true, status: 202, body: { loopRunIds: ['run-2'], prDeliveryId: 'delivery-2' } }
+      }),
+    }
+    const bound = createFlowPorts({
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: internalApi as never, agentHost: () => null,
+      availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+    })
+    return { ctx, repository, reserved, resolved, service: createFlowService(bound, { warn: vi.fn() }) }
+  }
+
+  it('freezes with the legacy derived change active and seeds the next run with that same change', async () => {
+    const { repository, reserved, resolved, service } = await returnedFlow({ evidenceChange: LEGACY })
+    fs.appendFileSync(path.join(reserved.worktreePath, 'powerups.ts'), 'export const fixed = true\n')
+    const handed = await service.handOffFlow({ flowId: 'flow-1', railIndex: 0 })
+    expect(handed.flow).toMatchObject({ state: 'handed_off', deliveryId: 'delivery-2', derivedChanges: [LEGACY] })
+    expect(repository.get('flow-1')?.derivedChanges).toEqual([LEGACY])
+    expect(git(['status', '--porcelain', '--', 'powerups.ts'], reserved.worktreePath)).toBe('')
+    expect(resolved[0]?.changeId).toBe(LEGACY)
+    // The run re-derives the existing change in place instead of a title-based new one.
+    expect(flowDerivationChangeId(reserved.worktreePath, { baseSha: reserved.baseSha, changeId: resolved[0]!.changeId }, 'Arkanoid power-ups')).toBe(LEGACY)
+  })
+
+  it('still blocks an unrelated new active change', async () => {
+    const { repository, reserved, service } = await returnedFlow({ evidenceChange: LEGACY })
+    fs.mkdirSync(path.join(reserved.worktreePath, 'openspec', 'changes', 'rogue-change'), { recursive: true })
+    fs.writeFileSync(path.join(reserved.worktreePath, 'openspec', 'changes', 'rogue-change', 'proposal.md'), '# rogue\n')
+    const error = await service.handOffFlow({ flowId: 'flow-1', railIndex: 0 }).catch((caught: unknown) => caught as FlowConflictError)
+    expect(error).toBeInstanceOf(FlowConflictError)
+    expect((error as FlowConflictError).message).toContain('openspec/changes/rogue-change')
+    expect((error as FlowConflictError).message).not.toContain(LEGACY)
+    expect(repository.get('flow-1')).toMatchObject({ state: 'paused', step: null })
+  })
+
+  it('without recorded evidence the leftover change still blocks, and the first derivation is named after the spec', async () => {
+    const { reserved, service } = await returnedFlow({ evidenceChange: null })
+    await expect(service.handOffFlow({ flowId: 'flow-1', railIndex: 0 })).rejects.toThrow(new RegExp(`openspec/changes/${LEGACY}`))
+    expect(flowDerivationChangeId(reserved.worktreePath, { baseSha: reserved.baseSha, changeId: null }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
   })
 })

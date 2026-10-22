@@ -46,6 +46,10 @@ export interface FlowSession {
   step: FlowStep | null
   /** Back to Flow: the review the agent must address in its next turn (null once delivered). */
   returnBriefing?: string | null
+  /** OpenSpec change ids this Flow's own Flow → Spec runs derived (most recent
+   * last). A returned worktree still holds that active change: the next freeze
+   * allows it and the next run re-derives it in place. */
+  derivedChanges?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -67,7 +71,7 @@ export type FlowCommand =
   | { type: 'adoption-reverted'; now: string }
   | { type: 'delivered'; deliveryId: string; now: string }
   /** Back to Flow: the delivery stopped with requested changes and gave the worktree back. */
-  | { type: 'returned'; deliveryId: string; briefing: string; now: string }
+  | { type: 'returned'; deliveryId: string; briefing: string; derivedChange?: string | null; now: string }
   /** A Flow turn carried the return briefing to the agent. */
   | { type: 'briefing-delivered'; now: string }
   /** The Flow's Core session cannot serve the next turn (closed, or opened by another provider): a new one replaces it. */
@@ -126,6 +130,29 @@ export function nextFlowCoreSessionId(flowId: string, nowMs: number, previous?: 
   const last = previous?.startsWith(prefix) ? parseInt(previous.slice(prefix.length), 36) : NaN
   const generation = Number.isFinite(last) && last >= nowMs ? last + 1 : nowMs
   return `${prefix}${generation.toString(36)}`
+}
+
+/** An OpenSpec change directory name (Core's `changeId`): one path segment, never `archive`. */
+export function isOpenSpecChangeId(value: unknown): value is string {
+  return typeof value === 'string' && value !== 'archive' && /^[a-z0-9][a-z0-9._-]{0,127}$/i.test(value) && !value.includes('..')
+}
+
+/** The session's derived changes plus `change` (moved last: the most recent). Invalid ids are ignored. */
+export function withDerivedChange(session: Pick<FlowSession, 'derivedChanges'>, change: string | null | undefined): string[] {
+  const known = (session.derivedChanges ?? []).filter(isOpenSpecChangeId)
+  if (!isOpenSpecChangeId(change)) return known
+  return [...known.filter((id) => id !== change), change]
+}
+
+/** The change a Flow's next Flow → Spec run re-derives (null ⇒ first derivation, named after the spec). */
+export function currentDerivedChange(session: Pick<FlowSession, 'derivedChanges'>): string | null {
+  const known = (session.derivedChanges ?? []).filter(isOpenSpecChangeId)
+  return known.length ? known[known.length - 1] : null
+}
+
+function derivedChangesPatch(session: FlowSession, change: string | null | undefined): Partial<FlowSession> {
+  const changes = withDerivedChange(session, change)
+  return changes.length ? { derivedChanges: changes } : {}
 }
 
 export function isOpenFlow(session: Pick<FlowSession, 'state'>): boolean {
@@ -302,7 +329,7 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
       if (session.state !== 'handed_off' || session.step !== null || session.deliveryId !== command.deliveryId || !session.worktreePath) illegal(session, command)
       const briefing = command.briefing.trim()
       return {
-        session: next(session, { state: 'paused', step: null, coreSessionId: null, railIndex: null, returnBriefing: briefing || null }, now),
+        session: next(session, { state: 'paused', step: null, coreSessionId: null, railIndex: null, returnBriefing: briefing || null, ...derivedChangesPatch(session, command.derivedChange) }, now),
         effects: session.ticketId !== null ? [{ kind: 'reopenTicket', ticketId: session.ticketId }] : [],
       }
     }
