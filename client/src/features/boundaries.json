@@ -124,6 +124,7 @@
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
       "components/TargetPrLaunchDialog.tsx",
+      "components/TopRiskLine.tsx",
       "context/RailPrDecisionContext.tsx",
       "lib/pr-delivery.ts",
       "lib/pr-follow-up-scope.ts",

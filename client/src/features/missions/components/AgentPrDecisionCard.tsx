@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { RepositoryDeliveries } from '../../delivery/components/RepositoryDeliveries'
+import { TopRiskLine } from '../../delivery/components/TopRiskLine'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
@@ -1188,6 +1189,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
 
       <RepositoryDeliveries deliveryId={envelope.prDeliveryId} repositories={envelope.repositoryDeliveries}
         busy={!!busy || checkingOut || !!envelope.operation} onAct={act} onCheckout={checkoutPrBranch} />
+
+      {/* Reviewer risk brief: the single top risk (absent without a brief). */}
+      <TopRiskLine summary={envelope.riskSummary} className="mt-2" />
 
       {/* Body: base-branch chip + spec count + PR link */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">

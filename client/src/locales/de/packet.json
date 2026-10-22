@@ -165,5 +165,43 @@
       "unreported": "Nicht berichtet"
     },
     "noReport": "Der Lauf hat zu diesem Addendum nichts berichtet. Prüfe die Änderungen und Belege unten."
+  },
+  "brief": {
+    "title": "Worauf achten",
+    "caveat": "Hinweise des KI-Reviewers: wo ein Mensch zuerst hinschauen sollte. Kein Prüfergebnis und blockiert nie eine Entscheidung.",
+    "severity": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "area": {
+      "data": "Daten",
+      "security": "Sicherheit",
+      "api": "API",
+      "ux": "UX",
+      "performance": "Performance",
+      "ops": "Betrieb",
+      "other": "Sonstiges"
+    },
+    "sections": {
+      "risks": "Risiken",
+      "behaviourChanges": "Verhaltensänderungen",
+      "invariantsTouched": "Berührte Invarianten",
+      "untested": "Ungetestete Pfade",
+      "humanChecks": "Manuelle Prüfungen",
+      "divergences": "Abweichungen von der Spec"
+    },
+    "userVisible": "Für Nutzer sichtbar",
+    "invariantStatus": {
+      "kept": "Erhalten",
+      "changed": "Geändert",
+      "at-risk": "Gefährdet"
+    },
+    "diagnostic": "Ein Teil der Reviewer-Hinweise konnte nicht verwendet werden:",
+    "dropped_one": "{{count}} Eintrag entsprach nicht dem erwarteten Format und wurde übersprungen.",
+    "dropped_other": "{{count}} Einträge entsprachen nicht dem erwarteten Format und wurden übersprungen.",
+    "topRisk": "Größtes Risiko",
+    "moreRisks_one": "+{{count}} weiteres",
+    "moreRisks_other": "+{{count}} weitere"
   }
 }

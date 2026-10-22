@@ -26,6 +26,7 @@ import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
 import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
+import { WhatToLookAt } from '../components/review-packet/WhatToLookAt'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -527,6 +528,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           </div>
         ) : null}
       </div>
+
+      {/* ── What to look at: the reviewer's risk brief, first after the verdict.
+          Absent for runs without a brief, so older packets read as before. */}
+      {packet.whatToLookAt ? (
+        <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
+      ) : null}
 
       {packet.driftNudges.length > 0 ? (
         <div className="rounded-lg border border-accent-highlight/30 bg-accent-highlight/5 p-4" data-testid="packet-drift-nudges">

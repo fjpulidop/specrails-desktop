@@ -457,6 +457,8 @@ export interface AgentPrDecisionEnvelope {
   phase?: MissionRunPhase
   railName?: string | null
   runtime?: MissionRunRuntime | null
+  /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
+  riskSummary?: import('../../../types').PrDeliveryRiskSummary
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -553,6 +555,7 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(typeof o.phase === 'string' && MISSION_RUN_PHASES.includes(o.phase) ? { phase: o.phase as MissionRunPhase } : {}),
     ...(typeof o.railName === 'string' ? { railName: o.railName } : {}),
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
+    ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
   }
 }
 

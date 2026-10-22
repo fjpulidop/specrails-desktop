@@ -691,3 +691,53 @@ describe('unfoldInlineNumberedList', () => {
     expect(unfoldInlineNumberedList('v1.2 ships 3.5 GB and 4.0 more')).toBe('v1.2 ships 3.5 GB and 4.0 more')
   })
 })
+
+describe('ReviewPacketPage — what to look at (reviewer risk brief)', () => {
+  const brief: NonNullable<ReviewPacket['whatToLookAt']> = {
+    risks: [
+      { ticketId: 1, severity: 'high', area: 'data', whatToLookAt: 'Migration drops a default', ref: 'server/db/migrations.ts:1600' },
+      { ticketId: 1, severity: 'medium', area: 'api', whatToLookAt: 'Response field renamed', ref: 'server/api.ts:12' },
+    ],
+    behaviourChanges: [{ ticketId: 1, what: 'Retries stop after 3 attempts', where: 'src/net/retry.ts:41', userVisible: true }],
+    invariantsTouched: [{ ticketId: 1, invariant: 'Queue order is preserved', evidence: 'src/queue.ts:120', status: 'kept' }],
+    untested: [{ ticketId: 1, path: 'src/net/retry.ts', why: 'No test exercises the timeout branch' }],
+    humanChecks: [{ ticketId: 1, text: 'Confirm the new copy with the product owner' }],
+    divergences: [],
+    diagnostics: [],
+    droppedEntries: 0,
+  }
+
+  it('opens with the brief in a fixed order, before measured facts', async () => {
+    respond({ packet: packet({ whatToLookAt: brief }) })
+    renderPage()
+    const section = await screen.findByTestId('packet-what-to-look-at')
+    expect(section).toHaveTextContent('What to look at')
+    const order = ['brief-risks', 'brief-behaviour', 'brief-invariants', 'brief-untested', 'brief-human-checks']
+      .map((id) => screen.getByTestId(id))
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(screen.getAllByTestId('brief-severity').map((chip) => chip.textContent)).toEqual(['High', 'Medium'])
+    expect(screen.getByText('server/db/migrations.ts:1600')).toBeInTheDocument()
+    expect(screen.getByText('Visible to users')).toBeInTheDocument()
+    const checked = screen.getByText('How it was checked')
+    expect(section.compareDocumentPosition(checked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders a partial brief and shows the diagnostic when the brief was dropped', async () => {
+    respond({ packet: packet({ whatToLookAt: { ...brief, risks: [], behaviourChanges: [], invariantsTouched: [], untested: [], diagnostics: [{ ticketId: 1, message: 'Review brief dropped after the repair turn' }], droppedEntries: 2 } }) })
+    renderPage()
+    await screen.findByTestId('packet-what-to-look-at')
+    expect(screen.queryByTestId('brief-risks')).toBeNull()
+    expect(screen.getByTestId('brief-human-checks')).toBeInTheDocument()
+    expect(screen.getByTestId('brief-diagnostic')).toHaveTextContent('Review brief dropped after the repair turn')
+    expect(screen.getByTestId('brief-dropped')).toHaveTextContent('2 brief entries')
+  })
+
+  it('is hidden entirely without a brief', async () => {
+    respond({ packet: packet({ whatToLookAt: null }) })
+    renderPage()
+    await screen.findByText('Your change is ready for review')
+    expect(screen.queryByTestId('packet-what-to-look-at')).toBeNull()
+  })
+})

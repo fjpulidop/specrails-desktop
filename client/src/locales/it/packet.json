@@ -165,5 +165,43 @@
       "unreported": "Non riportato"
     },
     "noReport": "L'esecuzione non ha riportato nulla su questo addendum. Controlla le modifiche e le evidenze qui sotto."
+  },
+  "brief": {
+    "title": "Cosa guardare",
+    "caveat": "Nota orientativa del revisore IA: dove una persona dovrebbe guardare per prima. Non è un risultato di verifica e non blocca mai una decisione.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Medio",
+      "low": "Basso"
+    },
+    "area": {
+      "data": "dati",
+      "security": "sicurezza",
+      "api": "API",
+      "ux": "UX",
+      "performance": "prestazioni",
+      "ops": "operazioni",
+      "other": "altro"
+    },
+    "sections": {
+      "risks": "Rischi",
+      "behaviourChanges": "Cambi di comportamento",
+      "invariantsTouched": "Invarianti toccati",
+      "untested": "Percorsi senza test",
+      "humanChecks": "Controlli umani",
+      "divergences": "Divergenze dalla spec"
+    },
+    "userVisible": "Visibile agli utenti",
+    "invariantStatus": {
+      "kept": "Mantenuto",
+      "changed": "Cambiato",
+      "at-risk": "A rischio"
+    },
+    "diagnostic": "Parte della nota del revisore non è stata utilizzabile:",
+    "dropped_one": "{{count}} voce della nota non rispettava il formato previsto ed è stata ignorata.",
+    "dropped_other": "{{count}} voci della nota non rispettavano il formato previsto e sono state ignorate.",
+    "topRisk": "Rischio principale",
+    "moreRisks_one": "+{{count}} altro",
+    "moreRisks_other": "+{{count}} altri"
   }
 }

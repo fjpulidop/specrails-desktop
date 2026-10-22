@@ -165,5 +165,43 @@
       "unreported": "Not reported"
     },
     "noReport": "The run did not report this addendum. Check the changes and evidence below."
+  },
+  "brief": {
+    "title": "What to look at",
+    "caveat": "The AI reviewer's advisory brief: where a human should look first. It is not a verification result and never blocks a decision.",
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "area": {
+      "data": "data",
+      "security": "security",
+      "api": "API",
+      "ux": "UX",
+      "performance": "performance",
+      "ops": "operations",
+      "other": "other"
+    },
+    "sections": {
+      "risks": "Risks",
+      "behaviourChanges": "Behaviour changes",
+      "invariantsTouched": "Invariants touched",
+      "untested": "Untested paths",
+      "humanChecks": "Human checks",
+      "divergences": "Spec divergences"
+    },
+    "userVisible": "Visible to users",
+    "invariantStatus": {
+      "kept": "Kept",
+      "changed": "Changed",
+      "at-risk": "At risk"
+    },
+    "diagnostic": "Part of the reviewer's brief could not be used:",
+    "dropped_one": "{{count}} brief entry did not match the expected format and was skipped.",
+    "dropped_other": "{{count}} brief entries did not match the expected format and were skipped.",
+    "topRisk": "Top risk",
+    "moreRisks_one": "+{{count}} more",
+    "moreRisks_other": "+{{count}} more"
   }
 }

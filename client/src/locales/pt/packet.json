@@ -165,5 +165,43 @@
       "unreported": "Não reportado"
     },
     "noReport": "A execução não reportou este adendo. Verifique as alterações e as evidências abaixo."
+  },
+  "brief": {
+    "title": "O que olhar",
+    "caveat": "Resumo orientativo do revisor de IA: onde uma pessoa deve olhar primeiro. Não é um resultado de verificação e nunca bloqueia uma decisão.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Médio",
+      "low": "Baixo"
+    },
+    "area": {
+      "data": "dados",
+      "security": "segurança",
+      "api": "API",
+      "ux": "UX",
+      "performance": "desempenho",
+      "ops": "operações",
+      "other": "outro"
+    },
+    "sections": {
+      "risks": "Riscos",
+      "behaviourChanges": "Mudanças de comportamento",
+      "invariantsTouched": "Invariantes afetados",
+      "untested": "Caminhos sem teste",
+      "humanChecks": "Verificações humanas",
+      "divergences": "Divergências da spec"
+    },
+    "userVisible": "Visível para usuários",
+    "invariantStatus": {
+      "kept": "Mantido",
+      "changed": "Alterado",
+      "at-risk": "Em risco"
+    },
+    "diagnostic": "Parte do resumo do revisor não pôde ser usada:",
+    "dropped_one": "{{count}} entrada do resumo não seguia o formato esperado e foi ignorada.",
+    "dropped_other": "{{count}} entradas do resumo não seguiam o formato esperado e foram ignoradas.",
+    "topRisk": "Principal risco",
+    "moreRisks_one": "+{{count}} outro",
+    "moreRisks_other": "+{{count}} outros"
   }
 }
