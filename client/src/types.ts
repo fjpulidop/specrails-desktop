@@ -586,6 +586,33 @@ export interface ReviewPacket {
   chainCostUsd: number | null
   chainCostEstimated: boolean
   driftNudges: PacketDriftNudge[]
+  /** Flow -> Spec only: Core's derivation coverage; null for other loops (older servers omit it). */
+  derivation?: PacketDerivation | null
+  /** Flow deliveries only: settlement effects (spec rewrite, Jira). */
+  flowSettlement?: PacketFlowSettlement | null
+}
+
+export type PacketDerivation =
+  | {
+    status: 'available'
+    change: string | null
+    files: number
+    explained: number
+    unexplainedFiles: string[]
+    unexplainedOmitted: number
+    confidence: 'high' | 'medium' | 'low' | null
+    requirementsAdded: number
+    requirementsModified: number
+    tasks: number
+    transcriptTurnsUsed: number
+  }
+  | { status: 'unavailable' }
+
+export type FlowSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
+export interface PacketFlowSettlement {
+  specRewrite: FlowSettlementEffectState | null
+  jiraCreate: FlowSettlementEffectState | null
+  jiraReview: FlowSettlementEffectState | null
 }
 
 /** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */

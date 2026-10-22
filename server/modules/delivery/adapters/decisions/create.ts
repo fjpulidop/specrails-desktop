@@ -4,6 +4,8 @@ import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgn
 import { batchBranchNameFor, buildPrTitle } from '../../runtime/pr-naming'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from '../../runtime/pr-body'
 import { sumInvocationCostForRuns } from '../../../accounting/runtime/ai-invocations'
+import { readSettleEvidence } from '../../runtime/delivery-evidence'
+import { packetDerivation } from '../../runtime/review-packet'
 import {
   toPrDeliverySnapshot, type PrDecision, type PrDeliveryPatch, type RailPrDeliveryRow
 } from '../../runtime/rail-pr-store'
@@ -108,6 +110,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId) })),
     changes,
     costUsd,
+    derivation: (() => { const d = packetDerivation(row, readSettleEvidence(row.settle_evidence)); return d?.status === 'available' ? d : null })(),
   })
 
   let next: PrDecision

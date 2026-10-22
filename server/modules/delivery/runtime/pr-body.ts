@@ -117,6 +117,16 @@ export interface CanonicalPrBodyInput {
    *  (legacy runs with no priced invocations, or the lookup failed — cost must
    *  never block or degrade PR creation). */
   costUsd?: { totalUsd: number; estimated: boolean } | null
+  /** Flow -> Spec only: Core's derivation coverage (one short line). */
+  derivation?: { change: string | null; files: number; explained: number; unexplainedFiles: string[]; unexplainedOmitted: number } | null
+}
+
+/** `> Derived from a Flow session: change X, N/M changed files explained (K unexplained).` */
+export function buildDerivationLine(derivation: CanonicalPrBodyInput['derivation']): string | null {
+  if (!derivation) return null
+  const unexplained = derivation.unexplainedFiles.length + derivation.unexplainedOmitted
+  const change = derivation.change ? ` OpenSpec change \`${derivation.change}\`,` : ''
+  return `> Derived from a Flow session:${change} ${derivation.explained}/${derivation.files} changed files explained by its design${unexplained > 0 ? ` (${unexplained} unexplained — see the review packet)` : ''}.`
 }
 
 export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {
@@ -125,6 +135,9 @@ export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {
   for (const t of input.tickets) {
     parts.push(ticketSection(t, input.changes ?? null))
   }
+
+  const derivationLine = buildDerivationLine(input.derivation ?? null)
+  if (derivationLine) parts.push(derivationLine)
 
   const changesSection = buildChangesSection(input.changes ?? null)
   if (changesSection) parts.push(changesSection)

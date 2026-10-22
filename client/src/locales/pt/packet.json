@@ -165,5 +165,26 @@
       "unreported": "Não reportado"
     },
     "noReport": "A execução não reportou este adendo. Verifique as alterações e as evidências abaixo."
+  },
+  "derivation": {
+    "title": "Derivação",
+    "coverage": "{{explained}} de {{files}} arquivos alterados são explicados pelo design derivado",
+    "change": "Mudança OpenSpec",
+    "requirements": "Requisitos",
+    "requirementsValue": "{{added}} adicionados · {{modified}} modificados",
+    "confidence": "Confiança do derivador",
+    "confidenceLevel": {
+      "high": "Alta",
+      "medium": "Média",
+      "low": "Baixa"
+    },
+    "confidenceUnknown": "Não informada",
+    "caveat": "A cobertura é medida pelo Specrails com git; a confiança é a autoavaliação do agente.",
+    "unexplainedTitle_one": "{{count}} arquivo alterado não está explicado",
+    "unexplainedTitle_other": "{{count}} arquivos alterados não estão explicados",
+    "more_one": "…e mais {{count}} arquivo",
+    "more_other": "…e mais {{count}} arquivos",
+    "unavailable": "Não foi possível ler o relatório de derivação desta entrega Flow. Revise o diff diretamente.",
+    "rewriteFailed": "Não foi possível reescrever a spec a partir da mudança derivada; ela mantém o rascunho do Flow. A mudança OpenSpec continua sendo o registro técnico."
   }
 }

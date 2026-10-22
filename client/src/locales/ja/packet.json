@@ -165,5 +165,26 @@
       "unreported": "未報告"
     },
     "noReport": "実行はこの補足について報告しませんでした。以下の変更と証拠を確認してください。"
+  },
+  "derivation": {
+    "title": "導出",
+    "coverage": "変更された {{files}} 個のファイルのうち {{explained}} 個が導出された設計で説明されています",
+    "change": "OpenSpec 変更",
+    "requirements": "要件",
+    "requirementsValue": "追加 {{added}} · 変更 {{modified}}",
+    "confidence": "導出エージェントの確信度",
+    "confidenceLevel": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "confidenceUnknown": "未報告",
+    "caveat": "カバレッジは Specrails が git で測定したものです。確信度はエージェント自身の評価です。",
+    "unexplainedTitle_one": "説明されていない変更ファイルが {{count}} 個あります",
+    "unexplainedTitle_other": "説明されていない変更ファイルが {{count}} 個あります",
+    "more_one": "…ほか {{count}} 個のファイル",
+    "more_other": "…ほか {{count}} 個のファイル",
+    "unavailable": "この Flow 配信の導出レポートを読み取れませんでした。差分を直接確認してください。",
+    "rewriteFailed": "導出された変更から spec を書き直せませんでした。Flow の下書きのままです。OpenSpec 変更は引き続き技術的な記録です。"
   }
 }

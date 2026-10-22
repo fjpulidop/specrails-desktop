@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1063 source/build files. Nearby tests are linked where names
+Includes 1065 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -285,6 +285,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/delivery/components/review-packet
 
+- [PacketDerivation.tsx](../../client/src/features/delivery/components/review-packet/PacketDerivation.tsx) · [test](../../client/src/features/delivery/components/review-packet/PacketDerivation.test.tsx)
 - [PacketMarkdown.tsx](../../client/src/features/delivery/components/review-packet/PacketMarkdown.tsx)
 
 ## client/src/features/delivery/context
@@ -1339,6 +1340,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-effect.ts](../../server/modules/loops/runtime/loop-effect.ts) · [test](../../server/modules/loops/runtime/loop-effect.test.ts)
 - [loop-executors.ts](../../server/modules/loops/runtime/loop-executors.ts) · [test](../../server/modules/loops/runtime/loop-executors.test.ts)
 - [loop-factory.ts](../../server/modules/loops/runtime/loop-factory.ts) · [test](../../server/modules/loops/runtime/loop-factory.test.ts)
+- [loop-flow-spec-recipe.ts](../../server/modules/loops/runtime/loop-flow-spec-recipe.ts)
 - [loop-graph.ts](../../server/modules/loops/runtime/loop-graph.ts) · [test](../../server/modules/loops/runtime/loop-graph.test.ts)
 - [loop-implement-recipe.ts](../../server/modules/loops/runtime/loop-implement-recipe.ts) · [test](../../server/modules/loops/runtime/loop-implement-recipe.test.ts)
 - [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)

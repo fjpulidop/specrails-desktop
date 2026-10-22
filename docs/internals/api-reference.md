@@ -507,6 +507,12 @@ headSha, coreSessionId, railIndex, deliveryId, step, createdAt, updatedAt }`;
 WebSocket: `flow.state` `{ projectId, conversationId, flowId, flow, timestamp }`
 on every committed state change (project-scoped).
 
+The launched `factory:flow-spec` loop exists only on a Core with `deriveChange: 1`
+(`409 engine_unsupported` otherwise; `400 flow_id_required` without `flowId`).
+When its delivery reaches review the Flow settles: spec rewrite, Jira create and
+review transition as durable effects ([settlement](flow-mode.md#settlement)). The
+delivery's review packet carries `derivation` and `flowSettlement`.
+
 ---
 
 ## `/api/projects/:projectId/rails/*`

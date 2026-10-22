@@ -165,5 +165,26 @@
       "unreported": "未报告"
     },
     "noReport": "运行未报告此附录。请查看下方的变更与证据。"
+  },
+  "derivation": {
+    "title": "推导",
+    "coverage": "推导出的设计解释了 {{files}} 个已更改文件中的 {{explained}} 个",
+    "change": "OpenSpec 变更",
+    "requirements": "需求",
+    "requirementsValue": "新增 {{added}} · 修改 {{modified}}",
+    "confidence": "推导者置信度",
+    "confidenceLevel": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "confidenceUnknown": "未报告",
+    "caveat": "覆盖率由 Specrails 通过 git 测量；置信度是代理自己的评估。",
+    "unexplainedTitle_one": "{{count}} 个已更改文件未被解释",
+    "unexplainedTitle_other": "{{count}} 个已更改文件未被解释",
+    "more_one": "……另外 {{count}} 个文件",
+    "more_other": "……另外 {{count}} 个文件",
+    "unavailable": "无法读取此 Flow 交付的推导报告。请直接查看差异。",
+    "rewriteFailed": "无法根据推导出的变更重写 spec；它保留 Flow 草稿。OpenSpec 变更仍是技术记录。"
   }
 }

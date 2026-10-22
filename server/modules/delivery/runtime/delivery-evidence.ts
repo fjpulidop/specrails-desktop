@@ -69,6 +69,25 @@ export interface DeliveryRuntimeReview {
   summary: string | null
 }
 
+/** Flow -> Spec coverage report (Core `derive-change`, `derivation.json`),
+ *  measured by Core from git, never by the model. Bounded at read time. */
+export interface DeliveryDerivation {
+  change: string | null
+  /** Changed files in scope and how many design.md's blast radius names. */
+  files: number
+  explained: number
+  unexplainedFiles: string[]
+  /** Unexplained files beyond the stored list (Core's own cap plus ours). */
+  unexplainedOmitted: number
+  /** The deriver's own confidence (AI-reported). */
+  confidence: 'high' | 'medium' | 'low' | null
+  requirementsAdded: number
+  requirementsModified: number
+  tasks: number
+  /** Conversation turns the summary carried (0 = derived from the diff alone). */
+  transcriptTurnsUsed: number
+}
+
 /** Evidence read from the programmatic runtime's pipeline dir
  *  (`<workspace>/.specrails/pipeline/<runId>/`). Absent for legacy loops. */
 export interface DeliveryRuntimeEvidence {
@@ -78,6 +97,10 @@ export interface DeliveryRuntimeEvidence {
   checks: DeliveryRuntimeCheck[]
   findings: string[]
   review: DeliveryRuntimeReview | null
+  /** Flow -> Spec derivation coverage (absent for every other loop). */
+  derivation?: DeliveryDerivation | null
+  /** Where Core wrote derivation.json, when the inline copy was unavailable. */
+  derivationPath?: string | null
 }
 
 export interface DeliveryUnitEvidence {
@@ -449,6 +472,11 @@ export function harvestDeliveryEvidence(
         const runtime = unit.definitionStatus
           ? projectDefinitionRuntimeEvidence(unit.definitionStatus, unit.reviewerStepId)
           : readRuntimeEvidence(unit.runtimeDir!, unit.runId, fsIo)
+        if (runtime && !runtime.derivation && runtime.derivationPath) {
+          // Core keeps the full report next to the node's artifacts.
+          const derivation = readDerivationFile(runtime.derivationPath, fsIo)
+          if (derivation) { runtime.derivation = derivation; delete runtime.derivationPath }
+        }
         if (unit.definitionStatus) evidence.runtime = runtime
         if (runtime) {
           evidence.runtime = runtime
@@ -581,6 +609,8 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
   if (status.status === 'unavailable' || !status.scopes) return null
   const commands: DeliveryRuntimeCommand[] = []
   const scopedReviews: NonNullable<DeliveryRuntimeEvidence['scopedReviews']> = []
+  let derivation: DeliveryDerivation | null = null
+  let derivationPath: string | null = null
   for (const scope of status.scopes) {
     if (!['succeeded', 'failed'].includes(scope.status) || !scope.attemptId || !isRecord(scope.output)) continue
     const output = scope.output
@@ -593,6 +623,12 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
           durationMs: null, required: true, hostRun: true, outputTail: null })
       }
     }
+    if (scope.kind === 'derive-change') {
+      // The latest derive attempt wins (a repair visit supersedes the rejected one).
+      const parsed = parseDerivation(output.derivation)
+      if (parsed) { derivation = parsed; derivationPath = null }
+      else if (typeof output.derivationPath === 'string' && output.derivationPath.length < 4096) { derivation = null; derivationPath = output.derivationPath }
+    }
     const review = scope.status !== 'succeeded' ? null : scope.kind === 'implementation' ? parseRuntimeReview(output.review)
       : scope.kind === 'implementation-step' && output.phase === 'reviewer' ? parseRuntimeReview(output)
       : reviewerStepId === scope.nodePath && scope.kind === 'role-turn' ? parseRuntimeReview(output.structured ?? output) : null
@@ -602,7 +638,43 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
   // Keep that absence explicit instead of letting the last branch win.
   const review = scopedReviews.length === 1 ? scopedReviews[0].review : null
   const findings = scopedReviews.length > 1 ? ['Multiple scoped reviewer verdicts; no aggregate confidence score is defined.'] : []
-  return commands.length || review || findings.length ? { commands, checks: [], findings, review, scopedReviews } : null
+  if (!commands.length && !review && !findings.length && !derivation && !derivationPath) return null
+  return { commands, checks: [], findings, review, scopedReviews, ...(derivation ? { derivation } : {}), ...(derivationPath ? { derivationPath } : {}) }
+}
+
+const DERIVATION_FILE_CAP = 512 * 1024
+const DERIVATION_UNEXPLAINED_CAP = 200
+const count = (value: unknown): number => typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0
+
+/** Parse Core's derivation report (inline node output or derivation.json). Null when it is not one. */
+export function parseDerivation(value: unknown): DeliveryDerivation | null {
+  if (!isRecord(value) || typeof value.files !== 'number' || typeof value.explained !== 'number') return null
+  const listed = Array.isArray(value.unexplainedFiles) ? value.unexplainedFiles.filter((file): file is string => typeof file === 'string' && file.length > 0) : []
+  const confidence = value.confidence === 'high' || value.confidence === 'medium' || value.confidence === 'low' ? value.confidence : null
+  return {
+    change: str(value.change, 128),
+    files: count(value.files),
+    explained: Math.min(count(value.explained), count(value.files)),
+    unexplainedFiles: listed.slice(0, DERIVATION_UNEXPLAINED_CAP).map((file) => file.slice(0, 512)),
+    unexplainedOmitted: Math.max(0, listed.length - DERIVATION_UNEXPLAINED_CAP) + count(value.unexplainedOmitted),
+    confidence,
+    requirementsAdded: count(value.requirementsAdded),
+    requirementsModified: count(value.requirementsModified),
+    tasks: count(value.tasks),
+    transcriptTurnsUsed: count(value.transcriptTurnsUsed),
+  }
+}
+
+/** Read a derivation.json Core wrote (bounded; null when absent or invalid). */
+export function readDerivationFile(file: string, fsIo: Pick<EvidenceFsIO, 'fileExists' | 'readFile'>): DeliveryDerivation | null {
+  try {
+    if (!fsIo.fileExists(file)) return null
+    const raw = fsIo.readFile(file)
+    if (raw.length > DERIVATION_FILE_CAP) return null
+    return parseDerivation(JSON.parse(raw))
+  } catch {
+    return null
+  }
 }
 
 /**

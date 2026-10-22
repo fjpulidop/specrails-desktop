@@ -26,6 +26,7 @@ import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
 import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
+import { PacketDerivation } from '../components/review-packet/PacketDerivation'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -576,6 +577,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           </p>
         </Section>
       ) : null}
+
+      {/* ── Derivation (Flow -> Spec): coverage before what to watch out for ─── */}
+      {packet.derivation ? <PacketDerivation derivation={packet.derivation} settlement={packet.flowSettlement} /> : null}
 
       {/* ── What to watch out for: real signals only, never boilerplate ─────── */}
       {packet.watchOut.length > 0 ? (

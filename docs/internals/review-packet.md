@@ -231,3 +231,27 @@ Observed: the section rendered the spec's *Proposed Solution* digest as raw mark
 Observed: a delivery built by the programmatic agent runtime (core-host) rendered **"The AI did not report any verification"** and **"No reviewer score"** although the host had run `npm test` (exit 0, output persisted) and the reviewer returned a structured verdict (score 92). The harvest only knew the legacy loop channels — the `VERIFICATION:` prose sentinel and `openspec/changes/**/confidence-score.json` — neither of which that runtime produces. Fix (`server/modules/delivery/runtime/delivery-evidence.ts` `readRuntimeEvidence`, wired from `rail-isolated-launch.ts` via the new `EvidenceHarvestUnit.runtimeDir` = `<workspace>/.specrails/pipeline/<runId>`): read `state.json` `verification.commands[]` (+ each `verification/evidence/<id>.json` for exit code, duration, bounded output and `origin`), `acceptance.checks[]` / `acceptance.findings[]`, and the reviewer step output in `agent-workflow/<runId>/checkpoint.json` (`approved`, `score`, `aspects`, `issues`, `summary`). Every field is bounded; a malformed file degrades to nothing.
 
 Tier placement (`review-packet.ts` `buildProof`): commands whose `origin` includes `host` are **app-verified** (`proof.hostCommandPassed|Failed` with exit code + seconds + output tail) — the runtime executed them and recorded the exit code, which is a measurement, not a claim; non-host acceptance checks, the reviewer summary and findings are **ai-reported** (`proof.acceptanceCheckPassed|Failed`, `proof.reviewerSummary`, `proof.reviewerFinding`); the structured verdict fills `confidence` (score/aspects/issues→flags) ONLY when no file-based score exists, so the **reviewer-score** tier and the human-review band work unchanged. `proof.noVerificationReported` is emitted only when no channel reported anything. Older deliveries heal lazily: `GET …/packet` runs `healRuntimeEvidence` over units lacking `runtime` and persists the result (`updatePrDeliverySettleEvidence`), so a packet stops claiming silence once the pipeline dir exists. Still never a numeric test-count claim: the "70 passed" line rides inside the labelled raw output, not as a number the app asserts.
+
+## 2026-10-22 — Derivation (Flow → Spec)
+
+A delivery of the `factory:flow-spec` loop ([Flow mode](flow-mode.md)) carries
+`packet.derivation`, rendered as the **Derivation** card before "What to watch
+out for". Source: the `derive-change` scope of Core's `runtime status`
+(`output.derivation`; when only `output.derivationPath` is present the harvest
+reads that `derivation.json`, ≤ 512 KB), projected by
+`projectDefinitionRuntimeEvidence` into `settle_evidence.units[].runtime.derivation`
+(`parseDerivation`: counts clamped, unexplained list capped at 200 with the
+remainder in `unexplainedOmitted`). The latest derive attempt wins, so a
+repaired derivation supersedes the rejected one.
+
+- Coverage (`explained/files`) and the unexplained file list are Core's own
+  measurement from git: app-verified.
+- The deriver's `confidence` is AI-reported and labelled as such.
+- `{ status: 'unavailable' }` for a Flow → Spec delivery whose report could
+  not be read; `null` for every other loop.
+- `packet.flowSettlement` (`specRewrite`, `jiraCreate`, `jiraReview`) comes from
+  the Flow module's `flow_effects` rows; a `failed` spec rewrite shows a note
+  that the spec kept its Flow draft.
+
+The draft PR body adds one line (`buildDerivationLine`):
+`> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
