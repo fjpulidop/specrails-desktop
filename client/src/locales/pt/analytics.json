@@ -11,7 +11,8 @@
     "specLauncher": "Lançador de specs",
     "proposal": "Proposta",
     "agentStudio": "Agent Studio",
-    "setup": "Configuração"
+    "setup": "Configuração",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7d",
@@ -211,7 +212,8 @@
     "vsPrev": "vs período anterior",
     "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
     "untitled": "Missão sem título",
-    "estimatedNote": "Inclui custos estimados"
+    "estimatedNote": "Inclui custos estimados",
+    "flowShare": "Dos quais Flow: {{cost}} · {{turns}} turnos"
   },
   "legacyUsage": {
     "title": "Uso de workflows anteriores",

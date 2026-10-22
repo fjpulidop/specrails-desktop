@@ -6,9 +6,9 @@ the user decides the result is right, a rail adopts the worktree and derives
 the spec (the Flow → Spec loop). Implement is for delegating; Flow is for
 discovering.
 
-This guide covers the server side that exists today. The client (Flow bar,
-cards, composer, board label), the `factory:flow-spec` loop and settlement
-effects (spec rewrite, Jira create and review transition) are later changes.
+This guide covers the server and the client. The `factory:flow-spec` loop and
+settlement effects (spec rewrite, Jira create and review transition) are
+later changes. User guide: [Flow](../guide/en/integrations/8-flow-mode.md).
 OpenSpec change: [`flow-mode`](../../openspec/changes/flow-mode/).
 
 ## Where each responsibility lives
@@ -149,6 +149,29 @@ provider-billed Flow turns in the Flow's lifetime and reports
 `unpricedTurns` separately; project spending exposes `flowCostUsd` and
 `flowTurns` inside the agent-mission summary.
 
+## Client
+
+Feature [`client/src/features/flow`](../../client/src/features/flow/README.md).
+Missions never import it: the composition root mounts `FlowMissionsBridge`
+around the mission chat and fills the missions extension seam
+([MissionExtensionsContext](../../client/src/features/missions/context/MissionExtensionsContext.tsx)):
+a `flow-offer` fence card, a conversation mode (`data-flow="active"`, worktree
+branch in the git strip, interrupting sends) and a dock above the composer.
+
+| Piece | Behaviour |
+| --- | --- |
+| Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Flow. The user turn carries `Flow: offerable` only when `FlowTurnContext.offerable` says so (Flow available, conversation pinned, no open Flow), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, recommended}) renders `FlowOfferCard`; fence promotion re-tags it from generic JSON on both sides. |
+| Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. Unavailable ⇒ disabled with the missing capabilities in plain words. |
+| Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `recommendedMode`, `chosenMode`, `config.flowId`) and `flow-hand-off`; unique per (kind, proposalIndex). Flow kinds are accepted even with mission rail cards off. |
+| Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. |
+| Paused / needs-review | Compact bar: Resume Flow; needs-review explains the missing worktree, no destructive action. |
+| This is it | Client-only: bar and treatment animate out and `FlowHandOffCard` (the rail launch card in hand-off mode: Flow spec, `factory:flow-spec`, a free empty rail) calls `POST /flow/:id/hand-off`. Refusals render inline; "Not yet" returns to the Flow. |
+| Board | `metadata.flow.state` `active`/`paused` ⇒ "In Flow" label linking to the conversation; the spec cannot be dragged to a rail; inside a rail (handed off) or `delivered` ⇒ no label. |
+| Analytics | `flow` surface label; agent missions show the Flow share (`flowCostUsd`, `flowTurns`). |
+
+`flow.state` events are applied only for projects a mounted view watches; a
+reconnect refetches the watched Flows.
+
 ## Known limitations
 
 - The Flow → Spec loop is not registered yet. A hand-off without `loopId`
@@ -159,3 +182,7 @@ provider-billed Flow turns in the Flow's lifetime and reports
 - A conversation re-pinned to another project while a Flow is open stops
   resolving the Flow (turns become normal mission turns).
 - Sub-agents are disabled in Flow sessions.
+- The diff dialog lists files and line counts; the server does not return
+  patch bodies yet.
+- "This is it" is session-local: after a reload an open Flow shows its bar
+  again (nothing was sent to the server).

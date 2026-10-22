@@ -26,11 +26,11 @@
 - [x] 4.3 Missions tests (null port unchanged, workspace-write + worktree cwd + interrupt, capability gating)
 - [x] 4.4 Docs: `docs/internals/flow-mode.md`, module READMEs, API reference, AGENTS feature map, boundary manifest, source map
 
-## 5. Client (next change)
+## 5. Client
 
-- [ ] 5.1 `client/src/features/flow`: FlowEntryCard, FlowBar, FlowHandOffCard, FlowContext and `flow-api.ts`
-- [ ] 5.2 Mission panel integration (`data-flow`), composer interrupt delivery, board "In Flow" label
-- [ ] 5.3 i18n in the eight locales, accessibility, client tests
+- [x] 5.1 `client/src/features/flow`: FlowEntryCard, FlowBar, FlowHandOffCard, FlowOfferCard, FlowContext and `flow-api.ts`; missions extension seam (`MissionExtensionsContext`)
+- [x] 5.2 Mission panel integration (`data-flow`), composer interrupt delivery, board "In Flow" label, `flow-offer` operator option + fence promotion + intents
+- [x] 5.3 i18n in the eight locales, accessibility, client tests, user guide (eight locales)
 
 ## 6. Flow -> Spec loop and settlement (later change)
 

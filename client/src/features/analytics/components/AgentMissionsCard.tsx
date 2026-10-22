@@ -68,6 +68,12 @@ export function AgentMissionsCard({ data, loading }: Props) {
         })}
       </p>
 
+      {(summary.flowTurns ?? 0) > 0 && (
+        <p className="mt-1 text-xs text-muted-foreground" data-testid="agent-missions-flow">
+          {t('agentMissions.flowShare', { cost: fmtUsd(summary.flowCostUsd ?? 0), turns: summary.flowTurns })}
+        </p>
+      )}
+
       {topConversations.length > 0 && (
         <ul className="mt-3 space-y-1 border-t border-border/40 pt-2">
           {topConversations.map((c) => (

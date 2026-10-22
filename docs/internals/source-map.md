@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1063 source/build files. Nearby tests are linked where names
+Includes 1077 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -313,6 +313,26 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [DocsPage.tsx](../../client/src/features/docs/pages/DocsPage.tsx) · [test](../../client/src/features/docs/pages/__tests__/DocsPage.test.tsx)
 
+## client/src/features/flow/components
+
+- [FlowBar.tsx](../../client/src/features/flow/components/FlowBar.tsx)
+- [FlowChangesDialog.tsx](../../client/src/features/flow/components/FlowChangesDialog.tsx)
+- [FlowDiscardDialog.tsx](../../client/src/features/flow/components/FlowDiscardDialog.tsx)
+- [FlowDock.tsx](../../client/src/features/flow/components/FlowDock.tsx)
+- [FlowEntryCard.tsx](../../client/src/features/flow/components/FlowEntryCard.tsx)
+- [FlowHandOffCard.tsx](../../client/src/features/flow/components/FlowHandOffCard.tsx)
+- [FlowMissionsBridge.tsx](../../client/src/features/flow/components/FlowMissionsBridge.tsx)
+- [FlowOfferCard.tsx](../../client/src/features/flow/components/FlowOfferCard.tsx)
+
+## client/src/features/flow/context
+
+- [FlowContext.tsx](../../client/src/features/flow/context/FlowContext.tsx)
+
+## client/src/features/flow/lib
+
+- [flow-api.ts](../../client/src/features/flow/lib/flow-api.ts)
+- [flow-offer.ts](../../client/src/features/flow/lib/flow-offer.ts)
+
 ## client/src/features/integrations/components/jira
 
 - [DiscardSpecDialog.tsx](../../client/src/features/integrations/components/jira/DiscardSpecDialog.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/DiscardSpecDialog.test.tsx)
@@ -472,6 +492,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
 - [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)
 - [MissionWindowSurface.tsx](../../client/src/features/missions/components/MissionWindowSurface.tsx)
+- [agent-extension-fences.ts](../../client/src/features/missions/components/agent-extension-fences.ts) · [test](../../client/src/features/missions/components/__tests__/agent-extension-fences.test.ts)
 - [agent-fence-promotion.ts](../../client/src/features/missions/components/agent-fence-promotion.ts) · [test](../../client/src/features/missions/components/__tests__/agent-fence-promotion.test.ts)
 - [agent-options.ts](../../client/src/features/missions/components/agent-options.ts)
 - [agent-pr-pinning.ts](../../client/src/features/missions/components/agent-pr-pinning.ts)
@@ -491,6 +512,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentChatContext.tsx](../../client/src/features/missions/context/AgentChatContext.tsx) · [test](../../client/src/features/missions/context/AgentChatContext.test.tsx)
 - [AgentWorkspaceContext.tsx](../../client/src/features/missions/context/AgentWorkspaceContext.tsx) · [test](../../client/src/features/missions/context/__tests__/AgentWorkspaceContext.test.tsx)
 - [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
+- [MissionExtensionsContext.tsx](../../client/src/features/missions/context/MissionExtensionsContext.tsx)
 - [MissionSessionsContext.tsx](../../client/src/features/missions/context/MissionSessionsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionSessionsContext.test.tsx)
 - [MissionSplitViewsContext.tsx](../../client/src/features/missions/context/MissionSplitViewsContext.tsx)
 - [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
@@ -716,6 +738,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [spec-addenda-core.ts](../../client/src/features/specs/lib/spec-addenda-core.ts)
 - [spec-draft.ts](../../client/src/features/specs/lib/spec-draft.ts)
 - [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)
+- [spec-flow.ts](../../client/src/features/specs/lib/spec-flow.ts)
 - [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
 - [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
 - [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)

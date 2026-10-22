@@ -32,6 +32,7 @@ import { ProposeSpecModal, type ExploreLaunchPayload } from './ProposeSpecModal'
 import { ExploreSpecShell } from './explore-spec/ExploreSpecShell'
 import { ShellErrorBoundary } from '../../../components/ShellErrorBoundary'
 import { useMinimizedChats, usePendingRestore } from '../../missions/context/MinimizedChatsContext'
+import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import i18n from '../../../lib/i18n'
 import { deleteAllAttachments } from '../../chat/lib/attachments'
@@ -183,6 +184,11 @@ export function SpecsBoard({
   onTicketPriorityChange,
 }: SpecsBoardProps) {
   const { t } = useTranslation('specs')
+  // "In Flow" label → the Flow's mission conversation.
+  const { selectConversation, open: openAgentPanel } = useAgentChat()
+  const openFlowConversation = useCallback((conversationId: string) => {
+    void selectConversation(conversationId).then(() => openAgentPanel(), () => undefined)
+  }, [selectConversation, openAgentPanel])
   const [jiggleMode, setJiggleMode] = useState(false)
   // Exit jiggle mode when clicking outside any card or pressing Escape.
   useEffect(() => {
@@ -750,6 +756,7 @@ export function SpecsBoard({
                         onLongPress={onTicketDelete ? enterJiggle : undefined}
                         onDelete={onTicketDelete ? handleCardDelete : undefined}
                         allowOnReviewDrag={continuableReviewTicketIds?.has(ticket.id) ?? false}
+                        onOpenFlow={openFlowConversation}
                       />
                     </MaybeContextMenu>
                   ))}
@@ -835,6 +842,7 @@ export function SpecsBoard({
                       jiggleMode={jiggleMode}
                       onLongPress={onTicketDelete ? enterJiggle : undefined}
                       onDelete={onTicketDelete ? handleCardDelete : undefined}
+                      onOpenFlow={openFlowConversation}
                     />
                   </MaybeContextMenu>
                 ))}

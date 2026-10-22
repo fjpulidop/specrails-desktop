@@ -13,6 +13,8 @@ export type Surface =
   | 'proposal'
   | 'agent-studio'
   | 'setup'
+  /** Flow mode turns (app ledger; real provider-billed cost only). */
+  | 'flow'
 export type SurfaceFilter = Surface | 'all'
 export type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
@@ -203,6 +205,9 @@ export interface AgentMissionSpending {
     turns: number
     tokensIn: number
     tokensOut: number
+    /** Part of totalCostUsd spent by Flow turns (surface 'flow'); absent on older servers. */
+    flowCostUsd?: number
+    flowTurns?: number
   }
   topConversations: AgentMissionConversationRow[]
 }
@@ -278,6 +283,7 @@ const SURFACE_LABEL_KEYS: Record<Surface, string> = {
   proposal: 'analytics:surfaces.proposal',
   'agent-studio': 'analytics:surfaces.agentStudio',
   setup: 'analytics:surfaces.setup',
+  flow: 'analytics:surfaces.flow',
 }
 
 export interface SurfaceAccent {
@@ -370,6 +376,12 @@ const SURFACE_ACCENT_MAP: Record<Surface, SurfaceAccent> = {
     ring: 'ring-accent-primary/40',
     dot: 'bg-accent-primary',
   },
+  flow: {
+    bg: 'bg-accent-info/15',
+    text: 'text-accent-info',
+    ring: 'ring-accent-info/40',
+    dot: 'bg-accent-info',
+  }
 }
 
 /**
