@@ -54,6 +54,10 @@ const coreDependencies: Record<string, string[]> = {
   'flow/index.ts': ['./application', './domain', './ports'],
   // Spec triage: pure rules (canonical inputs, parsing, recommendation).
   'specs/domain/triage.ts': [],
+  // Ticket non-goals ("Out of scope"): validation, extraction, rendering.
+  'specs/domain/non-goals.ts': [],
+  // Project rules inventory (.specrails/rules.json, annex D.5): pure parsing.
+  'project-rules/domain.ts': [],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>

@@ -88,13 +88,15 @@
       "runtime/agent-runtime-controls.ts",
       "runtime/agent-runtime-engines.ts",
       "runtime/agent-runtime-events.ts",
+      "runtime/agent-runtime-history.ts",
       "runtime/agent-runtime-loader.ts",
       "runtime/agent-runtime-package.ts",
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
       "runtime/agent-runtime-retention-records.ts",
       "runtime/agent-runtime-settings-router.ts",
-      "runtime/agent-runtime-settings.ts"
+      "runtime/agent-runtime-settings.ts",
+      "runtime/core-capabilities.ts"
     ],
     "dependencies": {
       "runtime/agent-runtime-accounting.ts": [],
@@ -242,10 +244,13 @@
         "../../../project-repositories",
         "../../../project-router-helpers",
         "../../loops/runtime/loop-role-engines",
+        "../../project-rules/domain",
+        "../../project-rules/runtime/rules-store",
         "./agent-runtime-effective-config",
         "./agent-runtime-loader",
         "./agent-runtime-settings",
         "./agent-runtime-verification-suggestions",
+        "./core-capabilities",
         "node:fs"
       ],
       "runtime/agent-runtime-settings.ts": [
@@ -278,6 +283,9 @@
       "runtime/agent-runtime-verification-suggestions.ts": [
         "node:fs",
         "node:path"
+      ],
+      "runtime/core-capabilities.ts": [
+        "./agent-runtime-loader"
       ]
     }
   },
@@ -873,7 +881,8 @@
       "runtime/rail-pr-ticket-effects.ts",
       "runtime/rails-router.ts",
       "runtime/rails-store.ts",
-      "runtime/review-wip-gate.ts"
+      "runtime/review-wip-gate.ts",
+      "runtime/run-records.ts"
     ],
     "dependencies": {
       "adapters/decisions/chains.ts": [
@@ -1070,6 +1079,7 @@
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-factory",
         "./review-brief",
+        "./run-records",
         "fs",
         "path"
       ],
@@ -1155,6 +1165,16 @@
         "./rail-pr-store",
         "./rail-pr-ticket-effects"
       ],
+      "runtime/phase3-harvest.ts": [
+        "../../../db",
+        "../../agent-runtime/runtime/agent-runtime-history",
+        "../../agent-runtime/runtime/core-capabilities",
+        "../../loops/runtime/loop-runs-store",
+        "../../project-rules/domain",
+        "../../project-rules/runtime/rules-store",
+        "./delivery-evidence",
+        "./run-records"
+      ],
       "runtime/pr-body.ts": [
         "../../../worktree-manager",
         "../../conversations/runtime/explore-contract-refine",
@@ -1192,6 +1212,7 @@
         "../../agent-runtime/runtime/agent-runtime-controls-router",
         "../../agent-runtime/runtime/agent-runtime-paths",
         "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../agent-runtime/runtime/core-capabilities",
         "../../code/runtime/file-provenance",
         "../../code/runtime/file-story",
         "../../execution/runtime/revision-seed",
@@ -1213,6 +1234,7 @@
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
+        "./phase3-harvest",
         "./pr-follow-up",
         "./pr-lifecycle",
         "./pr-naming",
@@ -1377,12 +1399,17 @@
         "./pr-body",
         "./pr-follow-up",
         "./rail-pr-store",
-        "./review-brief"
+        "./review-brief",
+        "./run-records"
       ],
       "runtime/review-wip-gate.ts": [
         "../../../db/types",
         "../adapters/review-wip-store",
         "../domain/review-wip"
+      ],
+      "runtime/run-records.ts": [
+        "fs",
+        "path"
       ]
     }
   },
@@ -1522,6 +1549,7 @@
         "../../code/runtime/file-provenance",
         "../../delivery/runtime/rail-isolation",
         "../../loops/runtime/legacy-launch-telemetry",
+        "../../specs/domain/non-goals",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/ticket-store",
         "../adapters/budget-storage",
@@ -2046,6 +2074,30 @@
       ]
     }
   },
+  "project-rules": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "domain.ts",
+      "runtime/rules-store.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../domain",
+        "../runtime/rules-store",
+        "express"
+      ],
+      "domain.ts": [],
+      "runtime/rules-store.ts": [
+        "../../../core-runtime",
+        "../../../path-resolver",
+        "../../../workspace-resolution",
+        "../domain",
+        "child_process",
+        "fs",
+        "path"
+      ]
+    }
+  },
   "project-settings": {
     "publicEntries": [
       "adapters/http.ts",
@@ -2081,6 +2133,7 @@
   },
   "specs": {
     "publicEntries": [
+      "domain/non-goals.ts",
       "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
       "runtime/generated-spec-parser.ts",
@@ -2098,6 +2151,7 @@
       "runtime/triage.ts"
     ],
     "dependencies": {
+      "domain/non-goals.ts": [],
       "domain/triage.ts": [],
       "runtime/contract-refine-runner.ts": [
         "../../../db",
@@ -2120,6 +2174,7 @@
         "tree-kill"
       ],
       "runtime/generated-spec-parser.ts": [
+        "../domain/non-goals",
         "./ticket-store"
       ],
       "runtime/proposal-manager.ts": [
@@ -2214,6 +2269,7 @@
         "../../../providers/types"
       ],
       "runtime/ticket-store.ts": [
+        "../domain/non-goals",
         "../domain/triage",
         "./spec-addenda-core",
         "fs",
