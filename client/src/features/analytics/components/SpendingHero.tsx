@@ -32,7 +32,7 @@ function fmtTokens(v: number): string {
 
 const SURFACES: Surface[] = [
   'job', 'explore-spec', 'quick-spec', 'ai-edit', 'chat-sidebar',
-  'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop',
+  'spec-launcher', 'proposal', 'agent-studio', 'setup', 'smash', 'file-summary', 'loop', 'flow',
 ]
 
 export function SpendingHero({ data, loading, period }: Props) {

@@ -1,9 +1,10 @@
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { openAddenda } from '../lib/spec-addenda-core'
+import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, Layers } from 'lucide-react'
+import { Trash2, AlertTriangle, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import type { LocalTicket, TicketPriority } from '../../../types'
 
@@ -33,6 +34,10 @@ interface SpecCardProps {
   jiggleMode?: boolean
   onLongPress?: () => void
   onDelete?: (ticket: LocalTicket) => void
+  /** Opens the mission conversation of an "In Flow" spec. */
+  onOpenFlow?: (conversationId: string) => void
+  /** Rendered inside a rail: a Flow spec there was handed off, so no "In Flow" label. */
+  onRail?: boolean
 }
 
 export function SpecCard({
@@ -47,12 +52,17 @@ export function SpecCard({
   jiggleMode = false,
   onLongPress,
   onDelete,
+  onOpenFlow,
+  onRail = false,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
   const openAddendaCount = openAddenda(ticket.addenda).length
+  // Flow mode: the placeholder spec belongs to its Flow until the rail adopts
+  // it — label it and keep it off the rails (no drag).
+  const flowLabel = onRail ? null : specFlowLabel(ticket)
   // On-review specs are frozen unless there is an open PR branch the rail can
   // continue by adding another commit.
-  const dragFrozen = dragDisabled || jiggleMode || (ticket.status === 'on_review' && !allowOnReviewDrag)
+  const dragFrozen = dragDisabled || jiggleMode || !!flowLabel || (ticket.status === 'on_review' && !allowOnReviewDrag)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ticket.id,
     disabled: dragFrozen, // disable DnD while in jiggle mode / on review
@@ -189,6 +199,35 @@ export function SpecCard({
           data-testid={`epic-child-pill-${ticket.id}`}
         >
           ↑ #{ticket.parent_epic_id} {parentEpicTitle}
+        </button>
+      ) : null}
+      {flowLabel ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.stopPropagation()
+              e.preventDefault()
+              if (flowLabel.conversationId) onOpenFlow?.(flowLabel.conversationId)
+            }
+          }}
+          disabled={!flowLabel.conversationId || !onOpenFlow}
+          data-flow-label={flowLabel.state}
+          data-testid={`flow-badge-${ticket.id}`}
+          title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
+          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold transition-colors disabled:cursor-default ${
+            flowLabel.state === 'paused'
+              ? 'border-border/60 bg-surface/60 text-foreground/60 hover:border-foreground/30'
+              : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
+          }`}
+        >
+          <Waves className="h-2.5 w-2.5" aria-hidden />
+          {t(flowLabel.state === 'paused' ? 'badges.inFlowPaused' : 'badges.inFlow')}
         </button>
       ) : null}
       {ticket.needs_review ? (

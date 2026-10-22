@@ -145,6 +145,16 @@
     ],
     "dependencies": []
   },
+  "flow": {
+    "publicEntries": [
+      "components/FlowMissionsBridge.tsx"
+    ],
+    "dependencies": [
+      "missions",
+      "providers",
+      "rails"
+    ]
+  },
   "integrations": {
     "publicEntries": [
       "components/jira/DiscardSpecDialog.tsx",
@@ -216,6 +226,7 @@
       "components/AgentModeSurface.tsx",
       "components/AgentModelSelector.tsx",
       "components/AgentPrPinnedDock.tsx",
+      "components/AgentRailLaunchCard.tsx",
       "components/AgentToolbarSelector.tsx",
       "components/AgentWorkspaceSidebar.tsx",
       "components/MissionConversationMenu.tsx",
@@ -226,6 +237,7 @@
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",
+      "context/MissionExtensionsContext.tsx",
       "context/MissionSessionsContext.tsx",
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",

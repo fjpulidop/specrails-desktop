@@ -135,6 +135,34 @@ function selectedWorkspaces(selection: RailLaunchConfig['workspaceSelection'], r
   return entries.length ? Object.fromEntries(entries) : undefined
 }
 
+/** Result of a launch performed by a `handOff` owner instead of the rails routes. */
+export type RailHandOffOutcome =
+  | { ok: true; runIds: string[]; prDeliveryId: string | null }
+  | { ok: false; error: string; detail?: string; action?: string }
+
+/**
+ * Hand-off mode (Flow → Spec): the card launches an EXISTING worktree through
+ * its owner's route instead of assigning specs + launching. The spec set,
+ * repositories and delivery target are fixed by the owner, the loop is the
+ * owner's, and "Not yet" returns control to the owner instead of recording a
+ * final dismissal.
+ */
+export interface RailLaunchHandOff {
+  /** The only loop offered (preselected). */
+  loop: { id: string; label: string }
+  heading: string
+  playLabel: string
+  dismissLabel: string
+  /** Intent kind recorded on the anchor message. */
+  intentKind: AgentMessageIntent['kind']
+  /** False when there is no message to anchor the decision on. */
+  persist: boolean
+  launch: (input: { railIndex: number; loopId: string; aiEngine?: string; model?: string; reasoningEffort?: string }) => Promise<RailHandOffOutcome>
+  onDismiss: () => void
+  /** Extra intent fields recorded with the launch (e.g. flowId). */
+  config?: Record<string, unknown>
+}
+
 interface Props {
   proposal: RailLaunchProposal
   proposalIndex: number
@@ -146,9 +174,11 @@ interface Props {
   intent: AgentMessageIntent | null
   /** Compact mode inside the pinned dock (the dock owns the outer header). */
   compact?: boolean
+  /** Hand-off mode (Flow → Spec): see RailLaunchHandOff. */
+  handOff?: RailLaunchHandOff
 }
 
-export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conversationId, projectId, intent, compact = false }: Props) {
+export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conversationId, projectId, intent, compact = false, handOff }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const detection = useProviderDetection()
@@ -284,7 +314,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const matchingDeliveryRail = hasAddenda ? rails.find((r) =>
     availabilityOf.get(r.railIndex) !== 'busy' && r.ticketIds.length === config.ticketIds.length
     && r.ticketIds.every((id) => config.ticketIds.includes(id))) : undefined
-  const firstFreeRail = matchingDeliveryRail ?? rails.find((r) => availabilityOf.get(r.railIndex) === 'free')
+  // A hand-off needs a free rail WITHOUT specs (the owner assigns its own spec).
+  const firstFreeRail = handOff
+    ? rails.find((r) => availabilityOf.get(r.railIndex) === 'free' && r.ticketIds.length === 0)
+    : matchingDeliveryRail ?? rails.find((r) => availabilityOf.get(r.railIndex) === 'free')
 
   const railSelectorValue = config.newRail ? NEW_RAIL : config.railIndex !== null && proposedRail ? String(config.railIndex) : firstFreeRail ? String(firstFreeRail.railIndex) : railLimitReached ? '' : NEW_RAIL
   const resolvedRailIndex = config.newRail ? null : railSelectorValue === NEW_RAIL || railSelectorValue === '' ? null : Number(railSelectorValue)
@@ -336,11 +369,12 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
 
   const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(catalogProvider)
   const loopOptions: AgentToolbarOption[] = useMemo(() => {
+    if (handOff) return [{ value: handOff.loop.id, label: handOff.loop.label }]
     const builtIn = FACTORY_RAIL_LOOPS
       .filter((l) => (!l.requiresFreestyle || freestyleAvailable) && (!l.requiresLoops || FEATURE_LOOPS_SECTION))
       .map((l) => ({ value: l.id, label: t(`dashboard:${l.labelKey}`) }))
     return [...builtIn, ...customLoops.map((l) => ({ value: l.id, label: l.name }))]
-  }, [customLoops, freestyleAvailable, t])
+  }, [customLoops, freestyleAvailable, t, handOff])
   const loopKnown = loopOptions.some((o) => o.value === config.loopId)
   const effectiveLoop = effectiveLoopId(loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId, mode, hasAddenda)
 
@@ -356,7 +390,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     : loading ? t('railCard.status.loading')
     : scopeEdit ? t('railCard.repositories.finishEditing')
     : validTicketIds.length === 0 ? t('railCard.block.noSpecs')
-    : repositoryBlockReason ? t('railCard.repositories.checkScope')
+    : repositoryBlockReason && !handOff ? t('railCard.repositories.checkScope')
     : railSelectorValue === '' ? t('railCard.block.railLimit', { max: MAX_RAILS })
     : null
 
@@ -391,11 +425,13 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   }
 
   const finalize = useCallback(async (decision: Omit<AgentMessageIntent, 'at'>) => {
-    const res = await patchAgentMessageIntent(conversationId, messageId, decision)
+    const res = handOff && !handOff.persist
+      ? { ok: false as const }
+      : await patchAgentMessageIntent(conversationId, messageId, decision)
     const stored: AgentMessageIntent = res.ok ? res.intent : { ...decision, at: new Date().toISOString() }
     recordLocalIntent(messageId, stored)
     if (mounted.current) setLocalIntent(stored)
-  }, [conversationId, messageId])
+  }, [conversationId, messageId, handOff])
 
   const play = useCallback(async () => {
     if (!projectId || blockReason || busy) return
@@ -432,6 +468,23 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         if (!r.ok) { setInlineError(await readError(r)); return }
       }
       const engineForRail = effectiveEngine && detectedProviders.length > 1 ? effectiveEngine : undefined
+      if (handOff) {
+        // The owner's route assigns its spec and launches its worktree.
+        const outcome = await handOff.launch({
+          railIndex, loopId: effectiveLoop,
+          ...(engineForRail ? { aiEngine: engineForRail } : {}),
+          ...(!rolesEngine && effectiveModel ? { model: effectiveModel } : {}),
+          ...(!rolesEngine && effectiveEffort ? { reasoningEffort: effectiveEffort } : {}),
+        })
+        if (!outcome.ok) { setInlineError({ error: outcome.error, detail: outcome.detail, action: outcome.action }); return }
+        notifyGitChanged(projectId)
+        await finalize({
+          kind: handOff.intentKind, proposalIndex, status: 'launched', railIndex, runIds: outcome.runIds,
+          prDeliveryId: outcome.prDeliveryId,
+          config: { ...(handOff.config ?? {}), loopId: effectiveLoop, ticketIds: validTicketIds, railName: wantsName || null },
+        })
+        return
+      }
       const r1 = await fetch(`${base}/${railIndex}/tickets`, {
         method: 'PUT', headers: json,
         body: JSON.stringify({ ticketIds: validTicketIds, mode, profileName: profilesApply ? effectiveProfile : null, ...(engineForRail ? { aiEngine: engineForRail } : {}) }),
@@ -471,14 +524,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     } finally {
       if (mounted.current) setBusy(null)
     }
-  }, [projectId, blockReason, busy, resolvedRailIndex, config, launchRepositoryIds, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize, t])
+  }, [projectId, blockReason, busy, resolvedRailIndex, config, launchRepositoryIds, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize, t, handOff])
 
   const dismiss = useCallback(async () => {
     if (busy) return
+    if (handOff) { handOff.onDismiss(); return }
     setBusy('dismiss')
     try { await finalize({ kind: 'rail-launch', proposalIndex, status: 'dismissed' }) }
     finally { if (mounted.current) setBusy(null) }
-  }, [busy, finalize, proposalIndex])
+  }, [busy, finalize, proposalIndex, handOff])
 
   // ── Frozen stubs ─────────────────────────────────────────────────────────────
   // "View run" = the run's JobDetailModal (the live log), scoped to the
@@ -579,7 +633,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
         <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
           <Rocket className="h-3 w-3" />
-          {t('railCard.heading')}
+          {handOff ? handOff.heading : t('railCard.heading')}
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/55">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
@@ -641,7 +695,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                 className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-accent-primary/35 bg-accent-primary/10 py-0.5 pl-2 pr-1 text-[11px] font-medium text-accent-primary"
               >
                 <span className="truncate">#{id}{tk ? ` ${tk.title}` : ''}</span>
-                <button
+                {!handOff && <button
                   type="button"
                   data-agent-interactive
                   aria-label={t('railCard.fields.removeSpec', { id })}
@@ -650,11 +704,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                   className="rounded-full p-0.5 text-accent-primary/60 hover:bg-accent-primary/20 hover:text-accent-primary"
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </button>}
               </span>
             )
           })}
-          {addableTickets.length > 0 && (
+          {!handOff && addableTickets.length > 0 && (
             <AgentToolbarSelector
               label={t('railCard.fields.addSpec')}
               icon={Plus}
@@ -667,7 +721,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             />
           )}
         </div>
-        {!loading && !loadError && projectId && (
+        {!handOff && !loading && !loadError && projectId && (
           <div className="space-y-2.5 rounded-lg border border-border/50 bg-surface/30 p-2.5" data-testid="rail-card-repositories">
             <RepositoryScopeSelector showSingle repositories={repositories} value={launchRepositoryIds} onChange={changeRepositories} disabled={!!busy || !!scopeEdit}
               label={t('railCard.repositories.launch')} hint={t('railCard.repositories.launchHint')} />
@@ -731,15 +785,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           {!rolesEngine && efforts.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.effort')} icon={Gauge} value={effectiveEffort ?? NO_EFFORT} options={effortOptions} disabled={!!busy} testId="rail-card-effort" onSelect={(v) => patch({ reasoningEffort: v === NO_EFFORT ? null : v })} />
           )}
-          {profilesApply && profiles.length > 0 && (
+          {!handOff && profilesApply && profiles.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.profile')} icon={UserCog} value={effectiveProfile ?? NO_PROFILE} options={profileOptions} disabled={!!busy} testId="rail-card-profile" onSelect={(v) => patch({ profileName: v === NO_PROFILE ? null : v })} />
           )}
         </div>
         {engineStale && <Note tone="muted" text={t('railCard.notes.engineStale', { engine: config.aiEngine, fallback: effectiveEngine ? providerLabel(effectiveEngine) : '' })} />}
         {modelStale && <Note tone="muted" text={t('railCard.notes.modelStale', { model: config.model, fallback: effectiveModel })} />}
 
-        {/* Delivery target (optional) */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        {/* Delivery target (optional) — fixed by a hand-off owner. */}
+        {!handOff && <div className="flex flex-wrap items-center gap-2 text-xs">
           <label className="inline-flex items-center gap-1 text-foreground/60">
             <GitPullRequest className="h-3.5 w-3.5 text-accent-primary/70" />
             <span className="sr-only">{t('railCard.fields.targetPr')}</span>
@@ -770,7 +824,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/35 focus:border-accent-primary/50"
             />
           </label>
-        </div>
+        </div>}
 
         {config.followUp && (
           <div data-testid="rail-card-follow-up" className="rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-2 text-xs">
@@ -834,7 +888,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             onClick={() => void dismiss()}
             className="rounded-md px-2 py-1 text-xs text-foreground/60 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
           >
-            {t('railCard.dismiss')}
+            {handOff ? handOff.dismissLabel : t('railCard.dismiss')}
           </button>
           <button
             type="button"
@@ -845,7 +899,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1 text-xs font-semibold text-white shadow transition-colors hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            {busy === 'launch' ? t('railCard.launching') : t('railCard.play')}
+            {busy === 'launch' ? t('railCard.launching') : handOff ? handOff.playLabel : t('railCard.play')}
           </button>
         </div>
       </div>

@@ -51,16 +51,38 @@ export interface AgentMessage {
  * Persisted decision on an agent-emitted card. `rail-launch`: the proposal at
  * `proposalIndex` (0-based order of ```rail-launch blocks in the message) was
  * launched (→ runIds / railIndex / the FINAL edited config) or dismissed.
+ * `flow-offer`: the Flow-or-Implement offer was accepted (`chosenMode`) or
+ * dismissed, with the agent's `recommendedMode`. `flow-hand-off`: the Flow of
+ * that offer was handed to a rail (the launch card's decision). Decisions are
+ * unique per (kind, proposalIndex).
  */
+export type AgentMessageIntentKind = 'rail-launch' | 'flow-offer' | 'flow-hand-off'
+export type AgentFlowMode = 'flow' | 'implement'
+
 export interface AgentMessageIntent {
-  kind: 'rail-launch'
+  kind: AgentMessageIntentKind
   proposalIndex: number
-  status: 'launched' | 'dismissed'
+  status: 'launched' | 'dismissed' | 'accepted'
   at: string
   railIndex?: number
   runIds?: string[]
   prDeliveryId?: string | null
   config?: Record<string, unknown>
+  recommendedMode?: AgentFlowMode | null
+  chosenMode?: AgentFlowMode | null
+}
+
+const INTENT_KINDS: ReadonlySet<string> = new Set<AgentMessageIntentKind>(['rail-launch', 'flow-offer', 'flow-hand-off'])
+const INTENT_STATUSES: ReadonlySet<string> = new Set(['launched', 'dismissed', 'accepted'])
+
+/** Legal statuses per card kind (an offer is accepted, a launch is launched). */
+export function isIntentStatusFor(kind: AgentMessageIntentKind, status: unknown): status is AgentMessageIntent['status'] {
+  if (kind === 'flow-offer') return status === 'accepted' || status === 'dismissed'
+  return status === 'launched' || status === 'dismissed'
+}
+
+export function isAgentMessageIntentKind(kind: unknown): kind is AgentMessageIntentKind {
+  return typeof kind === 'string' && INTENT_KINDS.has(kind)
 }
 
 export interface AgentMessageContextRef {
@@ -131,7 +153,7 @@ function mapMessage(row: AgentMessageRaw): AgentMessage {
 function isIntent(v: unknown): v is AgentMessageIntent {
   if (!v || typeof v !== 'object') return false
   const o = v as Record<string, unknown>
-  return o.kind === 'rail-launch' && typeof o.proposalIndex === 'number' && (o.status === 'launched' || o.status === 'dismissed')
+  return isAgentMessageIntentKind(o.kind) && typeof o.proposalIndex === 'number' && typeof o.status === 'string' && INTENT_STATUSES.has(o.status)
 }
 
 /** The column holds a JSON ARRAY (one decision per proposal index); a legacy
@@ -149,7 +171,7 @@ function parseIntents(raw: string | null | undefined): AgentMessageIntent[] {
 
 /**
  * Persist a card decision on a message (mission-rail-cards). APPENDS to the
- * message's decisions; refuses a second decision for the SAME proposal index (a decision is
+ * message's decisions; refuses a second decision for the SAME kind and proposal index (a decision is
  * final) — returns `{ ok: false, reason: 'already_decided' }` so the router
  * answers 409. Does NOT bump conversation activity.
  */
@@ -161,7 +183,7 @@ export function setAgentMessageIntent(
   const row = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw | undefined
   if (!row) return { ok: false, reason: 'not_found' }
   const current = parseIntents(row.intent)
-  if (current.some((i) => i.proposalIndex === intent.proposalIndex)) return { ok: false, reason: 'already_decided' }
+  if (current.some((i) => i.kind === intent.kind && i.proposalIndex === intent.proposalIndex)) return { ok: false, reason: 'already_decided' }
   db.prepare('UPDATE agent_messages SET intent = ? WHERE id = ?').run(JSON.stringify([...current, intent]), messageId)
   const updated = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw
   return { ok: true, message: mapMessage(updated) }

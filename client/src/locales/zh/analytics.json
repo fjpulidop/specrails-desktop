@@ -11,7 +11,8 @@
     "specLauncher": "规格启动器",
     "proposal": "提案",
     "agentStudio": "Agent Studio",
-    "setup": "设置"
+    "setup": "设置",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7天",
@@ -211,7 +212,8 @@
     "vsPrev": "对比上一周期",
     "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
     "untitled": "未命名任务",
-    "estimatedNote": "包含估算成本"
+    "estimatedNote": "包含估算成本",
+    "flowShare": "其中 Flow：{{cost}} · {{turns}} 轮"
   },
   "legacyUsage": {
     "title": "旧版工作流使用情况",

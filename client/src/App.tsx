@@ -71,6 +71,7 @@ import { AgentBrowserCaptureHost } from './features/missions/components/AgentBro
 import { RailMetricsProvider } from './features/rails/context/RailMetricsContext'
 import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
+import { FlowMissionsBridge } from './features/flow/components/FlowMissionsBridge'
 import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
 import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
 import { TicketDetailModalProvider } from './features/specs/context/TicketDetailModalContext'
@@ -739,6 +740,8 @@ export default function App() {
                           context — its composer must adopt browser captures. */}
                       <AgentWorkspaceProvider>
                       <MissionWindowsProvider secondary={secondary}>
+                      {/* Flow mode plugs into missions through their extension seam. */}
+                      <FlowMissionsBridge>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <TicketDetailModalProvider>
@@ -752,6 +755,7 @@ export default function App() {
                         </TicketDetailModalProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </FlowMissionsBridge>
                       </MissionWindowsProvider>
                       </AgentWorkspaceProvider>
                     </MinimizedChatsProvider>

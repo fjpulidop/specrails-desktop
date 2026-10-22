@@ -89,7 +89,9 @@
     "repositoryUnavailable": "Repository nicht verfügbar",
     "loadFailed": "Git-Status nicht verfügbar",
     "notGit": "Kontextordner · ohne Git",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "copyBranch": "Branch-Namen kopieren",
+    "branchCopied": "Branch-Name kopiert"
   },
   "provider": {
     "label": "Anbieter",
@@ -652,6 +654,13 @@
       "invalid_response": "Unerwartete Antwort vom Server.",
       "scope_save_failed": "Die Repositories der Spec konnten nicht gespeichert werden.",
       "repository_scope_incomplete": "Für den Start fehlt ein von den Specs benötigtes Repository. Prüfen Sie die Zuweisungen oben.",
+      "rail_not_empty": "Diese Rail hat bereits Specs",
+      "flow_freeze_failed": "Der Flow-Worktree konnte nicht gesichert werden",
+      "flow_head_mismatch": "Der Flow-Worktree hat sich während der Übergabe geändert",
+      "flow_already_handed_off": "Dieser Flow wurde bereits übergeben",
+      "flow_handoff_not_adopted": "Die Rail hat den Flow-Worktree nicht übernommen",
+      "illegal_transition": "Der Flow hat zwischenzeitlich den Zustand gewechselt",
+      "feature_unavailable": "Flow ist nicht verfügbar",
       "daily_budget_exceeded": "Tagesbudget erreicht – es wurde nichts gestartet.",
       "review_wip_limit_reached": "Review-Limit erreicht – es wurde nichts gestartet."
     },
@@ -843,6 +852,133 @@
     "subagents": {
       "delegation_unsupported": "{{provider}}-Sub-Agenten benötigen einen neueren Specrails Core, daher startet der Agent dieser Mission seine eigenen Sub-Agenten.",
       "driver_unavailable": "{{provider}} ist für die Sitzungs-Runtime nicht verfügbar, daher startet der Agent dieser Mission seine eigenen Sub-Agenten."
+    }
+  },
+  "cardPending": "Karte wird vorbereitet…",
+  "interrupt": {
+    "placeholder": "Tippen zum Unterbrechen – der Agent ändert sofort den Kurs",
+    "send": "Unterbrechen und senden",
+    "sendHint": "Stoppt den aktuellen Schritt und gibt dem Agenten jetzt deine Nachricht"
+  },
+  "flow": {
+    "gitLabel": "Flow-Worktree",
+    "missing": {
+      "sessions": "Core-Agentensitzungen sind deaktiviert oder nicht verfügbar",
+      "flowSessions": "Dein Specrails Core kann einen laufenden Agenten noch nicht unterbrechen",
+      "deriveChange": "Dein Specrails Core kann noch keine Spec aus Code ableiten"
+    },
+    "errors": {
+      "generic": "Flow konnte diese Aktion nicht abschließen. Versuche es erneut.",
+      "network": "Specrails ist nicht erreichbar.",
+      "feature_unavailable": "Flow ist mit dem installierten Specrails Core nicht verfügbar.",
+      "flow_already_open": "Diese Mission hat bereits einen Flow. Setze ihn fort oder verwirf ihn zuerst.",
+      "illegal_transition": "Der Flow hat zwischenzeitlich den Zustand gewechselt. Aktualisiere und versuche es erneut.",
+      "flow_worktree_missing": "Der Flow-Worktree existiert nicht mehr. Prüfe ihn, bevor du fortfährst.",
+      "rail_not_empty": "Diese Rail hat bereits Specs. Wähle eine freie, leere Rail.",
+      "flow_already_handed_off": "Dieser Flow wurde bereits an eine Rail übergeben.",
+      "flow_freeze_failed": "Der Flow-Worktree konnte für die Übergabe nicht gesichert werden.",
+      "flow_head_mismatch": "Der Worktree hat sich während der Übergabe geändert. Versuche es erneut.",
+      "flow_handoff_not_adopted": "Die Rail ist gestartet, ohne den Flow-Worktree zu übernehmen."
+    },
+    "entry": {
+      "heading": "Flow starten",
+      "body": "Specrails erstellt einen isolierten Worktree, in dem der Agent Code schreiben kann. Dein Hauptbranch bleibt unberührt.",
+      "provider": "Der Agent arbeitet mit {{provider}} und schreibt nur im Worktree.",
+      "providerUnknown": "Der Agent schreibt nur im Worktree.",
+      "blocked": {
+        "noProject": "Hefte diese Mission an ein Projekt, um Flow zu nutzen.",
+        "open": "Diese Mission hat bereits einen Flow.",
+        "missing": "Flow braucht einen neueren Specrails Core:",
+        "unavailable": "Flow ist gerade nicht verfügbar."
+      },
+      "cancel": "Abbrechen",
+      "start": "Flow starten",
+      "starting": "Startet…"
+    },
+    "offer": {
+      "heading": "Wie möchtest du es bauen?",
+      "recommended": "Empfohlen",
+      "notNow": "Nicht jetzt",
+      "implementReply": "Lass uns zuerst die Spec schreiben und dann Implement starten.",
+      "mode": {
+        "flow": {
+          "title": "Flow",
+          "hint": "Gemeinsam in einem isolierten Worktree bauen; die Spec kommt am Ende."
+        },
+        "implement": {
+          "title": "Spec + Implement",
+          "hint": "Zuerst eine Spec vereinbaren, dann an eine Rail delegieren."
+        }
+      },
+      "stub": {
+        "flow": "Du hast Flow gewählt",
+        "implement": "Du hast Spec + Implement gewählt",
+        "dismissed": "Angebot verworfen",
+        "handedOff": "Flow an Rail {{rail}} übergeben",
+        "overrode": "empfohlen: {{mode}}",
+        "state": {
+          "active": "Flow läuft",
+          "paused": "Flow pausiert",
+          "handed_off": "Flow an eine Rail übergeben",
+          "delivered": "Flow ausgeliefert",
+          "discarded": "Flow verworfen",
+          "needs-review": "Flow muss geprüft werden"
+        }
+      }
+    },
+    "bar": {
+      "label": "Flow-Steuerung",
+      "controls": "Flow-Aktionen",
+      "viewChanges": "Änderungen ansehen",
+      "resume": "Flow fortsetzen",
+      "pause": "Pausieren",
+      "discard": "Verwerfen",
+      "thisIsIt": "Das ist es",
+      "discarded": "Flow verworfen",
+      "files_one": "{{count}} Datei",
+      "files_other": "{{count}} Dateien",
+      "filesTitle": "Geänderte Dateien im Flow-Worktree",
+      "costTitle": "Echte Kosten der Turns dieses Flows, wie vom Anbieter abgerechnet",
+      "costPartial_one": "{{count}} Turn hat keine vom Anbieter gemeldeten Kosten und ist nicht enthalten",
+      "costPartial_other": "{{count}} Turns haben keine vom Anbieter gemeldeten Kosten und sind nicht enthalten",
+      "needsReview": "Der Flow-Worktree fehlt. Es wurde nichts gelöscht; prüfe den Branch, bevor du fortfährst.",
+      "pausedNote": "Pausiert. Worktree und Spec bleiben erhalten; setze fort, wann du willst.",
+      "state": {
+        "active": "Flow",
+        "paused": "Flow pausiert",
+        "needs-review": "Flow muss geprüft werden",
+        "handed_off": "Übergeben",
+        "delivered": "Ausgeliefert",
+        "discarded": "Verworfen"
+      }
+    },
+    "discard": {
+      "title": "Diesen Flow verwerfen?",
+      "body": "Worktree, Branch und vorläufige Spec werden gelöscht. Das lässt sich nicht rückgängig machen.",
+      "cancel": "Flow behalten",
+      "confirm": "Flow verwerfen"
+    },
+    "changes": {
+      "title": "Flow-Änderungen",
+      "subtitle": "Branch {{branch}} im Vergleich zu seinem Ausgangspunkt",
+      "subtitleNoBranch": "Änderungen im Vergleich zum Startpunkt des Flows",
+      "refresh": "Aktualisieren",
+      "loadFailed": "Änderungen konnten nicht geladen werden.",
+      "empty": "Noch keine Änderungen.",
+      "status": {
+        "added": "Hinzugefügt",
+        "modified": "Geändert",
+        "deleted": "Gelöscht",
+        "renamed": "Umbenannt",
+        "untracked": "Neu, nicht verfolgt"
+      }
+    },
+    "handOff": {
+      "heading": "Flow → Spec",
+      "rationale": "Eine Rail übernimmt den Flow-Worktree, leitet die Spec ab und führt Verifikation und Review aus.",
+      "loop": "Flow → Spec",
+      "launch": "Starten",
+      "notYet": "Noch nicht"
     }
   }
 }

@@ -89,7 +89,9 @@
     "repositoryUnavailable": "リポジトリを利用できません",
     "loadFailed": "Git の状態を取得できません",
     "notGit": "コンテキストフォルダー · Git なし",
-    "retry": "再試行"
+    "retry": "再試行",
+    "copyBranch": "ブランチ名をコピー",
+    "branchCopied": "ブランチ名をコピーしました"
   },
   "provider": {
     "label": "プロバイダー",
@@ -652,6 +654,13 @@
       "invalid_response": "サーバーから予期しない応答がありました。",
       "scope_save_failed": "仕様のリポジトリを保存できませんでした。",
       "repository_scope_incomplete": "実行には仕様で必要なリポジトリが不足しています。上の割り当てを確認してください。",
+      "rail_not_empty": "そのレールにはすでに spec があります",
+      "flow_freeze_failed": "Flow の worktree を保存できませんでした",
+      "flow_head_mismatch": "引き渡し中に Flow の worktree が変わりました",
+      "flow_already_handed_off": "この Flow はすでに引き渡されています",
+      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継ぎませんでした",
+      "illegal_transition": "その間に Flow の状態が変わりました",
+      "feature_unavailable": "Flow は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました — 何も起動していません。",
       "review_wip_limit_reached": "レビュー上限に達しました — 何も起動していません。"
     },
@@ -843,6 +852,133 @@
     "subagents": {
       "delegation_unsupported": "{{provider}} のサブエージェントには新しい Specrails Core が必要なため、このミッションのエージェントが自身のサブエージェントを起動します。",
       "driver_unavailable": "{{provider}} はセッションランタイムで利用できないため、このミッションのエージェントが自身のサブエージェントを起動します。"
+    }
+  },
+  "cardPending": "カードを準備しています…",
+  "interrupt": {
+    "placeholder": "入力して割り込み — エージェントはすぐに方向を変えます",
+    "send": "割り込んで送信",
+    "sendHint": "現在のステップを止めて、すぐにメッセージをエージェントに渡します"
+  },
+  "flow": {
+    "gitLabel": "Flow worktree",
+    "missing": {
+      "sessions": "Core のエージェントセッションが無効か利用できません",
+      "flowSessions": "お使いの Specrails Core は実行中のエージェントにまだ割り込めません",
+      "deriveChange": "お使いの Specrails Core はコードから spec をまだ導出できません"
+    },
+    "errors": {
+      "generic": "Flow はその操作を完了できませんでした。もう一度お試しください。",
+      "network": "Specrails に接続できませんでした。",
+      "feature_unavailable": "インストール済みの Specrails Core では Flow を利用できません。",
+      "flow_already_open": "このミッションにはすでに Flow があります。先に再開するか破棄してください。",
+      "illegal_transition": "その間に Flow の状態が変わりました。更新してもう一度お試しください。",
+      "flow_worktree_missing": "Flow の worktree がもう存在しません。続ける前に確認してください。",
+      "rail_not_empty": "そのレールにはすでに spec があります。空いている空のレールを選んでください。",
+      "flow_already_handed_off": "この Flow はすでにレールに引き渡されています。",
+      "flow_freeze_failed": "引き渡しのために Flow の worktree を保存できませんでした。",
+      "flow_head_mismatch": "引き渡し中に worktree が変わりました。もう一度お試しください。",
+      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継がずに開始しました。"
+    },
+    "entry": {
+      "heading": "Flow を開始",
+      "body": "Specrails はエージェントがコードを書ける分離された worktree を作成します。メインブランチには触れません。",
+      "provider": "エージェントは {{provider}} で作業し、worktree の中にだけ書き込みます。",
+      "providerUnknown": "エージェントは worktree の中にだけ書き込みます。",
+      "blocked": {
+        "noProject": "Flow を使うには、このミッションをプロジェクトに固定してください。",
+        "open": "このミッションにはすでに Flow があります。",
+        "missing": "Flow には新しい Specrails Core が必要です:",
+        "unavailable": "現在 Flow は利用できません。"
+      },
+      "cancel": "キャンセル",
+      "start": "Flow を開始",
+      "starting": "開始しています…"
+    },
+    "offer": {
+      "heading": "どのように作りますか?",
+      "recommended": "おすすめ",
+      "notNow": "今はしない",
+      "implementReply": "まず spec を書いてから Implement を実行しましょう。",
+      "mode": {
+        "flow": {
+          "title": "Flow",
+          "hint": "分離された worktree でエージェントと一緒に作り、spec は最後に作ります。"
+        },
+        "implement": {
+          "title": "Spec + Implement",
+          "hint": "まず spec を合意し、それからレールに任せます。"
+        }
+      },
+      "stub": {
+        "flow": "Flow を選びました",
+        "implement": "Spec + Implement を選びました",
+        "dismissed": "提案を閉じました",
+        "handedOff": "Flow をレール {{rail}} に引き渡しました",
+        "overrode": "おすすめ: {{mode}}",
+        "state": {
+          "active": "Flow 進行中",
+          "paused": "Flow 一時停止中",
+          "handed_off": "Flow をレールに引き渡し済み",
+          "delivered": "Flow 完了",
+          "discarded": "Flow 破棄済み",
+          "needs-review": "Flow の確認が必要です"
+        }
+      }
+    },
+    "bar": {
+      "label": "Flow の操作",
+      "controls": "Flow のアクション",
+      "viewChanges": "変更を表示",
+      "resume": "Flow を再開",
+      "pause": "一時停止",
+      "discard": "破棄",
+      "thisIsIt": "これで決まり",
+      "discarded": "Flow を破棄しました",
+      "files_one": "{{count}} ファイル",
+      "files_other": "{{count}} ファイル",
+      "filesTitle": "Flow の worktree で変更されたファイル",
+      "costTitle": "この Flow のターンの実費（プロバイダーの請求額）",
+      "costPartial_one": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
+      "costPartial_other": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
+      "needsReview": "Flow の worktree が見つかりません。何も削除していません。続ける前にブランチを確認してください。",
+      "pausedNote": "一時停止中です。worktree と spec は保持されます。いつでも再開できます。",
+      "state": {
+        "active": "Flow",
+        "paused": "Flow 一時停止中",
+        "needs-review": "Flow の確認が必要です",
+        "handed_off": "引き渡し済み",
+        "delivered": "完了",
+        "discarded": "破棄済み"
+      }
+    },
+    "discard": {
+      "title": "この Flow を破棄しますか?",
+      "body": "worktree、そのブランチ、仮の spec が削除されます。元に戻せません。",
+      "cancel": "Flow を残す",
+      "confirm": "Flow を破棄"
+    },
+    "changes": {
+      "title": "Flow の変更",
+      "subtitle": "ブランチ {{branch}} を開始時点と比較",
+      "subtitleNoBranch": "Flow の開始時点と比較した変更",
+      "refresh": "更新",
+      "loadFailed": "変更を読み込めませんでした。",
+      "empty": "まだ変更はありません。",
+      "status": {
+        "added": "追加",
+        "modified": "変更",
+        "deleted": "削除",
+        "renamed": "名前変更",
+        "untracked": "新規（未追跡）"
+      }
+    },
+    "handOff": {
+      "heading": "Flow → Spec",
+      "rationale": "レールが Flow の worktree を引き継ぎ、spec を導出して検証とレビューを実行します。",
+      "loop": "Flow → Spec",
+      "launch": "起動",
+      "notYet": "まだ"
     }
   }
 }

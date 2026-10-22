@@ -233,6 +233,26 @@ describe('missions FlowTurnContext binding', () => {
     flows.set('proj-1', null)
     expect(context.forConversation('conv-1')).toBeNull()
   })
+
+  it('offers Flow only when available, pinned and no Flow is open in the conversation', async () => {
+    let available = true
+    const flows = new Map<string, ReturnType<typeof session> | null>([['proj-1', null]])
+    const context = createFlowTurnContext({
+      conversationProject: (id) => (id === 'unpinned' ? null : 'proj-1'),
+      flowServiceFor: () => ({ getByConversation: () => flows.get('proj-1') ?? null }),
+      availability: async () => ({ available }),
+    })
+    expect(await context.offerable!('conv-1')).toBe(true)
+    expect(await context.offerable!('unpinned')).toBe(false)
+    flows.set('proj-1', session({ state: 'paused' }))
+    expect(await context.offerable!('conv-1')).toBe(false)
+    flows.set('proj-1', session({ state: 'handed_off' }))
+    expect(await context.offerable!('conv-1')).toBe(true)
+    available = false
+    expect(await context.offerable!('conv-1')).toBe(false)
+    const noGate = createFlowTurnContext({ conversationProject: () => 'proj-1', flowServiceFor: () => ({ getByConversation: () => null }) })
+    expect(await noGate.offerable!('conv-1')).toBe(false)
+  })
 })
 
 describe('settlement publication bindings', () => {

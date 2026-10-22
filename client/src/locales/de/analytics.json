@@ -11,7 +11,8 @@
     "specLauncher": "Spec-Starter",
     "proposal": "Vorschlag",
     "agentStudio": "Agent Studio",
-    "setup": "Einrichtung"
+    "setup": "Einrichtung",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7d",
@@ -211,7 +212,8 @@
     "vsPrev": "ggü. Vorperiode",
     "turnsAndTokens": "{{turns}} Züge · {{tokens}} Tokens",
     "untitled": "Unbenannte Mission",
-    "estimatedNote": "Enthält geschätzte Kosten"
+    "estimatedNote": "Enthält geschätzte Kosten",
+    "flowShare": "Davon Flow: {{cost}} · {{turns}} Turns"
   },
   "legacyUsage": {
     "title": "Nutzung älterer Workflows",

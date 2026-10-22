@@ -455,6 +455,15 @@ export interface LocalTicket {
     area?: string
     /** Escaped-defect link: id of the delivery that introduced this bug. */
     regressionOf?: string
+    /** Flow mode: the placeholder spec of a Flow. `active`/`paused` show the
+     *  board's "In Flow" label; `delivered` hides it. */
+    flow?: {
+      conversationId?: string
+      flowId?: string
+      state?: 'active' | 'paused' | 'delivered'
+      startedAt?: string
+      chosenMode?: 'flow' | 'implement'
+    }
   }
   attachments?: Attachment[]
   origin_conversation_id?: string | null
@@ -466,7 +475,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder'
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */

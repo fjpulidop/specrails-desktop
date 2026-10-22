@@ -11,7 +11,8 @@
     "specLauncher": "スペックランチャー",
     "proposal": "提案",
     "agentStudio": "エージェントスタジオ",
-    "setup": "セットアップ"
+    "setup": "セットアップ",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7日",
@@ -211,7 +212,8 @@
     "vsPrev": "前期間比",
     "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
     "untitled": "無題のミッション",
-    "estimatedNote": "推定コストを含む"
+    "estimatedNote": "推定コストを含む",
+    "flowShare": "うち Flow: {{cost}} · {{turns}} ターン"
   },
   "legacyUsage": {
     "title": "従来のワークフローの使用状況",

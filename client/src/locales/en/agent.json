@@ -89,7 +89,9 @@
     "repositoryUnavailable": "Repository unavailable",
     "loadFailed": "Git state unavailable",
     "notGit": "Context folder · no Git",
-    "retry": "Retry"
+    "retry": "Retry",
+    "copyBranch": "Copy branch name",
+    "branchCopied": "Branch name copied"
   },
   "provider": {
     "label": "Provider",
@@ -652,6 +654,13 @@
       "invalid_response": "Unexpected server response.",
       "scope_save_failed": "Could not save the spec's repositories.",
       "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above.",
+      "rail_not_empty": "That rail already has specs",
+      "flow_freeze_failed": "The Flow worktree could not be saved",
+      "flow_head_mismatch": "The Flow worktree changed during the hand-off",
+      "flow_already_handed_off": "This Flow was already handed off",
+      "flow_handoff_not_adopted": "The rail did not take over the Flow worktree",
+      "illegal_transition": "The Flow changed state meanwhile",
+      "feature_unavailable": "Flow is not available",
       "daily_budget_exceeded": "Daily budget reached — nothing was launched.",
       "review_wip_limit_reached": "Review limit reached — nothing was launched."
     },
@@ -843,6 +852,133 @@
     "subagents": {
       "delegation_unsupported": "{{provider}} sub-agents need a newer Specrails Core, so this mission's agent launches its own sub-agents.",
       "driver_unavailable": "{{provider}} is not available to the agent session runtime, so this mission's agent launches its own sub-agents."
+    }
+  },
+  "cardPending": "Preparing a card…",
+  "interrupt": {
+    "placeholder": "Type to interrupt — the agent changes course right away",
+    "send": "Interrupt and send",
+    "sendHint": "Stops the current step and gives the agent your message now"
+  },
+  "flow": {
+    "gitLabel": "Flow worktree",
+    "missing": {
+      "sessions": "Core agent sessions are turned off or unavailable",
+      "flowSessions": "Your Specrails Core cannot interrupt a running agent yet",
+      "deriveChange": "Your Specrails Core cannot derive a spec from code yet"
+    },
+    "errors": {
+      "generic": "Flow could not complete that action. Try again.",
+      "network": "Specrails could not be reached.",
+      "feature_unavailable": "Flow is not available with the installed Specrails Core.",
+      "flow_already_open": "This mission already has a Flow. Resume or discard it first.",
+      "illegal_transition": "The Flow changed state meanwhile. Refresh and try again.",
+      "flow_worktree_missing": "The Flow worktree no longer exists. Review it before continuing.",
+      "rail_not_empty": "That rail already has specs. Pick a free, empty rail.",
+      "flow_already_handed_off": "This Flow was already handed to a rail.",
+      "flow_freeze_failed": "The Flow worktree could not be saved for the hand-off.",
+      "flow_head_mismatch": "The worktree changed during the hand-off. Try again.",
+      "flow_handoff_not_adopted": "The rail started without taking over the Flow worktree."
+    },
+    "entry": {
+      "heading": "Start a Flow",
+      "body": "Specrails will create an isolated worktree where the agent can write code. Your main branch is not touched.",
+      "provider": "The agent works with {{provider}} and writes only inside the worktree.",
+      "providerUnknown": "The agent writes only inside the worktree.",
+      "blocked": {
+        "noProject": "Pin this mission to a project to use Flow.",
+        "open": "This mission already has a Flow.",
+        "missing": "Flow needs a newer Specrails Core:",
+        "unavailable": "Flow is not available right now."
+      },
+      "cancel": "Cancel",
+      "start": "Start Flow",
+      "starting": "Starting…"
+    },
+    "offer": {
+      "heading": "How do you want to build it?",
+      "recommended": "Recommended",
+      "notNow": "Not now",
+      "implementReply": "Let's write the spec first and run Implement.",
+      "mode": {
+        "flow": {
+          "title": "Flow",
+          "hint": "Build it together in an isolated worktree; the spec comes at the end."
+        },
+        "implement": {
+          "title": "Spec + Implement",
+          "hint": "Agree on a spec first, then delegate it to a rail."
+        }
+      },
+      "stub": {
+        "flow": "You chose Flow",
+        "implement": "You chose spec + Implement",
+        "dismissed": "Offer dismissed",
+        "handedOff": "Flow handed off to Rail {{rail}}",
+        "overrode": "recommended: {{mode}}",
+        "state": {
+          "active": "Flow in progress",
+          "paused": "Flow paused",
+          "handed_off": "Flow handed off to a rail",
+          "delivered": "Flow delivered",
+          "discarded": "Flow discarded",
+          "needs-review": "Flow needs review"
+        }
+      }
+    },
+    "bar": {
+      "label": "Flow controls",
+      "controls": "Flow actions",
+      "viewChanges": "View changes",
+      "resume": "Resume Flow",
+      "pause": "Pause",
+      "discard": "Discard",
+      "thisIsIt": "This is it",
+      "discarded": "Flow discarded",
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "filesTitle": "Files changed in the Flow worktree",
+      "costTitle": "Real cost of this Flow's turns, as billed by the provider",
+      "costPartial_one": "{{count}} turn has no provider-reported cost and is not included",
+      "costPartial_other": "{{count}} turns have no provider-reported cost and are not included",
+      "needsReview": "The Flow worktree is missing. Nothing was deleted; check the branch before continuing.",
+      "pausedNote": "Paused. The worktree and the spec are kept; resume whenever you like.",
+      "state": {
+        "active": "Flow",
+        "paused": "Flow paused",
+        "needs-review": "Flow needs review",
+        "handed_off": "Handed off",
+        "delivered": "Delivered",
+        "discarded": "Discarded"
+      }
+    },
+    "discard": {
+      "title": "Discard this Flow?",
+      "body": "The worktree, its branch and the placeholder spec are deleted. This cannot be undone.",
+      "cancel": "Keep Flow",
+      "confirm": "Discard Flow"
+    },
+    "changes": {
+      "title": "Flow changes",
+      "subtitle": "Branch {{branch}} compared with where it started",
+      "subtitleNoBranch": "Changes compared with where the Flow started",
+      "refresh": "Refresh",
+      "loadFailed": "Changes could not be loaded.",
+      "empty": "No changes yet.",
+      "status": {
+        "added": "Added",
+        "modified": "Modified",
+        "deleted": "Deleted",
+        "renamed": "Renamed",
+        "untracked": "New, not tracked"
+      }
+    },
+    "handOff": {
+      "heading": "Flow → Spec",
+      "rationale": "A rail takes over the Flow worktree, derives the spec and runs verification and review.",
+      "loop": "Flow → Spec",
+      "launch": "Launch",
+      "notYet": "Not yet"
     }
   }
 }

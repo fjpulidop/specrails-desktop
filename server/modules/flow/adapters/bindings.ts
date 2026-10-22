@@ -422,8 +422,19 @@ export function createFlowHandOffAuthority(
 export function createFlowTurnContext(deps: {
   conversationProject: (conversationId: string) => string | null
   flowServiceFor: (projectId: string) => Pick<FlowService, 'getByConversation'> | null
+  /** Core capability gate (flowSessions + deriveChange); absent ⇒ never offerable. */
+  availability?: () => Promise<{ available: boolean }>
 }): FlowTurnContext {
   return {
+    async offerable(conversationId) {
+      const projectId = deps.conversationProject(conversationId)
+      if (!projectId || !deps.availability) return false
+      const service = deps.flowServiceFor(projectId)
+      if (!service) return false
+      const open = service.getByConversation(conversationId)
+      if (open && (open.state === 'active' || open.state === 'paused')) return false
+      return (await deps.availability()).available
+    },
     forConversation(conversationId) {
       const projectId = deps.conversationProject(conversationId)
       if (!projectId) return null

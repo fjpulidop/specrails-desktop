@@ -47,7 +47,7 @@ import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
 import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
 import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
-import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import { coreSessionsAvailability, flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import { getAdapter, listAdapters } from './providers/registry'
 import { providerEnvAllowlist } from './providers/runtime'
 import { projectAgentSourceEnv } from './project-env'
@@ -779,6 +779,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   agentChatManager.setFlowTurnContext(createFlowTurnContext({
     conversationProject: (conversationId) => getAgentConversation(registry.desktopDb, conversationId)?.pinned_project_id ?? null,
     flowServiceFor: (projectId) => registry.getContext(projectId)?.flow ?? null,
+    availability: () => flowAvailability(),
   }))
   registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
   registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })

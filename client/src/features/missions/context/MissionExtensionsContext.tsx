@@ -1,0 +1,88 @@
+// ─── Mission extensions (composition seam) ────────────────────────────────────
+// Features that build ON TOP of missions (Flow mode today) must not be imported
+// by missions. Instead missions exposes this extension point and the
+// application composition root (App.tsx) provides the implementation:
+//
+//   - fenceCards: renderers for extra fenced protocol blocks in assistant
+//     messages (e.g. ```flow-offer). Missions strips the block and renders the
+//     registered card in its place; unknown tags stay plain markdown.
+//   - useConversationMode: a hook returning the visual/behavioural mode of a
+//     conversation (surface data-attributes, the branch the git strip shows,
+//     whether a busy send interrupts the running turn).
+//   - ConversationDock: a component rendered above the composer (sticky bars
+//     and pinned cards owned by the extension).
+//
+// The value must be STABLE for the app's lifetime (useConversationMode is
+// called as a hook). Without a provider every slot is inert and missions
+// behave exactly as before.
+
+import { createContext, useContext, type ComponentType, type ReactNode } from 'react'
+import type { AgentMessageIntent } from '../lib/agent-api'
+
+export interface MissionFenceCardProps {
+  /** The fence tag the card was registered for. */
+  tag: string
+  /** Parsed JSON body of the block (null when the body is not valid JSON). */
+  payload: unknown
+  /** 0-based order of this tag's blocks inside the message. */
+  index: number
+  messageId: string | null
+  conversationId: string | null
+  /** The mission's pinned project (null in Home). */
+  projectId: string | null
+  /** Persisted card decisions on the message row. */
+  intents: readonly AgentMessageIntent[] | null
+  /** Newest message of the thread. */
+  isLatest: boolean
+  /** A turn is in flight in this conversation. */
+  isStreaming: boolean
+  /** Sends a user reply (the composer's send). */
+  onSend?: (text: string) => void
+}
+
+export interface MissionConversationMode {
+  /** `data-*` attributes applied to the conversation surface (theme hooks). */
+  attributes?: Readonly<Record<`data-${string}`, string>>
+  /** Replaces the git strip with a read-only branch (e.g. a Flow worktree). */
+  gitBranch?: { branch: string; label: string } | null
+  /** While a turn runs, a send interrupts it instead of queueing. */
+  interruptWhileBusy?: boolean
+}
+
+export interface MissionConversationSlotProps {
+  conversationId: string
+  projectId: string | null
+  inline: boolean
+}
+
+export interface MissionExtensions {
+  fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
+  useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
+  ConversationDock?: ComponentType<MissionConversationSlotProps>
+}
+
+const NONE: MissionExtensions = Object.freeze({})
+const MissionExtensionsContext = createContext<MissionExtensions>(NONE)
+
+export function MissionExtensionsProvider({ value, children }: { value: MissionExtensions; children: ReactNode }) {
+  return <MissionExtensionsContext.Provider value={value}>{children}</MissionExtensionsContext.Provider>
+}
+
+export function useMissionExtensions(): MissionExtensions {
+  return useContext(MissionExtensionsContext)
+}
+
+function useNoMode(): MissionConversationMode | null {
+  return null
+}
+
+/** The extension-provided mode of a conversation (null without an extension). */
+export function useMissionConversationMode(conversationId: string | null, projectId: string | null): MissionConversationMode | null {
+  const useMode = useMissionExtensions().useConversationMode ?? useNoMode
+  return useMode(conversationId, projectId)
+}
+
+/** Registered extension fence tags, stable order. */
+export function extensionFenceTags(extensions: MissionExtensions): string[] {
+  return Object.keys(extensions.fenceCards ?? {}).sort()
+}

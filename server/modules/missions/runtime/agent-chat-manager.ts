@@ -198,6 +198,16 @@ export class AgentChatManager {
     }
   }
 
+  /** Whether this turn may offer Flow (never throws into a turn). */
+  private async _flowOfferable(conversationId: string): Promise<boolean> {
+    if (!this._flowTurns?.offerable) return false
+    try {
+      return await this._flowTurns.offerable(conversationId)
+    } catch {
+      return false
+    }
+  }
+
   /** True while the conversation runs in Flow (mid-turn input interrupts). */
   isFlowActive(conversationId: string): boolean {
     return this._flowTurn(conversationId) !== null
@@ -636,7 +646,9 @@ export class AgentChatManager {
     const localProtocolNote = isLocalAdapterId(adapter.id)
       ? ' | Protocol: fenced protocol blocks MUST be tagged exactly problem-frame, spec-draft or options (never json); never ask the user to type #noframe'
       : ''
-    const flowNote = flowTurn ? ` | Flow: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)` : ''
+    const flowNote = flowTurn
+      ? ` | Flow: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)`
+      : await this._flowOfferable(conversationId) ? ' | Flow: offerable' : ''
     const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}${flowNote}`
     const contextPrefix = conversation.pinned_project_id
       ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`

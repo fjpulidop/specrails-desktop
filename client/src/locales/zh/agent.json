@@ -89,7 +89,9 @@
     "repositoryUnavailable": "仓库不可用",
     "loadFailed": "Git 状态不可用",
     "notGit": "上下文文件夹 · 无 Git",
-    "retry": "重试"
+    "retry": "重试",
+    "copyBranch": "复制分支名",
+    "branchCopied": "已复制分支名"
   },
   "provider": {
     "label": "提供方",
@@ -652,6 +654,13 @@
       "invalid_response": "服务器返回了意外的响应。",
       "scope_save_failed": "无法保存规格的仓库。",
       "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。",
+      "rail_not_empty": "该轨道已有 spec",
+      "flow_freeze_failed": "无法保存 Flow 的 worktree",
+      "flow_head_mismatch": "交接期间 Flow 的 worktree 发生了变化",
+      "flow_already_handed_off": "此 Flow 已交接",
+      "flow_handoff_not_adopted": "轨道没有接管 Flow 的 worktree",
+      "illegal_transition": "Flow 的状态已发生变化",
+      "feature_unavailable": "Flow 不可用",
       "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
       "review_wip_limit_reached": "已达到评审上限——未启动任何任务。"
     },
@@ -843,6 +852,133 @@
     "subagents": {
       "delegation_unsupported": "{{provider}} 子代理需要更新版本的 Specrails Core，因此此任务的代理将自行启动子代理。",
       "driver_unavailable": "{{provider}} 在会话运行时中不可用，因此此任务的代理将自行启动子代理。"
+    }
+  },
+  "cardPending": "正在准备卡片…",
+  "interrupt": {
+    "placeholder": "输入即可打断——智能体会立即调整方向",
+    "send": "打断并发送",
+    "sendHint": "停止当前步骤，立即把你的消息交给智能体"
+  },
+  "flow": {
+    "gitLabel": "Flow worktree",
+    "missing": {
+      "sessions": "Core 智能体会话已关闭或不可用",
+      "flowSessions": "你的 Specrails Core 还不能打断正在运行的智能体",
+      "deriveChange": "你的 Specrails Core 还不能从代码推导 spec"
+    },
+    "errors": {
+      "generic": "Flow 无法完成该操作，请重试。",
+      "network": "无法连接 Specrails。",
+      "feature_unavailable": "当前安装的 Specrails Core 不支持 Flow。",
+      "flow_already_open": "此任务已有一个 Flow。请先恢复或丢弃它。",
+      "illegal_transition": "Flow 的状态已发生变化。请刷新后重试。",
+      "flow_worktree_missing": "Flow 的 worktree 已不存在。继续之前请先检查。",
+      "rail_not_empty": "该轨道已有 spec。请选择一个空闲且为空的轨道。",
+      "flow_already_handed_off": "此 Flow 已交给某个轨道。",
+      "flow_freeze_failed": "无法为交接保存 Flow 的 worktree。",
+      "flow_head_mismatch": "交接期间 worktree 发生了变化。请重试。",
+      "flow_handoff_not_adopted": "轨道启动时没有接管 Flow 的 worktree。"
+    },
+    "entry": {
+      "heading": "开始 Flow",
+      "body": "Specrails 会创建一个隔离的 worktree，智能体可以在其中编写代码。你的主分支不会被改动。",
+      "provider": "智能体使用 {{provider}} 工作，只在 worktree 内写入。",
+      "providerUnknown": "智能体只在 worktree 内写入。",
+      "blocked": {
+        "noProject": "将此任务固定到某个项目后才能使用 Flow。",
+        "open": "此任务已有一个 Flow。",
+        "missing": "Flow 需要更新版本的 Specrails Core：",
+        "unavailable": "Flow 目前不可用。"
+      },
+      "cancel": "取消",
+      "start": "开始 Flow",
+      "starting": "正在开始…"
+    },
+    "offer": {
+      "heading": "你想怎样构建它？",
+      "recommended": "推荐",
+      "notNow": "暂不",
+      "implementReply": "我们先写 spec，再运行 Implement。",
+      "mode": {
+        "flow": {
+          "title": "Flow",
+          "hint": "在隔离的 worktree 中与智能体一起构建，spec 在最后生成。"
+        },
+        "implement": {
+          "title": "Spec + Implement",
+          "hint": "先确定 spec，再交给轨道执行。"
+        }
+      },
+      "stub": {
+        "flow": "你选择了 Flow",
+        "implement": "你选择了 spec + Implement",
+        "dismissed": "已忽略建议",
+        "handedOff": "Flow 已交给轨道 {{rail}}",
+        "overrode": "推荐：{{mode}}",
+        "state": {
+          "active": "Flow 进行中",
+          "paused": "Flow 已暂停",
+          "handed_off": "Flow 已交给轨道",
+          "delivered": "Flow 已完成",
+          "discarded": "Flow 已丢弃",
+          "needs-review": "Flow 需要检查"
+        }
+      }
+    },
+    "bar": {
+      "label": "Flow 控制",
+      "controls": "Flow 操作",
+      "viewChanges": "查看更改",
+      "resume": "恢复 Flow",
+      "pause": "暂停",
+      "discard": "丢弃",
+      "thisIsIt": "就是这样",
+      "discarded": "已丢弃 Flow",
+      "files_one": "{{count}} 个文件",
+      "files_other": "{{count}} 个文件",
+      "filesTitle": "Flow worktree 中更改的文件",
+      "costTitle": "此 Flow 各轮的实际费用（以提供商计费为准）",
+      "costPartial_one": "{{count}} 轮没有提供商报告的费用，未计入",
+      "costPartial_other": "{{count}} 轮没有提供商报告的费用，未计入",
+      "needsReview": "Flow 的 worktree 丢失。没有删除任何内容；继续之前请检查分支。",
+      "pausedNote": "已暂停。worktree 和 spec 会保留，随时可以恢复。",
+      "state": {
+        "active": "Flow",
+        "paused": "Flow 已暂停",
+        "needs-review": "Flow 需要检查",
+        "handed_off": "已交接",
+        "delivered": "已完成",
+        "discarded": "已丢弃"
+      }
+    },
+    "discard": {
+      "title": "丢弃这个 Flow？",
+      "body": "worktree、其分支和临时 spec 都会被删除，且无法撤销。",
+      "cancel": "保留 Flow",
+      "confirm": "丢弃 Flow"
+    },
+    "changes": {
+      "title": "Flow 更改",
+      "subtitle": "分支 {{branch}} 与起点的对比",
+      "subtitleNoBranch": "与 Flow 起点对比的更改",
+      "refresh": "刷新",
+      "loadFailed": "无法加载更改。",
+      "empty": "暂无更改。",
+      "status": {
+        "added": "新增",
+        "modified": "已修改",
+        "deleted": "已删除",
+        "renamed": "已重命名",
+        "untracked": "新文件，未跟踪"
+      }
+    },
+    "handOff": {
+      "heading": "Flow → Spec",
+      "rationale": "由轨道接管 Flow 的 worktree，推导 spec，并运行验证和审查。",
+      "loop": "Flow → Spec",
+      "launch": "启动",
+      "notYet": "暂不"
     }
   }
 }

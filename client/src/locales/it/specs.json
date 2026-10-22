@@ -37,7 +37,11 @@
     "contract": "Contract",
     "openParentEpicTitle": "Apri l'Epic padre #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} addendum aperto — viaggia con il prossimo lancio",
-    "addendaTitle_other": "{{count}} addenda aperti — viaggiano con il prossimo lancio"
+    "addendaTitle_other": "{{count}} addenda aperti — viaggiano con il prossimo lancio",
+    "inFlow": "In Flow",
+    "inFlowPaused": "Flow in pausa",
+    "inFlowTitle": "In costruzione con Flow — apri la missione",
+    "inFlowPausedTitle": "Flow in pausa — apri la missione per riprendere"
   },
   "card": {
     "deleteSpec": "Elimina spec #{{id}}",

@@ -89,7 +89,9 @@
     "repositoryUnavailable": "Dépôt indisponible",
     "loadFailed": "État Git indisponible",
     "notGit": "Dossier de contexte · sans Git",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "copyBranch": "Copier le nom de la branche",
+    "branchCopied": "Nom de la branche copié"
   },
   "provider": {
     "label": "Fournisseur",
@@ -652,6 +654,13 @@
       "invalid_response": "Réponse inattendue du serveur.",
       "scope_save_failed": "Impossible d’enregistrer les dépôts de la spec.",
       "repository_scope_incomplete": "Un dépôt requis par les specs manque au lancement. Vérifiez les attributions ci-dessus.",
+      "rail_not_empty": "Ce rail a déjà des specs",
+      "flow_freeze_failed": "Le worktree du Flow n’a pas pu être enregistré",
+      "flow_head_mismatch": "Le worktree du Flow a changé pendant la passation",
+      "flow_already_handed_off": "Ce Flow a déjà été confié",
+      "flow_handoff_not_adopted": "Le rail n’a pas repris le worktree du Flow",
+      "illegal_transition": "Le Flow a changé d’état entre-temps",
+      "feature_unavailable": "Flow n’est pas disponible",
       "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé.",
       "review_wip_limit_reached": "Limite de revue atteinte : rien n’a été lancé."
     },
@@ -843,6 +852,133 @@
     "subagents": {
       "delegation_unsupported": "Les sous-agents {{provider}} nécessitent un Specrails Core plus récent ; l'agent de cette mission lance donc ses propres sous-agents.",
       "driver_unavailable": "{{provider}} n'est pas disponible pour le runtime de sessions ; l'agent de cette mission lance donc ses propres sous-agents."
+    }
+  },
+  "cardPending": "Préparation d’une carte…",
+  "interrupt": {
+    "placeholder": "Écrivez pour interrompre : l’agent change de cap tout de suite",
+    "send": "Interrompre et envoyer",
+    "sendHint": "Arrête l’étape en cours et transmet votre message à l’agent maintenant"
+  },
+  "flow": {
+    "gitLabel": "Worktree Flow",
+    "missing": {
+      "sessions": "Les sessions d’agent de Core sont désactivées ou indisponibles",
+      "flowSessions": "Votre Specrails Core ne sait pas encore interrompre un agent en cours",
+      "deriveChange": "Votre Specrails Core ne sait pas encore dériver une spec à partir du code"
+    },
+    "errors": {
+      "generic": "Flow n’a pas pu terminer cette action. Réessayez.",
+      "network": "Impossible de joindre Specrails.",
+      "feature_unavailable": "Flow n’est pas disponible avec le Specrails Core installé.",
+      "flow_already_open": "Cette mission a déjà un Flow. Reprenez-le ou abandonnez-le d’abord.",
+      "illegal_transition": "Le Flow a changé d’état entre-temps. Actualisez et réessayez.",
+      "flow_worktree_missing": "Le worktree du Flow n’existe plus. Vérifiez-le avant de continuer.",
+      "rail_not_empty": "Ce rail a déjà des specs. Choisissez un rail libre et vide.",
+      "flow_already_handed_off": "Ce Flow a déjà été confié à un rail.",
+      "flow_freeze_failed": "Le worktree du Flow n’a pas pu être enregistré pour la passation.",
+      "flow_head_mismatch": "Le worktree a changé pendant la passation. Réessayez.",
+      "flow_handoff_not_adopted": "Le rail a démarré sans reprendre le worktree du Flow."
+    },
+    "entry": {
+      "heading": "Démarrer un Flow",
+      "body": "Specrails va créer un worktree isolé où l’agent pourra écrire du code. Votre branche principale n’est pas modifiée.",
+      "provider": "L’agent travaille avec {{provider}} et n’écrit que dans le worktree.",
+      "providerUnknown": "L’agent n’écrit que dans le worktree.",
+      "blocked": {
+        "noProject": "Épinglez cette mission à un projet pour utiliser Flow.",
+        "open": "Cette mission a déjà un Flow.",
+        "missing": "Flow nécessite un Specrails Core plus récent :",
+        "unavailable": "Flow n’est pas disponible pour le moment."
+      },
+      "cancel": "Annuler",
+      "start": "Démarrer le Flow",
+      "starting": "Démarrage…"
+    },
+    "offer": {
+      "heading": "Comment voulez-vous le construire ?",
+      "recommended": "Recommandé",
+      "notNow": "Pas maintenant",
+      "implementReply": "Écrivons d’abord la spec, puis lançons Implement.",
+      "mode": {
+        "flow": {
+          "title": "Flow",
+          "hint": "Construisez-le avec l’agent dans un worktree isolé ; la spec vient à la fin."
+        },
+        "implement": {
+          "title": "Spec + Implement",
+          "hint": "Validez d’abord une spec, puis confiez-la à un rail."
+        }
+      },
+      "stub": {
+        "flow": "Vous avez choisi Flow",
+        "implement": "Vous avez choisi spec + Implement",
+        "dismissed": "Proposition écartée",
+        "handedOff": "Flow confié au Rail {{rail}}",
+        "overrode": "recommandé : {{mode}}",
+        "state": {
+          "active": "Flow en cours",
+          "paused": "Flow en pause",
+          "handed_off": "Flow confié à un rail",
+          "delivered": "Flow livré",
+          "discarded": "Flow abandonné",
+          "needs-review": "Le Flow doit être vérifié"
+        }
+      }
+    },
+    "bar": {
+      "label": "Commandes du Flow",
+      "controls": "Actions du Flow",
+      "viewChanges": "Voir les modifications",
+      "resume": "Reprendre le Flow",
+      "pause": "Pause",
+      "discard": "Abandonner",
+      "thisIsIt": "C’est ça",
+      "discarded": "Flow abandonné",
+      "files_one": "{{count}} fichier",
+      "files_other": "{{count}} fichiers",
+      "filesTitle": "Fichiers modifiés dans le worktree du Flow",
+      "costTitle": "Coût réel des tours de ce Flow, tel que facturé par le fournisseur",
+      "costPartial_one": "{{count}} tour n’a pas de coût communiqué par le fournisseur et n’est pas inclus",
+      "costPartial_other": "{{count}} tours n’ont pas de coût communiqué par le fournisseur et ne sont pas inclus",
+      "needsReview": "Le worktree du Flow est introuvable. Rien n’a été supprimé ; vérifiez la branche avant de continuer.",
+      "pausedNote": "En pause. Le worktree et la spec sont conservés ; reprenez quand vous voulez.",
+      "state": {
+        "active": "Flow",
+        "paused": "Flow en pause",
+        "needs-review": "Le Flow doit être vérifié",
+        "handed_off": "Confié",
+        "delivered": "Livré",
+        "discarded": "Abandonné"
+      }
+    },
+    "discard": {
+      "title": "Abandonner ce Flow ?",
+      "body": "Le worktree, sa branche et la spec provisoire sont supprimés. Action irréversible.",
+      "cancel": "Garder le Flow",
+      "confirm": "Abandonner le Flow"
+    },
+    "changes": {
+      "title": "Modifications du Flow",
+      "subtitle": "Branche {{branch}} comparée à son point de départ",
+      "subtitleNoBranch": "Modifications comparées au point de départ du Flow",
+      "refresh": "Actualiser",
+      "loadFailed": "Impossible de charger les modifications.",
+      "empty": "Aucune modification pour l’instant.",
+      "status": {
+        "added": "Ajouté",
+        "modified": "Modifié",
+        "deleted": "Supprimé",
+        "renamed": "Renommé",
+        "untracked": "Nouveau, non suivi"
+      }
+    },
+    "handOff": {
+      "heading": "Flow → Spec",
+      "rationale": "Un rail reprend le worktree du Flow, dérive la spec et lance vérification et revue.",
+      "loop": "Flow → Spec",
+      "launch": "Lancer",
+      "notYet": "Pas encore"
     }
   }
 }

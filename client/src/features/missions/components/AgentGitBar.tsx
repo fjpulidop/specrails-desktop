@@ -34,7 +34,31 @@ interface GitInfo {
  * Refreshes when the mission's turn settles (the agent itself may have
  * switched branches or committed).
  */
-export function AgentGitBar({ projectId }: { projectId: string }) {
+export function AgentGitBar({ projectId, branchOverride = null }: { projectId: string; branchOverride?: { branch: string; label: string } | null }) {
+  // A mission extension (Flow) works in its own worktree: show that branch,
+  // read-only — checking out branches in the project folder does not apply.
+  if (branchOverride) return <AgentGitBranchOverride branch={branchOverride.branch} label={branchOverride.label} />
+  return <AgentProjectGitBar projectId={projectId} />
+}
+
+function AgentGitBranchOverride({ branch, label }: { branch: string; label: string }) {
+  const { t } = useTranslation('agent')
+  const copy = () => {
+    void navigator.clipboard?.writeText(branch).then(() => toast.success(t('git.branchCopied')), () => undefined)
+  }
+  return (
+    <div data-testid="agent-git-bar-override" className="mt-1.5 flex min-w-0 items-center gap-1.5 px-2 text-[11px] text-foreground/55">
+      <GitBranch className="h-3 w-3 shrink-0 text-accent-info" aria-hidden />
+      <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-[10px] font-medium text-accent-info">{label}</span>
+      <span className="min-w-0 truncate font-mono text-foreground/75" title={branch}>{branch}</span>
+      <button type="button" onClick={copy} aria-label={t('git.copyBranch')} title={t('git.copyBranch')} className="shrink-0 rounded p-0.5 text-foreground/40 hover:bg-surface hover:text-foreground">
+        <Copy className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function AgentProjectGitBar({ projectId }: { projectId: string }) {
   const { t } = useTranslation('agent')
   const { isStreaming } = useAgentChat()
   const { projects } = useDesktop()
