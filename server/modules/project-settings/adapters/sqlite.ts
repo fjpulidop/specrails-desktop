@@ -39,7 +39,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.reviewer_family_suggestion_dismissed',
       'config.review_wip_limit',
       'config.agent_env_mode',
-      'config.agent_audit_retention_days'
+      'config.agent_audit_retention_days',
+      'config.jira_post_clarifications', 'config.baseline_on_touch'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -64,6 +65,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     // Anything other than the explicit opt-in reads as the default.
     agentEnvMode: settings.get('config.agent_env_mode')?.value === 'minimal' ? 'minimal' : 'inherit',
     agentAuditRetentionDays: readAgentAuditRetentionDays(settings.get('config.agent_audit_retention_days')?.value),
+    jiraPostClarifications: settings.get('config.jira_post_clarifications')?.value === 'true',
+    baselineOnTouch: settings.get('config.baseline_on_touch')?.value === 'true',
   }
 }
 
@@ -122,6 +125,12 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
   if (patch.reviewerFamilySuggestionDismissed !== undefined) {
     if (patch.reviewerFamilySuggestionDismissed) db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.reviewer_family_suggestion_dismissed', 'true')`).run()
     else db.prepare(`DELETE FROM queue_state WHERE key = 'config.reviewer_family_suggestion_dismissed'`).run()
+  }
+  // Opt-in booleans: the row exists only while the setting is on.
+  for (const [key, row] of [['jiraPostClarifications', 'config.jira_post_clarifications'], ['baselineOnTouch', 'config.baseline_on_touch']] as const) {
+    if (patch[key] === undefined) continue
+    if (patch[key]) db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES (?, 'true')`).run(row)
+    else db.prepare(`DELETE FROM queue_state WHERE key = ?`).run(row)
   }
   if (patch.subagentRuntime !== undefined) {
     if (patch.subagentRuntime === null) db.prepare(`DELETE FROM queue_state WHERE key = 'config.subagent_runtime'`).run()

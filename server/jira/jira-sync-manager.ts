@@ -67,6 +67,22 @@ import {
   type EnqueueOutboxInput,
 } from './jira-db'
 import { resolveProjectExecution } from '../workspace-resolution'
+import { getProjectSettings } from '../db'
+import { appendSpecAddendum, buildSpecAddendum, parseSpecAddendumInput } from '../modules/specs/runtime/spec-addenda'
+import { hasClarificationContent, type RunClarificationsRecord } from '../modules/delivery/runtime/run-records'
+import {
+  buildClarificationsComment,
+  clarificationAddendumInput,
+  clarificationsCommentMarker,
+  clarificationsDigest,
+  clarificationThreadKind,
+  importedCommentIds,
+  insertClarificationThread,
+  listOpenClarificationThreads,
+  recordImportedReplies,
+  selectClarificationReplies,
+  type JiraCommentLike,
+} from './jira-clarifications'
 import type { DevStatusDataType, JiraClient as JiraClientT } from './jira-client'
 import type {
   JiraConnection,
@@ -720,7 +736,88 @@ export class JiraSyncManager {
 
     if (maxUpdated > (conn.highWaterMs ?? 0)) setHighWater(this.db, this.projectId, maxUpdated)
     if (totalUpserted > 0) this.broadcast({ type: 'jira.synced', projectId: this.projectId, upserted: totalUpserted, at: Date.now() })
+    await this.importClarificationReplies(client).catch((err) => console.error('[jira-sync] clarification replies failed:', err))
     return { upserted: totalUpserted }
+  }
+
+  // ─── Architect clarifications (feedback-2026-10 task 3.2) ─────────────────
+
+  /**
+   * A run's architect clarifications (Core `clarifications.json`): when the
+   * project enabled `jiraPostClarifications`, enqueue ONE comment per linked
+   * ticket with the questions the run paused on, or the assumptions it
+   * proceeded with. Idempotent per run, ticket and record content (a second
+   * pause with different questions posts again). Never throws.
+   */
+  onRunClarifications(runId: string, ticketIds: readonly number[], record: RunClarificationsRecord): number {
+    try {
+      if (!this.isActive() || !hasClarificationContent(record)) return 0
+      if (!getProjectSettings(this.db).jiraPostClarifications) return 0
+      const digest = clarificationsDigest(record)
+      const kind = clarificationThreadKind(record)
+      const text = buildClarificationsComment(record)
+      const now = new Date().toISOString()
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of new Set(ticketIds)) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        const marker = clarificationsCommentMarker(runId, localId, digest)
+        const fresh = insertClarificationThread(this.db, { id: `${runId}:${localId}:${digest}`, run_id: runId, ticket_id: localId, jira_issue_id: link.jiraIssueId, kind, marker, created_at: now })
+        if (!fresh) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${runId}:${localId}:comment:clarifications:${digest}`,
+          payload: { jiraIssueId: link.jiraIssueId, text, marker },
+        })
+      }
+      if (ops.length === 0) return 0
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return ops.length
+    } catch (err) {
+      console.error('[jira-sync] onRunClarifications failed:', err)
+      return 0
+    }
+  }
+
+  /** Import human replies to posted clarifications as `clarification` addenda. */
+  async importClarificationReplies(client: Pick<JiraClient, 'getComments'>): Promise<number> {
+    let threads
+    try { threads = listOpenClarificationThreads(this.db) } catch { return 0 }
+    let imported = 0
+    for (const thread of threads) {
+      const res = await client.getComments(thread.jira_issue_id)
+      if (!res.ok) continue
+      const replies = selectClarificationReplies(res.data.comments as JiraCommentLike[], thread.marker, importedCommentIds(thread))
+      if (replies.length === 0) continue
+      const jiraKey = getLinkByLocalId(this.db, thread.ticket_id)?.jiraKey ?? null
+      try {
+        const file = resolveTicketStoragePath(this._artifactRoot())
+        let touched = false
+        const store = mutateStore(file, (s) => {
+          const ticket = s.tickets[String(thread.ticket_id)]
+          if (!ticket) return
+          for (const reply of replies) {
+            const input = parseSpecAddendumInput(clarificationAddendumInput(reply, jiraKey, thread.kind))
+            appendSpecAddendum(ticket, buildSpecAddendum(input, { createdBy: 'jira' }))
+            touched = true
+          }
+        })
+        // Recorded even when the ticket is gone, so a deleted spec is not retried forever.
+        recordImportedReplies(this.db, thread.id, replies.map((reply) => reply.commentId))
+        if (!touched) continue
+        imported += replies.length
+        this.notifyLocalWrite(store.revision)
+        const ticket = store.tickets[String(thread.ticket_id)]
+        if (ticket) this.broadcast({ type: 'ticket_updated', ticket: ticket as unknown as never, projectId: this.projectId, timestamp: ticket.updated_at } as WsMessage)
+      } catch (err) {
+        // A full addenda list (or a validation error) keeps the thread for a later poll.
+        console.error('[jira-sync] clarification reply import failed:', err)
+      }
+    }
+    return imported
   }
 
   // ─── Outbound write-back hooks ─────────────────────────────────────────────

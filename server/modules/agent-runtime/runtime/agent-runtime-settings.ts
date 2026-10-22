@@ -133,7 +133,9 @@ export interface RuntimeConfig {
   setup?: RuntimeHostCommand[]
   approvalBeforeArchive?: boolean
   review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
-  architect?: { onLowConfidence?: 'ask' | 'proceed' }
+  architect?: { onLowConfidence?: 'ask' | 'proceed'; clarifications?: 'ask-on-high' | 'always-proceed' }
+  /** Baseline on touch (Core `baselineOnTouch: 1`): characterize uncovered modules before changing them. Default false. */
+  baselineOnTouch?: boolean
   /** Compact-runtime guardrails the project switched OFF (`{ id: false }`); unset = all on. Forwarded to Core only when it advertises `configurableGuardrails`. */
   guardrails?: Record<string, boolean>
 }

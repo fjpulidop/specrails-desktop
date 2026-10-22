@@ -114,3 +114,17 @@ describe('agentAuditRetentionDays persistence', () => {
     expect(service.getSettings().agentAuditRetentionDays).toBe(30)
   })
 })
+
+describe('phase-3 switch persistence', () => {
+  let db: DbInstance | undefined
+  afterEach(() => { db?.close(); db = undefined })
+  it('stores each switch only while it is on, default off', () => {
+    db = initDb(':memory:')
+    const service = createProjectSettingsService(createSqliteProjectSettingsRepository(db))
+    expect(service.getSettings()).toMatchObject({ jiraPostClarifications: false, baselineOnTouch: false })
+    expect(service.updateSettings({ jiraPostClarifications: true, baselineOnTouch: true })).toMatchObject({ jiraPostClarifications: true, baselineOnTouch: true })
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM queue_state WHERE key IN ('config.jira_post_clarifications','config.baseline_on_touch')`).get()).toEqual({ n: 2 })
+    service.updateSettings({ jiraPostClarifications: false, baselineOnTouch: false })
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM queue_state WHERE key IN ('config.jira_post_clarifications','config.baseline_on_touch')`).get()).toEqual({ n: 0 })
+  })
+})

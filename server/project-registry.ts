@@ -43,6 +43,8 @@ import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolut
 import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
+import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
@@ -1217,6 +1219,21 @@ export class ProjectRegistry {
     // connection (project budget) plus the app-wide snapshot.
     const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
     const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
+    // Architect clarifications (feedback-2026-10 task 3.2): after a Core
+    // invocation pauses or ends, post the run's clarifications record to the
+    // linked Jira issues when the project opted in. Core writes no record
+    // without `architectClarifications: 1`, so older Cores never post.
+    const publishRunClarifications = (runId: string, ticketIds: readonly number[]): void => {
+      if (ticketIds.length === 0 || !getProjectSettings(db).jiraPostClarifications || !jiraSyncManager.isActive()) return
+      try {
+        const runtimeDir = path.join(resolveProjectExecution(project).specrailsDir, 'pipeline', runId)
+        const record = readClarifications(runtimeDir, nodeRunRecordFs)
+        if (record) jiraSyncManager.onRunClarifications(runId, ticketIds, record)
+      } catch (err) {
+        console.error(`[jira-sync] clarifications for ${runId} failed:`, err)
+      }
+    }
+
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -1230,6 +1247,8 @@ export class ProjectRegistry {
       ),
       // One value-free run-log line when configured names are unresolved.
       environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),
+      // Phase-3 project switches Core reads from its config (capability-gated in the bridge).
+      projectRuntime: () => ({ baselineOnTouch: getProjectSettings(db).baselineOnTouch }),
       // Named rail profiles and global per-agent defaults ride the same
       // SPECRAILS_PROFILE_PATH snapshot in both AI transports. An explicit null
       // rail selection opts out; omitted selections keep Core's default rules.
@@ -1238,7 +1257,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder })
+    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1250,7 +1269,8 @@ export class ProjectRegistry {
         return {
           id: t.id,
           title: t.title,
-          description: t.description,
+          // Non-goals (3.2) ride in the description every loop prompt sees.
+          description: descriptionWithNonGoals(t.description, t.nonGoals),
           status: t.status,
           priority: t.priority,
           labels: t.labels,
@@ -1321,6 +1341,8 @@ export class ProjectRegistry {
         }
       }
       const ticketIds = payload?.ticketIds ?? meta?.ticketIds ?? []
+      // Idempotent per record: a pause already posted is not posted again.
+      publishRunClarifications(runId, ticketIds)
       const railIndex = payload?.railIndex ?? meta?.railIndex ?? null
       const effectiveOutcome = payload?.outcome ?? outcome
       const status: JobOutcome =

@@ -959,6 +959,10 @@ export class LoopRunManager {
       dailyBudget?: () => LoopBudgetBreach | null
       /** Agent actions audit sink bound to this project (observing only). */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
+      /** Observer after each Core workflow invocation ends (paused included);
+       *  the composition reads Core's run records (architect clarifications).
+       *  Advisory: a throw never affects the run. */
+      onDefinitionInvocationEnd?: (runId: string, ticketIds: readonly number[], runtimeStatus: string) => void
     } = {},
   ) {}
 
@@ -1905,7 +1909,10 @@ export class LoopRunManager {
             this._activeChild.set(runId, child)
             if (this._cancelled.has(runId)) this.cancelResident(runId, false)
           },
-          onInvocationEnd: result => { this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
+          onInvocationEnd: result => {
+            this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs }
+            try { this.options.onDefinitionInvocationEnd?.(runId, exactTicketIds, result.runtimeStatus) } catch { /* advisory observer */ }
+          }, awaitHumanDecision,
           // Core schedules every step inside one invocation; the only boundary
           // Desktop owns is the re-invocation after a human decision.
           beforeContinuation: async () => {

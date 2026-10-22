@@ -1923,3 +1923,84 @@ describe('read helpers', () => {
     expect(mgr.outboxCounts().pending).toBe(1)
   })
 })
+
+describe('architect clarifications on Jira (feedback-2026-10 task 3.2)', () => {
+  const PAUSED = {
+    change: 'c', policy: 'ask-on-high', status: 'awaiting-answers' as const, recordedAt: 't',
+    clarifications: [{ question: 'Include archived projects?', impact: 'high' as const, default: null }, { question: 'Page size?', impact: 'low' as const, default: '25' }],
+    blocking: [{ question: 'Include archived projects?', impact: 'high' as const, default: null }], assumptions: [],
+  }
+  const enable = () => db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.jira_post_clarifications', 'true')`).run()
+
+  it('posts nothing while the project setting is off', () => {
+    seedConnection()
+    seedLinkedTicket(40, 'I-40')
+    const mgr = makeManager(makeFakeFetch().fetchImpl)
+    expect(mgr.onRunClarifications('run-40', [40], PAUSED)).toBe(0)
+    expect(listOutbox(db, {})).toHaveLength(0)
+  })
+
+  it('enqueues one comment per linked ticket, idempotent per run and record', () => {
+    seedConnection()
+    seedLinkedTicket(41, 'I-41')
+    enable()
+    const mgr = makeManager(makeFakeFetch().fetchImpl)
+    expect(mgr.onRunClarifications('run-41', [41, 41, 999], PAUSED)).toBe(1)
+    expect(mgr.onRunClarifications('run-41', [41], PAUSED)).toBe(0)
+    const [op] = listOutbox(db, {})
+    expect(listOutbox(db, {})).toHaveLength(1)
+    expect(op.opType).toBe('comment')
+    expect(op.idempotencyKey).toMatch(/^run-41:41:comment:clarifications:[a-f0-9]{16}$/)
+    const payload = JSON.parse(op.payload)
+    expect(payload.text).toContain('1. Include archived projects?')
+    expect(payload.text).toContain('Page size? → 25 (low impact)')
+    expect(payload.marker).toMatch(/^\[specrails:clarifications=run-41:ticket=41:/)
+    const proceeded = { ...PAUSED, status: 'proceeded' as const, blocking: [], assumptions: ['- Page size is 25'] }
+    expect(mgr.onRunClarifications('run-41', [41], proceeded)).toBe(1)
+    const texts = listOutbox(db, {}).map((entry) => JSON.parse(entry.payload).text as string)
+    expect(texts).toHaveLength(2)
+    expect(texts.some((text) => text.includes('- Page size is 25'))).toBe(true)
+  })
+
+  it('skips empty records and inactive connections', () => {
+    seedLinkedTicket(42, 'I-42')
+    enable()
+    const mgr = makeManager(makeFakeFetch().fetchImpl)
+    expect(mgr.onRunClarifications('run-42', [42], PAUSED)).toBe(0)
+    seedConnection()
+    expect(mgr.onRunClarifications('run-42', [42], { ...PAUSED, status: 'proceeded', clarifications: [], blocking: [], assumptions: [] })).toBe(0)
+  })
+
+  it('imports human replies after the clarifications comment as clarification addenda, once', async () => {
+    seedConnection()
+    seedLinkedTicket(43, 'I-43')
+    enable()
+    const mgr = makeManager(makeFakeFetch().fetchImpl)
+    mgr.onRunClarifications('run-43', [43], PAUSED)
+    const marker = JSON.parse(listOutbox(db, {})[0].payload).marker as string
+    const comments = [
+      { id: 'c0', body: 'Earlier discussion' },
+      { id: 'c1', body: 'question', properties: [{ key: 'sh.specrails.marker', value: { marker } }] },
+      { id: 'c2', body: 'Yes, include archived projects but greyed out.', author: { displayName: 'Ana' } },
+      { id: 'c3', body: 'Specrails is working on it [specrails:rail-review=x:ticket=43]' },
+    ]
+    const client = { getComments: vi.fn(async () => ({ ok: true as const, data: { comments } })) }
+    expect(await mgr.importClarificationReplies(client)).toBe(1)
+    expect(await mgr.importClarificationReplies(client)).toBe(0)
+    const addenda = readStore(resolveTicketStoragePath(projectPath)).tickets['43'].addenda!
+    expect(addenda).toHaveLength(1)
+    expect(addenda[0]).toMatchObject({ kind: 'clarification', status: 'open', created_by: 'jira', title: 'Answer from Jira ACME-43 (Ana)' })
+    expect(addenda[0].body).toContain('Yes, include archived projects but greyed out.')
+    expect(broadcasts.some((message) => message.type === 'ticket_updated')).toBe(true)
+  })
+
+  it('keeps polling when Jira fails and ignores threads whose marker is not posted yet', async () => {
+    seedConnection()
+    seedLinkedTicket(44, 'I-44')
+    enable()
+    const mgr = makeManager(makeFakeFetch().fetchImpl)
+    mgr.onRunClarifications('run-44', [44], PAUSED)
+    expect(await mgr.importClarificationReplies({ getComments: async () => ({ ok: false as const, code: 'network', status: 0, error: 'down' }) as never })).toBe(0)
+    expect(await mgr.importClarificationReplies({ getComments: async () => ({ ok: true as const, data: { comments: [{ id: 'x', body: 'reply without anchor' }] } }) })).toBe(0)
+  })
+})

@@ -130,6 +130,9 @@ export interface AgentRuntimeInvocationOptions {
   defaultProvider?: string
   /** A selected launch provider applies to every role; absent selection preserves role settings. */
   providerOverride?: { provider: string; model?: string; effort?: string }
+  /** Project settings Core reads from its config (feedback-2026-10 phase 3),
+   *  forwarded only when the active Core announces the matching capability. */
+  projectRuntime?: { baselineOnTouch?: boolean }
   change?: string
   resume?: boolean
   approve?: string[]
@@ -168,6 +171,40 @@ export function coreProviderEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return env.GEMINI_CLI_TRUST_WORKSPACE === undefined ? { ...env, GEMINI_CLI_TRUST_WORKSPACE: 'true' } : env
 }
 
+/** Core's blocker when characterization tests fail on the unchanged code (baseline on touch). */
+export const BASELINE_CHARACTERIZATION_FAILED = 'baseline_characterization_failed'
+
+/**
+ * Human-readable text of a structured runtime error. The baseline blocker is
+ * spelled out: the run stopped BEFORE the module was edited because the tests
+ * that describe today's behaviour do not pass on today's code.
+ */
+export function runtimeErrorText(error: { code?: string; message?: string } | undefined): string | undefined {
+  if (!error) return undefined
+  if (error.code === BASELINE_CHARACTERIZATION_FAILED) {
+    const detail = error.message?.trim()
+    return `Baseline blocked: the characterization tests do not pass on the unchanged code, so the run stopped before editing the module. Fix the tests (or the verification plan) so they describe today's behaviour, then resume.${detail ? ` Core: ${detail}` : ''}`
+  }
+  return error.message
+}
+
+/**
+ * Phase-3 config keys (Core contract 5.7). An older Core rejects unknown
+ * keys, so `baselineOnTouch` and `architect.clarifications` reach Core only
+ * when it announces `baselineOnTouch: 1` / `architectClarifications: 1`; the
+ * project's `baselineOnTouch` setting turns the switch on. Mutates `config`.
+ */
+export function applyPhase3RuntimeSwitches(config: RuntimeConfig, capabilities: Record<string, number> | undefined, project: { baselineOnTouch?: boolean } | undefined): void {
+  if (capabilities?.baselineOnTouch === 1) {
+    if (project?.baselineOnTouch) config.baselineOnTouch = true
+  } else delete config.baselineOnTouch
+  if (capabilities?.architectClarifications !== 1 && config.architect?.clarifications !== undefined) {
+    const { clarifications: _dropped, ...architect } = config.architect
+    if (Object.keys(architect).length) config.architect = architect
+    else delete config.architect
+  }
+}
+
 /** Core owns the complete agent workflow in one managed process. The existing
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
@@ -203,6 +240,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (config.setup.length) { try { options.onLine?.(`[runtime] setup commands ignored: the installed Core does not advertise setupCommands (${config.setup.length} configured)\n`) } catch { /* Advisory log observer. */ } }
       delete config.setup
     } else if (config.setup) config.setup = scopedHostChecks(config.setup, admittedContext.repositories)
+    applyPhase3RuntimeSwitches(config, runtime.api?.capabilities, options.projectRuntime)
     if (definitionEngine && (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1)) throw new Error('engine_unsupported: Update Core to run workflow definitions')
     const compilationConfig = structuredClone(config)
     if (options.workflowRoleBindings) {
@@ -389,7 +427,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const acceptanceBlocked = definitionEngine && result?.status === 'succeeded' && result.completion && (!result.completion.ok || requiresVerified && !result.completion.verified)
       const validPause = definitionEngine && code === 2 && result?.status === 'paused'
       const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError) || Boolean(acceptanceBlocked)
-      const runtimeError = typeof result?.error === 'string' ? result.error : result?.error?.message
+      const runtimeError = typeof result?.error === 'string' ? result.error : runtimeErrorText(result?.error)
       const completionError = Array.isArray(result?.completion?.reasons) ? result.completion.reasons.filter(reason => typeof reason === 'string' && reason.trim()).join('; ').slice(0, 4_000) : ''
       const runtimeStatus: AiStepResult['runtimeStatus'] = invalidProtocol || timedOut || observerError || (result?.status === 'paused' && !validPause) || (result?.status === 'succeeded' && code !== 0) ? 'failed' : acceptanceBlocked ? 'blocked' : ['succeeded', 'paused', 'failed', 'blocked', 'cancelled'].includes(result?.status ?? '') ? result!.status as AiStepResult['runtimeStatus'] : 'failed'
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'

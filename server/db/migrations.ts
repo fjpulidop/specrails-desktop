@@ -1815,6 +1815,29 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('chosen_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN chosen_loop TEXT`)
   },
 
+  // Migration 77: architect clarifications on Jira (feedback-2026-10 task 3.2).
+  // One row per clarifications comment Desktop posted on a linked issue (the
+  // questions a run paused on, or the assumptions it proceeded with). The poll
+  // imports later human replies on that issue as `clarification` addenda;
+  // `imported_comment_ids` keeps the import idempotent across restarts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS jira_clarification_threads (
+        id                   TEXT PRIMARY KEY,
+        run_id               TEXT NOT NULL,
+        ticket_id            INTEGER NOT NULL,
+        jira_issue_id        TEXT NOT NULL,
+        kind                 TEXT NOT NULL CHECK (kind IN ('questions','assumptions')),
+        marker               TEXT NOT NULL,
+        state                TEXT NOT NULL CHECK (state IN ('open','answered','closed')),
+        imported_comment_ids TEXT NOT NULL DEFAULT '[]',
+        created_at           TEXT NOT NULL,
+        updated_at           TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_jira_clarification_threads_open ON jira_clarification_threads(state, created_at);
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

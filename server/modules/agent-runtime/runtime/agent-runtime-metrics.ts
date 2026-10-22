@@ -77,6 +77,20 @@ export interface RuntimeEfficiencySummary {
   roles: Array<{ role: string; provider: string | null; model: string | null; effort: string | null; observedModel: string | null; observedEffort: string | null; origin: string; tier: string }>
   invocations: { total: number; complete: boolean; byKind: Record<string, number>; promptBytes: number | null; contextBytes: number | null; handoffBytes: number | null; fullContexts: number; incrementalContexts: number }
   checks: { complete?: boolean; invalidated?: number | null; available: boolean; executed: number | null; reused: number | null; notRun: number | null; durationMs: number | null }
+  /** Spend of the baseline-on-touch turns (Core `baselineOnTouch: 1`), kept
+   *  apart from the change's own cost; null values were not reported. */
+  baseline?: RuntimeBaselineSpend
+}
+
+export interface RuntimeBaselineSpend { invocations: number; roles: string[]; costUsd: number | null; inputTokens: number | null; outputTokens: number | null }
+
+/** Tolerant read of `efficiencySummary.baseline`; undefined when absent or malformed. */
+export function readRuntimeBaselineSpend(value: unknown): RuntimeBaselineSpend | undefined {
+  const raw = object(value)
+  if (!raw || typeof raw.invocations !== 'number' || !Number.isSafeInteger(raw.invocations) || raw.invocations < 0) return undefined
+  const amount = (input: unknown, integer: boolean): number | null => typeof input === 'number' && Number.isFinite(input) && input >= 0 && (!integer || Number.isSafeInteger(input)) ? input : null
+  const roles = Array.isArray(raw.roles) ? raw.roles.filter((role): role is string => typeof role === 'string' && role.length > 0 && role.length <= 64).slice(0, 16) : []
+  return { invocations: raw.invocations, roles, costUsd: amount(raw.costUsd, false), inputTokens: amount(raw.inputTokens, true), outputTokens: amount(raw.outputTokens, true) }
 }
 
 
@@ -94,7 +108,9 @@ export function readRuntimeEfficiencySummary(value: unknown, catalog?: RuntimeMe
   for (const key of ['planHash', 'candidateHash']) if (input[key] !== null && (typeof input[key] !== 'string' || !/^[a-f0-9]{64}$/.test(input[key]))) return undefined
   if (!Array.isArray(input.currentEvidenceIds) || input.currentEvidenceIds.length > 100 || !input.currentEvidenceIds.every(id => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id))) return undefined
   const kinds = object(invocations.byKind)
-  if (!kinds || Object.keys(kinds).length !== 5 || !['initial', 'correction', 'repair', 'deepen', 'session-fallback'].every(key => count(kinds[key], false))) return undefined
+  // Contract 5.7 adds the `baseline` kind; earlier Cores report exactly five.
+  const kindKeys = Object.keys(kinds ?? {})
+  if (!kinds || kindKeys.length !== 5 + (kindKeys.includes('baseline') ? 1 : 0) || !['initial', 'correction', 'repair', 'deepen', 'session-fallback'].every(key => count(kinds[key], false)) || kindKeys.includes('baseline') && !count(kinds.baseline, false)) return undefined
   const roles: RuntimeEfficiencySummary['roles'] = []
   for (const raw of input.roles) {
     const role = object(raw)
@@ -122,7 +138,8 @@ export function readRuntimeEfficiencySummary(value: unknown, catalog?: RuntimeMe
       escalations.push(row as NonNullable<RuntimeEfficiencySummary['escalations']>[number])
     }
   }
-  return { ...(escalations ? { escalations, escalationsTruncated: input.escalationsTruncated as boolean } : {}), schemaVersion: 1, currentEvidenceIds: [...input.currentEvidenceIds] as string[], planHash: input.planHash as string | null, candidateHash: input.candidateHash as string | null, runId: input.runId, workflowVersion: input.workflowVersion, technicalAcceptance: input.technicalAcceptance as RuntimeEfficiencySummary['technicalAcceptance'], archive: input.archive, delivery: input.delivery, roles,
+  const baseline = readRuntimeBaselineSpend(input.baseline)
+  return { ...(escalations ? { escalations, escalationsTruncated: input.escalationsTruncated as boolean } : {}), ...(baseline ? { baseline } : {}), schemaVersion: 1, currentEvidenceIds: [...input.currentEvidenceIds] as string[], planHash: input.planHash as string | null, candidateHash: input.candidateHash as string | null, runId: input.runId, workflowVersion: input.workflowVersion, technicalAcceptance: input.technicalAcceptance as RuntimeEfficiencySummary['technicalAcceptance'], archive: input.archive, delivery: input.delivery, roles,
     invocations: { total: invocations.total as number, complete: invocations.complete, byKind: { ...kinds } as Record<string, number>, promptBytes: invocations.promptBytes as number | null, contextBytes: invocations.contextBytes as number | null, handoffBytes: invocations.handoffBytes as number | null, fullContexts: invocations.fullContexts as number, incrementalContexts: invocations.incrementalContexts as number },
     checks: { ...(checks.complete === undefined ? {} : { complete: checks.complete as boolean }), ...(checks.invalidated === undefined ? {} : { invalidated: checks.invalidated as number | null }), available: checks.available, executed: checks.executed as number | null, reused: checks.reused as number | null, notRun: checks.notRun as number | null, durationMs: checks.durationMs as number | null } }
 }

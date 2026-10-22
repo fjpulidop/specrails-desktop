@@ -207,6 +207,9 @@ export function createLoopExecutors(
     sourcePath?: () => string | undefined
     /** Value-free run-log warning for unresolved project environment names. */
     environmentNotice?: () => string | null
+    /** Project-level Core runtime switches read at launch (feedback-2026-10
+     *  phase 3). The bridge forwards each one only when Core announces it. */
+    projectRuntime?: () => { baselineOnTouch?: boolean }
   } = {},
 ): LoopExecutors {
   // Core-hosted work may launch any configured role provider, so it receives
@@ -288,6 +291,7 @@ export function createLoopExecutors(
       const result = await runAgentRuntimeInvocation({
         contextPath: core.contextPath, cwd: request.cwd, env: core.env,
         configPath: runtimeConfigPath(request.cwd), engineVersion: 2,
+        projectRuntime: opts.projectRuntime?.(),
         loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
         resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
@@ -374,7 +378,7 @@ export function createLoopExecutors(
         // never silently replay an interrupted mutating phase.
         return runAgentRuntimeInvocation({
           contextPath: core.contextPath, cwd, env: { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, configPath: runtimeConfigPath(cwd),
-          change: runtimeChangeName(coreRun.runId), resume: admitted,
+          change: runtimeChangeName(coreRun.runId), resume: admitted, projectRuntime: opts.projectRuntime?.(),
           defaultProvider: provider, providerOverride: runtimeProviderOverride,
           onLine, onRawLine, onSpawn, timeoutMs: aiStepTimeoutMs,
         })
