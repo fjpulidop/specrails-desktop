@@ -340,7 +340,9 @@ describe('AgentPrDecisionCard states', () => {
       units: [{ ticketId: 4, branch: 'feat/4', succeeded: true, implementationOutcome: 'succeeded', deliveryOutcome: 'blocked', initialSha: null, finalSha: null, failureCode: 'commit_failed' }],
     })} />)
     const card = screen.getByTestId('agent-pr-decision-card')
-    expect(card).not.toHaveAttribute('role')
+    // A labelled, focusable region ("Open card" target) — never a live region itself.
+    expect(card).toHaveAttribute('role', 'region')
+    expect(card).not.toHaveAttribute('aria-live')
     expect(screen.getByRole('status', { name: 'Implementation complete — delivery needs attention' })).toBeInTheDocument()
     expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
     expect(screen.getByText(/^Implementation succeeded, but delivery is blocked/)).toBeInTheDocument()

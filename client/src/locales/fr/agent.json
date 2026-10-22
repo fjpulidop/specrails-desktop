@@ -410,9 +410,11 @@
     "viewLog": "Voir le journal d'exécution de {{ref}}",
     "runElapsedAria": "{{elapsed}} écoulées",
     "runCostAria": "{{cost}} dépensés",
+    "focusRegion": "Carte d’implémentation · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Épinglée",
       "marker": "Carte d’implémentation — épinglée ci-dessus",
+      "goTo": "Aller à la carte épinglée",
       "collapse": "Réduire la carte épinglée",
       "expand": "Déployer la carte épinglée",
       "expandCard": "Développer cette carte",

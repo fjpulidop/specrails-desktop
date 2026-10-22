@@ -390,9 +390,11 @@
     "viewLog": "View run log for {{ref}}",
     "runElapsedAria": "{{elapsed}} elapsed",
     "runCostAria": "{{cost}} spent",
+    "focusRegion": "Implementation card · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Pinned",
       "marker": "Implementation card — pinned above",
+      "goTo": "Go to the pinned card",
       "collapse": "Minimize pinned card",
       "expand": "Expand pinned card",
       "expandCard": "Expand this card",

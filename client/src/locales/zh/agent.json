@@ -410,9 +410,11 @@
     "viewLog": "查看 {{ref}} 的运行日志",
     "runElapsedAria": "已运行 {{elapsed}}",
     "runCostAria": "已花费 {{cost}}",
+    "focusRegion": "实现卡片 · {{rail}} {{tickets}}",
     "pinned": {
       "label": "已固定",
       "marker": "实现卡片 — 已固定在上方",
+      "goTo": "前往已固定的卡片",
       "collapse": "最小化固定卡片",
       "expand": "展开固定卡片",
       "expandCard": "展开此卡片",

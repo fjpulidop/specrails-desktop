@@ -22,7 +22,7 @@ import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
 import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
-import { parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { focusPrCard, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -282,7 +282,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // (the run card itself carries the recovery actions).
               if (FEATURE_MISSION_RAIL_CARDS) {
                 const failure = parseRunFailureRow(m.content)
-                if (failure) return <AgentRunFailureMarker key={m.id} row={failure} />
+                if (failure) return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} />
               }
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
@@ -298,15 +298,20 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // (no double render). Unpinning returns the full card here.
               if (isPrEnvelopePinned(envelope)) {
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={m.id}
+                    data-agent-interactive
                     data-testid="agent-pr-pinned-marker"
-                    className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
+                    title={t('prCard.pinned.goTo')}
+                    aria-label={t('prCard.pinned.goTo')}
+                    onClick={() => focusPrCard({ prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds ?? [], conversationId: m.conversation_id })}
+                    className="flex w-full items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-left text-[11px] text-foreground/45 backdrop-blur-sm transition-colors hover:border-accent-primary/40 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                   >
                     <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
                     <span className="min-w-0 flex-1 truncate">{t('prCard.pinned.marker')}</span>
                     <PrDecisionPill decision={envelope.decision} />
-                  </div>
+                  </button>
                 )
               }
               return <AgentPrDecisionCard key={m.id} envelope={envelope} conversationId={m.conversation_id} />

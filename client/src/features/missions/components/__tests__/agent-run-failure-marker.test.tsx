@@ -12,7 +12,7 @@ describe('AgentRunFailureMarker', () => {
     expect(screen.getByTestId('agent-run-failure-marker').textContent).toContain('idle')
     fireEvent.click(screen.getByTestId('agent-run-failure-open'))
     window.removeEventListener(FOCUS_PR_CARD_EVENT, spy)
-    expect((spy.mock.calls[0][0] as CustomEvent).detail).toEqual({ prDeliveryId: 'd1', runIds: ['r1'] })
+    expect((spy.mock.calls[0][0] as CustomEvent).detail).toEqual({ prDeliveryId: 'd1', runIds: ['r1'], conversationId: null })
   })
 })
 

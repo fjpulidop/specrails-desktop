@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { Pin, ChevronDown, ChevronUp, GitPullRequest, Rocket } from 'lucide-react'
@@ -6,6 +6,7 @@ import { cn } from '../../../lib/utils'
 import type { AgentPrDecisionEnvelope, AgentPrDecisionValue } from '../lib/agent-api'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import type { PinnedPrCard } from './agent-pr-pinning'
+import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusPrCard, type FocusPrCardDetail } from './agent-run-failure'
 import { AgentRailLaunchCard } from './AgentRailLaunchCard'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 
@@ -138,6 +139,43 @@ export function AgentPrPinnedDock({
     setCollapsed(readCollapsed(conversationId))
     setCollapsedCards(readCollapsedCards(conversationId))
   }, [conversationId])
+
+  // Focus bus ("Open card", the pinned reference row): a collapsed dock or card
+  // is not mounted, so it cannot hear the request. Expand both, then re-dispatch
+  // once the card has mounted (child effects register before this one runs).
+  const [pendingFocus, setPendingFocus] = useState<FocusPrCardDetail | null>(null)
+  const focusState = useRef({ pinned, collapsed, collapsedCards })
+  focusState.current = { pinned, collapsed, collapsedCards }
+  useEffect(() => {
+    const onFocus = (event: Event): void => {
+      const detail = (event as CustomEvent<FocusPrCardDetail>).detail
+      if (!detail || detail.expanded || !focusInConversation(detail, conversationId)) return
+      const state = focusState.current
+      const match = state.pinned.find((p) => focusMatchesCard(detail, { prDeliveryId: p.envelope.prDeliveryId, runIds: p.envelope.runIds }))
+      if (!match) return
+      const deliveryId = match.envelope.prDeliveryId
+      const cardCollapsed = state.collapsedCards.has(deliveryId)
+      if (!state.collapsed && !cardCollapsed) return // mounted: the card handles it
+      if (state.collapsed) {
+        writeCollapsed(conversationId, false)
+        setCollapsed(false)
+      }
+      if (cardCollapsed) {
+        const next = new Set(state.collapsedCards)
+        next.delete(deliveryId)
+        writeCollapsedCards(conversationId, next)
+        setCollapsedCards(next)
+      }
+      setPendingFocus({ ...detail, prDeliveryId: deliveryId, conversationId })
+    }
+    window.addEventListener(FOCUS_PR_CARD_EVENT, onFocus)
+    return () => window.removeEventListener(FOCUS_PR_CARD_EVENT, onFocus)
+  }, [conversationId])
+  useEffect(() => {
+    if (!pendingFocus) return
+    setPendingFocus(null)
+    focusPrCard({ ...pendingFocus, expanded: true })
+  }, [pendingFocus])
 
   const total = pinned.length + proposals.length
   if (total === 0) return null // parent gates; defensive

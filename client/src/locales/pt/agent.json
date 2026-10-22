@@ -410,9 +410,11 @@
     "viewLog": "Ver o registro de execução de {{ref}}",
     "runElapsedAria": "{{elapsed}} decorridos",
     "runCostAria": "{{cost}} gastos",
+    "focusRegion": "Cartão de implementação · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Fixada",
       "marker": "Cartão de implementação — fixado acima",
+      "goTo": "Ir para o cartão fixado",
       "collapse": "Minimizar cartão fixado",
       "expand": "Expandir cartão fixado",
       "expandCard": "Expandir este cartão",

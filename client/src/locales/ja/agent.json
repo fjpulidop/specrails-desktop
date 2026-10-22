@@ -410,9 +410,11 @@
     "viewLog": "{{ref}} の実行ログを表示",
     "runElapsedAria": "経過時間 {{elapsed}}",
     "runCostAria": "消費コスト {{cost}}",
+    "focusRegion": "実装カード · {{rail}} {{tickets}}",
     "pinned": {
       "label": "ピン留め",
       "marker": "実装カード — 上部にピン留め中",
+      "goTo": "ピン留めされたカードへ移動",
       "collapse": "ピン留めカードを最小化",
       "expand": "ピン留めカードを展開",
       "expandCard": "このカードを展開",

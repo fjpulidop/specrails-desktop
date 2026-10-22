@@ -410,9 +410,11 @@
     "viewLog": "Ausführungsprotokoll für {{ref}} anzeigen",
     "runElapsedAria": "{{elapsed}} vergangen",
     "runCostAria": "{{cost}} ausgegeben",
+    "focusRegion": "Implementierungskarte · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Angeheftet",
       "marker": "Implementierungskarte — oben angeheftet",
+      "goTo": "Zur angehefteten Karte",
       "collapse": "Angeheftete Karte minimieren",
       "expand": "Angeheftete Karte ausklappen",
       "expandCard": "Diese Karte ausklappen",

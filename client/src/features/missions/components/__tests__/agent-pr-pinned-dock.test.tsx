@@ -515,6 +515,78 @@ describe('collapse control', () => {
   })
 })
 
+// ── "Open card" focus (run-failure marker / pinned reference row) ─────────────
+describe('Open card focuses the pinned card', () => {
+  const failureRow = (over: Record<string, unknown> = {}): ApiAgentMessage => ({
+    id: 'f1', conversation_id: 'c1', role: 'system', created_at: '',
+    content: JSON.stringify({ kind: 'run-failure', runId: 'r1', railIndex: 0, projectId: 'p1', code: 'implementation_failed', detail: 'boom', stepId: null, at: null, prDeliveryId: 'd1', ...over }),
+  })
+  const failedCard = () => sysRow('s1', { prDeliveryId: 'd1', decision: 'implementation_failed', implementationOutcome: 'failed', runIds: ['r1'], ticketIds: [8] })
+  const scrollSpy = () => vi.mocked(HTMLElement.prototype.scrollIntoView)
+
+  it('expands a collapsed dock AND a collapsed card, scrolls the card into view and focuses it', async () => {
+    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+    sessionStorage.setItem('specrails-desktop:agent-pr-dock-card-collapsed:c1', JSON.stringify(['d1']))
+    await renderPanelWithMessages([failedCard(), failureRow()])
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    expect(within(d).queryByTestId('agent-pr-decision-card')).toBeNull()
+    scrollSpy().mockClear()
+
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
+
+    const card = await within(d).findByTestId('agent-pr-decision-card')
+    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBeNull()
+    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBeNull()
+    expect(scrollSpy()).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }))
+    expect(document.activeElement).toBe(card)
+    expect(card).toHaveAttribute('role', 'region')
+    expect(card.getAttribute('aria-label')).toContain('Rail 1')
+    expect(card.getAttribute('aria-label')).toContain('#8')
+    expect(card.className).toContain('ring-2')
+    // Exactly once: the dock re-dispatches, the card does not double-handle.
+    expect(scrollSpy()).toHaveBeenCalledTimes(1)
+  })
+
+  it('already expanded: the mounted card scrolls and takes focus directly', async () => {
+    await renderPanelWithMessages([failedCard(), failureRow()])
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    const card = within(d).getByTestId('agent-pr-decision-card')
+    scrollSpy().mockClear()
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
+    expect(scrollSpy()).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(card)
+  })
+
+  it('the pinned reference row in the history focuses the same card', async () => {
+    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+    await renderPanelWithMessages([failedCard()])
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    await act(async () => { fireEvent.click(markers()[0]!) })
+    const card = await within(d).findByTestId('agent-pr-decision-card')
+    expect(document.activeElement).toBe(card)
+  })
+
+  it('a card that is not there is a graceful no-op (dock stays as it was)', async () => {
+    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+    await renderPanelWithMessages([failedCard(), failureRow({ runId: 'other', prDeliveryId: 'gone' })])
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    scrollSpy().mockClear()
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
+    expect(within(d).getByTestId('agent-pr-dock-expand')).toBeInTheDocument()
+    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBe('1')
+    expect(scrollSpy()).not.toHaveBeenCalled()
+  })
+
+  it('a request scoped to another conversation (split panes) is ignored', async () => {
+    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+    await renderPanelWithMessages([failedCard()])
+    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    const { focusPrCard } = await import('../agent-run-failure')
+    await act(async () => { focusPrCard({ prDeliveryId: 'd1', runIds: ['r1'], conversationId: 'c2' }) })
+    expect(within(d).getByTestId('agent-pr-dock-expand')).toBeInTheDocument()
+  })
+})
+
 // ── Both surfaces mount the pinned slot ───────────────────────────────────────
 describe('surfaces', () => {
   it('the Agent-Mode INLINE conversation view renders the same pinned dock', async () => {

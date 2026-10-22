@@ -42,7 +42,7 @@ import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPaused
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
-import { FOCUS_PR_CARD_EVENT, focusMatchesCard, type FocusPrCardDetail } from './agent-run-failure'
+import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -449,7 +449,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     const onFocus = (event: Event): void => {
       const detail = (event as CustomEvent<FocusPrCardDetail>).detail
       if (!focusMatchesCard(detail, { prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds })) return
-      cardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      if (conversationId && !focusInConversation(detail, conversationId)) return
+      const card = cardRef.current
+      card?.scrollIntoView?.({ behavior: focusScrollBehavior(), block: 'nearest' })
+      // Keyboard focus follows the request (the region is labelled for screen readers).
+      try { card?.focus({ preventScroll: true }) } catch { card?.focus() }
       setFlash(true)
       if (flashTimer) clearTimeout(flashTimer)
       flashTimer = setTimeout(() => setFlash(false), 1400)
@@ -460,8 +464,17 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       window.removeEventListener(FOCUS_PR_CARD_EVENT, onFocus)
       if (flashTimer) clearTimeout(flashTimer)
     }
-  }, [envelope.prDeliveryId, envelope.runIds])
-  const flashClass = flash ? 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background' : ''
+  }, [envelope.prDeliveryId, envelope.runIds, conversationId])
+  // Brief highlight pulse in theme tokens; the pulse only runs when motion is allowed.
+  const flashClass = cn('outline-none', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
+  const focusRegion = {
+    tabIndex: -1,
+    role: 'region' as const,
+    'aria-label': t('prCard.focusRegion', {
+      rail: envelope.railName || t('prCard.rail', { index: envelope.railIndex + 1 }),
+      tickets: envelope.ticketIds.map((id) => `#${id}`).join(' '),
+    }),
+  }
   const hasRepositoryDeliveries = Boolean(envelope.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(envelope)
   const flowOutcome = flowCardOutcome(envelope)
@@ -856,6 +869,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     return (
       <div
         ref={cardRef}
+      {...focusRegion}
         data-testid="agent-pr-decision-card"
         className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl transition-shadow', flashClass)}
       >
@@ -974,6 +988,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     return (
       <div
         ref={cardRef}
+      {...focusRegion}
         data-testid="agent-pr-decision-card"
         data-run-only="true"
         className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', flashClass)}
@@ -1213,6 +1228,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   return (
     <div
       ref={cardRef}
+      {...focusRegion}
       data-testid="agent-pr-decision-card"
       className={cn(
         'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow',

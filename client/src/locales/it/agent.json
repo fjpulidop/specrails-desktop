@@ -410,9 +410,11 @@
     "viewLog": "Vedi il log di esecuzione di {{ref}}",
     "runElapsedAria": "{{elapsed}} trascorsi",
     "runCostAria": "{{cost}} spesi",
+    "focusRegion": "Scheda di implementazione · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Fissata",
       "marker": "Scheda di implementazione — fissata sopra",
+      "goTo": "Vai alla scheda fissata",
       "collapse": "Riduci la scheda fissata",
       "expand": "Espandi la scheda fissata",
       "expandCard": "Espandi questa scheda",

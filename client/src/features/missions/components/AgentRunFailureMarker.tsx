@@ -13,7 +13,7 @@ import type { AgentContextReference } from '../lib/agent-api'
  * Deliberately NOT a second card — the card already carries the recovery
  * actions; this is the chronological trace of the moment it happened.
  */
-export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
+export function AgentRunFailureMarker({ row, conversationId = null }: { row: RunFailureRow; conversationId?: string | null }) {
   const { t } = useTranslation('agent')
   // Flow → Spec still needs changes: a review outcome, not a crash.
   const changes = row.code === 'review_changes_requested'
@@ -37,7 +37,7 @@ export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
         type="button"
         data-agent-interactive
         data-testid="agent-run-failure-open"
-        onClick={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId] })}
+        onClick={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId], conversationId })}
         className={cn('shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors',
           changes ? 'border-accent-warning/35 text-accent-warning hover:bg-accent-warning/10' : 'border-destructive/35 text-destructive hover:bg-destructive/10')}
       >

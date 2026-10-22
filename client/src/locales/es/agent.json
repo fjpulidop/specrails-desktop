@@ -390,9 +390,11 @@
     "viewLog": "Ver el registro de ejecución de {{ref}}",
     "runElapsedAria": "{{elapsed}} transcurridos",
     "runCostAria": "{{cost}} gastados",
+    "focusRegion": "Tarjeta de implementación · {{rail}} {{tickets}}",
     "pinned": {
       "label": "Fijada",
       "marker": "Tarjeta de implementación — fijada arriba",
+      "goTo": "Ir a la tarjeta fijada",
       "collapse": "Minimizar tarjeta fijada",
       "expand": "Expandir tarjeta fijada",
       "expandCard": "Expandir esta tarjeta",

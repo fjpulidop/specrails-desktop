@@ -56,14 +56,35 @@ export function systemBriefingRunId(message: Pick<AgentMessage, 'role' | 'contex
 }
 
 // ── Focus bus ─────────────────────────────────────────────────────────────────
-// Dispatched by: the run-failure marker ("Open card"), the launch card's
-// launched stub ("View run"). Listened by: every mounted AgentPrDecisionCard,
-// which scrolls itself into view + flashes when it matches.
+// Dispatched by: the run-failure marker ("Open card"), the pinned-card
+// reference row, the launch card's launched stub ("Go to card"). Listened by:
+// the pinned dock, which expands itself and the matching card when they are
+// collapsed (an unmounted card cannot hear the event) and re-dispatches; and
+// every mounted AgentPrDecisionCard, which scrolls itself into view, takes
+// keyboard focus and pulses when it matches.
 export const FOCUS_PR_CARD_EVENT = 'specrails:focus-pr-card'
 
 export interface FocusPrCardDetail {
   prDeliveryId?: string | null
   runIds?: string[]
+  /** Scope to one mission (split panes show several); absent = any. */
+  conversationId?: string | null
+  /** Set by the dock when it re-dispatches after expanding: never handled twice. */
+  expanded?: boolean
+}
+
+/** True when a focus request is not scoped to another conversation. */
+export function focusInConversation(detail: FocusPrCardDetail | null | undefined, conversationId: string): boolean {
+  return !detail?.conversationId || detail.conversationId === conversationId
+}
+
+/** Smooth unless the person asked the OS for reduced motion. */
+export function focusScrollBehavior(): ScrollBehavior {
+  try {
+    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  } catch {
+    return 'smooth'
+  }
 }
 
 export function focusPrCard(detail: FocusPrCardDetail): void {

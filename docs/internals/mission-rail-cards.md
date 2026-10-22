@@ -110,6 +110,7 @@ WS messages: `agent_pr_decision` (existing, now carries the new fields), `agent_
 - `client/src/features/rails/lib/rail-launch-intents.ts` — session overlay (`recordLocalIntent`, `intentFor`); `useRailLaunchProposals.ts` — undecided proposals for the dock; `AgentPrPinnedDock.tsx` — proposals pinned above PR cards.
 - `AgentPrDecisionCard.tsx` — run phase header (`deriveMissionRunStatus`, live `useRuntimeRuns` first), run-only rendering for `hasDelivery === false`, `RunFailureBlock`, Resume / Approve / Recover / Relaunch, focus-bus scroll + flash.
 - `agent-pr-pinning.ts` `isPrEnvelopePinned`; `agent-run-failure.ts` (`parseRunFailureRow`, `systemBriefingRunId`, `FOCUS_PR_CARD_EVENT`, `MISSION_OPEN_RUN_EVENT`, `requestMissionOpenRun`); `AgentRunFailureMarker.tsx`.
+- Focus bus: "Open card" (failure marker) and the pinned reference row dispatch `FOCUS_PR_CARD_EVENT` scoped by `conversationId`. `AgentPrPinnedDock` expands a collapsed dock/card and re-dispatches once (`expanded: true`) after the card mounts; the card scrolls (`block: 'nearest'`, instant under reduced motion), takes focus as a labelled `region` (`tabIndex=-1`) and pulses (`motion-safe`). An unknown card is a no-op.
 - `client/src/features/missions/context/AgentChatContext.tsx` — appends the `run-failure` row live on `agent_run_failure`; `AgentWorkspaceContext.tsx` / `AgentModeJobsPane.tsx` — `specrails:mission-open-run` opens the Jobs pane + `JobDetailModal`; `hooks/useOsNotifications.ts` — stays in Mission mode.
 - Palette: `client/src/features/missions/lib/agent-context-palette.ts` (`rail` kind, `railsFromResponse`, `railChip`), `AgentComposer.tsx`, `AgentComposerEditor.tsx`, `AgentContextPalette.tsx`.
 
@@ -148,5 +149,5 @@ Migration 29 and the envelope fields are additive; persisted intents are inert w
 | Failure trigger / briefing / system turn | `server/modules/missions/runtime/mission-run-notify.test.ts`, `server/modules/missions/runtime/agent-failure-briefing.test.ts`, `server/agent-chat-mission-turn.test.ts`, `server/modules/delivery/runtime/rail-isolated-launch.test.ts` |
 | MCP runtime actions | `server/mcp/tools/jobs-runtime.test.ts` |
 | Launch card, proposals hook, stubs | `client/src/features/missions/components/__tests__/agent-rail-launch-card.test.tsx` |
-| Run card phases / failure block / pinning / marker | `mission-run-card.test.tsx`, `mission-run-pinning.test.ts`, `agent-run-failure.test.ts`, `agent-run-failure-marker.test.tsx` |
+| Run card phases / failure block / pinning / marker | `mission-run-card.test.tsx`, `mission-run-pinning.test.ts`, `agent-run-failure.test.ts`, `agent-run-failure-marker.test.tsx`, `agent-pr-pinned-dock.test.tsx` (Open card focus) |
 | Palette rails, Mission-mode notifications | `client/src/lib/__tests__/agent-context-palette-rails.test.ts`, `client/src/hooks/__tests__/useOsNotifications.mission-mode.test.ts` |
