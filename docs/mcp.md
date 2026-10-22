@@ -49,7 +49,7 @@ reading one description. The tools are:
 | `specrails_code` | File discovery, literal content search, bounded line reads, summaries and provenance; AI summary regeneration is capability-gated |
 | `specrails_git` | Repository/branch/worktree information, status, diffs and PR lookup |
 | `specrails_env` | Project environment readiness and environment-file management; `get`/`status`/`recheck` report each configured name's value-free resolution status |
-| `specrails_support` | Support triage, local diagnostics and specrails-core update workflows |
+| `specrails_support` | Support triage, local diagnostics, specrails-core update workflows (following the app update channel) and `api_meta` (API, app, Core and contract versions) |
 | `specrails_setup` | Add-project and per-project install surface (prerequisites, add, install-config, install, checkpoints, abort) |
 | `specrails_analytics` | Per-project spending analytics + budget, decision times, loop economics (`loop_economics`) |
 | `specrails_settings` | App-level settings |

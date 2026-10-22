@@ -244,7 +244,23 @@
       "local": "本地软件包",
       "global": "外部 CLI"
     },
-    "repair": "完成 {{version}} 更新"
+    "repair": "完成 {{version}} 更新",
+    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。"
+  },
+  "updateChannel": {
+    "heading": "更新通道",
+    "loading": "正在加载通道…",
+    "scope": "同时适用于 Specrails Desktop 和 specrails-core 框架。",
+    "saved": "更新通道：{{channel}}",
+    "saveFailed": "无法更改更新通道：{{message}}",
+    "latest": {
+      "label": "最新",
+      "description": "每个版本发布后立即获取。最先获得新功能和修复。"
+    },
+    "stable": {
+      "label": "稳定",
+      "description": "仅接收在最新通道上至少一周且 CI 通过后被提升的版本。Core 跟随其 stable 标签。"
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "启动时及每 6 小时自动检查。",
     "unavailable": "更新仅在桌面应用中可用。",
     "toastUpToDate": "Specrails Desktop 已是最新",
-    "toastCheckFailed": "检查更新失败: {{message}}"
+    "toastCheckFailed": "检查更新失败: {{message}}",
+    "stableUnavailable": "尚未有版本被提升到稳定通道。请切换到最新，或稍后再试。"
   },
   "projectDialog": {
     "title": "{{name}} — 设置",

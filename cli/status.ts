@@ -30,6 +30,7 @@ export async function handleStatus(port: number): Promise<number> {
       uptime?: number
       projects?: number
       mode?: string
+      apiVersion?: number
     }
 
     const version = health.version ? `  (v${health.version})` : ''
@@ -37,6 +38,9 @@ export async function handleStatus(port: number): Promise<number> {
     process.stdout.write(`mode:        ${health.mode ?? 'unknown'}\n`)
     if (health.projects !== undefined) {
       process.stdout.write(`projects:    ${health.projects}\n`)
+    }
+    if (health.apiVersion !== undefined) {
+      process.stdout.write(`api:         v${health.apiVersion}\n`)
     }
 
     // Legacy mode: fetch additional per-project details from /api/state

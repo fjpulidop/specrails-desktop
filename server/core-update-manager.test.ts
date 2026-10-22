@@ -4,7 +4,7 @@ import os from 'os'
 import path from 'path'
 import { spawnSync } from 'child_process'
 
-import { CoreUpdateManager } from './core-update-manager'
+import { CoreUpdateManager, fetchChannelFromRegistry } from './core-update-manager'
 import { frameworkRoot, readCurrentFrameworkVersion } from './framework-manager'
 import { managedCoreRoot, resolveCoreRuntime } from './core-runtime'
 
@@ -138,6 +138,62 @@ describe('CoreUpdateManager', () => {
         const m = new CoreUpdateManager({ home })
         await expect(m.checkForUpdate()).rejects.toThrow(/no version/)
       })
+    })
+  })
+
+  describe('release channel', () => {
+    const registry = (tags: Record<string, string | number>) => {
+      const urls: string[] = []
+      const fetchImpl = (async (url: string) => {
+        urls.push(url)
+        const tag = url.split('/').pop() as string
+        const value = tags[tag]
+        if (value === undefined) return { ok: false, status: 404, json: async () => ({}) }
+        if (typeof value === 'number') return { ok: false, status: value, json: async () => ({}) }
+        return { ok: true, status: 200, json: async () => ({ version: value }) }
+      }) as unknown as typeof fetch
+      return { urls, fetchImpl }
+    }
+
+    it('latest reads the latest dist-tag only', async () => {
+      const { urls, fetchImpl } = registry({ latest: '6.7.0', stable: '6.6.0' })
+      expect(await fetchChannelFromRegistry('latest', fetchImpl)).toEqual({ version: '6.7.0', distTag: 'latest' })
+      expect(urls).toEqual(['https://registry.npmjs.org/specrails-core/latest'])
+    })
+
+    it('stable pins the stable dist-tag when Core publishes one', async () => {
+      const { urls, fetchImpl } = registry({ latest: '6.7.0', stable: '6.6.0' })
+      expect(await fetchChannelFromRegistry('stable', fetchImpl)).toEqual({ version: '6.6.0', distTag: 'stable' })
+      expect(urls).toEqual(['https://registry.npmjs.org/specrails-core/stable'])
+    })
+
+    it('stable falls back to latest only when the stable dist-tag does not exist', async () => {
+      const missing = registry({ latest: '6.7.0' })
+      expect(await fetchChannelFromRegistry('stable', missing.fetchImpl)).toEqual({ version: '6.7.0', distTag: 'latest' })
+      const failing = registry({ latest: '6.7.0', stable: 503 })
+      await expect(fetchChannelFromRegistry('stable', failing.fetchImpl)).rejects.toThrow(/503/)
+      expect(failing.urls).toHaveLength(1)
+    })
+
+    it('reports the channel, resolved dist-tag and fallback on status', async () => {
+      bundle('6.5.0')
+      const fallback = new CoreUpdateManager({ home, channel: () => 'stable', fetchLatest: async () => ({ version: '6.7.0', distTag: 'latest' }) })
+      expect(await fallback.checkForUpdate()).toMatchObject({ channel: 'stable', resolvedDistTag: 'latest', channelFallback: true, latestVersion: '6.7.0', updateAvailable: true })
+      const pinned = new CoreUpdateManager({ home, channel: () => 'stable', fetchLatest: async () => ({ version: '6.6.0', distTag: 'stable' }) })
+      expect(await pinned.checkForUpdate()).toMatchObject({ resolvedDistTag: 'stable', channelFallback: false, latestVersion: '6.6.0' })
+    })
+
+    it('never offers a version checked for another channel', async () => {
+      bundle('6.5.0')
+      let channel: 'latest' | 'stable' = 'latest'
+      const m = new CoreUpdateManager({ home, channel: () => channel, fetchLatest: async () => '6.7.0' })
+      expect((await m.checkForUpdate()).updateAvailable).toBe(true)
+      channel = 'stable'
+      expect(m.getStatus()).toMatchObject({ channel: 'stable', latestVersion: null, updateAvailable: false, resolvedDistTag: null })
+      expect(await m.update()).toMatchObject({ ok: false, error: expect.stringMatching(/No valid target/) })
+      // The channel survives a restart with the cache.
+      const restarted = new CoreUpdateManager({ home, channel: () => 'latest' })
+      expect(restarted.getStatus()).toMatchObject({ latestVersion: '6.7.0', resolvedDistTag: 'latest' })
     })
   })
 

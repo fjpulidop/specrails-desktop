@@ -12,6 +12,7 @@ import { CodeSectionSettings } from '../components/CodeSectionSettings'
 import { ProviderConnectionsCard } from '../components/provider-connections'
 import { CoreUpdateSection } from '../components/CoreUpdateSection'
 import { AppUpdateSection } from '../components/AppUpdateSection'
+import { UpdateChannelSection } from '../components/UpdateChannelSection'
 import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
@@ -391,6 +392,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('updates')}>
+            <UpdateChannelSection />
+
             <AppUpdateSection />
 
             <CoreUpdateSection />

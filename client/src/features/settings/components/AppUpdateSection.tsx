@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
-import { check } from '@tauri-apps/plugin-updater'
+import { checkAppUpdate, isStableChannelUnavailable } from '../../../lib/app-updater'
 import { getVersion } from '@tauri-apps/api/app'
 import {
   createMockUpdate,
@@ -43,7 +43,7 @@ export function AppUpdateSection() {
     setChecking(true)
     setResult(null)
     try {
-      const update = mockEnabled ? createMockUpdate() : await check()
+      const update = mockEnabled ? createMockUpdate() : await checkAppUpdate()
       if (update) {
         setResult('update-available')
         setLatestVersion(update.version)
@@ -53,7 +53,8 @@ export function AppUpdateSection() {
         toast.success(t('appUpdate.toastUpToDate'))
       }
     } catch (err) {
-      toast.error(t('appUpdate.toastCheckFailed', { message: (err as Error).message }))
+      if (isStableChannelUnavailable(err)) toast.error(t('appUpdate.stableUnavailable'))
+      else toast.error(t('appUpdate.toastCheckFailed', { message: err instanceof Error ? err.message : String(err) }))
     } finally {
       setChecking(false)
     }

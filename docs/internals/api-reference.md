@@ -25,6 +25,29 @@ The CLI and the desktop client read the token automatically. The browser client 
 
 There is no UI to set or clear the token, and it is not an app setting.
 
+## Versioning and deprecation policy
+
+Every response under `/api` — desktop routes, project-scoped routes, public routes, auth rejections and 404s — carries the header:
+
+```http
+X-Specrails-Api-Version: 1
+```
+
+The header is set by middleware mounted in `server/index.ts` before any `/api` router (and exposed to allowed CORS origins), so no route can bypass it. `GET /api/health` (public) also returns `apiVersion`, and `GET /api/meta` (authenticated) returns the full version set. The constant lives in `server/api-version.ts`.
+
+Rules:
+
+1. **Additive changes keep the version.** New routes, new optional request fields and new response fields are not breaking. Clients must ignore response fields they do not know.
+2. **`apiVersion` is bumped only on a breaking change**: removing or renaming a route or field, changing a field's type or meaning, tightening validation of an existing request, or changing a WebSocket event contract. A bump is a `feat!`/`fix!` commit with a `BREAKING CHANGE:` footer.
+3. **Deprecate before removing.** A route or field to be removed is first marked deprecated: it keeps working, the deprecation is recorded in the ledger below and announced in `CHANGELOG.md` under a **Deprecations** heading for the release that ships it (see [CONTRIBUTING](../../CONTRIBUTING.md#api-changes-and-deprecations)).
+4. **Keep deprecated surface for at least two minor releases.** Something deprecated in `2.65.0` can be removed no earlier than `2.67.0`, and the removal itself is a breaking change under rule 2.
+
+Deprecation ledger (newest first):
+
+| Route or field | Deprecated in | Earliest removal | Replacement |
+|---|---|---|---|
+| — | — | — | No deprecations yet |
+
 This page is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/modules/code/runtime/code-explorer-router.ts`, and `server/jira-router.ts`. If you spot a discrepancy, please file an issue.
 
 ---
@@ -33,7 +56,7 @@ This page is hand-maintained against the route declarations in `server/*-router.
 
 | Prefix | Router | Auth | Notes |
 |--------|--------|------|-------|
-| `/api/health` | direct | none | Liveness probe (`{ status, version, uptime, projects, mode }`) |
+| `/api/health` | direct | none | Liveness probe (`{ status, version, apiVersion, uptime, projects, mode }`) |
 | `/api/token` | direct | none | Returns the auth token for local bootstrapping (loopback-only) |
 | `/api/docs` | `docs-router` | loopback-only (mounted before token auth) | Bundled documentation portal |
 | `/api/mobile/*` | `mobile-admin-router` | Bearer / X-Desktop-Token + loopback | Mobile Gateway admin (enable/pair/devices) |
@@ -87,15 +110,19 @@ Example — register a project that uses both Claude and Gemini:
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
 | `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, `gemini`, or `kimi` — runs the registered adapter's version probe. Registry-driven |
 | `GET` | `/available-providers` | Provider catalogue used by the Add Project dialog (no-provider warning), mission and provider pickers. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
+| `GET` | `/meta` | Versions a client negotiates with: `{ apiVersion, appVersion, coreVersion, contractSchemaVersion, channel, updateManifestUrl }`. `coreVersion` is the Core in use (active framework, else the located contract's Core, else the bundled one); `contractSchemaVersion` is the integration contract's `schemaVersion`; unknown values are `null`. `channel` is the update channel (`latest` or `stable`) and `updateManifestUrl` the Tauri updater manifest it reads |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
+| `GET` | `/core-update/status` | Core update status without network access. Includes `channel`, `resolvedDistTag` (`latest`/`stable`/`null`) and `channelFallback` (`true` when `stable` was requested but Core has no `stable` dist-tag, so `latest` was used). A version cached for another channel is never offered |
+| `POST` | `/core-update/check` | Resolve the channel's npm dist-tag (`stable` → `stable`, falling back to `latest` only on a 404 for the tag) and return the refreshed status |
+| `POST` | `/core-update/update` | Install the checked version (or `{ version }`). `202`; progress over the `core_update.progress` WebSocket event |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
 ### Settings, budget, theme
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
-| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime? }`. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
+| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`) and `updateChannel` (`latest` default, or `stable`) |
+| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime?, updateChannel? }`. `updateChannel` must be `latest` or `stable` (otherwise `400` and nothing is written); it selects the Desktop updater manifest and the Core npm dist-tag. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
 | `GET` | `/budget` | App-wide budget config |
 | `PATCH` | `/budget` | Update the app-wide daily budget |
 | `GET` | `/theme` | Current UI theme (defaults to `specrails`) |

@@ -16,8 +16,9 @@ vi.mock('sonner', () => ({
   },
 }))
 
-vi.mock('@tauri-apps/plugin-updater', () => ({
-  check: (...args: unknown[]) => checkMock(...args),
+// The notifier checks through the channel-aware helper (latest|stable).
+vi.mock('../../lib/app-updater', () => ({
+  checkAppUpdate: (...args: unknown[]) => checkMock(...args),
 }))
 
 vi.mock('@tauri-apps/plugin-process', () => ({

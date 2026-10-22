@@ -458,6 +458,8 @@ describe('specrails_support tool', () => {
     const tier = spec.tier as (a: Record<string, unknown>) => string
     expect(tier({ action: 'triage' })).toBe('read')
     expect(tier({ action: 'core_update_status' })).toBe('read')
+    expect(tier({ action: 'api_meta' })).toBe('read')
+    expect(actionOptions(spec)).toContain('api_meta')
     expect(tier({ action: 'core_update_apply' })).toBe('ai-spawn')
     expect(actionOptions(spec)).not.toContain('reassemble_project_workspace')
   })

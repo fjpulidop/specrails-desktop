@@ -244,7 +244,23 @@
       "local": "ローカルパッケージ",
       "global": "外部 CLI"
     },
-    "repair": "{{version}} への更新を完了"
+    "repair": "{{version}} への更新を完了",
+    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。"
+  },
+  "updateChannel": {
+    "heading": "アップデートチャネル",
+    "loading": "チャネルを読み込み中…",
+    "scope": "Specrails Desktop と specrails-core フレームワークの両方に適用されます。",
+    "saved": "アップデートチャネル: {{channel}}",
+    "saveFailed": "アップデートチャネルを変更できませんでした: {{message}}",
+    "latest": {
+      "label": "最新",
+      "description": "リリースされたらすぐに受け取ります。新機能と修正をいち早く。"
+    },
+    "stable": {
+      "label": "安定版",
+      "description": "最新チャネルで 1 週間以上 CI が成功したうえで昇格したリリースのみ。Core は stable タグに従います。"
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "起動時と6時間ごとに自動確認します。",
     "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
     "toastUpToDate": "Specrails Desktop は最新です",
-    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}"
+    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}",
+    "stableUnavailable": "安定版チャネルに昇格したリリースはまだありません。最新に切り替えるか、後でもう一度お試しください。"
   },
   "projectDialog": {
     "title": "{{name}} — 設定",

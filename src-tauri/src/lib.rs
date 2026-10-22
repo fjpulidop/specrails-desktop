@@ -1,3 +1,4 @@
+mod app_updates;
 mod browser;
 mod desktop_actions;
 mod desktop_status;
@@ -404,6 +405,7 @@ pub fn run() {
         .invoke_handler(|invoke| invoke_guard::dispatch(invoke, tauri::generate_handler![
             restart_app,
             set_tray_labels,
+            app_updates::check_app_update,
             desktop_actions::desktop_reveal_path,
             desktop_actions::desktop_save_text,
             desktop_actions::desktop_notify,
