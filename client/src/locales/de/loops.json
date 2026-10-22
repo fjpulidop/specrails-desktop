@@ -210,7 +210,8 @@
         "end": "Ende",
         "assign": "Variablen setzen",
         "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract"
+        "artifact-contract": "Artifact contract",
+        "derive-change": "Änderung ableiten"
       },
       "groups": {
         "ai": "KI",

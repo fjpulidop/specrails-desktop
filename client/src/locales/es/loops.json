@@ -210,7 +210,8 @@
         "end": "Fin",
         "assign": "Asignar variables",
         "implementation-step": "Paso de implementación",
-        "artifact-contract": "Comprobar artefactos"
+        "artifact-contract": "Comprobar artefactos",
+        "derive-change": "Derivar cambio"
       },
       "groups": {
         "ai": "IA",

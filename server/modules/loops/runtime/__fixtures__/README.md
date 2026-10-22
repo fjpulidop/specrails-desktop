@@ -35,3 +35,5 @@ frozen request, independently verifies repository contents and replays all
 durable events twice. Interrupted calls remain counted with unknown usage; the
 human answer produces exactly one additional invocation. Every process and
 temporary repository belongs to that test and is cleaned up on failure.
+
+- `core-flow-spec.json` — Core's reference Flow → Spec definition (`src/agent-runtime/engine/__fixtures__/flow-spec.json`, Core PR #438). `loop-flow-spec.test.ts` checks that the Desktop recipe compiles to the same entry, roles, node kinds, routing and piece params.

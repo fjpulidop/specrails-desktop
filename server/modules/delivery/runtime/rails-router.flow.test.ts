@@ -7,8 +7,8 @@ import { createRailsRouter, FLOW_SPEC_LOOP_ID } from './rails-router'
 import { setRailTickets } from './rails-store'
 import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type FlowHandOffAuthority } from './flow-worktree-handoff'
 
-const { mockRepoStatus, mockLaunchIsolated } = vi.hoisted(() => ({ mockRepoStatus: vi.fn(), mockLaunchIsolated: vi.fn() }))
-vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: {} } }) }))
+const { mockRepoStatus, mockLaunchIsolated, coreCapabilities } = vi.hoisted(() => ({ mockRepoStatus: vi.fn(), mockLaunchIsolated: vi.fn(), coreCapabilities: { value: {} as Record<string, number> } }))
+vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: coreCapabilities.value } }) }))
 vi.mock('../../../worktree-manager', async (importActual) => ({
   ...(await (importActual as () => Promise<Record<string, unknown>>)()),
   repoIsolationStatus: mockRepoStatus,
@@ -26,7 +26,7 @@ beforeEach(() => {
   mockRepoStatus.mockReset().mockResolvedValue('ok')
   mockLaunchIsolated.mockReset().mockResolvedValue(['flow-run'])
 })
-afterEach(() => { db.close(); desktopDb.close(); delete process.env.SPECRAILS_LOOPS_SECTION })
+afterEach(() => { db.close(); desktopDb.close(); delete process.env.SPECRAILS_LOOPS_SECTION; coreCapabilities.value = {} })
 
 const required = {
   flowId: 'flow-1', ticketId: 7, conversationId: 'conv-1', branch: 'feat/7', worktreePath: '/wt/flow-1/ticket-7',
@@ -106,5 +106,19 @@ describe('rails launch with flowId (Flow hand-off)', () => {
     const res = await request(app()).post('/rails/0/launch').send({ loopId: FLOW_SPEC_LOOP_ID })
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('flow_id_required')
+  })
+
+  it('refuses the Flow -> Spec loop on a Core without derive-change and launches its graph otherwise', async () => {
+    setRailTickets(db, 0, [7], 'implement')
+    const refused = await request(app(authority())).post('/rails/0/launch').send({ loopId: FLOW_SPEC_LOOP_ID, flowId: 'flow-1' })
+    expect(refused.status).toBe(409)
+    expect(refused.body.error).toBe('engine_unsupported')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    coreCapabilities.value = { engineV2: 1, workflowDefinitions: 1, deriveChange: 1 }
+    const launched = await request(app(authority())).post('/rails/0/launch').send({ loopId: FLOW_SPEC_LOOP_ID, flowId: 'flow-1' })
+    expect(launched.status).toBe(202)
+    const input = mockLaunchIsolated.mock.calls[0]![0]
+    expect(input).toMatchObject({ loopId: FLOW_SPEC_LOOP_ID, requiredFlowWorktree: required })
+    expect(input.loopGraph.nodes.some((node: { data?: { kind?: string } }) => node.data?.kind === 'derive-change')).toBe(true)
   })
 })

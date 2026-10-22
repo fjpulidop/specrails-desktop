@@ -28,6 +28,14 @@ describe('Core execution context', () => {
     expect(context).toMatchObject({ artifactRepositoryId: 'primary-project-123', repositories: [{ id: 'primary-project-123', path: front }] })
     expect(prepareCoreExecution(input).contextPath).toBe(prepared.contextPath)
   })
+  it('freezes a Flow reservation commit as the single repository change base (and ignores a malformed one)', () => {
+    const { cwd, front } = fixture()
+    const base = 'c'.repeat(40)
+    const flow = prepareCoreExecution({ cwd, repoDir: front, env: {}, repositoryBaseSha: base, run: { runId: 'flow-run', projectId: 'p' } })
+    expect(JSON.parse(readFileSync(flow.contextPath, 'utf8')).repositories[0]).toMatchObject({ path: front, baseSha: base })
+    const bad = prepareCoreExecution({ cwd, repoDir: front, env: {}, repositoryBaseSha: 'HEAD~1', run: { runId: 'flow-bad', projectId: 'p' } })
+    expect(JSON.parse(readFileSync(bad.contextPath, 'utf8')).repositories[0]).not.toHaveProperty('baseSha')
+  })
   it('keeps explicit selected and frozen spec identities ahead of the project primary fallback', () => {
     const { cwd, front } = fixture()
     const explicit = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'explicit-repository', projectId: 'project-123', repositoryId: 'secondary' } })

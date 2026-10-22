@@ -14,7 +14,7 @@ export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'conditio
 
 export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'assign', 'verify', 'shell',
   'artifact-contract', 'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
-  'component', 'implementation', 'implementation-step', 'end'] as const
+  'component', 'implementation', 'implementation-step', 'derive-change', 'end'] as const
 export type CoreNodeKind = typeof CORE_NODE_KINDS[number]
 export interface CorePieceShape { kind: string; outcomes: readonly string[] }
 

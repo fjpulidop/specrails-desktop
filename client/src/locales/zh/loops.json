@@ -210,7 +210,8 @@
         "end": "结束",
         "assign": "设置变量",
         "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract"
+        "artifact-contract": "Artifact contract",
+        "derive-change": "推导变更"
       },
       "groups": {
         "ai": "AI",

@@ -13,6 +13,7 @@
  * (which are random) and the rail resolver can recognise a factory loop.
  */
 import { coreFactoryGraph } from './loop-core-factory'
+import { flowSpecGraph } from './loop-flow-spec-recipe'
 import type { LoopGraph } from './loop-graph'
 import { fixLoopGraph, opsxLifecycleGraph } from './loop-templates'
 
@@ -27,6 +28,8 @@ export interface FactoryLoop {
   mode: 'implement' | 'freestyle' | 'loop'
   /** Provider capability required to launch this factory loop. */
   requiredCapability?: 'freestyle'
+  /** Core runtime capability the loop needs (listed only when advertised). */
+  requiredCoreCapability?: 'deriveChange'
   /**
    * False for a loop the platform runs on its OWN initiative and a user must
    * never start by hand — it is listed for discovery (preview/fork) but has no
@@ -77,6 +80,26 @@ const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   graph: opsxLifecycleGraph(),
 }
 
+/** Flow -> Spec (Flow mode, arch section 4.8): derives the spec of a Flow
+ *  worktree. Only a Flow hand-off launches it (the rails route answers 400
+ *  `flow_id_required` otherwise); listed with `launchable: false`. */
+export const FLOW_SPEC_LOOP_ID = 'factory:flow-spec'
+
+const FLOW_SPEC_FACTORY: FactoryLoop = {
+  id: FLOW_SPEC_LOOP_ID,
+  name: 'Flow → Spec',
+  description: 'Derives the spec of code built in a Flow session: writes the OpenSpec change from the diff and the conversation, verifies it, reviews coverage and archives it.',
+  mode: 'loop',
+  requiredCoreCapability: 'deriveChange',
+  launchable: false,
+  graph: flowSpecGraph(),
+}
+
+/** Core advertises the workflow engine and the derive-change piece. */
+export function supportsFlowSpec(capabilities?: Record<string, number>): boolean {
+  return capabilities?.engineV2 === 1 && capabilities.workflowDefinitions === 1 && capabilities.deriveChange === 1
+}
+
 /** Legacy persisted id. Resolves to Quick SDD; no Revision loop is listed or run. */
 export const FACTORY_REVISION_LOOP_ID = 'factory:revision'
 
@@ -112,18 +135,27 @@ const FACTORY_ALIASES = new Map<string, FactoryLoop>([
 
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
+  [FLOW_SPEC_FACTORY.id, FLOW_SPEC_FACTORY],
   ...FACTORY_ALIASES,
 ])
 
+/** Factory loops the selected Core can run. Flow -> Spec exists only with
+ *  `deriveChange` (no legacy variant: the graph is Core pieces only). */
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
-  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1, capabilities) }))
+  const loops = FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1, capabilities) }))
+  return supportsFlowSpec(capabilities) ? [...loops, { ...FLOW_SPEC_FACTORY, graph: flowSpecGraph() }] : loops
 }
 
 export function getFactoryLoop(id: string, capabilities?: Record<string, number>): FactoryLoop | undefined {
   const legacy = FACTORY_BY_ID.get(id)
   if (!legacy) return undefined
   return factoryLoopsForCapabilities(capabilities).find(factory => factory.id === legacy.id)
+}
+
+/** Canonical id of a factory loop or alias, independent of Core capabilities. */
+export function canonicalFactoryLoopId(id: string): string | undefined {
+  return FACTORY_BY_ID.get(id)?.id
 }
 
 /** True for any `factory:*` loop id. */
