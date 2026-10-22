@@ -1,7 +1,7 @@
 // Domain routes extracted from project-router.ts (tickets).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import fs from 'fs'
-import { validateTicketRepositoryIds, RepositoryValidationError, getProjectRepositories } from './project-repositories'
+import { validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
 import { Request, Response, NextFunction } from 'express'
 import { newId as uuidv4 } from './ids'
 import type { ProjectContext } from './project-registry'
@@ -15,9 +15,10 @@ import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLaye
 import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './modules/specs/runtime/smash-runner'
 import { isSpecsSmashKillSwitchActive } from './modules/conversations/runtime/explore-smash'
 import { recordInvocation, updateTicketIdForConversation } from './modules/accounting/runtime/ai-invocations'
+import type { ContextScope } from './modules/conversations/runtime/context-scope'
 import {
-  buildScopedSystemPromptPrefix, toolFlagsForScope, type ContextScope
-} from './modules/conversations/runtime/context-scope'
+  resolveSpecGenerationToolPolicy, startSpecGeneration, type SpecGenerationAttachments,
+} from './modules/specs/runtime/spec-generation'
 import { finaliseInvocationResult } from './modules/accounting/runtime/result-event'
 import type { AdapterEvent } from './providers/types'
 import type { SpawnOptions } from './providers/types'
@@ -25,7 +26,6 @@ import {
   buildProviderEnv,
   parseStreamEvents,
   providerEnvAllowlist,
-  pureOutputToolPolicy,
   supportsContractRefine,
   supportsToolPolicy,
 } from './providers/runtime'
@@ -53,11 +53,10 @@ import { trackTransientChild } from './transient-children'
 import { captureProcessAdmission } from './process-admission'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
-import { resolveProjectExecution } from './workspace-resolution'
 import multer from 'multer'
 import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
-  type ProjectRoutesDeps, stripSpecMetadataSections,
+  type ProjectRoutesDeps,
   extractShortSummary,
   deriveFallbackShortSummary,
   lightlyStructurePrompt,
@@ -255,19 +254,11 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const admission = captureProcessAdmission(projectId)
     const filePath = ticketPath(req)
 
-    let hasAttachments = false
-    let baseUserPrompt = `Generate a spec for the following idea:\n\n${idea.trim()}`
-    let imageFlags: string[] = []
-    let imagePaths: string[] = []
+    let attachments: SpecGenerationAttachments | undefined
     if (attachmentIds.length > 0 && pendingSpecId) {
       try {
         const extracted = await attachmentManager.getClaudeArgs(project.slug, pendingSpecId, attachmentIds)
-        imageFlags = extracted.imageFlags
-        imagePaths = extracted.imagePaths
-        if (extracted.textBlocks.length > 0) {
-          hasAttachments = true
-          baseUserPrompt = `${baseUserPrompt}\n\n## Attached Resources\n\n${extracted.textBlocks.join('\n\n')}`
-        }
+        attachments = { textBlocks: extracted.textBlocks, imageFlags: extracted.imageFlags, imagePaths: extracted.imagePaths }
       } catch (err) {
         console.error('[project-router] generate-spec attachment extraction error:', err)
       }
@@ -297,16 +288,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       // Quick spawns from project.path, so project `.mcp.json` (the `mcp`
       // toggle) is discovered natively. `userMcp` additionally loads the
       // developer's user-scope/plugin/connector MCP servers via the claude
-      // adapter's `loadUserEnv` (see below).
+      // adapter's `loadUserEnv`.
       mcp: typeof rawScope?.mcp === 'boolean' ? rawScope.mcp : false,
       contractRefine: quickContractRefine,
       userMcp: typeof rawScope?.userMcp === 'boolean' ? rawScope.userMcp : false,
     }
-    const adapter = getAdapter(provider)
-    const quickToolPolicy = quickScope.full
-      ? (supportsToolPolicy(adapter, 'read-only') ? 'read-only' : null)
-      : pureOutputToolPolicy(adapter)
-    if (!quickToolPolicy) {
+    if (!resolveSpecGenerationToolPolicy(provider, quickScope)) {
       res.status(409).json({
         error: 'provider_tool_policy_unsupported',
         provider,
@@ -317,276 +304,45 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // Persist Quick mode Contract Refine choice (per-project last value).
     setQuickContractRefineLast(ctx(req).db, quickContractRefine)
 
-    // Relocate-artifacts: tickets read from the workspace when relocated.
-    const quickSpecRoot = (() => {
-      const e = resolveProjectExecution({ slug: project.slug, path: project.path })
-      return e.relocated && e.workspaceDir ? e.workspaceDir : project.path
-    })()
-    const specsPrefix = buildScopedSystemPromptPrefix(quickScope, project.path, quickSpecRoot)
-
-    const codebaseRule = quickScope.full
-      ? `- You MAY use Read, Grep, and Glob to inspect the project codebase. Bash is not available.`
-      : hasAttachments
-        ? `- Do NOT explore the project codebase. The resources inside <user-attachment> blocks below are pre-loaded context the user intentionally provided — read and use them freely.`
-        : `- Do NOT read any files or explore the codebase. Work purely from the user's description.`
-
-    // The specrails-tickets prefix (when scope.specrails is toggled on)
-    // dumps every ticket into the prompt as informational context. Without
-    // an explicit dedup instruction the model treats it as background and
-    // still proposes a near-duplicate of something already in the backlog.
-    // Adding the rule here, gated on `quickScope.specrails`, keeps the
-    // "toggle is the only gate" contract the user asked for.
-    const dedupRule = quickScope.specrails
-      ? `- The "Specrails Tickets" section above lists every ticket already in the backlog. Do NOT propose a duplicate or a near-duplicate of any of them. If the user's idea is already covered by an existing ticket, say so in "Problem Statement" and pick a *different* angle / sub-feature / next step that builds on the existing one — do not repeat it.\n`
-      : ''
-
-    const backlogRecommendationRule = quickScope.specrails
-      ? `- If the user's idea asks for the "next best spec" or a backlog recommendation, use the existing tickets and OpenSpec context to choose one concrete next spec. Do not respond with generic product directions.\n`
-      : ''
-
-    let baseSystemPrompt =
-      `You are a senior product engineer generating a structured spec proposal.\n\n` +
-      (specsPrefix ? `${specsPrefix}\n\n` : '') +
-      `RULES:\n` +
-      `${codebaseRule}\n` +
-      dedupRule +
-      backlogRecommendationRule +
-      `- Do NOT create files, tickets, or issues.\n` +
-      `- Output ONLY the structured markdown below. No preamble, no explanation.\n\n` +
-      `REQUIRED FORMAT:\n` +
-      `## Spec Title\n[Concise, action-oriented title]\n\n` +
-      `## Labels\n[2-4 short kebab-case tags categorising the spec — comma-separated on one line, e.g. "ui, settings, dark-mode". Lowercase, no spaces inside a tag.]\n\n` +
-      `## Problem Statement\n[2-3 sentences]\n\n` +
-      `## Proposed Solution\n[3-5 sentences]\n\n` +
-      `## Out of Scope\n[Bullet list]\n\n` +
-      `## Acceptance Criteria\n[Numbered list of testable outcomes]\n\n` +
-      `## Technical Considerations\n[Bullet list]\n\n` +
-      `## Estimated Complexity\n[Low/Medium/High/Very High + one sentence justification]\n\n` +
-      `## Short Summary\n[One or two plain-language sentences, max 120 characters total, that capture the essence of this spec for a dashboard postit. No markdown, no bullets, no headings.]`
-
-    if (hasAttachments) baseSystemPrompt = `${baseSystemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
-
-    const selectedIds = res.locals.repositoryIds as string[] | undefined
-    if (getProjectRepositories(project).length > 1) {
-      baseSystemPrompt += `\n\nThis logical project has one shared backlog across these repositories: ${JSON.stringify(getProjectRepositories(project).map(({ id, name, path, isPrimary, kind }) => ({ id, name, path, isPrimary, kind })))}.\nThis spec targets repository IDs: ${JSON.stringify(selectedIds ?? [getProjectRepositories(project).find((repo) => repo.isPrimary)!.id])}. Describe cross-repository contracts when selected; do not create separate tickets per repository.`
-    }
-    const systemPrompt = baseSystemPrompt
-    const userPrompt = baseUserPrompt
-
-    // Generate-spec spawn args are adapter-driven. For Claude the `--tools`
-    // flag set comes from `toolFlagsForScope(quickScope)` which the adapter
-    // doesn't model — pass them through `extraArgs` so they slot in after
-    // the standard COMMON_FLAGS. `imageFlags` (also Claude-only) goes the
-    // same way. For codex the system prompt folds into the user prompt
-    // (no --system-prompt flag) and the extra Claude-only flags are ignored
-    // by the codex adapter (it doesn't read extraArgs that don't apply).
-    const toolFlags = provider === 'claude' ? toolFlagsForScope(quickScope) : { args: [] }
-    // Full scope grants Read/Grep/Glob. The model spends turns exploring the
-    // repo before it writes the spec; 6 was too tight (a few tool calls on a
-    // sparse/empty repo hit error_max_turns → exit 1 → opaque failure). 15
-    // leaves comfortable headroom while --max-turns still bounds runaway loops.
-    const claudeMaxTurns = quickScope.full ? 15 : (hasAttachments ? 3 : 1)
-    const specGenOptions: SpawnOptions = {
-      prompt: userPrompt,
-      systemPrompt,
+    // The spec-generation use case owns the provider spawn, parsing, ticket
+    // persistence, Contract Layer scheduling and accounting; this route maps
+    // its lifecycle onto the spec_gen_* / ticket_created WebSocket contract.
+    startSpecGeneration({
+      db: ctx(req).db,
+      project,
+      ticketStorePath: filePath,
+      ticketWatcher,
+      broadcast: broadcast as (m: unknown) => void,
+      admission,
+    }, {
+      text: idea,
+      provider,
       model: resolvedModel,
-      toolPolicy: quickToolPolicy,
-      maxTurns: provider === 'claude' ? claudeMaxTurns : undefined,
-      extraArgs: provider === 'claude' ? [...toolFlags.args, ...imageFlags] : undefined,
-      // "My approved MCPs" (scope.userMcp) loads the developer's user-scope,
-      // plugin, and connector MCP servers (claude-only). Quick already spawns
-      // from project.path so project `.mcp.json` is discovered without a flag.
-      loadUserEnv: adapter.capabilities.userMcp === true && quickScope.userMcp,
-      imagePaths: adapter.capabilities.supportsImageInput ? imagePaths : undefined,
-    }
-    const args = adapter.buildArgs('spec-gen', specGenOptions)
-    const binary = adapter.binary
-
-    // Relocate-artifacts gate: spawn from the workspace + SPECRAILS_REPO_DIR when
-    // relocated, else cwd = project.path + process.env (byte-identical legacy).
-    const specGenExec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    let specGenEnv: NodeJS.ProcessEnv = process.env
-    if (specGenExec.relocated) {
-      specGenEnv = { ...process.env, ...specGenExec.env }
-      if (adapter.id === 'gemini') specGenEnv = { ...specGenEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
-    }
-    // spawnAiCli reroutes multi-line argv values through stdin on Windows;
-    // POSIX argv path unchanged.
-    console.log(`[project-router] spec-gen spawn: ${binary} (cwd=${specGenExec.cwd}, requestId=${requestId})`)
-    const child = spawnAiCli(binary, args, {
-      env: buildProviderEnv(adapter, specGenOptions, projectAgentSourceEnv(ctx(req).db, providerEnvAllowlist(adapter), specGenEnv)),
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: specGenExec.cwd,
-    })
-    // Register so removeProject()/shutdown() can tree-kill this otherwise-untracked
-    // fire-and-forget child (auto-unregisters on close/error).
-    trackTransientChild(projectId, child)
-
-    // Watchdog: unlike ai-edit, generate-spec keeps no cancellable handle, so a
-    // hung CLI (network stall, model never emitting a terminating event) would
-    // otherwise leak this child + its readline for the app's lifetime. Cap is
-    // generous — the 'full' scope can legitimately run minutes and --max-turns
-    // bounds turns, not wall-clock. Cleared on close/error.
-    const GENERATE_SPEC_TIMEOUT_MS = 8 * 60 * 1000
-    let specGenWatchdog: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      specGenWatchdog = null
-      if (child.pid) {
-        try { treeKill(child.pid, 'SIGTERM') } catch { /* best-effort */ }
-      }
-      if (!admission.isCurrent()) return
-      broadcast({
-        type: 'spec_gen_error', projectId, requestId,
-        error: `Spec generation timed out after ${Math.round(GENERATE_SPEC_TIMEOUT_MS / 1000)}s`,
-        timestamp: new Date().toISOString(),
-      } as SpecGenErrorMessage)
-    }, GENERATE_SPEC_TIMEOUT_MS)
-    if (typeof specGenWatchdog.unref === 'function') specGenWatchdog.unref()
-    const clearSpecGenWatchdog = () => {
-      if (specGenWatchdog) { clearTimeout(specGenWatchdog); specGenWatchdog = null }
-    }
-
-    // Capture stderr so failures (auth missing, model errors, etc.) surface
-    // in the server log instead of being swallowed.
-    let stderrBuf = ''
-    /* c8 ignore start -- diagnostic-only; fires only when claude writes stderr */
-    child.stderr?.on('data', (chunk: Buffer) => {
-      const s = chunk.toString()
-      stderrBuf += s
-      console.error(`[project-router] spec-gen stderr (${requestId}): ${s.trimEnd()}`)
-    })
-    /* c8 ignore stop */
-
-    // Without this listener, ENOENT (binary missing on PATH) propagates as
-    // an unhandled 'error' event and crashes the entire app process.
-    /* c8 ignore start -- spawn-failure path; exercised manually, not in CI */
-    child.on('error', (err) => {
-      clearSpecGenWatchdog()
-      console.error(`[project-router] spec-gen spawn failed (${binary}): ${err.message}`)
-      if (!admission.isCurrent()) return
-      const errMsg: SpecGenErrorMessage = {
-        type: 'spec_gen_error', projectId, requestId,
-        error: `Failed to launch ${binary}: ${err.message}`,
-        timestamp: new Date().toISOString(),
-      }
-      broadcast(errMsg)
-    })
-    /* c8 ignore stop */
-
-    res.status(202).json({ requestId })
-
-    let buffer = ''
-    let lastResultEvent: Record<string, unknown> | null = null
-    // Canonical adapter events feed finaliseInvocationResult on close, giving
-    // codex a real pricing-table cost estimate (+ estimated flag) and tokens,
-    // instead of the legacy hardcoded $0. Accumulated ALONGSIDE the existing
-    // buffer/delta plumbing below — never in place of it.
-    const adapterEvents: AdapterEvent[] = []
-    const turnStartedAt = new Date().toISOString()
-    const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
-
-    stdoutReader.on('line', (line) => {
-      if (!admission.isCurrent()) return
-      const eventsForLine = parseStreamEvents(adapter, line)
-      adapterEvents.push(...eventsForLine)
-      let parsed: Record<string, unknown> | null = null
-      try { parsed = JSON.parse(line) } catch { /* skip */ }
-      if (parsed && eventsForLine.some((event) => event.kind === 'result')) {
-        lastResultEvent = parsed
-      }
-      for (const event of eventsForLine) {
-        if (event.kind !== 'text-delta' || !event.text) continue
-        buffer += event.text
-        const wsMsg: SpecGenStreamMessage = {
-          type: 'spec_gen_stream', projectId, requestId,
-          delta: event.text, timestamp: new Date().toISOString(),
-        }
-        broadcast(wsMsg)
-      }
-    })
-
-    child.on('close', async (code) => {
-      clearSpecGenWatchdog()
-      if (!admission.isCurrent()) return
-      let createdTicketId: number | null = null
-
-      // When claude burns its whole --max-turns budget it exits non-zero with
-      // a result event of subtype:error_max_turns — but it may already have
-      // emitted a complete spec. Salvage that usable output instead of failing
-      // the whole request on an exit code.
-      const resultSubtype = (lastResultEvent?.subtype as string | undefined) ?? null
-      const hasUsableSpec = buffer.trim().length > 0 && /##\s*Spec Title/i.test(buffer)
-      const salvageMaxTurns = code !== 0 && resultSubtype === 'error_max_turns' && hasUsableSpec
-
-      if ((code === 0 && buffer.trim()) || salvageMaxTurns) {
-        if (salvageMaxTurns) {
-          console.warn(
-            `[project-router] spec-gen salvaged partial output after error_max_turns (${requestId}); ` +
-              `consider raising --max-turns if this recurs`,
-          )
-        }
-        // Extract title from generated spec
-        const titleMatch = buffer.match(/##\s*Spec Title\s*\n+(.+)/)
-        const specTitle = titleMatch ? titleMatch[1].trim() : idea.trim().slice(0, 80)
-
-        // Extract complexity for priority mapping
-        const complexityMatch = buffer.match(/##\s*Estimated Complexity\s*\n+(\w+)/)
-        const complexity = complexityMatch ? complexityMatch[1].toLowerCase() : 'medium'
-        const priority = complexity === 'low' ? 'low' : complexity === 'high' || complexity === 'very' ? 'high' : 'medium'
-
-        // Extract labels from the `## Labels` section. Comma- or
-        // newline-separated tags, normalised to lowercase kebab-case.
-        // `spec-proposal` is always retained as the marker label.
-        const labelsMatch = buffer.match(/##\s*Labels\s*\n+([^\n]+(?:\n(?!##)[^\n]+)*)/)
-        const claudeLabels: string[] = labelsMatch
-          ? labelsMatch[1]
-              .replace(/[\[\]]/g, '')
-              .split(/[,\n]/)
-              .map((s) => s.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
-              .filter((s) => s.length > 0 && s.length <= 32)
-              .slice(0, 6)
-          : []
-        const finalLabels = Array.from(new Set(['spec-proposal', ...claudeLabels]))
-
-        const shortSummary = clampShortSummary(extractShortSummary(buffer))
-        const description = stripSpecMetadataSections(buffer)
-
-        // Create ticket directly
-        try {
-          const now = new Date().toISOString()
-          let created: import('./modules/specs/runtime/ticket-store').Ticket | undefined
-          const store = mutateStore(filePath, (s) => {
-            const id = s.next_id++
-            const ticket: import('./modules/specs/runtime/ticket-store').Ticket = {
-              ...repositoryScope(req, res),
-              id,
-              title: specTitle,
-              description,
-              status: 'todo',
-              priority: priority as 'low' | 'medium' | 'high',
-              labels: finalLabels,
-              assignee: null,
-              prerequisites: [],
-              metadata: {},
-              comments: [],
-              origin_conversation_id: null,
-              is_epic: false,
-              parent_epic_id: null,
-              execution_order: null,
-              short_summary: shortSummary,
-              created_at: now,
-              updated_at: now,
-              created_by: 'sr-product-engineer',
-              source: 'propose-spec',
-            }
-            s.tickets[String(id)] = ticket
-            created = ticket
-          })
-          ticketWatcher.notifyDesktopWrite(store.revision)
-          if (created) createdTicketId = created.id
-
+      scope: quickScope,
+      repositoryIds: res.locals.repositoryIds as string[] | undefined,
+      resolveRepositoryScope: () => repositoryScope(req, res),
+      attachments,
+      contractRefine: quickContractRefine ? { model: (req.body?.model as string | undefined) ?? null } : null,
+      requestId,
+      hooks: {
+        onDelta: (delta) => {
+          const wsMsg: SpecGenStreamMessage = {
+            type: 'spec_gen_stream', projectId, requestId,
+            delta, timestamp: new Date().toISOString(),
+          }
+          broadcast(wsMsg)
+        },
+        onError: (error) => {
+          const msg: SpecGenErrorMessage = {
+            type: 'spec_gen_error', projectId, requestId,
+            error, timestamp: new Date().toISOString(),
+          }
+          broadcast(msg)
+        },
+        onPersisted: async (created) => {
           // Migrate attachments from pendingSpecId → real ticket id (if any were uploaded).
           // Must complete BEFORE broadcasting ticket_created so WS listeners see the populated attachments[].
-          if (pendingSpecId && created) {
+          if (pendingSpecId) {
             try {
               const migrated = await attachmentManager.renameTicketDir({
                 slug: project.slug,
@@ -600,119 +356,29 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             } catch (err) {
               console.error('[project-router] generate-spec attachment migration error:', err)
             }
-            if (!admission.isCurrent()) return
+            if (!admission.isCurrent()) return 'abort'
           }
 
           const ticketMsg: TicketCreatedMessage = {
-            type: 'ticket_created', ticket: created! as unknown as LocalTicket,
+            type: 'ticket_created', ticket: created as unknown as LocalTicket,
             projectId, timestamp: new Date().toISOString(),
           }
           broadcast(ticketMsg)
 
           const doneMsg: SpecGenDoneMessage = {
             type: 'spec_gen_done', projectId, requestId,
-            ticket: created! as unknown as LocalTicket, timestamp: new Date().toISOString(),
+            ticket: created as unknown as LocalTicket, timestamp: new Date().toISOString(),
           }
           broadcast(doneMsg)
 
           // Add Spec → Jira: promote the new ticket to a Jira issue when the
           // project is Jira-backed (unless the user opted to keep it local).
-          void maybePromoteSpecToJira(ctx(req), created!.id, req.body?.createLocal === true, broadcast as (m: unknown) => void)
-
-          // Quick mode Contract Refine runs on the same selected provider.
-          if (quickContractRefine && created) {
-            const refineTicketId = created.id
-            const refineTitle = created.title
-            const refineDescription = created.description
-            const refineModel = (req.body?.model as string | undefined) ?? null
-            process.nextTick(() => {
-              if (!admission.isCurrent()) return
-              void runContractRefineForQuick(
-                {
-                  db: ctx(req).db,
-                  projectId: project.id,
-                  projectSlug: project.slug,
-                  projectPath: project.path,
-                  projectName: project.name,
-                  providerId: provider,
-                  broadcast: broadcast as (m: unknown) => void,
-                },
-                refineTicketId,
-                refineTitle,
-                refineDescription,
-                refineModel,
-              ).catch((err: unknown) => {
-                console.error('[project-router] runContractRefineForQuick error:', err)
-              })
-            })
-          }
-        } catch (err) {
-          console.error('[project-router] generate-spec ticket creation error:', err)
-          const errMsg: SpecGenErrorMessage = {
-            type: 'spec_gen_error', projectId, requestId,
-            error: 'Failed to create ticket', timestamp: new Date().toISOString(),
-          }
-          broadcast(errMsg)
-        }
-      } else {
-        const reason = code === 0
-          ? 'Empty response from AI'
-          : resultSubtype === 'error_max_turns'
-            ? 'AI hit its turn limit before finishing the spec. Try again, or narrow the idea / turn off full-codebase context.'
-            : `Process exited with code ${code}`
-        console.error(
-          `[project-router] spec-gen failed (${requestId}): ${reason}` +
-            (stderrBuf.trim() ? `\n  stderr: ${stderrBuf.trim()}` : '') +
-            (buffer.trim() ? `\n  stdout-buffer: ${buffer.trim().slice(0, 500)}` : ''),
-        )
-        const msg: SpecGenErrorMessage = {
-          type: 'spec_gen_error', projectId, requestId,
-          error: reason,
-          timestamp: new Date().toISOString(),
-        }
-        broadcast(msg)
-      }
-
-      // ai_invocations capture (surface='quick-spec'). Always emit a row, success or fail.
-      try {
-        // Adapter-driven finalisation: claude passes its native total_cost_usd
-        // through untouched; codex (nativeCostUsd:false) gets a pricing-table
-        // estimate from its captured token usage + estimated=true. This
-        // replaces the legacy normaliseResultEvent path that hardcoded codex
-        // cost to $0 and never set the estimated flag.
-        const { result: normalised, estimated } = finaliseInvocationResult(
-          adapter,
-          adapterEvents,
-          { fallbackModel: resolvedModel },
-        )
-        // extractCodexResult does not surface duration (codex stream carries
-        // none); stamp wall-clock so the row's duration isn't lost. Claude's
-        // result event already provides duration_ms, so prefer it.
-        const wallMs = Date.now() - new Date(turnStartedAt).getTime()
-        recordInvocation(ctx(req).db, {
-          id: randomUUID(),
-          project_id: projectId,
-          provider: adapter.id,
-          surface: 'quick-spec',
-          surface_ref_id: requestId,
-          ticket_id: createdTicketId,
-          // A ticket was delivered — whether via the clean code===0 path OR the
-          // error_max_turns salvage path — iff createdTicketId is set. Record
-          // 'success' for any delivered ticket so success-scoped averages and
-          // failureRate are not skewed by salvaged runs (LOW-13). Genuine
-          // failures (no ticket) stay 'failed'.
-          status: createdTicketId !== null ? 'success' : 'failed',
-          started_at: turnStartedAt,
-          finished_at: new Date().toISOString(),
-          total_cost_usd_estimated: estimated,
-          ...normalised,
-          duration_ms: normalised.duration_ms ?? wallMs,
-        })
-        broadcast({ type: 'spending.invalidated', projectId })
-      } catch (err) {
-        console.error('[project-router] generate-spec recordInvocation failed:', err)
-      }
+          void maybePromoteSpecToJira(ctx(req), created.id, req.body?.createLocal === true, broadcast as (m: unknown) => void)
+        },
+      },
     })
+
+    res.status(202).json({ requestId })
   })
 
   // POST /:projectId/tickets/save-as-draft — Persist an in-progress Explore session as a draft ticket

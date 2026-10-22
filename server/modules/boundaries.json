@@ -1082,6 +1082,25 @@
         "../../../db",
         "./rail-isolated-launch"
       ],
+      "runtime/isolated-worktree.ts": [
+        "../../../artifact-registry",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../jira/jira-db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../code/runtime/file-provenance",
+        "./pr-naming",
+        "path"
+      ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
       ],
@@ -1155,15 +1174,11 @@
         "child_process"
       ],
       "runtime/rail-isolated-launch.ts": [
-        "../../../artifact-registry",
         "../../../db",
-        "../../../feature-flags",
         "../../../ids",
         "../../../integration-branch",
-        "../../../jira/jira-db",
         "../../../project-registry",
         "../../../project-repositories",
-        "../../../providers",
         "../../../providers/types",
         "../../../repo-lock",
         "../../../workspace-resolution",
@@ -1189,6 +1204,7 @@
         "./delivery-evidence",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
+        "./isolated-worktree",
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
@@ -1972,12 +1988,14 @@
   "specs": {
     "publicEntries": [
       "runtime/contract-refine-runner.ts",
+      "runtime/generated-spec-parser.ts",
       "runtime/proposal-manager.ts",
       "runtime/smash-runner.ts",
       "runtime/spec-addenda-core.ts",
       "runtime/spec-addenda.ts",
       "runtime/spec-contract-prompt.ts",
       "runtime/spec-draft-parser.ts",
+      "runtime/spec-generation.ts",
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/ticket-store.ts",
@@ -2003,6 +2021,9 @@
         "node:crypto",
         "node:readline",
         "tree-kill"
+      ],
+      "runtime/generated-spec-parser.ts": [
+        "./ticket-store"
       ],
       "runtime/proposal-manager.ts": [
         "../../../command-resolver",
@@ -2053,6 +2074,26 @@
         "../../builder/runtime/blueprint-types"
       ],
       "runtime/spec-draft-parser.ts": [],
+      "runtime/spec-generation.ts": [
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/context-scope",
+        "./contract-refine-runner",
+        "./generated-spec-parser",
+        "./ticket-store",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
       "runtime/spec-launcher-manager.ts": [
         "../../../command-resolver",
         "../../../db",

@@ -251,6 +251,8 @@ export class JiraClient {
     description?: string
     labels?: string[]
     priority?: string
+    /** Invisible entity properties set atomically with the create (Cloud + DC). */
+    properties?: Array<{ key: string; value: unknown }>
   }): Promise<JiraResult<{ id: string; key: string }>> {
     const fields: Record<string, unknown> = {
       project: { key: args.projectKey },
@@ -260,7 +262,14 @@ export class JiraClient {
     if (args.description) fields.description = bodyForDeployment(args.description, this.cfg.deployment)
     if (args.labels && args.labels.length > 0) fields.labels = args.labels
     if (args.priority) fields.priority = { name: args.priority }
-    return this.request('POST', '/issue', { fields })
+    const body: Record<string, unknown> = { fields }
+    if (args.properties && args.properties.length > 0) body.properties = args.properties
+    return this.request('POST', '/issue', body)
+  }
+
+  /** GET /issue/{id}/properties/{key} — read one entity property (404 = absent). */
+  getIssueProperty(issueIdOrKey: string, propertyKey: string): Promise<JiraResult<{ key: string; value?: unknown }>> {
+    return this.request('GET', `/issue/${encodeURIComponent(issueIdOrKey)}/properties/${encodeURIComponent(propertyKey)}`)
   }
 
   /**
