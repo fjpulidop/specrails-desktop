@@ -42,6 +42,7 @@ import type { LocalTicket } from '../../../types'
 import { openAddenda } from '../../specs/lib/spec-addenda-core'
 import type { ProfileListEntry } from '../../agents/components/types'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -408,6 +409,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       // Daily budget: localized amounts + remedy instead of the server's English detail.
       const budget = readDailyBudgetRejection(body)
       if (budget) return { error: 'daily_budget_exceeded', detail: dailyBudgetExceededMessage(t, budget), action: dailyBudgetActionMessage(t, budget) }
+      // Review WIP limit: localized count + remedy (review-wip-limit).
+      const wip = readReviewWipRejection(body)
+      if (wip) return { error: 'review_wip_limit_reached', detail: reviewWipRejectionMessage(t, wip), action: reviewWipActionMessage(t) }
       return {
         error: typeof body.error === 'string' ? body.error : `HTTP ${r.status}`,
         detail: typeof body.detail === 'string' ? body.detail : undefined,

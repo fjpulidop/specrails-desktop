@@ -1,7 +1,7 @@
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Rocket, GitBranch, Layers, DollarSign } from 'lucide-react'
+import { Rocket, GitBranch, Layers, DollarSign, Inbox } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,8 @@ interface Props {
   specCount: number
   onConfirm: () => void
   onCancel: () => void
+  /** Rails held back by the project's review WIP limit (null when none). */
+  reviewLimit?: { limit: number; pending: number; held: number } | null
 }
 
 /**
@@ -29,13 +31,13 @@ interface Props {
  * worktree so the parallel runs never collide. Confirm is the affirmative
  * (green) action; ⌘/Ctrl+Enter triggers it.
  */
-export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCancel }: Props) {
+export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCancel, reviewLimit = null }: Props) {
   const { t } = useTranslation('dashboard')
   const confirmRef = useRef<HTMLButtonElement>(null)
 
   // ⌘/Ctrl + Enter confirms while the dialog is open.
   useEffect(() => {
-    if (!open) return
+    if (!open || railCount === 0) return
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
@@ -44,7 +46,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onConfirm])
+  }, [open, onConfirm, railCount])
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
@@ -70,6 +72,22 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
           </div>
         </DialogHeader>
 
+        {reviewLimit && (
+          <div
+            role="status"
+            data-testid="launch-all-review-limit"
+            className="flex items-start gap-2.5 rounded-lg border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-accent-warning"
+          >
+            <Inbox className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium">{t('launchAllDialog.reviewLimitTitle', { pending: reviewLimit.pending, limit: reviewLimit.limit })}</span>{' '}
+              {railCount === 0
+                ? t('launchAllDialog.reviewLimitNone', { count: reviewLimit.held })
+                : t('launchAllDialog.reviewLimitPartial', { count: reviewLimit.held, launched: railCount })}
+            </span>
+          </div>
+        )}
+
         <ul className="space-y-2.5 text-xs text-muted-foreground">
           <li className="flex items-start gap-2.5">
             <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
@@ -91,6 +109,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
           </Button>
           <Button
             ref={confirmRef}
+            disabled={railCount === 0}
             className="h-9 gap-2 bg-emerald-500 text-white hover:bg-emerald-400 focus-visible:ring-emerald-400"
             onClick={onConfirm}
           >

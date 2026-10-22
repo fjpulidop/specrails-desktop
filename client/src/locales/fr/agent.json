@@ -652,7 +652,8 @@
       "invalid_response": "Réponse inattendue du serveur.",
       "scope_save_failed": "Impossible d’enregistrer les dépôts de la spec.",
       "repository_scope_incomplete": "Un dépôt requis par les specs manque au lancement. Vérifiez les attributions ci-dessus.",
-      "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé."
+      "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé.",
+      "review_wip_limit_reached": "Limite de revue atteinte : rien n’a été lancé."
     },
     "stub": {
       "launched": "Lancé → Rail {{rail}}",

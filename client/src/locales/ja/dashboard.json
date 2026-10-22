@@ -184,7 +184,9 @@
     "skipInFlight_other": "{{count}} 件をスキップ（スペックは処理中）",
     "failedCount_one": "{{count}} 件が失敗",
     "failedCount_other": "{{count}} 件が失敗",
-    "skipBudget": "{{count}} 件が1日の予算を超過"
+    "skipBudget": "{{count}} 件が1日の予算を超過",
+    "skipReviewLimit_one": "{{count}} 件がレビュー上限で保留",
+    "skipReviewLimit_other": "{{count}} 件がレビュー上限で保留"
   },
   "launchAllDialog": {
     "title": "すべてのレールを起動",
@@ -200,7 +202,12 @@
     "costTitle": "コストは倍増します。",
     "costBody": "各レールが独自の AI 実行を生成します — 支出はレール数に比例します。",
     "launch_one": "レール {{count}} 件を起動",
-    "launch_other": "レール {{count}} 件を起動"
+    "launch_other": "レール {{count}} 件を起動",
+    "reviewLimitTitle": "レビュー上限: {{pending}}/{{limit}} 件待機中。",
+    "reviewLimitNone_one": "{{count}} 本のレールが新しい納品を開くため、何も起動しません。先に保留中の納品を決定してください。",
+    "reviewLimitNone_other": "{{count}} 本のレールが新しい納品を開くため、何も起動しません。先に保留中の納品を決定してください。",
+    "reviewLimitPartial_one": "今すぐ開始できるのは {{launched}} 本のみです。{{count}} 本のレールは納品が決定されるまで待機します。",
+    "reviewLimitPartial_other": "今すぐ開始できるのは {{launched}} 本のみです。{{count}} 本のレールは納品が決定されるまで待機します。"
   },
   "railControls": {
     "viewJobLog": "ジョブログを表示",
@@ -272,5 +279,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle には単一のプロバイダーが必要です。このレールをロール別エンジンに切り替える前に Implement かループを選んでください。"
+  },
+  "reviewWip": {
+    "badge": "レビュー中 {{pending}}/{{limit}}",
+    "title": "レビュー待ちの納品(上限 {{limit}})。クリックで一覧を表示します。",
+    "reachedTitle": "レビュー上限に達しました({{limit}})。納品が決定されるまで新しい起動は待機します。",
+    "panelTitle": "レビュー待ち",
+    "panelBody": "実行中の納品、決定待ちの納品、オープンな PR が上限 {{limit}} にカウントされます。",
+    "panelReached": "上限 {{limit}} に達しています。新しい作業を起動するには、いずれか(PR 作成・マージ・破棄)を決定してください。これらの納品への変更は引き続き可能です。",
+    "empty": "レビュー待ちはありません。",
+    "playBlocked": "レビュー上限に達しました({{pending}}/{{limit}} 件待機中)。新しい作業を起動するには納品を決定してください。"
   }
 }

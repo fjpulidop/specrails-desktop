@@ -40,6 +40,7 @@ export function railsTools(): McpToolSpec[] {
         'set_engine (provider override, null=primary), set_name (display label, null clears), ' +
         'launch (ai-spawn — spawns the selected installed provider CLI job(s), including Kimi when installed, that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch and launch_all are refused with 409 daily_budget_exceeded (scope project|desktop, budgetUsd, spentUsd, resetsAt) while a daily budget is exhausted — nothing spawns; tell the user to raise the budget or wait for the reset, never retry in a loop. ' +
+        'They are also refused with 409 review_wip_limit_reached (limit, pending[{ deliveryId, railIndex, ticketIds, since }]) when the project\'s review limit of deliveries waiting for review is reached — nothing spawns; continuations of an existing delivery (revision, relaunch, PR follow-up) are exempt. Tell the user which deliveries are waiting and that deciding one (Create PR, merge, discard) or raising the limit in Project settings frees a slot; never retry in a loop. list returns reviewWip { limit, pending, reached }. ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
@@ -360,7 +361,7 @@ export function railsTools(): McpToolSpec[] {
               /** User-facing 1-based dashboard label ("Rail <railIndex+1>"). */
               railLabel?: string
               outcome: 'launched' | 'skipped' | 'failed'
-              reason?: 'empty' | 'already-running' | 'pr-decision-pending' | 'tickets-in-flight' | 'daily-budget-exceeded'
+              reason?: 'empty' | 'already-running' | 'pr-decision-pending' | 'tickets-in-flight' | 'daily-budget-exceeded' | 'review-wip-limit'
               mode?: string
               ticketIds?: number[]
               jobId?: string
@@ -425,6 +426,11 @@ export function railsTools(): McpToolSpec[] {
                       const budget = err.data as { detail?: unknown; action?: unknown } | null
                       results.push({ railIndex: idx, outcome: 'skipped', reason: 'daily-budget-exceeded', ticketIds,
                         ...(typeof budget?.detail === 'string' ? { error: [budget.detail, budget.action].filter(v => typeof v === 'string').join(' ') } : {}) })
+                    } else if (err instanceof McpApiError && err.status === 409 && err.code === 'review_wip_limit_reached') {
+                      // Nothing spawned: the project's review WIP limit is reached.
+                      const wip = err.data as { detail?: unknown; action?: unknown } | null
+                      results.push({ railIndex: idx, outcome: 'skipped', reason: 'review-wip-limit', ticketIds,
+                        ...(typeof wip?.detail === 'string' ? { error: [wip.detail, wip.action].filter(v => typeof v === 'string').join(' ') } : {}) })
                     } else {
                       results.push({ railIndex: idx, outcome: 'failed', ticketIds, error: message })
                     }

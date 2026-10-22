@@ -42,6 +42,21 @@ export interface ProjectSettings {
   /** The user dismissed the "run the reviewer on a different model family"
    *  suggestion for this project. Off by default; purely advisory UI state. */
   reviewerFamilySuggestionDismissed: boolean
+  /** Review WIP limit: how many deliveries may wait for review at once
+   *  (building, on review, or an open app PR). null = no limit (default). */
+  reviewWipLimit: number | null
+}
+
+/** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
+export const REVIEW_WIP_LIMIT_MAX = 100
+
+/** An integer from 1 to REVIEW_WIP_LIMIT_MAX, or null to remove the limit. */
+export function parseReviewWipLimit(value: unknown): number | null {
+  if (value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > REVIEW_WIP_LIMIT_MAX) {
+    throw new SettingsValidationError(`reviewWipLimit must be an integer from 1 to ${REVIEW_WIP_LIMIT_MAX}, or null for no limit`)
+  }
+  return value
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -124,6 +139,7 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
       throw new SettingsValidationError(error instanceof Error ? error.message : 'invalid worktreeEnvPassthrough')
     }
   }
+  if (values.reviewWipLimit !== undefined) patch.reviewWipLimit = parseReviewWipLimit(values.reviewWipLimit)
   if (values.subagentRuntime !== undefined) patch.subagentRuntime = parseSubagentRuntimeSetting(values.subagentRuntime)
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')

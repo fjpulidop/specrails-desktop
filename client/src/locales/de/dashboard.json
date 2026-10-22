@@ -184,7 +184,9 @@
     "skipInFlight_other": "{{count}} übersprungen (Specs bereits in Arbeit)",
     "failedCount_one": "{{count}} fehlgeschlagen",
     "failedCount_other": "{{count}} fehlgeschlagen",
-    "skipBudget": "{{count}} über dem Tagesbudget"
+    "skipBudget": "{{count}} über dem Tagesbudget",
+    "skipReviewLimit_one": "{{count}} vom Review-Limit zurückgehalten",
+    "skipReviewLimit_other": "{{count}} vom Review-Limit zurückgehalten"
   },
   "launchAllDialog": {
     "title": "Alle Rails starten",
@@ -200,7 +202,12 @@
     "costTitle": "Vervielfachte Kosten.",
     "costBody": "Jedes Rail erzeugt seinen eigenen KI-Lauf – die Ausgaben skalieren mit der Anzahl der Rails.",
     "launch_one": "{{count}} Rail starten",
-    "launch_other": "{{count}} Rails starten"
+    "launch_other": "{{count}} Rails starten",
+    "reviewLimitTitle": "Review-Limit: {{pending}}/{{limit}} wartend.",
+    "reviewLimitNone_one": "{{count}} Rail würde eine neue Lieferung öffnen, daher startet nichts. Entscheide zuerst über eine offene Lieferung.",
+    "reviewLimitNone_other": "{{count}} Rails würden neue Lieferungen öffnen, daher startet nichts. Entscheide zuerst über eine offene Lieferung.",
+    "reviewLimitPartial_one": "Nur {{launched}} können jetzt starten; {{count}} Rail wartet, bis über eine Lieferung entschieden ist.",
+    "reviewLimitPartial_other": "Nur {{launched}} können jetzt starten; {{count}} Rails warten, bis über eine Lieferung entschieden ist."
   },
   "railControls": {
     "viewJobLog": "Job-Log anzeigen",
@@ -272,5 +279,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle braucht einen einzelnen Anbieter – wähle Implement oder einen Loop, bevor du dieses Rail auf Engines pro Rolle umstellst."
+  },
+  "reviewWip": {
+    "badge": "Im Review {{pending}}/{{limit}}",
+    "title": "Lieferungen, die auf Review warten (Limit {{limit}}). Klicken, um sie anzuzeigen.",
+    "reachedTitle": "Review-Limit erreicht ({{limit}}). Neue Starts warten, bis über eine Lieferung entschieden ist.",
+    "panelTitle": "Wartet auf Review",
+    "panelBody": "Laufende Lieferungen, Lieferungen mit offener Entscheidung und offene PRs zählen zum Limit von {{limit}}.",
+    "panelReached": "Das Limit von {{limit}} ist erreicht. Entscheide über eine davon (PR erstellen, mergen oder verwerfen), um neue Arbeit zu starten. Änderungen an diesen Lieferungen bleiben erlaubt.",
+    "empty": "Nichts wartet auf Review.",
+    "playBlocked": "Review-Limit erreicht ({{pending}}/{{limit}} wartend). Entscheide über eine Lieferung, um neue Arbeit zu starten."
   }
 }

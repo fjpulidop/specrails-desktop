@@ -16,6 +16,19 @@ Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 
+## Review WIP limit
+
+[`domain/review-wip.ts`](domain/review-wip.ts) is the pure rule. `countPendingReview` counts
+top-level deliveries in `building`, `on_review`, `pr_draft` or `pr_ready`, and
+`launchAddsReviewWip` exempts continuations (a revision, a Relaunch of a recorded delivery, a target
+PR or follow-up, or a rail that still owns an active delivery). The snapshot is read by
+[`adapters/review-wip-store.ts`](adapters/review-wip-store.ts). The per-project
+[`runtime/review-wip-gate.ts`](runtime/review-wip-gate.ts) adds launch reservations and fails open.
+The registry binds it with the project's `reviewWipLimit`, and the rails launch route calls it after
+the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-wip.test.ts) and the
+`review WIP limit` block in `runtime/rails-router.test.ts`. See the
+[safe PR guide](../../../docs/internals/safe-pr-review-flow.md#review-wip-limit).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
@@ -29,6 +42,7 @@ degraded drafts and continuation recovery prerequisites.
 - [runtime/rail-pr-ticket-effects.ts](runtime/rail-pr-ticket-effects.ts)
 - [runtime/rails-router.ts](runtime/rails-router.ts)
 - [runtime/rails-store.ts](runtime/rails-store.ts)
+- [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

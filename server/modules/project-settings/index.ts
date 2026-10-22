@@ -5,6 +5,8 @@ export {
   WORKTREE_ENV_NAME_RE,
   normalizeWorktreeEnvPassthrough,
   parseSubagentRuntimeSetting,
+  parseReviewWipLimit,
+  REVIEW_WIP_LIMIT_MAX,
   SettingsValidationError,
   type ProjectSettings,
   type ProjectSettingsPatch,

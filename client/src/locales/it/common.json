@@ -156,5 +156,10 @@
     "pausedDesktop": "In pausa per il budget giornaliero globale (${{spent}} su ${{budget}}). Aumentalo, poi riprendi.",
     "resume": "Riprendi",
     "stillExceeded": "Il budget giornaliero è ancora esaurito."
+  },
+  "reviewWip": {
+    "reached_one": "Limite di revisione raggiunto: {{count}} consegna attende la revisione (limite {{limit}}). Non è stato avviato nulla.",
+    "reached_other": "Limite di revisione raggiunto: {{count}} consegne attendono la revisione (limite {{limit}}). Non è stato avviato nulla.",
+    "action": "Decidi una consegna in sospeso (Crea PR, unisci o scarta) oppure alza il limite in Impostazioni progetto ▸ Limite di revisione."
   }
 }

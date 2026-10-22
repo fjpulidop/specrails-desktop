@@ -824,7 +824,8 @@
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
       "runtime/rails-router.ts",
-      "runtime/rails-store.ts"
+      "runtime/rails-store.ts",
+      "runtime/review-wip-gate.ts"
     ],
     "dependencies": {
       "adapters/decisions/chains.ts": [
@@ -970,12 +971,21 @@
         "../../runtime/rail-pr-ticket-effects",
         "./contracts"
       ],
+      "adapters/review-wip-store.ts": [
+        "../../../db/types",
+        "../domain/review-wip",
+        "../domain/state"
+      ],
       "domain/decision-policy.ts": [
+        "./state"
+      ],
+      "domain/review-wip.ts": [
         "./state"
       ],
       "domain/state.ts": [],
       "index.ts": [
         "./domain/decision-policy",
+        "./domain/review-wip",
         "./domain/state"
       ],
       "runtime/active-pr-continuation.ts": [
@@ -1288,6 +1298,11 @@
         "./pr-body",
         "./pr-follow-up",
         "./rail-pr-store"
+      ],
+      "runtime/review-wip-gate.ts": [
+        "../../../db/types",
+        "../adapters/review-wip-store",
+        "../domain/review-wip"
       ]
     }
   },

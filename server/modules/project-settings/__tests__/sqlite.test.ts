@@ -70,3 +70,17 @@ describe('reviewerFamilySuggestionDismissed persistence', () => {
     expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.reviewer_family_suggestion_dismissed'").get()).toBeUndefined()
   })
 })
+
+describe('reviewWipLimit persistence', () => {
+  it('defaults to no limit, persists per project, clears with null and reads a corrupt value as no limit', () => {
+    const first = setup(), second = setup()
+    expect(first.service.getSettings().reviewWipLimit).toBeNull()
+    expect(first.service.updateSettings({ reviewWipLimit: 5 }).reviewWipLimit).toBe(5)
+    expect(first.service.getSettings().reviewWipLimit).toBe(5)
+    expect(second.service.getSettings().reviewWipLimit).toBeNull()
+    first.service.updateSettings({ reviewWipLimit: null })
+    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.review_wip_limit'").get()).toBeUndefined()
+    first.db.prepare("INSERT INTO queue_state (key, value) VALUES ('config.review_wip_limit', '0')").run()
+    expect(first.service.getSettings().reviewWipLimit).toBeNull()
+  })
+})

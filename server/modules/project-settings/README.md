@@ -51,6 +51,11 @@ records a dismissed loop-editor suggestion to run the reviewer on another model
 family. Its row (`config.reviewer_family_suggestion_dismissed`) is removed when
 the value is `false`. It is advisory UI state; no runtime reads it.
 
+`reviewWipLimit` (default `null` = no limit) is an integer from 1 to 100, validated by
+`parseReviewWipLimit` and stored in `config.review_wip_limit`. Clearing it removes the row,
+and a stored value that no longer parses reads as no limit. The delivery core enforces it at rail
+launch; the composition passes it through `getProjectSettings`.
+
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy
 consumers; prefer the application API for new feature callers.

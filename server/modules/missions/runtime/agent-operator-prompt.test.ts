@@ -502,3 +502,15 @@ describe('spec addenda rule (spec-addenda)', () => {
     expect(text).toContain('closed\n  automatically by the next launch')
   })
 })
+
+describe('review WIP limit (review-wip-limit)', () => {
+  it('explains the refusal once: what it means, how to free a slot, and no retry loop', () => {
+    const at = OPERATOR_INSTRUCTIONS.indexOf('review_wip_limit_reached')
+    expect(at).toBeGreaterThan(-1)
+    expect(OPERATOR_INSTRUCTIONS.indexOf('review_wip_limit_reached', at + 1)).toBe(-1)
+    const rule = OPERATOR_INSTRUCTIONS.slice(at, at + 420)
+    expect(rule).toContain('nothing was launched')
+    expect(rule).toContain('raising the limit in Project settings')
+    expect(rule).toContain('Never retry in a loop')
+  })
+})

@@ -118,6 +118,16 @@ Rails in the same project run **concurrently**. Each launch with Loops enabled (
 
 The legacy **job queue** is still serial: when Loops are disabled (`SPECRAILS_LOOPS_SECTION=false`), each project runs one queued job at a time and the rest wait behind it. Projects never contend with each other either way. There is no global concurrency limit to configure; the only automatic throttle is budget-based (see [Stopping everything](#stopping-everything)).
 
+### Review limit
+
+Parallel rails can finish work faster than you can review it. To cap that, set **Project settings ▸ Review limit** (we suggest 5; empty means no limit). Every delivery that is running, waiting for your decision, or open as a PR created by the app counts toward it.
+
+- The rails header shows **In review 3/5**. Click it to see which rails and specs are waiting and since when.
+- At the limit, **▶ Play** is disabled on rails that would start a new delivery. Hover it to see why. Decide a delivery (Create PR, merge or discard) and the next launch goes through.
+- **Launch all** starts only as many rails as there are free slots, in board order, and its dialog tells you how many wait. With no free slot it launches nothing.
+- Asking for a change to a delivery you already have, relaunching a failed attempt, or continuing an open PR is always allowed: it does not add review work.
+- Launches from the mission agent, MCP clients and the Companion app get the same answer, and the agent explains it.
+
 ## Jobs
 
 Every rail run becomes a **Job**. Find them under **Jobs** in the project's right sidebar.

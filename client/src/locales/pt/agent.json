@@ -652,7 +652,8 @@
       "invalid_response": "Resposta inesperada do servidor.",
       "scope_save_failed": "Não foi possível guardar os repositórios da spec.",
       "repository_scope_incomplete": "Falta um repositório exigido pelas specs para o lançamento. Reveja as atribuições acima.",
-      "daily_budget_exceeded": "Orçamento diário atingido — nada foi iniciado."
+      "daily_budget_exceeded": "Orçamento diário atingido — nada foi iniciado.",
+      "review_wip_limit_reached": "Limite de revisão atingido — nada foi iniciado."
     },
     "stub": {
       "launched": "Lançado → Rail {{rail}}",

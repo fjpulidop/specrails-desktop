@@ -370,5 +370,18 @@
         "accept": "{{provider}} verwenden"
       }
     }
+  },
+  "reviewWip": {
+    "title": "Review-Limit",
+    "description": "Begrenze, wie viele Lieferungen gleichzeitig auf dein Review warten dürfen, damit neue Arbeit sich nicht schneller stapelt, als du entscheiden kannst.",
+    "label": "Lieferungen, die auf Review warten",
+    "help": "Wir empfehlen {{suggested}}: genug, damit die Rails beschäftigt bleiben, während du reviewst. Es zählen laufende Lieferungen, unentschiedene Lieferungen und offene PRs der App. Änderungen an einer bestehenden Lieferung sind immer erlaubt. Leer lassen für kein Limit.",
+    "placeholder": "Kein Limit",
+    "useSuggested": "{{suggested}} verwenden",
+    "invalid": "Gib eine ganze Zahl von 1 bis {{max}} ein oder lass das Feld leer für kein Limit.",
+    "saved_one": "Review-Limit auf {{count}} gesetzt",
+    "saved_other": "Review-Limit auf {{count}} gesetzt",
+    "removed": "Review-Limit entfernt",
+    "saveFailed": "Das Review-Limit konnte nicht gespeichert werden"
   }
 }
