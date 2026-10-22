@@ -44,6 +44,7 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 | 内置 loop | 命令 | 作用 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
+| **Freestyle** | Freestyle | 由 rail 的提供方**绕过**流水线自主实现每个 spec，随后由验证和 Loop Decider 打磨，直到全部通过。每个 spec 一次独立运行。支持 Claude、Codex、Gemini、Kimi 和本地引擎；任务内的交互式聊天仅限 Claude。 |
 
 要运行多个 spec，可以把相关的（最多 3 个）放到同一条 rail 上——`Implement` 会把它们作为一个整体任务运行——或者把彼此独立的 spec 分到多条 rail：每条基于 git 的 rail 都在自己隔离的 worktree 中并行运行。
 

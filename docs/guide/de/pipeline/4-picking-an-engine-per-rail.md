@@ -19,7 +19,7 @@ Alle vier führen **Implement** aus:
 | Engine | Greif dazu, wenn… | Hinweise |
 |--------|--------------------|-------|
 | **Claude** | Du native Kosten, persistente Interaktion oder strikte Tool-Policies brauchst. | Profile, Freestyle und strukturierte Transforms. |
-| **Codex** | Du die OpenAI Codex CLI bevorzugst oder Implementierungen über verschiedene Provider hinweg vergleichen willst. | `codex` ≥ 0.128.0. Keine native Kostenmeldung — die App ergänzt die Kosten aus ihrer Preistabelle. Profile gelten nicht. |
+| **Codex** | Du die OpenAI Codex CLI bevorzugst oder Implementierungen über verschiedene Provider hinweg vergleichen willst. | `codex` ≥ 0.128.0. Keine native Kostenmeldung — die App ergänzt die Kosten aus ihrer Preistabelle. Profile gelten nicht. Freestyle läuft ohne interaktiven Chat. |
 
 ## Ein praktischer Workflow
 

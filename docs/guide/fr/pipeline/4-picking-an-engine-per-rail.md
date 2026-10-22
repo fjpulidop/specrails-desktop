@@ -19,7 +19,7 @@ Les quatre exécutent **Implement** :
 | Moteur | À privilégier quand… | Notes |
 |--------|--------------------|-------|
 | **Claude** | Vous avez besoin du coût natif, de l'interaction persistante ou de politiques d'outils strictes. | Profils, Freestyle et transforms structurés. |
-| **Codex** | Vous préférez la CLI Codex d'OpenAI ou vous voulez comparer les implémentations entre fournisseurs. | `codex` ≥ 0.128.0. Pas de rapport de coût natif — l'application complète le coût à partir de sa table de tarifs. Les profils ne s'appliquent pas. |
+| **Codex** | Vous préférez la CLI Codex d'OpenAI ou vous voulez comparer les implémentations entre fournisseurs. | `codex` ≥ 0.128.0. Pas de rapport de coût natif — l'application complète le coût à partir de sa table de tarifs. Les profils ne s'appliquent pas. Freestyle fonctionne, sans chat interactif. |
 
 ## Un flux de travail pratique
 

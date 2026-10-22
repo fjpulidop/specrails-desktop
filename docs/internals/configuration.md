@@ -71,7 +71,7 @@ Project settings apply to a single project. Open them from the project's **Setti
 |---------|------------------|
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
-| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (Claude and Kimi advertise this autonomous rail mode). |
+| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (every CLI provider and local engine advertises this autonomous rail mode; only Claude adds the interactive in-job chat). |
 | **Worktree environment** | Names of environment variables passed to the project's agents (values are read at spawn time, never stored). |
 | **Agent environment** | `inherit` (default) or `minimal`. See [Agent environment mode](#agent-environment-mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |

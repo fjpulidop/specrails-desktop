@@ -2438,7 +2438,7 @@ export class QueueManager {
     //    claude slash command — propose-spec, implement,
     //    explore-spec, retry, …). This is the rail equivalent of the
     //    user typing `$implement #1 --yes` themselves in `codex`.
-    // Freestyle (capability-gated; currently Claude and Kimi): skip the slash
+    // Freestyle (capability-gated; every bundled CLI and local engine): skip the slash
     // command entirely and send the pre-prompt + spec text directly as the
     // prompt. The server route rejects adapters that do not advertise
     // `freestyle` before this point.

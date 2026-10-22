@@ -471,13 +471,30 @@ describe('rails-router POST /:railIndex/launch freestyle mode (loops off — Que
     expect(railJobs.size).toBe(2)
   })
 
-  it('rejects freestyle when the effective engine is not claude', async () => {
-    setRailTickets(db, 0, [1], 'implement', null, 'codex')
-    const enqueue = vi.fn()
-    const res = await request(appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'codex' })
-    expect(res.status).toBe(400)
-    expect(enqueue).not.toHaveBeenCalled()
+  it.each(['codex', 'gemini'])('launches non-interactive freestyle on %s (verified provider capability)', async provider => {
+    setRailTickets(db, 0, [1], 'implement', null, provider)
+    const enqueue = vi.fn(() => ({ id: 'job-1', queuePosition: 0 }))
+    const res = await request(appWith(db, { providers: ['claude', provider], queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: provider })
+    expect(res.status).toBe(202)
+    expect(enqueue).toHaveBeenCalledWith('/specrails:freestyle #1 --yes', 'normal', expect.objectContaining({ provider, profileName: null }))
+    // No explicit interactive selection: only persistent-stdin adapters (Claude) upgrade at spawn.
+    expect(enqueue.mock.calls[0][2]).not.toHaveProperty('interactive')
+  })
+
+  it('rejects freestyle when the effective engine does not advertise the capability', async () => {
+    const { getAdapter } = await import('../../../providers/registry')
+    const capabilities = getAdapter('codex').capabilities
+    capabilities.freestyle = false
+    try {
+      setRailTickets(db, 0, [1], 'implement', null, 'codex')
+      const enqueue = vi.fn()
+      const res = await request(appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } }))
+        .post('/rails/0/launch').send({ mode: 'freestyle', aiEngine: 'codex' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe("Freestyle is not supported by provider 'codex'")
+      expect(enqueue).not.toHaveBeenCalled()
+    } finally { capabilities.freestyle = true }
   })
 
   it('rejects a roles launch for freestyle (no roles there); implement degrades to the primary on the legacy path', async () => {
@@ -1074,20 +1091,26 @@ describe('rails-router loop mode', () => {
     expect((run.mock.calls[0][0] as { spec: { ticketIds: number[] } }).spec.ticketIds).toEqual([3, 4])
   })
 
-  it('rejects a claude-only loop on a non-claude rail (400)', async () => {
-    setRailTickets(db, 0, [5], 'loop')
-    const loop = createLoop(desktopDb, { id: 'freestyle-loop', name: 'U', graph: graphWithPrompt('{{cmd:freestyle}}') })
-    publishLoop(desktopDb, loop.id)
-    const run = vi.fn()
-    const app = appWith(db, {
-      desktopDb,
-      providers: ['claude', 'codex'],
-      loopRunManager: { run, cancel: vi.fn() },
-      getTicketSpec: () => ({ title: 'T', description: 'D' }),
-    })
-    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'freestyle-loop', aiEngine: 'codex' })
-    expect(res.status).toBe(400)
-    expect(run).not.toHaveBeenCalled()
+  it.each([true, false])('gates a {{cmd:freestyle}} loop on the rail provider capability (codex freestyle=%s)', async (capable) => {
+    const { getAdapter } = await import('../../../providers/registry')
+    const capabilities = getAdapter('codex').capabilities
+    capabilities.freestyle = capable
+    try {
+      setRailTickets(db, 0, [5], 'loop')
+      const loop = createLoop(desktopDb, { id: 'freestyle-loop', name: 'U', graph: graphWithPrompt('{{cmd:freestyle}}') })
+      publishLoop(desktopDb, loop.id)
+      const run = vi.fn().mockResolvedValue({ status: 'completed' })
+      const app = appWith(db, {
+        desktopDb,
+        providers: ['claude', 'codex'],
+        loopRunManager: { run, cancel: vi.fn() },
+        getTicketSpec: () => ({ title: 'T', description: 'D' }),
+      })
+      const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'freestyle-loop', aiEngine: 'codex' })
+      expect(res.status).toBe(capable ? 202 : 400)
+      if (capable) expect(run).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex' }))
+      else expect(run).not.toHaveBeenCalled()
+    } finally { capabilities.freestyle = true }
   })
 
   it('rejects an invalid model for a custom loop launch with 400 and the provider allow-list', async () => {

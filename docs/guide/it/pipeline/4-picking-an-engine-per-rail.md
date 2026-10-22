@@ -19,7 +19,7 @@ Tutti e quattro eseguono **Implement**:
 | Engine | Scegli questo quando… | Note |
 |--------|--------------------|-------|
 | **Claude** | Servono costi nativi, interazione persistente o tool policy rigorose. | Profili, Freestyle e transform strutturati. |
-| **Codex** | Preferisci la CLI Codex di OpenAI o vuoi confrontare le implementazioni tra provider diversi. | `codex` ≥ 0.128.0. Nessuna reportistica nativa dei costi — l'app ricava il costo dalla sua tabella prezzi. I profili non si applicano. |
+| **Codex** | Preferisci la CLI Codex di OpenAI o vuoi confrontare le implementazioni tra provider diversi. | `codex` ≥ 0.128.0. Nessuna reportistica nativa dei costi — l'app ricava il costo dalla sua tabella prezzi. I profili non si applicano. Freestyle funziona, senza chat interattiva. |
 
 ## Un flusso di lavoro pratico
 

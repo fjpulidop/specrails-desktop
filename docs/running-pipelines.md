@@ -104,8 +104,11 @@ autonomously with native tools.
 
 - **One job per spec.** If the rail has three specs, `Freestyle` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
-- **Capability-gated.** Claude advertise Freestyle. Codex
-  do not. Agent profiles do not apply to Freestyle rails.
+- **Every CLI provider.** Claude, Codex, Gemini, Kimi and local engines
+  advertise Freestyle (each verified by a real end-to-end run). Only Claude
+  adds the interactive in-job chat with **Finalize**; on the others each run is
+  non-interactive and settles through verification and the Loop Decider.
+  Agent profiles do not apply to Freestyle rails.
 
 You can customise the Freestyle pre-prompt per project on the [Settings page](customizing.md#freestyle-pre-prompt).
 

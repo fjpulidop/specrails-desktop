@@ -44,6 +44,7 @@ Un rail exécute un **Loop** — la recette du travail. Deux loops sont **intég
 | Loop intégré | Commande | Ce qu'il fait |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Un seul job couvrant tous les specs du rail. Exécute tout le pipeline Architect → Developer → Reviewer → Ship. Le choix par défaut au quotidien. |
+| **Freestyle** | Freestyle | Le fournisseur du rail implémente chaque spec de façon autonome, **sans** le pipeline ; la vérification et le Loop Decider affinent ensuite le résultat jusqu'au vert. Une exécution indépendante par spec. Fonctionne avec Claude, Codex, Gemini, Kimi et les moteurs locaux ; le chat interactif dans le job est réservé à Claude. |
 
 Pour exécuter plusieurs specs, placez les specs liées (jusqu'à 3) sur un même rail — `Implement` les exécute en un seul job commun — ou répartissez les specs indépendantes sur plusieurs rails : chaque rail adossé à git s'exécute en parallèle dans son propre worktree isolé.
 

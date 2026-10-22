@@ -88,6 +88,15 @@ when configured checks are absent; Quick SDD rejects a missing verification plan
 before any AI step. Resumes retain their original checks. Older retained Core
 packages receive the legacy graphs.
 
+Freestyle is offered for every adapter whose `capabilities.freestyle` is true:
+Claude, Codex, Gemini, Kimi and local engines. Codex and Gemini were enabled
+only after real end-to-end runs (`openspec/changes/freestyle-codex-gemini`); the
+opt-in `loop-factory-freestyle.live.test.ts` reproduces that evidence through
+`createLoopExecutors().runDefinition`, the real bridge and a built Core with
+real provider CLIs (`SPECRAILS_LIVE_FREESTYLE_PROVIDERS=codex,gemini`,
+`SPECRAILS_CORE_SOURCE_DIR`, optional `SPECRAILS_LIVE_REPORT_DIR`). Interactive
+Freestyle (in-job chat + Finalize) still requires `persistentStdin` (Claude).
+
 Legacy Quick SDD also implements full specs without addenda or a PR. Its normal path is
 prepare → strict preflight → apply/tests → strict validation → archive (two AI
 phases). `failureRecovery` allows one in-run phase retry or an artifact-only repair

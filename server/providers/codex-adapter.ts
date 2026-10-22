@@ -377,7 +377,10 @@ export const codexAdapter = {
     toolPolicies: ['read-only'],
     profiles: false,
     customRoles: false,
-    freestyle: false,
+    // Non-interactive Freestyle (Core prompt → verify → decider) verified with a
+    // real run; interactive Freestyle still needs persistentStdin (Claude only).
+    // Evidence: openspec/changes/freestyle-codex-gemini/design.md.
+    freestyle: true,
     userMcp: false,
   },
   modelCatalog: () => CODEX_MODELS,

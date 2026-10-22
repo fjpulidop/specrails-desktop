@@ -99,7 +99,7 @@ export function railsTools(): McpToolSpec[] {
         mode: z
           .enum(['implement', 'freestyle', 'loop'])
           .optional()
-          .describe('Launch mode (launch; default "implement"). Implement runs all of the rail\'s tickets in one aggregate run; propose at most 3 specs per rail and split larger sets across rails. Use "freestyle" as the canonical API enum value for Freestyle. It invokes the selected provider\'s native free-form autonomous workflow (currently Claude and Kimi), one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
+          .describe('Launch mode (launch; default "implement"). Implement runs all of the rail\'s tickets in one aggregate run; propose at most 3 specs per rail and split larger sets across rails. Use "freestyle" as the canonical API enum value for Freestyle. It invokes the selected provider\'s native free-form autonomous workflow (Claude, Codex, Gemini, Kimi and local engines; only Claude is interactive), one job per ticket. In prose, call it "Freestyle". Loop runs an app-driven loop per ticket.'),
         model: z
           .string()
           .optional()
