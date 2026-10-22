@@ -1426,8 +1426,8 @@
         "../domain/usage",
         "../ports"
       ],
-      "domain/daily-budget.ts": [],
       "domain/agent-env.ts": [],
+      "domain/daily-budget.ts": [],
       "domain/job-accounting.ts": [],
       "domain/scheduling.ts": [],
       "domain/usage.ts": [
@@ -1437,8 +1437,8 @@
         "./application/enforce-budget",
         "./application/record-job-invocations",
         "./application/recover-job-usage",
-        "./domain/daily-budget",
         "./domain/agent-env",
+        "./domain/daily-budget",
         "./domain/job-accounting",
         "./domain/scheduling",
         "./domain/usage",
@@ -2174,6 +2174,7 @@
       "runtime/spec-generation.ts": [
         "../../../attachment-manager",
         "../../../db",
+        "../../../project-env",
         "../../../project-repositories",
         "../../../providers",
         "../../../providers/runtime",
