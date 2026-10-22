@@ -1,7 +1,12 @@
 import type { DbInstance } from '../../../db'
 import type { SessionPhase, SubagentView, ToolActivity } from '../../agent-sessions'
 
-/** Desktop's projection of a mission's Core session (rebuildable from Core's journal). */
+/**
+ * Desktop's projection of a mission's Core sessions (rebuildable from Core's
+ * journal). A conversation owns its own session (id = conversation id) and,
+ * while in Flow, the Flow's session (`flow:<flowId>`): every projection row is
+ * keyed by (conversation, Core session) so their usage never mixes.
+ */
 export interface SessionCursorRow {
   conversationId: string
   coreSessionId: string
@@ -14,6 +19,8 @@ export interface SessionCursorRow {
 
 export interface SubagentRow extends SubagentView {
   conversationId: string
+  /** The Core session that launched it (the conversation id for the mission's own). */
+  coreSessionId: string
 }
 
 export interface SubagentEventRow {
@@ -24,9 +31,7 @@ export interface SubagentEventRow {
   createdAt: string
 }
 
-export function getSessionCursor(db: DbInstance, conversationId: string): SessionCursorRow | null {
-  const row = db.prepare('SELECT * FROM agent_session_cursors WHERE conversation_id = ?').get(conversationId) as Record<string, unknown> | undefined
-  if (!row) return null
+function mapCursor(row: Record<string, unknown>): SessionCursorRow {
   return {
     conversationId: String(row.conversation_id),
     coreSessionId: String(row.core_session_id),
@@ -38,24 +43,55 @@ export function getSessionCursor(db: DbInstance, conversationId: string): Sessio
   }
 }
 
-/** Missions whose Core session still has work in flight (non-idle or live sub-agents). */
-export function listActiveSessionCursors(db: DbInstance): SessionCursorRow[] {
-  const rows = db.prepare("SELECT conversation_id FROM agent_session_cursors WHERE resident_phase != 'idle' OR live_subagents > 0").all() as Array<{ conversation_id: string }>
-  return rows.map((row) => getSessionCursor(db, row.conversation_id)).filter((row): row is SessionCursorRow => row !== null)
+/** The cursor of one Core session of a conversation (default: the mission's own). */
+export function getSessionCursor(db: DbInstance, conversationId: string, coreSessionId: string = conversationId): SessionCursorRow | null {
+  const row = db.prepare('SELECT * FROM agent_session_cursors WHERE conversation_id = ? AND core_session_id = ?').get(conversationId, coreSessionId) as Record<string, unknown> | undefined
+  return row ? mapCursor(row) : null
+}
+
+/** Every Core session cursor of a conversation (mission first, then Flow sessions). */
+export function listSessionCursors(db: DbInstance, conversationId: string): SessionCursorRow[] {
+  return (db.prepare('SELECT * FROM agent_session_cursors WHERE conversation_id = ? ORDER BY (core_session_id = conversation_id) DESC, core_session_id').all(conversationId) as Record<string, unknown>[]).map(mapCursor)
+}
+
+const PHASE_RANK: Record<SessionPhase, number> = { idle: 0, background: 1, turn: 2 }
+
+/**
+ * One conversation's resident state across its Core sessions: the busiest
+ * phase, any live process and the live sub-agents of all of them (a Flow's
+ * sub-agents count as the mission's while it is in Flow). Null when none ran.
+ */
+export function conversationSessionState(db: DbInstance, conversationId: string): Pick<SessionCursorRow, 'residentPhase' | 'processAlive' | 'liveSubagents'> | null {
+  const cursors = listSessionCursors(db, conversationId)
+  if (cursors.length === 0) return null
+  return {
+    residentPhase: cursors.reduce<SessionPhase>((phase, cursor) => PHASE_RANK[cursor.residentPhase] > PHASE_RANK[phase] ? cursor.residentPhase : phase, 'idle'),
+    processAlive: cursors.some((cursor) => cursor.processAlive),
+    liveSubagents: cursors.reduce((sum, cursor) => sum + cursor.liveSubagents, 0),
+  }
+}
+
+/** Conversations with a Core session that still has work in flight (non-idle or live sub-agents). */
+export function listActiveSessionCursors(db: DbInstance): Array<Pick<SessionCursorRow, 'conversationId' | 'residentPhase' | 'processAlive' | 'liveSubagents'>> {
+  const rows = db.prepare("SELECT DISTINCT conversation_id FROM agent_session_cursors WHERE resident_phase != 'idle' OR live_subagents > 0").all() as Array<{ conversation_id: string }>
+  return rows.flatMap((row) => {
+    const state = conversationSessionState(db, row.conversation_id)
+    return state ? [{ conversationId: row.conversation_id, ...state }] : []
+  })
 }
 
 export function ensureSessionCursor(db: DbInstance, conversationId: string, coreSessionId: string, scope: string): void {
   db.prepare(`INSERT INTO agent_session_cursors (conversation_id, core_session_id, scope) VALUES (?, ?, ?)
-    ON CONFLICT(conversation_id) DO UPDATE SET core_session_id = excluded.core_session_id, scope = excluded.scope`).run(conversationId, coreSessionId, scope)
+    ON CONFLICT(conversation_id, core_session_id) DO UPDATE SET scope = excluded.scope`).run(conversationId, coreSessionId, scope)
 }
 
-export function advanceSessionCursor(db: DbInstance, conversationId: string, seq: number): void {
-  db.prepare("UPDATE agent_session_cursors SET last_seq = ?, updated_at = datetime('now') WHERE conversation_id = ?").run(seq, conversationId)
+export function advanceSessionCursor(db: DbInstance, conversationId: string, seq: number, coreSessionId: string = conversationId): void {
+  db.prepare("UPDATE agent_session_cursors SET last_seq = ?, updated_at = datetime('now') WHERE conversation_id = ? AND core_session_id = ?").run(seq, conversationId, coreSessionId)
 }
 
-export function setResidentState(db: DbInstance, conversationId: string, phase: SessionPhase, processAlive: boolean, liveSubagents: number): void {
-  db.prepare("UPDATE agent_session_cursors SET resident_phase = ?, process_alive = ?, live_subagents = ?, updated_at = datetime('now') WHERE conversation_id = ?")
-    .run(phase, processAlive ? 1 : 0, liveSubagents, conversationId)
+export function setResidentState(db: DbInstance, conversationId: string, phase: SessionPhase, processAlive: boolean, liveSubagents: number, coreSessionId: string = conversationId): void {
+  db.prepare("UPDATE agent_session_cursors SET resident_phase = ?, process_alive = ?, live_subagents = ?, updated_at = datetime('now') WHERE conversation_id = ? AND core_session_id = ?")
+    .run(phase, processAlive ? 1 : 0, liveSubagents, conversationId, coreSessionId)
 }
 
 /**
@@ -63,27 +99,28 @@ export function setResidentState(db: DbInstance, conversationId: string, phase: 
  * them. Messages and invocations stay: replay recognizes turns it already
  * recorded (see `coreTurnInvocationId`).
  */
-export function resetSessionProjection(db: DbInstance, conversationId: string): void {
+export function resetSessionProjection(db: DbInstance, conversationId: string, coreSessionId: string = conversationId): void {
   db.transaction(() => {
-    db.prepare('DELETE FROM agent_subagent_events WHERE conversation_id = ?').run(conversationId)
-    db.prepare('DELETE FROM agent_subagents WHERE conversation_id = ?').run(conversationId)
-    db.prepare("UPDATE agent_session_cursors SET last_seq = 0, resident_phase = 'idle', process_alive = 0, live_subagents = 0, updated_at = datetime('now') WHERE conversation_id = ?").run(conversationId)
+    db.prepare('DELETE FROM agent_subagent_events WHERE conversation_id = ? AND subagent_id IN (SELECT subagent_id FROM agent_subagents WHERE conversation_id = ? AND core_session_id = ?)').run(conversationId, conversationId, coreSessionId)
+    db.prepare('DELETE FROM agent_subagents WHERE conversation_id = ? AND core_session_id = ?').run(conversationId, coreSessionId)
+    db.prepare("UPDATE agent_session_cursors SET last_seq = 0, resident_phase = 'idle', process_alive = 0, live_subagents = 0, updated_at = datetime('now') WHERE conversation_id = ? AND core_session_id = ?").run(conversationId, coreSessionId)
   })()
 }
 
-/** Deterministic invocation id of a Core turn: recording it twice is a no-op. */
-export function coreTurnInvocationId(conversationId: string, turnId: string): string {
-  return `core-turn:${conversationId}:${turnId}`
+/** Deterministic invocation id of a Core turn: recording it twice is a no-op.
+ *  A turn of another session of the conversation (Flow) carries its session id. */
+export function coreTurnInvocationId(conversationId: string, turnId: string, coreSessionId: string = conversationId): string {
+  return coreSessionId === conversationId ? `core-turn:${conversationId}:${turnId}` : `core-turn:${conversationId}:${coreSessionId}:${turnId}`
 }
 
-export function isCoreTurnRecorded(db: DbInstance, conversationId: string, turnId: string): boolean {
-  return !!db.prepare('SELECT 1 FROM agent_invocations WHERE id = ?').get(coreTurnInvocationId(conversationId, turnId))
+export function isCoreTurnRecorded(db: DbInstance, conversationId: string, turnId: string, coreSessionId: string = conversationId): boolean {
+  return !!db.prepare('SELECT 1 FROM agent_invocations WHERE id = ?').get(coreTurnInvocationId(conversationId, turnId, coreSessionId))
     || !!db.prepare('SELECT 1 FROM agent_messages WHERE conversation_id = ? AND core_turn_id = ?').get(conversationId, turnId)
 }
 
-export function upsertSubagent(db: DbInstance, conversationId: string, view: SubagentView): void {
-  db.prepare(`INSERT INTO agent_subagents (conversation_id, subagent_id, parent_id, kind, agent_type, description, phase, reason, restarts, launched_turn_id, started_at, ended_at, usage_json, tool_uses, duration_ms, result_summary, delegated_driver, delegated_model, updated_at)
-    VALUES (@conversationId, @subagentId, @parentId, @kind, @agentType, @description, @phase, @reason, @restarts, @launchedInTurnId, @startedAt, @endedAt, @usage, @toolUses, @durationMs, @resultSummary, @delegatedDriver, @delegatedModel, datetime('now'))
+export function upsertSubagent(db: DbInstance, conversationId: string, view: SubagentView, coreSessionId: string = conversationId): void {
+  db.prepare(`INSERT INTO agent_subagents (conversation_id, subagent_id, parent_id, kind, agent_type, description, phase, reason, restarts, launched_turn_id, started_at, ended_at, usage_json, tool_uses, duration_ms, result_summary, delegated_driver, delegated_model, core_session_id, updated_at)
+    VALUES (@conversationId, @subagentId, @parentId, @kind, @agentType, @description, @phase, @reason, @restarts, @launchedInTurnId, @startedAt, @endedAt, @usage, @toolUses, @durationMs, @resultSummary, @delegatedDriver, @delegatedModel, @coreSessionId, datetime('now'))
     ON CONFLICT(conversation_id, subagent_id) DO UPDATE SET
       phase = excluded.phase, reason = excluded.reason, restarts = excluded.restarts, ended_at = excluded.ended_at,
       usage_json = excluded.usage_json, tool_uses = excluded.tool_uses, duration_ms = excluded.duration_ms,
@@ -106,6 +143,7 @@ export function upsertSubagent(db: DbInstance, conversationId: string, view: Sub
     resultSummary: view.resultSummary,
     delegatedDriver: view.delegated?.driver ?? null,
     delegatedModel: view.delegated?.model ?? null,
+    coreSessionId,
   })
 }
 
@@ -117,6 +155,7 @@ export function appendSubagentEvent(db: DbInstance, conversationId: string, suba
 function mapSubagent(row: Record<string, unknown>): SubagentRow {
   return {
     conversationId: String(row.conversation_id),
+    coreSessionId: String(row.core_session_id ?? row.conversation_id),
     subagentId: String(row.subagent_id),
     parentId: (row.parent_id as string | null) ?? null,
     kind: row.kind as SubagentView['kind'],
@@ -136,8 +175,12 @@ function mapSubagent(row: Record<string, unknown>): SubagentRow {
   }
 }
 
-export function listSubagents(db: DbInstance, conversationId: string): SubagentRow[] {
-  return (db.prepare('SELECT * FROM agent_subagents WHERE conversation_id = ? ORDER BY started_at, rowid').all(conversationId) as Record<string, unknown>[]).map(mapSubagent)
+/** Sub-agents of a conversation: all its Core sessions, or only `coreSessionId`'s. */
+export function listSubagents(db: DbInstance, conversationId: string, coreSessionId?: string): SubagentRow[] {
+  const rows = coreSessionId === undefined
+    ? db.prepare('SELECT * FROM agent_subagents WHERE conversation_id = ? ORDER BY started_at, rowid').all(conversationId)
+    : db.prepare('SELECT * FROM agent_subagents WHERE conversation_id = ? AND core_session_id = ? ORDER BY started_at, rowid').all(conversationId, coreSessionId)
+  return (rows as Record<string, unknown>[]).map(mapSubagent)
 }
 
 export function pageSubagentEvents(db: DbInstance, conversationId: string, subagentId: string, afterSeq: number, limit: number): { events: SubagentEventRow[]; hasMore: boolean } {

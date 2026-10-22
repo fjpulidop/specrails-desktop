@@ -71,7 +71,7 @@ import { createCoreSessionRunner, type CoreInvocationResult } from './core-sessi
 import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { FlowTurn, FlowTurnContext } from './flow-turn-context'
-import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
+import { conversationSessionState, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -350,9 +350,10 @@ export class AgentChatManager {
 
   /** Projected Core session state of one mission (null when it never ran in Core). */
   sessionState(conversationId: string) {
-    const cursor = getSessionCursor(this._db, conversationId)
-    if (!cursor) return null
-    return { residentPhase: cursor.residentPhase, processAlive: cursor.processAlive, liveSubagents: cursor.liveSubagents, subagents: listSubagents(this._db, conversationId) }
+    // Across the mission's Core sessions: its own and, in Flow, the Flow's.
+    const state = conversationSessionState(this._db, conversationId)
+    if (!state) return null
+    return { ...state, subagents: listSubagents(this._db, conversationId) }
   }
 
   /** Stop a mission's background sub-agents through its Core session. */

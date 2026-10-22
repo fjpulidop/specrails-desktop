@@ -2044,6 +2044,7 @@
         "../../agent-sessions/runtime/session-host-registry",
         "../../agents/runtime/agent-store",
         "../../audit",
+        "./agent-flow-prompt",
         "./agent-session-store",
         "./core-session-runner",
         "./flow-turn-context",

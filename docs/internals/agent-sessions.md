@@ -74,8 +74,21 @@ Core journal ──session.event──▶ SessionEventPump ──ProjectionOp[]�
   and cursor (`agent_session_cursors`), and continuation turns as messages with
   `turn_origin` `subagent`/`system` plus invocations with `origin`. User turns
   are settled by the mission manager.
+- A conversation can own more than one Core session: its own (id = the
+  conversation id) and, in Flow, `flow:<flowId>`. Each is projected by its own
+  `MissionSessionProjector`: the cursor is keyed by `(conversation_id,
+  core_session_id)` and every sub-agent row records `core_session_id`
+  (desktop migration 35). The Flow projector bills its continuation turns and
+  delegated sub-agents with `surface: 'flow'` (so they land in
+  `GET /flow/:flowId/cost` and the mission's `flowCostUsd`), and tags its
+  WebSocket messages with `coreSessionId`. The client keys them by
+  conversation, so the sub-agents card shows a Flow's agents while in Flow;
+  the resident state it receives is the conversation's across its sessions.
 - Continuation turns get a deterministic invocation id, so replay never records
-  a turn twice. `POST /api/agent/conversations/:id/session/rebuild` resets the
+  a turn twice. Ids of a Flow session include its session id
+  (`core-turn:<conversation>:flow:<flowId>:<turn>`,
+  `core-subagent:<conversation>:flow:<flowId>:<subagent>:<seq>`), so the two
+  sessions never collide; a rebuild replays every session of the conversation. `POST /api/agent/conversations/:id/session/rebuild` resets the
   derived rows and replays the journal silently (see the
   [API reference](api-reference.md)).
 

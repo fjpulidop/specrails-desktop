@@ -5,7 +5,7 @@ import { finaliseNormalisedResult } from '../../accounting/runtime/result-event'
 import type { ProjectionOp, ProjectionSink, TurnOrigin, Usage } from '../../agent-sessions'
 import { addAgentMessage, getAgentConversation } from '../../agents/runtime/agent-store'
 import { recordToolCall, type AgentAuditRecorder } from '../../audit'
-import { advanceSessionCursor, appendSubagentEvent, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
+import { advanceSessionCursor, appendSubagentEvent, conversationSessionState, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
 
 type Broadcast = (message: Record<string, unknown>) => void
 
@@ -17,6 +17,14 @@ export interface MissionSessionProjectorDeps {
   onProcessEnded?: (conversationId: string) => void
   /** Agent actions audit of the mission's project (null when it has none loaded). */
   agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
+}
+
+/** Which Core session of the conversation this projector follows. */
+export interface MissionSessionProjection {
+  /** Core session id (default: the conversation id, the mission's own session). */
+  coreSessionId?: string
+  /** Accounting surface of its invocations: the Flow session bills `flow`. */
+  surface?: 'agent-chat' | 'flow'
 }
 
 interface BackgroundTurn {
@@ -34,11 +42,19 @@ interface BackgroundTurn {
  */
 export class MissionSessionProjector implements ProjectionSink {
   private readonly background = new Map<string, BackgroundTurn>()
+  private readonly coreSessionId: string
+  private readonly surface: 'agent-chat' | 'flow'
+  /** Extra fields on every broadcast of a non-mission session (the client tells them apart). */
+  private readonly tag: Record<string, unknown>
 
-  constructor(private readonly conversationId: string, private readonly deps: MissionSessionProjectorDeps) {}
+  constructor(private readonly conversationId: string, private readonly deps: MissionSessionProjectorDeps, projection: MissionSessionProjection = {}) {
+    this.coreSessionId = projection.coreSessionId ?? conversationId
+    this.surface = projection.surface ?? 'agent-chat'
+    this.tag = this.coreSessionId === conversationId ? {} : { coreSessionId: this.coreSessionId }
+  }
 
   cursor(_sessionId: string): number {
-    return getSessionCursor(this.deps.db, this.conversationId)?.lastSeq ?? 0
+    return getSessionCursor(this.deps.db, this.conversationId, this.coreSessionId)?.lastSeq ?? 0
   }
 
   apply(_sessionId: string, seq: number, ops: ProjectionOp[]): void {
@@ -51,16 +67,18 @@ export class MissionSessionProjector implements ProjectionSink {
       for (const op of ops) {
         switch (op.kind) {
           case 'resident.phase': {
-            const before = getSessionCursor(this.deps.db, conversationId)
-            setResidentState(this.deps.db, conversationId, op.phase, op.processAlive, op.liveSubagents)
+            const before = getSessionCursor(this.deps.db, conversationId, this.coreSessionId)
+            setResidentState(this.deps.db, conversationId, op.phase, op.processAlive, op.liveSubagents, this.coreSessionId)
             if (before?.processAlive && !op.processAlive) processEnded = true
-            outbox.push({ type: 'agent_resident_state', conversationId, phase: op.phase, liveSubagents: op.liveSubagents, processAlive: op.processAlive, timestamp })
+            // The conversation's state across its sessions: a Flow's sub-agents are the mission's while in Flow.
+            const state = conversationSessionState(this.deps.db, conversationId)
+            outbox.push({ type: 'agent_resident_state', conversationId, phase: state?.residentPhase ?? op.phase, liveSubagents: state?.liveSubagents ?? op.liveSubagents, processAlive: state?.processAlive ?? op.processAlive, ...this.tag, timestamp })
             break
           }
           case 'turn.opened':
             if (op.origin === 'user') break
             this.background.set(op.turnId, { origin: op.origin, triggeredBy: op.triggeredBy, startedAt: op.at })
-            outbox.push({ type: 'agent_turn_started', conversationId, turnId: op.turnId, origin: op.origin, triggeredBy: op.triggeredBy, timestamp })
+            outbox.push({ type: 'agent_turn_started', conversationId, turnId: op.turnId, origin: op.origin, triggeredBy: op.triggeredBy, ...this.tag, timestamp })
             break
           case 'turn.delta':
             if (op.channel === 'text' && this.background.has(op.turnId)) outbox.push({ type: 'agent_stream', conversationId, turnId: op.turnId, delta: op.delta, timestamp })
@@ -79,33 +97,35 @@ export class MissionSessionProjector implements ProjectionSink {
             const conversation = getAgentConversation(this.deps.db, conversationId)
             if (!conversation) break
             // A journal replay (projection rebuild) must not record a turn twice.
-            if (isCoreTurnRecorded(this.deps.db, conversationId, op.turnId)) {
-              outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, timestamp })
+            if (isCoreTurnRecorded(this.deps.db, conversationId, op.turnId, this.coreSessionId)) {
+              outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, ...this.tag, timestamp })
               break
             }
             const message = op.text.trim()
               ? addAgentMessage(this.deps.db, { conversationId, role: 'assistant', content: op.text, turnOrigin: turn.origin, coreTurnId: op.turnId })
               : null
-            this.recordInvocation(conversation, { id: coreTurnInvocationId(conversation.id, op.turnId), providerId: conversation.provider, model: null, usage: op.usage, status: op.status, origin: turn.origin, startedAt: turn.startedAt, finishedAt: op.at })
-            outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), timestamp })
+            this.recordInvocation(conversation, { id: coreTurnInvocationId(conversation.id, op.turnId, this.coreSessionId), providerId: conversation.provider, model: null, usage: op.usage, status: op.status, origin: turn.origin, startedAt: turn.startedAt, finishedAt: op.at })
+            outbox.push({ type: 'agent_turn_done', conversationId, turnId: op.turnId, origin: turn.origin, status: op.status, triggeredBy: turn.triggeredBy, fullText: op.text, ...(message ? { messageId: message.id } : {}), ...this.tag, timestamp })
             if (conversation.pinned_project_id) outbox.push({ type: 'spending.invalidated', projectId: conversation.pinned_project_id })
             break
           }
           case 'subagent.upsert':
-            upsertSubagent(this.deps.db, conversationId, op.subagent)
-            outbox.push({ type: 'agent_subagent', conversationId, subagent: op.subagent, timestamp })
+            upsertSubagent(this.deps.db, conversationId, op.subagent, this.coreSessionId)
+            outbox.push({ type: 'agent_subagent', conversationId, subagent: op.subagent, ...this.tag, timestamp })
             break
           case 'subagent.output':
             if (!this.subagentKnown(op.subagentId)) break
             if (op.tool?.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'subagent' })
             appendSubagentEvent(this.deps.db, conversationId, op.subagentId, op.seq, op.channel, op.delta, op.tool)
-            outbox.push({ type: 'agent_subagent_event', conversationId, subagentId: op.subagentId, seq: op.seq, channel: op.channel, ...(op.delta !== null ? { delta: op.delta } : {}), ...(op.tool ? { tool: op.tool } : {}), timestamp })
+            outbox.push({ type: 'agent_subagent_event', conversationId, subagentId: op.subagentId, seq: op.seq, channel: op.channel, ...(op.delta !== null ? { delta: op.delta } : {}), ...(op.tool ? { tool: op.tool } : {}), ...this.tag, timestamp })
             break
           case 'subagent.billed': {
             // A delegated sub-agent's own spend: recorded once (deterministic id), on top of the parent's.
             const conversation = getAgentConversation(this.deps.db, conversationId)
             if (!conversation) break
-            const invocationId = `core-subagent:${conversationId}:${op.subagentId}:${op.seq}`
+            const invocationId = this.coreSessionId === conversationId
+              ? `core-subagent:${conversationId}:${op.subagentId}:${op.seq}`
+              : `core-subagent:${conversationId}:${this.coreSessionId}:${op.subagentId}:${op.seq}`
             if (this.deps.db.prepare('SELECT 1 FROM agent_invocations WHERE id = ?').get(invocationId)) break
             const startedAt = this.subagentStartedAt(op.subagentId) ?? op.at
             this.recordInvocation(conversation, { id: invocationId, providerId: op.driver, model: op.model, usage: op.usage, status: 'completed', origin: 'subagent', startedAt, finishedAt: op.at })
@@ -113,10 +133,10 @@ export class MissionSessionProjector implements ProjectionSink {
             break
           }
           case 'session.updated':
-            outbox.push({ type: 'agent_session_updated', conversationId, outcome: op.outcome, changes: op.changes, timestamp })
+            outbox.push({ type: 'agent_session_updated', conversationId, outcome: op.outcome, changes: op.changes, ...this.tag, timestamp })
             break
           case 'notice':
-            outbox.push({ type: 'agent_session_notice', conversationId, level: op.level, code: op.code, message: op.message, timestamp })
+            outbox.push({ type: 'agent_session_notice', conversationId, level: op.level, code: op.code, message: op.message, ...this.tag, timestamp })
             break
           case 'provider.ref':
           case 'input.state':
@@ -125,11 +145,12 @@ export class MissionSessionProjector implements ProjectionSink {
             break
         }
       }
-      advanceSessionCursor(this.deps.db, conversationId, seq)
+      advanceSessionCursor(this.deps.db, conversationId, seq, this.coreSessionId)
     })()
     for (const message of outbox) this.deps.broadcast(message)
     if (audited.length > 0) this.recordAudit(audited)
-    if (processEnded) this.deps.onProcessEnded?.(conversationId)
+    // The mission's capability belongs to its own resident process only.
+    if (processEnded && this.coreSessionId === conversationId) this.deps.onProcessEnded?.(conversationId)
   }
 
   /** After commit: the audit observes; it never joins the projection transaction. */
@@ -144,7 +165,7 @@ export class MissionSessionProjector implements ProjectionSink {
   }
 
   private subagentKnown(subagentId: string): boolean {
-    return !!this.deps.db.prepare('SELECT 1 FROM agent_subagents WHERE conversation_id = ? AND subagent_id = ?').get(this.conversationId, subagentId)
+    return !!this.deps.db.prepare('SELECT 1 FROM agent_subagents WHERE conversation_id = ? AND subagent_id = ? AND core_session_id = ?').get(this.conversationId, subagentId, this.coreSessionId)
   }
 
   private subagentStartedAt(subagentId: string): string | null {
@@ -188,6 +209,7 @@ export class MissionSessionProjector implements ProjectionSink {
       finished_at: invocation.finishedAt,
       total_cost_usd_estimated: estimated,
       origin: invocation.origin,
+      surface: this.surface,
       ...result,
     })
   }

@@ -82,8 +82,19 @@ Flow turn:
 - its own Core session `flow:<flowId>` (cwd is fixed at open, so the
   mission's session stays intact and resumes after the Flow);
 - `permissions: 'workspace-write'`, `tools: { mode: 'default' }`, the same
-  Specrails MCP the mission presents, sub-agents disabled (the Flow session is
-  not projected like the mission's, so their usage could not be accounted);
+  Specrails MCP the mission presents;
+- sub-agents follow the mission's project policy: "Allow sub-agents" off (the
+  default) keeps them disabled; on, the session runs them natively or, with
+  "Run sub-agents with" another provider, Core-delegated
+  (`resolveSubagentRuntime`). Native sub-agents run inside the provider
+  process (the worktree cwd); Core opens delegated children with the parent
+  session's cwd and permissions (`DelegationCoordinator.delegate`), so they
+  also write only in the worktree. The sub-agent tools of `specrails_mission`
+  act on the Flow session while a Flow turn ran last. When enabled, the static
+  `FLOW_SUBAGENTS_ADDENDUM` (plus the delegation guidance when delegated) is
+  appended to the persona: split truly independent work, then integrate and
+  verify it. The Flow session has its own projection and bills `flow` (see
+  [agent sessions](agent-sessions.md));
 - the static Flow persona ([agent-flow-prompt.ts](../../server/modules/missions/runtime/agent-flow-prompt.ts))
   as the session `systemPrompt`, never a file in the worktree; per-turn facts
   (worktree path, branch) ride the user turn. Its **Choices** rule ends every
@@ -228,7 +239,9 @@ limit). Unlinked tickets never receive outbound writes otherwise.
 `flow.state { projectId, conversationId, flowId, flow, timestamp }` is
 broadcast on every committed change (and when a settlement effect finishes).
 `GET /flow/:flowId/cost` sums only provider-billed Flow turns in the Flow's
-lifetime and reports `unpricedTurns` separately; project spending exposes
+lifetime (user turns, continuation turns after sub-agents and delegated
+sub-agents' own spend, all recorded with surface `flow`) and reports
+`unpricedTurns` separately; project spending exposes
 `flowCostUsd` and `flowTurns` inside the agent-mission summary. The spec
 rewrite is recorded with surface `flow`.
 

@@ -21,7 +21,7 @@ vi.mock('../../../attachment-manager', () => ({
 }))
 
 import { spawn as mockSpawn } from 'child_process'
-import { initDesktopDb } from '../../../desktop-db'
+import { initDesktopDb, sumFlowInvocations } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import '../../../providers'
 import { getAdapter } from '../../../providers/registry'
@@ -30,7 +30,8 @@ import { SessionRequestError, type InitializeResult, type SessionEvent, type Ses
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { addAgentMessage, createAgentConversation, getAgentConversation, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
-import { FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
+import { FLOW_SUBAGENTS_ADDENDUM, FLOW_SYSTEM_PROMPT } from './agent-flow-prompt'
+import { listSessionCursors, listSubagents } from './agent-session-store'
 import { FLOW_SESSION_BOUNDARY, type FlowTurn } from './flow-turn-context'
 import { MissionCoreSessions } from './mission-core-sessions'
 
@@ -119,6 +120,8 @@ describe('Flow turns in missions', () => {
   let manager: AgentChatManager
   let broadcasts: Array<Record<string, unknown>>
   let flow: FlowTurn | null
+  let allowSubagents: boolean
+  let runtimeChoice: { provider: string; model: string } | null
 
   beforeEach(() => {
     _resetAgentCapabilitiesForTest()
@@ -136,11 +139,16 @@ describe('Flow turns in missions', () => {
     host = new FakeCoreHost()
     broadcasts = []
     flow = null
+    allowSubagents = false
+    runtimeChoice = null
     manager = new AgentChatManager((message) => broadcasts.push(message as unknown as Record<string, unknown>), db, 4200, null)
     const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
     manager.setCoreSessions(new MissionCoreSessions({
       db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
       availability: async () => ({ enabled: true, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+      // The project's "Allow sub-agents" (default off) and "Run sub-agents with".
+      subagentPolicy: () => allowSubagents ? 'enabled' : 'disabled',
+      subagentRuntime: () => runtimeChoice,
     }))
     manager.setFlowTurnContext({ forConversation: () => flow })
   })
@@ -180,6 +188,7 @@ describe('Flow turns in missions', () => {
       policy: { subagents: 'disabled', permissions: 'workspace-write', tools: { mode: 'default' }, mcp: { inheritUserScope: true, servers: [expect.objectContaining({ name: 'specrails' })] } },
     })
     expect(open.providerSessionRef).toBeUndefined()
+    expect(String(open.systemPrompt)).not.toContain('Sub-agents in Flow')
     const firstPrompt = String((host.requests.find((request) => request.method === 'session.send')!.params.input as { text: string }).text)
     expect(firstPrompt).toContain('Flow: worktree="/wt/f1/ticket-7" branch=feat/7-idea')
     expect(firstPrompt).toContain('earlier mission question')
@@ -256,5 +265,99 @@ describe('Flow turns in missions', () => {
     await manager.sendMessage(conversation.id, 'hello')
     await waitFor(() => doneCount() === 1)
     expect(opens()[0]!.params).toMatchObject({ sessionId: conversation.id })
+  })
+
+  describe('sub-agents in Flow', () => {
+    const subagentEvents = (prefix: string): Body[] => [
+      { type: 'subagent.started', subagentId: `${prefix}-a1`, parentId: null, kind: 'background', description: `${prefix} effect`, delegated: { driver: 'codex', model: 'gpt-5' } },
+      { type: 'subagent.usage', subagentId: `${prefix}-a1`, usage: { ...usage, costUsd: 0.5 }, billing: 'separate' },
+      { type: 'subagent.phase', subagentId: `${prefix}-a1`, phase: 'idle' },
+      { type: 'turn.started', turnId: `${prefix}-bg`, origin: 'subagent', inputIds: [], trigger: { subagentIds: [`${prefix}-a1`] } } as Body,
+      { type: 'turn.completed', turnId: `${prefix}-bg`, status: 'completed', text: `${prefix} integrated`, usage: { ...usage, costUsd: 0.1 } },
+    ]
+
+    it('policy off keeps Flow sub-agents disabled with no addendum', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open.policy).toMatchObject({ subagents: 'disabled' })
+      expect((open.policy as Record<string, unknown>).subagentRuntime).toBeUndefined()
+      expect(open.systemPrompt).toBe(FLOW_SYSTEM_PROMPT)
+    })
+
+    it('policy on (native) enables them in the worktree session and appends the static Flow addendum', async () => {
+      allowSubagents = true
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open).toMatchObject({ sessionId: 'flow:f1', cwd: '/wt/f1/ticket-7', policy: { subagents: 'enabled', permissions: 'workspace-write', subagentRuntime: { mode: 'native' } } })
+      // Persona first, byte-identical; the addendum is separate and static.
+      expect(open.systemPrompt).toBe(`${FLOW_SYSTEM_PROMPT}\n\n${FLOW_SUBAGENTS_ADDENDUM}`)
+      expect(String(open.systemPrompt)).not.toContain('subagent_start')
+    })
+
+    it('policy on (delegated) delegates in the Flow session; Core gives children its cwd', async () => {
+      allowSubagents = true
+      runtimeChoice = { provider: 'codex', model: 'gpt-5' }
+      host.initialize = {
+        ...host.initialize,
+        capabilities: { ...host.initialize.capabilities, delegation: 1 },
+        drivers: [...host.initialize.drivers, { ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' }],
+      }
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build')
+      await waitFor(() => doneCount() === 1)
+      const open = opens()[0]!.params
+      expect(open.policy).toMatchObject({ subagents: 'enabled', subagentRuntime: { mode: 'delegated', driver: 'codex', model: 'gpt-5' } })
+      expect(String(open.systemPrompt)).toContain(FLOW_SUBAGENTS_ADDENDUM)
+      expect(String(open.systemPrompt)).toContain('sub-agents run on codex (gpt-5)')
+      // The delegate request names the Flow session only: Core opens the child
+      // with the parent session's cwd (the worktree) and permissions.
+      await manager.delegateSubagent(conversation.id, { description: 'Trail', prompt: 'Add a particle trail' })
+      expect(host.requests.find((request) => request.method === 'session.delegate')!.params).toEqual({ sessionId: 'flow:f1', description: 'Trail', prompt: 'Add a particle trail' })
+    })
+
+    it('projects the Flow session apart from the mission session: sub-agents and usage land in Flow cost only, exactly once', async () => {
+      allowSubagents = true
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      // A normal mission turn first: the mission's own session is tracked too.
+      await manager.sendMessage(conversation.id, 'plan it')
+      await waitFor(() => doneCount() === 1)
+      flow = flowTurn()
+      await manager.sendMessage(conversation.id, 'build it')
+      await waitFor(() => doneCount() === 2)
+
+      host.emit('flow:f1', subagentEvents('flow'))
+      host.emit(conversation.id, subagentEvents('mission'))
+      await waitFor(() => listSubagents(db, conversation.id).length === 2 && broadcasts.filter((m) => m.type === 'agent_turn_done').length === 2)
+
+      expect(listSubagents(db, conversation.id, 'flow:f1').map((row) => row.subagentId)).toEqual(['flow-a1'])
+      expect(listSubagents(db, conversation.id, conversation.id).map((row) => row.subagentId)).toEqual(['mission-a1'])
+      expect(listSessionCursors(db, conversation.id).map((cursor) => cursor.coreSessionId)).toEqual([conversation.id, 'flow:f1'])
+      const rows = db.prepare("SELECT id, surface, origin, total_cost_usd FROM agent_invocations WHERE conversation_id = ? AND origin != 'user' ORDER BY id").all(conversation.id)
+      expect(rows).toEqual([
+        { id: `core-subagent:${conversation.id}:flow:f1:flow-a1:${host.journals.get('flow:f1')!.find((e) => e.event.type === 'subagent.usage')!.seq}`, surface: 'flow', origin: 'subagent', total_cost_usd: 0.5 },
+        { id: `core-subagent:${conversation.id}:mission-a1:${host.journals.get(conversation.id)!.find((e) => e.event.type === 'subagent.usage')!.seq}`, surface: 'agent-chat', origin: 'subagent', total_cost_usd: 0.5 },
+        { id: `core-turn:${conversation.id}:flow:f1:flow-bg`, surface: 'flow', origin: 'subagent', total_cost_usd: 0.1 },
+        { id: `core-turn:${conversation.id}:mission-bg`, surface: 'agent-chat', origin: 'subagent', total_cost_usd: 0.1 },
+      ])
+      // Flow cost (the cost route and flowCostUsd read this) = Flow user turn + its sub-agent + its continuation.
+      expect(sumFlowInvocations(db, { conversationId: conversation.id, from: '1970-01-01', to: null })).toMatchObject({ costUsd: 0.02 + 0.5 + 0.1, turns: 3 })
+      // Flow broadcasts carry the session so the client can tell them apart.
+      expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'flow-a1')).toMatchObject({ conversationId: conversation.id, coreSessionId: 'flow:f1' })
+      expect(broadcasts.find((m) => m.type === 'agent_subagent' && (m.subagent as { subagentId: string }).subagentId === 'mission-a1')).not.toHaveProperty('coreSessionId')
+
+      // Rebuild replays both journals without recording anything twice.
+      const before = db.prepare('SELECT COUNT(*) AS n FROM agent_invocations').get()
+      await manager.rebuildSessionProjection(conversation.id)
+      expect(db.prepare('SELECT COUNT(*) AS n FROM agent_invocations').get()).toEqual(before)
+      expect(listSubagents(db, conversation.id).map((row) => [row.coreSessionId, row.subagentId])).toEqual(expect.arrayContaining([[conversation.id, 'mission-a1'], ['flow:f1', 'flow-a1']]))
+      expect(listSubagents(db, conversation.id)).toHaveLength(2)
+    })
   })
 })

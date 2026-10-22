@@ -761,6 +761,40 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!columns.includes('delegated_driver')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_driver TEXT')
       if (!columns.includes('delegated_model')) db.exec('ALTER TABLE agent_subagents ADD COLUMN delegated_model TEXT')
     },
+    // 35: flow-subagents — a mission conversation can own more than one Core
+    // session (its own and its Flow's `flow:<flowId>`). The projection cursor
+    // is keyed by (conversation, Core session) and each sub-agent records the
+    // session that launched it, so Flow usage never mixes with the mission's.
+    // Existing rows belong to the mission session (core_session_id =
+    // conversation_id). Rebuild/column guarded for migration replay fixtures.
+    () => {
+      const cursorPk = (db.prepare('PRAGMA table_info(agent_session_cursors)').all() as { name: string; pk: number }[]).filter((c) => c.pk > 0).map((c) => c.name)
+      if (!cursorPk.includes('core_session_id')) {
+        db.exec(`
+          CREATE TABLE agent_session_cursors_v35 (
+            conversation_id TEXT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+            core_session_id TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            last_seq INTEGER NOT NULL DEFAULT 0,
+            resident_phase TEXT NOT NULL DEFAULT 'idle' CHECK (resident_phase IN ('idle', 'turn', 'background')),
+            process_alive INTEGER NOT NULL DEFAULT 0,
+            live_subagents INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (conversation_id, core_session_id)
+          );
+          INSERT INTO agent_session_cursors_v35 (conversation_id, core_session_id, scope, last_seq, resident_phase, process_alive, live_subagents, updated_at)
+            SELECT conversation_id, core_session_id, scope, last_seq, resident_phase, process_alive, live_subagents, updated_at FROM agent_session_cursors;
+          DROP TABLE agent_session_cursors;
+          ALTER TABLE agent_session_cursors_v35 RENAME TO agent_session_cursors;
+        `)
+      }
+      const columns = (db.prepare('PRAGMA table_info(agent_subagents)').all() as { name: string }[]).map((c) => c.name)
+      if (!columns.includes('core_session_id')) db.exec('ALTER TABLE agent_subagents ADD COLUMN core_session_id TEXT')
+      db.exec(`
+        UPDATE agent_subagents SET core_session_id = conversation_id WHERE core_session_id IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_agent_subagents_session ON agent_subagents(conversation_id, core_session_id);
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

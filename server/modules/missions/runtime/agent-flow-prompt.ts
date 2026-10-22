@@ -37,6 +37,19 @@ export const FLOW_SYSTEM_PROMPT = [
   '- Use your normal coding tools inside the worktree. The Specrails MCP tools stay available for reading project context; do not launch rails or create specs from inside a Flow: the user ends the Flow from the Flow bar.',
 ].join('\n')
 
+/**
+ * Appended to the Flow persona only when the project allows sub-agents (the
+ * session's `systemPromptAddendum`, like the mission's delegation guidance).
+ * Static as well: the persona itself never changes with the policy.
+ */
+export const FLOW_SUBAGENTS_ADDENDUM = [
+  '## Sub-agents in Flow',
+  '- Sub-agents are available. When the work splits into independent pieces (for example separate visual effects, or a component and its tests), you may hand each piece to a sub-agent so they run in parallel.',
+  '- Sub-agents work in this same worktree with your permissions. Give each one a self-contained task with the files it owns, so two of them never edit the same file.',
+  '- You stay responsible for the result: integrate what they return, resolve conflicts, then run the code or its tests yourself before telling the user it works.',
+  '- Keep small or tightly coupled changes to yourself; a sub-agent is worth it only when the pieces are truly independent.',
+].join('\n')
+
 export function buildFlowSystemPrompt(): string {
   return FLOW_SYSTEM_PROMPT
 }
