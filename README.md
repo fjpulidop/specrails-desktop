@@ -78,7 +78,7 @@ Git is required for isolated worktrees and branch delivery. Authenticated `gh` i
 
 ## Core installation and updates
 
-Desktop's version, the selected Core executable, the active shared framework and each project's installed artifacts are separate state. The current source supports Core 4 and Core 5; its online installation fallback requests Core 5. Core 5 installs deterministically and does not run the removed `enrich` wizard.
+Desktop's version, the selected Core executable, the active shared framework and each project's installed artifacts are separate state. The current source supports Core 4, 5 and 6 (`SUPPORTED_CORE_MAJORS` in `server/core-package.ts`); the desktop app bundles a Core 6 release and the online installation fallback requests `specrails-core@^6.0.0`. Core installs deterministically and does not run the removed `enrich` wizard.
 
 The resolver considers compatible managed, bundled, local and externally installed Core packages. An explicit `SPECRAILS_CORE_BIN` takes precedence; ordinary resolution does not silently downgrade an activated framework. Updating an external CLI alone does not refresh every project's copied artifacts.
 

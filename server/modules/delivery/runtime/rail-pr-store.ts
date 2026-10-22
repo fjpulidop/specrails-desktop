@@ -7,12 +7,14 @@
  * decision. Pure data access; the PR plumbing lives in rail-pr-delivery /
  * pr-publisher and the launch wiring in rail-isolated-launch.
  */
+import { triageAccuracy, type TriageAccuracy } from '../../specs/domain/triage'
 import { readFollowUp, type PrFollowUp } from './pr-follow-up'
 import { readSpecAddendaSnapshot, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
 import type { OverlayCleanupEvidence } from '../../../worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
-import type { PrDecisionCardEnvelope, RailPrStateMessage } from '../../../types'
+import { summarizeReviewBriefs } from './review-brief'
+import type { PrDecisionCardEnvelope, PrDeliveryRiskSummary, RailPrStateMessage } from '../../../types'
 import { newId } from '../../../ids'
 import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
 
@@ -33,7 +35,7 @@ export interface DeliverBranchRecord {
   finalSha?: string | null
   changed?: boolean
   failureCode?: PrDeliveryStatusCode | null
-  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+  branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
   /** Delivery-owned isolated checkout retained for explicit local recovery. */
   worktreePath?: string | null
   /** Allocation-time never-commit paths. This list remains conservative even
@@ -111,6 +113,15 @@ export function isTerminalPrDecision(s: string): boolean {
 
 export interface RailPrDeliveryRow {
   launch_config_json?: string | null
+  /** Migration 72 lifecycle instants (ISO, first write wins; NULL = unknown). */
+  on_review_at?: string | null
+  decided_at?: string | null
+  published_at?: string | null
+  merged_at?: string | null
+  /** Spec triage (migration 76): loop recommended by the rail's first triaged spec. */
+  recommended_loop?: string | null
+  /** Spec triage (migration 76): loop the launch actually ran. */
+  chosen_loop?: string | null
   parent_delivery_id?: string | null
   repository_id?: string | null
   repository_path?: string | null
@@ -201,6 +212,8 @@ export interface CreatePrDeliveryInput {
   followUp?: PrFollowUp | null
   /** Frozen identity of the spec addenda this launch carries (spec-addenda); null when none. */
   specAddenda?: SpecAddendaSnapshotEntry[] | null
+  /** Spec triage (launch-triage): recommended vs launched loop, for triage accuracy. */
+  loopChoice?: { recommendedLoop: string | null; chosenLoop: string | null } | null
 }
 
 /**
@@ -216,9 +229,10 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda, launch_config_json
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda, launch_config_json,
+       recommended_loop, chosen_loop
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -242,8 +256,25 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.followUp ? JSON.stringify(input.followUp) : null,
     input.specAddenda && input.specAddenda.length > 0 ? JSON.stringify(input.specAddenda) : null,
     input.launchConfig ? JSON.stringify(input.launchConfig) : null,
+    input.loopChoice?.recommendedLoop ?? null,
+    input.loopChoice?.chosenLoop ?? null,
   )
   return getPrDelivery(db, id)!
+}
+
+/**
+ * Triage accuracy for loop economics (launch-triage): over root deliveries
+ * (one per launch) that carried a recommendation, how many launched exactly
+ * the recommended loop. Optional ISO lower bound on `created_at`.
+ */
+export function getTriageAccuracy(db: DbInstance, opts: { since?: string } = {}): TriageAccuracy {
+  const rows = db.prepare(
+    `SELECT recommended_loop AS recommendedLoop, chosen_loop AS chosenLoop
+       FROM rail_pr_deliveries
+      WHERE parent_delivery_id IS NULL AND recommended_loop IS NOT NULL
+        ${opts.since ? 'AND created_at >= datetime(?)' : ''}`,
+  ).all(...(opts.since ? [opts.since] : [])) as Array<{ recommendedLoop: string | null; chosenLoop: string | null }>
+  return triageAccuracy(rows)
 }
 
 /**
@@ -582,8 +613,66 @@ export function reconcileFailedBuildingPrDeliveries(
   return reconciled
 }
 
+/**
+ * Review-lifecycle instants (migration 72). Unlike every other patch column
+ * they are FIRST WRITE WINS: the UPDATE uses `COALESCE(column, ?)`, so a
+ * double decision, a replayed transition or a restart reconciliation can
+ * never move an already-recorded instant. Decision adapters pass the instant
+ * the human action was admitted; transitions also stamp the lifecycle facts
+ * they prove (see {@link lifecycleStamps}).
+ */
+export interface PrDeliveryLifecycleStamps {
+  decidedAt?: string
+  publishedAt?: string
+  mergedAt?: string
+}
+
+const STAMP_COLUMNS = {
+  onReviewAt: 'on_review_at',
+  decidedAt: 'decided_at',
+  publishedAt: 'published_at',
+  mergedAt: 'merged_at',
+} as const
+
+/** Pure: which first-write-wins instants a `expected → next` transition sets.
+ * Entering `on_review` proves reviewability; entering `pr_ready` proves the PR
+ * was published for review; entering `merged` proves the merge. A human
+ * decision is never inferred from a transition (startup recovery may leave
+ * `on_review` automatically) — only decision adapters pass `decidedAt`. */
+export function lifecycleStamps(
+  expected: PrDecision,
+  next: PrDecision,
+  patch: PrDeliveryLifecycleStamps,
+  nowIso: string,
+): Partial<Record<keyof typeof STAMP_COLUMNS, string>> {
+  const stamps: Partial<Record<keyof typeof STAMP_COLUMNS, string>> = {}
+  if (next === 'on_review' && expected !== 'on_review') stamps.onReviewAt = nowIso
+  if (patch.decidedAt) stamps.decidedAt = patch.decidedAt
+  const published = patch.publishedAt ?? (next === 'pr_ready' && expected !== 'pr_ready' ? nowIso : undefined)
+  if (published) stamps.publishedAt = published
+  const merged = patch.mergedAt ?? (next === 'merged' && expected !== 'merged' ? nowIso : undefined)
+  if (merged) stamps.mergedAt = merged
+  return stamps
+}
+
+function stampClause(expected: PrDecision, next: PrDecision, patch: PrDeliveryPatch): { clause: string; values: string[] } {
+  const stamps = lifecycleStamps(expected, next, patch, new Date().toISOString())
+  const keys = Object.keys(stamps) as (keyof typeof STAMP_COLUMNS)[]
+  return {
+    clause: keys.map((key) => `, ${STAMP_COLUMNS[key]} = COALESCE(${STAMP_COLUMNS[key]}, ?)`).join(''),
+    values: keys.map((key) => stamps[key]!),
+  }
+}
+
+type PatchColumnKey = Exclude<keyof PrDeliveryPatch, keyof PrDeliveryLifecycleStamps>
+
+function patchKeys(patch: PrDeliveryPatch): PatchColumnKey[] {
+  return (Object.keys(patch) as (keyof PrDeliveryPatch)[])
+    .filter((key): key is PatchColumnKey => key in PATCH_COLUMNS && patch[key] !== undefined)
+}
+
 /** Optional column updates riding a decision transition. */
-export interface PrDeliveryPatch {
+export interface PrDeliveryPatch extends PrDeliveryLifecycleStamps {
   executionManifest?: RunExecutionManifest | null
   repositoryDeliveries?: RepositoryDeliverySnapshot[]
   branch?: string | null
@@ -612,7 +701,7 @@ export interface PrDeliveryPatch {
 // Column allow-list — patch keys are interpolated into the SET clause, so gate
 // them to prevent any future caller injecting SQL via an object key (values
 // are always parameterized). Mirrors loop-runs-store's COUNTER_COLUMNS.
-const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
+const PATCH_COLUMNS: Record<PatchColumnKey, string> = {
   executionManifest: 'execution_manifest',
   repositoryDeliveries: 'repository_deliveries',
   branch: 'branch',
@@ -637,7 +726,7 @@ const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
   settleEvidence: 'settle_evidence',
 }
 
-function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string | number | null {
+function patchValue(key: PatchColumnKey, patch: PrDeliveryPatch): string | number | null {
   const raw = patch[key]
   if (key === 'branches' || key === 'worktreeIds' || key === 'runIds') return JSON.stringify(raw)
   if (key === 'cleanupWarnings') return JSON.stringify(boundCleanupWarnings(raw as string[]))
@@ -723,17 +812,18 @@ export function transitionDecision(
   next: PrDecision,
   patch: PrDeliveryPatch = {}
 ): boolean {
-  const keys = (Object.keys(patch) as (keyof PrDeliveryPatch)[]).filter((k) => patch[k] !== undefined)
+  const keys = patchKeys(patch)
   const patchClause = keys.map((k) => `, ${PATCH_COLUMNS[k]} = ?`).join('')
   const values = keys.map((k) => patchValue(k, patch))
+  const stamps = stampClause(expected, next, patch)
   return (
     db
       .prepare(
         `UPDATE rail_pr_deliveries
-         SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
+         SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}${stamps.clause}
          WHERE id = ? AND decision = ?`
       )
-      .run(next, ...values, id, expected).changes > 0
+      .run(next, ...values, ...stamps.values, id, expected).changes > 0
   )
 }
 
@@ -750,14 +840,15 @@ export function transitionClaimedDecision(
   patch: PrDeliveryPatch = {},
 ): boolean {
   if (!operationToken) return false
-  const keys = (Object.keys(patch) as (keyof PrDeliveryPatch)[]).filter((key) => patch[key] !== undefined)
+  const keys = patchKeys(patch)
   const patchClause = keys.map((key) => `, ${PATCH_COLUMNS[key]} = ?`).join('')
   const values = keys.map((key) => patchValue(key, patch))
+  const stamps = stampClause(expected, next, patch)
   return db.prepare(`
     UPDATE rail_pr_deliveries
-       SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}
+       SET decision = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}${patchClause}${stamps.clause}
      WHERE id = ? AND decision = ? AND operation_token = ?
-  `).run(next, ...values, id, expected, operationToken).changes > 0
+  `).run(next, ...values, ...stamps.values, id, expected, operationToken).changes > 0
 }
 
 /** Decision-side Git/GitHub effects must be claimed BEFORE they start. The
@@ -869,8 +960,22 @@ export interface PrDeliverySnapshot {
   followUp: PrFollowUp | null
   /** Frozen spec addenda this generation was launched with (null when the specs carried none). */
   specAddenda: SpecAddendaSnapshotEntry[] | null
+  /** Reviewer risk brief summary from settle evidence; absent without a brief. */
+  riskSummary?: PrDeliveryRiskSummary
   createdAt: string
   updatedAt: string
+}
+
+/** Risk summary of a row's harvested reviewer brief (null when none recorded).
+ *  The substring guard keeps snapshots of brief-less rows from parsing JSON. */
+export function readDeliveryRiskSummary(settleEvidence: string | null | undefined): PrDeliveryRiskSummary | null {
+  if (!settleEvidence || !settleEvidence.includes('"reviewBrief"')) return null
+  try {
+    const evidence = JSON.parse(settleEvidence) as Partial<DeliverySettleEvidence> | null
+    return Array.isArray(evidence?.units) ? summarizeReviewBriefs(evidence.units.map((unit) => unit?.reviewBrief)) : null
+  } catch {
+    return null
+  }
 }
 
 function parseJsonArray<T>(raw: string): T[] {
@@ -925,6 +1030,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     originConversationId: row.origin_conversation_id,
     followUp: readFollowUp(row.follow_up),
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
+    ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -965,6 +1071,7 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     units: snap.units,
     runIds: snap.runIds,
     originConversationId: snap.originConversationId,
+    ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
   }
@@ -1003,6 +1110,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     prState: snap.prState,
     branch: snap.branch,
     runIds: snap.runIds,
+    ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
     // mission-rail-cards: coarse phase so the card renders the run header

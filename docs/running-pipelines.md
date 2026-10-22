@@ -16,12 +16,12 @@ SpecsBoard (left)            Rails (right)
                                      ▶ Play
 
                      Each rail runs Architect → Developer → Reviewer → Ship
-                     in your project directory.
+                     in its own git worktree, in parallel.
 ```
 
 A **rail** is an execution lane. Drag a spec card from the SpecsBoard onto a rail and press **▶ Play** to launch the pipeline. Rails let you organise and queue work into named lanes.
 
-> **One job at a time per project.** Each project has a single queue, so within a project only one rail job runs at a time; the rest queue behind it. Real parallelism is **across projects** — open two projects and their rails run independently. See [Running multiple rails](#running-multiple-rails).
+> **Rails run in parallel.** With Loops enabled (the default), every rail launch is its own loop run, and repo-mutating runs each get an isolated git worktree, so several rails in the same project run at the same time without touching your checkout. Only the legacy job queue (used when Loops are disabled) runs one job at a time per project. See [Running multiple rails](#running-multiple-rails).
 
 ## Rails
 
@@ -104,16 +104,32 @@ autonomously with native tools.
 
 - **One job per spec.** If the rail has three specs, `Freestyle` launches three independent jobs.
 - **Variable cost.** Because the run is open-ended, pressing Play opens a confirmation dialog before anything spawns.
-- **Capability-gated.** Claude advertise Freestyle. Codex
-  do not. Agent profiles do not apply to Freestyle rails.
+- **Every CLI provider.** Claude, Codex, Gemini, Kimi and local engines
+  advertise Freestyle (each verified by a real end-to-end run). Only Claude
+  adds the interactive in-job chat with **Finalize**; on the others each run is
+  non-interactive and settles through verification and the Loop Decider.
+  Agent profiles do not apply to Freestyle rails.
 
 You can customise the Freestyle pre-prompt per project on the [Settings page](customizing.md#freestyle-pre-prompt).
 
 ### Running multiple rails
 
-Within a single project, jobs are **serialised** — the project runs one rail job at a time and queues the rest. Adding more rails organises your work into lanes, but it doesn't make them run concurrently inside that project.
+Rails in the same project run **concurrently**. Each launch with Loops enabled (the default) becomes an independent loop run, and a run that can modify the repository works in its own git worktree under `~/.specrails/`, then delivers its branch as a draft PR (or merges back locally when PR delivery is off). Two guards keep parallel rails safe:
 
-True parallelism is **across projects**: each project has its own queue, so rails in different projects run at the same time without contending. There is no global concurrency limit to configure — the only automatic throttle is budget-based (see [Stopping everything](#stopping-everything)).
+- **No double-booked specs.** A launch whose spec is already being worked by an active run on another rail is refused (`tickets_in_flight`), so two rails never write to the same spec's branch.
+- **Shared-checkout fallback.** If isolation is unavailable for fresh work (a non-git folder, a repository with no commits yet), the run uses your checkout directly. Setting `SPECRAILS_RAIL_WORKTREES=0` forces that legacy shared-checkout behaviour.
+
+The legacy **job queue** is still serial: when Loops are disabled (`SPECRAILS_LOOPS_SECTION=false`), each project runs one queued job at a time and the rest wait behind it. Projects never contend with each other either way. There is no global concurrency limit to configure; the only automatic throttle is budget-based (see [Stopping everything](#stopping-everything)).
+
+### Review limit
+
+Parallel rails can finish work faster than you can review it. To cap that, set **Project settings ▸ Review limit** (we suggest 5; empty means no limit). Every delivery that is running, waiting for your decision, or open as a PR created by the app counts toward it.
+
+- The rails header shows **In review 3/5**. Click it to see which rails and specs are waiting and since when.
+- At the limit, **▶ Play** is disabled on rails that would start a new delivery. Hover it to see why. Decide a delivery (Create PR, merge or discard) and the next launch goes through.
+- **Launch all** starts only as many rails as there are free slots, in board order, and its dialog tells you how many wait. With no free slot it launches nothing.
+- Asking for a change to a delivery you already have, relaunching a failed attempt, or continuing an open PR is always allowed: it does not add review work.
+- Launches from the mission agent, MCP clients and the Companion app get the same answer, and the agent explains it.
 
 ## Jobs
 

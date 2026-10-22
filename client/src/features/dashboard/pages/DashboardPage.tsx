@@ -34,7 +34,8 @@ import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDi
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
-import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId } from '../../rails/lib/rail-loops'
+import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId, offeredRecommendation } from '../../rails/lib/rail-loops'
+import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
@@ -60,6 +61,8 @@ import {
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
 import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
+import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { pendingReviewFromDecisions, railLaunchAddsReviewWip, readReviewWipRejection, reviewWipActionMessage, reviewWipCapacity, reviewWipRejectionMessage, useReviewWipLimit } from '../../../lib/review-wip'
 
 const INITIAL_RAILS: RailState[] = [
   { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'implement', status: 'idle' },
@@ -93,9 +96,9 @@ function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number,
 }
 
 /** Why a rail is excluded from a Launch-all batch. */
-type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview'
+type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview' | 'reviewLimit'
 /** Per-rail terminal outcome of a (batched) launch attempt. */
-type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped'
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -197,6 +200,10 @@ export default function DashboardPage() {
   // Ask-first PR decisions per rail (safe-pr-review-flow) — app-level provider,
   // WS-hydrated snapshots + the single POST /rails/pr-decision caller.
   const { decisions: railPrDecisions, hydrated: railPrDecisionsHydrated, act: actRailPrDecision, checkout: checkoutRailPrBranch } = useRailPrDecisions()
+  // Review WIP limit (review-wip-limit): live count from the per-rail delivery
+  // snapshots; the server re-checks every launch and answers 409 at the limit.
+  const reviewWipLimit = useReviewWipLimit(activeProjectId)
+  const pendingReview = useMemo(() => pendingReviewFromDecisions(railPrDecisions), [railPrDecisions])
   const initialSort = loadSpecSort(activeProjectId)
   const [sortMode, setSortMode] = useState<SpecSortMode>(initialSort.mode)
   const [sortDir, setSortDir] = useState<SpecSortDir>(initialSort.dir)
@@ -736,6 +743,7 @@ export default function DashboardPage() {
   const launchAllPlan = useMemo(() => {
     const eligible: RailState[] = []
     const skipped: { rail: RailState; reason: LaunchAllSkipReason }[] = []
+    let capacity = reviewWipCapacity(reviewWipLimit, pendingReview.length)
     rails.forEach((r, pos) => {
       const idx = railIndexFromId(r.id) ?? pos
       if (r.status === 'running') { skipped.push({ rail: r, reason: 'running' }); return }
@@ -751,10 +759,17 @@ export default function DashboardPage() {
       if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions, tickets)))) {
         skipped.push({ rail: r, reason: 'onReview' }); return
       }
+      // Review WIP limit: a rail that would add a NEW delivery takes one slot
+      // of the remaining capacity, in board order; the rest wait. A rail
+      // continuing its own delivery never takes a slot.
+      if (railLaunchAddsReviewWip(idx, railPrDecisions)) {
+        if (capacity <= 0) { skipped.push({ rail: r, reason: 'reviewLimit' }); return }
+        capacity -= 1
+      }
       eligible.push(r)
     })
     return { eligible, skipped }
-  }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap, tickets])
+  }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap, tickets, reviewWipLimit, pendingReview.length])
 
   const allTicketLabels = useMemo(() => {
     const set = new Set<string>()
@@ -790,7 +805,9 @@ export default function DashboardPage() {
           (t.source === 'manual' && t.created_by === 'project-builder') ||
           // Jira-backed specs are materialized into local-tickets.json with
           // source:'jira' — they must show on the board like any other spec.
-          t.source === 'jira') &&
+          t.source === 'jira' ||
+          // Flow mode placeholder specs (labelled "In Flow" while open).
+          t.source === 'flow') &&
         !railTicketIds.has(t.id),
     )
   }, [tickets, railTicketIds])
@@ -1161,7 +1178,7 @@ export default function DashboardPage() {
       await persistRailEngine(railId, aiEngine)
       return
     }
-    // Preserve provider-owned Freestyle for capable adapters (Claude and Kimi).
+    // Preserve provider-owned Freestyle for capable adapters.
     // When switching to an adapter without it, fall back to Implement so launch
     // cannot fail validation. Provider-specific model and effort selections are
     // also reset if the previous value is not accepted by the new adapter.
@@ -1272,7 +1289,13 @@ export default function DashboardPage() {
 
     // rails-as-loops: every rail launches a Loop. Factory modes resolve to their
     // built-in loop; a custom (loop) rail needs an explicit pick.
-    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')))
+    // Spec triage (launch-triage): the same recommendation the rail header
+    // preselects (first triaged spec, only when the picker offers it).
+    const recommendedLoopId = offeredRecommendation(
+      recommendedLoopForTickets(rail.ticketIds.map((id) => ticketMap.get(id))),
+      { freestyleAvailable: !isRolesEngine(rail.aiEngine) && providerSupportsFreestyle(railProvider(rail)), loopsEnabled: FEATURE_LOOPS_SECTION },
+    )
+    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')), recommendedLoopId)
     if (!launchLoopId) {
       if (!silent) toast.error(t('railControls.pickLoop'))
       return 'failed'
@@ -1351,6 +1374,20 @@ export default function DashboardPage() {
           if (!silent) toast.info(t('toasts.launchTicketsInFlight'))
           return 'skipped'
         }
+        // Daily budget exhausted (project or app-wide): nothing spawned.
+        const budget = res.status === 409 ? readDailyBudgetRejection(data) : null
+        if (budget) {
+          if (!silent) {
+            toast.error(dailyBudgetExceededMessage(t, budget), { description: dailyBudgetActionMessage(t, budget), duration: 10000 })
+          }
+          return 'budget'
+        }
+        // Review WIP limit reached: nothing spawned; decide a delivery first.
+        const wip = res.status === 409 ? readReviewWipRejection(data) : null
+        if (wip) {
+          if (!silent) toast.error(reviewWipRejectionMessage(t, wip), { description: reviewWipActionMessage(t), duration: 10000 })
+          return 'reviewLimit'
+        }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
           if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
@@ -1420,7 +1457,8 @@ export default function DashboardPage() {
 
   // ── Launch all: confirm → parallel fan-out → one summary toast ─────────────
   function handleLaunchAll() {
-    if (launchAllPlan.eligible.length === 0) {
+    // At the review limit the dialog itself explains why nothing launches.
+    if (launchAllPlan.eligible.length === 0 && !launchAllPlan.skipped.some((s) => s.reason === 'reviewLimit')) {
       toast.info(t('toasts.launchAllNoneEligible'))
       return
     }
@@ -1444,28 +1482,35 @@ export default function DashboardPage() {
     let failed = 0
     let pendingDecision = 0
     let skippedLate = 0
+    let overBudget = 0
+    let overReviewLimit = 0
     for (const s of settled) {
       const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
       if (v === 'launched') launched++
       else if (v === 'pendingDecision') pendingDecision++
       else if (v === 'skipped') skippedLate++
+      else if (v === 'budget') overBudget++
+      else if (v === 'reviewLimit') overReviewLimit++
       else failed++
     }
     // One compact summary toast: launched count + per-reason skip breakdown.
     const counts = new Map<LaunchAllSkipReason, number>()
     for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1)
     if (pendingDecision > 0) counts.set('pendingDecision', (counts.get('pendingDecision') ?? 0) + pendingDecision)
+    if (overReviewLimit > 0) counts.set('reviewLimit', (counts.get('reviewLimit') ?? 0) + overReviewLimit)
     const reasonKey: Record<LaunchAllSkipReason, string> = {
       running: 'launchAll.skipRunning',
       empty: 'launchAll.skipEmpty',
       pendingDecision: 'launchAll.skipPendingDecision',
       onReview: 'launchAll.skipOnReview',
+      reviewLimit: 'launchAll.skipReviewLimit',
     }
     const parts: string[] = []
     for (const [reason, count] of counts) {
       if (count > 0) parts.push(t(reasonKey[reason], { count }))
     }
     if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
+    if (overBudget > 0) parts.push(t('launchAll.skipBudget', { count: overBudget }))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
     if (launched > 0) {
@@ -1558,6 +1603,8 @@ export default function DashboardPage() {
             onTicketMoveToSpecs={handleRemoveTicketFromRail}
             onLaunchAll={handleLaunchAll}
             launchAllCount={launchAllPlan.eligible.length}
+            launchAllHeld={launchAllPlan.skipped.filter((s) => s.reason === 'reviewLimit').length}
+            reviewWip={{ limit: reviewWipLimit, pending: pendingReview }}
           />
         </div>
       </div>
@@ -1638,6 +1685,9 @@ export default function DashboardPage() {
         open={launchAllConfirm}
         railCount={launchAllPlan.eligible.length}
         specCount={launchAllPlan.eligible.reduce((sum, r) => sum + r.ticketIds.length, 0)}
+        reviewLimit={reviewWipLimit !== null && launchAllPlan.skipped.some((s) => s.reason === 'reviewLimit')
+          ? { limit: reviewWipLimit, pending: pendingReview.length, held: launchAllPlan.skipped.filter((s) => s.reason === 'reviewLimit').length }
+          : null}
         onCancel={() => setLaunchAllConfirm(false)}
         onConfirm={() => { void runLaunchAll() }}
       />

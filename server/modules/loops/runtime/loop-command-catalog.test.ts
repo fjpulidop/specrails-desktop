@@ -5,8 +5,11 @@ import {
   expandCommands,
   dominantTicketScope,
   referencesClaudeOnlyCommand,
+  referencesUnsupportedProviderCommand,
 } from './loop-command-catalog'
 import { interpolateSpec } from './loop-graph'
+import '../../../providers'
+import { getAdapter } from '../../../providers/registry'
 
 describe('loop command catalog', () => {
   it('ships implement (all), freestyle (per-ticket, capability-gated); batch is a hidden implement alias', () => {
@@ -60,6 +63,15 @@ describe('loop command catalog', () => {
     expect(dominantTicketScope('{{cmd:batch}}')).toBe('all')
     expect(dominantTicketScope('{{cmd:freestyle}}')).toBe('per-ticket')
     expect(dominantTicketScope('plain prompt, no command')).toBe('per-ticket')
+  })
+
+  it.each(['claude', 'codex', 'gemini', 'kimi'])('admits {{cmd:freestyle}} on %s; only Claude upgrades it to an interactive session', (provider) => {
+    expect(referencesUnsupportedProviderCommand('{{cmd:freestyle}}', provider)).toBe(false)
+    const capabilities = getAdapter(provider).capabilities
+    expect(capabilities.freestyle).toBe(true)
+    expect(Boolean(capabilities.persistentStdin)).toBe(provider === 'claude')
+    // The autonomous prompt is provider-invariant prose, never a slash/skill command.
+    expect(expandCommands('{{cmd:freestyle}}', { provider, ticketIds: [5] })).toMatch(/^Implement the following spec completely/)
   })
 
   it('legacy referencesClaudeOnlyCommand helper flags the freestyle capability', () => {

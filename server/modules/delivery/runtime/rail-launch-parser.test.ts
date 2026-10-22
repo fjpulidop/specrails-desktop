@@ -94,6 +94,10 @@ describe('generic-fence promotion for rail-launch', () => {
     expect(promoteAgentProtocolFences('```json\n' + body + '\n```')).toContain('```rail-launch\n')
     const draft = JSON.stringify({ title: 'T', description: 'D', labels: [], ticketIds: [1], mode: 'implement' })
     expect(promoteAgentProtocolFences('```json\n' + draft + '\n```')).toContain('```spec-draft\n')
+    // flow-mode: the Flow-or-Implement offer is promoted by the same mirror.
+    const offer = JSON.stringify({ idea: 'Prototype the onboarding', reason: 'Shape is uncertain', recommended: 'flow' })
+    expect(promoteAgentProtocolFences('```json\n' + offer + '\n```')).toContain('```flow-offer\n')
+    expect(promoteAgentProtocolFences('```json\n{"idea":"x","recommended":"maybe"}\n```')).not.toContain('```flow-offer')
     expect(looksLikeRailLaunch({ ticketIds: [] })).toBe(false)
     expect(looksLikeRailLaunch({ ticketIds: [1] })).toBe(false)
     expect(looksLikeRailLaunch({ ticketIds: [1], loopId: 'x' })).toBe(true)

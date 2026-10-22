@@ -1,4 +1,6 @@
 import type {
+  PrDeliveryRiskSummary,
+  ReviewRiskSeverity,
   RailDeliveryOutcome,
   RailImplementationOutcome,
   RailPrDecision,
@@ -110,6 +112,25 @@ function coerceUnit(v: unknown): RailPrUnitOutcome | null {
 }
 
 /** Tolerant wire coercion used by HTTP action snapshots and GET /rails hydration. */
+const RISK_SEVERITIES = new Set(['high', 'medium', 'low'])
+
+/** Tolerant read of the reviewer risk brief summary; null when absent or malformed. */
+export function coerceRiskSummary(v: unknown): PrDeliveryRiskSummary | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0
+  const top = o.top && typeof o.top === 'object' ? o.top as Record<string, unknown> : null
+  return {
+    highCount: count(o.highCount),
+    mediumCount: count(o.mediumCount),
+    lowCount: count(o.lowCount),
+    top: top && typeof top.severity === 'string' && RISK_SEVERITIES.has(top.severity) && typeof top.whatToLookAt === 'string' && top.whatToLookAt
+      ? { severity: top.severity as ReviewRiskSeverity, area: asNullableString(top.area), whatToLookAt: top.whatToLookAt, ref: asNullableString(top.ref) }
+      : null,
+    diagnostic: o.diagnostic === true,
+  }
+}
+
 export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number): RailPrStateSnapshot | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
@@ -141,6 +162,7 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
       ? o.runIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
       : units.map((unit) => unit.runId).filter((id): id is string => typeof id === 'string' && id.length > 0),
     originConversationId: asNullableString(o.originConversationId),
+    ...(() => { const riskSummary = coerceRiskSummary(o.riskSummary); return riskSummary ? { riskSummary } : {} })(),
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : undefined,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : undefined,
     ...(implementationOutcome ? { implementationOutcome } : {}),

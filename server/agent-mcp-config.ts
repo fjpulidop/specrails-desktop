@@ -373,6 +373,9 @@ export function prepareAgentMcp(opts: {
   /** User-configured external servers to inject alongside `specrails`
    *  (resolved by the caller via `resolveExternalEntries`). */
   external?: ResolvedExternalServer[]
+  /** The turn runs read-only (mission-read-only-policy). Gemini's plan mode
+   *  hides MCP tools unless a policy allows them; this writes that policy. */
+  readOnly?: boolean
 }): AgentMcpWiring {
   const adapter = getAdapter(opts.adapterId)
   const external = (opts.external ?? []).filter((s) => s.name !== 'specrails')
@@ -409,10 +412,43 @@ export function prepareAgentMcp(opts: {
     // via env — the same pattern every other gemini spawn path already uses
     // (chat-manager / queue-manager / cli-prompt). Verified empirically against
     // gemini-cli 0.49.0 (see docs/internals note on FQN tool prefixing).
-    return { extraArgs: [], env: { GEMINI_CLI_TRUST_WORKSPACE: 'true' } }
+    // Read-only missions run in Gemini's native plan mode, which removes every
+    // MCP tool from the session. A plan-mode-scoped policy allows exactly the
+    // servers registered above (verified on gemini-cli 0.49.0); every built-in
+    // write/shell tool stays denied by plan mode itself.
+    const extraArgs = opts.readOnly
+      ? ['--policy', writeGeminiPlanMcpPolicy(path.dirname(file), ['specrails', ...external.map((server) => server.name)])]
+      : []
+    return { extraArgs, env: { GEMINI_CLI_TRUST_WORKSPACE: 'true' } }
   }
 
   return { extraArgs: [], env: {} }
+}
+
+/** Names Gemini's policy engine can match without TOML escaping concerns. */
+const GEMINI_POLICY_SERVER_NAME = /^[A-Za-z0-9_-]{1,64}$/
+export const GEMINI_PLAN_MCP_POLICY_FILE = 'specrails-plan-mcp-policy.toml'
+
+/**
+ * Write the plan-mode policy that keeps the named MCP servers callable in a
+ * read-only Gemini turn. Rules apply only in plan mode (`modes = ["plan"]`), at
+ * user tier, so they cannot widen a default/yolo session. Returns the file path.
+ */
+export function writeGeminiPlanMcpPolicy(dir: string, serverNames: readonly string[]): string {
+  const names = [...new Set(serverNames)].filter((name) => GEMINI_POLICY_SERVER_NAME.test(name))
+  const rules = names.map((name) => [
+    '[[rule]]',
+    'toolName = "*"',
+    `mcpName = ${JSON.stringify(name)}`,
+    'decision = "allow"',
+    'priority = 100',
+    'modes = ["plan"]',
+  ].join('\n'))
+  const file = path.join(dir, GEMINI_PLAN_MCP_POLICY_FILE)
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+  fs.writeFileSync(file, `# Written by Specrails for read-only missions. Plan mode only.\n${rules.join('\n\n')}\n`, { mode: 0o600 })
+  try { fs.chmodSync(file, 0o600) } catch { /* best-effort */ }
+  return file
 }
 
 /** Merge `mcpServers.specrails` into a JSON config file (read-if-exists,

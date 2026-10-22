@@ -410,6 +410,8 @@ export interface RailPrStateSnapshot {
   runIds: string[]
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
+  /** Reviewer risk brief summary (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
   /** Durable generation ordering evidence for stale-snapshot arbitration. */
   createdAt?: string
   updatedAt?: string
@@ -451,6 +453,19 @@ export interface LocalTicket {
     effort_level?: string
     user_story?: string
     area?: string
+    /** Escaped-defect link: id of the delivery that introduced this bug. */
+    regressionOf?: string
+    /** Flow mode: the placeholder spec of a Flow. `active`/`paused` show the
+     *  board's "In Flow" label; `delivered` hides it. */
+    flow?: {
+      conversationId?: string
+      flowId?: string
+      state?: 'active' | 'paused' | 'delivered'
+      startedAt?: string
+      chosenMode?: 'flow' | 'implement'
+    }
+    /** Spec triage (launch-triage, schema 1.5): see features/specs/lib/spec-triage. */
+    triage?: import('./features/specs/lib/spec-triage').SpecTriage
   }
   attachments?: Attachment[]
   origin_conversation_id?: string | null
@@ -462,7 +477,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder'
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */
@@ -549,6 +564,29 @@ export interface PacketDriftNudge {
   values: Record<string, string | number>
 }
 
+export type ReviewRiskSeverity = 'high' | 'medium' | 'low'
+
+/** Reviewer risk brief summary (Core `reviewBrief: 1`); mirrors server PrDeliveryRiskSummary. */
+export interface PrDeliveryRiskSummary {
+  highCount: number
+  mediumCount: number
+  lowCount: number
+  top: { severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null } | null
+  diagnostic: boolean
+}
+
+/** "What to look at": the reviewer's advisory brief merged across units (server PacketWhatToLookAt). */
+export interface PacketWhatToLookAt {
+  risks: Array<{ ticketId: number; severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null }>
+  behaviourChanges: Array<{ ticketId: number; what: string; where: string | null; userVisible: boolean | null }>
+  invariantsTouched: Array<{ ticketId: number; invariant: string; evidence: string | null; status: 'kept' | 'changed' | 'at-risk' | null }>
+  untested: Array<{ ticketId: number; path: string; why: string | null }>
+  humanChecks: Array<{ ticketId: number; text: string }>
+  divergences: Array<{ ticketId: number; capability: string; requirement: string; observed: string }>
+  diagnostics: Array<{ ticketId: number; message: string }>
+  droppedEntries: number
+}
+
 export interface ReviewPacket {
   schemaVersion: 1
   prDeliveryId: string
@@ -569,6 +607,10 @@ export interface ReviewPacket {
   proof: PacketProofItem[]
   watchOut: PacketProofItem[]
   confidence: PacketConfidence | null
+  /** Reviewer risk brief; absent/null for runs without one (older Core). */
+  whatToLookAt?: PacketWhatToLookAt | null
+  /** Risk counts for this delivery; absent/null without a brief. */
+  riskSummary?: PrDeliveryRiskSummary | null
   cost: { totalUsd: number | null; estimated: boolean }
   evidenceUnavailable: boolean
   runIds: string[]
@@ -586,6 +628,43 @@ export interface ReviewPacket {
   chainCostUsd: number | null
   chainCostEstimated: boolean
   driftNudges: PacketDriftNudge[]
+  /** "What the agent did" (agent actions audit); absent/null when nothing was recorded. */
+  agentActions?: PacketAgentActions | null
+  /** Flow -> Spec only: Core's derivation coverage; null for other loops (older servers omit it). */
+  derivation?: PacketDerivation | null
+  /** Flow deliveries only: settlement effects (spec rewrite, Jira). */
+  flowSettlement?: PacketFlowSettlement | null
+}
+
+export type AgentActionKind = 'read' | 'write' | 'exec' | 'mcp' | 'network'
+
+export interface PacketAgentActions {
+  counts: Record<AgentActionKind, number>
+  total: number
+  runIds: string[]
+}
+
+export type PacketDerivation =
+  | {
+    status: 'available'
+    change: string | null
+    files: number
+    explained: number
+    unexplainedFiles: string[]
+    unexplainedOmitted: number
+    confidence: 'high' | 'medium' | 'low' | null
+    requirementsAdded: number
+    requirementsModified: number
+    tasks: number
+    transcriptTurnsUsed: number
+  }
+  | { status: 'unavailable' }
+
+export type FlowSettlementEffectState = 'pending' | 'done' | 'skipped' | 'failed'
+export interface PacketFlowSettlement {
+  specRewrite: FlowSettlementEffectState | null
+  jiraCreate: FlowSettlementEffectState | null
+  jiraReview: FlowSettlementEffectState | null
 }
 
 /** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */

@@ -59,7 +59,12 @@ GET /rails/pr-deliveries/:id/packet
       └─ resolveAcceptCapability()  git remote + `gh auth token`
 ```
 
-Nothing in the read path re-reads a mutable store, spawns a model, or writes.
+`agentActions` ("What the agent did") counts the delivery runs' rows in the
+[agent actions audit](agent-actions-audit.md) by kind and lists the runs that
+have rows, each with a JSONL/CSV export. It is `null` when nothing was recorded.
+Unlike the frozen fields above it reads the live log, so retention can shrink it.
+
+Apart from `agentActions`, nothing in the read path re-reads a mutable store, spawns a model, or writes.
 Composing the same delivery twice returns an identical document.
 
 ## Variants
@@ -138,14 +143,15 @@ older clients drop the whole PR card — and supersession already means "a newer
 attempt replaced the previous one". Version lineage, crash-restore and
 one-active-generation-per-rail all come free from the shipped machinery.
 
-**The loop.** `factory:revision` is the fourth factory loop: `{{cmd:revise}}` (a
-distilled step that applies the one requested change on top of the branch and
-then runs the reviewer role (`sr-reviewer`) over the resulting diff, so packet v2 keeps its reviewer
-tier) followed by the standard `{{cmd:verify}}`. No Architect step — the plan and
-the code already exist. It is resolvable by id but deliberately NOT listed in the
-public catalog: its prompt consumes `{{const:REVISION_REQUEST}}`, which only a
-revision launch injects. The router forces this loop for any revision whatever
-the rail's stored mode is; without that, every tweak would re-run implement.
+**The loop.** There is no dedicated Revision loop. `factory:revision` survives
+only as a legacy persisted id: `loop-factory.ts` aliases it to
+`factory:sdd-quick-openspec` (SDD Quick) and it is neither listed nor run as its
+own graph. A revision launch without an explicit workflow (no `loopId` and no
+`mode` in the body) runs SDD Quick; an explicit `loopId`/`mode` takes
+precedence. The revision intent travels as `{{const:REVISION_REQUEST}}`, which
+`rail-isolated-launch.ts` fills from the revision seed and the loop executors
+append to each AI step's prompt, so the run applies the requested change on top
+of the delivered branch instead of re-running Implement from scratch.
 
 **Fresh session by contract** (`server/modules/execution/runtime/revision-seed.ts`). The run is seeded from
 durable state — the instruction, the frozen spec, the branch that carries the
@@ -231,3 +237,60 @@ Observed: the section rendered the spec's *Proposed Solution* digest as raw mark
 Observed: a delivery built by the programmatic agent runtime (core-host) rendered **"The AI did not report any verification"** and **"No reviewer score"** although the host had run `npm test` (exit 0, output persisted) and the reviewer returned a structured verdict (score 92). The harvest only knew the legacy loop channels — the `VERIFICATION:` prose sentinel and `openspec/changes/**/confidence-score.json` — neither of which that runtime produces. Fix (`server/modules/delivery/runtime/delivery-evidence.ts` `readRuntimeEvidence`, wired from `rail-isolated-launch.ts` via the new `EvidenceHarvestUnit.runtimeDir` = `<workspace>/.specrails/pipeline/<runId>`): read `state.json` `verification.commands[]` (+ each `verification/evidence/<id>.json` for exit code, duration, bounded output and `origin`), `acceptance.checks[]` / `acceptance.findings[]`, and the reviewer step output in `agent-workflow/<runId>/checkpoint.json` (`approved`, `score`, `aspects`, `issues`, `summary`). Every field is bounded; a malformed file degrades to nothing.
 
 Tier placement (`review-packet.ts` `buildProof`): commands whose `origin` includes `host` are **app-verified** (`proof.hostCommandPassed|Failed` with exit code + seconds + output tail) — the runtime executed them and recorded the exit code, which is a measurement, not a claim; non-host acceptance checks, the reviewer summary and findings are **ai-reported** (`proof.acceptanceCheckPassed|Failed`, `proof.reviewerSummary`, `proof.reviewerFinding`); the structured verdict fills `confidence` (score/aspects/issues→flags) ONLY when no file-based score exists, so the **reviewer-score** tier and the human-review band work unchanged. `proof.noVerificationReported` is emitted only when no channel reported anything. Older deliveries heal lazily: `GET …/packet` runs `healRuntimeEvidence` over units lacking `runtime` and persists the result (`updatePrDeliverySettleEvidence`), so a packet stops claiming silence once the pipeline dir exists. Still never a numeric test-count claim: the "70 passed" line rides inside the labelled raw output, not as a number the app asserts.
+
+## 2026-10-22 — "What to look at": the reviewer's risk brief first (review-risk-brief-surfaces)
+
+Core contract 5.3 adds an advisory reviewer brief (`reviewBrief: 1` from `runtime api`):
+behaviour changes, invariants touched, untested paths, up to five severity-ordered risks
+(`file:line` refs), human checks and (Phase 3) spec divergences. The approval gate never reads it.
+
+- **Gate.** `coreAnnouncesReviewBrief()` (`delivery-evidence.ts`) probes the active Core. Without the
+  capability `harvestDeliveryEvidence` never reads a brief and the persisted evidence is
+  byte-identical to before; nothing below renders.
+- **Harvest** (`readUnitReviewBrief`, at settle, before worktree release): first
+  `<pipeline>/<runId>/review-brief.json` (`{schemaVersion:1, change, approved, score, recordedAt,
+  brief|null, diagnostic?}`, engine 1); then the engine 2 committed scopes (`implementation` →
+  `review.brief`/`review.briefDiagnostic`, a reviewer `implementation-step`, or the selected reviewer
+  role turn) — definition runs do not put it in `runtime-result`; then `confidence-score.json` →
+  `brief` (approved verdicts). The record is stored on the unit as `reviewBrief` inside the existing
+  `settle_evidence` JSON column, so no migration was needed. Normalization (`review-brief.ts`) is
+  tolerant: entries that break the contract are dropped and counted (`droppedEntries`), risks are
+  re-sorted high → low and capped at five; an unreadable or unknown-version file becomes a record
+  with a `diagnostic` instead of a throw. `healRuntimeEvidence(..., { reviewBrief: true })` fills the
+  brief for older or recovered rows when the packet is opened.
+- **Packet.** `whatToLookAt` merges units (each entry keeps its `ticketId`) in a fixed order —
+  risks (high first), behaviour changes, invariants touched, untested paths, human checks,
+  divergences — plus Core's or Desktop's diagnostics. It is `null` when no unit carries anything to
+  show, and the page renders the section (`WhatToLookAt.tsx`) right after the verdict, before the
+  measured facts. `riskSummary` (`highCount`/`mediumCount`/`lowCount`/`top`/`diagnostic`) is the
+  cheap analytics hook. File refs render as monospace text, not links: the packet links no files
+  elsewhere and the Code explorer shows the base checkout, not the delivery branch.
+- **Cards.** `toPrDeliverySnapshot` derives `riskSummary` from `settle_evidence` (only when a brief
+  exists) and carries it on `rail.pr_state` and the mission card envelope; `TopRiskLine` shows the
+  severity chip and the top risk on the mission card and the dashboard strip.
+- **Honesty.** The brief is AI-reported advice, labelled as such; it adds no numeric verification
+  claim and no decision depends on it.
+
+## 2026-10-22 — Derivation (Flow → Spec)
+
+A delivery of the `factory:flow-spec` loop ([Flow mode](flow-mode.md)) carries
+`packet.derivation`, rendered as the **Derivation** card before "What to watch
+out for". Source: the `derive-change` scope of Core's `runtime status`
+(`output.derivation`; when only `output.derivationPath` is present the harvest
+reads that `derivation.json`, ≤ 512 KB), projected by
+`projectDefinitionRuntimeEvidence` into `settle_evidence.units[].runtime.derivation`
+(`parseDerivation`: counts clamped, unexplained list capped at 200 with the
+remainder in `unexplainedOmitted`). The latest derive attempt wins, so a
+repaired derivation supersedes the rejected one.
+
+- Coverage (`explained/files`) and the unexplained file list are Core's own
+  measurement from git: app-verified.
+- The deriver's `confidence` is AI-reported and labelled as such.
+- `{ status: 'unavailable' }` for a Flow → Spec delivery whose report could
+  not be read; `null` for every other loop.
+- `packet.flowSettlement` (`specRewrite`, `jiraCreate`, `jiraReview`) comes from
+  the Flow module's `flow_effects` rows; a `failed` spec rewrite shows a note
+  that the spec kept its Flow draft.
+
+The draft PR body adds one line (`buildDerivationLine`):
+`> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`

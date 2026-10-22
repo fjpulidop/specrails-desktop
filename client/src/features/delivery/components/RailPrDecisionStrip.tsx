@@ -18,6 +18,7 @@ import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDec
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
 import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
+import { TopRiskLine } from './TopRiskLine'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -806,6 +807,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       )}
       {runLogChips}
       {unitEvidence}
+      {!compact && d !== 'building' ? <TopRiskLine summary={decision.riskSummary} className="basis-full" /> : null}
       {statusLabel && (
         <span className={`${pillBase} border-border/60 bg-surface/60 text-foreground/55`} data-testid="rail-pr-status-code">
           {statusLabel}

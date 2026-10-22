@@ -1,4 +1,5 @@
 import { ProjectSubagentsSection } from '../components/SubagentsSettingsSection'
+import { ProjectAgentEnvModeSection } from '../components/AgentEnvModeSection'
 import { useEffect, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -12,8 +13,10 @@ import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
   ProjectBudgetSection,
+  ProjectAgentAuditSection,
   ProjectIntegrationBranchSection,
   ProjectWorktreeEnvSection,
+  ProjectReviewWipSection,
 } from '../components/ProjectSettingsSections'
 
 export default function SettingsPage() {
@@ -120,7 +123,13 @@ export default function SettingsPage() {
 
       <ProjectWorktreeEnvSection />
 
+      <ProjectAgentEnvModeSection />
+
       <ProjectBudgetSection />
+
+      <ProjectReviewWipSection />
+
+      <ProjectAgentAuditSection />
 
       <TerminalSettingsSection mode="project" />
 

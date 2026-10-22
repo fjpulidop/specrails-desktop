@@ -3,7 +3,10 @@ import { createProjectSettingsService, SettingsValidationError, type ProjectSett
 
 const initial: ProjectSettings = {
   pipelineTelemetryEnabled: true, orchestratorModel: 'sonnet', orchestratorModelExplicit: false,
-  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null,
+  prePrompt: '', freestylePrePrompt: '', integrationBranch: '', worktreeEnvPassthrough: [], allowSubagents: false, subagentRuntime: null, reviewerFamilySuggestionDismissed: false,
+  reviewWipLimit: null,
+  agentEnvMode: 'inherit',
+  agentAuditRetentionDays: 30,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -89,3 +92,53 @@ describe('subagentRuntime', () => {
   })
 })
 
+
+describe('reviewerFamilySuggestionDismissed', () => {
+  it('accepts booleans only and passes them through', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ reviewerFamilySuggestionDismissed: true })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ reviewerFamilySuggestionDismissed: true })
+    expect(() => service.updateSettings({ reviewerFamilySuggestionDismissed: 'true' })).toThrow('reviewerFamilySuggestionDismissed must be a boolean')
+  })
+})
+
+describe('reviewWipLimit', () => {
+  it('accepts an integer from 1 to 100 or null, and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ reviewWipLimit: 5 })
+    expect(repository.update).toHaveBeenLastCalledWith({ reviewWipLimit: 5 })
+    service.updateSettings({ reviewWipLimit: null })
+    expect(repository.update).toHaveBeenLastCalledWith({ reviewWipLimit: null })
+    for (const bad of [0, -2, 2.5, 101, '5', true, Number.NaN]) {
+      expect(() => service.updateSettings({ reviewWipLimit: bad })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('agentEnvMode', () => {
+  it('accepts inherit and minimal and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ agentEnvMode: 'minimal' })
+    expect(repository.update).toHaveBeenLastCalledWith({ agentEnvMode: 'minimal' })
+    service.updateSettings({ agentEnvMode: 'inherit' })
+    expect(repository.update).toHaveBeenLastCalledWith({ agentEnvMode: 'inherit' })
+    vi.mocked(repository.update).mockClear()
+    for (const bad of ['strict', '', null, true, 1]) {
+      expect(() => service.updateSettings({ agentEnvMode: bad })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('agentAuditRetentionDays', () => {
+  it('accepts whole days within 1-3650 and rejects anything else before writing', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ agentAuditRetentionDays: 90 })
+    expect(repository.update).toHaveBeenCalledExactlyOnceWith({ agentAuditRetentionDays: 90 })
+    for (const value of [0, -1, 3651, 1.5, '30', null]) {
+      expect(() => service.updateSettings({ agentAuditRetentionDays: value })).toThrow(SettingsValidationError)
+    }
+    expect(repository.update).toHaveBeenCalledOnce()
+  })
+})

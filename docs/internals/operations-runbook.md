@@ -89,6 +89,36 @@ cp -r ~/.specrails/ ~/specrails-backup-$(date +%Y%m%d)/
 
 Your project source code and each project's `.specrails/` folder (specs, profiles, plugins) live in your repos, not here — they are not part of this backup.
 
+## Metrics baseline export
+
+`npm run metrics:baseline` ([scripts/metrics-baseline.mjs](../../scripts/metrics-baseline.mjs))
+captures a delivery-economics baseline from local data. It reads the registry
+(`~/.specrails/desktop.sqlite`, or `$SPECRAILS_REGISTRY_HOME/.specrails/…` like the
+server) and every registered project's `jobs.sqlite` strictly read-only, so it is
+safe while the app runs.
+
+```bash
+npm run metrics:baseline                                   # last 28 days, all projects
+npm run metrics:baseline -- --since 2026-10-01 --until 2026-10-15 --project darkera --out ~/metrics
+```
+
+`--project` accepts a slug or id and may repeat; `--since`/`--until` take a date or
+ISO timestamp (window `[since, until)` on the delivery's `created_at`). Output is
+`baseline-<YYYY-MM-DD>.json` and `.csv` in `--out` (default `~/.specrails/metrics/`;
+paths inside the repository are refused), plus a per-loop summary table on stdout.
+
+One row per Safe-PR delivery (`rail_pr_deliveries`). The JSON adds `byLoop`, `byTicket`
+and `totals` rollups (deliveries, merged/discarded/superseded/failed, cost per priced
+delivery, review/fixer rounds per delivery, median build and on_review time).
+
+| Field | Source and semantics |
+| --- | --- |
+| `costUsd`, `estimatedCostUsd` | `ai_invocations` attributed like `sumInvocationCostForRuns`: `loop_run_id` in `run_ids`, `surface_ref_id` = run id, or `<runId>:merge:*`. `costUsd` includes estimated rows; `estimatedCostUsd` is the pricing-table portion. **`null` means no priced rows (unknown), never $0.** `unpricedInvocations`/`costComplete` show partial coverage. Multi-ticket launches attribute per ticket via `ai_invocations.ticket_id`. |
+| `reviewRounds`, `fixerRounds` | `loop_step` events of the delivery's runs whose node is `reviewer`/`fixer`. |
+| `buildDurationMs` | delivery `created_at` → latest attributed loop run `finished_at`. |
+| `onReviewMsApprox` | Approximate: build settle → `updated_at` for decided rows that succeeded; open `on_review` rows run to the window end (`onReviewOpen`). There is no dedicated on_review timestamp. |
+| `decision`, `isContinuation`, `supersedesDeliveryId`, `revisionOf` | Copied from the delivery row; discards are `decision = 'discarded'`. |
+
 ## Troubleshooting
 
 ### Port already in use

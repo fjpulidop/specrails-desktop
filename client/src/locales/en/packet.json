@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "What you asked for",
     "whatIDid": "What was done",
-    "howItWasChecked": "How it was checked"
+    "howItWasChecked": "How it was checked",
+    "whatTheAgentDid": "What the agent did"
   },
   "churn": {
     "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",
@@ -104,7 +105,8 @@
     "alreadyResolved": "Someone already answered this.",
     "actionFailed": "That action did not go through.",
     "revisionStale": "This was just resolved elsewhere — reload to see where it stands.",
-    "revisionFailed": "The change could not be started. Your text was kept."
+    "revisionFailed": "The change could not be started. Your text was kept.",
+    "revisionBudget": "The daily budget is exhausted, so the change was not started. Your text was kept."
   },
   "versions": {
     "title": "Earlier versions ({{count}})",
@@ -165,5 +167,80 @@
       "unreported": "Not reported"
     },
     "noReport": "The run did not report this addendum. Check the changes and evidence below."
+  },
+  "derivation": {
+    "title": "Derivation",
+    "coverage": "{{explained}} of {{files}} changed files are explained by the derived design",
+    "change": "OpenSpec change",
+    "requirements": "Requirements",
+    "requirementsValue": "{{added}} added · {{modified}} modified",
+    "confidence": "Deriver confidence",
+    "confidenceLevel": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "confidenceUnknown": "Not reported",
+    "caveat": "Coverage is measured by Specrails from git; the confidence is the agent's own assessment.",
+    "unexplainedTitle_one": "{{count}} changed file is not explained",
+    "unexplainedTitle_other": "{{count}} changed files are not explained",
+    "more_one": "…and {{count}} more file",
+    "more_other": "…and {{count}} more files",
+    "unavailable": "The derivation report of this Flow delivery could not be read. Review the diff directly.",
+    "rewriteFailed": "The spec could not be rewritten from the derived change; it keeps its Flow draft. The OpenSpec change is still the technical record."
+  },
+  "brief": {
+    "title": "What to look at",
+    "caveat": "The AI reviewer's advisory brief: where a human should look first. It is not a verification result and never blocks a decision.",
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "area": {
+      "data": "data",
+      "security": "security",
+      "api": "API",
+      "ux": "UX",
+      "performance": "performance",
+      "ops": "operations",
+      "other": "other"
+    },
+    "sections": {
+      "risks": "Risks",
+      "behaviourChanges": "Behaviour changes",
+      "invariantsTouched": "Invariants touched",
+      "untested": "Untested paths",
+      "humanChecks": "Human checks",
+      "divergences": "Spec divergences"
+    },
+    "userVisible": "Visible to users",
+    "invariantStatus": {
+      "kept": "Kept",
+      "changed": "Changed",
+      "at-risk": "At risk"
+    },
+    "diagnostic": "Part of the reviewer's brief could not be used:",
+    "dropped_one": "{{count}} brief entry did not match the expected format and was skipped.",
+    "dropped_other": "{{count}} brief entries did not match the expected format and were skipped.",
+    "topRisk": "Top risk",
+    "moreRisks_one": "+{{count}} more",
+    "moreRisks_other": "+{{count}} more"
+  },
+  "agentActions": {
+    "total_one": "{{count}} action",
+    "total_other": "{{count}} actions",
+    "countsLabel": "Recorded agent actions by kind",
+    "kinds": {
+      "read": "reads",
+      "write": "writes",
+      "exec": "commands",
+      "mcp": "MCP calls",
+      "network": "web requests"
+    },
+    "caveat": "Recorded from the agents' own streams: reads are only as complete as each provider reports them. Contents and environment values are never stored.",
+    "run": "Run {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Could not download the agent actions"
   }
 }

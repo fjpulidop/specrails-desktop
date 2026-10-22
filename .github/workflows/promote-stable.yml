@@ -1,0 +1,84 @@
+name: Promote Stable
+
+# Moves the `stable` update channel to an already-published release.
+#
+# `latest` is every release (releases/latest/download/latest.json, written by
+# desktop-release.yml). `stable` is a single moving GitHub PRE-release tagged
+# `stable` whose assets are copies of the promoted version's latest.json and
+# manifest.json. The copied latest.json still points at that version's signed
+# installers, so no artifact is rebuilt or re-signed. Being a prerelease with
+# --latest=false, the pointer never becomes the repository's "latest" release
+# (which would break the latest channel and specrails.dev downloads).
+#
+# Guard (scripts/release-policy.mjs stable-promotion): the version is a published
+# vX.Y.Z release with latest.json, released at least 7 days ago, whose exact tag
+# commit has a successful main push CI, and which does not move stable backwards
+# unless allow_rollback is set. See docs/ci-cd.md#update-channels.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published release version to promote (X.Y.Z, without the v)
+        type: string
+        required: true
+      allow_rollback:
+        description: Allow moving stable to an OLDER version (incident rollback)
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-stable
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22.22.3
+
+      - name: Verify stable promotion policy
+        id: policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTE_VERSION: ${{ inputs.version }}
+          ALLOW_STABLE_ROLLBACK: ${{ inputs.allow_rollback }}
+        run: node scripts/release-policy.mjs stable-promotion
+
+      - name: Publish the stable channel pointer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.policy.outputs.tag }}
+          VERSION: ${{ steps.policy.outputs.version }}
+          SHA: ${{ steps.policy.outputs.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p stable
+          gh release download "${TAG}" --pattern latest.json --pattern manifest.json --dir stable
+          # The pointer must describe exactly the admitted version.
+          jq -e --arg v "${VERSION}" '.version == $v' stable/latest.json >/dev/null
+          jq -n --arg version "${VERSION}" --arg tag "${TAG}" --arg sha "${SHA}" \
+            --arg promotedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, tag: $tag, sha: $sha, promotedAt: $promotedAt}' > stable/stable.json
+          NOTES="Update-channel pointer, not a release. Stable currently serves ${TAG}. Promoted by promote-stable.yml."
+          if ! gh release view stable >/dev/null 2>&1; then
+            gh release create stable --prerelease --latest=false --target "${SHA}" \
+              --title "Specrails stable channel" --notes "${NOTES}"
+          fi
+          gh release upload stable stable/latest.json stable/manifest.json stable/stable.json --clobber
+          gh release edit stable --prerelease --latest=false --notes "${NOTES}"
+          echo "Stable channel now serves ${TAG} (${SHA})." >> "$GITHUB_STEP_SUMMARY"

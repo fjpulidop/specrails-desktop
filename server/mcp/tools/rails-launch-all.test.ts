@@ -10,6 +10,7 @@ import { setRailTickets, createRail } from '../../modules/delivery/runtime/rails
 import { createPrDelivery, transitionDecision, type CreatePrDeliveryInput } from '../../modules/delivery/runtime/rail-pr-store'
 import { registerTieredTool, setActiveProject, type McpToolContext, type ToolHandlerExtra } from './types'
 import { railsTools } from './rails'
+import { createReviewWipGate } from '../../modules/delivery/runtime/review-wip-gate'
 import { AGENT_CAPABILITY_HEADER } from '../../modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from '../agent-capability'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
@@ -32,6 +33,8 @@ describe('specrails_rails — create_rail + launch_all', () => {
   let enqueue: ReturnType<typeof vi.fn>
   let railJobs: Map<string, { railIndex: number; mode: string; ticketIds: number[] }>
   let railLoopRuns: Map<string, { railIndex: number; ticketIds: number[] }>
+  let budgetRejection: Record<string, unknown> | null
+  let wipLimit: number | null
   let captured: ((args: Record<string, unknown>, extra?: ToolHandlerExtra) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>) | undefined
 
   const fakeServer = {
@@ -58,6 +61,8 @@ describe('specrails_rails — create_rail + launch_all', () => {
     enqueue = vi.fn().mockImplementation(() => ({ id: `job-${++n}`, queuePosition: 0 }))
     railJobs = new Map()
     railLoopRuns = new Map()
+    budgetRejection = null
+    wipLimit = null
 
     const app = express()
     app.use(express.json())
@@ -73,6 +78,8 @@ describe('specrails_rails — create_rail + launch_all', () => {
         jiraSyncManager: { onRailLaunch: () => {} },
         getTicketSpec: () => ({ title: 'T', description: 'D' }),
         onLoopRunFinished: () => { /* noop */ },
+        dailyBudgetRejection: () => budgetRejection,
+        reviewWipGate: createReviewWipGate({ db, readLimit: () => wipLimit }),
       }
       next()
     })
@@ -226,6 +233,41 @@ describe('specrails_rails — create_rail + launch_all', () => {
     const r0 = (data.results as { railIndex: number; outcome: string; reason?: string }[]).find((r) => r.railIndex === 0)
     expect(r0).toMatchObject({ outcome: 'skipped', reason: 'tickets-in-flight' })
     expect(data.launched).toBe(0)
+  })
+
+  it('launch_all maps a daily_budget_exceeded 409 to a budget skip with the remedy, spawning nothing', async () => {
+    setRailTickets(db, 0, [1])
+    setRailTickets(db, 1, [2])
+    budgetRejection = { error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'Spend reached the budget.', action: 'Raise it.' }
+    const { data } = await call({ action: 'launch_all' })
+    expect(data.launched).toBe(0)
+    for (const index of [0, 1]) {
+      expect((data.results as { railIndex: number }[]).find((r) => r.railIndex === index))
+        .toMatchObject({ outcome: 'skipped', reason: 'daily-budget-exceeded', error: 'Spend reached the budget. Raise it.' })
+    }
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('launch and launch_all are refused with review_wip_limit_reached at the limit, spawning nothing', async () => {
+    setRailTickets(db, 0, [1])
+    setRailTickets(db, 1, [2])
+    setRailTickets(db, 2, [3])
+    const pending = createPrDelivery(db, { railIndex: 2, railKey: '2-implement', ticketIds: [3], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' } as CreatePrDeliveryInput)
+    wipLimit = 1
+    const single = await call({ action: 'launch', railIndex: 0 })
+    expect(single.res.isError).toBe(true)
+    expect(single.res.content[0].text).toContain('review_wip_limit_reached')
+    const { data } = await call({ action: 'launch_all' })
+    expect(data.launched).toBe(0)
+    for (const index of [0, 1]) {
+      expect((data.results as { railIndex: number }[]).find((r) => r.railIndex === index))
+        .toMatchObject({ outcome: 'skipped', reason: 'review-wip-limit', error: expect.stringContaining('this project allows 1 at a time') })
+    }
+    expect(enqueue).not.toHaveBeenCalled()
+    // Deciding the pending delivery frees the slot for the next launch.
+    transitionDecision(db, pending.id, 'building', 'discarded', { statusCode: 'discarded' })
+    expect((await call({ action: 'launch', railIndex: 0 })).res.isError).toBeUndefined()
+    expect(enqueue).toHaveBeenCalledTimes(1)
   })
 
   it('launch_all with nothing eligible returns zero launches and a retry hint', async () => {

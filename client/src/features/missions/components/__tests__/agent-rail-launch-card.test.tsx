@@ -490,6 +490,34 @@ describe('AgentRailLaunchCard', () => {
     expect(calls.some((c) => c.url.endsWith('/rails/2/launch'))).toBe(true)
   })
 
+  it('renders a daily budget 409 with localized amounts and remedy instead of the server detail', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 10, spentUsd: 12.4, resetsAt: null, detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
+    const error = screen.getByTestId('rail-card-error')
+    expect(error).toHaveTextContent('Daily budget reached — nothing was launched.')
+    expect(error).toHaveTextContent('Project daily budget reached ($12.40 of $10.00)')
+    expect(error).toHaveTextContent('Project settings ▸ Budget')
+    expect(error).not.toHaveTextContent('SERVER ENGLISH')
+    expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
+  })
+
+  it('renders a review WIP limit 409 with the localized count and remedy (review-wip-limit)', async () => {
+    mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'review_wip_limit_reached', limit: 2, pending: [{ deliveryId: 'a', railIndex: 0, ticketIds: [1], since: '' }, { deliveryId: 'b', railIndex: 2, ticketIds: [3], since: '' }], detail: 'SERVER ENGLISH', action: 'SERVER ACTION' } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('rail-card-error')).toBeInTheDocument())
+    const error = screen.getByTestId('rail-card-error')
+    expect(error).toHaveTextContent('Review limit reached — nothing was launched.')
+    expect(error).toHaveTextContent('2 deliveries are waiting for review (limit 2)')
+    expect(error).toHaveTextContent('Project settings ▸ Review limit')
+    expect(error).not.toHaveTextContent('SERVER ENGLISH')
+    expect(screen.queryByTestId('agent-rail-launch-stub-launched')).not.toBeInTheDocument()
+  })
+
   it('renders a 409 inline and stays editable', async () => {
     mockFetch({ '/rails/1/launch': () => ({ status: 409, body: { error: 'tickets_in_flight', detail: 'spec #12 is running', action: 'wait for it' } }) })
     renderCard()
@@ -568,5 +596,27 @@ describe('useRailLaunchProposals', () => {
     act(() => recordLocalIntent('a', { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'x' }))
     rerender({ m: messages })
     expect(result.current.pinned.map((p) => p.messageId)).toEqual(['c'])
+  })
+})
+
+describe('AgentRailLaunchCard spec triage (launch-triage)', () => {
+  const triage = { status: 'ready', size: 'S', filesLikely: [], publicInterfaces: false, dataModel: false, securitySurface: false, recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', rationale: 'Single file, no schema change', confidence: 'high', inputsHash: 'sha256:h', model: 'haiku', costUsd: 0.01, computedAt: 't' }
+
+  it('shows the structured triage instead of the prose rationale', async () => {
+    mockFetch({ '/tickets': () => ({ status: 200, body: { tickets: [{ ...ticketsPayload.tickets[0], metadata: { triage } }, ticketsPayload.tickets[1]] } }) })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-triage')).toBeInTheDocument())
+    const block = screen.getByTestId('rail-card-triage')
+    expect(block).toHaveTextContent('#12')
+    expect(block).toHaveTextContent('SDD Quick (OpenSpec)')
+    expect(block).toHaveTextContent('Single file, no schema change')
+    expect(screen.queryByText('both touch auth')).not.toBeInTheDocument()
+  })
+
+  it('keeps the prose rationale when no spec is triaged', async () => {
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByText('both touch auth')).toBeInTheDocument()
+    expect(screen.queryByTestId('rail-card-triage')).not.toBeInTheDocument()
   })
 })

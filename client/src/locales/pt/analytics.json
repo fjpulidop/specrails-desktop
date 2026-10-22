@@ -11,7 +11,9 @@
     "specLauncher": "Lançador de specs",
     "proposal": "Proposta",
     "agentStudio": "Agent Studio",
-    "setup": "Configuração"
+    "setup": "Configuração",
+    "triage": "Triagem",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7d",
@@ -211,7 +213,8 @@
     "vsPrev": "vs período anterior",
     "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
     "untitled": "Missão sem título",
-    "estimatedNote": "Inclui custos estimados"
+    "estimatedNote": "Inclui custos estimados",
+    "flowShare": "Dos quais Flow: {{cost}} · {{turns}} turnos"
   },
   "legacyUsage": {
     "title": "Uso de workflows anteriores",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "Loops clássicos",
       "queue_manager_slash": "Comandos em fila",
       "merge_back": "Integrações locais"
+    }
+  },
+  "decisionTimes": {
+    "title": "Tempo até a decisão",
+    "subtitle": "De pronta para revisão até a primeira decisão humana e até o merge",
+    "toDecision": "Tempo até a decisão",
+    "toMerge": "Tempo até o merge",
+    "median": "mediana",
+    "p90": "p90",
+    "counts": "{{measured}} medidas · {{pending}} pendentes · {{unknown}} desconhecidas",
+    "unknownValue": "Desconhecido",
+    "loading": "Carregando tempos de decisão…",
+    "unavailable": "Não foi possível carregar os tempos de decisão.",
+    "empty": "Nenhuma entrega chegou à revisão neste período.",
+    "byLoop": "Tempos de decisão por loop",
+    "loop": "Loop",
+    "deliveries": "Entregas",
+    "decisionMedianP90": "Decisão (mediana · p90)",
+    "mergeMedianP90": "Merge (mediana · p90)",
+    "unnamedLoop": "Loop sem nome",
+    "note": "Desconhecidas conta as entregas sem instantes registrados (por exemplo, criadas antes desta métrica existir). Nunca são contadas como zero.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} d"
+    }
+  },
+  "loopEconomics": {
+    "title": "Economia por loop",
+    "subtitle": "Entregas, custo, retrabalho e defeitos escapados por loop",
+    "loading": "Carregando economia por loop…",
+    "unavailable": "Não foi possível carregar a economia por loop.",
+    "empty": "Nenhum loop entregou nada neste período.",
+    "noData": "Sem dados",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop sem nome",
+    "estimatedShare": "{{share}} estimado",
+    "unpriced": "{{count}} sem custo",
+    "note": "Entregue = chegou à revisão ou além. O custo médio usa entregas com custo registrado (informado pelo provedor, salvo quando marcado como estimado); entregas sem custo são excluídas, nunca contadas como US$ 0. As rodadas vêm dos passos reviewer/fixer do loop. — significa desconhecido.",
+    "escapedUntracked": "Defeitos escapados ainda não são rastreados: vincule um ticket de bug à entrega que o introduziu («Regressão de» no ticket) para começar a contá-los.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Entregues",
+      "merged": "Mescladas",
+      "discarded": "Descartadas",
+      "avgCost": "Custo / entrega",
+      "toDecision": "Decisão (mediana · p90)",
+      "toMerge": "Merge (mediana · p90)",
+      "reviewRounds": "Revisões / entrega",
+      "fixerRounds": "Rodadas de fixer / entrega",
+      "escapedDefects": "Defeitos escapados",
+      "requirementsDemonstrated": "Requisitos demonstrados",
+      "triageAccuracy": "Acerto da triagem"
     }
   }
 }

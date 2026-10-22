@@ -12,10 +12,12 @@ import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
-import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook } from './desktop-db'
+import { GLOBAL_ALLOW_SUBAGENTS_KEY, getDesktopSetting, getGlobalAllowSubagents, getGlobalSubagentRuntime, setGlobalSubagentRuntime, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getUpdateChannel, setUpdateChannel } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
+import { API_VERSION } from './api-version'
+import { appUpdaterManifestUrl, isUpdateChannel } from './update-channel'
 import { reseedStaleWorkspaces } from './framework-reseed'
 import { createSpecrailsTechClient } from './specrails-tech-client'
 import {
@@ -839,14 +841,18 @@ export function createDesktopRouter(
     const costAlertThresholdRaw = getDesktopSetting(registry.desktopDb, 'cost_alert_threshold_usd')
     const costAlertThresholdUsd = costAlertThresholdRaw != null ? parseFloat(costAlertThresholdRaw) : null
     const allowSubagents = getGlobalAllowSubagents(registry.desktopDb)
-    res.json({ port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents, subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb) })
+    res.json({ port: parseInt(port, 10), specrailsTechUrl, costAlertThresholdUsd, allowSubagents, subagentRuntime: getGlobalSubagentRuntime(registry.desktopDb), updateChannel: getUpdateChannel(registry.desktopDb) })
   })
 
   // PUT /api/settings — update app-level settings
   router.put('/settings', (req, res) => {
-    const { port, specrailsTechUrl, costAlertThresholdUsd, allowSubagents } = req.body ?? {}
+    const { port, specrailsTechUrl, costAlertThresholdUsd, allowSubagents, updateChannel } = req.body ?? {}
     if (allowSubagents !== undefined && typeof allowSubagents !== 'boolean') {
       res.status(400).json({ error: 'allowSubagents must be a boolean' })
+      return
+    }
+    if (updateChannel !== undefined && !isUpdateChannel(updateChannel)) {
+      res.status(400).json({ error: 'updateChannel must be "latest" or "stable"' })
       return
     }
     let subagentRuntime: ReturnType<typeof parseSubagentRuntimeSetting> | undefined
@@ -893,6 +899,7 @@ export function createDesktopRouter(
       setGlobalSubagentRuntime(registry.desktopDb, subagentRuntime)
       if (previous !== JSON.stringify(subagentRuntime)) registry.notifySettingsChanged({ projectId: null })
     }
+    if (updateChannel !== undefined) setUpdateChannel(registry.desktopDb, updateChannel)
     res.json({ ok: true })
   })
 
@@ -1462,11 +1469,28 @@ export function createDesktopRouter(
     // and not members of the WsMessage union; cast at this single boundary.
     broadcast: (msg) => broadcast(msg as unknown as WsMessage),
     providers: () => registry.installedProvidersUnion(),
+    channel: () => getUpdateChannel(registry.desktopDb),
     reseed: version => reseedStaleWorkspaces(registry.listContexts().map(context => ({
       id: context.project.id,
       slug: context.project.slug,
       path: context.project.path,
     })), version),
+  })
+
+  // GET /api/meta — versions a client needs to negotiate with this server.
+  // Additive-only shape; see docs/internals/api-reference.md (versioning policy).
+  router.get('/meta', async (_req, res) => {
+    const channel = getUpdateChannel(registry.desktopDb)
+    const compat = await checkCoreCompat().catch(() => null)
+    const core = coreUpdate.getStatus()
+    res.json({
+      apiVersion: API_VERSION,
+      appVersion: compat?.desktopVersion ?? null,
+      coreVersion: core.currentVersion ?? compat?.coreVersion ?? core.bundledVersion ?? null,
+      contractSchemaVersion: compat?.contractSchemaVersion ?? null,
+      channel,
+      updateManifestUrl: appUpdaterManifestUrl(channel),
+    })
   })
 
   // GET /api/core-update/status — current/bundled/latest versions, no network.

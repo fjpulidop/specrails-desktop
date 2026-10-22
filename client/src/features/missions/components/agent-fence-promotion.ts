@@ -1,6 +1,6 @@
 // ─── Protocol fence promotion (small-model tolerance) ─────────────────────────
 // The operator protocol asks for fenced blocks tagged EXACTLY `options`,
-// `problem-frame`, `spec-draft` and `rail-launch`. Small / local models routinely emit the
+// `problem-frame`, `spec-draft`, `rail-launch` and `flow-offer`. Small / local models routinely emit the
 // right JSON under a generic ```json (or bare ```) fence instead, which the
 // strict parsers ignore — so no chips, no framing card, and commit_draft then
 // refuses because no frame was ever registered. This pass re-tags a CLOSED
@@ -10,7 +10,7 @@
 
 const GENERIC_FENCE_RE = /```(?:json|jsonc|JSON)?[^\S\n]*\n([\s\S]*?)\n[^\S\n]*```/g
 
-type Shape = 'options' | 'problem-frame' | 'spec-draft' | 'rail-launch'
+type Shape = 'options' | 'problem-frame' | 'spec-draft' | 'rail-launch' | 'flow-offer'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v)
@@ -24,6 +24,8 @@ export function detectProtocolShape(value: unknown): Shape | null {
   }
   if (!isRecord(value)) return null
   if (isRecord(value.restated) && isRecord(value.alternative) && typeof value.discriminator === 'string') return 'problem-frame'
+  // flow-mode: the Flow-or-Implement offer = an idea plus the recommended mode.
+  if (typeof value.idea === 'string' && (value.recommended === 'flow' || value.recommended === 'implement')) return 'flow-offer'
   if (typeof value.title === 'string' && typeof value.description === 'string'
     && ('acceptanceCriteria' in value || 'labels' in value || 'priority' in value)) return 'spec-draft'
   // mission-rail-cards: a launch proposal = a ticket list plus at least one

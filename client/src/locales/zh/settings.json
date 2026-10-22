@@ -244,7 +244,23 @@
       "local": "本地软件包",
       "global": "外部 CLI"
     },
-    "repair": "完成 {{version}} 更新"
+    "repair": "完成 {{version}} 更新",
+    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。"
+  },
+  "updateChannel": {
+    "heading": "更新通道",
+    "loading": "正在加载通道…",
+    "scope": "同时适用于 Specrails Desktop 和 specrails-core 框架。",
+    "saved": "更新通道：{{channel}}",
+    "saveFailed": "无法更改更新通道：{{message}}",
+    "latest": {
+      "label": "最新",
+      "description": "每个版本发布后立即获取。最先获得新功能和修复。"
+    },
+    "stable": {
+      "label": "稳定",
+      "description": "仅接收在最新通道上至少一周且 CI 通过后被提升的版本。Core 跟随其 stable 标签。"
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "启动时及每 6 小时自动检查。",
     "unavailable": "更新仅在桌面应用中可用。",
     "toastUpToDate": "Specrails Desktop 已是最新",
-    "toastCheckFailed": "检查更新失败: {{message}}"
+    "toastCheckFailed": "检查更新失败: {{message}}",
+    "stableUnavailable": "尚未有版本被提升到稳定通道。请切换到最新，或稍后再试。"
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
@@ -319,6 +336,33 @@
     "statusUnavailable": "无法读取环境状态。",
     "unresolvedTitle": "以下变量缺失时运行仍会开始："
   },
+  "agentEnv": {
+    "title": "智能体环境",
+    "description": "选择此项目的智能体（Rail 作业、循环、任务、聊天和规格助手）接收哪些环境变量。",
+    "modes": {
+      "inherit": {
+        "label": "继承（默认）",
+        "description": "智能体接收 Specrails 启动时的完整环境，以及上方的名称。与之前的行为相同。"
+      },
+      "minimal": {
+        "label": "最小",
+        "description": "智能体只接收允许列表（PATH、HOME、区域设置、临时目录、终端、代理和证书）、Specrails 自身的变量、所选提供商的登录变量以及上方的名称。其他内容（例如云或数据库凭据）不会传递。"
+      }
+    },
+    "saved": {
+      "inherit": "智能体继承完整环境",
+      "minimal": "智能体现在接收最小环境"
+    },
+    "saveFailed": "无法保存智能体环境",
+    "namesTitle": "最小模式下传递的变量",
+    "shared": "所有智能体",
+    "passthrough": "项目名称（上方）",
+    "noPassthrough": "未配置项目名称。",
+    "provider": "{{provider}} 额外接收",
+    "noProviderNames": "当前未设置（接受 {{patterns}}）。",
+    "namesHelp": "只显示名称，从不显示值。更改适用于之后启动的智能体；已打开的任务会话在重启前保留原环境。如果某个工具需要其他变量，请在上方添加其名称。",
+    "statusUnavailable": "无法读取变量列表。"
+  },
   "effects": {
     "heading": "效果",
     "description": "应用中的视觉点缀，每一项都可以在这里关闭。",
@@ -370,5 +414,30 @@
         "accept": "使用 {{provider}}"
       }
     }
+  },
+  "agentAudit": {
+    "title": "智能体操作审计日志",
+    "description": "按项目记录智能体读取、写入、执行、通过 MCP 调用或获取的内容——可从每个任务和评审包导出为 JSONL 或 CSV。",
+    "retentionLabel": "保留条目",
+    "daysUnit": "天",
+    "caveat": "旧条目会在启动时及每天清理。读取的完整程度取决于各提供方的输出流；从不保存文件内容或环境变量值。",
+    "save": "保存保留期",
+    "saved_one": "智能体操作保留 {{count}} 天",
+    "saved_other": "智能体操作保留 {{count}} 天",
+    "saveFailed": "无法保存审计日志的保留期",
+    "invalidDays": "请输入 1 到 {{max}} 之间的整数天数"
+  },
+  "reviewWip": {
+    "title": "评审上限",
+    "description": "限制同时等待你评审的交付数量,避免新工作堆积得比你决定的速度更快。",
+    "label": "等待评审的交付数",
+    "help": "建议设为 {{suggested}}:足以在你评审时让 Rail 保持忙碌。运行中的交付、未决定的交付以及应用创建的打开 PR 都会计入。对已有交付的修改始终允许。留空表示不设上限。",
+    "placeholder": "不设上限",
+    "useSuggested": "使用 {{suggested}}",
+    "invalid": "请输入 1 到 {{max}} 之间的整数,或留空表示不设上限。",
+    "saved_one": "评审上限已设为 {{count}}",
+    "saved_other": "评审上限已设为 {{count}}",
+    "removed": "已移除评审上限",
+    "saveFailed": "无法保存评审上限"
   }
 }

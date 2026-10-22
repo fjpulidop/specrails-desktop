@@ -1,4 +1,5 @@
 import { GlobalSubagentsSection } from '../components/SubagentsSettingsSection'
+import type { AppSettingsSection } from '../../../lib/app-settings-events'
 import { SubscriptionUsagePanel } from '../../subscription-usage/components/SubscriptionUsagePanel'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
@@ -11,6 +12,7 @@ import { CodeSectionSettings } from '../components/CodeSectionSettings'
 import { ProviderConnectionsCard } from '../components/provider-connections'
 import { CoreUpdateSection } from '../components/CoreUpdateSection'
 import { AppUpdateSection } from '../components/AppUpdateSection'
+import { UpdateChannelSection } from '../components/UpdateChannelSection'
 import { MobileAccessSection } from '../components/MobileAccessSection'
 import { McpSettingsSection } from '../components/McpSettingsSection'
 import { FEATURE_MCP } from '../../../lib/feature-flags'
@@ -58,7 +60,7 @@ interface DesktopSettings {
 }
 
 interface SettingsDialogProps {
-  initialSection?: 'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'
+  initialSection?: AppSettingsSection
   open: boolean
   onClose: () => void
   onOpenOnboarding?: () => void
@@ -390,6 +392,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>
 
             <div className={paneCls('updates')}>
+            <UpdateChannelSection />
+
             <AppUpdateSection />
 
             <CoreUpdateSection />

@@ -117,14 +117,75 @@ export interface CanonicalPrBodyInput {
    *  (legacy runs with no priced invocations, or the lookup failed — cost must
    *  never block or degrade PR creation). */
   costUsd?: { totalUsd: number; estimated: boolean } | null
+  /** The reviewer's risk brief (Core `reviewBrief: 1`). null/undefined/empty ⇒
+   *  no block, so PRs from older Cores read exactly as before. */
+  reviewBrief?: PrBodyReviewBrief | null
+  /** Flow -> Spec only: Core's derivation coverage (one short line). */
+  derivation?: { change: string | null; files: number; explained: number; unexplainedFiles: string[]; unexplainedOmitted: number } | null
+}
+
+/** The slice of the reviewer brief a PR body carries: what a human must look at. */
+export interface PrBodyReviewBrief {
+  risks: Array<{ severity: 'high' | 'medium' | 'low'; area: string | null; whatToLookAt: string; ref: string | null }>
+  untested: Array<{ path: string; why: string | null }>
+  humanChecks: string[]
+}
+
+const BRIEF_LIST_MAX = 10
+const SEVERITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' } as const
+
+/**
+ * Short "What to look at" block under the summary: high and medium risks,
+ * untested paths and human checks. Low risks, behaviour changes and invariants
+ * stay in the review packet. Returns null when there is nothing to list.
+ */
+export function buildReviewBriefBlock(brief: PrBodyReviewBrief | null | undefined): string | null {
+  if (!brief) return null
+  const risks = brief.risks.filter((risk) => risk.severity === 'high' || risk.severity === 'medium').slice(0, BRIEF_LIST_MAX)
+  const untested = brief.untested.slice(0, BRIEF_LIST_MAX)
+  const checks = brief.humanChecks.map(cleanInline).filter(Boolean).slice(0, BRIEF_LIST_MAX)
+  if (risks.length === 0 && untested.length === 0 && checks.length === 0) return null
+  const chunks = ['## What to look at', '_Advisory brief from the AI reviewer: where a human should look first. It is not a verification result._']
+  if (risks.length > 0) {
+    chunks.push('**Risks**', risks.map((risk) => {
+      const area = risk.area ? ` · ${cleanInline(risk.area)}` : ''
+      const ref = risk.ref ? ` (${codeSpan(risk.ref)})` : ''
+      return `- **${SEVERITY_LABEL[risk.severity]}**${area} — ${cleanInline(risk.whatToLookAt)}${ref}`
+    }).join('\n'))
+  }
+  if (untested.length > 0) {
+    chunks.push('**Untested paths**', untested.map((entry) => `- ${codeSpan(entry.path)}${entry.why ? ` — ${cleanInline(entry.why)}` : ''}`).join('\n'))
+  }
+  if (checks.length > 0) {
+    chunks.push('**Human checks**', checks.map((check) => `- [ ] ${check}`).join('\n'))
+  }
+  return chunks.join('\n\n')
+}
+
+function codeSpan(raw: string): string {
+  return `\`${cleanInline(raw).replace(/`/g, "'")}\``
+}
+
+/** `> Derived from a Flow session: change X, N/M changed files explained (K unexplained).` */
+export function buildDerivationLine(derivation: CanonicalPrBodyInput['derivation']): string | null {
+  if (!derivation) return null
+  const unexplained = derivation.unexplainedFiles.length + derivation.unexplainedOmitted
+  const change = derivation.change ? ` OpenSpec change \`${derivation.change}\`,` : ''
+  return `> Derived from a Flow session:${change} ${derivation.explained}/${derivation.files} changed files explained by its design${unexplained > 0 ? ` (${unexplained} unexplained — see the review packet)` : ''}.`
 }
 
 export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {
   const parts: string[] = [summaryParagraph(input)]
 
+  const briefBlock = buildReviewBriefBlock(input.reviewBrief)
+  if (briefBlock) parts.push(briefBlock)
+
   for (const t of input.tickets) {
     parts.push(ticketSection(t, input.changes ?? null))
   }
+
+  const derivationLine = buildDerivationLine(input.derivation ?? null)
+  if (derivationLine) parts.push(derivationLine)
 
   const changesSection = buildChangesSection(input.changes ?? null)
   if (changesSection) parts.push(changesSection)

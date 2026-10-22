@@ -1,4 +1,5 @@
 import { execFileSync, execSync } from 'child_process'
+import { createHash } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import type { DbInstance } from '../../../db'
@@ -414,6 +415,20 @@ export function recordProvenanceForJob(
     insertContribution = null
   }
 
+  // Agent actions audit (migration 73): every provenance row is a write the
+  // run made. Same transaction; guarded like insertPatch so a pre-migration DB
+  // (or an audit insert failure) never affects provenance itself. The hash is
+  // the sha256 of the recorded diff — the file content is never stored.
+  let insertAudit: any = null
+  try {
+    insertAudit = db.prepare(`
+      INSERT INTO agent_actions (run_id, job_id, role, kind, target, hash, ts, source)
+      VALUES (?, ?, 'run', 'write', ?, ?, ?, 'file-provenance')
+    `)
+  } catch {
+    insertAudit = null
+  }
+
   const inserted: ProvenanceRow[] = []
   const tx = db.transaction((rows: Pending[]) => {
     for (const r of rows) {
@@ -428,6 +443,13 @@ export function recordProvenanceForJob(
         at: atMs,
       })
       const storedPatch = patches?.get(r.file_path)
+      if (insertAudit) {
+        try {
+          const target = repositoryId === undefined ? r.file_path : `${repositoryId}:${r.file_path}`
+          const hash = storedPatch ? createHash('sha256').update(storedPatch.patch).digest('hex') : null
+          insertAudit.run(jobId, jobId, target.slice(0, 512), hash, new Date(atMs).toISOString())
+        } catch { /* audit is observing only */ }
+      }
       if (insertPatch && storedPatch) {
         insertPatch.run(Number(result.lastInsertRowid), storedPatch.patch, storedPatch.truncated ? 1 : 0)
       }

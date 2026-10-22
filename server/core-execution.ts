@@ -83,6 +83,9 @@ export function prepareCoreExecution(input: {
   sourcePath?: string
   workspacePaths?: string[]
   selectedWorkspacePaths?: string[]
+  /** Frozen change baseline of a manifest-less run (Flow -> Spec: the Flow
+   *  reservation commit). Manifest runs carry their own per-repository base. */
+  repositoryBaseSha?: string
 }): { env: NodeJS.ProcessEnv; promptPrefix: string; contextPath: string; workspaceBriefing: string } {
   const { run, manifest } = input
   if (!SAFE_ID.test(run.runId)) throw new Error('Invalid Core execution run id')
@@ -98,7 +101,8 @@ export function prepareCoreExecution(input: {
   }
   const repositories = manifest
     ? manifest.repositories.map(repo => scoped({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }, repo.workspacePath ?? repo.sourcePath, repo.workspacePaths, repo.selectedWorkspacePaths))
-    : [scoped({ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }, input.sourcePath, input.workspacePaths, input.selectedWorkspacePaths)]
+    : [scoped({ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd),
+      ...(input.repositoryBaseSha && /^[a-f0-9]{40,64}$/.test(input.repositoryBaseSha) ? { baseSha: input.repositoryBaseSha } : {}) }, input.sourcePath, input.workspacePaths, input.selectedWorkspacePaths)]
   if (!repositories.length || repositories.some(repo => !SAFE_ID.test(repo.id))) throw new Error('Invalid Core repository scope')
   const artifactRepositoryId = manifest?.artifactRepositoryId ?? repositories[0]!.id
   const artifactRepo = repositories.find(repo => repo.id === artifactRepositoryId)

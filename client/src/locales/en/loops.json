@@ -210,7 +210,8 @@
         "end": "End",
         "assign": "Set variables",
         "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract"
+        "artifact-contract": "Artifact contract",
+        "derive-change": "Derive change"
       },
       "groups": {
         "ai": "AI",

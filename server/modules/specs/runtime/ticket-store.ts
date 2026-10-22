@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
+import type { TicketTriage } from '../domain/triage'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -40,6 +41,19 @@ export interface Ticket {
       owner_id?: string
       applied_effect_id?: string
     }
+    /** Escaped-defect link (loop-economics-analytics): the delivery
+     * (`rail_pr_deliveries.id`) that introduced the bug this ticket tracks.
+     * Desktop-owned optional metadata — Core ignores unknown metadata, so no
+     * schema bump. Set from the ticket modal for bug tickets. */
+    regressionOf?: string
+    /** Flow mode (schema 1.5): the placeholder spec of a Flow session. Shown as
+     * the "In Flow" label while `active` or `paused`; Jira never receives a
+     * ticket in those states. Desktop-only; Core ignores it. */
+    flow?: FlowTicketMetadata
+    /** Spec triage (schema 1.5, annex D.2): size, likely files, recommended
+     * loop… keyed by `inputsHash`. Desktop-only; Core ignores it. See
+     * server/modules/specs/domain/triage.ts. */
+    triage?: TicketTriage
   }
   comments?: Array<{
     id: number
@@ -60,7 +74,8 @@ export interface Ticket {
   // legacy wire value kept for compat, do not rename.
   // 'jira' marks a spec materialized from a Jira issue (see server/jira/). The
   // jira_key / jira_url fields below are additive — specrails-core ignores them.
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder'
+  // 'flow' marks the placeholder spec a Flow session creates (schema 1.5).
+  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'hub' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), null for local specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue, null for local specs. */
@@ -100,6 +115,25 @@ export interface Ticket {
   addenda?: SpecAddendum[]
 }
 
+/** `metadata.flow` of a Flow placeholder spec (feedback-2026-10 annex D.7). */
+export interface FlowTicketMetadata {
+  conversationId: string
+  flowId: string
+  /** The Flow-owned worktree reservation (the Flow id). */
+  worktreeId: string
+  startedAt: string
+  state: 'active' | 'paused' | 'delivered'
+  recommendedMode?: 'flow' | 'implement'
+  chosenMode?: 'flow' | 'implement'
+}
+
+/** True while a spec belongs to a live Flow: no Jira write may create or
+ * update an issue for it until the Flow -> Spec rail settles. */
+export function isFlowHeldTicket(ticket: Pick<Ticket, 'metadata'> | null | undefined): boolean {
+  const state = ticket?.metadata?.flow?.state
+  return state === 'active' || state === 'paused'
+}
+
 export interface TicketStore {
   schema_version: string
   revision: number
@@ -111,9 +145,41 @@ export interface TicketStore {
 const VALID_STATUSES = new Set<TicketStatus>(['draft', 'todo', 'in_progress', 'on_review', 'done', 'cancelled'])
 const VALID_PRIORITIES = new Set<TicketPriority>(['critical', 'high', 'medium', 'low'])
 
-export const CURRENT_SCHEMA_VERSION = '1.4'
+export const CURRENT_SCHEMA_VERSION = '1.5'
 
 export const SHORT_SUMMARY_MAX_LEN = 240
+
+export const REGRESSION_OF_MAX_LEN = 200
+
+/**
+ * Validate the `regressionOf` key of an incoming metadata patch. Absent ⇒
+ * untouched; `null`/empty ⇒ cleared (key removed); a non-empty string ≤
+ * REGRESSION_OF_MAX_LEN ⇒ trimmed; anything else ⇒ error. Returns the
+ * metadata to merge plus the keys to delete after merging.
+ */
+export function normalizeRegressionOfMetadata(
+  metadata: Record<string, unknown>,
+): { ok: true; metadata: Record<string, unknown>; clear: boolean } | { ok: false; error: string } {
+  if (!Object.prototype.hasOwnProperty.call(metadata, 'regressionOf')) return { ok: true, metadata, clear: false }
+  const { regressionOf, ...rest } = metadata
+  if (regressionOf === null || (typeof regressionOf === 'string' && regressionOf.trim() === '')) {
+    return { ok: true, metadata: rest, clear: true }
+  }
+  if (typeof regressionOf !== 'string' || regressionOf.trim().length > REGRESSION_OF_MAX_LEN) {
+    return { ok: false, error: `metadata.regressionOf must be a delivery id string (max ${REGRESSION_OF_MAX_LEN} chars) or null` }
+  }
+  return { ok: true, metadata: { ...rest, regressionOf: regressionOf.trim() }, clear: false }
+}
+
+/** Every ticket's escaped-defect link (`metadata.regressionOf`). */
+export function listRegressionLinks(store: TicketStore): Array<{ ticketId: number; deliveryId: string }> {
+  const links: Array<{ ticketId: number; deliveryId: string }> = []
+  for (const ticket of Object.values(store.tickets)) {
+    const deliveryId = ticket?.metadata?.regressionOf
+    if (typeof deliveryId === 'string' && deliveryId.length > 0) links.push({ ticketId: ticket.id, deliveryId })
+  }
+  return links
+}
 
 /**
  * Sanitize a `shortSummary` value coming from an AI response or external input.

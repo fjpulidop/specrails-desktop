@@ -52,15 +52,19 @@ export interface AgentMessage {
   created_at: string
 }
 
+/** A persisted card decision. Unique per (kind, proposalIndex) on a message. */
 export interface AgentMessageIntent {
-  kind: 'rail-launch'
+  kind: 'rail-launch' | 'flow-offer' | 'flow-hand-off'
   proposalIndex: number
-  status: 'launched' | 'dismissed'
+  /** `accepted` only for flow-offer; launches are `launched`. */
+  status: 'launched' | 'dismissed' | 'accepted'
   at: string
   railIndex?: number
   runIds?: string[]
   prDeliveryId?: string | null
   config?: Record<string, unknown>
+  recommendedMode?: 'flow' | 'implement' | null
+  chosenMode?: 'flow' | 'implement' | null
 }
 
 export interface AgentPendingMessage {
@@ -82,7 +86,7 @@ export interface AgentConversationSnapshot {
 
 export interface AgentSendResponse {
   queued: boolean
-  deliveryMode?: 'queue' | 'steer'
+  deliveryMode?: 'queue' | 'steer' | 'interrupt'
   message?: AgentMessage
   duplicate?: boolean
   removed?: boolean
@@ -315,15 +319,28 @@ export async function sendAgentMessage(
     attachments?: { ids: string[] }
     queueId?: string
     contextRefs?: AgentContextReference[]
+    /** Flow mode: a busy send cuts the running Flow turn. */
+    deliveryMode?: 'interrupt'
   } = {},
 ): Promise<AgentSendResponse> {
   let body: (Partial<AgentSendResponse> & { accepted: boolean }) | null
+  const post = (payload: Record<string, unknown>) => fetch(`${base}/conversations/${id}/send`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
   try {
-    body = await json(await fetch(`${base}/conversations/${id}/send`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, ...opts }),
-    }))
+    let res = await post({ text, ...opts })
+    // The Flow ended between render and send (paused, handed off): the server
+    // refused the interrupt WITHOUT admitting the input — send it normally.
+    if (opts.deliveryMode === 'interrupt' && res.status === 409) {
+      const refused = await res.clone().json().catch(() => null) as { error?: string } | null
+      if (refused?.error === 'interrupt_requires_flow') {
+        const { deliveryMode: _interrupt, ...rest } = opts
+        res = await post({ text, ...rest })
+      }
+    }
+    body = await json(res)
     // An empty/unrelated HTTP 200 is not an admission acknowledgement. Throwing
     // retains the composer's draft and queueId for an explicit idempotent retry.
     if (body?.accepted !== true || typeof body.queued !== 'boolean') {
@@ -457,6 +474,8 @@ export interface AgentPrDecisionEnvelope {
   phase?: MissionRunPhase
   railName?: string | null
   runtime?: MissionRunRuntime | null
+  /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
+  riskSummary?: import('../../../types').PrDeliveryRiskSummary
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -553,6 +572,7 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(typeof o.phase === 'string' && MISSION_RUN_PHASES.includes(o.phase) ? { phase: o.phase as MissionRunPhase } : {}),
     ...(typeof o.railName === 'string' ? { railName: o.railName } : {}),
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
+    ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
   }
 }
 

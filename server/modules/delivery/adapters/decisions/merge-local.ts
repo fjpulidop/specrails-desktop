@@ -6,7 +6,7 @@ import { withRepoLock } from '../../../../repo-lock'
 import { isValidBranchName } from '../../../../integration-branch'
 import { PrDecisionDeps, PrDecisionResult } from './contracts'
 import { mergeLocalTargetBranch, batchWorktreeRoot } from './metadata'
-import { safetyArchiveRecorder, casTransition, finalizeTransition, casTransitionWithTicketEffect, applyTerminalTicketEffect } from './transitions'
+import { safetyArchiveRecorder, casTransition, decisionInstant, finalizeTransition, casTransitionWithTicketEffect, applyTerminalTicketEffect } from './transitions'
 import { COMMIT_SHA_RE, commitObjectExists } from './evidence'
 import { releasableWorktreeIds, deleteOwnedBranchesIfUnchanged } from './ownership'
 import { sweepMergedChainAncestors } from './chains'
@@ -276,6 +276,10 @@ export async function runMergeLocalIntoCheckout(deps: PrDecisionDeps, row: RailP
     await deleteOwnedBranchesIfUnchanged(deps, row, snap, cleanupWarnings)
 
     const conflict = casTransitionWithTicketEffect(deps, row, 'merged', {
+      // Local merge is both the human decision (admitted at the lease claim)
+      // and the merge itself; first write wins for each instant.
+      decidedAt: decisionInstant(row),
+      mergedAt: new Date().toISOString(),
       deliveryOutcome: 'delivered',
       statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
       cleanupWarnings,

@@ -37,7 +37,11 @@
     "contract": "Contract",
     "openParentEpicTitle": "Abrir la épica padre #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} anexo abierto — viaja con el próximo lanzamiento",
-    "addendaTitle_other": "{{count}} anexos abiertos — viajan con el próximo lanzamiento"
+    "addendaTitle_other": "{{count}} anexos abiertos — viajan con el próximo lanzamiento",
+    "inFlow": "En Flow",
+    "inFlowPaused": "Flow en pausa",
+    "inFlowTitle": "Se está construyendo en Flow: abre la misión",
+    "inFlowPausedTitle": "Flow en pausa: abre la misión para reanudarlo"
   },
   "card": {
     "deleteSpec": "Eliminar spec #{{id}}",
@@ -131,5 +135,35 @@
     "current": "Actual",
     "all": "Todos los sprints",
     "ariaLabel": "Filtrar por sprint"
+  },
+  "triage": {
+    "compute": "Triaje",
+    "computeTitle": "Estimar el tamaño y recomendar un loop para esta spec",
+    "recalculate": "Recalcular",
+    "recalculating": "Recalculando…",
+    "recalculateFailed": "No se pudo recalcular — inténtalo de nuevo",
+    "ariaLabel": "Triaje de la spec #{{id}}",
+    "recommends": "Recomienda {{loop}}",
+    "confidence": {
+      "high": "alta",
+      "medium": "media",
+      "low": "baja"
+    },
+    "flags": {
+      "publicInterfaces": "API pública",
+      "dataModel": "Modelo de datos",
+      "securitySurface": "Seguridad",
+      "none": "Sin impacto en API pública, datos ni seguridad"
+    },
+    "flowHint": "Se sugiere Flow",
+    "filesLikely": "Archivos probables",
+    "moreFiles_one": "+{{count}} archivo más",
+    "moreFiles_other": "+{{count}} archivos más",
+    "modelCost": "{{model}} · ${{cost}}",
+    "modelOnly": "{{model}} · coste no informado",
+    "unavailable": "Triaje n/d",
+    "unavailableDetail": "No hay ningún modelo disponible para el triaje ({{reason}}).",
+    "failed": "Triaje fallido",
+    "failedDetail": "No se pudo completar el triaje: {{error}}"
   }
 }

@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "Profile-aware pipeline requires specrails-core {{required}}+",
-      "body": "This project has <code>{{version}}</code>. Run <code>{{command}}</code> inside the project to unlock profile mode. Profiles you create here will still save; they just won't affect the pipeline until core is updated.",
-      "unknownVersion": "unknown"
+      "body": "This project's workspace was set up with specrails-core <code>{{version}}</code>. Update Specrails Core from Settings → Updates; project workspaces are refreshed automatically after the update. Profiles you create here will still save; they just won't affect the pipeline until the workspace is updated.",
+      "unknownVersion": "unknown",
+      "openUpdates": "Open Core updates"
     }
   },
   "catalog": {

@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDesktopDb } from './desktop-db'
-import type { DbInstance } from './db'
+import { initDb, type DbInstance } from './db'
+import { createLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
 import type { ProjectRoutesDeps } from './project-router-helpers'
@@ -26,7 +27,7 @@ function graphWith(prompt: string): LoopGraph {
 let desktopDb: DbInstance
 let run: ReturnType<typeof vi.fn>
 
-function buildApp(project: { providers: string[]; provider: string; repositories?: import('./project-repositories').ProjectRepository[] }): Express {
+function buildApp(project: { providers: string[]; provider: string; repositories?: import('./project-repositories').ProjectRepository[] }, extra: Record<string, unknown> = {}): Express {
   run = vi.fn().mockResolvedValue({ runId: 'rid', outcome: 'success', iterations: 1, totalCostUsd: 0 })
   const app = express()
   app.use(express.json())
@@ -36,6 +37,7 @@ function buildApp(project: { providers: string[]; provider: string; repositories
     project: { id: 'p1', slug: 's1', path: '/repo', repositories: project.repositories, provider: project.provider, providers: project.providers },
     loopRunManager: { run, cancel: vi.fn() },
     onLoopRunFinished: vi.fn(),
+    ...extra,
   })
   registerLoopRunRoutes({ router, ctx } as unknown as ProjectRoutesDeps)
   app.use('/api/projects', router)
@@ -91,12 +93,18 @@ describe('project-router standalone loop runs', () => {
     expect((await request(app).post('/api/projects/p1/loop-runs').send({})).status).toBe(400)
   })
 
-  it('rejects a claude-only loop on a non-claude project', async () => {
-    const id = publish('freestyle', '{{cmd:freestyle}}')
-    const res = await request(buildApp({ provider: 'codex', providers: ['codex'] }))
-      .post('/api/projects/p1/loop-runs').send({ loopId: id })
-    expect(res.status).toBe(400)
-    expect(run).not.toHaveBeenCalled()
+  it.each([true, false])('gates a {{cmd:freestyle}} loop on the project provider capability (codex freestyle=%s)', async (capable) => {
+    const { getAdapter } = await import('./providers/registry')
+    const capabilities = getAdapter('codex').capabilities
+    capabilities.freestyle = capable
+    try {
+      const id = publish('freestyle', '{{cmd:freestyle}}')
+      const res = await request(buildApp({ provider: 'codex', providers: ['codex'] }))
+        .post('/api/projects/p1/loop-runs').send({ loopId: id })
+      expect(res.status).toBe(capable ? 202 : 400)
+      if (capable) expect(run).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex' }))
+      else expect(run).not.toHaveBeenCalled()
+    } finally { capabilities.freestyle = true }
   })
 
   it('defaults to the provider default model when none is given', async () => {
@@ -277,5 +285,66 @@ describe('project-router GET /loop-runs/:id', () => {
     const res = await request(buildApp({ provider: 'claude', providers: ['claude'] })).get('/api/projects/p1/loop-runs/x')
     expect(res.status).toBe(404)
     delete process.env.SPECRAILS_LOOPS_SECTION
+  })
+})
+
+describe('loop runs — daily budget guard (rail-loop-budget-guard)', () => {
+  const rejection = { error: 'daily_budget_exceeded', scope: 'project', budgetUsd: 1, spentUsd: 2, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'over', action: 'raise' }
+
+  it('409s a standalone loop run while the daily budget is exhausted and spawns nothing', async () => {
+    const id = publish('budget-loop')
+    const res = await request(buildApp({ provider: 'claude', providers: ['claude'] }, { dailyBudgetRejection: () => rejection }))
+      .post('/api/projects/p1/loop-runs').send({ loopId: id })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual(rejection)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  function resumeApp(manager: Record<string, unknown>, gate: () => unknown = () => null) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'paused-run', projectId: 'p1', loopId: 'loop-1', ticketIds: [], provider: 'claude', model: 'sonnet', iterationLimit: 3, startedAt: '2026-10-21T08:00:00Z' })
+    const app = express()
+    app.use(express.json())
+    const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: manager, dailyBudgetRejection: gate, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    return app
+  }
+
+  it('resumes a budget_paused run of either engine in place once the budget allows it', async () => {
+    const resumeBudgetPause = vi.fn().mockReturnValue({ status: 'resumed' })
+    const res = await request(resumeApp({ budgetPause: () => rejection, resumeBudgetPause })).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ loopRunId: 'paused-run', resumed: true })
+    expect(resumeBudgetPause).toHaveBeenCalledWith('paused-run')
+  })
+
+  it('keeps a budget_paused run paused and 409s while still over budget', async () => {
+    const resumeBudgetPause = vi.fn().mockReturnValue({ status: 'over_budget', rejection })
+    const res = await request(resumeApp({ budgetPause: () => rejection, resumeBudgetPause })).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual(rejection)
+  })
+
+  it('409s continuing a paused Core workflow while over budget, before probing Core', async () => {
+    const beginDefinitionResume = vi.fn()
+    const app = resumeApp({ budgetPause: () => null, beginDefinitionResume, isDefinitionRunActive: () => false }, () => rejection)
+    const res = await request(app).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
+    expect(res.status).toBe(404) // legacy row: not a definition run
+    const db2 = initDb(':memory:')
+    createLoopRun(db2, { id: 'core-run', projectId: 'p1', loopId: 'loop-1', ticketIds: [], provider: 'claude', model: 'sonnet', iterationLimit: 3, startedAt: '2026-10-21T08:00:00Z' })
+    db2.prepare("UPDATE loop_runs SET engine_version=2,status='paused',restart_reason='restart' WHERE id='core-run'").run()
+    const coreApp = express(); coreApp.use(express.json()); const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db: db2, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: { budgetPause: () => null, beginDefinitionResume }, dailyBudgetRejection: () => rejection }) } as unknown as ProjectRoutesDeps)
+    coreApp.use('/api/projects', router)
+    const blocked = await request(coreApp).post('/api/projects/p1/loop-runs/core-run/resume').send({})
+    expect(blocked.status).toBe(409)
+    expect(blocked.body).toEqual(rejection)
+    expect(beginDefinitionResume).not.toHaveBeenCalled()
+  })
+
+  it('falls through to the definition resume path for runs that are not budget_paused', async () => {
+    const res = await request(resumeApp({ budgetPause: () => null, resumeBudgetPause: vi.fn() })).post('/api/projects/p1/loop-runs/paused-run/resume').send({})
+    expect(res.status).toBe(404)
   })
 })

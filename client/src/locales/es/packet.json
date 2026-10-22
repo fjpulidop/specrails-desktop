@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "Lo que pediste",
     "whatIDid": "Lo que se hizo",
-    "howItWasChecked": "Cómo se comprobó"
+    "howItWasChecked": "Cómo se comprobó",
+    "whatTheAgentDid": "Qué hizo el agente"
   },
   "churn": {
     "line": "{{files}} archivos cambiados · +{{added}} / −{{removed}} líneas",
@@ -104,7 +105,8 @@
     "alreadyResolved": "Alguien ya respondió a esto.",
     "actionFailed": "Esa acción no se completó.",
     "revisionStale": "Esto se acaba de resolver en otro sitio — recarga para ver cómo está.",
-    "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado."
+    "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado.",
+    "revisionBudget": "El presupuesto diario está agotado, así que el cambio no se inició. Tu texto se ha conservado."
   },
   "versions": {
     "title": "Versiones anteriores ({{count}})",
@@ -165,5 +167,80 @@
       "unreported": "Sin informar"
     },
     "noReport": "La ejecución no informó sobre este anexo. Revisa los cambios y la evidencia más abajo."
+  },
+  "derivation": {
+    "title": "Derivación",
+    "coverage": "El diseño derivado explica {{explained}} de {{files}} ficheros cambiados",
+    "change": "Cambio OpenSpec",
+    "requirements": "Requisitos",
+    "requirementsValue": "{{added}} añadidos · {{modified}} modificados",
+    "confidence": "Confianza del derivador",
+    "confidenceLevel": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "confidenceUnknown": "No indicada",
+    "caveat": "Specrails mide la cobertura con git; la confianza es la valoración del propio agente.",
+    "unexplainedTitle_one": "{{count}} fichero cambiado sin explicar",
+    "unexplainedTitle_other": "{{count}} ficheros cambiados sin explicar",
+    "more_one": "…y {{count}} fichero más",
+    "more_other": "…y {{count}} ficheros más",
+    "unavailable": "No se pudo leer el informe de derivación de esta entrega Flow. Revisa el diff directamente.",
+    "rewriteFailed": "No se pudo reescribir la spec a partir del cambio derivado; conserva su borrador de Flow. El cambio OpenSpec sigue siendo el registro técnico."
+  },
+  "brief": {
+    "title": "Qué mirar",
+    "caveat": "Resumen orientativo del revisor de IA: dónde debería mirar primero una persona. No es un resultado de verificación y nunca bloquea una decisión.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Medio",
+      "low": "Bajo"
+    },
+    "area": {
+      "data": "datos",
+      "security": "seguridad",
+      "api": "API",
+      "ux": "UX",
+      "performance": "rendimiento",
+      "ops": "operaciones",
+      "other": "otro"
+    },
+    "sections": {
+      "risks": "Riesgos",
+      "behaviourChanges": "Cambios de comportamiento",
+      "invariantsTouched": "Invariantes afectados",
+      "untested": "Rutas sin test",
+      "humanChecks": "Comprobaciones humanas",
+      "divergences": "Divergencias con la spec"
+    },
+    "userVisible": "Visible para usuarios",
+    "invariantStatus": {
+      "kept": "Se mantiene",
+      "changed": "Cambia",
+      "at-risk": "En riesgo"
+    },
+    "diagnostic": "Parte del resumen del revisor no se pudo usar:",
+    "dropped_one": "{{count}} entrada del resumen no tenía el formato esperado y se omitió.",
+    "dropped_other": "{{count}} entradas del resumen no tenían el formato esperado y se omitieron.",
+    "topRisk": "Riesgo principal",
+    "moreRisks_one": "+{{count}} más",
+    "moreRisks_other": "+{{count}} más"
+  },
+  "agentActions": {
+    "total_one": "{{count}} acción",
+    "total_other": "{{count}} acciones",
+    "countsLabel": "Acciones del agente registradas por tipo",
+    "kinds": {
+      "read": "lecturas",
+      "write": "escrituras",
+      "exec": "comandos",
+      "mcp": "llamadas MCP",
+      "network": "peticiones web"
+    },
+    "caveat": "Registrado a partir de los propios streams de los agentes: las lecturas son tan completas como las informe cada proveedor. Nunca se guardan contenidos ni valores de entorno.",
+    "run": "Run {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "No se pudieron descargar las acciones del agente"
   }
 }

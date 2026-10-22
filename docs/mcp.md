@@ -49,9 +49,9 @@ reading one description. The tools are:
 | `specrails_code` | File discovery, literal content search, bounded line reads, summaries and provenance; AI summary regeneration is capability-gated |
 | `specrails_git` | Repository/branch/worktree information, status, diffs and PR lookup |
 | `specrails_env` | Project environment readiness and environment-file management; `get`/`status`/`recheck` report each configured name's value-free resolution status |
-| `specrails_support` | Support triage, local diagnostics and specrails-core update workflows |
-| `specrails_setup` | Add-project setup wizard surface |
-| `specrails_analytics` | Per-project spending analytics + budget |
+| `specrails_support` | Support triage, local diagnostics, specrails-core update workflows (following the app update channel) and `api_meta` (API, app, Core and contract versions) |
+| `specrails_setup` | Add-project and per-project install surface (prerequisites, add, install-config, install, checkpoints, abort) |
+| `specrails_analytics` | Per-project spending analytics + budget, decision times, loop economics (`loop_economics`) |
 | `specrails_settings` | App-level settings |
 | `specrails_watch` | Await the real result of an async (cost-incurring) action |
 | `specrails_guide` | Returns the platform guide — read this first |
@@ -116,6 +116,17 @@ failure and act only on the user's confirmation:
 | `runtime_settle` | write | Prepare delivery for a succeeded-but-unsettled run |
 | `runtime_dismiss` | write | Dismiss a runtime continuation card |
 | `runtime_cancel` | destructive | Cancel an active runtime continuation |
+
+## Agent actions audit
+
+`specrails_jobs(audit)` (read tier) returns what the agents of a run read,
+wrote, executed, called over MCP or fetched: pass `jobId` for one run, or omit
+it and pass `from`/`to` for a project-wide window. `format` is `jsonl`
+(default) or `csv`; the result carries `rows` and the export text in `data`.
+Reads are only as complete as each provider's stream. Every tool call made by
+an in-app mission agent in a pinned project is itself recorded as an `mcp` row
+(`tool:action`, never its arguments). See
+[agent actions audit](internals/agent-actions-audit.md).
 
 `specrails_rails(list)` rails carry `availability` — `free`, `busy` (active job
 or loop run), `pending_decision` (an undecided PR delivery) or `on_review` (a
@@ -238,6 +249,13 @@ one.)
   short-lived capability bound server-side to that conversation, pinned project,
   and permission level, transports it through an app-owned `0600` file, and
   revokes it when the turn ends.
+- **Mission agents are read-only.** In the app's own agent chat, the AI CLI
+  starts with its native read-only boundary. Claude gets no file-writing or
+  shell tools, Codex runs in its read-only sandbox, Gemini runs in plan mode, and
+  local engines use the runner's read-only tools. Changes reach your projects
+  only through these MCP tools and the rails they launch. Kimi has no native
+  read-only mode, so Kimi missions keep their previous permissions. MCP servers
+  you add yourself keep their own behaviour.
 - **The app must be running.** The MCP server is embedded in the desktop app's
   process — there is no standalone daemon. The Tauri shell keeps it alive even
   when you close the main window: closing the window **minimizes to the system

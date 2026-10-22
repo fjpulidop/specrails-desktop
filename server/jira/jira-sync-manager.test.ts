@@ -1736,7 +1736,7 @@ describe('drainOnce()', () => {
     expect(pending[0].attempts).toBe(1)
   })
 
-  it('unsupported op type → dead', async () => {
+  it('create op without a local ticket id → dead (never calls Jira)', async () => {
     seedConnection()
     enqueueMany(db, [{ jiraIssueId: 'X-1', opType: 'create', idempotencyKey: 'k-create', payload: {} }])
     const fake = makeFakeFetch()
@@ -1744,7 +1744,19 @@ describe('drainOnce()', () => {
     await mgr.drainOnce()
     const dead = listOutbox(db, { state: 'dead' })
     expect(dead.length).toBe(1)
-    expect(dead[0].deadReason).toMatch(/unsupported op type create/)
+    expect(dead[0].deadReason).toMatch(/invalid create payload/)
+    expect(fake.calls).toHaveLength(0)
+  })
+
+  it('unknown op type → dead', async () => {
+    seedConnection()
+    enqueueMany(db, [{ jiraIssueId: 'X-2', opType: 'bogus' as never, idempotencyKey: 'k-bogus', payload: {} }])
+    const fake = makeFakeFetch()
+    const mgr = makeManager(fake.fetchImpl)
+    await mgr.drainOnce()
+    const dead = listOutbox(db, { state: 'dead' })
+    expect(dead.length).toBe(1)
+    expect(dead[0].deadReason).toMatch(/unsupported op type bogus/)
   })
 
   it('transition: validation error (400) on getTransitions → dead (not retried)', async () => {

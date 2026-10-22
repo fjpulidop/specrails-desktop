@@ -45,7 +45,7 @@ A rail runs a **Loop** — the recipe for the work. Two loops are **built in** a
 | Built-in loop | Command | What it does |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. The everyday default. |
-| **Freestyle** | Freestyle | A capable provider implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude support it. |
+| **Freestyle** | Freestyle | The rail's provider implements each spec autonomously, **bypassing** the pipeline; verification and the Loop Decider then refine it until green. One independent run per spec. Works on Claude, Codex, Gemini, Kimi and local engines; the interactive in-job chat is Claude-only. |
 
 To run several specs, put related ones (up to 3) on one rail — `Implement` runs them as one aggregate job — or spread independent specs across several rails: each git-backed rail runs in parallel in its own isolated worktree.
 

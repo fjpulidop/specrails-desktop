@@ -352,6 +352,8 @@ export const codexAdapter = {
   id: 'codex',
   displayName: 'Codex CLI',
   binary: 'codex',
+  // Config/auth home and API-key auth.
+  envAllowlist: ['CODEX_*', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_ORGANIZATION', 'OPENAI_PROJECT'],
   minCliVersion: CODEX_MIN_VERSION,
   projectDirName: '.codex',
   instructionsFilename: 'AGENTS.md',
@@ -373,9 +375,15 @@ export const codexAdapter = {
     // Codex has an enforced read-only sandbox, but no true "no tools" mode in
     // this adapter (workspace-write is not an output-only boundary).
     toolPolicies: ['read-only'],
+    // Core's Codex driver maps `permissions: 'read-only'` to the read-only
+    // sandbox; MCP tool calls run outside the sandbox (verified codex 0.160).
+    missionReadOnlySession: { permissions: 'read-only', tools: 'default' },
     profiles: false,
     customRoles: false,
-    freestyle: false,
+    // Non-interactive Freestyle (Core prompt → verify → decider) verified with a
+    // real run; interactive Freestyle still needs persistentStdin (Claude only).
+    // Evidence: openspec/changes/freestyle-codex-gemini/design.md.
+    freestyle: true,
     userMcp: false,
   },
   modelCatalog: () => CODEX_MODELS,

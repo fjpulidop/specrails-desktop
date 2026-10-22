@@ -44,6 +44,7 @@ Um rail roda um **Loop** — a receita do trabalho. Dois loops são **embutidos*
 | Loop embutido | Comando | O que faz |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Um job cobrindo todas as specs do rail. Roda o pipeline completo Architect → Developer → Reviewer → Ship. O padrão do dia a dia. |
+| **Freestyle** | Freestyle | O provedor do rail implementa cada spec de forma autônoma, **sem** o pipeline; depois a verificação e o Loop Decider refinam o resultado até tudo passar. Uma execução independente por spec. Funciona com Claude, Codex, Gemini, Kimi e motores locais; o chat interativo dentro do job é exclusivo do Claude. |
 
 Para rodar várias specs, coloque as relacionadas (até 3) num único rail — o `Implement` executa-as como um só job agregado — ou distribua specs independentes por vários rails: cada rail com git roda em paralelo na sua própria worktree isolada.
 

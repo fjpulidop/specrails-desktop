@@ -36,6 +36,8 @@ const COLOR: Record<Surface, string> = {
   proposal: 'var(--accent-highlight, #c084fc)',
   'agent-studio': 'var(--accent-success, #50fa7b)',
   setup: 'var(--accent-primary, #7aa2f7)',
+  flow: 'var(--accent-info, #5fa8d3)',
+  triage: 'var(--accent-info, #5fa8d3)',
 }
 
 // All surfaces, drawn in a stable order. Derived from SURFACE_LABEL keys so a

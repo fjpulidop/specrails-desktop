@@ -40,6 +40,9 @@ import {
   resolveTicketsFromCommand
 } from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
+import { createAgentAuditService } from './modules/audit'
+import { registerAgentAuditHttp } from './modules/audit/adapters/http'
+import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
@@ -365,6 +368,13 @@ router.post('/:projectId/jobs/:id/messages', (req: Request, res: Response) => {
 const c = ctx(req)
 const jobId = req.params.id as string
 const loopPaused = c.loopRunManager?.isPaused?.(jobId) ?? false
+// A budget_paused loop resumes through its turn door too (any text): still
+// over budget ⇒ the shared daily_budget_exceeded 409 body.
+if (loopPaused && c.loopRunManager?.budgetPause?.(jobId)) {
+  const resumed = c.loopRunManager.resumeBudgetPause(jobId)
+  if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
+  if (resumed.status === 'resumed') { res.status(202).json({ ok: true }); return }
+}
 if (!isInteractiveJobsEnabled() && !loopPaused) {
 res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
 return
@@ -497,6 +507,12 @@ const accepted = loopPaused
   }
 
   // ─── Jobs export (must be before /:projectId/jobs/:id) ─────────────────────
+  // Agent actions audit exports (JSONL/CSV): one run, or a project-wide window.
+  registerAgentAuditHttp(router, (req) => {
+    const context = ctx(req)
+    return context.agentAudit?.service ?? createAgentAuditService({ store: createSqliteAgentActionStore(context.db) })
+  })
+
   router.get('/:projectId/jobs/export', (req: Request, res: Response) => {
     const format = (req.query.format as string) || 'json'
     if (format !== 'json' && format !== 'csv') {
@@ -652,6 +668,7 @@ let interactiveAcceptingTurns = false
 const loopRun = getLoopRun(db, jobId)
 const loopPaused = loopRun?.status === 'paused' || (c.loopRunManager?.isPaused?.(jobId) ?? false)
 const loopPauseReason = c.loopRunManager?.pausedReason?.(jobId) ?? null
+const loopPauseBudget = c.loopRunManager?.budgetPause?.(jobId) ?? null
 const pendingInterrupts = c.loopRunManager?.pendingInterrupts?.(jobId) ?? []
 if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
 const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
@@ -659,7 +676,7 @@ const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, pendingInterrupts }
+const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), pendingInterrupts }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

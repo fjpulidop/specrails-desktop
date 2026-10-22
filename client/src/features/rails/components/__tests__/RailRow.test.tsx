@@ -275,3 +275,32 @@ describe('RailRow', () => {
     expect(onLoopModelChange).toHaveBeenCalledWith('Moonshot-Team/Private_Coder:v2')
   })
 })
+
+describe('RailRow spec triage preselection (launch-triage)', () => {
+  const triaged = (id: number, loop: string): LocalTicket => ({
+    id, title: `Spec ${id}`, description: '', status: 'todo', priority: null, labels: [], assignee: null, prerequisites: [],
+    metadata: { triage: { status: 'ready', size: 'S', filesLikely: [], publicInterfaces: false, dataModel: false, securitySurface: false, recommendedLoop: loop, recommendedMode: 'implement', rationale: 'r', confidence: 'high', inputsHash: 'sha256:h', model: 'haiku', costUsd: 0.01, computedAt: 't' } },
+    created_at: '', updated_at: '', created_by: 'u', source: 'manual',
+  })
+  const base = { ...defaultProps, aiEngine: 'claude', providers: ['claude'], loopAvailable: false, onLoopChange: vi.fn() }
+
+  it('preselects the recommended loop and marks it while the rail has no explicit pick', () => {
+    renderRailRow({ ...base, tickets: [triaged(1, 'factory:freestyle')] } as any)
+    const selector = screen.getByTestId('rail-loop-selector')
+    expect(selector).toHaveValue('factory:freestyle')
+    expect(selector).toHaveAttribute('data-recommended', 'true')
+    expect(within(selector).getByRole('option', { name: 'Freestyle · recommended' })).toBeInTheDocument()
+  })
+
+  it('lets an explicit choice override the recommendation', () => {
+    renderRailRow({ ...base, selectedLoopId: 'factory:implement', tickets: [triaged(1, 'factory:freestyle')] } as any)
+    const selector = screen.getByTestId('rail-loop-selector')
+    expect(selector).toHaveValue('factory:implement')
+    expect(selector).not.toHaveAttribute('data-recommended')
+  })
+
+  it('never preselects a loop the picker does not offer', () => {
+    renderRailRow({ ...base, tickets: [triaged(1, 'factory:sdd-quick-openspec')] } as any)
+    expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
+  })
+})

@@ -36,6 +36,34 @@ npm publication is serialized across versions and checks the current `latest` ve
 
 Release admission uses the current run/attempt of the named CI workflow and the exact SHA, repository, branch and event. The metadata workflow consumes no artifacts from an untrusted pull request. [Workflow-run trust and event behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows), [workflow runs API](https://docs.github.com/en/rest/actions/workflow-runs).
 
+## Update channels
+
+Desktop offers two update channels, chosen in **App settings ▸ Updates ▸ Update channel** and stored as the app setting `updateChannel` (`GET/PUT /api/settings`):
+
+| Channel | Desktop updater manifest | Core (npm dist-tag) |
+|---|---|---|
+| `latest` (default) | `releases/latest/download/latest.json`, the newest release, written by `Desktop Release` | `latest` |
+| `stable` | `releases/download/stable/latest.json`, the promoted release | `stable`; while Core publishes no `stable` dist-tag the check falls back to `latest` and reports `channelFallback: true` |
+
+**Mechanism.** `stable` is a single moving GitHub **pre-release** tagged `stable`. Its assets are verbatim copies of the promoted version's `latest.json` and `manifest.json`, plus `stable.json` (`{ version, tag, sha, promotedAt }`). The copied `latest.json` still points at that version's signed installers, so promotion rebuilds and re-signs nothing, and the updater's signature check is unchanged. Because the pointer is a pre-release created with `--latest=false`, it never becomes the repository's "latest" release, so the `latest` channel, `release-policy.mjs latest` and specrails.dev downloads are unaffected. The `stable` tag is only an anchor for that release; it is not a version tag and does not match the `v*` trigger of `Desktop Release`.
+
+The updater endpoint compiled into `tauri.conf.json` stays the `latest` manifest. The app checks through the native command `check_app_update(channel)` (`src-tauri/src/app_updates.rs`), which rebuilds the updater with the selected channel's endpoint and hands the stock plugin `Update` back to the UI, so download, signature verification and install use the plugin unchanged. A `stable` check before the first promotion fails with `stable-channel-unavailable`; the app says so instead of silently switching the user to `latest`.
+
+**Promoting a release to stable.** Run the `Promote Stable` workflow (`.github/workflows/promote-stable.yml`, `workflow_dispatch` only) with `version=X.Y.Z`:
+
+```sh
+gh workflow run promote-stable.yml -f version=2.64.2 -f allow_rollback=false
+```
+
+`node scripts/release-policy.mjs stable-promotion` admits the promotion only when:
+
+- `vX.Y.Z` is a published GitHub release (not a draft or prerelease) carrying `latest.json`;
+- it was published at least **7 days** ago (`STABLE_SOAK_DAYS`);
+- the exact commit of the tag has a successful `CI` push run on `main` in this repository;
+- it does not move stable to an older version, unless `allow_rollback=true` is set for an incident rollback.
+
+Only then does the job copy the assets onto the `stable` pre-release (creating it on first use). Nothing is promoted automatically; promoting is a deliberate maintainer action, typically monthly. Core's `stable` dist-tag is promoted in specrails-core on the same cadence; Desktop needs no change when it appears.
+
 ## Native validation without publication
 
 Manually running `Desktop Release` defaults to `validation_only=true`. Select a trusted branch in this repository: admission requires successful push CI for that exact branch and SHA, and refuses evidence from another branch, a pull request or a fork. Selecting an existing matching release tag instead requires its main push CI. Validation builds retain their artifacts in GitHub Actions; macOS signing/notarization remains mandatory and the existing Windows installer signing policy is unchanged. The entire GitHub Release publication job is skipped. A passing validation build does not publish a release or move an update channel.
@@ -50,7 +78,7 @@ The macOS job retains `artifacts/chromium-signing/` as the `chromium-signing-mac
 
 ### Download channel
 
-GitHub Releases is the only Desktop download channel. Each release carries the canonical installers, the Tauri updater assets and `manifest.json` (version, sha256 and size per platform, with GitHub asset URLs). The Tauri updater reads `releases/latest/download/latest.json`; specrails.dev reads the latest release through the GitHub API. Nothing is uploaded to Hostinger, so a release has no second publication step to recover.
+GitHub Releases is the only Desktop download channel. Each release carries the canonical installers, the Tauri updater assets and `manifest.json` (version, sha256 and size per platform, with GitHub asset URLs). The Tauri updater reads `releases/latest/download/latest.json` on the `latest` channel and the `stable` pointer on the `stable` channel (see [Update channels](#update-channels)); specrails.dev reads the latest release through the GitHub API. Nothing is uploaded to Hostinger, so a release has no second publication step to recover.
 
 - `RELEASE_PAT` must be authorized for release-please's pull requests and releases. It also permits tag pushes to trigger publication workflows; events created with the repository's ordinary `GITHUB_TOKEN` generally do not trigger another workflow.
 - Publication uses one of two credentials. When the `NPM_TOKEN` secret is set, it must authenticate an account with publishing permission for `specrails-desktop` (npm now requires such tokens to be granular with *bypass 2FA*, and they expire within 90 days); the workflow checks authentication and gives an explicit error before publishing. When the secret is empty, the job publishes through npm **trusted publishing**: it installs npm 11, removes the empty token line that `setup-node` writes, and lets npm exchange the job's OIDC identity (`id-token: write`) for a short-lived publish grant. That path only works once the package's *Trusted publisher* on npmjs.com names this repository (`fjpulidop/specrails-desktop`) and workflow file (`npm-publish.yml`, no environment); registry configuration is never changed from here. Provenance does **not** grant publishing permission in either mode. An npm `E404` during publication is npm's answer to an unauthorized publish and does not identify which token or permission failed; an `E403` mentioning two-factor authentication means the stored token lacks *bypass 2FA*. [npm publishing and provenance](https://docs.github.com/en/actions/tutorials/publish-packages/publish-nodejs-packages).

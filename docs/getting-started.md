@@ -1,6 +1,6 @@
 # Getting started
 
-This guide walks you from "I just heard about specrails-desktop" to "I just shipped my first AI-driven change" in about ten minutes. No prior knowledge of specrails-core required — the app installs it for you.
+This guide walks you from "I just heard about specrails-desktop" to "I just shipped my first AI-driven change" in about ten minutes. No prior knowledge of specrails-core required — the app sets it up for you.
 
 ## What you'll need
 
@@ -8,7 +8,7 @@ This guide walks you from "I just heard about specrails-desktop" to "I just ship
 
 If you install with **npm** (Option 2 below) you'll also need **Node.js 20+** and **`git`** on your PATH. The **desktop app** bundles its own Node and Git runtimes, so you don't need those installed separately.
 
-That's it. specrails-desktop will install specrails-core in your project on first run if it isn't there yet.
+That's it. specrails-desktop sets up specrails-core for each project automatically, outside your repository.
 
 ## Install
 
@@ -38,7 +38,7 @@ By default the app binds to `http://127.0.0.1:4200`. Open it in your browser.
 
 There are two ways. Pick whichever feels natural.
 
-**From the dashboard:**
+**From the dashboard:** click **+ Add project** in the sidebar. Choose **Existing project** and pick the repository folder (the display name defaults to the folder name), or choose **New project** to describe an idea and let the Project Builder bootstrap a repository with a Milestone-1 backlog (see [Project builder](internals/project-builder.md)).
 
 **From the CLI:**
 
@@ -47,15 +47,16 @@ specrails-desktop add /path/to/your/project
 specrails-desktop list   # verify
 ```
 
-### If the project doesn't have specrails-core yet
+### What happens after you add it
 
-The setup wizard runs automatically. Three steps:
+There is no setup wizard. The project registers immediately and Specrails assembles its workspace in the background:
 
-1. **Configure** — pick a model preset (Balanced / Budget / Max) and optionally override the model per agent. There are no role files to choose or install: the three pipeline roles (`sr-architect`, `sr-developer`, `sr-reviewer`) are defined by the Core engine's runtime, and their definitions, provider and model live in **Settings → Agent runtime**.
-2. **Install** — the app runs the installer (`npx --yes --prefer-online specrails-core@^5.1.0 init --yes --from-config <config>`) non-interactively and streams the output live. The version is pinned to the core release the app ships with — it never silently jumps to a new major.
-3. **Done** — a summary tells you how many commands landed; its **Agents** tile counts only the project's custom roles (`custom-*`), because the baseline roles are not installed as files. Click **Continue to project**.
+- **AI CLIs are auto-detected.** The app uses every supported CLI it finds on your machine (Claude, Codex). If none is detected, the Add Project dialog shows a warning, but registration is never blocked; the project picks up a provider as soon as one is detected.
+- **The workspace lives outside your repository.** For each detected provider the app runs specrails-core `init` (from the bundled Core in the desktop app, or `npx specrails-core@^6.0.0` when no bundle is present) into `~/.specrails/projects/<slug>/workspace`. Your repository stays pristine: the framework files are not scaffolded into it.
+- **Progress shows on the project's sidebar entry.** A small indicator ("Setting up workspace…") appears while assembly runs. If a provider fails, the entry shows "Workspace setup failed — click to retry"; the retry only re-runs the providers that failed.
+- **Roles and models are configured in the app, not installed as files.** The pipeline roles (`sr-architect`, `sr-developer`, `sr-reviewer`) are defined by the Core engine's runtime; their provider and model live in **Settings → Agent runtime**. Per-agent overrides live in agent profiles on the **Agents** page.
 
-That's the whole onboarding. No tier picker, no second wizard. You can manage agents and their per-agent models later from the **Agents** page (Profiles tab).
+The Core version is pinned to the major the app ships with (Core 6); it never silently jumps to a new major. Newer Core releases within that major are offered through the voluntary update channel (see [Core runtime updates](internals/core-runtime-updates.md)).
 
 ## Your first spec
 
@@ -119,9 +120,9 @@ lsof -i :4200    # macOS / Linux
 
 On macOS, this usually means the app was launched from Finder/Dock and didn't pick up Homebrew/Volta paths. The app resolves PATH at startup automatically, but if it still fails, see [platforms/macos.md](platforms/macos.md).
 
-**The setup wizard fails on `npx specrails-core init`**
+**The sidebar shows "Workspace setup failed"**
 
-Most likely Node is missing from the shell environment that launched the app, or whichever AI CLI your project uses isn't authenticated:
+Click the entry to retry. If it keeps failing, the usual causes are a missing Node runtime in the environment that launched the app (npm installs only; the desktop app bundles Node) or an AI CLI that isn't authenticated:
 
 - **Claude** — sign in to the `claude` CLI or set `ANTHROPIC_API_KEY`.
 - **Codex** — sign in to the `codex` CLI.

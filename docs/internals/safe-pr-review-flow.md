@@ -400,6 +400,8 @@ Conventional, open-source-style naming for everything the user sees on GitHub. A
 logic in `server/modules/delivery/runtime/pr-naming.ts` (branches + titles) and `server/modules/delivery/runtime/pr-body.ts` (canonical body +
 diff collection), fully unit-tested.
 
+- **Flow → Spec deliveries** add one derivation line to the body (coverage of the derived
+  OpenSpec change, from the settle evidence; see [review packet](review-packet.md)).
 - **`<ref>`** — the ticket's Jira key when Jira-linked, else the local ticket number. **JIRA
   ALWAYS PREVAILS**, resolved per ticket at naming/body time with no HTTP: the authoritative
   `jira_links` row (`getLinkByLocalId`, tombstoned links ignored) wins over the ticket's
@@ -436,6 +438,14 @@ diff collection), fully unit-tested.
   fails — diff problems can only degrade the body, NEVER block PR creation. The v1
   `buildBatchPrBody` and its "_Draft PR produced by specrails — the engineer owns the merge._"
   footer are gone.
+- **Reviewer risk brief in the PR body** (review-risk-brief-surfaces) — when the delivery's
+  `settle_evidence` carries the reviewer brief (Core `reviewBrief: 1`), `create.ts` merges the
+  units' briefs (`buildWhatToLookAt`) and `buildReviewBriefBlock` adds a short `## What to look at`
+  block right under the summary paragraph: high and medium risks (severity, area, text, `file:line`),
+  untested paths and human checks as an unchecked task list, under an "advisory, not a verification
+  result" line. Low risks, behaviour changes and invariants stay in the review packet. No brief
+  (older Core, no reviewer verdict) or nothing to list ⇒ no block, so the body is byte-identical
+  to before. The cost footer stays last. The brief never feeds a decision or the approval gate.
 
 ## The sync contract (two surfaces, zero desync)
 
@@ -506,6 +516,32 @@ evidence or detach stale/missing-SHA terminal evidence to `on_review`. Only a ve
 is superseded atomically and run on that PR head. A stale
 concurrent request receives 409 before it can allocate or claim anything. Legacy / non-isolated
 launches are unaffected.
+
+## Review WIP limit
+
+The project setting `reviewWipLimit` (null = no limit) caps how many deliveries wait for review.
+`server/modules/delivery/domain/review-wip.ts` counts top-level rows in `building`, `on_review`,
+`pr_draft` or `pr_ready`. `building` counts because it lands on review when it settles, and only
+counting it keeps the cap exact under Launch all. Per-repository children, `no_changes`,
+`implementation_failed`, `pr_failed`, `pr_closed` and terminal rows do not count.
+
+`runtime/review-wip-gate.ts` is bound per project as `ProjectContext.reviewWipGate`. The launch
+route checks it right after the daily budget gate, before relaunch restoration, worktree allocation
+or any spawn. A new delivery at the limit gets
+**409 `{ error: 'review_wip_limit_reached', limit, pending: [{ deliveryId, railIndex, ticketIds, since }], detail, action }`**.
+An admitted launch holds an in-memory reservation for its rail until the response finishes (the
+delivery row then exists), so parallel launches cannot overshoot.
+
+Continuations add no review work and are exempt (`launchAddsReviewWip`): `revisionOfDeliveryId`,
+Relaunch of a recorded delivery, `targetPrNumber`/`followUp`, and any launch on a rail that still owns an
+active delivery. The relaunch guard above only lets the last case through as that delivery's
+continuation; anything else gets `pr_decision_pending`. `since` is the delivery's `created_at`.
+
+Surfaces: the rails header badge "In review N/L" lists the pending deliveries. At the limit, Play is
+disabled with a tooltip on rails that would open a new delivery. Launch all starts at most the
+remaining capacity in board order and its dialog names the held rails. MCP `launch_all` reports
+`review-wip-limit` skips and mobile relays the 409 unchanged. The mission operator prompt explains
+the refusal.
 
 ## Explicit target PR (deliver-rail-into-existing-pr)
 
@@ -617,6 +653,11 @@ kill-switch-off legacy path. The `needs_review`-clearing and failure-revert bran
   (Done transition + "PR merged" comment — NOT `onJobOutcome`, whose completion comment assumes
   cost/duration); `onRailDiscard(ticketIds, refId)` (configured `discardStatus`, else logical
   todo).
+
+- Flow specs (`metadata.flow` still `active`/`paused` at settle) are excluded
+  from the settle-time `onRailReview`: their Flow settlement creates the issue
+  (`enqueuePromote`, key `flow:<flowId>:create`) and only then transitions it
+  with `onRailReview([ticketId], deliveryId)`. See [Flow mode](flow-mode.md#settlement).
 
 ## Origin link (as-built)
 

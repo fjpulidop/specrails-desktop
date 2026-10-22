@@ -7,8 +7,10 @@ export {
   SUPPORTED_PROTOCOL_VERSIONS,
   KNOWN_EVENT_TYPES,
   checkSessionContract,
+  hostSupportsFlowSessions,
   type DriverDescriptor,
   type InitializeResult,
+  type InputDelivery,
   type McpServerSpec,
   type SessionContractBlock,
   type SessionContractCheck,
@@ -27,6 +29,6 @@ export { SessionRequestError, isSessionRequestError } from './domain/errors'
 export { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState, type SubagentView } from './domain/projection'
 export { resolveSubagentPolicy, resolveSubagentRuntime, type ConversationalSurface, type SubagentPolicy, type SubagentPolicyInput, type SubagentRuntimeChoice, type SubagentRuntimeResolution } from './domain/subagent-policy'
 export { DEFAULT_SUPERVISION, acceptsSessions, type HostStatus, type HostSupervisionPolicy } from './domain/host-state'
-export { DEFAULT_CORE_SESSIONS_FLAG, parseCoreSessionsFlag, resolveCoreSessionsAvailability, type CoreSessionsAvailability, type CoreSessionsFlag } from './domain/availability'
+export { DEFAULT_CORE_SESSIONS_FLAG, parseCoreSessionsFlag, resolveCoreSessionsAvailability, resolveFlowAvailability, type CoreSessionsAvailability, type CoreSessionsFlag, type FlowAvailability } from './domain/availability'
 export { SessionEventPump, type PumpListener } from './application/session-event-pump'
 export type { Clock, HostProcessLauncher, ProjectionSink, SessionHostClient, TimerHandle } from './ports'

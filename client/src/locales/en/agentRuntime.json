@@ -620,5 +620,12 @@
       "input": "Maximum turns for {{steps}} (role {{role}})",
       "stepHint": "Role {{role}} stops after {{turns}} turns. Steps sharing this role share the limit; it applies to new launches after you publish."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Reviewer model family suggestion",
+    "title": "Run the reviewer on {{provider}} — a different model family catches different mistakes",
+    "body": "The developer and the reviewer currently run on the same provider. This is only a suggestion: nothing changes unless you apply it.",
+    "apply": "Apply",
+    "dismiss": "Dismiss"
   }
 }

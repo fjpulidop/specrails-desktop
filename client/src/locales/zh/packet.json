@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "你要求的",
     "whatIDid": "已完成的",
-    "howItWasChecked": "如何检查的"
+    "howItWasChecked": "如何检查的",
+    "whatTheAgentDid": "智能体做了什么"
   },
   "churn": {
     "line": "{{files}} 个文件改动 · +{{added}} / −{{removed}} 行",
@@ -104,7 +105,8 @@
     "alreadyResolved": "已有人回应过。",
     "actionFailed": "该操作未成功。",
     "revisionStale": "此项刚在别处被处理 — 请重新加载查看状态。",
-    "revisionFailed": "无法开始修改。你的文字已保留。"
+    "revisionFailed": "无法开始修改。你的文字已保留。",
+    "revisionBudget": "每日预算已用尽，因此未开始此更改。你的文本已保留。"
   },
   "versions": {
     "title": "早前的版本（{{count}}）",
@@ -165,5 +167,80 @@
       "unreported": "未报告"
     },
     "noReport": "运行未报告此附录。请查看下方的变更与证据。"
+  },
+  "derivation": {
+    "title": "推导",
+    "coverage": "推导出的设计解释了 {{files}} 个已更改文件中的 {{explained}} 个",
+    "change": "OpenSpec 变更",
+    "requirements": "需求",
+    "requirementsValue": "新增 {{added}} · 修改 {{modified}}",
+    "confidence": "推导者置信度",
+    "confidenceLevel": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "confidenceUnknown": "未报告",
+    "caveat": "覆盖率由 Specrails 通过 git 测量；置信度是代理自己的评估。",
+    "unexplainedTitle_one": "{{count}} 个已更改文件未被解释",
+    "unexplainedTitle_other": "{{count}} 个已更改文件未被解释",
+    "more_one": "……另外 {{count}} 个文件",
+    "more_other": "……另外 {{count}} 个文件",
+    "unavailable": "无法读取此 Flow 交付的推导报告。请直接查看差异。",
+    "rewriteFailed": "无法根据推导出的变更重写 spec；它保留 Flow 草稿。OpenSpec 变更仍是技术记录。"
+  },
+  "brief": {
+    "title": "需要关注的地方",
+    "caveat": "AI 评审者给出的参考摘要：说明人工应优先查看的位置。它不是验证结果，也不会阻止任何决定。",
+    "severity": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "area": {
+      "data": "数据",
+      "security": "安全",
+      "api": "API",
+      "ux": "用户体验",
+      "performance": "性能",
+      "ops": "运维",
+      "other": "其他"
+    },
+    "sections": {
+      "risks": "风险",
+      "behaviourChanges": "行为变化",
+      "invariantsTouched": "涉及的不变量",
+      "untested": "未测试的路径",
+      "humanChecks": "人工检查",
+      "divergences": "与规范的偏差"
+    },
+    "userVisible": "用户可见",
+    "invariantStatus": {
+      "kept": "保持",
+      "changed": "已改变",
+      "at-risk": "有风险"
+    },
+    "diagnostic": "评审摘要的部分内容无法使用：",
+    "dropped_one": "{{count}} 条摘要条目格式不符，已跳过。",
+    "dropped_other": "{{count}} 条摘要条目格式不符，已跳过。",
+    "topRisk": "首要风险",
+    "moreRisks_one": "另有 {{count}} 项",
+    "moreRisks_other": "另有 {{count}} 项"
+  },
+  "agentActions": {
+    "total_one": "{{count}} 项操作",
+    "total_other": "{{count}} 项操作",
+    "countsLabel": "按类型记录的智能体操作",
+    "kinds": {
+      "read": "读取",
+      "write": "写入",
+      "exec": "命令",
+      "mcp": "MCP 调用",
+      "network": "网络请求"
+    },
+    "caveat": "根据智能体自身的输出流记录：读取的完整程度取决于各提供方的上报。从不保存文件内容或环境变量值。",
+    "run": "运行 {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "无法下载智能体操作记录"
   }
 }

@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "Was du wolltest",
     "whatIDid": "Was getan wurde",
-    "howItWasChecked": "Wie es geprüft wurde"
+    "howItWasChecked": "Wie es geprüft wurde",
+    "whatTheAgentDid": "Was der Agent getan hat"
   },
   "churn": {
     "line": "{{files}} Dateien geändert · +{{added}} / −{{removed}} Zeilen",
@@ -104,7 +105,8 @@
     "alreadyResolved": "Jemand hat das schon beantwortet.",
     "actionFailed": "Diese Aktion ist nicht durchgegangen.",
     "revisionStale": "Das wurde gerade anderswo entschieden — neu laden, um den Stand zu sehen.",
-    "revisionFailed": "Die Änderung konnte nicht gestartet werden. Dein Text wurde behalten."
+    "revisionFailed": "Die Änderung konnte nicht gestartet werden. Dein Text wurde behalten.",
+    "revisionBudget": "Das Tagesbudget ist ausgeschöpft, daher wurde die Änderung nicht gestartet. Dein Text bleibt erhalten."
   },
   "versions": {
     "title": "Frühere Versionen ({{count}})",
@@ -165,5 +167,80 @@
       "unreported": "Nicht berichtet"
     },
     "noReport": "Der Lauf hat zu diesem Addendum nichts berichtet. Prüfe die Änderungen und Belege unten."
+  },
+  "derivation": {
+    "title": "Ableitung",
+    "coverage": "{{explained}} von {{files}} geänderten Dateien werden vom abgeleiteten Design erklärt",
+    "change": "OpenSpec-Änderung",
+    "requirements": "Anforderungen",
+    "requirementsValue": "{{added}} hinzugefügt · {{modified}} geändert",
+    "confidence": "Konfidenz des Ableiters",
+    "confidenceLevel": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "confidenceUnknown": "Nicht angegeben",
+    "caveat": "Die Abdeckung misst Specrails mit git; die Konfidenz ist die Selbsteinschätzung des Agenten.",
+    "unexplainedTitle_one": "{{count}} geänderte Datei ist nicht erklärt",
+    "unexplainedTitle_other": "{{count}} geänderte Dateien sind nicht erklärt",
+    "more_one": "…und {{count}} weitere Datei",
+    "more_other": "…und {{count}} weitere Dateien",
+    "unavailable": "Der Ableitungsbericht dieser Flow-Lieferung konnte nicht gelesen werden. Prüfe den Diff direkt.",
+    "rewriteFailed": "Die Spec konnte nicht aus der abgeleiteten Änderung neu geschrieben werden; sie behält ihren Flow-Entwurf. Die OpenSpec-Änderung bleibt der technische Nachweis."
+  },
+  "brief": {
+    "title": "Worauf achten",
+    "caveat": "Hinweise des KI-Reviewers: wo ein Mensch zuerst hinschauen sollte. Kein Prüfergebnis und blockiert nie eine Entscheidung.",
+    "severity": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "area": {
+      "data": "Daten",
+      "security": "Sicherheit",
+      "api": "API",
+      "ux": "UX",
+      "performance": "Performance",
+      "ops": "Betrieb",
+      "other": "Sonstiges"
+    },
+    "sections": {
+      "risks": "Risiken",
+      "behaviourChanges": "Verhaltensänderungen",
+      "invariantsTouched": "Berührte Invarianten",
+      "untested": "Ungetestete Pfade",
+      "humanChecks": "Manuelle Prüfungen",
+      "divergences": "Abweichungen von der Spec"
+    },
+    "userVisible": "Für Nutzer sichtbar",
+    "invariantStatus": {
+      "kept": "Erhalten",
+      "changed": "Geändert",
+      "at-risk": "Gefährdet"
+    },
+    "diagnostic": "Ein Teil der Reviewer-Hinweise konnte nicht verwendet werden:",
+    "dropped_one": "{{count}} Eintrag entsprach nicht dem erwarteten Format und wurde übersprungen.",
+    "dropped_other": "{{count}} Einträge entsprachen nicht dem erwarteten Format und wurden übersprungen.",
+    "topRisk": "Größtes Risiko",
+    "moreRisks_one": "+{{count}} weiteres",
+    "moreRisks_other": "+{{count}} weitere"
+  },
+  "agentActions": {
+    "total_one": "{{count}} Aktion",
+    "total_other": "{{count}} Aktionen",
+    "countsLabel": "Erfasste Agentenaktionen nach Art",
+    "kinds": {
+      "read": "Lesezugriffe",
+      "write": "Schreibzugriffe",
+      "exec": "Befehle",
+      "mcp": "MCP-Aufrufe",
+      "network": "Webanfragen"
+    },
+    "caveat": "Aus den Streams der Agenten erfasst: Lesezugriffe sind nur so vollständig, wie jeder Anbieter sie meldet. Inhalte und Umgebungswerte werden nie gespeichert.",
+    "run": "Lauf {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Die Agentenaktionen konnten nicht heruntergeladen werden"
   }
 }

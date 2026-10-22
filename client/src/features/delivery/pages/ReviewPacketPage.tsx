@@ -26,6 +26,9 @@ import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
 import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
+import { AgentActionsSummary } from '../components/review-packet/AgentActionsSummary'
+import { WhatToLookAt } from '../components/review-packet/WhatToLookAt'
+import { PacketDerivation } from '../components/review-packet/PacketDerivation'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -260,7 +263,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { error?: string } | null
         if (!isCurrentScope()) return
-        setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : 'revisionFailed')
+        setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : body?.error === 'daily_budget_exceeded' ? 'revisionBudget' : 'revisionFailed')
         return
       }
       // The note is preserved until the launch is accepted, so a failure never
@@ -528,6 +531,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         ) : null}
       </div>
 
+      {/* ── What to look at: the reviewer's risk brief, first after the verdict.
+          Absent for runs without a brief, so older packets read as before. */}
+      {packet.whatToLookAt ? (
+        <WhatToLookAt brief={packet.whatToLookAt} multiTicket={packet.ticketIds.length > 1} />
+      ) : null}
+
       {packet.driftNudges.length > 0 ? (
         <div className="rounded-lg border border-accent-highlight/30 bg-accent-highlight/5 p-4" data-testid="packet-drift-nudges">
           <h2 className="mb-1 text-sm font-medium text-accent-highlight">{t('drift.title')}</h2>
@@ -576,6 +585,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           </p>
         </Section>
       ) : null}
+
+      {/* ── Derivation (Flow -> Spec): coverage before what to watch out for ─── */}
+      {packet.derivation ? <PacketDerivation derivation={packet.derivation} settlement={packet.flowSettlement} /> : null}
 
       {/* ── What to watch out for: real signals only, never boilerplate ─────── */}
       {packet.watchOut.length > 0 ? (
@@ -727,6 +739,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           ))}
         </ul>
       </Section>
+
+      {packet.agentActions && packet.agentActions.total > 0 ? (
+        <Section
+          title={t('sections.whatTheAgentDid')}
+          badge={(
+            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              {t('agentActions.total', { count: packet.agentActions.total })}
+            </span>
+          )}
+        >
+          <AgentActionsSummary actions={packet.agentActions} />
+        </Section>
+      ) : null}
 
       <Section
         title={t('sections.howItWasChecked')}

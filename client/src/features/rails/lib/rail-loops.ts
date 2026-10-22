@@ -40,11 +40,35 @@ export function deriveRailMode(loopId: string | null | undefined): RailMode {
 }
 
 /** The loop id a rail should treat as selected: the explicit pick, else the
- *  factory loop matching its (legacy) mode — so a mode-only rail still resolves. */
-export function effectiveLoopId(selectedLoopId: string | null | undefined, mode: RailMode, hasAddenda = false): string {
+ *  spec triage recommendation (launch-triage) while the rail is on its default
+ *  mode, else the factory loop matching its (legacy) mode — so a mode-only rail
+ *  still resolves. An explicit pick or an explicit non-default mode always wins. */
+export function effectiveLoopId(selectedLoopId: string | null | undefined, mode: RailMode, hasAddenda = false, recommendedLoopId?: string | null): string {
   if ((!selectedLoopId && hasAddenda) || selectedLoopId === 'factory:revision') return 'factory:sdd-quick-openspec'
   if (selectedLoopId === 'factory:batch') return 'factory:implement'
-  return selectedLoopId || factoryIdForMode(mode)
+  return selectedLoopId || (mode === 'implement' && recommendedLoopId) || factoryIdForMode(mode)
+}
+
+/**
+ * The triage recommendation a rail may preselect: only a loop the rail picker
+ * actually offers (built-ins behind their gates; custom loops only with the
+ * Loops section on). Anything else (e.g. Flow -> Spec) is never preselected.
+ */
+export function offeredRecommendation(
+  loopId: string | null | undefined,
+  opts: { freestyleAvailable?: boolean; loopsEnabled?: boolean } = {},
+): string | null {
+  if (!loopId) return null
+  const freestyleAvailable = opts.freestyleAvailable ?? true
+  const loopsEnabled = opts.loopsEnabled ?? true
+  if (loopId.startsWith('factory:')) {
+    const builtIn = FACTORY_RAIL_LOOPS.find((f) => f.id === loopId)
+    if (!builtIn) return null
+    if (builtIn.requiresFreestyle && !freestyleAvailable) return null
+    if (builtIn.requiresLoops && !loopsEnabled) return null
+    return loopId
+  }
+  return loopsEnabled ? loopId : null
 }
 
 /** The `selectedLoopId` a board adopts from a server-side loop run it did not

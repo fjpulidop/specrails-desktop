@@ -50,6 +50,10 @@ Qual escolher depende do quão clara já está a ideia. Sabe exatamente o que qu
 
 Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcionalidade integrada — e quer *mais*, não reescreva a descrição: isso desvirtua a spec (e sincroniza o desvio com o Jira) e obriga a próxima execução a replanear tudo. Abra a spec e adicione um **adendo**: uma nota curta com um tipo (pedido de alteração, feedback de revisão, esclarecimento, restrição) e as suas palavras. Os adendos abertos seguem automaticamente com o próximo lançamento dessa spec em qualquer loop — Implement, SDD Quick, Freestyle — para que a execução altere apenas o que pediu, e o pacote de revisão reporta cada um como aplicado, parcialmente aplicado ou bloqueado. Se a execução falhar ou descartar a entrega, voltam sozinhos a **Aberto**. O agente de missão pode adicioná-los por si quando lhe pede para alterar algo numa spec existente.
 
+## Revisar uma entrega: o que olhar primeiro
+
+Quando uma execução termina, o pacote de revisão abre com **O que olhar**: o resumo curto do revisor de IA com os pontos mais arriscados primeiro (alto, depois médio, depois baixo, cada um com arquivo e linha), o comportamento que muda, as regras em que a mudança se apoia, os caminhos de código que nenhum teste exercita e as verificações que só uma pessoa pode fazer. Os mesmos riscos, caminhos sem teste e verificações aparecem num bloco curto no topo da pull request, e o card da missão mostra o principal risco em uma linha. O resumo orienta a revisão, não é um resultado de verificação: nunca bloqueia Aceitar. Execuções feitas com um Specrails Core anterior não têm resumo e o pacote continua igual.
+
 ## Para onde ir a seguir
 
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — a forma mais rápida de transformar uma ideia numa spec.

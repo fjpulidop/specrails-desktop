@@ -1082,7 +1082,7 @@ describe('ProjectRegistry', () => {
     let projDir: string
     const ticketFile = () => path.join(projDir, '.specrails', 'local-tickets.json')
 
-    const seedTicket = (status: string) => {
+    const seedTicket = (status: string, metadata: Record<string, unknown> = {}) => {
       fs.mkdirSync(path.dirname(ticketFile()), { recursive: true })
       const now = new Date().toISOString()
       fs.writeFileSync(ticketFile(), JSON.stringify({
@@ -1090,7 +1090,7 @@ describe('ProjectRegistry', () => {
         tickets: {
           '1': {
             id: 1, title: 'T', description: '', status, priority: null, labels: [],
-            assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null,
+            assignee: null, prerequisites: [], metadata, origin_conversation_id: null,
             is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null,
             created_at: now, updated_at: now, created_by: 'test', source: 'manual',
           },
@@ -1137,6 +1137,14 @@ describe('ProjectRegistry', () => {
         const msg = m as { type?: string; projectId?: string }
         return msg.type === 'ticket_updated' && msg.projectId === 'pLoop'
       })).toBe(true)
+    })
+
+    it('leaves the Jira review of a Flow spec to its Flow settlement (no early transition)', () => {
+      seedTicket('in_progress', { flow: { conversationId: 'c', flowId: 'f1', worktreeId: 'f1', startedAt: 't', state: 'active' } })
+      const { ctx, onRailReview } = setup()
+      ctx.onLoopRunFinished('run-1', 'success', { ticketCompletionStatus: 'on_review' })
+      expect(readStatus()).toBe('on_review')
+      expect(onRailReview).toHaveBeenCalledWith([], 'run-1')
     })
 
     it('without opts the DEFAULT derives from the PR-delivery flag (default-on ⇒ on_review + on-review Jira hook) — universal ask-first', () => {
@@ -1381,7 +1389,7 @@ describe('ProjectRegistry', () => {
     let projDir: string
     const ticketFile = () => path.join(projDir, '.specrails', 'local-tickets.json')
 
-    const seedTicket = (status: string) => {
+    const seedTicket = (status: string, metadata: Record<string, unknown> = {}) => {
       fs.mkdirSync(path.dirname(ticketFile()), { recursive: true })
       const now = new Date().toISOString()
       fs.writeFileSync(ticketFile(), JSON.stringify({

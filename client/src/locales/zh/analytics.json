@@ -11,7 +11,9 @@
     "specLauncher": "规格启动器",
     "proposal": "提案",
     "agentStudio": "Agent Studio",
-    "setup": "设置"
+    "setup": "设置",
+    "triage": "分诊",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7天",
@@ -211,7 +213,8 @@
     "vsPrev": "对比上一周期",
     "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
     "untitled": "未命名任务",
-    "estimatedNote": "包含估算成本"
+    "estimatedNote": "包含估算成本",
+    "flowShare": "其中 Flow：{{cost}} · {{turns}} 轮"
   },
   "legacyUsage": {
     "title": "旧版工作流使用情况",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "经典循环",
       "queue_manager_slash": "排队命令",
       "merge_back": "本地集成"
+    }
+  },
+  "decisionTimes": {
+    "title": "决策用时",
+    "subtitle": "从可供评审到首次人工决策以及到合并",
+    "toDecision": "决策用时",
+    "toMerge": "合并用时",
+    "median": "中位数",
+    "p90": "p90",
+    "counts": "已测量 {{measured}} · 待定 {{pending}} · 未知 {{unknown}}",
+    "unknownValue": "未知",
+    "loading": "正在加载决策用时…",
+    "unavailable": "无法加载决策用时。",
+    "empty": "此期间内没有交付进入评审。",
+    "byLoop": "按循环的决策用时",
+    "loop": "循环",
+    "deliveries": "交付",
+    "decisionMedianP90": "决策（中位数 · p90）",
+    "mergeMedianP90": "合并（中位数 · p90）",
+    "unnamedLoop": "未命名循环",
+    "note": "未知统计的是没有记录时间点的交付（例如在此指标出现之前创建的交付）。它们从不计为零。",
+    "units": {
+      "minutes": "{{value}} 分钟",
+      "hours": "{{value}} 小时",
+      "days": "{{value}} 天"
+    }
+  },
+  "loopEconomics": {
+    "title": "循环经济性",
+    "subtitle": "每个循环的交付、成本、返工和逃逸缺陷",
+    "loading": "正在加载循环经济性…",
+    "unavailable": "无法加载循环经济性。",
+    "empty": "此期间没有循环交付任何内容。",
+    "noData": "无数据",
+    "unknownValue": "—",
+    "unnamedLoop": "未命名循环",
+    "estimatedShare": "估算 {{share}}",
+    "unpriced": "{{count}} 个无成本",
+    "note": "已交付 = 已进入评审或之后的状态。平均成本仅使用已记录成本的交付（除标注为估算外均为提供商报告值）；无成本的交付会被排除，绝不按 $0 计算。轮次来自循环的 reviewer/fixer 步骤。— 表示未知。",
+    "escapedUntracked": "尚未跟踪逃逸缺陷：将缺陷工单关联到引入它的交付（工单中的“回归自”）即可开始统计。",
+    "columns": {
+      "loop": "循环",
+      "delivered": "已交付",
+      "merged": "已合并",
+      "discarded": "已丢弃",
+      "avgCost": "每次交付成本",
+      "toDecision": "决策（中位数 · p90）",
+      "toMerge": "合并（中位数 · p90）",
+      "reviewRounds": "每次交付评审数",
+      "fixerRounds": "每次交付修复轮次",
+      "escapedDefects": "逃逸缺陷",
+      "requirementsDemonstrated": "已验证需求",
+      "triageAccuracy": "分诊准确率"
     }
   }
 }

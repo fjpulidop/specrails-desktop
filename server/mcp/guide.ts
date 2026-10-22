@@ -195,7 +195,7 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
     larger sets across several rails (they run in parallel) or sequential
     launches. There is no separate batch mode.
   - Freestyle: sends a free-form autonomous prompt to a capable provider — one
-    job per ticket; Claude and Kimi; \`model\` picker. Claude additionally
+    job per ticket; Claude, Codex, Gemini, Kimi and local engines; \`model\` picker. Claude additionally
     supports optional \`interactive\` in-job chat (settle with
     \`specrails_jobs(finalize)\`). To launch it through the API, pass the canonical mode value \`freestyle\`. In user-facing language, call
     the feature "Freestyle".
@@ -301,7 +301,7 @@ list/get/spending/watch = read; from_prompt, update, set_tickets,
 create_rail, plugin install, Jira connect = write; spec create/generate, rail
 launch/launch_all, chat send, job spawn = ai-spawn; spec delete, rail stop, job
 purge, plugin uninstall, Jira disconnect, project unregister = destructive.
-\`specrails_support(triage/core_update_status/core_update_check)\` is read;
+\`specrails_support(triage/core_update_status/core_update_check/api_meta)\` is read;
 \`specrails_support(core_update_apply)\` is ai-spawn because it runs longer
 global update work. Note the
 embedded spec-refinement happy path needs only read + write when using a fresh
@@ -312,7 +312,7 @@ can run Contract Refine require AI-spawn, including Explore conversions.
 
 - Installed providers are per-project; AI-spawning calls may pick any installed
   one (\`aiEngine\`); rails carry a per-rail engine.
-- Claude and Kimi support Freestyle mode (pass the canonical
+- Claude, Codex, Gemini, Kimi and local engines support Freestyle mode (pass the canonical
   API value \`freestyle\`; call the feature "Freestyle" to users). Persistent
   interactive jobs remain Claude-only.
 - Kimi prompt mode cannot enforce a no-tools or read-only boundary. Consequently
@@ -380,6 +380,11 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   economy. TWO budget knobs exist: \`specrails_analytics(budget_set,
   dailyBudgetUsd)\` is PER-PROJECT and pauses that project's queue when
   exceeded; \`specrails_settings(set, dailyBudgetUsd)\` is the APP-WIDE budget.
+  \`decision_times\` reports median/p90 time to decision and to merge per
+  project and loop; \`unknown\` counts missing instants, never zero durations.
+  \`loop_economics\` compares loops: delivered/merged/discarded, cost per
+  delivery (authoritative vs estimated), rounds, escaped defects
+  (\`metadata.regressionOf\` on bug tickets); nulls mean no data, not zero.
 - **Plugins** (\`specrails_plugins\`): per-project MCP integrations; \`preview\`
   the diff before \`install\`; a degraded plugin never blocks rail launches.
 - **Profiles** (\`specrails_agents\`): per-project agent chains; the baseline
@@ -402,9 +407,9 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   a core problem and must not trigger \`specrails_setup(install)\`. If global
   core is stale, offer \`core_update_check\` + \`core_update_apply\`. If global
   core is current but a real job still reports missing core definitions, ask for
-  the job error/diagnostic and give the manual fallback for standalone/legacy
-  core installs: from the project root, run \`npx specrails-core@latest update\`,
-  then retry the job.
+  the job error/diagnostic and report a framework-loading bug. Core 6 has no
+  standalone \`update\` command: Core updates go through \`core_update_check\`
+  + \`core_update_apply\` (humans: Settings → Updates in the app).
 - **Loops lifecycle** (\`specrails_loops\`): Draft → \`publish\` (graph-validated)
   → runnable; \`update\` reverts to Draft and returns 409 while running;
   \`preview\` dry-runs token resolution without spawning; constants are shared

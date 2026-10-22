@@ -2,40 +2,53 @@
 
 ## Purpose
 TBD - created by archiving change rails-as-loops. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Built-in factory loops
 
-The app SHALL ship built-in "factory" loops for `implement`, `batch`, `freestyle`, and `SDD Quick (OpenSpec)`. They SHALL appear in the Loops gallery alongside user loops, marked read-only (locked), and SHALL NOT be editable in place. A "Fork to edit" action SHALL clone a factory loop into a new editable user draft, leaving the original unchanged.
+The app SHALL ship built-in loops for `implement`, `freestyle` and `SDD Quick (OpenSpec)` as real, editable loops stored in the global loops library, each under its canonical factory id (`factory:implement`, `factory:freestyle`, `factory:sdd-quick-openspec`). The Freestyle built-in SHALL be created only when a provider supports Freestyle. Built-ins SHALL be listed in the Loops library with a Built-in badge and SHALL offer Edit, Duplicate and Restore original, but not Delete or Fork to edit. Editing and publishing a built-in SHALL change that built-in for every rail, agent-chat launch, MCP launch and companion launch that uses its id. Duplicate SHALL create an ordinary user loop and leave the built-in unchanged.
 
-The `SDD Quick (OpenSpec)` factory loop SHALL have a stable factory id and SHALL map to rail loop execution. Existing OpenSpec lifecycle factory ids SHALL remain resolvable for compatibility.
+The `SDD Quick (OpenSpec)` built-in SHALL have a stable factory id and SHALL map to rail loop execution. Compatibility factory ids (`factory:batch`, `factory:openspec`, `factory:revision`) SHALL remain resolvable and SHALL NOT be created as editable rows.
 
-#### Scenario: Factory loops are listed and locked
+#### Scenario: Built-ins are listed as editable loops
 
-- **WHEN** the Loops gallery is opened
-- **THEN** the `implement`, `batch`, `freestyle`, and `SDD Quick (OpenSpec)` factory loops SHALL be listed as read-only (locked)
-- **AND** they SHALL NOT expose Edit / Delete / Publish actions
+- **WHEN** the Loops library is opened
+- **THEN** the `implement`, `freestyle` (when supported) and `SDD Quick (OpenSpec)` built-ins SHALL be listed once each with a Built-in badge
+- **AND** they SHALL expose Edit and Duplicate, and SHALL NOT expose Delete or Fork to edit
 
-#### Scenario: Forking a factory loop
+#### Scenario: Editing a built-in changes it everywhere
 
-- **WHEN** the user invokes "Fork to edit" on a factory loop
-- **THEN** a new editable user loop SHALL be created as a clone of the factory loop's graph in `Draft` state
-- **AND** the original factory loop SHALL remain unchanged
+- **WHEN** the user edits the `factory:implement` built-in and publishes it
+- **THEN** every subsequent launch of `factory:implement`, from any surface, SHALL run the published edited graph
+
+#### Scenario: Duplicating a built-in
+
+- **WHEN** the user duplicates a built-in (or calls the fork endpoint for it)
+- **THEN** a new user loop SHALL be created in `Draft` from the built-in's current content
+- **AND** the built-in SHALL remain unchanged
 
 #### Scenario: OpenSpec factory compatibility is preserved
 
 - **WHEN** a client launches an existing OpenSpec lifecycle factory id
-- **THEN** the id SHALL continue to resolve to a valid OpenSpec lifecycle graph
+- **THEN** the id SHALL continue to resolve to the `SDD Quick (OpenSpec)` built-in
 - **AND** new recommendations SHALL prefer the `SDD Quick (OpenSpec)` product name
+
+#### Scenario: A saved Batch id runs as Implement
+
+- **WHEN** a rail or launch names `factory:batch`
+- **THEN** it SHALL resolve to the `implement` built-in loop and run one aggregate Implement run
 
 ### Requirement: Catalog commands for batch and freestyle
 
-The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core `batch-implement` slash command, resolved per provider like `{{cmd:implement}}`) and `{{cmd:freestyle}}` (a native/raw autonomous command — NOT a slash command).
+The loop command catalog SHALL expose `{{cmd:freestyle}}` (a native/raw autonomous command — NOT a slash command). It SHALL NOT list a `batch` command. `{{cmd:batch}}` in a saved loop SHALL remain a hidden alias that expands exactly like `{{cmd:implement}}` for every provider; no provider SHALL receive a `batch-implement` invocation, and multi-ticket `implement` SHALL never be rewritten to `batch-implement`.
 
-#### Scenario: batch expands to the native batch-implement command
+#### Scenario: batch is a hidden alias of implement
 
 - **WHEN** `{{cmd:batch}}` is expanded for the claude provider with rail tickets 1 and 2
-- **THEN** the result SHALL be the native `batch-implement` invocation over those tickets (`/specrails:batch-implement #1 #2 --yes`)
-- **AND** for codex it SHALL use the `$batch-implement` skill form
+- **THEN** the result SHALL be `/specrails:implement #1 #2 --yes`
+- **AND** for codex it SHALL be `$implement #1 #2 --yes`
+- **AND** the builder command palette SHALL NOT list `batch`
 
 #### Scenario: freestyle expands to the raw autonomous prompt
 
@@ -44,7 +57,7 @@ The loop command catalog SHALL expose `{{cmd:batch}}` (the native specrails-core
 
 ### Requirement: Command-declared ticket scope
 
-Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` and `batch` SHALL be `all`; `freestyle` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
+Each catalog command SHALL declare a ticket scope of `all` (all the rail's tickets handled in ONE run) or `per-ticket` (one run per ticket). `implement` (and its hidden `batch` alias) SHALL be `all`; `freestyle` SHALL be `per-ticket`. The launch path SHALL read the command's scope to decide how many runs to spawn and which ticket token to inject.
 
 #### Scenario: An all-scope command runs once over every ticket
 
@@ -186,3 +199,35 @@ The client SHALL preserve recorded loop lifecycle boundaries while bounding rend
 - **THEN** its retained view still includes recorded step boundaries and completion markers
 - **AND** the view indicates omitted readable output when applicable
 
+### Requirement: Built-in seeding follows the Core default without overwriting edits
+
+The app SHALL seed missing built-in rows idempotently, as Published, from the default graph for the selected Core's capabilities, recording the seeded default's hash. When Core capabilities are known and the default changes, it SHALL refresh a row still equal to its seeded default and SHALL NOT change a user-edited row. Without a loadable Core it SHALL seed missing rows with the legacy default and leave existing rows unchanged.
+
+#### Scenario: Freestyle row without a Freestyle provider
+- **WHEN** a Freestyle built-in row exists and no detected provider supports Freestyle
+- **THEN** seeding keeps the row
+
+#### Scenario: Core upgrade refreshes an unedited built-in
+
+- **WHEN** a built-in was seeded with the legacy default and Core later advertises workflow definitions
+- **THEN** the unedited built-in SHALL be refreshed to the Core definition default
+
+#### Scenario: User edits survive a default change
+
+- **WHEN** the user edited a built-in and the default later changes
+- **THEN** the built-in SHALL keep the user's content
+
+#### Scenario: Concurrent seeding
+
+- **WHEN** two seeding passes run at the same time
+- **THEN** exactly one row SHALL exist per built-in
+
+### Requirement: Restore original
+
+The app SHALL reset a built-in to the current default for the selected Core (name, description and graph), mark it Published and record the new default hash. Restoring SHALL be refused while the built-in is running.
+
+#### Scenario: Restoring an edited built-in
+
+- **WHEN** the user restores an edited built-in
+- **THEN** the built-in SHALL equal the current default and be Published
+- **AND** later launches SHALL run the default

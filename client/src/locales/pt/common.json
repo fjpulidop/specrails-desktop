@@ -144,5 +144,22 @@
     "superseded": "Substituída",
     "implementation_failed": "Falha na implementação",
     "pr_failed": "Falha na entrega"
+  },
+  "budget": {
+    "exceededProject": "Orçamento diário do projeto atingido (${{spent}} de ${{budget}}). Nada foi iniciado.",
+    "exceededDesktop": "Orçamento diário global atingido (${{spent}} de ${{budget}}). Nada foi iniciado.",
+    "whereProject": "Configurações do projeto ▸ Orçamento",
+    "whereDesktop": "Configurações ▸ Orçamento",
+    "action": "Aumente ou remova o orçamento em {{where}}, ou aguarde a reinicialização diária.",
+    "actionWithReset": "Aumente ou remova o orçamento em {{where}}, ou aguarde a reinicialização ({{time}}).",
+    "pausedProject": "Pausado pelo orçamento diário do projeto (${{spent}} de ${{budget}}). Aumente-o e retome.",
+    "pausedDesktop": "Pausado pelo orçamento diário global (${{spent}} de ${{budget}}). Aumente-o e retome.",
+    "resume": "Retomar",
+    "stillExceeded": "O orçamento diário continua esgotado."
+  },
+  "reviewWip": {
+    "reached_one": "Limite de revisão atingido: {{count}} entrega aguarda revisão (limite {{limit}}). Nada foi iniciado.",
+    "reached_other": "Limite de revisão atingido: {{count}} entregas aguardam revisão (limite {{limit}}). Nada foi iniciado.",
+    "action": "Decida uma entrega pendente (Criar PR, mesclar ou descartar) ou aumente o limite em Configurações do projeto ▸ Limite de revisão."
   }
 }

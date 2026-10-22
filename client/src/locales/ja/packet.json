@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "依頼した内容",
     "whatIDid": "行われた作業",
-    "howItWasChecked": "確認の方法"
+    "howItWasChecked": "確認の方法",
+    "whatTheAgentDid": "エージェントが行ったこと"
   },
   "churn": {
     "line": "{{files}} ファイル変更 · +{{added}} / −{{removed}} 行",
@@ -104,7 +105,8 @@
     "alreadyResolved": "すでに誰かが回答しています。",
     "actionFailed": "その操作は完了しませんでした。",
     "revisionStale": "これは別の場所で解決済みです — 再読み込みして状態を確認してください。",
-    "revisionFailed": "変更を開始できませんでした。入力した文章は保持されています。"
+    "revisionFailed": "変更を開始できませんでした。入力した文章は保持されています。",
+    "revisionBudget": "1日の予算を使い切っているため、変更は開始されませんでした。入力したテキストは保持されています。"
   },
   "versions": {
     "title": "以前のバージョン（{{count}}）",
@@ -165,5 +167,80 @@
       "unreported": "未報告"
     },
     "noReport": "実行はこの補足について報告しませんでした。以下の変更と証拠を確認してください。"
+  },
+  "derivation": {
+    "title": "導出",
+    "coverage": "変更された {{files}} 個のファイルのうち {{explained}} 個が導出された設計で説明されています",
+    "change": "OpenSpec 変更",
+    "requirements": "要件",
+    "requirementsValue": "追加 {{added}} · 変更 {{modified}}",
+    "confidence": "導出エージェントの確信度",
+    "confidenceLevel": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "confidenceUnknown": "未報告",
+    "caveat": "カバレッジは Specrails が git で測定したものです。確信度はエージェント自身の評価です。",
+    "unexplainedTitle_one": "説明されていない変更ファイルが {{count}} 個あります",
+    "unexplainedTitle_other": "説明されていない変更ファイルが {{count}} 個あります",
+    "more_one": "…ほか {{count}} 個のファイル",
+    "more_other": "…ほか {{count}} 個のファイル",
+    "unavailable": "この Flow 配信の導出レポートを読み取れませんでした。差分を直接確認してください。",
+    "rewriteFailed": "導出された変更から spec を書き直せませんでした。Flow の下書きのままです。OpenSpec 変更は引き続き技術的な記録です。"
+  },
+  "brief": {
+    "title": "確認すべき点",
+    "caveat": "AI レビュアーによる参考情報です。人が最初に確認すべき箇所を示します。検証結果ではなく、判断をブロックすることもありません。",
+    "severity": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "area": {
+      "data": "データ",
+      "security": "セキュリティ",
+      "api": "API",
+      "ux": "UX",
+      "performance": "パフォーマンス",
+      "ops": "運用",
+      "other": "その他"
+    },
+    "sections": {
+      "risks": "リスク",
+      "behaviourChanges": "動作の変更",
+      "invariantsTouched": "影響を受ける不変条件",
+      "untested": "テストされていないパス",
+      "humanChecks": "人による確認",
+      "divergences": "仕様との相違"
+    },
+    "userVisible": "ユーザーに見える",
+    "invariantStatus": {
+      "kept": "維持",
+      "changed": "変更",
+      "at-risk": "リスクあり"
+    },
+    "diagnostic": "レビュアーの概要の一部を使用できませんでした:",
+    "dropped_one": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
+    "dropped_other": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
+    "topRisk": "最大のリスク",
+    "moreRisks_one": "他 {{count}} 件",
+    "moreRisks_other": "他 {{count}} 件"
+  },
+  "agentActions": {
+    "total_one": "{{count}} 件のアクション",
+    "total_other": "{{count}} 件のアクション",
+    "countsLabel": "種類別に記録されたエージェントのアクション",
+    "kinds": {
+      "read": "読み取り",
+      "write": "書き込み",
+      "exec": "コマンド",
+      "mcp": "MCP 呼び出し",
+      "network": "Web リクエスト"
+    },
+    "caveat": "エージェント自身のストリームから記録しています。読み取りの網羅性は各プロバイダーの報告内容に依存します。内容や環境変数の値は保存されません。",
+    "run": "実行 {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "エージェントのアクションをダウンロードできませんでした"
   }
 }

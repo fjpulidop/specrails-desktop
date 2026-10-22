@@ -36,6 +36,15 @@ value-free (names, statuses, shell, check time). A committed change to
 `worktreeEnvPassthrough` re-warms the cache through the settings observer. See
 [configuration](../../../docs/internals/configuration.md#login-shell-recovery-and-resolution-status).
 
+`agentEnvMode` (default `'inherit'`) is `'inherit' | 'minimal'`, validated by
+`parseAgentEnvMode` and stored as `config.agent_env_mode` only when `minimal`
+(an unknown stored value reads as `inherit`). The builder that applies it lives in
+`server/project-env.ts` (`resolveProjectAgentEnv`, `projectAgentSourceEnv`) on top
+of the pure policy in [execution/domain/agent-env.ts](../execution/domain/agent-env.ts).
+`registerAgentEnvStatusHttp` serves the value-free
+`GET /:projectId/agent-env/status`. See
+[configuration](../../../docs/internals/configuration.md#agent-environment-mode).
+
 `allowSubagents` (default `false`) is a strict boolean. Its row is removed when
 the setting is turned off. The HTTP adapter reports committed changes to an
 optional observer, which the composition uses to refresh open agent sessions.
@@ -45,6 +54,16 @@ The domain never knows about sessions.
 validated by `parseSubagentRuntimeSetting` and stored as JSON in
 `config.subagent_runtime`. A change also reaches the observer. Who launches the
 sub-agents is resolved by the agent-sessions core, not here.
+
+`reviewerFamilySuggestionDismissed` (default `false`) is a strict boolean that
+records a dismissed loop-editor suggestion to run the reviewer on another model
+family. Its row (`config.reviewer_family_suggestion_dismissed`) is removed when
+the value is `false`. It is advisory UI state; no runtime reads it.
+
+`reviewWipLimit` (default `null` = no limit) is an integer from 1 to 100, validated by
+`parseReviewWipLimit` and stored in `config.review_wip_limit`. Clearing it removes the row,
+and a stored value that no longer parses reads as no limit. The delivery core enforces it at rail
+launch; the composition passes it through `getProjectSettings`.
 
 The repository port guarantees all-or-nothing update and returns normalized
 persisted settings. Existing low-level DB functions remain available for legacy

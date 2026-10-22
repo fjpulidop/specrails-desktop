@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { SettingsValidationError, type ProjectSettingsService } from '..'
-import { registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from '../adapters/http'
+import { registerAgentEnvStatusHttp, registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from '../adapters/http'
 
 afterEach(() => vi.restoreAllMocks())
 describe('project settings HTTP error mapping', () => {
@@ -85,5 +85,42 @@ describe('env passthrough status HTTP', () => {
     const recheck = await request(app).post('/p1/env-passthrough/recheck')
     expect(recheck.status).toBe(500)
     expect(recheck.body).toEqual({ error: 'Failed to recheck environment' })
+  })
+})
+
+describe('reviewWipLimit over HTTP', () => {
+  it('rejects an invalid limit with 400 and persists a valid one', async () => {
+    const { initDb } = await import('../../../db')
+    const { createProjectSettingsService } = await import('..')
+    const { createSqliteProjectSettingsRepository } = await import('../adapters/sqlite')
+    const db = initDb(':memory:')
+    try {
+      const app = express()
+      app.use(express.json())
+      const service = createProjectSettingsService(createSqliteProjectSettingsRepository(db))
+      registerProjectSettingsHttp(app, () => service)
+      const bad = await request(app).patch('/p1/settings').send({ reviewWipLimit: 0 })
+      expect(bad.status).toBe(400)
+      expect(bad.body.error).toMatch(/reviewWipLimit/)
+      const ok = await request(app).patch('/p1/settings').send({ reviewWipLimit: 5 })
+      expect(ok.body).toMatchObject({ ok: true, settings: { reviewWipLimit: 5 } })
+      expect((await request(app).get('/p1/settings')).body.reviewWipLimit).toBe(5)
+    } finally {
+      db.close()
+    }
+  })
+})
+
+describe('agent environment status HTTP', () => {
+  it('serves the bound report and maps failures to a generic 500', async () => {
+    const app = express()
+    let fail = false
+    registerAgentEnvStatusHttp(app, { read: () => { if (fail) throw new Error('private detail'); return { mode: 'minimal', names: ['PATH'] } } })
+    expect((await request(app).get('/p/agent-env/status')).body).toEqual({ mode: 'minimal', names: ['PATH'] })
+    fail = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failed = await request(app).get('/p/agent-env/status')
+    expect(failed.status).toBe(500)
+    expect(failed.body).toEqual({ error: 'Failed to read agent environment status' })
   })
 })

@@ -53,9 +53,19 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
   router.post('/:projectId/loop-runs/:id/resume', async (req: Request, res: Response) => {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    // rail-loop-budget-guard: a resident run paused on the daily budget (either
+    // engine) resumes in place once the budget allows the next step.
+    if (run && run.project_id === c.project.id && c.loopRunManager.budgetPause?.(runId)) {
+      const resumed = c.loopRunManager.resumeBudgetPause(runId)
+      if (resumed.status === 'over_budget') { res.status(409).json(resumed.rejection); return }
+      if (resumed.status === 'resumed') { res.status(202).json({ loopRunId: runId, resumed: true }); return }
+    }
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
     try {
       assertProcessAdmission(c.project.id)
+      // Continuing a workflow is cost-incurring: same gate as a rail launch.
+      const budgetRejection = c.dailyBudgetRejection?.() ?? null
+      if (budgetRejection) { res.status(409).json(budgetRejection); return }
       const successor = readDefinitionSuccessor(c.db, runId)
       if (successor) { res.status(409).json({ error: 'runtime_fork_owns_worktree', loopRunId: successor }); return }
       const observedClaim = readDefinitionExecutionClaim(c.db, runId)
@@ -300,6 +310,9 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     } catch (error) {
       res.status(error instanceof RepositoryValidationError ? error.status : error instanceof ProcessAdmissionClosedError ? 409 : 400).json({ error: error instanceof Error ? error.message : 'Invalid repository scope' }); return
     }
+    // Standalone loop runs are cost-incurring launches too (rail-loop-budget-guard).
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) { res.status(409).json(budgetRejection); return }
     if (repositoryIds.length !== 1 || repositoryIds[0] !== primary.id) {
       if (!isolationApplies({ loopsEnabled: true, scope: 'all', ticketCount: 1, readOnly: false })) {
         res.status(409).json({ error: 'repository_isolation_required' }); return

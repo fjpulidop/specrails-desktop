@@ -34,9 +34,10 @@ export interface JiraConnectWizardProps {
 
 /**
  * The reusable step-by-step Jira connect flow (Test → pick project → optional
- * status map → Connect). Mounted both in the project Settings page and in the
- * Add-Project setup wizard's final step. Keep it presentation-only: the caller
- * decides what `onConnected`/`onSkip` do (reload vs go-to-project).
+ * status map → Connect). Mounted by the Plugins page's per-project Jira panel
+ * (`ProjectJiraPanel` in PluginsPage), which passes an explicit `apiBase` for the
+ * chosen project. Keep it presentation-only: the caller decides what
+ * `onConnected`/`onSkip` do.
  */
 export function JiraConnectWizard(props: JiraConnectWizardProps) {
   const { activeProjectId } = useDesktop()

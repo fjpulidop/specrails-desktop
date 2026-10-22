@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change loop-template-library. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Template Category Field And Taxonomy
 
 Every bundled loop template SHALL declare a `category` drawn from a fixed taxonomy of exactly these 15 values: `API`, `Automation`, `CI`, `Database`, `Debugging`, `DevOps`, `Docs`, `Git`, `Maintenance`, `Performance`, `Planning`, `Quality`, `Review`, `Security`, `Testing`. The taxonomy SHALL be exported as a single source of truth and the template-list API response SHALL include each template's `category`.
@@ -26,19 +28,25 @@ Every bundled loop template SHALL declare a `category` drawn from a fixed taxono
 
 ### Requirement: Expanded Specrails-Owned Template Catalog
 
-The bundled template catalog SHALL contain at least 40 templates, collectively covering every category in the taxonomy. Every template SHALL be Specrails-owned: original naming and prompt text inspired by common closed-loop patterns, with NO third-party prose copied verbatim into the bundle. Every template's graph SHALL pass graph validation and SHALL contain a Loop Decider with exactly one `continue` edge and one `stop` edge.
+The bundled template catalog SHALL contain exactly the Core-native starters: `ship-and-green`, `verify-pass`, `ci-watch`, `lint-and-fix`, `type-safe`, `coverage-climb`, `build-fix` and `deploy-check`. When the selected Core advertises both `engineV2: 1` and `workflowDefinitions: 1`, each starter SHALL be served as a Core definition graph; otherwise it SHALL be served as its equivalent legacy graph. Templates that exist only as legacy graphs SHALL NOT be bundled. Every template SHALL be Specrails-owned, with NO third-party prose copied verbatim. Every template's graph SHALL pass graph validation.
 
-#### Scenario: Catalog meets the size and coverage floor
+#### Scenario: Catalog is exactly the Core-native starters
 
 - **WHEN** the bundled templates are enumerated
-- **THEN** there SHALL be at least 40 templates
-- **AND** at least one template SHALL exist for every category in the taxonomy
+- **THEN** their ids SHALL be exactly the eight Core-native starters, in that order
+- **AND** no legacy-only template (for example `opsx-lifecycle` or `autoloop-tdd`) SHALL be listed
+
+#### Scenario: Removed template ids are not found
+
+- **WHEN** a client creates a loop from a removed template id
+- **THEN** the request SHALL fail with 404
+- **AND** loops previously cloned from that template SHALL keep their stored graph
 
 #### Scenario: Every template graph is publishable
 
 - **WHEN** each template's graph is validated
 - **THEN** validation SHALL pass (exactly one Start, at least one End, no dangling edges, no orphan nodes, sane config)
-- **AND** the graph SHALL contain a Decider node whose outgoing edges include exactly one `continue` branch and exactly one `stop` branch
+- **AND** every legacy Decider SHALL have exactly one `continue` branch and exactly one `stop` branch
 
 #### Scenario: Template identity is unique
 
@@ -46,36 +54,3 @@ The bundled template catalog SHALL contain at least 40 templates, collectively c
 - **THEN** every template `id` SHALL be unique
 - **AND** every template `name` SHALL be unique
 - **AND** every template SHALL have a non-empty `description` and at least one tag
-
-### Requirement: Deterministic Spec-To-Graph Porting
-
-Templates SHALL be generated from a declarative per-template specification via a deterministic compile step, so that every generated graph is structurally consistent and valid. A step that corresponds to running a project gate (tests, lint, type-check, build, coverage, format) SHALL use the agent-driven magic command for that gate rather than a hardcoded shell command, preserving cross-stack portability. Any step that mutates code or tests SHALL inject the guardrails constant.
-
-#### Scenario: Generated graphs are valid by construction
-
-- **WHEN** a template is compiled from its declarative specification
-- **THEN** the resulting graph SHALL pass graph validation without manual node placement
-
-#### Scenario: Gate steps stay tooling-agnostic
-
-- **WHEN** a template includes a step whose purpose is to run a project gate (e.g. the test suite or the linter)
-- **THEN** that step SHALL reference the corresponding `{{cmd:*}}` magic command
-- **AND** the template SHALL NOT hardcode a stack-specific shell command (e.g. `npm test`) as a Shell node
-
-#### Scenario: Mutating steps carry the guardrails
-
-- **WHEN** a template contains a step that modifies code or tests
-- **THEN** that step's prompt SHALL include the `{{const:GUARDRAILS}}` token
-
-### Requirement: OpenSpec Lifecycle Template Registration
-
-The loop template catalog SHALL register the `opsx-lifecycle` template under the existing `Automation` category (no new category is introduced) and serve it through the template-listing endpoint exactly like any other starter template, so it can be cloned into an editable draft loop. Registering it SHALL NOT require changes to the closed category taxonomy on server or client.
-
-#### Scenario: Template listed under Automation
-- **WHEN** the template catalog is listed
-- **THEN** the `opsx-lifecycle` template appears with category `Automation`
-
-#### Scenario: Template can be instantiated
-- **WHEN** a draft loop is created from the `opsx-lifecycle` template
-- **THEN** the new draft contains the template's full graph (ff → apply → verify → decider → archive → end)
-

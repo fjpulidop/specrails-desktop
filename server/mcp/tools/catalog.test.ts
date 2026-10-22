@@ -306,7 +306,7 @@ describe('specrails_env tool', () => {
     const expected = { name: 'NODE_AUTH_TOKEN', status: 'recovered', shell: '/bin/zsh', checkedAt: '2026-10-09T00:00:00.000Z', exitCode: 1 }
 
     const get = await envSpec().handler(ctx, { action: 'get', projectId: 'p1' })
-    expect(get).toEqual({ names: ['NODE_AUTH_TOKEN'], statuses: [expected] })
+    expect(get).toEqual({ names: ['NODE_AUTH_TOKEN'], agentEnvMode: 'inherit', statuses: [expected] })
     const status = await envSpec().handler(ctx, { action: 'status', projectId: 'p1' })
     expect(status).toEqual({ checking: false, loginShellRecovery: true, timeoutMs: 10000, statuses: [expected] })
     const recheck = await envSpec().handler(ctx, { action: 'recheck', projectId: 'p1' })
@@ -315,9 +315,20 @@ describe('specrails_env tool', () => {
     for (const output of [get, status, recheck]) expect(JSON.stringify(output)).not.toContain('fixture-secret-mcp-value')
   })
 
+  it('get reports the agent environment mode, and no action can change it', async () => {
+    const fetchMock = vi.fn(async (url: string) => String(url).endsWith('/settings')
+      ? { ok: true, status: 200, text: async () => JSON.stringify({ worktreeEnvPassthrough: [], agentEnvMode: 'minimal' }) }
+      : { ok: false, status: 404, text: async () => JSON.stringify({ error: 'not found' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(envSpec().handler(ctx, { action: 'get', projectId: 'p1' })).resolves.toMatchObject({ agentEnvMode: 'minimal' })
+    await envSpec().handler(ctx, { action: 'set', projectId: 'p1', names: ['AWS_PROFILE'] }).catch(() => undefined)
+    const bodies = fetchMock.mock.calls.map((call) => String(((call as unknown[])[1] as RequestInit | undefined)?.body ?? ''))
+    expect(bodies.some((body) => body.includes('agentEnvMode'))).toBe(false)
+  })
+
   it('get still answers names when the status route is unavailable', async () => {
     mockSettingsFetch(['AWS_PROFILE'])
-    await expect(envSpec().handler(ctx, { action: 'get', projectId: 'p1' })).resolves.toEqual({ names: ['AWS_PROFILE'] })
+    await expect(envSpec().handler(ctx, { action: 'get', projectId: 'p1' })).resolves.toEqual({ names: ['AWS_PROFILE'], agentEnvMode: 'inherit' })
   })
 
   it('set merges requested names with existing settings and writes names only', async () => {
@@ -444,7 +455,9 @@ describe('specrails_support tool', () => {
     expect(diagnostics.setupCheckpoints?.skipped).toBe(true)
     expect(diagnostics.setupCheckpoints?.reason).toContain('not a specrails-core health check')
     expect(String(res.recommendedNextSteps)).toContain('specrails-core')
-    expect(String(res.recommendedNextSteps)).toContain('npx specrails-core@latest update')
+    expect(String(res.recommendedNextSteps)).toContain('Settings → Updates')
+    expect(String(res.recommendedNextSteps)).not.toContain('npx specrails-core')
+    expect(String(res.availableRepairActions)).not.toContain('npx specrails-core')
     expect(String(res.availableRepairActions)).toContain('core_update_apply')
     expect(String(res.availableRepairActions)).not.toContain('reassemble_project_workspace')
     expect(String(res.recommendedNextSteps)).toContain('Never recommend specrails_setup(install)')
@@ -456,6 +469,8 @@ describe('specrails_support tool', () => {
     const tier = spec.tier as (a: Record<string, unknown>) => string
     expect(tier({ action: 'triage' })).toBe('read')
     expect(tier({ action: 'core_update_status' })).toBe('read')
+    expect(tier({ action: 'api_meta' })).toBe('read')
+    expect(actionOptions(spec)).toContain('api_meta')
     expect(tier({ action: 'core_update_apply' })).toBe('ai-spawn')
     expect(actionOptions(spec)).not.toContain('reassemble_project_workspace')
   })

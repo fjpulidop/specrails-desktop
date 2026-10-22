@@ -19,7 +19,7 @@
 | 引擎 | 在什么情况下选它…… | 说明 |
 |--------|--------------------|-------|
 | **Claude** | 需要原生成本、持久交互或严格 tool policy。 | Profile、Freestyle 和 structured transform。 |
-| **Codex** | 你更喜欢 OpenAI Codex CLI，或想跨提供方对比实现。 | `codex` ≥ 0.128.0。无原生成本上报——应用会用自己的价格表来补上成本。Profile 不适用。 |
+| **Codex** | 你更喜欢 OpenAI Codex CLI，或想跨提供方对比实现。 | `codex` ≥ 0.128.0。无原生成本上报——应用会用自己的价格表来补上成本。Profile 不适用。Freestyle 可用，但没有交互式聊天。 |
 
 ## 一套实用的工作流
 

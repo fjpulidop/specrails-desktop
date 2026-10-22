@@ -12,6 +12,7 @@ import {
   listActivePrDeliveries,
   transitionDecision,
   transitionClaimedDecision,
+  lifecycleStamps,
   reconcileFailedBuildingPrDeliveries,
   toPrDeliverySnapshot,
   toRailPrStateMessage,
@@ -788,5 +789,59 @@ describe('launch spec snapshot + settle evidence (migration 56)', () => {
     })
     expect(transitionDecision(db, 'a', 'on_review', 'on_review', { settleEvidence: null })).toBe(true)
     expect(getPrDelivery(db, 'a')!.settle_evidence).toBeNull()
+  })
+})
+
+
+describe('lifecycle stamps (delivery-decision-times)', () => {
+  const NOW = '2026-10-01T10:00:00.000Z'
+  it('derives only the facts a transition proves; never a human decision', () => {
+    expect(lifecycleStamps('building', 'on_review', {}, NOW)).toEqual({ onReviewAt: NOW })
+    expect(lifecycleStamps('on_review', 'on_review', {}, NOW)).toEqual({})
+    expect(lifecycleStamps('on_review', 'pr_draft', {}, NOW)).toEqual({})
+    expect(lifecycleStamps('on_review', 'discarded', {}, NOW)).toEqual({})
+    expect(lifecycleStamps('pr_draft', 'pr_ready', {}, NOW)).toEqual({ publishedAt: NOW })
+    expect(lifecycleStamps('pr_ready', 'pr_ready', {}, NOW)).toEqual({})
+    expect(lifecycleStamps('pr_ready', 'merged', {}, NOW)).toEqual({ mergedAt: NOW })
+    expect(lifecycleStamps('merged', 'merged', {}, NOW)).toEqual({})
+    expect(lifecycleStamps('on_review', 'pr_draft', { decidedAt: 'D' }, NOW)).toEqual({ decidedAt: 'D' })
+    expect(lifecycleStamps('pr_draft', 'merged', { mergedAt: 'M' }, NOW)).toEqual({ mergedAt: 'M' })
+  })
+
+  it('first write wins through both CAS paths and survives restart reconciliation', () => {
+    const db = initDb(':memory:')
+    try {
+      const row = createPrDelivery(db, { railIndex: 0, loopId: null, railKey: 'k', ticketIds: [1], baseBranch: 'main', loopName: 'L', originSurface: 'dashboard' })
+      expect(transitionDecision(db, row.id, 'building', 'on_review')).toBe(true)
+      const reviewAt = getPrDelivery(db, row.id)!.on_review_at
+      expect(reviewAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+      expect(claimPrDeliveryOperation(db, row.id, 'on_review', 'create-pr', 'tok', 1000)).toBe(true)
+      expect(transitionClaimedDecision(db, row.id, 'on_review', 'pr_draft', 'tok', { decidedAt: '2026-01-01T00:00:00.000Z' })).toBe(true)
+      expect(transitionDecision(db, row.id, 'pr_draft', 'pr_draft', { decidedAt: '2027-01-01T00:00:00.000Z' })).toBe(true)
+      // A stale CAS (wrong expected state) writes nothing at all.
+      expect(transitionDecision(db, row.id, 'on_review', 'discarded', { decidedAt: '2028-01-01T00:00:00.000Z' })).toBe(false)
+      const after = getPrDelivery(db, row.id)!
+      expect(after.decided_at).toBe('2026-01-01T00:00:00.000Z')
+      expect(after.on_review_at).toBe(reviewAt)
+      expect(after.published_at).toBeNull()
+      expect(after.merged_at).toBeNull()
+    } finally {
+      db.close()
+    }
+  })
+})
+
+describe('spec triage loop choice (launch-triage)', () => {
+  it('records recommended and chosen loop and aggregates root-delivery accuracy', async () => {
+    const { getTriageAccuracy } = await import('./rail-pr-store')
+    mk('d1', 0, { loopChoice: { recommendedLoop: 'factory:sdd-quick-openspec', chosenLoop: 'factory:sdd-quick-openspec' } })
+    mk('d2', 1, { loopChoice: { recommendedLoop: 'factory:sdd-quick-openspec', chosenLoop: 'factory:implement' } })
+    mk('d3', 2, { loopChoice: { recommendedLoop: null, chosenLoop: 'factory:implement' } })
+    mk('d4', 3)
+    mk('child', 0, { parentDeliveryId: 'd1', loopChoice: { recommendedLoop: 'factory:implement', chosenLoop: 'x' } })
+    expect(getPrDelivery(db, 'd2')).toMatchObject({ recommended_loop: 'factory:sdd-quick-openspec', chosen_loop: 'factory:implement' })
+    expect(getPrDelivery(db, 'd4')).toMatchObject({ recommended_loop: null, chosen_loop: null })
+    expect(getTriageAccuracy(db)).toEqual({ total: 2, matched: 1, rate: 0.5 })
+    expect(getTriageAccuracy(db, { since: '2999-01-01T00:00:00.000Z' })).toEqual({ total: 0, matched: 0, rate: null })
   })
 })

@@ -20,7 +20,7 @@ Ab diesem Moment zeichnen Pipeline-Jobs in diesem Projekt Telemetrie auf. Andere
 
 ### Was abgedeckt ist
 
-Die Telemetrie gilt für **Pipeline-Jobs** (die in der Queue eingereihten Architect → Developer → Reviewer → Ship-Rail-Läufe). Interaktive Sitzungen wie der Chat und der Einrichtungsassistent sind bewusst ausgenommen – die Telemetrie ist für die wiederholbaren, untersuchbaren Pipeline-Läufe gedacht, nicht für einmalige Unterhaltungen.
+Die Telemetrie gilt für Jobs, die über die **Job-Queue** des Projekts laufen: CLI-Pipeline-Läufe (Rails, wenn Loops deaktiviert sind, und `implement`-Befehle aus der `specrails-desktop`-CLI). Loop-Läufe – die Standardart, wie Rails laufen – sowie interaktive Sitzungen wie Chat, Explore und Missionen werden nicht instrumentiert.
 
 ## Wo die Daten liegen
 

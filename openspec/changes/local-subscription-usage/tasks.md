@@ -32,3 +32,6 @@
 - [x] 5.3 Run build/package checks for the new module and subprocess resource path; run `npm run check-core-compat` if Core/provider transport integration changes.
 - [ ] 5.4 Perform visual QA for light/dark/effect themes, collapsed rail, narrow viewport, long translations, 200% zoom, keyboard/screen reader semantics and reduced motion against the static reference.
 - [x] 5.5 Perform explicitly authorized local read-only provider smoke checks on the supported matrix without logging credentials; document unsupported combinations, rollback/disposal and freshness limits before enabling UI.
+
+Status 2026-10-21: remaining — 5.4: `verification.md` states theme, long-locale and 200% zoom coverage is incomplete.
+Also untracked: Windows keep-awake behaviour has never been smoke-tested on Windows.

@@ -3,7 +3,9 @@
     "publicEntries": [
       "runtime/ai-invocations.ts",
       "runtime/codex-otel-bridge.ts",
+      "runtime/decision-times.ts",
       "runtime/desktop-analytics.ts",
+      "runtime/loop-economics.ts",
       "runtime/metrics.ts",
       "runtime/pricing.ts",
       "runtime/result-event.ts",
@@ -21,11 +23,20 @@
         "../../../providers/types",
         "crypto"
       ],
+      "runtime/decision-times.ts": [
+        "../../../db",
+        "./spending"
+      ],
       "runtime/desktop-analytics.ts": [
         "../../../db",
         "../../../desktop-db",
         "../../../project-registry",
         "../../../types"
+      ],
+      "runtime/loop-economics.ts": [
+        "../../../db",
+        "./decision-times",
+        "./spending"
       ],
       "runtime/metrics.ts": [
         "../../../db",
@@ -119,6 +130,8 @@
         "../../../db",
         "../../../project-env",
         "../../../project-registry",
+        "../../../providers/registry",
+        "../../../providers/runtime",
         "../../../util/win-spawn",
         "../../../workspace-resolution",
         "../../delivery/runtime/multi-repo-execution-store",
@@ -392,8 +405,10 @@
       ],
       "runtime/agent-refine-manager.ts": [
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
+        "../../../providers/runtime",
         "../../../types",
         "../../../workspace-resolution",
         "../../accounting/runtime/ai-invocations",
@@ -444,6 +459,46 @@
         "express",
         "fs",
         "path"
+      ]
+    }
+  },
+  "audit": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "adapters/runtime.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "../application",
+        "../domain",
+        "express"
+      ],
+      "adapters/runtime.ts": [
+        "../../../db/types",
+        "../application",
+        "../domain",
+        "./sqlite",
+        "node:crypto"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
       ]
     }
   },
@@ -668,6 +723,7 @@
         "../../../project-repository-provenance",
         "../../../types",
         "child_process",
+        "crypto",
         "fs",
         "path"
       ],
@@ -746,6 +802,7 @@
         "../../../command-resolver",
         "../../../db",
         "../../../plugins/codex-spawn",
+        "../../../project-env",
         "../../../project-repositories",
         "../../../providers",
         "../../../providers/registry",
@@ -804,7 +861,9 @@
     "publicEntries": [
       "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/flow-worktree-handoff.ts",
       "runtime/isolated-settlement-reconstruction.ts",
+      "runtime/isolated-worktree.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-publisher.ts",
@@ -813,7 +872,8 @@
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
       "runtime/rails-router.ts",
-      "runtime/rails-store.ts"
+      "runtime/rails-store.ts",
+      "runtime/review-wip-gate.ts"
     ],
     "dependencies": {
       "adapters/decisions/chains.ts": [
@@ -835,12 +895,15 @@
       ],
       "adapters/decisions/create.ts": [
         "../../../accounting/runtime/ai-invocations",
+        "../../runtime/delivery-evidence",
         "../../runtime/pr-body",
         "../../runtime/pr-naming",
         "../../runtime/pr-publisher",
         "../../runtime/rail-pr-delivery",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",
+        "../../runtime/review-brief",
+        "../../runtime/review-packet",
         "./contracts",
         "./evidence",
         "./metadata",
@@ -959,12 +1022,21 @@
         "../../runtime/rail-pr-ticket-effects",
         "./contracts"
       ],
+      "adapters/review-wip-store.ts": [
+        "../../../db/types",
+        "../domain/review-wip",
+        "../domain/state"
+      ],
       "domain/decision-policy.ts": [
+        "./state"
+      ],
+      "domain/review-wip.ts": [
         "./state"
       ],
       "domain/state.ts": [],
       "index.ts": [
         "./domain/decision-policy",
+        "./domain/review-wip",
         "./domain/state"
       ],
       "runtime/active-pr-continuation.ts": [
@@ -993,12 +1065,15 @@
       ],
       "runtime/delivery-evidence.ts": [
         "../../../types",
+        "../../agent-runtime/runtime/agent-runtime-loader",
         "../../execution/runtime/verification-sentinel",
         "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-factory",
+        "./review-brief",
         "fs",
         "path"
       ],
+      "runtime/flow-worktree-handoff.ts": [],
       "runtime/isolated-settlement-reconstruction.ts": [
         "../../../db",
         "../../loops/runtime/loop-runs-store",
@@ -1010,6 +1085,25 @@
       "runtime/isolated-settlement-store.ts": [
         "../../../db",
         "./rail-isolated-launch"
+      ],
+      "runtime/isolated-worktree.ts": [
+        "../../../artifact-registry",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../jira/jira-db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../code/runtime/file-provenance",
+        "./pr-naming",
+        "path"
       ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
@@ -1084,15 +1178,11 @@
         "child_process"
       ],
       "runtime/rail-isolated-launch.ts": [
-        "../../../artifact-registry",
         "../../../db",
-        "../../../feature-flags",
         "../../../ids",
         "../../../integration-branch",
-        "../../../jira/jira-db",
         "../../../project-registry",
         "../../../project-repositories",
-        "../../../providers",
         "../../../providers/types",
         "../../../repo-lock",
         "../../../workspace-resolution",
@@ -1116,8 +1206,10 @@
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./flow-worktree-handoff",
         "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
+        "./isolated-worktree",
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
@@ -1173,10 +1265,12 @@
         "../../../ids",
         "../../../types",
         "../../../worktree-overlay",
+        "../../specs/domain/triage",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./multi-repo-execution-store",
-        "./pr-follow-up"
+        "./pr-follow-up",
+        "./review-brief"
       ],
       "runtime/rail-pr-ticket-effects.ts": [
         "../../../db",
@@ -1243,11 +1337,13 @@
         "../../loops/runtime/loops-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "../../specs/domain/triage",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./flow-worktree-handoff",
         "./multi-repo-bases",
         "./multi-repo-checkout",
         "./multi-repo-execution",
@@ -1268,21 +1364,33 @@
       "runtime/rails-store.ts": [
         "../../../db"
       ],
+      "runtime/review-brief.ts": [],
       "runtime/review-packet.ts": [
         "../../../db",
         "../../../project-repository-provenance",
         "../../accounting/runtime/ai-invocations",
+        "../../audit",
+        "../../audit/adapters/sqlite",
+        "../../loops/runtime/loop-factory",
         "../../specs/runtime/spec-addenda-core",
         "./delivery-evidence",
         "./pr-body",
         "./pr-follow-up",
-        "./rail-pr-store"
+        "./rail-pr-store",
+        "./review-brief"
+      ],
+      "runtime/review-wip-gate.ts": [
+        "../../../db/types",
+        "../adapters/review-wip-store",
+        "../domain/review-wip"
       ]
     }
   },
   "execution": {
     "publicEntries": [
+      "index.ts",
       "runtime/accept-ladder.ts",
+      "runtime/daily-budget-gate.ts",
       "runtime/interactive-job-session.ts",
       "runtime/job-listing.ts",
       "runtime/job-phase-breakdown.ts",
@@ -1306,7 +1414,9 @@
         "../../accounting/runtime/result-event",
         "../ports"
       ],
-      "application/enforce-budget.ts": [],
+      "application/enforce-budget.ts": [
+        "../domain/daily-budget"
+      ],
       "application/record-job-invocations.ts": [
         "../../../util/distribute-int",
         "../domain/job-accounting",
@@ -1316,6 +1426,8 @@
         "../domain/usage",
         "../ports"
       ],
+      "domain/agent-env.ts": [],
+      "domain/daily-budget.ts": [],
       "domain/job-accounting.ts": [],
       "domain/scheduling.ts": [],
       "domain/usage.ts": [
@@ -1325,6 +1437,8 @@
         "./application/enforce-budget",
         "./application/record-job-invocations",
         "./application/recover-job-usage",
+        "./domain/agent-env",
+        "./domain/daily-budget",
         "./domain/job-accounting",
         "./domain/scheduling",
         "./domain/usage",
@@ -1336,6 +1450,11 @@
       ],
       "runtime/accept-ladder.ts": [
         "../../delivery/runtime/pr-publisher"
+      ],
+      "runtime/daily-budget-gate.ts": [
+        "..",
+        "../../../db/types",
+        "../adapters/budget-storage"
       ],
       "runtime/interactive-job-session.ts": [
         "../../../db",
@@ -1399,6 +1518,7 @@
         "../../accounting/runtime/result-event",
         "../../agents/runtime/agent-defaults",
         "../../agents/runtime/profile-manager",
+        "../../audit",
         "../../code/runtime/file-provenance",
         "../../delivery/runtime/rail-isolation",
         "../../loops/runtime/legacy-launch-telemetry",
@@ -1434,6 +1554,70 @@
         "../../loops/runtime/loop-runs-store"
       ],
       "runtime/verification-sentinel.ts": []
+    }
+  },
+  "flow": {
+    "publicEntries": [
+      "adapters/bindings.ts",
+      "adapters/http.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/bindings.ts": [
+        "../../../desktop-db",
+        "../../../ids",
+        "../../../internal-api",
+        "../../../jira/jira-db",
+        "../../../process-admission",
+        "../../../project-registry",
+        "../../../project-router-helpers",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../repo-lock",
+        "../../../types",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../agents/runtime/agent-store",
+        "../../delivery/runtime/flow-worktree-handoff",
+        "../../delivery/runtime/isolated-worktree",
+        "../../delivery/runtime/rail-pr-store",
+        "../../delivery/runtime/rails-store",
+        "../../missions/runtime/agent-flow-prompt",
+        "../../missions/runtime/flow-turn-context",
+        "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/spec-generation",
+        "../../specs/runtime/spec-models",
+        "../../specs/runtime/ticket-store",
+        "../application",
+        "../domain",
+        "../ports",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/http.ts": [
+        "..",
+        "express"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
     }
   },
   "loops": {
@@ -1552,6 +1736,7 @@
         "./loop-constants",
         "./loop-decider",
         "./loop-definition",
+        "./loop-flow-spec-recipe",
         "./loop-run-manager",
         "./loop-shell-invocation",
         "./loop-step-idle",
@@ -1562,8 +1747,12 @@
       ],
       "runtime/loop-factory.ts": [
         "./loop-core-factory",
+        "./loop-flow-spec-recipe",
         "./loop-graph",
         "./loop-templates"
+      ],
+      "runtime/loop-flow-spec-recipe.ts": [
+        "./loop-graph"
       ],
       "runtime/loop-graph.ts": [
         "./loop-agents"
@@ -1609,6 +1798,7 @@
         "../../agent-runtime/runtime/agent-runtime-accounting",
         "../../agent-runtime/runtime/agent-runtime-events",
         "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../audit",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rails-store",
         "../../execution/runtime/interactive-job-session",
@@ -1684,9 +1874,11 @@
       "runtime/agent-chat-manager.ts",
       "runtime/agent-chat-registry.ts",
       "runtime/agent-chat-router.ts",
+      "runtime/agent-flow-prompt.ts",
       "runtime/agent-spec-framing.ts",
       "runtime/agent-steering.ts",
       "runtime/agent-tier.ts",
+      "runtime/flow-turn-context.ts",
       "runtime/mission-core-sessions.ts",
       "runtime/mission-run-notify.ts"
     ],
@@ -1700,6 +1892,7 @@
         "../../../feature-flags",
         "../../../mcp/agent-capability",
         "../../../plugins/codex-spawn",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/live-session",
         "../../../providers/live-session-types",
@@ -1712,6 +1905,7 @@
         "../../../workspace-resolution",
         "../../accounting/runtime/result-event",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "../../conversations/runtime/explore-draft-title",
         "../../execution/runtime/spawn-lifecycle",
         "./agent-context-resolver",
@@ -1722,7 +1916,9 @@
         "./agent-steering",
         "./agent-tier",
         "./core-session-runner",
+        "./flow-turn-context",
         "./mission-core-sessions",
+        "./mission-tool-policy",
         "child_process",
         "crypto",
         "node:fs/promises",
@@ -1770,6 +1966,7 @@
         "../../../types"
       ],
       "runtime/agent-fence-promotion.ts": [],
+      "runtime/agent-flow-prompt.ts": [],
       "runtime/agent-input-store.ts": [
         "../../../db",
         "../../agents/runtime/agent-store",
@@ -1806,6 +2003,9 @@
         "../../execution/runtime/spawn-lifecycle",
         "node:crypto"
       ],
+      "runtime/flow-turn-context.ts": [
+        "../../agent-sessions"
+      ],
       "runtime/mission-core-sessions.ts": [
         "../../../agent-mcp-config",
         "../../../db",
@@ -1814,9 +2014,12 @@
         "../../agent-sessions",
         "../../agent-sessions/runtime/session-host-registry",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "./agent-session-store",
         "./core-session-runner",
-        "./mission-session-projector"
+        "./flow-turn-context",
+        "./mission-session-projector",
+        "./mission-tool-policy"
       ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
@@ -1832,7 +2035,14 @@
         "../../accounting/runtime/result-event",
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
+        "../../audit",
         "./agent-session-store"
+      ],
+      "runtime/mission-tool-policy.ts": [
+        "../../../feature-flags",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../agent-sessions"
       ]
     }
   },
@@ -1871,22 +2081,28 @@
   },
   "specs": {
     "publicEntries": [
+      "domain/triage.ts",
       "runtime/contract-refine-runner.ts",
+      "runtime/generated-spec-parser.ts",
       "runtime/proposal-manager.ts",
       "runtime/smash-runner.ts",
       "runtime/spec-addenda-core.ts",
       "runtime/spec-addenda.ts",
       "runtime/spec-contract-prompt.ts",
       "runtime/spec-draft-parser.ts",
+      "runtime/spec-generation.ts",
       "runtime/spec-launcher-manager.ts",
       "runtime/spec-models.ts",
       "runtime/ticket-store.ts",
-      "runtime/ticket-watcher.ts"
+      "runtime/ticket-watcher.ts",
+      "runtime/triage.ts"
     ],
     "dependencies": {
+      "domain/triage.ts": [],
       "runtime/contract-refine-runner.ts": [
         "../../../db",
         "../../../process-admission",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../transient-children",
@@ -1903,9 +2119,13 @@
         "node:readline",
         "tree-kill"
       ],
+      "runtime/generated-spec-parser.ts": [
+        "./ticket-store"
+      ],
       "runtime/proposal-manager.ts": [
         "../../../command-resolver",
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../providers/types",
@@ -1921,6 +2141,7 @@
       ],
       "runtime/smash-runner.ts": [
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../transient-children",
@@ -1950,9 +2171,31 @@
         "../../builder/runtime/blueprint-types"
       ],
       "runtime/spec-draft-parser.ts": [],
+      "runtime/spec-generation.ts": [
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../project-env",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/context-scope",
+        "./contract-refine-runner",
+        "./generated-spec-parser",
+        "./ticket-store",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
       "runtime/spec-launcher-manager.ts": [
         "../../../command-resolver",
         "../../../db",
+        "../../../project-env",
         "../../../providers",
         "../../../providers/runtime",
         "../../../types",
@@ -1971,6 +2214,7 @@
         "../../../providers/types"
       ],
       "runtime/ticket-store.ts": [
+        "../domain/triage",
         "./spec-addenda-core",
         "fs",
         "path"
@@ -1981,6 +2225,38 @@
         "chokidar",
         "fs",
         "path"
+      ],
+      "runtime/triage-runner.ts": [
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/result-event",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/triage.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../feature-flags",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../repo-map",
+        "../../../types",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/pricing",
+        "../../loops/runtime/loop-factory",
+        "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-role-engines",
+        "../../loops/runtime/loops-store",
+        "../domain/triage",
+        "./spec-models",
+        "./ticket-store",
+        "./triage-runner",
+        "crypto"
       ]
     }
   },

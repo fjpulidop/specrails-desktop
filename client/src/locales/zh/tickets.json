@@ -176,5 +176,16 @@
       "failed": "无法保存附录",
       "inFlight": "此附录正在进行中 — 请等待运行结束"
     }
+  },
+  "regressionOf": {
+    "label": "回归自",
+    "hint": "引入此缺陷的交付（计为其循环的逃逸缺陷）",
+    "none": "未关联",
+    "loading": "正在加载交付…",
+    "unavailable": "无法加载交付。",
+    "empty": "还没有已交付的变更。",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "未知交付（{{id}}）"
   }
 }

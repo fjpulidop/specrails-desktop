@@ -1094,6 +1094,24 @@ describe('LoopRunManager', () => {
     expect(ex.runAiStep).toHaveBeenCalled()
   })
 
+  it('records agent actions from raw provider lines and Core agent-events without affecting the run', async () => {
+    const record = vi.fn(() => { throw new Error('audit unavailable') })
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async ({ onRawLine }) => {
+        onRawLine?.(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't', name: 'Edit', input: { file_path: 'src/x.ts' } }] } }))
+        onRawLine?.(JSON.stringify({ type: 'agent-event', role: 'reviewer', event: { kind: 'tool-start', tool: 'Bash', detail: 'npm test' } }))
+        return { text: 'done', sessionId: 's1', cost: 0.01, tokens: 10, provider: 'claude', model: 'sonnet' }
+      }),
+    })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000, { agentAudit: { record } })
+    const res = await mgr.run(baseReq())
+    expect(res.outcome).toBe('success')
+    expect(record.mock.calls.flatMap(([rows]) => rows as unknown[])).toEqual([
+      expect.objectContaining({ runId: res.runId, jobId: res.runId, role: 'loop', kind: 'write', target: 'src/x.ts', source: 'claude-stream' }),
+      expect.objectContaining({ runId: res.runId, role: 'reviewer', kind: 'exec', target: 'npm test', source: 'core-agent-event' }),
+    ])
+  })
+
   it('backs the run with a job, streams parsed events + log lines, and finalizes the job', async () => {
     const g: LoopGraph = {
       nodes: [

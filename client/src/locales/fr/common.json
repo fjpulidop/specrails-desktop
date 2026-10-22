@@ -144,5 +144,22 @@
     "superseded": "Remplacée",
     "implementation_failed": "Échec de l’implémentation",
     "pr_failed": "Échec de la livraison"
+  },
+  "budget": {
+    "exceededProject": "Budget quotidien du projet atteint (${{spent}} sur ${{budget}}). Rien n’a été lancé.",
+    "exceededDesktop": "Budget quotidien global atteint (${{spent}} sur ${{budget}}). Rien n’a été lancé.",
+    "whereProject": "Paramètres du projet ▸ Budget",
+    "whereDesktop": "Paramètres ▸ Budget",
+    "action": "Augmentez ou supprimez le budget dans {{where}}, ou attendez la réinitialisation quotidienne.",
+    "actionWithReset": "Augmentez ou supprimez le budget dans {{where}}, ou attendez la réinitialisation ({{time}}).",
+    "pausedProject": "En pause : budget quotidien du projet atteint (${{spent}} sur ${{budget}}). Augmentez-le, puis reprenez.",
+    "pausedDesktop": "En pause : budget quotidien global atteint (${{spent}} sur ${{budget}}). Augmentez-le, puis reprenez.",
+    "resume": "Reprendre",
+    "stillExceeded": "Le budget quotidien est toujours épuisé."
+  },
+  "reviewWip": {
+    "reached_one": "Limite de revue atteinte : {{count}} livraison attend une revue (limite {{limit}}). Rien n’a été lancé.",
+    "reached_other": "Limite de revue atteinte : {{count}} livraisons attendent une revue (limite {{limit}}). Rien n’a été lancé.",
+    "action": "Décidez d’une livraison en attente (Créer la PR, fusionner ou abandonner) ou augmentez la limite dans Réglages du projet ▸ Limite de revue."
   }
 }

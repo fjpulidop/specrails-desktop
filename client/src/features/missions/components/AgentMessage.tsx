@@ -24,6 +24,8 @@ import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../lib/
 import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextReference } from '../lib/agent-api'
 import { AgentRefChip } from './AgentRefChip'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
+import { extractExtensionFences } from './agent-extension-fences'
+import { extensionFenceTags, useMissionExtensions } from '../context/MissionExtensionsContext'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -402,6 +404,17 @@ export function AgentContextInlineTokens({
   )
 }
 
+/** Streaming placeholder while an extension card block is still arriving. */
+function AgentExtensionPending() {
+  const { t } = useTranslation('agent')
+  return (
+    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-[11px] text-accent-primary">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      {t('cardPending')}
+    </div>
+  )
+}
+
 interface Props {
   /** `system` rows are app-authored inline cards (PR-decision card, P7);
    *  until the card branch lands they render through the assistant path. */
@@ -451,6 +464,8 @@ interface Props {
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
 export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const localIntents = useLocalIntents()
+  const extensions = useMissionExtensions()
+  const extensionTags = extensionFenceTags(extensions).join(',')
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -536,7 +551,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
   // both when the agent re-frames and re-drafts in one reply. The whole
   // extraction chain is memoized on (content, streaming) so a streaming turn
   // does not reparse three protocols on every frame.
-  const { body, options, frame, framePending, draft, pending, rail } = useMemo(() => {
+  const { body, options, frame, framePending, draft, pending, rail, extensionBlocks, extensionPending } = useMemo(() => {
     // Small/local models emit protocol JSON under ```json — re-tag first.
     const promoted = tolerantFences ? promoteAgentProtocolFences(content) : content
     const withoutOptions = extractAgentOptions(promoted)
@@ -547,16 +562,21 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
     const withoutRail = FEATURE_MISSION_RAIL_CARDS
       ? extractRailLaunchProposals(withoutDraft.body, streaming)
       : { body: withoutDraft.body, proposals: [], rejected: [], pending: false, truncated: false, repaired: false }
+    // Fences registered by mission extensions (e.g. ```flow-offer) — the
+    // extension renders the card; missions only strips the block.
+    const withoutExtensions = extractExtensionFences(withoutRail.body, extensionTags ? extensionTags.split(',') : [], streaming)
     return {
-      body: withoutRail.body,
+      body: withoutExtensions.body,
       options: withoutOptions.options,
       frame: withoutFrame.frame,
       framePending: withoutFrame.pending,
       draft: withoutDraft.draft,
       pending: withoutDraft.pending,
       rail: withoutRail,
+      extensionBlocks: withoutExtensions.blocks,
+      extensionPending: withoutExtensions.pending.length > 0,
     }
-  }, [content, streaming, tolerantFences])
+  }, [content, streaming, tolerantFences, extensionTags])
   const railUnreadable = !streaming && rail.rejected.length > 0 ? rail.rejected.map((r) => r.excerpt) : []
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
@@ -597,6 +617,25 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
         )
       })}
       {rail.pending && <AgentRailLaunchPending />}
+      {!streaming && extensionBlocks.map((block) => {
+        const Card = extensions.fenceCards?.[block.tag]
+        return Card ? (
+          <Card
+            key={`${messageId ?? 'live'}:${block.tag}:${block.index}`}
+            tag={block.tag}
+            payload={block.payload}
+            index={block.index}
+            messageId={messageId ?? null}
+            conversationId={conversationId ?? null}
+            projectId={refsProjectId ?? null}
+            intents={intents}
+            isLatest={!!isLatest}
+            isStreaming={!!isStreaming}
+            onSend={onPickOption}
+          />
+        ) : null
+      })}
+      {extensionPending && <AgentExtensionPending />}
       {railUnreadable.length > 0 && <AgentRailLaunchUnreadable excerpts={railUnreadable} />}
       {showChips && (
         <div className="flex flex-wrap gap-1.5 pt-1">

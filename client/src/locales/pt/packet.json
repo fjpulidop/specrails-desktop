@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "O que pediu",
     "whatIDid": "O que foi feito",
-    "howItWasChecked": "Como foi verificado"
+    "howItWasChecked": "Como foi verificado",
+    "whatTheAgentDid": "O que o agente fez"
   },
   "churn": {
     "line": "{{files}} ficheiros alterados · +{{added}} / −{{removed}} linhas",
@@ -104,7 +105,8 @@
     "alreadyResolved": "Alguém já respondeu a isto.",
     "actionFailed": "Essa ação não foi concluída.",
     "revisionStale": "Isto acabou de ser resolvido noutro lugar — recarregue para ver o estado.",
-    "revisionFailed": "Não foi possível iniciar a alteração. O seu texto foi guardado."
+    "revisionFailed": "Não foi possível iniciar a alteração. O seu texto foi guardado.",
+    "revisionBudget": "O orçamento diário está esgotado, então a alteração não foi iniciada. Seu texto foi mantido."
   },
   "versions": {
     "title": "Versões anteriores ({{count}})",
@@ -165,5 +167,80 @@
       "unreported": "Não reportado"
     },
     "noReport": "A execução não reportou este adendo. Verifique as alterações e as evidências abaixo."
+  },
+  "derivation": {
+    "title": "Derivação",
+    "coverage": "{{explained}} de {{files}} arquivos alterados são explicados pelo design derivado",
+    "change": "Mudança OpenSpec",
+    "requirements": "Requisitos",
+    "requirementsValue": "{{added}} adicionados · {{modified}} modificados",
+    "confidence": "Confiança do derivador",
+    "confidenceLevel": {
+      "high": "Alta",
+      "medium": "Média",
+      "low": "Baixa"
+    },
+    "confidenceUnknown": "Não informada",
+    "caveat": "A cobertura é medida pelo Specrails com git; a confiança é a autoavaliação do agente.",
+    "unexplainedTitle_one": "{{count}} arquivo alterado não está explicado",
+    "unexplainedTitle_other": "{{count}} arquivos alterados não estão explicados",
+    "more_one": "…e mais {{count}} arquivo",
+    "more_other": "…e mais {{count}} arquivos",
+    "unavailable": "Não foi possível ler o relatório de derivação desta entrega Flow. Revise o diff diretamente.",
+    "rewriteFailed": "Não foi possível reescrever a spec a partir da mudança derivada; ela mantém o rascunho do Flow. A mudança OpenSpec continua sendo o registro técnico."
+  },
+  "brief": {
+    "title": "O que olhar",
+    "caveat": "Resumo orientativo do revisor de IA: onde uma pessoa deve olhar primeiro. Não é um resultado de verificação e nunca bloqueia uma decisão.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Médio",
+      "low": "Baixo"
+    },
+    "area": {
+      "data": "dados",
+      "security": "segurança",
+      "api": "API",
+      "ux": "UX",
+      "performance": "desempenho",
+      "ops": "operações",
+      "other": "outro"
+    },
+    "sections": {
+      "risks": "Riscos",
+      "behaviourChanges": "Mudanças de comportamento",
+      "invariantsTouched": "Invariantes afetados",
+      "untested": "Caminhos sem teste",
+      "humanChecks": "Verificações humanas",
+      "divergences": "Divergências da spec"
+    },
+    "userVisible": "Visível para usuários",
+    "invariantStatus": {
+      "kept": "Mantido",
+      "changed": "Alterado",
+      "at-risk": "Em risco"
+    },
+    "diagnostic": "Parte do resumo do revisor não pôde ser usada:",
+    "dropped_one": "{{count}} entrada do resumo não seguia o formato esperado e foi ignorada.",
+    "dropped_other": "{{count}} entradas do resumo não seguiam o formato esperado e foram ignoradas.",
+    "topRisk": "Principal risco",
+    "moreRisks_one": "+{{count}} outro",
+    "moreRisks_other": "+{{count}} outros"
+  },
+  "agentActions": {
+    "total_one": "{{count}} ação",
+    "total_other": "{{count}} ações",
+    "countsLabel": "Ações do agente registradas por tipo",
+    "kinds": {
+      "read": "leituras",
+      "write": "escritas",
+      "exec": "comandos",
+      "mcp": "chamadas MCP",
+      "network": "pedidos web"
+    },
+    "caveat": "Registrado a partir dos próprios streams dos agentes: as leituras são tão completas quanto cada provedor as reporta. Conteúdos e valores de ambiente nunca são armazenados.",
+    "run": "Execução {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Não foi possível baixar as ações do agente"
   }
 }

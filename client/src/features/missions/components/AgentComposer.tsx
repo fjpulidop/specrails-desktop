@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, X, Check, Pencil, Terminal } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Check, Pencil, Terminal, Zap } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../background/context/BackgroundProcessesContext'
@@ -50,6 +50,7 @@ import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
+import { useMissionConversationMode } from '../context/MissionExtensionsContext'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
@@ -211,6 +212,10 @@ export function AgentComposer({
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
   const pinnedProjectId = gitProjectId
+  // Extension mode (Flow): a busy send interrupts the running turn and the git
+  // strip shows the worktree branch.
+  const conversationMode = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)
+  const interrupting = isStreaming && !!conversationMode?.interruptWhileBusy
 
   const fileQuery = paletteTrigger?.mode === 'reference' ? paletteTrigger.query.trim() : ''
   const fileQueryKey = `${pinnedProjectId ?? ''}:${fileQuery}`
@@ -546,7 +551,7 @@ export function AgentComposer({
     submittingRef.current = true
     setSubmitting(true)
     try {
-      const result = await send(textForTurn, { ...opts, queueId: requestIdentity.queueId })
+      const result = await send(textForTurn, { ...opts, queueId: requestIdentity.queueId, ...(interrupting ? { deliveryMode: 'interrupt' as const } : {}) })
       // A materialized mission owns the draft from here on: rejection restores
       // into the conversation the turn actually reached, not the sentinel slot.
       const targetKey = result.conversationId ?? draftKey
@@ -813,7 +818,7 @@ export function AgentComposer({
               if (files.length) { e.preventDefault(); void uploadFiles(files) }
             }}
             disabled={blocked}
-            placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
+            placeholder={blocked ? t('noProvider.placeholder') : interrupting ? t('interrupt.placeholder') : isStreaming ? t('queue.placeholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
             className={`min-h-[2.5rem] max-h-64 min-w-0 w-full resize-none overflow-y-auto bg-transparent text-sm outline-none ${
               inHistory ? 'italic text-foreground/50' : 'text-foreground'
@@ -875,6 +880,18 @@ export function AgentComposer({
           >
             <Check className="h-4 w-4" />
           </button>
+        ) : interrupting ? (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={blocked || !hasDraft || submitting}
+            aria-label={t('interrupt.send')}
+            title={t('interrupt.sendHint')}
+            data-testid="agent-composer-interrupt"
+            className="relative inline-flex h-8 w-8 items-center justify-center shrink-0 rounded-full bg-accent-highlight p-1.5 text-background transition-colors hover:opacity-90 disabled:opacity-40"
+          >
+            <Zap className="h-4 w-4" />
+          </button>
         ) : isStreaming ? (
           <button
             type="button"
@@ -902,7 +919,7 @@ export function AgentComposer({
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project or outside a git repo. */}
-      {gitProjectId && <AgentGitBar projectId={gitProjectId} />}
+      {gitProjectId && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal
           process={backgroundProcessHistory.find(process => backgroundProcessKey(process) === backgroundProcessKey(selectedProcess)) ?? selectedProcess}

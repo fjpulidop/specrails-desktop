@@ -29,3 +29,7 @@ After conversational surfaces run on Core sessions (`core-sessions-conversationa
 - **Desktop client**: provider and model catalogs read from the new source; there are no visible behaviour changes.
 - **Packaging**: the bundled Core pin; Windows spawn handling moves entirely to Core.
 - **Sequencing**: last phase of the Core agent-session program, after `core-sessions-conversational-surfaces`.
+
+Status 2026-10-21: not started — no one-shot host operation exists; `server/providers/*` is still in place and about
+30 server files (e.g. `agent-generator.ts`, `proposal-manager.ts`) still use the provider registry. Needs a Core host
+operation first, then Desktop caller migration and removal of `server/providers`.

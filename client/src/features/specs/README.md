@@ -12,6 +12,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/CreateTicketModal.tsx](components/CreateTicketModal.tsx)
 - [components/SpecCard.tsx](components/SpecCard.tsx)
 - [components/SpecComparePicker.tsx](components/SpecComparePicker.tsx)
+- [components/SpecTriageChip.tsx](components/SpecTriageChip.tsx)
 - [components/SpecsBoard.tsx](components/SpecsBoard.tsx)
 - [components/TicketDetailModal.tsx](components/TicketDetailModal.tsx)
 - [components/explore-spec/useSmoothStream.ts](components/explore-spec/useSmoothStream.ts)
@@ -23,6 +24,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [lib/spec-addenda-core.ts](lib/spec-addenda-core.ts)
 - [lib/spec-draft.ts](lib/spec-draft.ts)
 - [lib/spec-sort.ts](lib/spec-sort.ts)
+- [lib/spec-triage.ts](lib/spec-triage.ts)
 - [lib/specs-view-tier.ts](lib/specs-view-tier.ts)
 - [types/spec-sort.ts](types/spec-sort.ts)
 

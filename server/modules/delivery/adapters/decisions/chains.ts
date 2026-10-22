@@ -72,6 +72,7 @@ export async function sweepMergedChainAncestors(deps: PrDecisionDeps, mergedRow:
         })
         await deleteOwnedBranchesIfUnchanged(deps, claimed, snap, cleanupWarnings)
         const conflict = casTransitionWithTicketEffect(deps, claimed, 'merged', {
+          mergedAt: new Date().toISOString(),
           deliveryOutcome: 'delivered',
           statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
           statusDetail: `merged as part of ${mergedRow.rail_key}`,

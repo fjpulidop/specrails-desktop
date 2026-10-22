@@ -296,3 +296,50 @@ describe('POST /jobs/:id/cancel — standalone loop-run fallback', () => {
     expect(loopCancel).not.toHaveBeenCalled()
   })
 })
+
+describe('budget_paused loop runs (rail-loop-budget-guard)', () => {
+  const rejection = { error: 'daily_budget_exceeded', scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: '2026-10-22T00:00:00.000Z', detail: 'over', action: 'raise' }
+  function budgetApp(resume: { status: string; rejection?: unknown }) {
+    const loop = {
+      isPaused: vi.fn(() => true),
+      budgetPause: vi.fn(() => rejection),
+      resumeBudgetPause: vi.fn(() => resume),
+      sendInteractiveTurn: vi.fn(() => false),
+      pausedReason: vi.fn(() => 'over raise'),
+      pendingInterrupts: vi.fn(() => []),
+      isInteractiveJob: vi.fn(() => false),
+    }
+    const app = express()
+    app.use(express.json())
+    const router = Router()
+    registerJobsRoutes({ router, ctx: () => ({ db, project: { id: 'p1', slug: 's1', path: '/repo', provider: 'claude', providers: ['claude'] },
+      queueManager: { sendInteractiveTurn: vi.fn(() => false), phasesForCommand: () => [], getInteractiveSettleMode: () => null }, loopRunManager: loop }), ticketPath: () => undefined } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    return { app, loop }
+  }
+
+  it('the turn door resumes a budget_paused run (no text needed) once the budget allows it', async () => {
+    const { app, loop } = budgetApp({ status: 'resumed' })
+    const res = await request(app).post('/api/projects/p1/jobs/run-b/messages').send({})
+    expect(res.status).toBe(202)
+    expect(loop.resumeBudgetPause).toHaveBeenCalledWith('run-b')
+    expect(loop.sendInteractiveTurn).not.toHaveBeenCalled()
+  })
+
+  it('the turn door returns the shared 409 body while still over budget', async () => {
+    const { app } = budgetApp({ status: 'over_budget', rejection })
+    const res = await request(app).post('/api/projects/p1/jobs/run-b/messages').send({ text: 'go' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual(rejection)
+  })
+
+  it('GET /jobs/:id reports the budget_paused kind and amounts', async () => {
+    createJob(db, { id: 'run-b', command: 'loop: x', started_at: '2026-10-21T08:00:00Z', owner: 'loop' })
+    createLoopRun(db, { id: 'run-b', projectId: 'p1', loopId: 'l', ticketIds: [], provider: 'claude', model: 'sonnet', iterationLimit: 3, startedAt: '2026-10-21T08:00:00Z' })
+    const { app } = budgetApp({ status: 'resumed' })
+    const res = await request(app).get('/api/projects/p1/jobs/run-b')
+    expect(res.status).toBe(200)
+    expect(res.body.job).toMatchObject({ loopPaused: true, loopPauseKind: 'budget_paused',
+      loopPauseBudget: { scope: 'desktop', budgetUsd: 5, spentUsd: 6, resetsAt: '2026-10-22T00:00:00.000Z' } })
+  })
+})

@@ -124,6 +124,7 @@
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
       "components/TargetPrLaunchDialog.tsx",
+      "components/TopRiskLine.tsx",
       "context/RailPrDecisionContext.tsx",
       "lib/pr-delivery.ts",
       "lib/pr-follow-up-scope.ts",
@@ -143,6 +144,16 @@
       "pages/DocsPage.tsx"
     ],
     "dependencies": []
+  },
+  "flow": {
+    "publicEntries": [
+      "components/FlowMissionsBridge.tsx"
+    ],
+    "dependencies": [
+      "missions",
+      "providers",
+      "rails"
+    ]
   },
   "integrations": {
     "publicEntries": [
@@ -215,6 +226,7 @@
       "components/AgentModeSurface.tsx",
       "components/AgentModelSelector.tsx",
       "components/AgentPrPinnedDock.tsx",
+      "components/AgentRailLaunchCard.tsx",
       "components/AgentToolbarSelector.tsx",
       "components/AgentWorkspaceSidebar.tsx",
       "components/MissionConversationMenu.tsx",
@@ -225,6 +237,7 @@
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",
+      "context/MissionExtensionsContext.tsx",
       "context/MissionSessionsContext.tsx",
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
@@ -360,6 +373,7 @@
       "components/CreateTicketModal.tsx",
       "components/SpecCard.tsx",
       "components/SpecComparePicker.tsx",
+      "components/SpecTriageChip.tsx",
       "components/SpecsBoard.tsx",
       "components/TicketDetailModal.tsx",
       "components/explore-spec/useSmoothStream.ts",
@@ -371,6 +385,7 @@
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
       "lib/spec-sort.ts",
+      "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
       "types/spec-sort.ts"
     ],

@@ -20,7 +20,7 @@ A partir desse momento, os jobs do pipeline desse projeto passam a registar tele
 
 ### O que é abrangido
 
-A telemetria aplica-se aos **jobs do pipeline** (as execuções em rail Architect → Developer → Reviewer → Ship que estão em fila). Sessões interativas como o chat e o assistente de configuração ficam intencionalmente de fora — a telemetria destina-se às execuções de pipeline repetíveis e inspecionáveis, não a conversas pontuais.
+A telemetria aplica-se aos jobs que passam pela **fila de jobs** do projeto: as execuções do pipeline da CLI (os rails quando os Loops estão desativados e os comandos `implement` enviados a partir da CLI `specrails-desktop`). As execuções de loop — a forma predefinida como os rails correm — e as sessões interativas como o chat, o Explore e as missões não são instrumentadas.
 
 ## Onde ficam os dados
 

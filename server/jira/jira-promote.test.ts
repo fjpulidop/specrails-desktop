@@ -5,8 +5,8 @@ import path from 'path'
 import { initDb, type DbInstance } from '../db'
 import { mutateStore, readStore, resolveTicketStoragePath, type Ticket } from '../modules/specs/runtime/ticket-store'
 import { setSecretStore } from './jira-credential-store'
-import { upsertConnection, getLinkByLocalId } from './jira-db'
-import { JiraSyncManager } from './jira-sync-manager'
+import { upsertConnection, getLinkByLocalId, listOutbox, insertLinkWithId, enqueueMany } from './jira-db'
+import { JiraSyncManager, pendingCreateIssueId } from './jira-sync-manager'
 import type { FetchImpl } from './jira-client'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -176,3 +176,248 @@ describe('promoteTicketToJira', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('durable create outbox op (enqueuePromote)', () => {
+  let db: DbInstance
+  let projectPath: string
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    setSecretStore({ encrypt: (s) => `e:${s}`, decrypt: (s) => s.slice(2) })
+    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-create-op-'))
+  })
+
+  afterEach(() => {
+    setSecretStore(null)
+    fs.rmSync(projectPath, { recursive: true, force: true })
+  })
+
+  function manager(fetchImpl: FetchImpl, broadcast: (m: unknown) => void = () => {}) {
+    return new JiraSyncManager({ db, projectId: 'p1', projectPath, broadcast: broadcast as any, fetchImpl, startTimers: false })
+  }
+  const createRoute = (status: number, body: unknown) => ({ match: (u: string, m: string) => m === 'POST' && u.endsWith('/issue'), res: fakeResponse(status, body) })
+
+  it('creates, links the same local id and flips the ticket like promote', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 5, 'Add CSV export')
+    const { impl, calls } = makeFetch([createRoute(201, { id: '10001', key: 'PROJ-7' })])
+    const msgs: any[] = []
+    const mgr = manager(impl, (m) => msgs.push(m))
+    expect(mgr.enqueuePromote(5, 'flow:f1:create')).toBe('enqueued')
+    await mgr.drainOnce()
+
+    const done = listOutbox(db, { state: 'done' })
+    expect(done).toHaveLength(1)
+    expect(done[0]).toMatchObject({ opType: 'create', jiraIssueId: pendingCreateIssueId(5), idempotencyKey: 'flow:f1:create' })
+    expect(getLinkByLocalId(db, 5)).toMatchObject({ jiraIssueId: '10001', jiraKey: 'PROJ-7' })
+    const t = readStore(resolveTicketStoragePath(projectPath)).tickets['5']
+    expect(t).toMatchObject({ source: 'jira', jira_key: 'PROJ-7' })
+    expect(msgs.some((m) => m.type === 'ticket_updated')).toBe(true)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(1)
+  })
+
+  it('is idempotent: same key enqueues once, linked tickets are a no-op', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 5, 'Add CSV export')
+    const { impl, calls } = makeFetch([createRoute(201, { id: '10001', key: 'PROJ-7' })])
+    const mgr = manager(impl)
+    mgr.enqueuePromote(5, 'k1')
+    mgr.enqueuePromote(5, 'k1')
+    await mgr.drainOnce()
+    expect(listOutbox(db)).toHaveLength(1)
+    expect(mgr.enqueuePromote(5, 'k2')).toBe('already_linked')
+
+    // Replayed op whose ticket was linked after enqueue (e.g. a concurrent
+    // promote, or a crash after linking) → done, no second issue.
+    seedTicket(projectPath, 6, 'Other')
+    insertLinkWithId(db, { localId: 6, jiraIssueId: '10002', jiraKey: 'PROJ-8', jiraProjectId: '1', deployment: 'cloud' })
+    enqueueMany(db, [{ jiraIssueId: pendingCreateIssueId(6), opType: 'create', idempotencyKey: 'k3', payload: { localTicketId: 6 } }])
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'done' })).toHaveLength(2)
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(1)
+  })
+
+  it('retries server errors with backoff and keeps the ticket local', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 7, 'Flaky')
+    const { impl } = makeFetch([createRoute(500, { error: 'down' })])
+    const mgr = manager(impl)
+    mgr.enqueuePromote(7, 'k-retry')
+    await mgr.drainOnce()
+    const pending = listOutbox(db, { state: 'pending' })
+    expect(pending).toHaveLength(1)
+    expect(pending[0].attempts).toBe(1)
+    expect(pending[0].nextAttemptAt).not.toBeNull()
+    expect(getLinkByLocalId(db, 7)).toBeNull()
+    expect(readStore(resolveTicketStoragePath(projectPath)).tickets['7'].source).toBe('free-prompt')
+  })
+
+  it('dead-letters validation errors and missing tickets; parks on auth', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 8, 'Invalid')
+    const bad = manager(makeFetch([createRoute(400, { errors: { summary: 'bad' } })]).impl)
+    bad.enqueuePromote(8, 'k-400')
+    bad.enqueuePromote(999, 'k-missing')
+    await bad.drainOnce()
+    const dead = listOutbox(db, { state: 'dead' })
+    expect(dead.map((op) => op.deadReason).sort()).toEqual([expect.stringMatching(/^local ticket not found$/), expect.stringMatching(/^validation error/)].sort())
+
+    seedTicket(projectPath, 9, 'Auth')
+    const msgs: any[] = []
+    const auth = manager(makeFetch([createRoute(401, {})]).impl, (m) => msgs.push(m))
+    auth.enqueuePromote(9, 'k-401')
+    await auth.drainOnce()
+    expect(msgs.some((m) => m.type === 'jira.auth_expired')).toBe(true)
+    expect(listOutbox(db, { state: 'pending' }).map((op) => op.idempotencyKey)).toEqual(['k-401'])
+  })
+
+  it('never pushes a spec held by an active or paused Flow (promote refuses, the outbox retries)', async () => {
+    connect(db, 'p1')
+    seedTicket(projectPath, 12, 'In Flow')
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => {
+      s.tickets['12'].metadata.flow = { conversationId: 'c', flowId: 'f', worktreeId: 'f', startedAt: 't', state: 'active' }
+    })
+    const { impl, calls } = makeFetch([
+      createRoute(201, { id: '10009', key: 'PROJ-9' }),
+      { match: (u: string, m: string) => m === 'POST' && u.includes('/search'), res: fakeResponse(200, { issues: [] }) },
+    ])
+    const mgr = manager(impl)
+    expect(await mgr.promoteTicketToJira(12)).toMatchObject({ ok: false, error: expect.stringContaining('still in Flow') })
+    mgr.enqueuePromote(12, 'flow:f:create')
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'pending' })).toEqual([expect.objectContaining({ idempotencyKey: 'flow:f:create', attempts: 1 })])
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue'))).toHaveLength(0)
+    expect(getLinkByLocalId(db, 12)).toBeNull()
+
+    // Once the Flow settles (delivered) the same op creates the issue.
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => { s.tickets['12'].metadata.flow!.state = 'delivered' })
+    db.prepare('UPDATE jira_outbox SET next_attempt_at = NULL').run()
+    await mgr.drainOnce()
+    expect(getLinkByLocalId(db, 12)).toMatchObject({ jiraKey: 'PROJ-9' })
+
+    // An op that never sees the Flow settle eventually dead-letters.
+    seedTicket(projectPath, 13, 'Stuck in Flow')
+    mutateStore(resolveTicketStoragePath(projectPath), (s) => {
+      s.tickets['13'].metadata.flow = { conversationId: 'c', flowId: 'g', worktreeId: 'g', startedAt: 't', state: 'paused' }
+    })
+    mgr.enqueuePromote(13, 'flow:g:create')
+    await mgr.drainOnce()
+    db.prepare("UPDATE jira_outbox SET attempts = 5, next_attempt_at = NULL WHERE idempotency_key = 'flow:g:create'").run()
+    await mgr.drainOnce()
+    expect(listOutbox(db, { state: 'dead' }).map((op) => op.deadReason)).toContain('the spec is still in Flow')
+  })
+
+  it('reports inactive without a connection', () => {
+    seedTicket(projectPath, 10, 'no conn')
+    expect(manager(makeFetch([]).impl).enqueuePromote(10, 'k')).toBe('inactive')
+    expect(listOutbox(db)).toHaveLength(0)
+  })
+
+  describe('lost create response recovery', () => {
+    const marker = (id: number) => `[specrails:project=p1:ticket=${id}]`
+    const makeDue = () => db.prepare('UPDATE jira_outbox SET next_attempt_at = NULL').run()
+
+    it('stamps the issue with the creation marker property', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 11, 'Marked')
+      const bodies: any[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        if (init?.method === 'POST' && url.endsWith('/issue')) {
+          bodies.push(JSON.parse(init.body))
+          return fakeResponse(201, { id: '20011', key: 'PROJ-11' }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(11, 'k-mark')
+      await mgr.drainOnce()
+      expect(bodies[0].properties).toEqual([{ key: 'sh.specrails.created-from', value: { marker: marker(11) } }])
+      expect(getLinkByLocalId(db, 11)?.jiraKey).toBe('PROJ-11')
+    })
+
+    it('first attempt creates but the response is lost; the retry finds the marker and links without a second issue', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 12, 'Lost response')
+      let creates = 0
+      let issueExists = false
+      const calls: string[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        const method = init?.method ?? 'GET'
+        calls.push(`${method} ${url}`)
+        if (method === 'POST' && url.endsWith('/issue')) {
+          creates++
+          issueExists = true
+          return fakeResponse(502, { error: 'gateway lost the response' }) as any
+        }
+        if (method === 'POST' && url.includes('/search')) {
+          return fakeResponse(200, { issues: issueExists ? [{ id: '30001', key: 'PROJ-30', fields: { summary: 'Lost response' } }, { id: '30000', key: 'PROJ-29', fields: { summary: 'Other' } }] : [] }) as any
+        }
+        if (url.includes('/issue/30001/properties/sh.specrails.created-from')) {
+          return fakeResponse(200, { key: 'sh.specrails.created-from', value: { marker: marker(12) } }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(12, 'k-lost')
+      await mgr.drainOnce()
+      expect(listOutbox(db, { state: 'pending' })[0].attempts).toBe(1)
+      expect(getLinkByLocalId(db, 12)).toBeNull()
+
+      makeDue()
+      await mgr.drainOnce()
+      expect(creates).toBe(1)
+      expect(listOutbox(db, { state: 'done' })).toHaveLength(1)
+      expect(getLinkByLocalId(db, 12)).toMatchObject({ jiraIssueId: '30001', jiraKey: 'PROJ-30' })
+      expect(readStore(resolveTicketStoragePath(projectPath)).tickets['12']).toMatchObject({ source: 'jira', jira_key: 'PROJ-30' })
+      const search = calls.find((c) => c.includes('/search'))
+      expect(search).toBeTruthy()
+    })
+
+    it('a retry that finds no marked issue creates it; an unconfirmed search never creates', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 13, 'Never created')
+      let creates = 0
+      let searchStatus = 503
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url.endsWith('/issue')) {
+          creates++
+          return creates === 1 ? fakeResponse(500, {}) as any : fakeResponse(201, { id: '40001', key: 'PROJ-40' }) as any
+        }
+        if (method === 'POST' && url.includes('/search')) return fakeResponse(searchStatus, { issues: [] }) as any
+        return fakeResponse(404, {}) as any
+      }
+      const mgr = manager(impl)
+      mgr.enqueuePromote(13, 'k-none')
+      await mgr.drainOnce()
+      makeDue()
+      await mgr.drainOnce() // search unavailable → retry later, no blind create
+      expect(creates).toBe(1)
+      expect(listOutbox(db, { state: 'pending' })[0].attempts).toBe(2)
+
+      searchStatus = 200
+      makeDue()
+      await mgr.drainOnce()
+      expect(creates).toBe(2)
+      expect(getLinkByLocalId(db, 13)?.jiraKey).toBe('PROJ-40')
+    })
+
+    it('falls back to a plain create when the instance rejects create-time properties', async () => {
+      connect(db, 'p1')
+      seedTicket(projectPath, 14, 'Old instance')
+      const bodies: any[] = []
+      const impl: FetchImpl = async (url: string, init?: any) => {
+        if (init?.method === 'POST' && url.endsWith('/issue')) {
+          const body = JSON.parse(init.body)
+          bodies.push(body)
+          return body.properties ? fakeResponse(400, { errors: { properties: 'unsupported' } }) as any : fakeResponse(201, { id: '50001', key: 'PROJ-50' }) as any
+        }
+        return fakeResponse(404, {}) as any
+      }
+      const r = await manager(impl).promoteTicketToJira(14)
+      expect(r).toMatchObject({ ok: true, jiraKey: 'PROJ-50' })
+      expect(bodies.map((b) => Boolean(b.properties))).toEqual([true, false])
+    })
+  })
+})
+

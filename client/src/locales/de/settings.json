@@ -244,7 +244,23 @@
       "local": "Lokales Paket",
       "global": "Externe CLI"
     },
-    "repair": "Update auf {{version}} abschließen"
+    "repair": "Update auf {{version}} abschließen",
+    "stableFallback": "specrails-core hat noch keine stabile Version, daher folgt Core vorerst Neueste."
+  },
+  "updateChannel": {
+    "heading": "Update-Kanal",
+    "loading": "Kanal wird geladen…",
+    "scope": "Gilt für Specrails Desktop und das specrails-core-Framework.",
+    "saved": "Update-Kanal: {{channel}}",
+    "saveFailed": "Update-Kanal konnte nicht geändert werden: {{message}}",
+    "latest": {
+      "label": "Neueste",
+      "description": "Jede Version sofort nach Veröffentlichung. Neue Funktionen und Korrekturen zuerst."
+    },
+    "stable": {
+      "label": "Stabil",
+      "description": "Nur Versionen, die nach mindestens einer Woche auf Neueste mit grüner CI freigegeben wurden. Core folgt seinem stable-Tag."
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "Wird beim Start und alle 6 Stunden automatisch geprüft.",
     "unavailable": "App-Updates sind nur in der Desktop-App verfügbar.",
     "toastUpToDate": "Specrails Desktop ist aktuell",
-    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}"
+    "toastCheckFailed": "Update-Prüfung fehlgeschlagen: {{message}}",
+    "stableUnavailable": "Für den Kanal Stabil wurde noch keine Version freigegeben. Wechsle zu Neueste oder versuche es später erneut."
   },
   "projectDialog": {
     "title": "{{name}} — Einstellungen",
@@ -319,6 +336,33 @@
     "statusUnavailable": "Der Umgebungsstatus konnte nicht gelesen werden.",
     "unresolvedTitle": "Läufe starten ohne diese Variablen:"
   },
+  "agentEnv": {
+    "title": "Agentenumgebung",
+    "description": "Lege fest, welche Umgebungsvariablen die Agenten dieses Projekts erhalten: Rail-Jobs, Loops, Missionen, Chats und Spec-Helfer.",
+    "modes": {
+      "inherit": {
+        "label": "Erben (Standard)",
+        "description": "Agenten erhalten die vollständige Umgebung, mit der Specrails gestartet wurde, plus die Namen oben. Verhalten wie bisher."
+      },
+      "minimal": {
+        "label": "Minimal",
+        "description": "Agenten erhalten nur eine Positivliste (PATH, HOME, Sprache, Temp, Terminal, Proxy und Zertifikate), die Specrails-eigenen Variablen, die Anmeldevariablen des gewählten Anbieters und die Namen oben. Alles andere, etwa Cloud- oder Datenbank-Zugangsdaten, wird zurückgehalten."
+      }
+    },
+    "saved": {
+      "inherit": "Agenten erben die vollständige Umgebung",
+      "minimal": "Agenten erhalten jetzt die minimale Umgebung"
+    },
+    "saveFailed": "Die Agentenumgebung konnte nicht gespeichert werden",
+    "namesTitle": "Im Minimalmodus übergebene Variablen",
+    "shared": "Alle Agenten",
+    "passthrough": "Projektnamen (oben)",
+    "noPassthrough": "Keine Projektnamen konfiguriert.",
+    "provider": "Zusätzlich für {{provider}}",
+    "noProviderNames": "Derzeit keine gesetzt (akzeptiert {{patterns}}).",
+    "namesHelp": "Es werden nur Namen angezeigt, niemals Werte. Änderungen gelten für danach gestartete Agenten; offene Missionssitzungen behalten ihre Umgebung bis zum Neustart. Braucht ein Werkzeug eine weitere Variable, füge ihren Namen oben hinzu.",
+    "statusUnavailable": "Die Variablenliste konnte nicht gelesen werden."
+  },
   "effects": {
     "heading": "Effekte",
     "description": "Visuelle Akzente in der App. Jeder lässt sich hier abschalten.",
@@ -370,5 +414,30 @@
         "accept": "{{provider}} verwenden"
       }
     }
+  },
+  "agentAudit": {
+    "title": "Protokoll der Agentenaktionen",
+    "description": "Ein Projektprotokoll darüber, was Agenten gelesen, geschrieben, ausgeführt, per MCP aufgerufen oder abgerufen haben — als JSONL oder CSV aus jedem Job und dem Review-Paket exportierbar.",
+    "retentionLabel": "Einträge aufbewahren für",
+    "daysUnit": "Tage",
+    "caveat": "Ältere Einträge werden beim Start und täglich entfernt. Lesezugriffe sind nur so vollständig wie der Stream des jeweiligen Anbieters; Inhalte und Umgebungswerte werden nie gespeichert.",
+    "save": "Aufbewahrung speichern",
+    "saved_one": "Agentenaktionen werden {{count}} Tag aufbewahrt",
+    "saved_other": "Agentenaktionen werden {{count}} Tage aufbewahrt",
+    "saveFailed": "Die Aufbewahrung des Protokolls konnte nicht gespeichert werden",
+    "invalidDays": "Gib eine ganze Zahl von Tagen zwischen 1 und {{max}} ein"
+  },
+  "reviewWip": {
+    "title": "Review-Limit",
+    "description": "Begrenze, wie viele Lieferungen gleichzeitig auf dein Review warten dürfen, damit neue Arbeit sich nicht schneller stapelt, als du entscheiden kannst.",
+    "label": "Lieferungen, die auf Review warten",
+    "help": "Wir empfehlen {{suggested}}: genug, damit die Rails beschäftigt bleiben, während du reviewst. Es zählen laufende Lieferungen, unentschiedene Lieferungen und offene PRs der App. Änderungen an einer bestehenden Lieferung sind immer erlaubt. Leer lassen für kein Limit.",
+    "placeholder": "Kein Limit",
+    "useSuggested": "{{suggested}} verwenden",
+    "invalid": "Gib eine ganze Zahl von 1 bis {{max}} ein oder lass das Feld leer für kein Limit.",
+    "saved_one": "Review-Limit auf {{count}} gesetzt",
+    "saved_other": "Review-Limit auf {{count}} gesetzt",
+    "removed": "Review-Limit entfernt",
+    "saveFailed": "Das Review-Limit konnte nicht gespeichert werden"
   }
 }

@@ -32,6 +32,7 @@ import { useMissionSession, useMissionSessions } from '../context/MissionSession
 import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
 import type { AgentSubagent } from '../lib/agent-api'
+import { useMissionConversationMode, useMissionExtensions } from '../context/MissionExtensionsContext'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -213,6 +214,10 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     }
   }
 
+  // Mission extensions (Flow mode): surface attributes + a dock above the composer.
+  const { ConversationDock } = useMissionExtensions()
+  const conversationMode = useMissionConversationMode(active?.id ?? null, refsProjectId)
+
   const inline = variant === 'inline'
   // The inline surface caps the conversation column so it reads like Cursor's
   // centered thread on wide screens; the floating panel fills its own frame.
@@ -221,7 +226,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     : 'flex min-h-0 flex-1 flex-col overflow-hidden'
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown}>
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown} data-mission-surface {...conversationMode?.attributes}>
       {providersReady === false && (
         <div className="flex items-start gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
@@ -402,6 +407,11 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             />
           )}
         </AnimatePresence>
+
+        {/* Extension dock (Flow bar / hand-off card): above the composer. */}
+        {active && ConversationDock && (
+          <ConversationDock conversationId={active.id} projectId={refsProjectId} inline={inline} />
+        )}
 
         {inline ? (
           // Docked composer card — same visual language as the EMPTY hero card

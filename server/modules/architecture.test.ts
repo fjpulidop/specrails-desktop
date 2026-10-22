@@ -19,14 +19,17 @@ const coreDependencies: Record<string, string[]> = {
   'execution/domain/scheduling.ts': [],
   'execution/domain/job-accounting.ts': [],
   'execution/domain/usage.ts': ['./job-accounting'],
+  'execution/domain/agent-env.ts': [],
   'execution/ports.ts': ['./domain/job-accounting', './domain/usage'],
   'execution/application/record-job-invocations.ts': ['../../../util/distribute-int', '../domain/job-accounting', '../ports'],
-  'execution/application/enforce-budget.ts': [],
+  'execution/domain/daily-budget.ts': [],
+  'execution/application/enforce-budget.ts': ['../domain/daily-budget'],
   'execution/application/recover-job-usage.ts': ['../domain/usage', '../ports'],
-  'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget'],
+  'execution/index.ts': ['./domain/scheduling', './application/record-job-invocations', './domain/job-accounting', './ports', './application/recover-job-usage', './domain/usage', './application/enforce-budget', './domain/daily-budget', './domain/agent-env'],
   'delivery/domain/state.ts': [],
   'delivery/domain/decision-policy.ts': ['./state'],
-  'delivery/index.ts': ['./domain/decision-policy', './domain/state'],
+  'delivery/domain/review-wip.ts': ['./state'],
+  'delivery/index.ts': ['./domain/decision-policy', './domain/state', './domain/review-wip'],
   'agent-sessions/domain/protocol.ts': [],
   'agent-sessions/domain/errors.ts': ['./protocol'],
   'agent-sessions/domain/projection.ts': ['./protocol'],
@@ -40,6 +43,17 @@ const coreDependencies: Record<string, string[]> = {
   'conversations/domain/draft-stream.ts': [],
   'conversations/index.ts': ['./domain/recovery-context', './domain/draft-stream'],
   'terminals/domain/app-urls.ts': [],
+  'audit/domain.ts': [],
+  'audit/ports.ts': ['./domain'],
+  'audit/application.ts': ['./domain', './ports'],
+  'audit/index.ts': ['./application', './domain', './ports'],
+  // Flow: pure state machine; use cases depend only on their own ports.
+  'flow/domain.ts': [],
+  'flow/ports.ts': ['./domain'],
+  'flow/application.ts': ['./domain', './ports'],
+  'flow/index.ts': ['./application', './domain', './ports'],
+  // Spec triage: pure rules (canonical inputs, parsing, recommendation).
+  'specs/domain/triage.ts': [],
 }
 function imports(file: string): string[] {
   return moduleReferences(file, fs.readFileSync(file, 'utf8')).map(ref =>
@@ -64,6 +78,13 @@ describe('module contracts', () => {
       }
     }
     expect(cores.sort()).toEqual(Object.keys(coreDependencies).sort())
+  })
+  it('missions never depend on Flow or delivery (Flow reaches missions through an injected port)', () => {
+    const rules: Record<string, string[]> = manifest.missions.dependencies
+    const offending = Object.entries(rules).flatMap(([file, refs]) => refs
+      .filter((ref) => /(^|\/)(flow|delivery)\//.test(ref) || ref === '../../flow')
+      .map((ref) => `${file} -> ${ref}`))
+    expect(offending).toEqual([])
   })
   it('delivery workflow modules form an acyclic dependency graph', () => {
     const rules: Record<string, string[]> = manifest.delivery.dependencies

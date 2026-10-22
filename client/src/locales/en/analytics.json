@@ -11,7 +11,9 @@
     "specLauncher": "Spec launcher",
     "proposal": "Proposal",
     "agentStudio": "Agent Studio",
-    "setup": "Setup"
+    "setup": "Setup",
+    "triage": "Triage",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7d",
@@ -211,7 +213,8 @@
     "vsPrev": "vs previous period",
     "turnsAndTokens": "{{turns}} turns · {{tokens}} tokens",
     "untitled": "Untitled mission",
-    "estimatedNote": "Includes estimated costs"
+    "estimatedNote": "Includes estimated costs",
+    "flowShare": "Of which Flow: {{cost}} · {{turns}} turns"
   },
   "legacyUsage": {
     "title": "Legacy workflow usage",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "Classic loops",
       "queue_manager_slash": "Queued commands",
       "merge_back": "Local integrations"
+    }
+  },
+  "decisionTimes": {
+    "title": "Time to decision",
+    "subtitle": "From review-ready to the first human decision and to merge",
+    "toDecision": "Time to decision",
+    "toMerge": "Time to merge",
+    "median": "median",
+    "p90": "p90",
+    "counts": "{{measured}} measured · {{pending}} pending · {{unknown}} unknown",
+    "unknownValue": "Unknown",
+    "loading": "Loading decision times…",
+    "unavailable": "Could not load decision times.",
+    "empty": "No delivery reached review in this period.",
+    "byLoop": "Decision times by loop",
+    "loop": "Loop",
+    "deliveries": "Deliveries",
+    "decisionMedianP90": "Decision (median · p90)",
+    "mergeMedianP90": "Merge (median · p90)",
+    "unnamedLoop": "Unnamed loop",
+    "note": "Unknown counts deliveries without recorded instants (for example, those created before this metric existed). They are never counted as zero.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} d"
+    }
+  },
+  "loopEconomics": {
+    "title": "Loop economics",
+    "subtitle": "Delivery, cost, rework and escaped defects per loop",
+    "loading": "Loading loop economics…",
+    "unavailable": "Could not load loop economics.",
+    "empty": "No loop delivered anything in this period.",
+    "noData": "No data",
+    "unknownValue": "—",
+    "unnamedLoop": "Unnamed loop",
+    "estimatedShare": "{{share}} estimated",
+    "unpriced": "{{count}} unpriced",
+    "note": "Delivered = reached review or beyond. Average cost uses deliveries with a recorded cost (provider-reported unless marked estimated); unpriced deliveries are excluded, never counted as $0. Rounds come from reviewer/fixer loop steps. — means unknown.",
+    "escapedUntracked": "Escaped defects are not tracked yet: link a bug ticket to the delivery that introduced it (\"Regression of\" in the ticket) to start counting them.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Delivered",
+      "merged": "Merged",
+      "discarded": "Discarded",
+      "avgCost": "Cost / delivery",
+      "toDecision": "Decision (median · p90)",
+      "toMerge": "Merge (median · p90)",
+      "reviewRounds": "Reviews / delivery",
+      "fixerRounds": "Fixer rounds / delivery",
+      "escapedDefects": "Escaped defects",
+      "requirementsDemonstrated": "Requirements demonstrated",
+      "triageAccuracy": "Triage accuracy"
     }
   }
 }

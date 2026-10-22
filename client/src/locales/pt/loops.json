@@ -210,7 +210,8 @@
         "end": "Fim",
         "assign": "Definir variáveis",
         "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract"
+        "artifact-contract": "Artifact contract",
+        "derive-change": "Derivar mudança"
       },
       "groups": {
         "ai": "IA",

@@ -21,6 +21,8 @@ import {
   deleteAgentConversation,
   listAgentMessages,
   setAgentMessageIntent,
+  isAgentMessageIntentKind,
+  isIntentStatusFor,
   searchAgentConversations,
   MISSION_SEARCH_DEFAULT_LIMIT,
   MISSION_SEARCH_MAX_LIMIT,
@@ -496,11 +498,18 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     }
     const tierLevel = body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : undefined
     const model = typeof body.model === 'string' ? body.model : undefined
-    if (body.deliveryMode !== undefined && body.deliveryMode !== 'queue' && body.deliveryMode !== 'steer') {
-      res.status(400).json({ error: 'deliveryMode must be queue or steer' })
+    if (body.deliveryMode !== undefined && body.deliveryMode !== 'queue' && body.deliveryMode !== 'steer' && body.deliveryMode !== 'interrupt') {
+      res.status(400).json({ error: 'deliveryMode must be queue, steer or interrupt' })
       return
     }
-    const deliveryMode = body.deliveryMode as 'queue' | 'steer' | undefined
+    // Flow mode: `interrupt` cuts the running Flow turn (Core flowSessions). In a
+    // Flow every mid-turn input travels as an interrupt, so it is admitted as a
+    // native steer and the Flow session delivers it with `delivery: 'interrupt'`.
+    if (body.deliveryMode === 'interrupt' && !manager.isFlowActive(conversation.id)) {
+      res.status(409).json({ error: 'interrupt_requires_flow', detail: 'Only an active Flow accepts interrupt delivery' })
+      return
+    }
+    const deliveryMode = body.deliveryMode === 'interrupt' ? 'steer' : body.deliveryMode as 'queue' | 'steer' | undefined
     let attachmentIds: string[] = []
     const rawAtt = body.attachments
     if (rawAtt && typeof rawAtt === 'object' && Array.isArray((rawAtt as { ids?: unknown }).ids)) {
@@ -532,7 +541,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
         : undefined
       res.status(202).json({
         accepted: true, queued: stillQueued,
-        ...(stillQueued ? { deliveryMode: pending?.deliveryMode ?? input?.options.deliveryMode ?? deliveryMode ?? 'queue' } : {}),
+        ...(stillQueued ? { deliveryMode: body.deliveryMode === 'interrupt' ? 'interrupt' : pending?.deliveryMode ?? input?.options.deliveryMode ?? deliveryMode ?? 'queue' } : {}),
         ...(previous ? { duplicate: true } : {}),
         ...(input?.status === 'cancelled' && !input.messageId ? { removed: true } : {}),
         ...(message ? { message } : {}),
@@ -550,25 +559,34 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
   // queue already consumed it — the client keeps the user's text as a draft so
   // nothing is lost (never-lose-input semantics).
   // PATCH /conversations/:id/messages/:messageId/intent — persist a decision the
-  // user took on an agent-emitted card (mission-rail-cards). Body:
-  // { kind:'rail-launch', proposalIndex, status:'launched'|'dismissed', railIndex?, runIds?, prDeliveryId?, config? }.
-  // 409 when that proposal was already decided (a decision is final).
+  // user took on an agent-emitted card. Body:
+  // { kind:'rail-launch'|'flow-hand-off', proposalIndex, status:'launched'|'dismissed', railIndex?, runIds?, prDeliveryId?, config? }
+  // { kind:'flow-offer', proposalIndex, status:'accepted'|'dismissed', recommendedMode?, chosenMode?, config? }.
+  // 409 when that card was already decided (a decision is final). Rail-launch
+  // decisions need mission rail cards; Flow cards are gated by Flow itself.
   router.patch('/conversations/:id/messages/:messageId/intent', (req: Request, res: Response) => {
-    if (!isMissionRailCardsEnabled()) { res.status(403).json({ error: 'mission_rail_cards_disabled' }); return }
+    const body = (req.body ?? {}) as Record<string, unknown>
+    if (!isAgentMessageIntentKind(body.kind)) { res.status(400).json({ error: 'kind must be "rail-launch", "flow-offer" or "flow-hand-off"' }); return }
+    const kind = body.kind
+    if (kind === 'rail-launch' && !isMissionRailCardsEnabled()) { res.status(403).json({ error: 'mission_rail_cards_disabled' }); return }
     const conversation = getAgentConversation(desktopDb, String(req.params.id))
     if (!conversation) { res.status(404).json({ error: 'Unknown conversation' }); return }
-    const body = (req.body ?? {}) as Record<string, unknown>
-    if (body.kind !== 'rail-launch') { res.status(400).json({ error: 'kind must be "rail-launch"' }); return }
     if (typeof body.proposalIndex !== 'number' || !Number.isInteger(body.proposalIndex) || body.proposalIndex < 0) {
       res.status(400).json({ error: 'proposalIndex must be a non-negative integer' }); return
     }
-    if (body.status !== 'launched' && body.status !== 'dismissed') { res.status(400).json({ error: 'status must be "launched" or "dismissed"' }); return }
+    if (!isIntentStatusFor(kind, body.status)) {
+      res.status(400).json({ error: kind === 'flow-offer' ? 'status must be "accepted" or "dismissed"' : 'status must be "launched" or "dismissed"' }); return
+    }
     const runIds = Array.isArray(body.runIds) ? body.runIds.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, 50) : undefined
     const railIndex = typeof body.railIndex === 'number' && Number.isInteger(body.railIndex) && body.railIndex >= 0 ? body.railIndex : undefined
     const prDeliveryId = typeof body.prDeliveryId === 'string' ? body.prDeliveryId : body.prDeliveryId === null ? null : undefined
     const config = body.config && typeof body.config === 'object' && !Array.isArray(body.config) ? body.config as Record<string, unknown> : undefined
+    const flowMode = (value: unknown): 'flow' | 'implement' | null | undefined =>
+      value === 'flow' || value === 'implement' ? value : value === null ? null : undefined
+    const recommendedMode = kind === 'flow-offer' ? flowMode(body.recommendedMode) : undefined
+    const chosenMode = kind === 'flow-offer' ? flowMode(body.chosenMode) : undefined
     const result = setAgentMessageIntent(desktopDb, String(req.params.messageId), {
-      kind: 'rail-launch',
+      kind,
       proposalIndex: body.proposalIndex,
       status: body.status,
       at: new Date().toISOString(),
@@ -576,6 +594,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       ...(runIds ? { runIds } : {}),
       ...(prDeliveryId !== undefined ? { prDeliveryId } : {}),
       ...(config ? { config } : {}),
+      ...(recommendedMode !== undefined ? { recommendedMode } : {}),
+      ...(chosenMode !== undefined ? { chosenMode } : {}),
     })
     if (!result.ok) {
       if (result.reason === 'not_found') { res.status(404).json({ error: 'Unknown message' }); return }

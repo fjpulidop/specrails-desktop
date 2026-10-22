@@ -204,7 +204,7 @@ export interface InvocationWithTicket extends InvocationRow {
 // the headline regardless.
 const ALL_SURFACES: Surface[] = [
   'job', 'quick-spec', 'explore-spec', 'ai-edit', 'smash', 'file-summary', 'loop',
-  'chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup',
+  'chat-sidebar', 'spec-launcher', 'proposal', 'agent-studio', 'setup', 'flow', 'triage',
 ]
 
 /** Fresh zeroed per-surface bucket covering every Surface, so aggregation
@@ -215,7 +215,7 @@ function emptyBySurface(): Record<Surface, { count: number; costUsd: number; unp
   return out
 }
 
-interface ResolvedRange {
+export interface ResolvedRange {
   from: string
   to: string
   prevFrom: string
@@ -245,7 +245,7 @@ function normalizeCustomBound(raw: string, edge: 'start' | 'end', tzOffsetMinute
   return new Date(localStartUtc + 86_400_000 - 1).toISOString()
 }
 
-function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
+export function resolveRange(filters: SpendingFilters, now: Date = new Date()): ResolvedRange {
   const period = filters.period ?? '30d'
   const tzOffset = filters.tzOffsetMinutes ?? 0
   // Only take the custom branch when BOTH dates parse — otherwise
@@ -1053,6 +1053,9 @@ export interface AgentMissionSpending {
     turns: number
     tokensIn: number
     tokensOut: number
+    /** Part of totalCostUsd spent by Flow turns (surface='flow'). */
+    flowCostUsd: number
+    flowTurns: number
   }
   topConversations: AgentMissionConversationRow[]
 }
@@ -1070,11 +1073,13 @@ export function getAgentMissionSpending(
       COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimated,
       COUNT(*) AS turns,
       COALESCE(SUM(tokens_in), 0) AS tokensIn,
-      COALESCE(SUM(tokens_out), 0) AS tokensOut
+      COALESCE(SUM(tokens_out), 0) AS tokensOut,
+      COALESCE(SUM(CASE WHEN surface = 'flow' THEN total_cost_usd ELSE 0 END), 0) AS flowTotal,
+      COALESCE(SUM(CASE WHEN surface = 'flow' THEN 1 ELSE 0 END), 0) AS flowTurns
     FROM agent_invocations
     WHERE project_id = ? AND started_at >= ? AND started_at <= ?
   `).get(projectId, range.from, range.to) as {
-    total: number; estimated: number; turns: number; tokensIn: number; tokensOut: number
+    total: number; estimated: number; turns: number; tokensIn: number; tokensOut: number; flowTotal: number; flowTurns: number
   }
 
   const prevRow = desktopDb.prepare(`
@@ -1107,6 +1112,8 @@ export function getAgentMissionSpending(
       turns: summaryRow.turns,
       tokensIn: summaryRow.tokensIn,
       tokensOut: summaryRow.tokensOut,
+      flowCostUsd: summaryRow.flowTotal,
+      flowTurns: summaryRow.flowTurns,
     },
     topConversations,
   }

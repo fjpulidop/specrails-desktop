@@ -45,6 +45,19 @@ export interface SpawnOptions {
    */
   toolPolicy?: 'default' | 'none' | 'read-only'
   /**
+   * With `toolPolicy: 'read-only'`, keep the MCP servers registered for this
+   * invocation callable (the app-governed `specrails_*` operator surface used by
+   * missions). The workspace boundary stays native: no built-in tool may write
+   * files or run commands. Claude drops plan mode and `--safe-mode` (plan mode
+   * makes the model refuse state-changing MCP calls and `--safe-mode` unloads
+   * `--mcp-config` servers — verified on claude 2.1.299) and instead exposes only
+   * read-only built-in tools. Adapters whose read-only mode already keeps MCP
+   * tools callable (Codex read-only sandbox, the local runner) ignore it. Gemini
+   * additionally needs the plan-mode MCP policy file the mission MCP wiring
+   * passes through `extraArgs`. Ignored when `toolPolicy` is not `read-only`.
+   */
+  retainMcpTools?: boolean
+  /**
    * Reasoning effort for this invocation. Honoured only by providers whose
    * `capabilities.supportsReasoningEffort` is true: claude emits the native
    * `--effort <level>` flag; codex emits `-c model_reasoning_effort=<value>`.
@@ -146,6 +159,14 @@ export interface ProviderCapabilities {
    * sessions (mirrors its legacy mission flags). Omitted = workspace-write. */
   sessionPermissions?: 'bypass' | 'workspace-write' | 'read-only'
   /**
+   * How a read-only mission maps onto a Core agent session while keeping MCP
+   * tools callable. `permissions` replaces `sessionPermissions`; `tools: 'read-only'`
+   * asks the Core driver for its read-only tool set (requires driver
+   * `toolFiltering`). Omitted = no verified read-only session mapping: the
+   * mission keeps the legacy session policy and the limitation is documented.
+   */
+  missionReadOnlySession?: { permissions: 'bypass' | 'workspace-write' | 'read-only'; tools: 'default' | 'read-only' }
+  /**
    * Project sidebar chat must fold its dynamic app system prompt into the user
    * turn. Explore remains grounded by the provider instruction file in its
    * isolated cwd, avoiding duplicate long-form framing.
@@ -246,6 +267,15 @@ export interface ProviderAdapter {
    * fresh environment; adapters MUST NOT mutate process.env.
    */
   buildEnv?(opts: SpawnOptions): Readonly<Record<string, string | undefined>>
+
+  /**
+   * Authentication and configuration variable names this provider's CLI reads
+   * from its environment. A project in `minimal` agent environment mode
+   * forwards only these (plus the shared allowlist and the project's
+   * passthrough names) to the agent. A trailing `*` matches a name prefix.
+   * Omitted means the provider needs nothing beyond the shared allowlist.
+   */
+  readonly envAllowlist?: readonly string[]
 
   /**
    * Translate a Core workflow invocation into provider-native syntax/prompt.

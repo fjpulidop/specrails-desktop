@@ -17,6 +17,12 @@ export type Surface =
   | 'proposal'
   | 'agent-studio'
   | 'setup'
+  // Flow mode turns. They run in the mission manager and are recorded in the
+  // app-level `agent_invocations` ledger with surface='flow' (never twice);
+  // listed here so the shared surface vocabulary and breakdowns include it.
+  | 'flow'
+  // Spec triage (launch-triage): one cheap structured-output call per spec.
+  | 'triage'
 export type InvocationStatus = 'success' | 'failed' | 'aborted'
 
 const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
@@ -32,6 +38,8 @@ const ALLOWED_SURFACES: ReadonlySet<Surface> = new Set([
   'proposal',
   'agent-studio',
   'setup',
+  'flow',
+  'triage',
 ])
 
 export interface RecordInput extends NormalisedResult {
@@ -243,6 +251,8 @@ export function getTicketSpendingSummary(
     proposal: { count: 0, costUsd: 0, unpricedCount: 0 },
     'agent-studio': { count: 0, costUsd: 0, unpricedCount: 0 },
     setup: { count: 0, costUsd: 0, unpricedCount: 0 },
+    flow: { count: 0, costUsd: 0, unpricedCount: 0 },
+    triage: { count: 0, costUsd: 0, unpricedCount: 0 },
   }
   let totalCostUsd = 0
   let estimatedCostUsd = 0

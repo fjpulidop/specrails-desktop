@@ -398,6 +398,26 @@ describe('db', () => {
       }
     })
 
+    it('migration 74 creates flow_sessions with one open Flow per conversation and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const insert = (id: string, state: string) => db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES (?, 'c1', ?, 't', 't')").run(id, state)
+        insert('a', 'active')
+        expect(() => insert('b', 'paused')).toThrow(/UNIQUE/)
+        insert('c', 'discarded')
+        insert('d', 'handed_off')
+        db.prepare('DELETE FROM schema_migrations WHERE version = 74').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('SELECT COUNT(*) AS n FROM flow_sessions').get()).toEqual({ n: 3 })
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 74').get()).toEqual({ version: 74 })
+        expect(db.prepare('PRAGMA table_info(flow_sessions)').all()).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'ticket_id', notnull: 0 })]))
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 71 adds nullable relaunch options without changing historical rows and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-relaunch-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
@@ -414,6 +434,30 @@ describe('db', () => {
         db.prepare('DELETE FROM schema_migrations WHERE version = 71').run()
         db.close(); db = initDb(dbPath)
         expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 71').get()).toEqual({ version: 71 })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 72 adds nullable decision-time instants, leaves history unknown and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-decision-times-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      const columns = ['on_review_at', 'decided_at', 'published_at', 'merged_at']
+      try {
+        db.prepare("INSERT INTO rail_pr_deliveries (id, rail_index, rail_key, ticket_ids, base_branch, loop_name, origin_surface, decision) VALUES ('old', 0, '0-quick', '[4]', 'main', 'Quick', 'dashboard', 'merged')").run()
+        for (const column of columns) db.exec(`ALTER TABLE rail_pr_deliveries DROP COLUMN ${column}`)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 72').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('PRAGMA table_info(rail_pr_deliveries)').all()).toEqual(expect.arrayContaining(
+          columns.map((name) => expect.objectContaining({ name, type: 'TEXT', notnull: 0, dflt_value: null })),
+        ))
+        // Not derivable exactly from existing columns: unknown, never backfilled.
+        expect(db.prepare("SELECT on_review_at, decided_at, published_at, merged_at FROM rail_pr_deliveries WHERE id='old'").get())
+          .toEqual({ on_review_at: null, decided_at: null, published_at: null, merged_at: null })
+        db.prepare('DELETE FROM schema_migrations WHERE version = 72').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 72').get()).toEqual({ version: 72 })
       } finally {
         db.close(); fs.rmSync(dir, { recursive: true, force: true })
       }

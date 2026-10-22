@@ -244,7 +244,23 @@
       "local": "ローカルパッケージ",
       "global": "外部 CLI"
     },
-    "repair": "{{version}} への更新を完了"
+    "repair": "{{version}} への更新を完了",
+    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。"
+  },
+  "updateChannel": {
+    "heading": "アップデートチャネル",
+    "loading": "チャネルを読み込み中…",
+    "scope": "Specrails Desktop と specrails-core フレームワークの両方に適用されます。",
+    "saved": "アップデートチャネル: {{channel}}",
+    "saveFailed": "アップデートチャネルを変更できませんでした: {{message}}",
+    "latest": {
+      "label": "最新",
+      "description": "リリースされたらすぐに受け取ります。新機能と修正をいち早く。"
+    },
+    "stable": {
+      "label": "安定版",
+      "description": "最新チャネルで 1 週間以上 CI が成功したうえで昇格したリリースのみ。Core は stable タグに従います。"
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "起動時と6時間ごとに自動確認します。",
     "unavailable": "アップデートはデスクトップアプリでのみ利用できます。",
     "toastUpToDate": "Specrails Desktop は最新です",
-    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}"
+    "toastCheckFailed": "アップデートの確認に失敗しました: {{message}}",
+    "stableUnavailable": "安定版チャネルに昇格したリリースはまだありません。最新に切り替えるか、後でもう一度お試しください。"
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
@@ -319,6 +336,33 @@
     "statusUnavailable": "環境のステータスを読み取れませんでした。",
     "unresolvedTitle": "次の変数なしで実行が開始されます:"
   },
+  "agentEnv": {
+    "title": "エージェント環境",
+    "description": "このプロジェクトのエージェント（レールジョブ、ループ、ミッション、チャット、スペック補助）が受け取る環境変数を選択します。",
+    "modes": {
+      "inherit": {
+        "label": "継承（既定）",
+        "description": "エージェントは Specrails の起動時の環境をすべて受け取り、上記の名前も追加されます。従来どおりの動作です。"
+      },
+      "minimal": {
+        "label": "最小",
+        "description": "エージェントは許可リスト（PATH、HOME、ロケール、一時ディレクトリ、端末、プロキシ、証明書）、Specrails 自身の変数、選択したプロバイダーのサインイン用変数、上記の名前だけを受け取ります。クラウドやデータベースの認証情報など、それ以外は渡されません。"
+      }
+    },
+    "saved": {
+      "inherit": "エージェントは環境をすべて継承します",
+      "minimal": "エージェントは最小環境を受け取るようになりました"
+    },
+    "saveFailed": "エージェント環境を保存できませんでした",
+    "namesTitle": "最小モードで渡される変数",
+    "shared": "すべてのエージェント",
+    "passthrough": "プロジェクトの名前（上記）",
+    "noPassthrough": "プロジェクトの名前は設定されていません。",
+    "provider": "{{provider}} の場合はさらに",
+    "noProviderNames": "現在は未設定です（{{patterns}} を受け付けます）。",
+    "namesHelp": "表示されるのは名前だけで、値は表示されません。変更はこの後に起動するエージェントに適用されます。開いているミッションのセッションは再起動するまで環境を保持します。ツールに別の変数が必要な場合は、上でその名前を追加してください。",
+    "statusUnavailable": "変数の一覧を読み込めませんでした。"
+  },
   "effects": {
     "heading": "エフェクト",
     "description": "アプリ内の視覚的な演出。それぞれここでオフにできます。",
@@ -370,5 +414,30 @@
         "accept": "{{provider}} を使う"
       }
     }
+  },
+  "agentAudit": {
+    "title": "エージェント操作の監査ログ",
+    "description": "エージェントが読み取り・書き込み・実行・MCP 呼び出し・取得した内容をプロジェクトごとに記録します。各ジョブとレビューパケットから JSONL または CSV でエクスポートできます。",
+    "retentionLabel": "保持期間",
+    "daysUnit": "日",
+    "caveat": "古いエントリは起動時と毎日削除されます。読み取りの網羅性は各プロバイダーのストリームに依存します。内容や環境変数の値は保存されません。",
+    "save": "保持期間を保存",
+    "saved_one": "エージェントの操作を {{count}} 日間保持します",
+    "saved_other": "エージェントの操作を {{count}} 日間保持します",
+    "saveFailed": "監査ログの保持期間を保存できませんでした",
+    "invalidDays": "1 から {{max}} までの整数の日数を入力してください"
+  },
+  "reviewWip": {
+    "title": "レビュー上限",
+    "description": "同時にレビュー待ちにできる納品の数を制限し、決定できる速さ以上に新しい作業が溜まらないようにします。",
+    "label": "レビュー待ちの納品数",
+    "help": "推奨は {{suggested}} です。レビュー中もレールを動かし続けるのに十分な数です。実行中の納品、未決定の納品、アプリが作成したオープンな PR がカウントされます。既存の納品への変更は常に可能です。空欄にすると上限なしになります。",
+    "placeholder": "上限なし",
+    "useSuggested": "{{suggested}} を使う",
+    "invalid": "1〜{{max}} の整数を入力するか、上限なしの場合は空欄にしてください。",
+    "saved_one": "レビュー上限を {{count}} に設定しました",
+    "saved_other": "レビュー上限を {{count}} に設定しました",
+    "removed": "レビュー上限を解除しました",
+    "saveFailed": "レビュー上限を保存できませんでした"
   }
 }

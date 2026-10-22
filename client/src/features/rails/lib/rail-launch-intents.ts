@@ -15,7 +15,7 @@ const listeners = new Set<Listener>()
 export function recordLocalIntent(messageId: string, intent: AgentMessageIntent): void {
   const next = new Map(intents)
   const current = next.get(messageId) ?? []
-  next.set(messageId, [...current.filter((i) => i.proposalIndex !== intent.proposalIndex), intent])
+  next.set(messageId, [...current.filter((i) => i.kind !== intent.kind || i.proposalIndex !== intent.proposalIndex), intent])
   intents = next
   for (const l of listeners) l()
 }
@@ -35,15 +35,18 @@ export function useLocalIntents(): ReadonlyMap<string, readonly AgentMessageInte
   return useSyncExternalStore(subscribe, () => intents, () => intents)
 }
 
-/** The decision that applies to ONE proposal of a message: the local overlay
- *  wins over the persisted row; each proposal index is decided independently. */
+/** The decision that applies to ONE card of a message: the local overlay
+ *  wins over the persisted row; each (kind, proposal index) is decided independently. */
 export function intentFor(
   local: ReadonlyMap<string, readonly AgentMessageIntent[]>,
   messageId: string,
   persisted: readonly AgentMessageIntent[] | null | undefined,
   proposalIndex: number,
+  kind: AgentMessageIntent['kind'] = 'rail-launch',
 ): AgentMessageIntent | null {
-  return local.get(messageId)?.find((i) => i.proposalIndex === proposalIndex)
-    ?? persisted?.find((i) => i.proposalIndex === proposalIndex)
+  // Rows written before other card kinds existed carry no kind: rail-launch.
+  const matches = (i: AgentMessageIntent) => (i.kind ?? 'rail-launch') === kind && i.proposalIndex === proposalIndex
+  return local.get(messageId)?.find(matches)
+    ?? persisted?.find(matches)
     ?? null
 }

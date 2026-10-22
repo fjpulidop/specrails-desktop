@@ -242,6 +242,8 @@ export const geminiAdapter = {
   id: 'gemini',
   displayName: 'Gemini CLI',
   binary: 'gemini',
+  // API-key, Vertex and ADC auth plus CLI home/config.
+  envAllowlist: ['GEMINI_*', 'GOOGLE_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION', 'GOOGLE_GENAI_USE_VERTEXAI', 'CLOUDSDK_CONFIG'],
   minCliVersion: GEMINI_MIN_VERSION,
   projectDirName: '.gemini',
   instructionsFilename: 'GEMINI.md',
@@ -266,7 +268,10 @@ export const geminiAdapter = {
     toolPolicies: ['read-only'],
     profiles: false,
     customRoles: false,
-    freestyle: false,
+    // Non-interactive Freestyle verified with a real run (Core spawns trust the
+    // workspace via GEMINI_CLI_TRUST_WORKSPACE); interactive stays Claude only.
+    // Evidence: openspec/changes/freestyle-codex-gemini/design.md.
+    freestyle: true,
     userMcp: false,
   },
   modelCatalog: () => GEMINI_MODELS,

@@ -14,12 +14,15 @@ import {
 import { TerminalSettingsSection } from './TerminalSettingsSection'
 import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
 import { AgentRuntimeSettingsSection } from './AgentRuntimeSettingsSection'
+import { ProjectAgentEnvModeSection } from './AgentEnvModeSection'
 import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
   ProjectIntegrationBranchSection,
   ProjectBudgetSection,
+  ProjectAgentAuditSection,
   ProjectWorktreeEnvSection,
+  ProjectReviewWipSection,
 } from './ProjectSettingsSections'
 
 const PROJECT_SETTINGS_SECTIONS = [
@@ -102,12 +105,15 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
             </div>
             <div className={paneCls('environment')}>
               <ProjectWorktreeEnvSection />
+              <ProjectAgentEnvModeSection />
             </div>
             <div className={paneCls('budget')}>
               <ProjectBudgetSection />
+              <ProjectReviewWipSection />
             </div>
             <div className={paneCls('telemetry')}>
               <ProjectTelemetrySection />
+              <ProjectAgentAuditSection />
             </div>
             <div className={paneCls('terminal')}>
               <TerminalSettingsSection mode="project" />

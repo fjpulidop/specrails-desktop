@@ -4,7 +4,7 @@ The `specrails-desktop` CLI does three things:
 
 1. **Manages the app server** — start, stop, status.
 2. **Manages projects** — list, add, remove.
-3. **Routes commands into the running server** — implement specs, run health checks, pass raw prompts to your AI CLI.
+3. **Routes commands into the running server** — implement specs, retry a failed run, pass raw prompts to your AI CLI.
 
 Everything here is grouped by what you're trying to do, not by alphabetical order of flags.
 
@@ -43,7 +43,7 @@ specrails-desktop --status              # one-shot status, compact text output
 specrails-desktop --jobs                # see the note below
 ```
 
-`--status` prints a compact status line that includes the app version. The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
+`--status` prints a compact status line that includes the app version and, from servers that report it, the HTTP API version (`api: v1`, from `apiVersion` in `/api/health`). Scripts can also read the `X-Specrails-Api-Version` response header or `GET /api/meta`; see the [versioning policy](internals/api-reference.md#versioning-and-deprecation-policy). The bare `status` subcommand prints whether the app is running (with its PID and URL) plus the registered project count and names — but no version. Both are plain text, handy to read or grep, not JSON.
 
 > **Note on `--jobs`:** there is no app-level `/api/jobs` route, so the server returns 404 and `--jobs` prints `jobs history requires manager with SQLite persistence (#57)` and exits non-zero against a running server. Job history lives **per project** — view it on the project's **Jobs** page (right sidebar) in the dashboard instead.
 
@@ -62,7 +62,7 @@ specrails-desktop add .                 # register the current directory
 specrails-desktop add /path/to/project  # or an explicit path
 ```
 
-Registers the project with the app. The path can be **absolute or relative** (it's resolved against your current directory) and must exist. If the project doesn't have specrails-core installed, the next dashboard visit triggers the setup wizard.
+Registers the project with the app. The path can be **absolute or relative** (it's resolved against your current directory) and must exist. The app then assembles the project's Specrails workspace in the background (outside your repository), exactly as when you add it from the dashboard; there is no setup wizard.
 
 ### Remove
 
@@ -70,7 +70,7 @@ Registers the project with the app. The path can be **absolute or relative** (it
 specrails-desktop remove <project-id>
 ```
 
-Unregisters the project (use the **ID** from `specrails-desktop list`). Does **not** delete the project directory or its specrails-core installation. To re-register, just `add` it again — job history under `~/.specrails/projects/<slug>/jobs.sqlite` is preserved.
+Unregisters the project (use the **ID** from `specrails-desktop list`). Does **not** delete the project directory. To re-register, just `add` it again — job history under `~/.specrails/projects/<slug>/jobs.sqlite` is preserved.
 
 ## Run things in the active project
 
@@ -103,37 +103,16 @@ specrails-desktop implement "#40" "#41" "#43"
 `implement` accepts several specs and runs them in one aggregate job. The old
 `batch-implement` verb was removed; typing it still works and runs `implement`.
 
-### Health check
-
-```bash
-specrails-desktop health-check
-```
-
-Runs `/specrails:health-check`: a comprehensive codebase health pass (tests, linting, coverage, complexity, dependency audit), comparing against previous runs to surface regressions.
-
-### Compatibility check
-
-```bash
-specrails-desktop compat-check
-```
-
-Runs `/specrails:compat-check`: snapshots the current API surface and detects breaking changes against a prior baseline, generating a migration guide when breaking changes are found.
-
 ### Known verbs
 
-These are all shorthand for `/specrails:<verb>` — the app auto-prefixes:
+These are shorthand for `/specrails:<verb>` — the app auto-prefixes them. They are the only commands Core 6 ships:
 
 | Verb | What it does |
 |------|--------------|
-| `implement` | Queue a rail job for one or more specs (one aggregate run) |
-| `why` | Explain why a chunk of code looks the way it does |
-| `propose-spec` | Explore an idea and produce a structured spec proposal |
-| `get-backlog-specs` | View the prioritised spec backlog |
-| `auto-propose-backlog-specs` | Auto-propose new spec ideas from the backlog |
-| `refactor-recommender` | Scan the codebase and recommend high-leverage refactors |
-| `health-check` | Run the codebase health check |
-| `compat-check` | Detect breaking API changes against a baseline |
-| `enrich` | Run the agent enrichment workflow |
+| `implement` | Queue a job for one or more specs (one aggregate run) |
+| `retry` | Resume a failed `implement` run from its last successful phase |
+
+The removed `batch-implement` verb still maps to `implement`. Commands retired from Core (for example `why`, `health-check`, `compat-check`, `refactor-recommender`, `propose-spec`, `get-backlog-specs`, `auto-propose-backlog-specs`, `enrich`) are no longer verbs: typing one is passed through as a raw prompt.
 
 ### Pass a raw prompt
 
@@ -191,7 +170,7 @@ If you invoke a command that routes work (`implement`, a raw prompt, …) while 
 [specrails-desktop] manager not running — invoking claude directly
 ```
 
-This fallback has two important limitations:
+This fallback has one important limitation:
 
 - **Nothing is recorded.** There's no queue, no job in the Dashboard, and nothing written to Analytics.
 

@@ -4,7 +4,10 @@ import { render, screen, fireEvent, waitFor } from '../../../../test-utils'
 import { AppUpdateSection } from '../AppUpdateSection'
 
 const mockCheck = vi.fn()
-vi.mock('@tauri-apps/plugin-updater', () => ({ check: (...a: unknown[]) => mockCheck(...a) }))
+vi.mock('../../../../lib/app-updater', async (importActual) => ({
+  ...(await importActual<typeof import('../../../../lib/app-updater')>()),
+  checkAppUpdate: (...a: unknown[]) => mockCheck(...a),
+}))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn(async () => '2.18.2') }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), custom: vi.fn(), dismiss: vi.fn() } }))
 
@@ -56,6 +59,13 @@ describe('AppUpdateSection', () => {
     fireEvent.click(btn)
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     expect(btn).not.toBeDisabled()
+  })
+
+  it('stable channel without a promoted release: explains instead of a raw error', async () => {
+    mockCheck.mockRejectedValue('stable-channel-unavailable')
+    render(<AppUpdateSection />)
+    fireEvent.click(screen.getByRole('button', { name: /Check for updates/i }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/No release has been promoted to the Stable channel/)))
   })
 
   it('outside the desktop app: renders the unavailable note instead of the button', () => {

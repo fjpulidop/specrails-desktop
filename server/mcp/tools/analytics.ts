@@ -31,14 +31,16 @@ export function analyticsTools(): McpToolSpec[] {
         'ticket_summary (per-ticket cost aggregate across all surfaces), ' +
         'export (download summary/raw analytics as CSV or JSON — file download, returns a note + headers), ' +
         'budget_get (daily budget, per-job threshold, cost-today, utilization %), ' +
-        'budget_set (write — set/clear daily budget cap + per-job cost threshold; a too-low budget pauses the job queue). ' +
+        'budget_set (write — set/clear daily budget cap + per-job cost threshold; a too-low budget pauses the job queue), ' +
+        'decision_times (time to decision and time to merge per delivery: median/p90 ms per project and per loop, from when the delivery became reviewable; counts measured/pending/unknown — unknown is never zero; honours period/from/to only), ' +
+        'loop_economics (per loop over the period: delivered (reached on_review or beyond) / merged / discarded counts, discardRate, cost per delivery split authoritative vs estimated with unpriced deliveries excluded, decision times, review/fixer rounds per delivery from loop_step events, escapedDefects from tickets linked with metadata.regressionOf; requirementsDemonstrated and triageAccuracy are null until their producers exist; hasData=false loops have no data — unknown is never zero; honours period/from/to only). ' +
         'Prefer spending over invocations/export-raw for token economy. ' +
         'Filters: period(7d|30d|90d|all|custom), from/to (ISO, required for custom), surface[], model[], modelProvider[] (index-aligned to model), provider[], status(success|failed|aborted), minCostUsd, ticketId, tzOffsetMinutes(±840 — pass the user local offset so "today" lines up), sortBy.',
       hintTier: 'read',
       tier: (a) => (a.action === 'budget_set' ? 'write' : 'read'),
       inputSchema: {
         action: z
-          .enum(['spending', 'invocations', 'ticket_summary', 'export', 'budget_get', 'budget_set'])
+          .enum(['spending', 'invocations', 'ticket_summary', 'export', 'budget_get', 'budget_set', 'decision_times', 'loop_economics'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
 
@@ -124,6 +126,12 @@ export function analyticsTools(): McpToolSpec[] {
         switch (action) {
           case 'spending':
             return apiCall(ctx, 'GET', `${base}/spending${buildQuery(filters)}`)
+
+          case 'decision_times':
+            return apiCall(ctx, 'GET', `${base}/analytics/decision-times${buildQuery({ period: filters.period, from: filters.from, to: filters.to })}`)
+
+          case 'loop_economics':
+            return apiCall(ctx, 'GET', `${base}/analytics/loop-economics${buildQuery({ period: filters.period, from: filters.from, to: filters.to })}`)
 
           case 'invocations':
             return apiCall(

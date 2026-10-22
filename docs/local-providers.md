@@ -119,6 +119,8 @@ You do not have to run everything on one model. Each role can have its own engin
 | Verifier (verify / fix and any custom loop ai-step) | the loop | Settings ▸ Specrails Agents ▸ **Loop roles** |
 | Decider (the Loop Decider) | the loop | same |
 
+When more than one provider is usable and the reviewer would run on the developer's provider, the loop editor suggests moving the reviewer to another model family (Claude ↔ Codex first). Apply it or dismiss it; nothing changes on its own.
+
 A sensible split for a local setup: **architect on a cloud model** (judgement and planning), **developer on the local coder** (volume), **fixer on a stronger model** (repairs are few and precise — this is where a cloud model pays off most), **reviewer on a cloud model**, **verifier local**, **decider on the cheapest fast model you have**.
 
 The correction loop is verification ⇄ fixer: the host runs your test command, a failure goes to the fixer with the exact output and the offending lines already read, and only a green verification reaches the reviewer. A rejected review also goes to the fixer.
@@ -159,6 +161,7 @@ rail to a new model.
 | Resume by session id | ✅ |
 | Read-only / no-tools boundaries (Explore, deciders) | ✅ native runner policies |
 | MCP servers in missions | ✅ (`--mcp-config`, tools as `mcp__<server>__<tool>`) |
+| Read-only missions | ✅ runner read-only tools, MCP tools kept |
 | Agent profiles / custom roles / Agent Studio AI | ❌ |
 | SMASH, Contract Layer, Project Builder generation | ❌ (need structured-action guarantees) |
 | Native cost | ❌ — unknown unless you set rates |

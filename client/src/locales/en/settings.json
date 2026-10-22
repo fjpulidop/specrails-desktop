@@ -244,7 +244,23 @@
       "local": "Local package",
       "global": "External CLI"
     },
-    "repair": "Finish updating {{version}}"
+    "repair": "Finish updating {{version}}",
+    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now."
+  },
+  "updateChannel": {
+    "heading": "Update channel",
+    "loading": "Loading channel…",
+    "scope": "Applies to Specrails Desktop and the specrails-core framework.",
+    "saved": "Update channel set to {{channel}}",
+    "saveFailed": "Could not change the update channel: {{message}}",
+    "latest": {
+      "label": "Latest",
+      "description": "Every release as soon as it ships. Newest features and fixes first."
+    },
+    "stable": {
+      "label": "Stable",
+      "description": "Only releases promoted after at least a week on Latest with green CI. Core follows its stable tag."
+    }
   },
   "appUpdate": {
     "heading": "Specrails Desktop",
@@ -256,7 +272,8 @@
     "autoHint": "Checks automatically at launch and every 6 hours.",
     "unavailable": "App updates are only available in the desktop app.",
     "toastUpToDate": "Specrails Desktop is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}"
+    "toastCheckFailed": "Update check failed: {{message}}",
+    "stableUnavailable": "No release has been promoted to the Stable channel yet. Switch to Latest or try again later."
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
@@ -319,6 +336,33 @@
     "statusUnavailable": "Could not read the environment status.",
     "unresolvedTitle": "Runs start without these variables:"
   },
+  "agentEnv": {
+    "title": "Agent environment",
+    "description": "Choose which environment variables this project's agents receive: rail jobs, loops, missions, chats and spec helpers.",
+    "modes": {
+      "inherit": {
+        "label": "Inherit (default)",
+        "description": "Agents receive the full environment Specrails started with, plus the names above. Same behavior as before."
+      },
+      "minimal": {
+        "label": "Minimal",
+        "description": "Agents receive only an allowlist (PATH, HOME, locale, temp, terminal, proxy and certificates), Specrails' own variables, the selected provider's sign-in variables and the names above. Everything else, such as cloud or database credentials, is withheld."
+      }
+    },
+    "saved": {
+      "inherit": "Agents inherit the full environment",
+      "minimal": "Agents now receive the minimal environment"
+    },
+    "saveFailed": "Could not save the agent environment",
+    "namesTitle": "Variables passed in minimal mode",
+    "shared": "Every agent",
+    "passthrough": "Project names (above)",
+    "noPassthrough": "No project names configured.",
+    "provider": "Plus for {{provider}}",
+    "noProviderNames": "None set now (accepts {{patterns}}).",
+    "namesHelp": "Only names are shown; values are never displayed. Changes apply to agents started afterwards; open mission sessions keep their environment until they restart. If a tool needs another variable, add its name above.",
+    "statusUnavailable": "Could not read the list of variables."
+  },
   "effects": {
     "heading": "Effects",
     "description": "Visual flourishes across the app. Each one can be switched off here.",
@@ -370,5 +414,30 @@
         "accept": "Use {{provider}}"
       }
     }
+  },
+  "agentAudit": {
+    "title": "Agent actions audit",
+    "description": "A per-project log of what agents read, wrote, executed, called over MCP or fetched — exportable as JSONL or CSV from each job and the review packet.",
+    "retentionLabel": "Keep entries for",
+    "daysUnit": "days",
+    "caveat": "Older entries are removed at startup and daily. Reads are only as complete as each provider's stream; contents and environment values are never stored.",
+    "save": "Save retention",
+    "saved_one": "Agent actions kept for {{count}} day",
+    "saved_other": "Agent actions kept for {{count}} days",
+    "saveFailed": "Could not save the audit retention",
+    "invalidDays": "Enter a whole number of days between 1 and {{max}}"
+  },
+  "reviewWip": {
+    "title": "Review limit",
+    "description": "Cap how many deliveries can wait for your review at once, so new work does not pile up faster than you can decide it.",
+    "label": "Deliveries waiting for review",
+    "help": "We suggest {{suggested}}: enough to keep rails busy while you review. Running deliveries, undecided ones and open PRs created by the app count. Changes to an existing delivery are always allowed. Leave it empty for no limit.",
+    "placeholder": "No limit",
+    "useSuggested": "Use {{suggested}}",
+    "invalid": "Enter a whole number from 1 to {{max}}, or leave it empty for no limit.",
+    "saved_one": "Review limit set to {{count}}",
+    "saved_other": "Review limit set to {{count}}",
+    "removed": "Review limit removed",
+    "saveFailed": "Could not save the review limit"
   }
 }

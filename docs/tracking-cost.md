@@ -2,16 +2,26 @@
 
 ## What gets tracked
 
-Six surfaces, all per-project:
+Every AI CLI call a project makes writes one `ai_invocations` row tagged with a **surface** (the closed list lives in `server/modules/accounting/runtime/ai-invocations.ts`). There are twelve:
 
 | Surface | What it captures |
 |---------|------------------|
-| **`job`** | Every rail run (the Architect → Developer → Reviewer → Ship pipeline, plus Freestyle runs) |
+| **`job`** | Every queued job: rail runs on the CLI pipeline (Implement, Freestyle), plus the AI steps of a local merge-back (verify / resolve-merge / fix) |
+| **`loop`** | Every AI step of a Loop run (the built-in Implement / SDD Quick loops and your custom loops) |
 | **`quick-spec`** | One-shot Quick spec generation (including a Quick-mode Contract Refine run) |
 | **`explore-spec`** | Every Explore conversation turn (including the Explore Contract Refine run) |
 | **`ai-edit`** | The **AI Edit / Refine** overlay (refining an agent or a ticket) |
 | **`smash`** | SMASH runs that break an epic spec into sub-specs |
-| **`file-summary`** | Code-explorer AI summaries of individual files |
+| **`file-summary`** | Code-explorer AI summaries and file stories |
+| **`chat-sidebar`** | Turns in the project chat sidebar |
+| **`spec-launcher`** | The OpenSpec fast-forward launcher that turns a spec into an OpenSpec change |
+| **`proposal`** | Spec proposals (explore an idea, refine it with feedback) |
+| **`agent-studio`** | Custom-agent generation and test runs in the Agents studio |
+| **`setup`** | AI turns of the legacy setup/enrich chat (`/setup/start`, `/enrich/start`; used by API/MCP callers, not by the app UI) |
+
+**Missions are tracked too, in a separate ledger.** Mission (agent chat) turns and their sub-agents record to the app-level `agent_invocations` table. A mission pinned to a project is folded into that project's Analytics next to the surfaces above; unpinned (Home) missions appear only in Desktop Analytics.
+
+Adding a project does not spend tokens: the background workspace assembly runs specrails-core `init` offline and makes no model call.
 
 > Cost averages exclude `failed`/`aborted` rows, but those rows still count toward the total run count and the failure rate.
 
@@ -26,10 +36,6 @@ On multi-provider projects, a **Provider breakdown** card splits spend across th
 
 > **Fail-soft on unknown models.** The rate card lists specific models (the current Codex catalogs). If an invocation uses a model that isn't in the table, the app **does not fabricate a number** — it stores no cost (`total_cost_usd` is left empty), so that row simply shows a blank cost rather than a misleading estimate.
 
-## What's NOT tracked (intentionally)
-
-- **Setup wizard** — the install/enrich flow when you add a project. It *does* spawn an AI CLI (a genuine model invocation), but it's an interactive one-time wizard rather than a repeatable pipeline job, so it's deliberately left uninstrumented.
-
 ## The Analytics page
 
 Open **Analytics** from the project right sidebar.
@@ -37,7 +43,7 @@ Open **Analytics** from the project right sidebar.
 ### Sticky filter header
 
 - **Period** — `7d`, `30d`, `90d`, or `All`. (There's no 24-hour or custom-range option here — the custom calendar range lives on Desktop Analytics, below.)
-- **Surface** — chips for `All` plus each of the six surfaces (Jobs, Explore, Quick, Refine, SMASH, File summaries). All are included by default; toggle chips to narrow the view.
+- **Surface** — chips for `All` plus Jobs, Explore, Quick, Refine, SMASH, File summaries and Loops. All surfaces (including the ones without a chip) are included by default; toggle chips to narrow the view.
 - **Engine** — one chip per installed provider plus `All`. These appear **only on multi-provider projects** and let you filter activity by engine.
 
 The period and surface filters are URL-synced, so you can share or bookmark a view.
@@ -55,7 +61,7 @@ When the project has zero invocations in the period (e.g. you just started), the
 
 ### Daily stacked timeline
 
-A daily bar chart for the period, stacked by surface. It plots five series — **Jobs, Explore, Quick, Refine, and File summaries**. SMASH spend is still tracked and shows up elsewhere (the Hero per-surface bar, Top models, and the raw table), but it is not currently a separate bar in this chart. Days with zero activity are zero-filled so the x-axis stays regular.
+A daily bar chart for the period, stacked by surface. It plots seven series — **Jobs, Explore, Quick, Refine, File summaries, SMASH and Loops**. The smaller surfaces (chat sidebar, spec launcher, proposals, Agent Studio, setup) still count in the Hero total, the per-surface breakdown bar, Top models and the raw table. Days with zero activity are zero-filled so the x-axis stays regular.
 
 Surface colours are consistent wherever a surface appears across the page:
 
@@ -65,6 +71,29 @@ Surface colours are consistent wherever a surface appears across the page:
 - `ai-edit` → green (`accent-success`)
 - `smash` → highlight (`accent-highlight`)
 - `file-summary` → yellow (`accent-warning`)
+- `loop` → primary (`accent-primary`)
+
+### Time to decision
+
+How long deliveries wait for you. From the moment a delivery becomes reviewable (`on_review`), the card shows the **median** and **p90** time to the first human decision (Create PR, Discard, Merge locally — including a Create PR that failed) and to the merge (in-app local merge or the merge observed on GitHub), for the project and per loop, in the selected period.
+
+Every instant is recorded once and never moved by a retry, a second click or a restart (first write wins). A delivery still waiting counts as **pending**; one without recorded instants — for example created before this metric existed — counts as **unknown**. Neither is ever counted as zero. Discarded deliveries count toward time to decision but never toward time to merge. The same data is available through `specrails_analytics` (`decision_times`).
+
+### Loop economics
+
+Compares your loops over the selected period. One row per loop (saved published loops with nothing delivered show **No data**):
+
+| Column | Meaning |
+| --- | --- |
+| Delivered | Deliveries that reached review or beyond (on review, PR draft/ready/closed, merged, superseded, or discarded after review). Failed or still-building runs do not count. A multi-repository delivery counts once. |
+| Merged / Discarded | Delivered changes that were merged / discarded; the discard rate is discarded ÷ delivered. |
+| Cost / delivery | Average AI cost of delivered changes, attributed exactly like the delivery cost footer (the delivery's runs and their merge-resolver calls). Provider-reported cost is used as is; the share that comes from the pricing table is shown as *estimated*. Deliveries without any recorded cost are listed as *unpriced* and left out of the average — never counted as $0. |
+| Decision / Merge | Median · p90, as in [Time to decision](#time-to-decision). |
+| Reviews / Fixer rounds per delivery | Reviewer and fixer steps of the delivery's loop runs (automatic stall retries are not new rounds). Deliveries whose runs have no step log are unknown and do not lower the average. |
+| Escaped defects | Bug tickets linked to the delivery that introduced them. Label a ticket `bug` and pick the delivery under **Regression of** when you create or edit it. Until any ticket in the project carries a link the column shows **No data**. |
+| Requirements demonstrated / Triage accuracy | Reserved: they show **No data** until spec traceability and loop triage ship. |
+
+**—** always means unknown. Revert commits on delivered branches are not detected automatically; link the regression ticket instead. The same data is available through `specrails_analytics` (`loop_economics`).
 
 ### Quick vs Explore card
 
@@ -129,12 +158,21 @@ Exports use the standard `fetch → Blob → URL.createObjectURL → anchor.clic
 
 Open **Settings** from the project right sidebar → the **Budget** card:
 
-- **Daily budget (USD)** — the app auto-pauses the queue when the day's spend (the sum of completed-job cost since midnight) exceeds this. New rail launches queue rather than start; in-flight jobs aren't killed.
+- **Daily budget (USD)** — the app auto-pauses the queue when the day's spend reaches this. While it is exhausted, rail launches are refused (nothing starts) and running loops pause between steps; in-flight steps aren't killed.
 - **Per-job cost alert (USD)** — emits an alert when a single job exceeds this amount.
 
 Leave either field blank to disable that limit.
 
 When the daily budget is hit, a dismissible banner appears across the project pages ("Daily budget exceeded — … Queue is paused.") and the queue stays paused server-side. Resume by raising the budget, clearing it, or waiting for the counter to reset at midnight (it counts completed-job cost since the start of the current calendar day, not a rolling 24-hour window).
+
+### Rails and loops over budget
+
+Rail launches and loop runs check the same project and app-wide budgets the queue enforces:
+
+- **Launches are refused.** Play, Launch all, mission launch cards, Relaunch, the Loops page **Run**, MCP `launch`/`launch_all`, the mobile companion and milestone chains all receive `409 daily_budget_exceeded` with `scope` (`project` or `desktop`), `budgetUsd`, `spentUsd` and `resetsAt`. Nothing is spawned. The UI shows the amounts and where to raise the budget. Launch all counts these rails as "over the daily budget", not as failures. A milestone chain pauses with `launch_rejected:daily_budget_exceeded` and can be resumed.
+- **Running loops pause between AI steps.** When the budget runs out mid-run, the current step finishes and the run parks as `paused` with `restart_reason = budget_paused`. The run card and log show *Paused on the daily budget*. Raise or clear the budget, then press **Resume** (or `POST /api/projects/:id/loop-runs/:runId/resume`, or send any message to the run). If the budget is still exhausted, the resume returns the same 409 and the run stays paused. **Stop** settles the run as stopped. The pause does not use up the loop's wall-clock timeout.
+- **Core workflows** schedule their steps inside one Core process, so Desktop gates them at the points it controls: at launch, at resume, and before it re-invokes Core after a question or approval. Core has no pause control yet, so a Core workflow that is already running finishes its current invocation.
+- If the budget state can't be read, the launch is allowed (fail-open, same as the queue). The app-wide spend is the queue's figure: completed jobs since UTC midnight. The project spend counts every billed invocation since local midnight.
 
 See [Customising the app](customizing.md#budget) for the full setup.
 

@@ -51,6 +51,7 @@
     "ci": "npm run typecheck && npm run check-core-compat && npm run test:scripts && npm run test:coverage && npm run test:coverage --prefix client && npm run build && npm run check:package",
     "audit:source": "node scripts/audit-source.mjs",
     "docs:source-map": "node scripts/generate-source-map.mjs",
+    "metrics:baseline": "node scripts/metrics-baseline.mjs",
     "audit:architecture": "node scripts/audit-server-modules.mjs --check && node scripts/audit-client-features.mjs --check"
   },
   "dependencies": {

@@ -20,7 +20,7 @@
 
 ### 覆盖范围
 
-遥测适用于**流水线任务**（即排入队列的 Architect → Developer → Reviewer → Ship rail 运行）。像聊天、安装向导这样的交互式会话被有意排除在外——遥测面向的是可重复、可检查的流水线运行，而非一次性的对话。
+遥测适用于经过项目**任务队列**的任务：CLI 流水线运行（Loops 关闭时的 rail，以及从 `specrails-desktop` CLI 发送的 `implement` 命令）。循环运行（rail 的默认运行方式）以及聊天、Explore、任务会话（mission）这类交互式会话不会被采集。
 
 ## 数据存放在哪里
 

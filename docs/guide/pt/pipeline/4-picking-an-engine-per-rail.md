@@ -19,7 +19,7 @@ Os quatro correm o pipeline standard **Implement**:
 | Motor | Recorra a ele quando… | Notas |
 |--------|--------------------|-------|
 | **Claude** | Precisa de custo nativo, interação persistente ou tool policy rigorosa. | Perfis, Freestyle e transformações estruturadas. |
-| **Codex** | Prefere o Codex CLI da OpenAI ou quer comparar implementações entre fornecedores. | `codex` ≥ 0.128.0. Sem reporte de custo nativo — a app preenche o custo a partir da sua tabela de preços. Os perfis não se aplicam. |
+| **Codex** | Prefere o Codex CLI da OpenAI ou quer comparar implementações entre fornecedores. | `codex` ≥ 0.128.0. Sem reporte de custo nativo — a app preenche o custo a partir da sua tabela de preços. Os perfis não se aplicam. O Freestyle funciona, sem chat interativo. |
 
 ## Um fluxo de trabalho prático
 

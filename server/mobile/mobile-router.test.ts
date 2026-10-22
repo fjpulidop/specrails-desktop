@@ -14,6 +14,12 @@ let internal: http.Server
 let internalPort = 0
 let lastPatchBody: unknown = null
 let lastAuth: string | undefined
+const WIP_REJECTION = {
+  error: 'review_wip_limit_reached', limit: 2,
+  pending: [{ deliveryId: 'd1', railIndex: 1, ticketIds: [11], since: '2026-10-21T10:00:00Z' }, { deliveryId: 'd2', railIndex: 2, ticketIds: [12], since: '2026-10-21T10:05:00Z' }],
+  detail: '2 deliveries are waiting for review; this project allows 2 at a time. Nothing was launched.',
+  action: 'Decide a pending delivery (Create PR, merge or discard), or raise the limit in Project settings ▸ Review limit.',
+}
 
 beforeAll(async () => {
   const app = express()
@@ -26,6 +32,8 @@ beforeAll(async () => {
   app.get('/api/projects/:id/tickets', (_req, res) => res.json({ tickets: [{ id: 1, title: 'T' }] }))
   app.patch('/api/projects/:id/tickets/:tid', (req, res) => { lastPatchBody = req.body; res.json({ ok: true, received: req.body }) })
   app.get('/api/projects/:id/spending', (req, res) => res.json({ query: req.query }))
+  // review-wip-limit: the internal launch route refuses rail 7 at the limit.
+  app.post('/api/projects/:id/rails/7/launch', (_req, res) => res.status(409).json(WIP_REJECTION))
   // Generic echo for every other forwarded route (actions, other reads): returns
   // the method/path/body so tests can assert narrowing + reachability.
   app.use((req, res) => res.json({ echoed: true, method: req.method, route: req.path, body: req.body }))
@@ -148,6 +156,12 @@ describe('mobile-router', () => {
     expect(res.body.error).toBe('Not found')
   })
 
+  it('rail launch relays the review WIP refusal unchanged (same 409 body as the desktop)', async () => {
+    const res = await request(app).post('/v1/projects/p1/rails/7/launch').set('Authorization', 'Bearer tok').send({ mode: 'implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual(WIP_REJECTION)
+  })
+
   it('rail launch narrows the body and reaches the internal route', async () => {
     const res = await request(app)
       .post('/v1/projects/p1/rails/0/launch')
@@ -157,6 +171,15 @@ describe('mobile-router', () => {
     expect(res.body.body).toEqual({ mode: 'implement', profileName: 'default' })
     // BUG-MOBILE-06: the echoed absolute `route` is redacted before reaching the phone.
     expect(res.body.route).toBe('[path]')
+  })
+
+  it('rail launch forwards a legacy ultracode mode verbatim; the rails router normalizes it', async () => {
+    const res = await request(app)
+      .post('/v1/projects/p1/rails/0/launch')
+      .set('Authorization', 'Bearer tok')
+      .send({ mode: 'ultracode' })
+    expect(res.status).toBe(200)
+    expect(res.body.body).toEqual({ mode: 'ultracode' })
   })
 
   it('rail launch forwards loopId + reasoning_effort + interactive (rails-as-loops), drops junk', async () => {

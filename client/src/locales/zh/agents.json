@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "Profile 感知流水线需要 specrails-core {{required}}+",
-      "body": "此项目当前为 <code>{{version}}</code>。在项目内运行 <code>{{command}}</code> 以解锁 Profile 模式。在此创建的 Profile 仍会保存，只是在 core 更新前不会影响流水线。",
-      "unknownVersion": "未知"
+      "body": "此项目的工作区是用 specrails-core <code>{{version}}</code> 搭建的。请在 设置 → 更新 中更新 Specrails Core；更新后项目工作区会自动刷新。在此创建的 Profile 仍会保存，只是在工作区更新前不会影响流水线。",
+      "unknownVersion": "未知",
+      "openUpdates": "打开 Core 更新"
     }
   },
   "catalog": {

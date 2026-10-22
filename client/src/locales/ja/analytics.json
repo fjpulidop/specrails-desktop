@@ -11,7 +11,9 @@
     "specLauncher": "スペックランチャー",
     "proposal": "提案",
     "agentStudio": "エージェントスタジオ",
-    "setup": "セットアップ"
+    "setup": "セットアップ",
+    "triage": "トリアージ",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7日",
@@ -211,7 +213,8 @@
     "vsPrev": "前期間比",
     "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
     "untitled": "無題のミッション",
-    "estimatedNote": "推定コストを含む"
+    "estimatedNote": "推定コストを含む",
+    "flowShare": "うち Flow: {{cost}} · {{turns}} ターン"
   },
   "legacyUsage": {
     "title": "従来のワークフローの使用状況",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "従来のループ",
       "queue_manager_slash": "キュー内のコマンド",
       "merge_back": "ローカル統合"
+    }
+  },
+  "decisionTimes": {
+    "title": "判断までの時間",
+    "subtitle": "レビュー可能になってから最初の人による判断まで、およびマージまで",
+    "toDecision": "判断までの時間",
+    "toMerge": "マージまでの時間",
+    "median": "中央値",
+    "p90": "p90",
+    "counts": "計測 {{measured}} 件 · 保留 {{pending}} 件 · 不明 {{unknown}} 件",
+    "unknownValue": "不明",
+    "loading": "判断時間を読み込み中…",
+    "unavailable": "判断時間を読み込めませんでした。",
+    "empty": "この期間にレビューに達したデリバリーはありません。",
+    "byLoop": "ループ別の判断時間",
+    "loop": "ループ",
+    "deliveries": "デリバリー",
+    "decisionMedianP90": "判断（中央値 · p90）",
+    "mergeMedianP90": "マージ（中央値 · p90）",
+    "unnamedLoop": "名前のないループ",
+    "note": "不明は時刻が記録されていないデリバリー（この指標の導入前に作成されたものなど）を数えます。ゼロとしては数えません。",
+    "units": {
+      "minutes": "{{value}} 分",
+      "hours": "{{value}} 時間",
+      "days": "{{value}} 日"
+    }
+  },
+  "loopEconomics": {
+    "title": "ループ別エコノミクス",
+    "subtitle": "ループごとの納品・コスト・手戻り・流出欠陥",
+    "loading": "ループ別エコノミクスを読み込み中…",
+    "unavailable": "ループ別エコノミクスを読み込めませんでした。",
+    "empty": "この期間に納品したループはありません。",
+    "noData": "データなし",
+    "unknownValue": "—",
+    "unnamedLoop": "名前のないループ",
+    "estimatedShare": "推定 {{share}}",
+    "unpriced": "コスト不明 {{count}} 件",
+    "note": "納品 = レビューに到達した以降の状態。平均コストはコストが記録された納品のみで算出します（推定と表示されたもの以外はプロバイダー報告値）。コスト不明の納品は除外され、$0 として数えません。ラウンド数はループの reviewer/fixer ステップから算出します。— は不明を意味します。",
+    "escapedUntracked": "流出欠陥はまだ記録されていません。バグチケットを原因となった納品に紐付ける（チケットの「回帰元」）と集計が始まります。",
+    "columns": {
+      "loop": "ループ",
+      "delivered": "納品",
+      "merged": "マージ",
+      "discarded": "破棄",
+      "avgCost": "納品あたりコスト",
+      "toDecision": "判断まで（中央値 · p90）",
+      "toMerge": "マージまで（中央値 · p90）",
+      "reviewRounds": "納品あたりレビュー",
+      "fixerRounds": "納品あたり修正ラウンド",
+      "escapedDefects": "流出欠陥",
+      "requirementsDemonstrated": "実証された要件",
+      "triageAccuracy": "トリアージ精度"
     }
   }
 }

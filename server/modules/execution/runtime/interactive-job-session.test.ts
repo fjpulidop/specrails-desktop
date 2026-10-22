@@ -126,6 +126,21 @@ describe('InteractiveJobSession', () => {
     expect(h.session.send('must not be accepted')).toBe(false)
   })
 
+  it('hands every parsed frame to onProviderEvent and survives a throwing observer', async () => {
+    const seen: string[] = []
+    h = setup('observed', {
+      settleMode: 'auto',
+      onProviderEvent: (event) => { seen.push(String(event.type)); throw new Error('observer failure') },
+    })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't', name: 'Read', input: { file_path: 'a.ts' } }] } }) + '\n')
+    h.child.stdout.push('plain text is not an event\n')
+    h.child.stdout.push(resultFrame({ result: 'done' }))
+    await tick()
+    expect(seen).toEqual(['assistant', 'result'])
+    expect(h.settled).toEqual([expect.objectContaining({ reason: 'finalized' })])
+  })
+
   it('clears a previous PASS when a later failed turn supplies no result text', async () => {
     h = setup('later-terminal-error', { settleMode: 'auto' })
     h.session.start({ binary: 'claude', args: [] }, 'implement')

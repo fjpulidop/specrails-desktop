@@ -20,7 +20,7 @@ import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
+import { isFactoryLoopId, factoryLoopMode, canonicalFactoryLoopId, factoryLoopForMode, FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
@@ -44,12 +44,16 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from '../../loops/runtime/loop-effect'
 import { composeReviewPacket } from './review-packet'
-import { readSettleEvidence, healRuntimeEvidence } from './delivery-evidence'
+import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
+
+/** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
+export { FLOW_SPEC_LOOP_ID }
 import { resolveRailRelaunch, restoreRelaunchRail, RailRelaunchError, type RailRelaunch } from './rail-relaunch'
 import { repoIsolationStatus, defaultGitRunner } from '../../../worktree-manager'
 import { isValidBranchName } from '../../../integration-branch'
@@ -66,6 +70,7 @@ import { withRepoLock } from '../../../repo-lock'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from '../../missions/runtime/mission-run-notify'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
+import { recommendedLoopForTickets } from '../../specs/domain/triage'
 import { readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import type { ReasoningEffort } from '../../../providers/types'
@@ -84,8 +89,17 @@ const VALID_MODES = new Set(['implement', 'freestyle', 'loop'])
  *  ticket in one aggregate run, so stored/agent/mobile `batch-implement` (or
  *  `batch`) requests are normalized to it at the HTTP boundary. */
 const REMOVED_BATCH_MODES = new Set(['batch-implement', 'batch'])
+/** Pre-rename name of Freestyle. Older Companion builds still send
+ *  `mode: 'ultracode'`; accept it so un-updated phones keep launching. */
+const LEGACY_FREESTYLE_MODE = 'ultracode'
 export function normalizeRailMode(mode: unknown): unknown {
-  return typeof mode === 'string' && REMOVED_BATCH_MODES.has(mode) ? 'implement' : mode
+  if (typeof mode !== 'string') return mode
+  if (REMOVED_BATCH_MODES.has(mode)) return 'implement'
+  if (mode === LEGACY_FREESTYLE_MODE) {
+    console.info(`[rails-router] legacy mode "${LEGACY_FREESTYLE_MODE}" accepted as "freestyle"`)
+    return 'freestyle'
+  }
+  return mode
 }
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
@@ -174,6 +188,18 @@ function onReviewTicketIds(c: ProjectContext): Set<number> {
     return new Set(Object.values(store.tickets).filter((t) => t.status === 'on_review').map((t) => t.id))
   } catch {
     return new Set()
+  }
+}
+
+/** Spec triage (launch-triage): the loop recommended by the first triaged spec
+ *  of the rail, in rail order (best-effort: an unreadable store ⇒ null). */
+function recommendedLoopForRail(c: ProjectContext, ticketIds: readonly number[]): string | null {
+  try {
+    const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
+    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(c.project.path))
+    return recommendedLoopForTickets(ticketIds.map((id) => store.tickets[String(id)]))
+  } catch {
+    return null
   }
 }
 
@@ -279,7 +305,11 @@ export function createRailsRouter(): Router {
               ? 'on_review' as const
               : 'free' as const,
       }))
-      res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries })
+      // review-wip-limit: the project's limit and the deliveries counting
+      // against it (absent in bare contexts without the gate).
+      const wip = c.reviewWipGate?.status()
+      const reviewWip = wip ? { limit: wip.limit, pending: wip.pending, reached: wip.limit !== null && wip.pending.length + wip.reserved >= wip.limit } : undefined
+      res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries, ...(reviewWip ? { reviewWip } : {}) })
     } catch (err) {
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
@@ -599,6 +629,31 @@ export function createRailsRouter(): Router {
     }
     const explicitLoop = (typeof rawLoopId === 'string' && rawLoopId.length > 0) || req.body?.mode != null
     let loopId: unknown = rawLoopId
+    // Flow hand-off (Flow mode): the launch adopts the Flow's own worktree.
+    // Only the Flow module starts it, after freezing HEAD; it never combines
+    // with relaunch, revision, PR targets, follow-ups or stacked bases.
+    const rawFlowId: unknown = req.body?.flowId
+    let flowWorktree: (RequiredFlowWorktree & { ticketId: number }) | null = null
+    if (rawFlowId !== undefined && rawFlowId !== null) {
+      if (typeof rawFlowId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(rawFlowId)) {
+        res.status(400).json({ error: 'invalid_flow_id' }); return
+      }
+      if (relaunchSource || revisionOfDeliveryId || targetPrNumber !== undefined && targetPrNumber !== null || followUp || baseBranch || baseDeliveryIds !== undefined) {
+        res.status(400).json({ error: 'flow_handoff_incompatible', detail: 'A Flow hand-off launches the Flow spec on its own worktree only' }); return
+      }
+      if (!isLoopsEnabled()) {
+        res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off needs Loops and worktree isolation' }); return
+      }
+      if (!c.flowHandOff) { res.status(409).json({ error: 'feature_unavailable', detail: 'Flow is not available in this project' }); return }
+      try {
+        flowWorktree = c.flowHandOff.resolve(rawFlowId)
+      } catch (err) {
+        if (err instanceof FlowHandOffNotReadyError) { res.status(409).json({ error: err.code, detail: err.message }); return }
+        throw err
+      }
+    } else if (rawLoopId === FLOW_SPEC_LOOP_ID) {
+      res.status(400).json({ error: 'flow_id_required', detail: 'The Flow -> Spec loop is launched from a Flow hand-off' }); return
+    }
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
     // Both fields are optional; malformed values are rejected outright.
@@ -616,7 +671,7 @@ export function createRailsRouter(): Router {
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
-      loopId = getFactoryLoop(loopId)!.id // canonicalize saved legacy aliases
+      loopId = canonicalFactoryLoopId(loopId)! // canonicalize saved legacy aliases
       mode = fmode
     }
     if (relaunchSource) relaunchSource.config = { ...relaunchSource.config, mode }
@@ -662,6 +717,27 @@ export function createRailsRouter(): Router {
       }
       throw err
     }
+    // Daily budget (rail-loop-budget-guard): the same project/app-wide budget
+    // state the queue auto-pause enforces. Every launch door (dashboard Play,
+    // Launch all, mission cards, MCP launch/launch_all, mobile, milestone
+    // chains, relaunch) reaches this route, so one check spawns nothing.
+    const budgetRejection = c.dailyBudgetRejection?.() ?? null
+    if (budgetRejection) { res.status(409).json(budgetRejection); return }
+    // Review WIP limit (review-wip-limit): same doors, same "spawn nothing"
+    // contract. Continuations of an existing delivery add no review work and
+    // pass; a new delivery holds a slot until this request has answered (its
+    // delivery row then exists), so parallel launches cannot overshoot.
+    const reviewWip = c.reviewWipGate?.admit(railIndex, {
+      revisionOfDeliveryId: typeof revisionOfDeliveryId === 'string' ? revisionOfDeliveryId : null,
+      relaunchOfDelivery: Boolean(relaunchSource?.delivery),
+      targetsExistingPr: typeof targetPrNumber === 'number' || Boolean(followUp),
+      railHasActiveDelivery: Boolean(getActivePrDeliveryByRail(c.db, railIndex)),
+    })
+    if (reviewWip && !reviewWip.ok) { res.status(409).json(reviewWip.rejection); return }
+    if (reviewWip) {
+      res.once('finish', reviewWip.release)
+      res.once('close', reviewWip.release)
+    }
     const storedRail = getRail(c.db, railIndex)
     const rail = relaunchSource ? { ...storedRail, ticketIds: [...relaunchSource.ticketIds],
       profileName: typeof profileName === 'string' ? profileName : null,
@@ -674,6 +750,9 @@ export function createRailsRouter(): Router {
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
+    }
+    if (flowWorktree && (rail.ticketIds.length !== 1 || rail.ticketIds[0] !== flowWorktree.ticketId)) {
+      res.status(409).json({ error: 'flow_rail_mismatch', detail: 'The rail must carry exactly the Flow spec' }); return
     }
 
     // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
@@ -861,6 +940,10 @@ export function createRailsRouter(): Router {
           // last Published snapshot while an edit is Draft); otherwise the
           // current code default for this Core.
           const f = builtinSelection
+          // Flow -> Spec exists only on a Core that advertises `deriveChange`.
+          if (!f && loopId === FLOW_SPEC_LOOP_ID) {
+            res.status(409).json({ error: 'engine_unsupported', detail: 'Update Core to run the Flow → Spec loop (derive-change).' }); return
+          }
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           if (f.source !== 'default') {
             const validation = validateLoopGraph(f.graph)
@@ -1093,6 +1176,9 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
+        if (flowWorktree && (!useIsolation || requiresRepositoryIsolation)) {
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree of the primary repository.' }); return
+        }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
             action: 'Restore worktree isolation and the original workflow before retrying.' }); return
@@ -1116,6 +1202,9 @@ export function createRailsRouter(): Router {
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = requiresRepositoryIsolation ? 'ok' : await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
+            if (flowWorktree) {
+              res.status(409).json({ error: 'flow_requires_isolation', detail: `worktree isolation is unavailable (${status})` }); return
+            }
             if (baseBranch) {
               res.status(400).json({ error: 'base_branch_requires_isolation', detail: `baseBranch requires worktree isolation, which is unavailable (${status})` }); return
             }
@@ -1148,6 +1237,7 @@ export function createRailsRouter(): Router {
               if (relaunchSource && restoreRelaunchRail(c, railIndex, relaunchSource)) broadcastRailUpdated(c, railIndex, 'tickets')
               const ids = await launchIsolatedRail({
                 launchConfig,
+                loopChoice: { recommendedLoop: recommendedLoopForRail(c, rail.ticketIds), chosenLoop: loopId },
                 runtimeProviderOverride,
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
@@ -1179,6 +1269,7 @@ export function createRailsRouter(): Router {
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
                 ...(retryOfDelivery ? { retryOfDelivery } : {}),
                 ...(followUp ? { followUp } : {}),
+                ...(flowWorktree ? { requiredFlowWorktree: flowWorktree } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
               return
@@ -1196,6 +1287,9 @@ export function createRailsRouter(): Router {
               // Explicit-target validation failures are the USER's answer being
               // unusable — fail closed with the machine-readable code; never
               // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof FlowWorktreeMismatchError) {
+                res.status(409).json({ error: err.code, detail: err.message }); return
+              }
               if (err instanceof ExplicitPrTargetError) {
                 res.status(err.code === 'target_pr_not_found' ? 404 : 409).json({
                   error: err.code,
@@ -1544,13 +1638,13 @@ export function createRailsRouter(): Router {
           const pipelineDir = path.join(resolveProjectExecution({ slug: c.project.slug, path: c.project.path }).specrailsDir, 'pipeline')
           const definitionStatuses = await probeDefinitionRuns({ db: c.db, cwd: c.project.path, env: process.env },
             existing.units.filter(unit => !unit.runtime && unit.runId && getLoopRun(c.db, unit.runId)?.engine_version === 2).map(unit => unit.runId!), true)
-          const healed = healRuntimeEvidence(existing, pipelineDir, {}, definitionStatuses)
+          const healed = healRuntimeEvidence(existing, pipelineDir, {}, definitionStatuses, { reviewBrief: await coreAnnouncesReviewBrief() })
           if (healed) { updatePrDeliverySettleEvidence(c.db, row.id, healed); row = { ...row, settle_evidence: JSON.stringify(healed) } }
         }
       } catch (err) {
         console.warn('[rails-router] packet evidence heal skipped:', err instanceof Error ? err.message : String(err))
       }
-      const packet = composeReviewPacket({ db: c.db, row, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
+      const packet = composeReviewPacket({ db: c.db, row, flowSettlement: c.flow?.settlementForDelivery(row.id) ?? null, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the
       // confirm-gated local path rather than blocking the packet.
       const acceptCapability = await resolveAcceptCapability({ repoDir: frozenRepository?.sourcePath ?? c.project.path, exec: defaultExec })

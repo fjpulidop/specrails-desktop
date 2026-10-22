@@ -367,7 +367,8 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string }) => Promise<{ accepted: boolean; conversationId?: string }>
+  /** `deliveryMode: 'interrupt'` (Flow mode only) cuts the running turn instead of queueing. */
+  send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string; deliveryMode?: 'interrupt' }) => Promise<{ accepted: boolean; conversationId?: string }>
   abort: () => Promise<void>
   /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
    *  `'conflict'` = already dispatched — the caller keeps the text as a draft. */
@@ -1238,7 +1239,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     return promise
   }, [active])
 
-  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string }): Promise<{ accepted: boolean; conversationId?: string }> => {
+  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string; deliveryMode?: 'interrupt' }): Promise<{ accepted: boolean; conversationId?: string }> => {
     if (!editable(active?.id)) return { accepted: false }
     const trimmed = text.trim()
     if (!trimmed) return { accepted: false }
@@ -1272,7 +1273,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     // Busy sends wait for the next turn unless the user explicitly picks Steer.
     const wasBusy = liveRef.current.get(conv.id)?.isStreaming === true
-    const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
+    // An interrupt is admitted as a native steer server-side (Flow mode).
+    const interrupt = wasBusy && opts?.deliveryMode === 'interrupt'
+    const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: interrupt ? 'steer' : 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
     if (wasBusy) {
       patchLive(conv.id, (p) => ({ ...p, queued: p.queued.some((item) => item.queueId === queueId)
         ? p.queued.map((item) => item.queueId === queueId ? { ...pendingItem, deliveryReceipt: latestReceipt(item.deliveryReceipt, pendingItem.deliveryReceipt), deliveryMode: item.deliveryMode ?? pendingItem.deliveryMode, timestamp: item.timestamp ?? pendingItem.timestamp } : item)
@@ -1284,7 +1287,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     const attachments = opts?.attachmentIds && opts.attachmentIds.length ? { ids: opts.attachmentIds } : undefined
     try {
       const contextRefs = opts?.contextRefs && opts.contextRefs.length ? opts.contextRefs : undefined
-      const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId, contextRefs })
+      const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId, contextRefs, ...(interrupt ? { deliveryMode: 'interrupt' as const } : {}) })
       if (res.removed) {
         // A durable deletion survives reloads, unlike this window's tombstones.
         // Its idempotent retry must never become a new user bubble or turn.
@@ -1326,7 +1329,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
           patchLive(conv.id, (p) =>
             p.queued.some((q) => q.queueId === queueId)
               ? p
-              : { ...p, queued: [...p.queued, { ...pendingItem, deliveryMode: res.deliveryMode ?? pendingItem.deliveryMode }] },
+              : { ...p, queued: [...p.queued, { ...pendingItem, deliveryMode: res.deliveryMode === 'interrupt' ? 'steer' : res.deliveryMode ?? pendingItem.deliveryMode }] },
           )
         }
       } else if (!queued && wasBusy && !consumedQueueIdsRef.current.has(queueId)) {

@@ -12,7 +12,7 @@ Claude and Codex have different adapters. Unsupported combinations should fail b
 
 ## Use the right level of control
 
-A rail's provider/model choice controls its execution. Role profiles and per-agent routing depend on the provider and on the Core workflow Desktop installed in the project; inspect the effective configuration rather than assuming a profile changes every call.
+A rail's provider/model choice controls its execution. Freestyle runs on every CLI provider and local engine; only Claude adds the interactive in-job chat. Role profiles and per-agent routing depend on the provider and on the Core workflow Desktop installed in the project; inspect the effective configuration rather than assuming a profile changes every call.
 
 When comparing runs, keep the same spec, repository revision and verification criteria. Treat reported, estimated and unavailable cost separately. See [profiles](/docs/agents-profiles-and-the-balanced-default) and [usage](/docs/insights-analytics-and-cost-tracking).
 

@@ -27,17 +27,20 @@ import { recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
  */
 import * as path from 'path'
 import * as fs from 'fs'
-import { resolveHome } from '../../../artifact-registry'
 import { newId } from '../../../ids'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
-import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
+import { defaultGitRunner, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from '../../../worktree-manager'
 import { hasAgentRuntimeRequest } from '../../agent-runtime/runtime/agent-runtime-paths'
-import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
-import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
-import { getLinkByLocalId } from '../../../jira/jira-db'
+import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, getRailWorktree } from './rail-worktrees-store'
+import { FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
+import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
+import {
+  isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
+  type IsolatedBranchOwnership, type IsolatedWorktreeIO, type IsolatedWorktreeOwnership,
+} from './isolated-worktree'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
-import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
+import { coreAnnouncesReviewBrief, harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
 import { getLoopRun, readDefinitionRun, readDefinitionForkTarget, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
@@ -61,18 +64,16 @@ import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-con
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from '../../loops/runtime/loop-executors'
 import {
-  applyWorktreeOverlay, revalidateOverlayCleanupEvidence, OVERLAY_MANIFEST,
+  revalidateOverlayCleanupEvidence, OVERLAY_MANIFEST,
   type OverlayCleanupEvidence,
 } from '../../../worktree-overlay'
-import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { authenticateWarmNodeModulesLinks } from '../../../worktree-node-modules'
 import { buildRevisionSeed } from '../../execution/runtime/revision-seed'
 import { renderFollowUpBriefing, type PrFollowUp } from './pr-follow-up'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, settleSpecAddendaAt, snapshotSpecAddenda, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { resolveProjectExecution } from '../../../workspace-resolution'
-import { isCodeExplorerEnabled } from '../../../feature-flags'
-import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
+import type { WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { recordLoopRunProvenance } from '../../code/runtime/file-story'
-import { getAdapter } from '../../../providers'
 import { defaultExec, pushBranch, type Exec } from './pr-publisher'
 import { resolveActivePrContinuationTargets, resolveExplicitPrTarget, type ActivePrContinuationTarget } from './active-pr-continuation'
 import { isExactOpenPr, matchesRecordedPrIdentity, observePrLifecycle, verifyPushRemoteForPr } from './pr-lifecycle'
@@ -96,6 +97,8 @@ import type { ReasoningEffort } from '../../../providers/types'
 
 export interface IsolatedLaunchInput {
   launchConfig?: Record<string, unknown>
+  /** Spec triage (launch-triage): recorded on the delivery row for triage accuracy. */
+  loopChoice?: { recommendedLoop: string | null; chosenLoop: string | null } | null
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Registered write targets. When omitted, use the specs' targets, then primary. */
   repositoryIds?: string[]
@@ -158,6 +161,10 @@ export interface IsolatedLaunchInput {
     prNumber: number | null
     deliverySha: string
   }
+  /** Flow hand-off contract (Flow mode): adopt exactly this Flow worktree —
+   * same mount, branch and frozen HEAD — instead of allocating a fresh one.
+   * Any discrepancy throws `FlowWorktreeMismatchError` before agents start. */
+  requiredFlowWorktree?: RequiredFlowWorktree
   /** Explicit user-designated target PR (deliver-rail-into-existing-pr).
    * When present, this launch continues that exact open PR — automatic
    * continuation discovery is skipped and validation failure throws
@@ -191,24 +198,14 @@ export class PrContinuationIsolationError extends Error {
 
 /** Injectable git/worktree IO (defaults to the real implementations) — lets the
  *  allocation + teardown logic be unit-tested without a real repo. */
-export interface IsolatedLaunchIO {
-  git?: GitRunner
-  create?: typeof createWorktree
-  remove?: typeof removeWorktree
-  /** Per-run framework overlay applied to each fresh worktree. */
-  overlay?: typeof applyWorktreeOverlay
-  /** Warm-dependency reuse: links the base checkout's node_modules into the
-   *  fresh worktree so runs skip the cold `npm install`. */
-  linkNodeModules?: typeof linkNodeModulesIntoWorktree
-  /** Resolves the project's execution (relocated vs legacy) — decides the
-   *  overlay's primary root and whether the repo is added as fallback. */
-  resolveExecution?: typeof resolveProjectExecution
-  /** Code-Explorer provenance: pre-run worktree snapshot + settle recorder
-   *  (injectable so unit tests need no real git repo). */
-  snapshot?: typeof snapshotWorkingTree
+export interface IsolatedLaunchIO extends IsolatedWorktreeIO {
+  /** Code-Explorer provenance settle recorder (the pre-run snapshot lives in
+   *  IsolatedWorktreeIO; injectable so unit tests need no real git repo). */
   recordProvenance?: typeof recordLoopRunProvenance
   /** Settle-time review-packet evidence harvest (injectable for tests). */
   harvestEvidence?: typeof harvestDeliveryEvidence
+  /** Core `reviewBrief: 1` probe (injectable for tests). */
+  reviewBriefCapability?: () => Promise<boolean>
   /** gh-backed PR discovery for continuing already-open PR branches. */
   exec?: Exec
 }
@@ -249,8 +246,8 @@ export interface AllocatedRun {
   initialSha: string | null
   /** Ownership is captured at allocation so rollback cannot delete a borrowed
    *  PR branch or a pre-existing/resumable local branch. */
-  branchOwnership: 'created' | 'preexisting' | 'borrowed-pr'
-  worktreeOwnership: 'created' | 'preexisting'
+  branchOwnership: IsolatedBranchOwnership
+  worktreeOwnership: IsolatedWorktreeOwnership
   /** Historical reconstruction cannot grant new automatic cleanup authority. */
   automaticRelease?: false
 }
@@ -266,30 +263,6 @@ export interface SettledRun {
   failureDetail?: string
   /** False only after cleanliness and durable-ref checks prove force-removal safe. */
   safeToRelease: boolean
-}
-
-/**
- * Ticket data for the conventional branch name (pr-naming): title/labels from
- * the ticket-spec reader, the Jira key resolved with the authoritative
- * `jira_links` row prevailing over the ticket's own `jira_key` field (JIRA
- * ALWAYS PREVAILS). Fully failure-tolerant — a missing store/link degrades to
- * the bare local ticket id.
- */
-function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInput {
-  let spec: { title?: string; labels?: string[]; jira_key?: string | null } | undefined
-  try {
-    spec = ctx.getTicketSpec(ticketId) as typeof spec
-  } catch {
-    /* tolerated */
-  }
-  let jiraKey: string | null = spec?.jira_key ?? null
-  try {
-    const link = getLinkByLocalId(ctx.db, ticketId)
-    if (link && !link.tombstoned && link.jiraKey) jiraKey = link.jiraKey
-  } catch {
-    /* tolerated */
-  }
-  return { ticketId, title: spec?.title ?? null, labels: spec?.labels ?? null, jiraKey }
 }
 
 /**
@@ -365,7 +338,7 @@ export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly numbe
  * key. Keep the local id as a fallback/cross-reference for Specrails.
  */
 function worktreeCommitMessage(ctx: ProjectContext, ticketId: number, runId: string, partial = false): string {
-  const input = unitNamingInput(ctx, ticketId)
+  const input = ticketNamingInput(ctx, ticketId)
   const ref = ticketRef(input)
   const subjectRef = ref === String(ticketId) ? `ticket-${ticketId}` : `${ref} ticket-${ticketId}`
   return `specrails: ${subjectRef}${partial ? ' partial' : ''} (run ${runId})`
@@ -490,14 +463,23 @@ async function verifyContinuationWorktree(
   return headSha
 }
 
-async function readHeadSha(git: GitRunner, cwd: string): Promise<string | null> {
-  try {
-    const result = await git.run(['rev-parse', '--verify', 'HEAD'], cwd)
-    const sha = result.code === 0 ? result.stdout.trim() : ''
-    return COMMIT_SHA_RE.test(sha) ? sha : null
-  } catch {
-    return null
+function canonicalPath(value: string): string {
+  try { return fs.realpathSync.native(value) } catch { return path.resolve(value) }
+}
+
+/** The adopted mount must be the Flow's own path, on its branch, at its frozen HEAD. */
+async function verifyFlowWorktree(git: GitRunner, mounted: WorktreeHandle, required: RequiredFlowWorktree): Promise<string> {
+  if (canonicalPath(mounted.worktreePath) !== canonicalPath(required.worktreePath)) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree is not mounted at ${required.worktreePath}`)
   }
+  if (mounted.branch !== required.branch) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree is on ${mounted.branch}, not ${required.branch}`)
+  }
+  const head = await readHeadSha(git, mounted.worktreePath)
+  if (!head || head !== required.headSha) {
+    throw new FlowWorktreeMismatchError(`The Flow worktree HEAD ${head ?? 'unknown'} does not match the frozen ${required.headSha}`)
+  }
+  return head
 }
 
 async function branchHasDelta(git: GitRunner, cwd: string, baseRef: string): Promise<boolean | null> {
@@ -796,7 +778,8 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
     // A resumed non-PR branch may already contain reviewable commits from an
     // earlier attempt, even when this iteration itself did not add one.
     let resumedBranchDelta: boolean | null = null
-    if (!changed && a.continuationTarget === null && a.branchOwnership === 'preexisting') {
+    // An adopted Flow branch already carries the Flow's commits ahead of base.
+    if (!changed && a.continuationTarget === null && (a.branchOwnership === 'preexisting' || a.branchOwnership === 'adopted')) {
       resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
       if (resumedBranchDelta === null) {
         const detail = `cannot prove whether resumed branch ${a.handle.branch} has commits ahead of ${a.baseRef}`
@@ -857,13 +840,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   }
   const git = io.git ?? defaultGitRunner
   const exec = io.exec ?? defaultExec
-  const create = io.create ?? createWorktree
   const remove = io.remove ?? removeWorktree
-  const overlay = io.overlay ?? applyWorktreeOverlay
   const resolveExecution = io.resolveExecution ?? resolveProjectExecution
   const baseRepo = ctx.project.path
   const slug = ctx.project.slug
-  const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees', ...(input.repositoryExecution ? [input.repositoryExecution.repositoryId] : []))
+  const worktreesRoot = isolatedWorktreesRoot(slug, input.repositoryExecution?.repositoryId)
   // A revision run is seeded with a full briefing (the instruction PLUS the
   // frozen spec, the branch that carries the work and what the previous run
   // actually reported) rather than the bare sentence — the run starts a FRESH
@@ -972,34 +953,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       ? [{ ticketId: ticketIds[0], ticketIds: [...ticketIds] }]
       : ticketIds.map((id) => ({ ticketId: id, ticketIds: [id] }))
 
-  // Effective artifact root for the per-worktree overlay: a RELOCATED project's
-  // framework surface (slash commands, sr-* agents, skills, rules, .mcp.json,
-  // instruction file) lives in the WORKSPACE, not the repo — and `git worktree
-  // add` materializes only TRACKED files, so without the overlay a relocated
-  // worktree spawn has no `/specrails:*` commands at all. Legacy projects
-  // overlay their repo's own untracked on-disk entries instead. Resolved ONCE
-  // per launch; a resolution failure degrades to the legacy (repo) source.
-  let overlaySourceRoot = baseRepo
-  let overlayFallbackRoots: string[] | undefined
-  try {
-    const exec = resolveExecution({ slug, path: baseRepo })
-    if (exec.relocated && exec.workspaceDir) {
-      overlaySourceRoot = exec.workspaceDir
-      // The repo as FALLBACK root: repo-resident untracked carve-outs
-      // (OpenSpec's `/opsx:*` commands, `openspec-*` skills, user extras)
-      // are absent from both the checkout (untracked) and the workspace
-      // (the framework ships only `specrails/`), so without this the claude
-      // CLI reports `Unknown command: /opsx:ff` inside isolated rails.
-      overlayFallbackRoots = [baseRepo]
-    }
-  } catch { /* legacy fallback */ }
-  let overlayProviderDir = '.claude'
-  let overlayInstructions = 'CLAUDE.md'
-  try {
-    const adapter = getAdapter(input.provider)
-    overlayProviderDir = adapter.projectDirName
-    overlayInstructions = adapter.instructionsFilename
-  } catch { /* unknown provider — claude-shaped defaults */ }
+  // Effective artifact root for the per-worktree overlay (relocated workspace
+  // vs the repo's own untracked entries, plus the provider's dir/instruction
+  // file). Resolved ONCE per launch; see resolveOverlaySources.
+  const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, resolveExecution)
+  const {
+    sourceRoot: overlaySourceRoot, fallbackSourceRoots: overlayFallbackRoots,
+    providerDir: overlayProviderDir, instructionsFilename: overlayInstructions,
+  } = overlaySources
   // Degraded overlay = the run may be missing native commands/agents. Never
   // aborts the rail (a partial surface beats no run) but MUST be visible:
   // stderr-style server log + a project-scoped WS event.
@@ -1101,7 +1062,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           integrationBranch: integration.branch,
           fetchOk: fetchResult.ok,
           getTicketSpec: (ticketId) => {
-            try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof unitNamingInput> & { status?: string; description?: string } }
+            try { return ctx.getTicketSpec(ticketId) as ReturnType<typeof ticketNamingInput> & { status?: string; description?: string } }
             catch { return undefined }
           },
         })
@@ -1153,10 +1114,21 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       ticketIds: units.flatMap((unit) => unit.ticketIds),
     }]
   }
+  // A Flow hand-off adopts ONE existing worktree for the Flow's single spec.
+  // It never combines with continuation, revision or retry contracts. Checked
+  // before the delivery row exists, so a rejection leaves nothing behind.
+  const flowWorktree = input.requiredFlowWorktree ?? null
+  if (flowWorktree && (
+    units.length !== 1 || launchContinuation || input.requiredPrContinuation || input.revision ||
+    input.retryOfDelivery || input.repositoryExecution || input.explicitPrTarget
+  )) {
+    throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly its own spec on a fresh delivery')
+  }
 
   if (prMode) {
     const generation = createPrDeliveryGeneration(ctx.db, {
       launchConfig: input.launchConfig,
+      loopChoice: input.loopChoice ?? null,
       parentDeliveryId: input.repositoryExecution?.parentDeliveryId,
       repositoryId: input.repositoryExecution?.repositoryId,
       repositoryPath: input.repositoryExecution ? baseRepo : undefined,
@@ -1233,6 +1205,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
   }
   const unitBranchName = (ticketId: number): { branch: string; ownership: AllocatedRun['branchOwnership'] } => {
+    if (flowWorktree) {
+      takenBranches.add(flowWorktree.branch)
+      return { branch: flowWorktree.branch, ownership: 'adopted' }
+    }
     const revisionBranch = revisionBranches.get(ticketId)
     if (revisionBranch) return { branch: revisionBranch.branch, ownership: 'preexisting' }
     const continuation = launchContinuation && continuationTargets.get(ticketId)
@@ -1240,7 +1216,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       takenBranches.add(continuation.branch)
       return { branch: continuation.branch, ownership: 'borrowed-pr' }
     }
-    const preferred = ticketBranchName(unitNamingInput(ctx, ticketId))
+    const preferred = ticketBranchName(ticketNamingInput(ctx, ticketId))
     const branch = resolveCollisionFreeName(preferred, {
       // A run can reuse a branch only through the exact revision/PR
       // evidence above. An accepted predecessor may now lag the integration
@@ -1270,94 +1246,64 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             throw new Error(`Revision branch ${revisionBranch.branch} no longer matches its recorded delivery commit`)
           }
         }
-        handle = await create(git, {
+        const prepared = await materializeIsolatedWorktree({
           repoDir: baseRepo,
           worktreesRoot: path.join(worktreesRoot, runId),
           slug,
           ticketId: unit.ticketId,
-          baseRef: revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          baseRef: flowWorktree?.baseSha ?? revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
           branch: branchPlan.branch,
+          branchOwnership: branchPlan.ownership,
+          pinBranchOwnership: Boolean(continuationTarget || flowWorktree),
           refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
-          fresh: !revisionBranch && !continuationTarget,
-          reuseBranchWorktree: Boolean(revisionBranch || continuationTarget),
-        })
-        worktreeOwnership = handle.worktreeCreated === false ? 'preexisting' : 'created'
-        if (!continuationTarget && (handle.branch !== branchPlan.branch || handle.branchCreated === false)) {
-          branchOwnership = 'preexisting'
-        }
-        if (continuationTarget) {
-          initialSha = await verifyContinuationWorktree(
-            git,
-            baseRepo,
-            handle,
-            continuationTarget,
-            continuationTarget.deliverySha,
-          )
-        } else {
-          initialSha = await readHeadSha(git, handle.worktreePath)
-          if (expectedRepositoryBaseSha && initialSha !== expectedRepositoryBaseSha) throw new Error('The repository base changed before its worktree could be frozen')
-          if (revisionBranch && (handle.branch !== revisionBranch.branch || initialSha !== revisionBranch.sha)) {
-            throw new Error(`Revision checkout does not expose the exact recorded branch ${revisionBranch.branch}`)
-          }
-        }
-
-        // Per-run overlay: merge-link the framework surface the checkout didn't
-        // bring into the worktree (idempotent; resume-safe via its manifest).
-        let overlayExcludes: string[] = []
-        let overlayCleanupEvidence: OverlayCleanupEvidence[] = []
-        try {
-          const res = overlay({
-            worktreePath: handle.worktreePath,
-            sourceRoot: overlaySourceRoot,
-            fallbackSourceRoots: overlayFallbackRoots,
-            providerDir: overlayProviderDir,
-            instructionsFilename: overlayInstructions,
-          })
-          overlayExcludes = res.createdPaths
-          overlayCleanupEvidence = res.cleanupEvidence ?? []
-          if (res.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, res.warnings)
-        } catch (err) {
-          // applyWorktreeOverlay never throws; this guards injected test doubles
-          // and future edits — the spawn proceeds regardless.
-          notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
-        }
-        // Warm-dependency reuse: link the base checkout's node_modules trees
-        // into the fresh worktree (best-effort; a failure just leaves the run
-        // on the legacy cold start). Linked paths join the overlay exclusion
-        // list so they inherit the commit-time guarantees.
-        let warmLinkEvidence: OverlayCleanupEvidence[] = []
-        try {
-          const nm = (io.linkNodeModules ?? linkNodeModulesIntoWorktree)(baseRepo, handle.worktreePath)
-          // `authenticated` (not `linked`) is the authorized set: it also covers
-          // links a previous pass created, which a resumed launch would
-          // otherwise leave both un-excluded from the commit and unauthorized
-          // for release.
-          const authorized = nm.authenticated ?? nm.linked ?? []
-          if (authorized.length > 0) overlayExcludes = overlayExcludes.concat(authorized)
-          warmLinkEvidence = nm.evidence ?? []
-          if (nm.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, nm.warnings)
-        } catch (err) {
-          notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
-        }
-        // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha
-        // + the overlay's untracked set) so the settle diff attributes exactly
-        // the run's own writes. Best-effort — a snapshot failure only loses
-        // provenance, never the run.
-        let provenanceSnapshot: WorkingTreeSnapshot | null = null
-        if (isCodeExplorerEnabled()) {
-          try {
-            provenanceSnapshot = (io.snapshot ?? snapshotWorkingTree)(handle.worktreePath)
-          } catch (err) {
-            console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
-          }
-        }
+          fresh: !revisionBranch && !continuationTarget && !flowWorktree,
+          reuseBranchWorktree: Boolean(revisionBranch || continuationTarget || flowWorktree),
+          verifyHead: async (mounted) => {
+            if (flowWorktree) return verifyFlowWorktree(git, mounted, flowWorktree)
+            if (continuationTarget) {
+              return verifyContinuationWorktree(
+                git,
+                baseRepo,
+                mounted,
+                continuationTarget,
+                continuationTarget.deliverySha,
+              )
+            }
+            const headSha = await readHeadSha(git, mounted.worktreePath)
+            if (expectedRepositoryBaseSha && headSha !== expectedRepositoryBaseSha) throw new Error('The repository base changed before its worktree could be frozen')
+            if (revisionBranch && (mounted.branch !== revisionBranch.branch || headSha !== revisionBranch.sha)) {
+              throw new Error(`Revision checkout does not expose the exact recorded branch ${revisionBranch.branch}`)
+            }
+            return headSha
+          },
+          overlay: overlaySources,
+          onDegraded: (warnings) => notifyOverlayDegraded(unit.ticketId, warnings),
+        }, io)
+        handle = prepared.handle
+        branchOwnership = prepared.branchOwnership
+        // The verified Flow mount pre-existed by construction; the rail adopts it.
+        worktreeOwnership = flowWorktree && prepared.worktreeOwnership === 'preexisting' ? 'adopted' : prepared.worktreeOwnership
+        initialSha = prepared.initialSha
+        const { overlayExcludes, overlayCleanupEvidence, warmLinkEvidence, provenanceSnapshot } = prepared
         const ledgerId = newId()
-        createRailWorktree(ctx.db, {
+        const ledgerRow = {
           id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
           repositoryId: input.repositoryExecution?.repositoryId,
           repositoryPath: input.repositoryExecution ? baseRepo : undefined,
           branch: handle.branch, worktreePath: handle.worktreePath,
-        })
+        }
+        if (flowWorktree) {
+          // Ownership transfer: the rail ledger row and the Flow's handed_off
+          // state commit together or not at all.
+          const adoptedHead = initialSha
+          if (!adoptedHead) throw new FlowWorktreeMismatchError('The Flow worktree HEAD could not be verified')
+          ctx.db.transaction(() => {
+            createRailWorktree(ctx.db, ledgerRow)
+            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: prDeliveryId, headSha: adoptedHead })
+          })()
+        } else {
+          createRailWorktree(ctx.db, ledgerRow)
+        }
         allocated.push({
           ticketId: unit.ticketId,
           ticketIds: unit.ticketIds,
@@ -1369,8 +1315,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           warmLinkEvidence,
           provenanceSnapshot,
           continuationTarget,
-          baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
-          hygieneBaseSha,
+          baseRef: flowWorktree?.baseSha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          hygieneBaseSha: flowWorktree?.baseSha ?? hygieneBaseSha,
           initialSha,
           branchOwnership,
           worktreeOwnership,
@@ -1416,6 +1362,19 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   } catch (err) {
     for (const a of allocated) {
       if (claimedAddendaByRun.has(a.runId)) broadcastSpecAddendaChange(msg => ctx.broadcast(msg as never), ctx.project.id, settleSpecAddendaAt(addendaStorePath, a.ticketIds, a.runId, 'failed'))
+      if (a.worktreeOwnership === 'adopted' && flowWorktree) {
+        // Never remove an adopted Flow worktree on rollback: give it back.
+        try {
+          ctx.db.transaction(() => {
+            deleteRailWorktree(ctx.db, a.ledgerId)
+            flowWorktree.release(errorDetail(err))
+          })()
+        } catch (releaseError) {
+          console.error(`[rail-isolated] could not return Flow worktree ${a.handle.worktreePath}: ${errorDetail(releaseError)}`)
+          updateRailWorktreeState(ctx.db, a.ledgerId, 'needs-review')
+        }
+        continue
+      }
       if (a.worktreeOwnership === 'created') {
         await remove(git, {
           repoDir: baseRepo,
@@ -1546,6 +1505,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         profileName: input.profileName,
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
+        // Flow hand-off: Core derives the change from the Flow reservation commit.
+        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '' } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
       if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)
@@ -1912,8 +1873,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       try {
         const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env },
           results.filter(result => getLoopRun(ctx.db, result.run.runId)?.engine_version === 2).map(result => result.run.runId), true)
+        const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
         settleEvidence = harvest(
-          { readEvents: (runId) => getJobEvents(ctx.db, runId) },
+          { readEvents: (runId) => getJobEvents(ctx.db, runId), reviewBrief },
           results.map((result) => ({
             ticketId: result.run.ticketId,
             runId: result.run.runId,
@@ -2169,7 +2131,8 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const partial = complete && ready.length > 0 && results.some(item => item.implementationOutcome !== 'succeeded' || !['ready', 'no_changes'].includes(item.deliveryOutcome))
       const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
       const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results.map(item => item.run.runId), true)
-      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id) }, results.map(item => ({
+      const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
+      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id), reviewBrief }, results.map(item => ({
         ticketId: item.run.ticketId, runId: item.run.runId, worktreePath: item.run.handle.worktreePath,
         definitionStatus: definitionEvidence.get(item.run.runId),
         reviewerStepId: readDefinitionRun(ctx.db, item.run.runId)?.request.graph.config.reviewerStepId,

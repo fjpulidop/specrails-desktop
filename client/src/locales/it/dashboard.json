@@ -183,7 +183,10 @@
     "skipInFlight_one": "{{count}} saltato (spec già in corso)",
     "skipInFlight_other": "{{count}} saltati (spec già in corso)",
     "failedCount_one": "{{count}} non riuscito",
-    "failedCount_other": "{{count}} non riusciti"
+    "failedCount_other": "{{count}} non riusciti",
+    "skipBudget": "{{count}} oltre il budget giornaliero",
+    "skipReviewLimit_one": "{{count}} trattenuto dal limite di revisione",
+    "skipReviewLimit_other": "{{count}} trattenuti dal limite di revisione"
   },
   "launchAllDialog": {
     "title": "Lancia tutti i rail",
@@ -199,7 +202,12 @@
     "costTitle": "Costo moltiplicato.",
     "costBody": "Ogni rail genera la propria esecuzione IA — la spesa cresce con il numero di rail.",
     "launch_one": "Lancia {{count}} rail",
-    "launch_other": "Lancia {{count}} rail"
+    "launch_other": "Lancia {{count}} rail",
+    "reviewLimitTitle": "Limite di revisione: {{pending}}/{{limit}} in attesa.",
+    "reviewLimitNone_one": "{{count}} rail aprirebbe una nuova consegna, quindi non si avvia nulla. Decidi prima una consegna in sospeso.",
+    "reviewLimitNone_other": "{{count}} rail aprirebbero nuove consegne, quindi non si avvia nulla. Decidi prima una consegna in sospeso.",
+    "reviewLimitPartial_one": "Solo {{launched}} possono partire ora; {{count}} rail attende che una consegna venga decisa.",
+    "reviewLimitPartial_other": "Solo {{launched}} possono partire ora; {{count}} rail attendono che una consegna venga decisa."
   },
   "railControls": {
     "viewJobLog": "Visualizza log del job",
@@ -221,7 +229,9 @@
     "worktreesNeedsReview": "{{count}} da rivedere",
     "execSteps": "{{count}} passi",
     "execLines": "{{count}} righe",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "Consigliato",
+    "recommendedOption": "{{label}} · consigliato"
   },
   "railRow": {
     "moveToSpecs": "Sposta in Specs",
@@ -271,5 +281,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle richiede un unico provider: scegli Implement o un loop prima di passare questo rail ai motori per ruolo."
+  },
+  "reviewWip": {
+    "badge": "In revisione {{pending}}/{{limit}}",
+    "title": "Consegne in attesa di revisione (limite {{limit}}). Fai clic per vederle.",
+    "reachedTitle": "Limite di revisione raggiunto ({{limit}}). I nuovi avvii attendono che una consegna venga decisa.",
+    "panelTitle": "In attesa di revisione",
+    "panelBody": "Le consegne in corso, quelle in attesa di decisione e le PR aperte contano per il limite di {{limit}}.",
+    "panelReached": "Il limite di {{limit}} è raggiunto. Decidi una di queste (Crea PR, unisci o scarta) per avviare nuovo lavoro. Le modifiche a queste consegne restano consentite.",
+    "empty": "Nulla in attesa di revisione.",
+    "playBlocked": "Limite di revisione raggiunto ({{pending}}/{{limit}} in attesa). Decidi una consegna per avviare nuovo lavoro."
   }
 }

@@ -144,5 +144,22 @@
     "superseded": "Ersetzt",
     "implementation_failed": "Implementierung fehlgeschlagen",
     "pr_failed": "Lieferung fehlgeschlagen"
+  },
+  "budget": {
+    "exceededProject": "Tagesbudget des Projekts erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "exceededDesktop": "App-weites Tagesbudget erreicht (${{spent}} von ${{budget}}). Es wurde nichts gestartet.",
+    "whereProject": "Projekteinstellungen ▸ Budget",
+    "whereDesktop": "Einstellungen ▸ Budget",
+    "action": "Erhöhe oder entferne das Budget unter {{where}} oder warte auf die tägliche Zurücksetzung.",
+    "actionWithReset": "Erhöhe oder entferne das Budget unter {{where}} oder warte auf die Zurücksetzung ({{time}}).",
+    "pausedProject": "Pausiert: Tagesbudget des Projekts erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
+    "pausedDesktop": "Pausiert: app-weites Tagesbudget erreicht (${{spent}} von ${{budget}}). Erhöhe es und setze dann fort.",
+    "resume": "Fortsetzen",
+    "stillExceeded": "Das Tagesbudget ist weiterhin ausgeschöpft."
+  },
+  "reviewWip": {
+    "reached_one": "Review-Limit erreicht: {{count}} Lieferung wartet auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
+    "reached_other": "Review-Limit erreicht: {{count}} Lieferungen warten auf Review (Limit {{limit}}). Es wurde nichts gestartet.",
+    "action": "Entscheide über eine offene Lieferung (PR erstellen, mergen oder verwerfen) oder erhöhe das Limit unter Projekteinstellungen ▸ Review-Limit."
   }
 }

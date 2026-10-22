@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "La pipeline con profili richiede specrails-core {{required}}+",
-      "body": "Questo progetto ha <code>{{version}}</code>. Esegui <code>{{command}}</code> nel progetto per sbloccare la modalità profili. I profili creati qui verranno comunque salvati; semplicemente non influiranno sulla pipeline finché core non viene aggiornato.",
-      "unknownVersion": "sconosciuta"
+      "body": "Il workspace di questo progetto è stato preparato con specrails-core <code>{{version}}</code>. Aggiorna Specrails Core da Impostazioni → Aggiornamenti; i workspace dei progetti vengono aggiornati automaticamente dopo l'aggiornamento. I profili creati qui verranno comunque salvati; semplicemente non influiranno sulla pipeline finché il workspace non viene aggiornato.",
+      "unknownVersion": "sconosciuta",
+      "openUpdates": "Apri gli aggiornamenti di Core"
     }
   },
   "catalog": {

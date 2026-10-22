@@ -139,6 +139,14 @@ export function buildProviderEnv(
   return merged
 }
 
+/** Auth/config variable patterns one or more adapters declare for the
+ *  `minimal` agent environment (deduplicated, stable order). Core-hosted runs
+ *  pass every registered adapter because Core may launch any role provider. */
+export function providerEnvAllowlist(adapters: ProviderAdapter | readonly ProviderAdapter[]): string[] {
+  const list = Array.isArray(adapters) ? adapters : [adapters as ProviderAdapter]
+  return [...new Set(list.flatMap(adapter => adapter.envAllowlist ?? []))]
+}
+
 /**
  * Provider-native Core command/prompt, identity when no hook is declared.
  * `cwd` points at the provider artifact root for adapters that must load the

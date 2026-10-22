@@ -61,3 +61,21 @@ export function registerEnvPassthroughStatusHttp(router: Router, port: EnvPassth
     }
   })
 }
+
+/** Value-free report of the minimal agent environment (allowlist patterns and
+ * the variable names each provider would receive). Bound by the composition. */
+export interface AgentEnvStatusHttpPort {
+  read(request: Request): unknown
+}
+
+/** Inbound adapter for `GET /:projectId/agent-env/status`. Names only. */
+export function registerAgentEnvStatusHttp(router: Router, port: AgentEnvStatusHttpPort): void {
+  router.get('/:projectId/agent-env/status', (req, res) => {
+    try {
+      res.json(port.read(req))
+    } catch (error) {
+      console.error('[project-router] agent env status error:', error)
+      res.status(500).json({ error: 'Failed to read agent environment status' })
+    }
+  })
+}

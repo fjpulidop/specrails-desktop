@@ -49,7 +49,8 @@
   "sections": {
     "whatYouAsked": "Cosa hai chiesto",
     "whatIDid": "Cosa è stato fatto",
-    "howItWasChecked": "Come è stato verificato"
+    "howItWasChecked": "Come è stato verificato",
+    "whatTheAgentDid": "Cosa ha fatto l'agente"
   },
   "churn": {
     "line": "{{files}} file modificati · +{{added}} / −{{removed}} righe",
@@ -104,7 +105,8 @@
     "alreadyResolved": "Qualcuno ha già risposto.",
     "actionFailed": "L'azione non è andata a buon fine.",
     "revisionStale": "È stato appena risolto altrove — ricarica per vedere lo stato.",
-    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato."
+    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato.",
+    "revisionBudget": "Il budget giornaliero è esaurito, quindi la modifica non è stata avviata. Il tuo testo è stato conservato."
   },
   "versions": {
     "title": "Versioni precedenti ({{count}})",
@@ -165,5 +167,80 @@
       "unreported": "Non riportato"
     },
     "noReport": "L'esecuzione non ha riportato nulla su questo addendum. Controlla le modifiche e le evidenze qui sotto."
+  },
+  "derivation": {
+    "title": "Derivazione",
+    "coverage": "{{explained}} di {{files}} file modificati sono spiegati dal design derivato",
+    "change": "Modifica OpenSpec",
+    "requirements": "Requisiti",
+    "requirementsValue": "{{added}} aggiunti · {{modified}} modificati",
+    "confidence": "Fiducia del derivatore",
+    "confidenceLevel": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Bassa"
+    },
+    "confidenceUnknown": "Non indicata",
+    "caveat": "La copertura è misurata da Specrails con git; la fiducia è la valutazione dell'agente stesso.",
+    "unexplainedTitle_one": "{{count}} file modificato non è spiegato",
+    "unexplainedTitle_other": "{{count}} file modificati non sono spiegati",
+    "more_one": "…e {{count}} altro file",
+    "more_other": "…e altri {{count}} file",
+    "unavailable": "Non è stato possibile leggere il rapporto di derivazione di questa consegna Flow. Esamina direttamente il diff.",
+    "rewriteFailed": "Non è stato possibile riscrivere la spec dalla modifica derivata; mantiene la bozza Flow. La modifica OpenSpec resta il riferimento tecnico."
+  },
+  "brief": {
+    "title": "Cosa guardare",
+    "caveat": "Nota orientativa del revisore IA: dove una persona dovrebbe guardare per prima. Non è un risultato di verifica e non blocca mai una decisione.",
+    "severity": {
+      "high": "Alto",
+      "medium": "Medio",
+      "low": "Basso"
+    },
+    "area": {
+      "data": "dati",
+      "security": "sicurezza",
+      "api": "API",
+      "ux": "UX",
+      "performance": "prestazioni",
+      "ops": "operazioni",
+      "other": "altro"
+    },
+    "sections": {
+      "risks": "Rischi",
+      "behaviourChanges": "Cambi di comportamento",
+      "invariantsTouched": "Invarianti toccati",
+      "untested": "Percorsi senza test",
+      "humanChecks": "Controlli umani",
+      "divergences": "Divergenze dalla spec"
+    },
+    "userVisible": "Visibile agli utenti",
+    "invariantStatus": {
+      "kept": "Mantenuto",
+      "changed": "Cambiato",
+      "at-risk": "A rischio"
+    },
+    "diagnostic": "Parte della nota del revisore non è stata utilizzabile:",
+    "dropped_one": "{{count}} voce della nota non rispettava il formato previsto ed è stata ignorata.",
+    "dropped_other": "{{count}} voci della nota non rispettavano il formato previsto e sono state ignorate.",
+    "topRisk": "Rischio principale",
+    "moreRisks_one": "+{{count}} altro",
+    "moreRisks_other": "+{{count}} altri"
+  },
+  "agentActions": {
+    "total_one": "{{count}} azione",
+    "total_other": "{{count}} azioni",
+    "countsLabel": "Azioni dell'agente registrate per tipo",
+    "kinds": {
+      "read": "letture",
+      "write": "scritture",
+      "exec": "comandi",
+      "mcp": "chiamate MCP",
+      "network": "richieste web"
+    },
+    "caveat": "Registrato dagli stream degli agenti: le letture sono complete solo quanto le riporta ciascun provider. Contenuti e valori d'ambiente non vengono mai salvati.",
+    "run": "Esecuzione {{id}}",
+    "download": "{{format}}",
+    "downloadFailed": "Impossibile scaricare le azioni dell'agente"
   }
 }

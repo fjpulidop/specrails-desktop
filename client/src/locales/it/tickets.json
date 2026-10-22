@@ -176,5 +176,16 @@
       "failed": "Impossibile salvare l'addendum",
       "inFlight": "Questo addendum è in corso — attendi la fine dell'esecuzione"
     }
+  },
+  "regressionOf": {
+    "label": "Regressione di",
+    "hint": "Consegna che ha introdotto questo bug (conta come difetto sfuggito del suo loop)",
+    "none": "Non collegato",
+    "loading": "Caricamento consegne…",
+    "unavailable": "Impossibile caricare le consegne.",
+    "empty": "Ancora nessuna modifica consegnata.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "Consegna sconosciuta ({{id}})"
   }
 }

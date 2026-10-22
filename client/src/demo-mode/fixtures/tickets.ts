@@ -204,8 +204,8 @@ export const demoTickets: LocalTicket[] = [
   },
   {
     id: 14,
-    title: 'Scaffold project health check command',
-    description: 'Initial cut of /specrails:health-check command — basic linting, test coverage, and dependency freshness.',
+    title: 'Scaffold project health check script',
+    description: 'Initial cut of an `npm run health` script — basic linting, test coverage, and dependency freshness.',
     status: 'done',
     priority: 'medium',
     labels: ['cli', 'quality'],

@@ -2,8 +2,10 @@
 // The project-settings module owns its validation, use cases and HTTP adapter.
 import { createProjectSettingsService } from './modules/project-settings'
 import { createSqliteProjectSettingsRepository } from './modules/project-settings/adapters/sqlite'
-import { registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
-import { ensureProjectEnvFresh, getProjectEnvStatus, refreshProjectEnv } from './project-env'
+import { registerAgentEnvStatusHttp, registerEnvPassthroughStatusHttp, registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
+import { ensureProjectEnvFresh, getProjectAgentEnvStatus, getProjectEnvStatus, refreshProjectEnv } from './project-env'
+import { listAdapters } from './providers/registry'
+import { providerEnvAllowlist } from './providers/runtime'
 import fs from 'fs'
 import path from 'path'
 import { Request, Response } from 'express'
@@ -73,6 +75,14 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
       await refreshProjectEnv(db)
       return getProjectEnvStatus(db)
     },
+  })
+
+  // Value-free minimal agent environment report (names, never values).
+  registerAgentEnvStatusHttp(router, {
+    read: req => getProjectAgentEnvStatus(
+      ctx(req).db,
+      listAdapters().map(adapter => ({ id: adapter.id, displayName: adapter.displayName, allowlist: providerEnvAllowlist(adapter) })),
+    ),
   })
 
   // ─── Per-project Quick mode Contract Refine last-used value ─────────────────

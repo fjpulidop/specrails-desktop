@@ -791,6 +791,34 @@ export interface RailFetchDegradedMessage {
   warning: string
 }
 
+/** A Flow session as clients receive it (server/modules/flow FlowSession). */
+export interface FlowSessionWire {
+  id: string
+  conversationId: string
+  ticketId: number | null
+  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+  branch: string | null
+  worktreePath: string | null
+  baseSha: string | null
+  headSha: string | null
+  coreSessionId: string | null
+  railIndex: number | null
+  deliveryId: string | null
+  step: 'start:ticket' | 'start:worktree' | 'start:session' | 'handoff:freeze' | 'handoff:launch' | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Flow mode: a Flow's committed state changed (project-scoped). */
+export interface FlowStateMessage {
+  type: 'flow.state'
+  projectId: string
+  conversationId: string
+  flowId: string
+  flow: FlowSessionWire
+  timestamp: string
+}
+
 /** Per-ticket progress of an isolated rail's worktree fan-out / merge-back. */
 export interface RailWorktreeProgressMessage {
   type: 'rail.worktree_progress'
@@ -810,6 +838,16 @@ export interface RailWorktreeProgressMessage {
  * RailUpdatedMessage convention). Replaces the retired one-shot
  * `rail.pr_delivered` event.
  */
+/** Top-risk summary of the reviewer's risk brief (Core `reviewBrief: 1`) carried
+ *  by delivery snapshots and cards. Absent when no brief was recorded. */
+export interface PrDeliveryRiskSummary {
+  highCount: number
+  mediumCount: number
+  lowCount: number
+  top: { severity: 'high' | 'medium' | 'low'; area: string | null; whatToLookAt: string; ref: string | null } | null
+  diagnostic: boolean
+}
+
 export interface RailPrStateMessage {
   executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
   repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
@@ -852,7 +890,7 @@ export interface RailPrStateMessage {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
-    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
   /** The launch's loop-run ids, in ticket order ([] until allocation lands) —
@@ -865,6 +903,8 @@ export interface RailPrStateMessage {
   updatedAt?: string
   /** The launching agent-chat conversation, null for dashboard launches. */
   originConversationId: string | null
+  /** Reviewer risk brief summary (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
 }
 
 /**
@@ -929,6 +969,10 @@ export interface LoopRunPausedMessage {
   railIndex: number | null
   reason: string
   ticketIds: number[]
+  /** Absent for a human-decision pause. `budget_paused`: the daily budget ran
+   *  out between AI steps; resume once the budget allows it. */
+  pauseKind?: 'budget_paused'
+  budget?: { scope: 'project' | 'desktop'; budgetUsd: number; spentUsd: number; resetsAt: string }
 }
 
 export interface LoopRunResumedMessage {
@@ -1291,6 +1335,7 @@ export type WsMessage =
   | TicketAiEditStreamMessage | TicketAiEditDoneMessage | TicketAiEditErrorMessage
   | SpecGenStreamMessage | SpecGenDoneMessage | SpecGenErrorMessage
   | RailJobStartedMessage | RailJobStoppedMessage | RailJobCompletedMessage | RailUpdatedMessage | RailRemovedMessage | RailWorktreeProgressMessage | RailOverlayDegradedMessage | RailFetchDegradedMessage | RailPrStateMessage
+  | FlowStateMessage
  | LoopRunStartedMessage | LoopRunProgressMessage | LoopRunPausedMessage | LoopRunResumedMessage | LoopRunStoppedMessage | LoopRunCompletedMessage
   | AgentRefineStreamMessage | AgentRefinePhaseMessage | AgentRefineReadyMessage
   | AgentRefineTestMessage | AgentRefineErrorMessage | AgentRefineCancelledMessage
@@ -1663,7 +1708,7 @@ export interface PrDecisionCardEnvelope {
     finalSha?: string | null
     changed?: boolean
     failureCode?: string | null
-    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
+    branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr' | 'adopted'
     worktreePath?: string | null
   }>
   prUrl: string | null
@@ -1687,6 +1732,8 @@ export interface PrDecisionCardEnvelope {
   /** Settle-time snapshot of the run's runtime state + failure; the client
    *  prefers live `useRuntimeRuns` data while the run is active. */
   runtime?: MissionRunRuntime | null
+  /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
+  riskSummary?: PrDeliveryRiskSummary
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'

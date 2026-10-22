@@ -93,6 +93,15 @@ it; if your CLI has no persistent-stdin transport, `throw` in that `case`
 (as Gemini does) so a misrouted spawn fails loudly instead of emitting a
 broken argv.
 
+#### Declare `envAllowlist`
+
+List the authentication and configuration variable names your CLI reads
+(`'MYCLI_*'` matches a prefix). Projects in the `minimal` agent environment mode
+forward only these, the shared allowlist and the project's passthrough names to
+your provider; omitting a credential variable makes the CLI fail to sign in
+there. See [agent environment mode](configuration.md#agent-environment-mode) and
+add a case to `server/providers/env-allowlist.test.ts`.
+
 #### (Optional) prepareHeadlessSpawn
 
 `prepareHeadlessSpawn?(projectPath)` is an optional, best-effort filesystem
@@ -286,8 +295,9 @@ Two distinct version concepts — don't conflate them:
   (Claude = `null` / none pinned, Codex = `0.128.0`, Gemini = `0.11.0`,
   Kimi = `0.27.0`). It
   guards stream-format / flag availability for that one CLI.
-- **`specrails-core@^4.12.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
-  the single shared package floor the app installs/probes for **all** providers.
+- **`specrails-core@^6.0.0`** (`CORE_PACKAGE_SPEC`, `server/core-package.ts`) is
+  the single shared package range the app installs/probes for **all** providers
+  (`SUPPORTED_CORE_MAJORS` still reads Core 4 and 5 workspaces).
   It matters when your provider's **rails** rely on core-side scaffolding: core
   must emit the provider's command/agent/skill tree (e.g. Gemini needed core
   `4.8.0` to ship the `.gemini/` commands + `sr-*` agents, while Kimi requires
@@ -296,6 +306,13 @@ Two distinct version concepts — don't conflate them:
 
 ## Known gotchas
 
+- **Read-only missions keep MCP tools.** If the adapter advertises
+  `capabilities.toolPolicies` with `read-only`, mission turns spawn with
+  `toolPolicy: 'read-only'` and `retainMcpTools: true`. The adapter's read-only
+  mode must still let the agent call the MCP servers registered for the turn.
+  Verify this live, because plan-style modes often hide or refuse MCP tools.
+  For Core sessions, declare `capabilities.missionReadOnlySession`. See
+  [read-only missions](mission-read-only-policy.md).
 - **Legacy result path.** `normaliseResultEvent(event, provider)`
   (`server/modules/accounting/runtime/result-event.ts`) is still live for any callsite not yet
   migrated to `finaliseInvocationResult`. It only special-cases

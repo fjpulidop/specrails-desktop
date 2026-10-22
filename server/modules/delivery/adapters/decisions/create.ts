@@ -2,15 +2,18 @@ import { publishDraftPr } from '../../runtime/pr-publisher'
 import { deliverRailAsPr } from '../../runtime/rail-pr-delivery'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from '../../runtime/rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle } from '../../runtime/pr-naming'
-import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from '../../runtime/pr-body'
+import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges, type PrBodyReviewBrief } from '../../runtime/pr-body'
+import { readSettleEvidence } from '../../runtime/delivery-evidence'
+import { buildWhatToLookAt } from '../../runtime/review-brief'
 import { sumInvocationCostForRuns } from '../../../accounting/runtime/ai-invocations'
+import { packetDerivation } from '../../runtime/review-packet'
 import {
   toPrDeliverySnapshot, type PrDecision, type PrDeliveryPatch, type RailPrDeliveryRow
 } from '../../runtime/rail-pr-store'
 import { PrDecisionDeps, PrDecisionResult } from './contracts'
 import { retryExistingPrFollowupPush } from './retry'
 import { COMMIT_SHA_RE, commitObjectExists, captureBranchSha, releaseDeliveredRecoveryLineage } from './evidence'
-import { casTransition, finalizeTransition, safetyArchiveRecorder } from './transitions'
+import { casTransition, decisionInstant, finalizeTransition, safetyArchiveRecorder } from './transitions'
 import { loadPrTicketData, batchWorktreeRoot, parsePrNumber } from './metadata'
 import { releasableWorktreeIds } from './ownership'
 
@@ -49,6 +52,7 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     if (!sourceSha) {
       const detail = `the verified commit for branch '${unit.branch}' (ticket #${unit.ticketId}) is unavailable; refusing to deliver a mutable or unrelated ref`
       const conflict = casTransition(deps, row, 'pr_failed', {
+        decidedAt: decisionInstant(row),
         deliveryOutcome: 'blocked', statusCode: 'branch_verification_failed', statusDetail: detail,
       })
       if (conflict) return conflict
@@ -101,6 +105,17 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     costUsd = null
   }
 
+  // Reviewer risk brief (Core `reviewBrief: 1`), read from durable settle
+  // evidence only; absent for older Cores, so the body is unchanged there.
+  let reviewBrief: PrBodyReviewBrief | null = null
+  try {
+    const evidence = readSettleEvidence(row.settle_evidence)
+    const merged = evidence ? buildWhatToLookAt(evidence.units) : null
+    reviewBrief = merged ? { risks: merged.risks, untested: merged.untested, humanChecks: merged.humanChecks.map((check) => check.text) } : null
+  } catch {
+    reviewBrief = null
+  }
+
   const title = buildPrTitle(ticketData, { loopName: row.loop_name })
   const body = buildCanonicalPrBody({
     loopName: row.loop_name,
@@ -108,13 +123,16 @@ export async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow):
     tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId) })),
     changes,
     costUsd,
+    reviewBrief,
+    derivation: (() => { const d = packetDerivation(row, readSettleEvidence(row.settle_evidence)); return d?.status === 'available' ? d : null })(),
   })
 
   let next: PrDecision
   // Underlying git/gh failure detail for a degraded or failed delivery —
   // relayed on the response and persisted as bounded secondary diagnostics.
   let detail: string | null = null
-  const patch: PrDeliveryPatch = {}
+  // The click on Create PR is the human decision, whatever the outcome.
+  const patch: PrDeliveryPatch = { decidedAt: decisionInstant(row) }
   if (branchEvidenceCaptured) patch.branches = effectiveBranches
   try {
     // A degraded multi-unit attempt already owns an assembled batch branch.

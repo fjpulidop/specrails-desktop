@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater'
+import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater'
+import { checkAppUpdate } from '../lib/app-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { invoke } from '@tauri-apps/api/core'
 import { toast } from 'sonner'
@@ -341,7 +342,7 @@ export function useDesktopUpdateNotifier() {
     async function checkForUpdate() {
       if (cancelled || shown.current) return
       try {
-        const update = useMockUpdate ? createMockUpdate() : await check()
+        const update = useMockUpdate ? createMockUpdate() : await checkAppUpdate()
         if (cancelled || !update || readDismissedVersion() === update.version) return
         shown.current = true
         toast.custom(() => <DesktopUpdateToast update={update} onClose={() => { shown.current = false }} />, {

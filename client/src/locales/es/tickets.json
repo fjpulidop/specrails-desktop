@@ -176,5 +176,16 @@
       "failed": "No se pudo guardar el anexo",
       "inFlight": "Este anexo está en curso — espera a que termine la ejecución"
     }
+  },
+  "regressionOf": {
+    "label": "Regresión de",
+    "hint": "Entrega que introdujo este bug (cuenta como defecto escapado de su loop)",
+    "none": "Sin enlazar",
+    "loading": "Cargando entregas…",
+    "unavailable": "No se pudieron cargar las entregas.",
+    "empty": "Aún no hay cambios entregados.",
+    "option": "{{loop}} · {{date}}",
+    "tickets": "#{{ids}}",
+    "missing": "Entrega desconocida ({{id}})"
   }
 }

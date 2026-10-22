@@ -1715,6 +1715,106 @@ const MIGRATIONS: Migration[] = [
     }
   },
 
+  // Migration 72: delivery-decision-times — first-write-wins ISO instants of
+  // the review lifecycle on each delivery: when it became reviewable
+  // (`on_review_at`), first received a human decision (`decided_at`), was
+  // published for review (`published_at`) and merged (`merged_at`). None of
+  // them is derivable exactly from existing columns (`updated_at` moves on any
+  // later patch), so historical rows stay NULL — unknown, never zero.
+  // Additive + idempotent; self-contained so parallel appends cannot collide.
+  (db) => {
+    const columns = new Set((db.prepare('PRAGMA table_info(rail_pr_deliveries)').all() as { name: string }[]).map(column => column.name))
+    for (const name of ['on_review_at', 'decided_at', 'published_at', 'merged_at']) {
+      if (!columns.has(name)) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN ${name} TEXT`)
+    }
+  },
+
+  // Migration 73: agent actions audit log (what each run read, wrote, ran,
+  // called over MCP or fetched). Targets only — never file contents or
+  // environment values. Retention is a project setting (default 30 days).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_actions (
+        id      INTEGER PRIMARY KEY,
+        run_id  TEXT NOT NULL,
+        job_id  TEXT,
+        role    TEXT NOT NULL,
+        kind    TEXT NOT NULL CHECK(kind IN ('read','write','exec','mcp','network')),
+        target  TEXT NOT NULL,
+        hash    TEXT,
+        ts      TEXT NOT NULL,
+        source  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_run ON agent_actions(run_id, ts);
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_ts ON agent_actions(ts);
+    `)
+  },
+
+  // Migration 74: Flow mode (server/modules/flow). One row per Flow; it owns its
+  // worktree until a rail adopts it (the adoption inserts the rail_worktrees row
+  // and sets state='handed_off' in one transaction). `ticket_id` is NULL only
+  // while the start saga has not created the placeholder spec: the row is the
+  // saga's durable anchor, and the partial unique index arbitrates concurrent
+  // starts (at most one active or paused Flow per conversation).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS flow_sessions (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        ticket_id       INTEGER,
+        state           TEXT NOT NULL CHECK (state IN ('active','paused','handed_off','delivered','discarded','needs-review')),
+        branch          TEXT,
+        worktree_path   TEXT,
+        base_sha        TEXT,
+        head_sha        TEXT,
+        core_session_id TEXT,
+        rail_index      INTEGER,
+        delivery_id     TEXT,
+        step            TEXT CHECK (step IS NULL OR step IN ('start:ticket','start:worktree','start:session','handoff:freeze','handoff:launch')),
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_sessions_open_conversation
+        ON flow_sessions(conversation_id) WHERE state IN ('active','paused');
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_conversation ON flow_sessions(conversation_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_ticket ON flow_sessions(ticket_id);
+    `)
+  },
+
+  // Migration 75: Flow settlement effects (Flow -> Spec, arch section 4.6).
+  // One row per durable effect, keyed `flow:<flowId>:<kind>`; executed in
+  // `seq` order with attempts/backoff and replayed at startup. A failure
+  // never blocks the delivery.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS flow_effects (
+        effect_key      TEXT PRIMARY KEY,
+        flow_id         TEXT NOT NULL,
+        kind            TEXT NOT NULL CHECK (kind IN ('rewrite-spec','jira-create','jira-review')),
+        seq             INTEGER NOT NULL,
+        status          TEXT NOT NULL CHECK (status IN ('pending','done','skipped','failed')),
+        attempts        INTEGER NOT NULL DEFAULT 0,
+        last_error      TEXT,
+        note            TEXT,
+        next_attempt_at TEXT,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_flow_effects_flow ON flow_effects(flow_id, seq);
+      CREATE INDEX IF NOT EXISTS idx_flow_effects_pending ON flow_effects(status) WHERE status = 'pending';
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_delivery ON flow_sessions(delivery_id);
+    `)
+  },
+
+  // Migration 76: spec triage (launch-triage). Each rail launch records the
+  // loop the triage recommended and the loop actually launched, so loop
+  // economics can compute triage accuracy (matched / total). NULL on history.
+  (db) => {
+    const cols = new Set((db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name))
+    if (!cols.has('recommended_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN recommended_loop TEXT`)
+    if (!cols.has('chosen_loop')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN chosen_loop TEXT`)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

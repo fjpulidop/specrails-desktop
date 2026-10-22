@@ -8,6 +8,9 @@ import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
+import { createDailyBudgetGate } from './modules/execution/runtime/daily-budget-gate'
+import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
+import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
 import { ChatManager } from './modules/conversations/runtime/chat-manager'
 import { SetupManager } from './setup-manager'
@@ -37,9 +40,9 @@ import {
   type ProjectEntry,
 } from './artifact-registry'
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
-import { applyWorktreeEnvPassthrough, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
+import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
@@ -50,6 +53,7 @@ import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { defaultGitRunner } from './worktree-manager'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
+import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
@@ -93,6 +97,12 @@ import {
   type CliProvider,
 } from './desktop-db'
 import { getConfig } from './config'
+import { createFlowService, type FlowService } from './modules/flow'
+import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
+import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
+import { SpecTriageService } from './modules/specs/runtime/triage'
+import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
   beginProjectProcessQuiescence,
   openProjectProcessAdmission,
@@ -154,6 +164,14 @@ export interface ProjectContext {
   ) => void
   /** Read a spec's fields for {{spec.*}} interpolation at launch. */
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
+  /** Daily budget admission gate for cost-incurring launches outside the
+   *  queue (rail launches, loop resumes): the 409 body while the project or
+   *  app-wide daily budget is exhausted, else null. Absent in bare test contexts. */
+  dailyBudgetRejection?: () => DailyBudgetRejection | null
+  /** Review WIP limit admission for rail launches (review-wip-limit): bound
+   *  to this project's connection and `reviewWipLimit` setting. Absent in
+   *  bare test contexts. */
+  reviewWipGate?: ReviewWipGate
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
   /** Debounced `blueprint.milestone_progress` broadcaster (premium-milestone-
@@ -161,6 +179,16 @@ export interface ProjectContext {
   milestoneProgress?: MilestoneProgressBroadcaster
   /** Server-durable milestone launch chains (sequential Launch Milestone). */
   milestoneChains?: MilestoneChainManager
+  /** Agent actions audit (batched writer, exports, retention). Absent in bare test contexts. */
+  agentAudit?: ProjectAgentAudit
+  /** Flow mode: this project's Flow use cases (absent in bare test contexts). */
+  flow?: FlowService
+  /** Flow -> rail hand-off authority the rails launch route consults for `flowId`. */
+  flowHandOff?: FlowHandOffAuthority
+  /** Periodic retry of due Flow settlement effects (stopped on teardown). */
+  flowSettlement?: { stop(): void }
+  /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
+  specTriage?: SpecTriageService
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -426,6 +454,7 @@ export class ProjectRegistry {
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
+      try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
       // Kill any terminal sessions belonging to this project
       try { getTerminalManager().killAllForProject(id) } catch { /* ignore */ }
       // Close the ticket file watcher
@@ -434,6 +463,7 @@ export class ProjectRegistry {
       // provider child, rejects queued work, and detaches the watcher — BEFORE
       // db.close() so a completing generation can't write to the closed handle.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
+      try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
@@ -442,6 +472,8 @@ export class ProjectRegistry {
       try { dropBlobStatesForProject(id) } catch { /* ignore */ }
       // Stop the login-shell env refresh and forget recovered values.
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
+      // Flush pending audit rows and stop retention BEFORE the connection closes.
+      try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       this._contexts.delete(id)
@@ -629,10 +661,13 @@ export class ProjectRegistry {
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
+      try { ctx.flowSettlement?.stop() } catch { /* ignore */ }
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
+      try { ctx.specTriage?.dispose() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
+      try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
     }
     // Close the shared browser context once, after every per-project manager has
@@ -677,6 +712,8 @@ export class ProjectRegistry {
     // once the rail maps exist; null until then (startup messages are few).
     let milestoneProgress: MilestoneProgressBroadcaster | null = null
     let milestoneChains: MilestoneChainManager | null = null
+    let flowService: FlowService | null = null
+    let specTriage: SpecTriageService | null = null
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
@@ -684,6 +721,13 @@ export class ProjectRegistry {
       // emit its own `milestone.chain_changed`; the progress tap then coalesces.
       milestoneChains?.observe(msg)
       milestoneProgress?.observe(msg)
+      // Spec triage: a created/edited spec schedules a debounced triage scan.
+      specTriage?.observe(msg)
+      // Flow settlement: a Flow delivery that reached review settles its Flow.
+      if (msg.type === 'rail.pr_state' && flowService) {
+        const deliveryId = (msg as { prDeliveryId?: unknown }).prDeliveryId
+        if (typeof deliveryId === 'string') void flowService.observeDelivery(deliveryId).catch((err) => console.error('[flow] delivery settlement failed:', err))
+      }
       if (msg.type === 'queue') {
         for (const job of msg.jobs) {
           if (isTerminalJobStatus(job.status)) {
@@ -717,8 +761,15 @@ export class ProjectRegistry {
       projectPath: project.path,
       broadcast: boundBroadcast,
     })
+    // Agent actions audit (one batched writer per project connection). Retention
+    // runs shortly after startup and daily, reading the project setting each time.
+    const agentAudit = createProjectAgentAudit(db, {
+      label: project.slug,
+      retentionDays: () => getProjectSettings(db).agentAuditRetentionDays,
+    })
     const queueManager = new QueueManager(boundBroadcast, db, undefined, project.path, {
       zombieTimeoutMs: projectZombieTimeout,
+      agentAudit: agentAudit.recorder,
       provider: project.provider ?? 'claude',
       projectId: project.id,
       projectSlug: project.slug,
@@ -750,18 +801,7 @@ export class ProjectRegistry {
         const val = getDesktopSetting(this._desktopDb, 'cost_alert_threshold_usd')
         return val != null ? parseFloat(val) : null
       },
-      getDesktopDailyBudget: () => {
-        const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
-        const budget = val != null ? parseFloat(val) : null
-        let totalSpend = 0
-        for (const c of this.listContexts()) {
-          const row = c.db.prepare(
-            `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
-          ).get() as { total: number }
-          totalSpend += row.total
-        }
-        return { budget, totalSpend }
-      },
+      getDesktopDailyBudget: () => this._desktopDailyBudgetSnapshot(),
       onBudgetExceeded: (event, data) => {
         if (event === 'desktop_daily_budget_exceeded') {
           this._pauseAllQueuesForDesktopBudget()
@@ -993,8 +1033,10 @@ export class ProjectRegistry {
               // On a replay after the ticket mutation committed but a later rail
               // mutation failed, changedTicketIds is empty. Derive the intended
               // review set from the converged store so Jira still receives it.
+              // A Flow spec reaches Jira only through its Flow settlement
+              // (create, then the review transition), never from here.
               const reviewIds = effectTicketIds.filter(
-                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review'
+                (tid) => outcomeStore?.tickets[String(tid)]?.status === 'on_review' && !isFlowHeldTicket(outcomeStore?.tickets[String(tid)])
               )
               jiraSyncManager.onRailReview(reviewIds, jobId)
             } else {
@@ -1171,15 +1213,20 @@ export class ProjectRegistry {
     // per-run (the worktree for isolated runs). Legacy projects keep process.env
     // byte-identical except for the explicit per-project passthrough overlay.
     // See resolveLoopBaseEnv.
+    // Same budget state the queue auto-pause enforces; bound to THIS project's
+    // connection (project budget) plus the app-wide snapshot.
+    const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
+    const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
       sourcePath: () => resolveProjectRepository(project).path,
       workspacePaths: () => { const primary = resolveProjectRepository(project); return primary.workspacePaths ?? (primary.workspacePath ? [primary.workspacePath] : undefined) },
-      env: () => resolveLoopBaseEnv(
+      // `minimal` agent environment: the step's provider names ride along.
+      env: (providerAllowlist) => resolveLoopBaseEnv(
         { slug: project.slug, path: project.path },
         undefined,
-        applyWorktreeEnvPassthrough(db, process.env),
+        resolveProjectAgentEnv(db, { providerAllowlist }),
       ),
       // One value-free run-log line when configured names are unresolved.
       environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),
@@ -1191,7 +1238,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }))
+    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1336,8 +1383,11 @@ export class ProjectRegistry {
           if (store && effectTicketIds.length > 0) {
             try {
               if (status === 'completed' && completedStatus === 'on_review') {
+                // Flow specs: the Flow settlement creates the Jira issue first and
+                // then transitions it; an early review here would be a no-op at
+                // best and a double transition at worst.
                 const reviewIds = effectTicketIds.filter(
-                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review',
+                  (ticketId) => store?.tickets[String(ticketId)]?.status === 'on_review' && !isFlowHeldTicket(store?.tickets[String(ticketId)]),
                 )
                 jiraSyncManager.onRailReview(reviewIds, runId)
               } else {
@@ -1362,6 +1412,14 @@ export class ProjectRegistry {
         })
         const delivered = deliver()
         railLoopRuns.delete(runId)
+        // Flow hand-off without a PR delivery row: the completed run settles the
+        // Flow (with a delivery row, the `rail.pr_state` observer does).
+        if (status === 'completed' && flowService) {
+          for (const ticketId of ticketIds) {
+            const flowId = delivered.store?.tickets[String(ticketId)]?.metadata?.flow?.flowId
+            if (flowId) void flowService.onRailRunCompleted({ flowId, runId }).catch((err) => console.error('[flow] run settlement failed:', err))
+          }
+        }
         // Milestone chain fallback hook: records the engine outcome (names the
         // pause reason) and settles delivery-less chunks. Isolated chunks
         // advance from the later `rail.pr_state` settle instead.
@@ -1494,8 +1552,34 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
+    // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
+    // now so the existing backlog is only triaged on edit or on demand.
+    specTriage = new SpecTriageService({
+      project, db, ticketsPath: ticketStorePath, broadcast: boundBroadcast,
+      notifyDesktopWrite: (revision) => ticketWatcher.notifyDesktopWrite(revision),
+      flowAvailable: async () => (await flowAvailability()).available,
+    })
+    specTriage.start()
+    ctx.specTriage = specTriage
+    // Flow mode: use cases bound to THIS project's connection; the mission host
+    // is app-global and late-bound (agent chat starts after the registry).
+    const flowRepository = createSqliteFlowRepository(db)
+    const flowPorts = createFlowPorts({
+      ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
+      agentHost: () => getAgentChatManager(),
+    })
+    ctx.flow = createFlowService(flowPorts)
+    flowService = ctx.flow
+    ctx.flowHandOff = createFlowHandOffAuthority(flowRepository, systemClock, (session) => flowPorts.notifier.changed(session),
+      // Flow -> Spec: the bounded conversation summary Core's derive-change reads.
+      (session) => flowConversationSummary(this._desktopDb, {
+        conversationId: session.conversationId,
+        idea: session.ticketId !== null ? getTicketSpec(session.ticketId)?.description ?? null : null,
+        from: session.createdAt,
+        to: null,
+      }))
     this._contexts.set(project.id, ctx)
     // Warm the project's login-shell env cache off the event loop so the first
     // rail/loop spawn reads recovered credentials instead of a cold 1.5 s probe.
@@ -1517,6 +1601,17 @@ export class ProjectRegistry {
         void reconcileRailWorktrees(db, project.path)
           .then(async (n) => {
             if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+            // Flow sessions never survive a restart; unfinished sagas complete
+            // or compensate before admission opens (never throws).
+            if (this._contexts.get(project.id) === ctx && ctx.flow) {
+              const flows = await ctx.flow.reconcile()
+              if (flows.length > 0) console.log(`[flow] reconciled ${flows.length} Flow session(s) for ${project.slug}`)
+              // Settlement effects survive restarts: deliveries that reached
+              // review while the app was down settle now; pending effects resume.
+              const settled = await ctx.flow.replaySettlement()
+              if (settled > 0) console.log(`[flow] resumed settlement of ${settled} Flow(s) for ${project.slug}`)
+              if (this._contexts.get(project.id) === ctx && !ctx.flowSettlement) ctx.flowSettlement = startFlowSettlementScheduler(ctx.flow)
+            }
             if (this._contexts.get(project.id) === ctx) {
               const effectDeps = {
                 db,
@@ -1628,6 +1723,21 @@ export class ProjectRegistry {
       console.error(`[loops] orphan reconciliation failed for ${project.slug}:`, err)
       return false
     }
+  }
+
+  /** App-wide daily budget state. The queue auto-pause and the rail/loop
+   *  admission gate read this same snapshot, so both doors agree. */
+  private _desktopDailyBudgetSnapshot(): { budget: number | null; totalSpend: number } {
+    const val = getDesktopSetting(this._desktopDb, 'desktop_daily_budget_usd')
+    const budget = val != null ? parseFloat(val) : null
+    let totalSpend = 0
+    for (const c of this.listContexts()) {
+      const row = c.db.prepare(
+        `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')`
+      ).get() as { total: number }
+      totalSpend += row.total
+    }
+    return { budget, totalSpend }
   }
 
   /** Enforce the app-wide budget through every per-project queue authority. */

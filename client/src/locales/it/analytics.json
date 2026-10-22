@@ -11,7 +11,9 @@
     "specLauncher": "Avvio spec",
     "proposal": "Proposta",
     "agentStudio": "Agent Studio",
-    "setup": "Configurazione"
+    "setup": "Configurazione",
+    "triage": "Triage",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7d",
@@ -211,7 +213,8 @@
     "vsPrev": "vs periodo precedente",
     "turnsAndTokens": "{{turns}} turni · {{tokens}} token",
     "untitled": "Missione senza titolo",
-    "estimatedNote": "Include costi stimati"
+    "estimatedNote": "Include costi stimati",
+    "flowShare": "Di cui Flow: {{cost}} · {{turns}} turni"
   },
   "legacyUsage": {
     "title": "Utilizzo dei workflow precedenti",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "Loop classici",
       "queue_manager_slash": "Comandi in coda",
       "merge_back": "Integrazioni locali"
+    }
+  },
+  "decisionTimes": {
+    "title": "Tempo alla decisione",
+    "subtitle": "Da pronta per la revisione alla prima decisione umana e fino al merge",
+    "toDecision": "Tempo alla decisione",
+    "toMerge": "Tempo al merge",
+    "median": "mediana",
+    "p90": "p90",
+    "counts": "{{measured}} misurate · {{pending}} in attesa · {{unknown}} sconosciute",
+    "unknownValue": "Sconosciuto",
+    "loading": "Caricamento dei tempi di decisione…",
+    "unavailable": "Impossibile caricare i tempi di decisione.",
+    "empty": "Nessuna consegna ha raggiunto la revisione in questo periodo.",
+    "byLoop": "Tempi di decisione per loop",
+    "loop": "Loop",
+    "deliveries": "Consegne",
+    "decisionMedianP90": "Decisione (mediana · p90)",
+    "mergeMedianP90": "Merge (mediana · p90)",
+    "unnamedLoop": "Loop senza nome",
+    "note": "Sconosciute conta le consegne senza istanti registrati (ad esempio, create prima che esistesse questa metrica). Non vengono mai contate come zero.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} g"
+    }
+  },
+  "loopEconomics": {
+    "title": "Economia per loop",
+    "subtitle": "Consegne, costo, rilavorazioni e difetti sfuggiti per loop",
+    "loading": "Caricamento economia per loop…",
+    "unavailable": "Impossibile caricare l’economia per loop.",
+    "empty": "Nessun loop ha consegnato nulla in questo periodo.",
+    "noData": "Nessun dato",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop senza nome",
+    "estimatedShare": "{{share}} stimato",
+    "unpriced": "{{count}} senza costo",
+    "note": "Consegnato = ha raggiunto la revisione o oltre. Il costo medio usa le consegne con costo registrato (fornito dal provider salvo se indicato come stimato); le consegne senza costo sono escluse, mai contate come 0 $. I round derivano dagli step reviewer/fixer del loop. — significa sconosciuto.",
+    "escapedUntracked": "I difetti sfuggiti non sono ancora tracciati: collega un ticket di bug alla consegna che lo ha introdotto («Regressione di» nel ticket) per iniziare a contarli.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Consegnate",
+      "merged": "Unite",
+      "discarded": "Scartate",
+      "avgCost": "Costo / consegna",
+      "toDecision": "Decisione (mediana · p90)",
+      "toMerge": "Merge (mediana · p90)",
+      "reviewRounds": "Revisioni / consegna",
+      "fixerRounds": "Round di fixer / consegna",
+      "escapedDefects": "Difetti sfuggiti",
+      "requirementsDemonstrated": "Requisiti dimostrati",
+      "triageAccuracy": "Accuratezza del triage"
     }
   }
 }

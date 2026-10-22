@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { DbInstance } from '../db'
-import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../modules/specs/runtime/ticket-store'
+import { isFlowHeldTicket, mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../modules/specs/runtime/ticket-store'
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'
@@ -24,6 +24,8 @@ import {
   railReviewCommentMarker,
   commentHasMarker,
   bodyForDeployment,
+  issueCreateMarker,
+  SPECRAILS_ISSUE_CREATE_PROP_KEY,
 } from './jira-adf'
 import { issueUrl, upsertIssuesIntoStore } from './jira-materializer'
 import {
@@ -42,6 +44,7 @@ import {
   countOutboxByState,
   deleteConnection,
   enqueueMany,
+  enqueueOutbox,
   getConnection,
   getDecryptedToken,
   getLinkByLocalId,
@@ -473,20 +476,95 @@ export class JiraSyncManager {
     const client = this.buildClient()
     if (!client) return { ok: false, error: 'no jira credentials' }
 
-    const file = resolveTicketStoragePath(this._artifactRoot())
-    const ticket = readStore(file).tickets[String(localId)]
-    if (!ticket) return { ok: false, error: 'ticket not found' }
-
-    const created = await client.createIssue({
-      projectKey: conn.jiraProjectKey,
-      issueType: 'Task',
-      summary: ticket.title,
-      description: ticket.description || undefined,
-      labels: ticket.labels,
-    })
+    const created = await this.createLinkedIssue(client, conn, localId)
     if (!created.ok) {
+      if (created.reason === 'ticket_not_found') return { ok: false, error: 'ticket not found' }
+      if (created.reason === 'flow_held') return { ok: false, error: 'the spec is still in Flow; it reaches Jira when its Flow -> Spec rail settles' }
       if (created.code === 'auth') this.onAuth401()
       return { ok: false, error: created.error || 'jira issue create failed' }
+    }
+    return { ok: true, jiraKey: created.jiraKey }
+  }
+
+  /**
+   * Durable form of `promoteTicketToJira` (feedback-2026-10 Flow settlement):
+   * enqueue a `create` outbox op for a LOCAL ticket. The drainer creates the
+   * issue, links it to the same local id and flips the ticket to
+   * `source:'jira'` exactly as promote does, with the outbox's retry/backoff
+   * and restart replay. Idempotent: the same `idempotencyKey` never enqueues
+   * twice, and an already-linked ticket completes as a no-op at drain time.
+   * Never throws.
+   */
+  enqueuePromote(localTicketId: number, idempotencyKey: string): 'enqueued' | 'already_linked' | 'inactive' | 'failed' {
+    try {
+      if (!this.isActive()) return 'inactive'
+      const existing = getLinkByLocalId(this.db, localTicketId)
+      if (existing && !existing.tombstoned) return 'already_linked'
+      enqueueOutbox(this.db, {
+        jiraIssueId: pendingCreateIssueId(localTicketId),
+        opType: 'create',
+        idempotencyKey,
+        payload: { localTicketId },
+      })
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return 'enqueued'
+    } catch (err) {
+      console.error('[jira-sync] enqueuePromote failed:', err)
+      return 'failed'
+    }
+  }
+
+  /**
+   * Create the Jira issue for an existing LOCAL ticket, link it to the SAME
+   * local id and flip the cached ticket to `source:'jira'` with its key/url.
+   * Shared by `promoteTicketToJira` and the outbox `create` op. Callers own
+   * the already-linked check and error policy (auth pause, retry/dead).
+   */
+  private async createLinkedIssue(
+    client: JiraClient,
+    conn: JiraConnection,
+    localId: number,
+    recovery?: { since: string | null },
+  ): Promise<
+    | { ok: true; jiraKey: string; recovered?: boolean }
+    | { ok: false; reason: 'ticket_not_found' }
+    | { ok: false; reason: 'flow_held' }
+    | { ok: false; reason: 'jira'; code: string; status: number; retryAfterMs?: number; error: string }
+  > {
+    const file = resolveTicketStoragePath(this._artifactRoot())
+    const ticket = readStore(file).tickets[String(localId)]
+    if (!ticket) return { ok: false, reason: 'ticket_not_found' }
+    // Flow placeholder specs never reach Jira while the Flow is active or paused.
+    if (isFlowHeldTicket(ticket)) return { ok: false, reason: 'flow_held' }
+
+    const marker = issueCreateMarker(this.projectId, localId)
+    let created: { ok: true; data: { id: string; key: string } } | { ok: false; code: string; status: number; retryAfterMs?: number; error: string }
+    let recovered = false
+    // A retried durable create may follow an attempt whose issue WAS created
+    // but whose response was lost. Recover that issue by its invisible
+    // creation marker before creating; an unconfirmed search retries later
+    // rather than risking a duplicate.
+    const existing = recovery ? await this.findIssueByCreateMarker(client, conn, marker, recovery.since) : null
+    if (existing && !existing.ok) return { ok: false, reason: 'jira', ...existing.error }
+    if (existing?.ok && existing.issue) {
+      created = { ok: true, data: existing.issue }
+      recovered = true
+    } else {
+      const input = {
+        projectKey: conn.jiraProjectKey,
+        issueType: 'Task',
+        summary: ticket.title,
+        description: ticket.description || undefined,
+        labels: ticket.labels,
+      }
+      created = await client.createIssue({ ...input, properties: [{ key: SPECRAILS_ISSUE_CREATE_PROP_KEY, value: { marker } }] })
+      // Compatibility: an instance that rejects create-time entity properties
+      // still gets the issue (without the recovery marker), as before.
+      if (!created.ok && created.code === 'validation') created = await client.createIssue(input)
+    }
+    if (!created.ok) {
+      return { ok: false, reason: 'jira', code: created.code, status: created.status, retryAfterMs: created.retryAfterMs, error: created.error }
     }
 
     insertLinkWithId(this.db, {
@@ -512,7 +590,41 @@ export class JiraSyncManager {
     if (updated) {
       this.broadcast({ type: 'ticket_updated', ticket: updated as unknown as never, projectId: this.projectId, timestamp: updated.updated_at } as WsMessage)
     }
-    return { ok: true, jiraKey: created.data.key }
+    return { ok: true, jiraKey: created.data.key, ...(recovered ? { recovered: true } : {}) }
+  }
+
+  /**
+   * Find an issue this manager created for `marker`: recent issues the
+   * connected account created in the project, confirmed by the invisible
+   * creation property (works on Cloud and DC without property indexing).
+   */
+  private async findIssueByCreateMarker(
+    client: JiraClient,
+    conn: JiraConnection,
+    marker: string,
+    since: string | null,
+  ): Promise<
+    | { ok: true; issue: { id: string; key: string } | null }
+    | { ok: false; error: { code: string; status: number; retryAfterMs?: number; error: string } }
+  > {
+    const sinceMs = since ? Date.parse(since.includes('T') ? since : `${since.replace(' ', 'T')}Z`) : NaN
+    const minutes = Number.isFinite(sinceMs) ? Math.max(1, Math.ceil((Date.now() - sinceMs) / 60_000) + CREATE_RECOVERY_MARGIN_MIN) : CREATE_RECOVERY_DEFAULT_MIN
+    const res = await client.searchJql({
+      jql: `project = "${conn.jiraProjectKey}" AND creator = currentUser() AND created >= "-${minutes}m" ORDER BY created DESC`,
+      fields: ['summary'],
+      maxResults: CREATE_RECOVERY_MAX_CANDIDATES,
+    })
+    if (!res.ok) return { ok: false, error: { code: res.code, status: res.status, retryAfterMs: res.retryAfterMs, error: res.error } }
+    for (const issue of res.data.issues ?? []) {
+      const prop = await client.getIssueProperty(issue.id, SPECRAILS_ISSUE_CREATE_PROP_KEY)
+      if (prop.ok) {
+        const value = prop.data.value as { marker?: unknown } | undefined
+        if (value?.marker === marker) return { ok: true, issue: { id: issue.id, key: issue.key } }
+      } else if (prop.code !== 'not_found') {
+        return { ok: false, error: { code: prop.code, status: prop.status, retryAfterMs: prop.retryAfterMs, error: prop.error } }
+      }
+    }
+    return { ok: true, issue: null }
   }
 
   // ─── Inbound poll ──────────────────────────────────────────────────────────
@@ -1102,12 +1214,46 @@ export class JiraSyncManager {
         await this.executeTransition(client, conn, op, payload)
       } else if (op.opType === 'update') {
         await this.executeUpdate(client, op, payload)
+      } else if (op.opType === 'create') {
+        await this.executeCreate(client, conn, op, payload)
       } else {
         markOutboxDead(this.db, op.id, `unsupported op type ${op.opType}`)
       }
     } catch (err) {
       this.retryOrDead(op, err instanceof Error ? err.message : String(err))
     }
+  }
+
+  private async executeCreate(client: JiraClient, conn: JiraConnection, op: OutboxRow, payload: { localTicketId: number }): Promise<void> {
+    const localId = Number(payload?.localTicketId)
+    if (!Number.isInteger(localId) || localId <= 0) {
+      markOutboxDead(this.db, op.id, 'invalid create payload: localTicketId required')
+      return
+    }
+    // Idempotency-first: a ticket linked since enqueue (promote, a replay that
+    // crashed after linking) completes without creating a second issue.
+    const existing = getLinkByLocalId(this.db, localId)
+    if (existing && !existing.tombstoned) {
+      markOutboxDone(this.db, op.id)
+      return
+    }
+    // attempts > 0 ⇒ an earlier attempt may have created the issue.
+    const created = await this.createLinkedIssue(client, conn, localId, op.attempts > 0 ? { since: op.createdAt } : undefined)
+    if (created.ok) {
+      markOutboxDone(this.db, op.id)
+      return
+    }
+    if (created.reason === 'ticket_not_found') {
+      markOutboxDead(this.db, op.id, 'local ticket not found')
+      return
+    }
+    if (created.reason === 'flow_held') {
+      // Settlement marks the Flow delivered before it publishes; retry until then.
+      if (op.attempts + 1 >= MAX_OUTBOX_ATTEMPTS) markOutboxDead(this.db, op.id, 'the spec is still in Flow')
+      else markOutboxRetry(this.db, op.id, new Date(Date.now() + backoffMs(op.attempts)).toISOString(), 'the spec is still in Flow')
+      return
+    }
+    this.handleHardError(op, created.code, created.status, created.retryAfterMs, created.error)
   }
 
   private async executeUpdate(client: JiraClient, op: OutboxRow, payload: { jiraIssueId: string; fields: Record<string, unknown> }): Promise<void> {
@@ -1465,6 +1611,20 @@ class JiraOpError extends Error {
 }
 
 // ─── Pure helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Outbox serialisation key for a `create` op. The issue does not exist yet, so
+ * the op is keyed by its local ticket (`local:<id>`), which also keeps two
+ * creates for the same ticket FIFO-ordered. It never matches a real issue id.
+ */
+/** Durable-create recovery search window: since the op was enqueued, plus margin. */
+const CREATE_RECOVERY_MARGIN_MIN = 10
+const CREATE_RECOVERY_DEFAULT_MIN = 7 * 24 * 60
+const CREATE_RECOVERY_MAX_CANDIDATES = 50
+
+export function pendingCreateIssueId(localTicketId: number): string {
+  return `local:${localTicketId}`
+}
 
 export function backoffMs(attempts: number): number {
   const base = Math.min(30_000, 2000 * 2 ** attempts)

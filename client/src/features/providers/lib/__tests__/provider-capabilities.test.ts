@@ -268,9 +268,17 @@ describe('provider-owned rail capabilities', () => {
     expect(providerSupportsProfiles('kimi')).toBe(true)
   })
 
-  it('keeps both unavailable for Gemini and unknown providers', () => {
-    expect(providerSupportsFreestyle('gemini')).toBe(false)
+  it('enables Freestyle on Codex and Gemini without profiles', () => {
+    expect(providerSupportsFreestyle('codex')).toBe(true)
+    expect(providerSupportsFreestyle('gemini')).toBe(true)
+    expect(providerSupportsProfiles('codex')).toBe(false)
     expect(providerSupportsProfiles('gemini')).toBe(false)
+  })
+
+  it('keeps Freestyle off for the roles sentinel and an unresolved provider', () => {
+    expect(providerSupportsFreestyle('roles')).toBe(false)
+    expect(providerSupportsFreestyle(null)).toBe(false)
+    expect(providerSupportsFreestyle(undefined)).toBe(false)
     expect(providerSupportsFreestyle('mystery')).toBe(true) // unknown ids are local engines
   })
 })

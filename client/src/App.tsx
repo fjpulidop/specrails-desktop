@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 import { Puzzle, Workflow, X, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
+import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
@@ -70,6 +71,7 @@ import { AgentBrowserCaptureHost } from './features/missions/components/AgentBro
 import { RailMetricsProvider } from './features/rails/context/RailMetricsContext'
 import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
+import { FlowMissionsBridge } from './features/flow/components/FlowMissionsBridge'
 import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
 import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
 import { TicketDetailModalProvider } from './features/specs/context/TicketDetailModalContext'
@@ -217,8 +219,20 @@ function DesktopApp() {
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState<'appearance' | 'mobile' | 'subscriptionUsage' | 'specrailsAgents'>('appearance')
+  const [settingsSection, setSettingsSection] = useState<AppSettingsSection>('appearance')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Pages inside features (e.g. the Agents upgrade banner) open a specific
+  // app-settings section through a window event (see lib/app-settings-events).
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<OpenAppSettingsDetail>).detail?.section
+      if (!section) return
+      setSettingsSection(section)
+      setSettingsOpen(true)
+    }
+    window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
+  }, [])
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
@@ -726,6 +740,8 @@ export default function App() {
                           context — its composer must adopt browser captures. */}
                       <AgentWorkspaceProvider>
                       <MissionWindowsProvider secondary={secondary}>
+                      {/* Flow mode plugs into missions through their extension seam. */}
+                      <FlowMissionsBridge>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <TicketDetailModalProvider>
@@ -739,6 +755,7 @@ export default function App() {
                         </TicketDetailModalProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </FlowMissionsBridge>
                       </MissionWindowsProvider>
                       </AgentWorkspaceProvider>
                     </MinimizedChatsProvider>

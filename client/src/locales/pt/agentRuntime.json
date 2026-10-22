@@ -620,5 +620,12 @@
       "input": "Máximo de turnos para {{steps}} (função {{role}})",
       "stepHint": "A função {{role}} para após {{turns}} turnos. Os passos que partilham esta função partilham o limite; aplica-se aos novos lançamentos depois de publicar."
     }
+  },
+  "reviewerSuggestion": {
+    "label": "Sugestão de família de modelos para o revisor",
+    "title": "Execute o revisor com {{provider}}: uma família de modelos diferente encontra erros diferentes",
+    "body": "O desenvolvedor e o revisor usam atualmente o mesmo provedor. É apenas uma sugestão: nada muda a menos que você a aplique.",
+    "apply": "Aplicar",
+    "dismiss": "Dispensar"
   }
 }

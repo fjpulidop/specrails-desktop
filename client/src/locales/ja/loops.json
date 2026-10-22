@@ -210,7 +210,8 @@
         "end": "終了",
         "assign": "変数を設定",
         "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract"
+        "artifact-contract": "Artifact contract",
+        "derive-change": "変更を導出"
       },
       "groups": {
         "ai": "AI",

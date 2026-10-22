@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { factoryIdForMode, deriveRailMode, effectiveLoopId, adoptedSelectedLoopId, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
+import { factoryIdForMode, deriveRailMode, effectiveLoopId, adoptedSelectedLoopId, offeredRecommendation, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
 
 describe('rail-loops helpers', () => {
   it('maps each legacy mode to its factory loop id', () => {
@@ -57,5 +57,25 @@ describe('adoptedSelectedLoopId', () => {
     expect(adoptedSelectedLoopId('factory:implement')).toBeUndefined()
     expect(adoptedSelectedLoopId(undefined)).toBeUndefined()
     expect(adoptedSelectedLoopId('')).toBeUndefined()
+  })
+})
+
+describe('spec triage recommendation (launch-triage)', () => {
+  it('is the fallback after an explicit pick, only on the default mode and after addenda', () => {
+    expect(effectiveLoopId(undefined, 'implement', false, 'factory:sdd-quick-openspec')).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId('factory:implement', 'implement', false, 'factory:sdd-quick-openspec')).toBe('factory:implement')
+    expect(effectiveLoopId(undefined, 'freestyle', false, 'factory:sdd-quick-openspec')).toBe('factory:freestyle')
+    expect(effectiveLoopId(undefined, 'implement', true, 'factory:freestyle')).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId(undefined, 'implement', false, null)).toBe('factory:implement')
+  })
+
+  it('offers only loops the rail picker lists', () => {
+    expect(offeredRecommendation('factory:implement')).toBe('factory:implement')
+    expect(offeredRecommendation('factory:freestyle', { freestyleAvailable: false })).toBeNull()
+    expect(offeredRecommendation('factory:sdd-quick-openspec', { loopsEnabled: false })).toBeNull()
+    expect(offeredRecommendation('factory:flow-spec')).toBeNull()
+    expect(offeredRecommendation('custom-1', { loopsEnabled: true })).toBe('custom-1')
+    expect(offeredRecommendation('custom-1', { loopsEnabled: false })).toBeNull()
+    expect(offeredRecommendation(null)).toBeNull()
   })
 })

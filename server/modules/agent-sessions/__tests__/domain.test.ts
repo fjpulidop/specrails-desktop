@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_SUPERVISION, INITIAL_HOST_STATE, acceptsSessions, canTransition, onDemand, onFailure, onReady, onRestartDue, onRetry, onStop } from '../domain/host-state'
 import { initialProjection, liveSubagentCount, reduceEnvelope, type ProjectionOp, type ProjectionState } from '../domain/projection'
-import { KNOWN_EVENT_TYPES, checkSessionContract, type SessionEvent, type Usage } from '../domain/protocol'
+import { KNOWN_EVENT_TYPES, checkSessionContract, hostSupportsFlowSessions, type SessionEvent, type Usage } from '../domain/protocol'
 import { resolveSubagentPolicy, resolveSubagentRuntime } from '../domain/subagent-policy'
 
 const usage = (costUsd: number | null): Usage => ({ inputTokens: null, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd, costEstimated: false, model: 'm' })
@@ -82,8 +82,18 @@ describe('session contract check', () => {
   const block = { version: 1, protocolVersions: [1], capability: 'sessions', cliOperation: 'host', eventTypes: [...KNOWN_EVENT_TYPES] }
 
   it('accepts the contract Core publishes and tolerates newer event types', () => {
-    expect(checkSessionContract(block)).toEqual({ compatible: true, protocolVersion: 1, unknownEventTypes: [], missingEventTypes: [], reasons: [] })
+    expect(checkSessionContract(block)).toEqual({ compatible: true, protocolVersion: 1, unknownEventTypes: [], missingEventTypes: [], flowSessions: false, reasons: [] })
     expect(checkSessionContract({ ...block, protocolVersions: [1, 2], eventTypes: [...KNOWN_EVENT_TYPES, 'session.new'] })).toMatchObject({ compatible: true, protocolVersion: 1, unknownEventTypes: ['session.new'] })
+  })
+
+  it('detects Flow sessions additively (contract 5.3: capabilities + interrupt delivery)', () => {
+    const flow = { ...block, capabilities: ['sessions', 'delegation', 'flowSessions'], deliveries: ['queue', 'steer', 'interrupt'] }
+    expect(checkSessionContract(flow)).toMatchObject({ compatible: true, flowSessions: true })
+    expect(checkSessionContract({ ...flow, deliveries: ['queue', 'steer'] })).toMatchObject({ compatible: true, flowSessions: false })
+    expect(checkSessionContract({ ...flow, capabilities: ['sessions'] }).flowSessions).toBe(false)
+    expect(hostSupportsFlowSessions({ capabilities: { sessions: 1, flowSessions: 1 } })).toBe(true)
+    expect(hostSupportsFlowSessions({ capabilities: { sessions: 1 } })).toBe(false)
+    expect(hostSupportsFlowSessions(undefined)).toBe(false)
   })
 
   it('rejects missing blocks, protocol mismatches and dropped event types', () => {
@@ -151,6 +161,17 @@ describe('Core sessions availability', () => {
     expect(resolveCoreSessionsAvailability('on', null).enabled).toBe(false)
     expect(resolveCoreSessionsAvailability('auto', { sessions: 1 }, false)).toMatchObject({ enabled: false, reason: expect.stringContaining('not compatible') })
     expect(resolveCoreSessionsAvailability('auto', { sessions: 1 })).toEqual({ enabled: true, flag: 'auto', reason: 'Core sessions available' })
+  })
+
+  it('offers Flow only with sessions, flowSessions and deriveChange', async () => {
+    const { resolveCoreSessionsAvailability, resolveFlowAvailability } = await import('../domain/availability')
+    const on = resolveCoreSessionsAvailability('auto', { sessions: 1 })
+    expect(resolveFlowAvailability(on, { sessions: 1, flowSessions: 1, deriveChange: 1 })).toEqual({ available: true, reason: 'Flow is available', missing: [] })
+    expect(resolveFlowAvailability(on, { sessions: 1, flowSessions: 1 })).toMatchObject({ available: false, missing: ['deriveChange'], reason: expect.stringContaining('deriveChange') })
+    expect(resolveFlowAvailability(on, { sessions: 1 })).toMatchObject({ missing: ['flowSessions', 'deriveChange'] })
+    const off = resolveCoreSessionsAvailability('off', { sessions: 1 })
+    expect(resolveFlowAvailability(off, { flowSessions: 1, deriveChange: 1 })).toMatchObject({ available: false, missing: ['sessions'], reason: expect.stringContaining('Core agent sessions') })
+    expect(resolveFlowAvailability(on, null).available).toBe(false)
   })
 })
 

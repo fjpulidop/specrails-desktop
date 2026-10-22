@@ -37,7 +37,11 @@
     "contract": "Contract",
     "openParentEpicTitle": "Open parent Epic #{{id}} · {{title}}",
     "addendaTitle_one": "{{count}} open addendum — rides into the next launch",
-    "addendaTitle_other": "{{count}} open addenda — ride into the next launch"
+    "addendaTitle_other": "{{count}} open addenda — ride into the next launch",
+    "inFlow": "In Flow",
+    "inFlowPaused": "Flow paused",
+    "inFlowTitle": "Being built in Flow — open the mission",
+    "inFlowPausedTitle": "Flow paused — open the mission to resume"
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",
@@ -131,5 +135,35 @@
     "current": "Current",
     "all": "All sprints",
     "ariaLabel": "Filter by sprint"
+  },
+  "triage": {
+    "compute": "Triage",
+    "computeTitle": "Estimate the size and recommend a loop for this spec",
+    "recalculate": "Recalculate",
+    "recalculating": "Recalculating…",
+    "recalculateFailed": "Recalculation failed — try again",
+    "ariaLabel": "Triage of spec #{{id}}",
+    "recommends": "Recommends {{loop}}",
+    "confidence": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    },
+    "flags": {
+      "publicInterfaces": "Public API",
+      "dataModel": "Data model",
+      "securitySurface": "Security",
+      "none": "No public API, data or security impact"
+    },
+    "flowHint": "Flow suggested",
+    "filesLikely": "Likely files",
+    "moreFiles_one": "+{{count}} more file",
+    "moreFiles_other": "+{{count}} more files",
+    "modelCost": "{{model}} · ${{cost}}",
+    "modelOnly": "{{model}} · cost not reported",
+    "unavailable": "Triage n/a",
+    "unavailableDetail": "No model is available for triage ({{reason}}).",
+    "failed": "Triage failed",
+    "failedDetail": "The triage could not be completed: {{error}}"
   }
 }

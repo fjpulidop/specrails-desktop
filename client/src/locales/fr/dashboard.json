@@ -183,7 +183,10 @@
     "skipInFlight_one": "{{count}} ignoré (spec déjà en cours)",
     "skipInFlight_other": "{{count}} ignorés (specs déjà en cours)",
     "failedCount_one": "{{count}} en échec",
-    "failedCount_other": "{{count}} en échec"
+    "failedCount_other": "{{count}} en échec",
+    "skipBudget": "{{count}} au-delà du budget quotidien",
+    "skipReviewLimit_one": "{{count}} retenu par la limite de revue",
+    "skipReviewLimit_other": "{{count}} retenus par la limite de revue"
   },
   "launchAllDialog": {
     "title": "Lancer tous les rails",
@@ -199,7 +202,12 @@
     "costTitle": "Coût multiplié.",
     "costBody": "Chaque rail génère sa propre exécution IA — la dépense augmente avec le nombre de rails.",
     "launch_one": "Lancer {{count}} rail",
-    "launch_other": "Lancer {{count}} rails"
+    "launch_other": "Lancer {{count}} rails",
+    "reviewLimitTitle": "Limite de revue : {{pending}}/{{limit}} en attente.",
+    "reviewLimitNone_one": "{{count}} rail ouvrirait une nouvelle livraison : rien n’est lancé. Décidez d’abord d’une livraison en attente.",
+    "reviewLimitNone_other": "{{count}} rails ouvriraient de nouvelles livraisons : rien n’est lancé. Décidez d’abord d’une livraison en attente.",
+    "reviewLimitPartial_one": "Seuls {{launched}} peuvent démarrer maintenant ; {{count}} rail attend qu’une livraison soit décidée.",
+    "reviewLimitPartial_other": "Seuls {{launched}} peuvent démarrer maintenant ; {{count}} rails attendent qu’une livraison soit décidée."
   },
   "railControls": {
     "viewJobLog": "Voir le log du job",
@@ -221,7 +229,9 @@
     "worktreesNeedsReview": "{{count}} à vérifier",
     "execSteps": "{{count}} étapes",
     "execLines": "{{count}} lignes",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "Recommandé",
+    "recommendedOption": "{{label}} · recommandé"
   },
   "railRow": {
     "moveToSpecs": "Déplacer vers Specs",
@@ -271,5 +281,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle exige un seul fournisseur : choisissez Implement ou une boucle avant de passer ce rail aux moteurs par rôle."
+  },
+  "reviewWip": {
+    "badge": "En revue {{pending}}/{{limit}}",
+    "title": "Livraisons en attente de revue (limite {{limit}}). Cliquez pour les afficher.",
+    "reachedTitle": "Limite de revue atteinte ({{limit}}). Les nouveaux lancements attendent qu’une livraison soit décidée.",
+    "panelTitle": "En attente de revue",
+    "panelBody": "Les livraisons en cours, celles qui attendent une décision et les PR ouvertes comptent dans la limite de {{limit}}.",
+    "panelReached": "La limite de {{limit}} est atteinte. Décidez de l’une d’elles (Créer la PR, fusionner ou abandonner) pour lancer du nouveau travail. Les modifications de ces livraisons restent autorisées.",
+    "empty": "Rien n’attend de revue.",
+    "playBlocked": "Limite de revue atteinte ({{pending}}/{{limit}} en attente). Décidez d’une livraison pour lancer du nouveau travail."
   }
 }

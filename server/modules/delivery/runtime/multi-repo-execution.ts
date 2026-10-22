@@ -66,6 +66,11 @@ export function refreshRepositoryDeliveryGroup(db: DbInstance, parentId: string,
     cleanupWarnings: children.flatMap((row) => toPrDeliverySnapshot(row).cleanupWarnings),
     safetyArchives: children.flatMap((row) => toPrDeliverySnapshot(row).safetyArchives),
   }
+  // The group's first human decision is its earliest repository decision
+  // (first write wins on the parent). Publish/merge instants are stamped by
+  // the parent's own transitions into pr_ready / merged.
+  const childDecisions = children.map((row) => row.decided_at).filter((value): value is string => typeof value === 'string' && value.length > 0).sort()
+  if (childDecisions.length > 0) patch.decidedAt = childDecisions[0]
   if (finished) {
     const successes = children.filter((row) => row.implementation_outcome === 'succeeded').length
     patch.implementationOutcome = successes === children.length ? 'succeeded' : successes ? 'partially_succeeded' : 'failed'
@@ -222,6 +227,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
   }
   const generation = createPrDeliveryGeneration(ctx.db, {
     launchConfig: input.launchConfig,
+    loopChoice: input.loopChoice ?? null,
     id: parentId, railIndex: input.railIndex, loopId: input.loopId, railKey: `${input.railIndex}-${input.loopId}`,
     ticketIds: input.ticketIds, baseBranch: input.baseBranch ?? '', loopName: input.loopName,
     originSurface: input.originSurface ?? 'dashboard', originConversationId: input.originConversationId,

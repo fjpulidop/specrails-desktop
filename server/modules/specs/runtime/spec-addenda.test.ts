@@ -226,7 +226,7 @@ describe('spec-addenda: ticket-store lifecycle', () => {
     })
     expect(store.tickets['1'].addenda).toHaveLength(SPEC_ADDENDA_MAX_PER_TICKET)
     expect(store.tickets['1'].description).toBe('Original description that must never change.')
-    expect(readStore(storePath).schema_version).toBe('1.4')
+    expect(readStore(storePath).schema_version).toBe('1.5')
   })
 
   it('edit/status/remove honour the lifecycle rules', () => {

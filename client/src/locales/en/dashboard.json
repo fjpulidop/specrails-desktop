@@ -183,7 +183,10 @@
     "skipInFlight_one": "{{count}} skipped (spec already in flight)",
     "skipInFlight_other": "{{count}} skipped (specs already in flight)",
     "failedCount_one": "{{count}} failed",
-    "failedCount_other": "{{count}} failed"
+    "failedCount_other": "{{count}} failed",
+    "skipBudget": "{{count}} over the daily budget",
+    "skipReviewLimit_one": "{{count}} held by the review limit",
+    "skipReviewLimit_other": "{{count}} held by the review limit"
   },
   "launchAllDialog": {
     "title": "Launch all rails",
@@ -199,7 +202,12 @@
     "costTitle": "Multiplied cost.",
     "costBody": "Every rail spawns its own AI run — spend scales with the number of rails.",
     "launch_one": "Launch {{count}} rail",
-    "launch_other": "Launch {{count}} rails"
+    "launch_other": "Launch {{count}} rails",
+    "reviewLimitTitle": "Review limit: {{pending}}/{{limit}} waiting.",
+    "reviewLimitNone_one": "{{count}} rail would open a new delivery, so nothing launches. Decide a pending delivery first.",
+    "reviewLimitNone_other": "{{count}} rails would open new deliveries, so nothing launches. Decide a pending delivery first.",
+    "reviewLimitPartial_one": "Only {{launched}} can start now; {{count}} rail waits until a delivery is decided.",
+    "reviewLimitPartial_other": "Only {{launched}} can start now; {{count}} rails wait until a delivery is decided."
   },
   "railControls": {
     "viewJobLog": "View job log",
@@ -221,7 +229,9 @@
     "worktreesNeedsReview": "{{count}} need review",
     "execSteps": "{{count}} steps",
     "execLines": "{{count}} lines",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "Recommended",
+    "recommendedOption": "{{label}} · recommended"
   },
   "railRow": {
     "moveToSpecs": "Move to Specs",
@@ -271,5 +281,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "Freestyle needs a single provider — pick Implement or a loop before switching this rail to per-role engines."
+  },
+  "reviewWip": {
+    "badge": "In review {{pending}}/{{limit}}",
+    "title": "Deliveries waiting for review (limit {{limit}}). Click to list them.",
+    "reachedTitle": "Review limit reached ({{limit}}). New launches wait until a delivery is decided.",
+    "panelTitle": "Waiting for review",
+    "panelBody": "Running deliveries, deliveries awaiting a decision and open PRs count toward the limit of {{limit}}.",
+    "panelReached": "The limit of {{limit}} is reached. Decide one of these (Create PR, merge or discard) to launch new work. Changes to these deliveries are still allowed.",
+    "empty": "Nothing is waiting for review.",
+    "playBlocked": "Review limit reached ({{pending}}/{{limit}} waiting). Decide a delivery to launch new work."
   }
 }

@@ -14,6 +14,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { WsMessage } from './types'
 import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
+import { API_VERSION, API_VERSION_HEADER, apiVersionHeader } from './api-version'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
 import { setDetectedProvidersSupplier } from './provider-selection'
 import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
@@ -41,11 +42,15 @@ import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mob
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
+import { createFlowTurnContext } from './modules/flow/adapters/bindings'
+import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
 import { createSessionHostsRouter } from './modules/agent-sessions/adapters/http'
 import { CoreHostLauncher } from './modules/agent-sessions/adapters/host-process'
-import { coreSessionsAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
-import { getAdapter } from './providers/registry'
+import { coreSessionsAvailability, flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
+import { getAdapter, listAdapters } from './providers/registry'
+import { providerEnvAllowlist } from './providers/runtime'
+import { projectAgentSourceEnv } from './project-env'
 import { revokeAgentCapability } from './mcp/agent-capability'
 import { createAgentChatRouter, isAgentChatEnabled } from './modules/missions/runtime/agent-chat-router'
 import { BlueprintChatManager } from './modules/builder/runtime/blueprint-chat-manager'
@@ -186,6 +191,7 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
     if (ALLOWED_ORIGIN_PATTERN.test(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin)
       res.setHeader('Vary', 'Origin')
+      res.setHeader('Access-Control-Expose-Headers', API_VERSION_HEADER)
     } else {
       // Non-localhost origin — reject with 403
       res.status(403).json({ error: 'Forbidden: cross-origin requests not allowed' })
@@ -204,6 +210,9 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
 }
 
 app.use(corsMiddleware)
+// Every /api response (desktop, project-scoped, auth failures, 404s) carries the
+// API contract version. Mounted before any /api router so nothing bypasses it.
+app.use('/api', apiVersionHeader)
 app.use('/api/host', createHostControlRouter({ token: hostControlToken, onShutdown: shutdown }))
 
 // Provider traffic uses the desktop listener as a stable relay. Mount before
@@ -505,6 +514,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     version: PKG_VERSION,
+    apiVersion: API_VERSION,
     uptime: Math.floor(process.uptime()),
     projects: _getProjectCount(),
     mode: 'super',
@@ -716,7 +726,15 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
   // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
   const sessionHosts = new SessionHostRegistry({
-    launcher: new CoreHostLauncher({ host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' } }),
+    launcher: new CoreHostLauncher({
+      host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' },
+      // A project scope's host follows that project's agent environment mode
+      // (Core may launch any configured provider, so every adapter's names pass).
+      env: (scope) => {
+        const context = registry.listContexts().find(item => item.project.slug === scope)
+        return projectAgentSourceEnv(context?.db, providerEnvAllowlist(listAdapters()))
+      },
+    }),
     clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); timer.unref?.(); return { cancel: () => clearTimeout(timer) } } },
     onStatus: (scope, status, detail, code) => {
       console.log(`[agent-sessions] ${scope}: ${status}${detail ? ` (${detail})` : ''}`)
@@ -751,8 +769,18 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       const context = registry.getContext(conversation.pinned_project_id)
       return context ? getProjectSettings(context.db).subagentRuntime : null
     },
+    // Agent actions audit: mission tool calls land in the pinned project's log.
+    agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
+  agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
+  // Flow mode: an active Flow turns a mission turn into a Flow turn. Missions
+  // see only this port; the Flow state lives in each project's database.
+  agentChatManager.setFlowTurnContext(createFlowTurnContext({
+    conversationProject: (conversationId) => getAgentConversation(registry.desktopDb, conversationId)?.pinned_project_id ?? null,
+    flowServiceFor: (projectId) => registry.getContext(projectId)?.flow ?? null,
+    availability: () => flowAvailability(),
+  }))
   registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
   registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
   // Publish the instance to the process-wide registry so the rails layer can

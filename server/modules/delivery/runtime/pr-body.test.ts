@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildReviewBriefBlock,
   buildCanonicalPrBody, collectBranchChanges, extractSpecNarrative,
   isTestFilePath, parseShortstat, parseNameStatus,
   type BranchChanges, type PrBodyTicket,
@@ -289,5 +290,41 @@ describe('buildCanonicalPrBody cost footer', () => {
       const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: null, costUsd })
       expect(body).not.toContain('Specrails cost')
     }
+  })
+})
+
+describe('buildCanonicalPrBody — reviewer risk brief', () => {
+  const base = { loopName: 'Implement', baseBranch: 'main' }
+  const reviewBrief = {
+    risks: [
+      { severity: 'high' as const, area: 'data', whatToLookAt: 'Migration drops a default', ref: 'server/db/migrations.ts:1600' },
+      { severity: 'medium' as const, area: null, whatToLookAt: 'Renamed `field`', ref: null },
+      { severity: 'low' as const, area: 'ux', whatToLookAt: 'Copy tweak', ref: 'ui.tsx:1' },
+    ],
+    untested: [{ path: 'src/net/retry.ts', why: 'No test exercises the timeout branch' }],
+    humanChecks: ['Confirm the new copy\nwith the product owner'],
+  }
+
+  it('adds a short block under the summary and keeps the cost footer last', () => {
+    const t = ticket()
+    const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!), costUsd: { totalUsd: 1.5, estimated: false }, reviewBrief })
+    const summaryAt = body.indexOf('This pull request delivers')
+    const briefAt = body.indexOf('## What to look at')
+    expect(briefAt).toBeGreaterThan(summaryAt)
+    expect(briefAt).toBeLessThan(body.indexOf('## #37'))
+    expect(body).toContain('- **High** · data — Migration drops a default (`server/db/migrations.ts:1600`)')
+    expect(body).toContain('- **Medium** — Renamed `field`')
+    expect(body).not.toContain('Copy tweak')
+    expect(body).toContain('- `src/net/retry.ts` — No test exercises the timeout branch')
+    expect(body).toContain('- [ ] Confirm the new copy with the product owner')
+    expect(body.trimEnd().endsWith('> Specrails cost: $1.50')).toBe(true)
+  })
+
+  it('is identical to today without a brief or with only low risks', () => {
+    const t = ticket()
+    const plain = buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!) })
+    expect(buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!), reviewBrief: null })).toBe(plain)
+    expect(buildCanonicalPrBody({ ...base, tickets: [t], changes: changesFor(t.branch!), reviewBrief: { risks: [reviewBrief.risks[2]], untested: [], humanChecks: [] } })).toBe(plain)
+    expect(buildReviewBriefBlock(undefined)).toBeNull()
   })
 })

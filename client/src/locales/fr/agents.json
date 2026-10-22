@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "Le pipeline avec profils nécessite specrails-core {{required}}+",
-      "body": "Ce projet utilise <code>{{version}}</code>. Exécutez <code>{{command}}</code> dans le projet pour débloquer le mode profil. Les profils créés ici seront tout de même enregistrés ; ils n'affecteront simplement pas le pipeline tant que core n'est pas mis à jour.",
-      "unknownVersion": "inconnue"
+      "body": "L'espace de travail de ce projet a été préparé avec specrails-core <code>{{version}}</code>. Mettez à jour Specrails Core depuis Paramètres → Mises à jour ; les espaces de travail des projets sont rafraîchis automatiquement après la mise à jour. Les profils créés ici seront tout de même enregistrés ; ils n'affecteront simplement pas le pipeline tant que l'espace de travail n'est pas mis à jour.",
+      "unknownVersion": "inconnue",
+      "openUpdates": "Ouvrir les mises à jour de Core"
     }
   },
   "catalog": {

@@ -68,6 +68,32 @@ describe('agent_messages.intent (mission-rail-cards)', () => {
   })
 })
 
+describe('Flow card intents (flow-mode client)', () => {
+  it('records a flow-offer choice next to a rail-launch decision on the same index', () => {
+    const { conv, msg } = seed()
+    expect(setAgentMessageIntent(db, msg.id, { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'now' }).ok).toBe(true)
+    expect(setAgentMessageIntent(db, msg.id, { kind: 'flow-offer', proposalIndex: 0, status: 'accepted', at: 'now', recommendedMode: 'flow', chosenMode: 'implement' }).ok).toBe(true)
+    expect(setAgentMessageIntent(db, msg.id, { kind: 'flow-offer', proposalIndex: 0, status: 'dismissed', at: 'now' })).toEqual({ ok: false, reason: 'already_decided' })
+    expect(setAgentMessageIntent(db, msg.id, { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 'now', railIndex: 1 }).ok).toBe(true)
+    expect(listAgentMessages(db, conv.id)[0].intents.map((i) => [i.kind, i.status])).toEqual([['rail-launch', 'dismissed'], ['flow-offer', 'accepted'], ['flow-hand-off', 'launched']])
+  })
+
+  it('PATCH validates per kind, keeps the recommendation and works with rail cards off', async () => {
+    process.env.SPECRAILS_MISSION_RAIL_CARDS = 'false'
+    const { conv, msg } = seed()
+    const url = `/api/agent/conversations/${conv.id}/messages/${msg.id}/intent`
+    expect((await request(app()).patch(url).send({ kind: 'flow-offer', proposalIndex: 0, status: 'launched' })).status).toBe(400)
+    expect((await request(app()).patch(url).send({ kind: 'flow-hand-off', proposalIndex: 0, status: 'accepted' })).status).toBe(400)
+    const ok = await request(app()).patch(url).send({ kind: 'flow-offer', proposalIndex: 0, status: 'accepted', recommendedMode: 'flow', chosenMode: 'flow', config: { flowId: 'f1' } })
+    expect(ok.status).toBe(200)
+    expect(ok.body.message.intents[0]).toMatchObject({ kind: 'flow-offer', status: 'accepted', recommendedMode: 'flow', chosenMode: 'flow', config: { flowId: 'f1' } })
+    const handOff = await request(app()).patch(url).send({ kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', railIndex: 2, runIds: ['r1'], prDeliveryId: 'd1', recommendedMode: 'flow' })
+    expect(handOff.status).toBe(200)
+    expect(handOff.body.message.intents[1]).not.toHaveProperty('recommendedMode')
+    expect((await request(app()).patch(url).send({ kind: 'rail-launch', proposalIndex: 0, status: 'launched' })).status).toBe(403)
+  })
+})
+
 describe('legacy single-object intent column', () => {
   it('reads a pre-array value as one decision', () => {
     const { conv, msg } = seed()

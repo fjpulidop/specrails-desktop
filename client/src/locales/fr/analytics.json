@@ -11,7 +11,9 @@
     "specLauncher": "Lanceur de spec",
     "proposal": "Proposition",
     "agentStudio": "Agent Studio",
-    "setup": "Configuration"
+    "setup": "Configuration",
+    "triage": "Triage",
+    "flow": "Flow"
   },
   "periods": {
     "d7": "7j",
@@ -211,7 +213,8 @@
     "vsPrev": "vs période précédente",
     "turnsAndTokens": "{{turns}} tours · {{tokens}} tokens",
     "untitled": "Mission sans titre",
-    "estimatedNote": "Inclut des coûts estimés"
+    "estimatedNote": "Inclut des coûts estimés",
+    "flowShare": "Dont Flow : {{cost}} · {{turns}} tours"
   },
   "legacyUsage": {
     "title": "Utilisation des anciens workflows",
@@ -226,6 +229,59 @@
       "legacy_loop_traversal": "Boucles classiques",
       "queue_manager_slash": "Commandes en attente",
       "merge_back": "Intégrations locales"
+    }
+  },
+  "decisionTimes": {
+    "title": "Délai de décision",
+    "subtitle": "De la mise en revue à la première décision humaine et jusqu'au merge",
+    "toDecision": "Délai de décision",
+    "toMerge": "Délai de merge",
+    "median": "médiane",
+    "p90": "p90",
+    "counts": "{{measured}} mesurées · {{pending}} en attente · {{unknown}} inconnues",
+    "unknownValue": "Inconnu",
+    "loading": "Chargement des délais de décision…",
+    "unavailable": "Impossible de charger les délais de décision.",
+    "empty": "Aucune livraison n'a atteint la revue sur cette période.",
+    "byLoop": "Délais de décision par boucle",
+    "loop": "Boucle",
+    "deliveries": "Livraisons",
+    "decisionMedianP90": "Décision (médiane · p90)",
+    "mergeMedianP90": "Merge (médiane · p90)",
+    "unnamedLoop": "Boucle sans nom",
+    "note": "Les inconnues comptent les livraisons sans instants enregistrés (par exemple, créées avant l'existence de cette métrique). Elles ne sont jamais comptées comme zéro.",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "days": "{{value}} j"
+    }
+  },
+  "loopEconomics": {
+    "title": "Économie par loop",
+    "subtitle": "Livraisons, coût, reprises et défauts échappés par loop",
+    "loading": "Chargement de l’économie par loop…",
+    "unavailable": "Impossible de charger l’économie par loop.",
+    "empty": "Aucun loop n’a rien livré sur cette période.",
+    "noData": "Aucune donnée",
+    "unknownValue": "—",
+    "unnamedLoop": "Loop sans nom",
+    "estimatedShare": "{{share}} estimé",
+    "unpriced": "{{count}} sans coût",
+    "note": "Livré = a atteint la revue ou au-delà. Le coût moyen utilise les livraisons au coût enregistré (fourni par le fournisseur sauf mention estimée) ; les livraisons sans coût sont exclues, jamais comptées à 0 $. Les tours viennent des étapes reviewer/fixer du loop. — signifie inconnu.",
+    "escapedUntracked": "Les défauts échappés ne sont pas encore suivis : liez un ticket de bug à la livraison qui l’a introduit (« Régression de » dans le ticket) pour commencer à les compter.",
+    "columns": {
+      "loop": "Loop",
+      "delivered": "Livrées",
+      "merged": "Fusionnées",
+      "discarded": "Rejetées",
+      "avgCost": "Coût / livraison",
+      "toDecision": "Décision (médiane · p90)",
+      "toMerge": "Fusion (médiane · p90)",
+      "reviewRounds": "Revues / livraison",
+      "fixerRounds": "Tours de fixer / livraison",
+      "escapedDefects": "Défauts échappés",
+      "requirementsDemonstrated": "Exigences démontrées",
+      "triageAccuracy": "Précision du triage"
     }
   }
 }

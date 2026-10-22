@@ -120,9 +120,12 @@ template/duplicate/edit and rail execution remain available.
 
 ## 6. Troubleshooting
 
-- **Upgrade banner on Agents page** — run
-  `npx specrails-core@^4.12.0 update` in the project to bring it up to date
-  (profiles need ≥ 4.1.0; the version the app installs is `^4.12.0`).
+- **Upgrade banner on Agents page** — the project's workspace was assembled
+  by a Core older than 4.1.0 (profiles need ≥ 4.1.0). The app installs Core 6
+  (`CORE_PACKAGE_SPEC` in `server/core-package.ts`). The banner's **Open Core
+  updates** button opens **Settings → Updates**; update Core there (see
+  [Core runtime updates](core-runtime-updates.md)) and stale workspaces are
+  re-assembled automatically after the swap.
 - **Save disabled with "N issues to resolve"** — the live validator
   enforces the baseline trio (`sr-architect`, `sr-developer`, `sr-reviewer`)
   and routing ordering. Among the rules: a `default: true` routing rule (if

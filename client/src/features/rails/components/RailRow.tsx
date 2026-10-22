@@ -9,7 +9,8 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
-import { deriveRailMode, effectiveLoopId } from '../lib/rail-loops'
+import { deriveRailMode, effectiveLoopId, offeredRecommendation } from '../lib/rail-loops'
+import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { SpecCard } from '../../specs/components/SpecCard'
 import { RailProfileSelector } from '../../agents/components/RailProfileSelector'
 import { RailEngineSelector } from '../../agents/components/RailEngineSelector'
@@ -108,6 +109,8 @@ interface RailRowProps {
    *  a context menu offering "← Move to Specs" which removes the ticket
    *  from this rail and returns it to the specs list. */
   onTicketMoveToSpecs?: (ticketId: number) => void
+  /** Play disabled with this explanation (review WIP limit reached). */
+  launchBlockedReason?: string | null
 }
 
 export function RailRow({
@@ -115,7 +118,7 @@ export function RailRow({
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
   onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
-  onTicketMoveToSpecs,
+  onTicketMoveToSpecs, launchBlockedReason,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
   const { activeProjectId, projects } = useDesktop()
@@ -130,12 +133,16 @@ export function RailRow({
   // profile/model/effort pickers give way to a chip (each role is configured
   // in Settings ▸ Specrails Agents) and capability checks use the primary.
   const hasAddenda = tickets.some((ticket) => ticket.addenda?.some((a) => a.status === 'open'))
-  const effectiveMode = deriveRailMode(effectiveLoopId(selectedLoopId, mode, hasAddenda))
   const rolesEngine = isRolesEngine(aiEngine)
   const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
   const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
   // Freestyle is provider-owned prose; the roles engine has no single provider.
   const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(effectiveProvider)
+  // Spec triage (launch-triage): the first triaged spec's loop is preselected
+  // while the rail has no explicit pick — only when the picker offers it.
+  const recommendedLoopId = offeredRecommendation(recommendedLoopForTickets(tickets), { freestyleAvailable, loopsEnabled: loopAvailable })
+  const railLoopId = effectiveLoopId(selectedLoopId, mode, hasAddenda, recommendedLoopId)
+  const effectiveMode = deriveRailMode(railLoopId)
   // Which secondary selectors are visible right now. When any is shown we move
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
@@ -497,7 +504,8 @@ export function RailRow({
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
-              value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
+              value={railLoopId}
+              recommendedId={recommendedLoopId}
               onChange={onLoopChange}
               freestyleAvailable={freestyleAvailable}
               loopsEnabled={loopAvailable}
@@ -517,7 +525,8 @@ export function RailRow({
             freestyleAvailable={freestyleAvailable}
             loopAvailable={loopAvailable}
             onModeChange={onModeChange}
-                onToggle={onToggle}
+            onToggle={onToggle}
+            launchBlockedReason={launchBlockedReason}
           />
         </div>
 
@@ -674,7 +683,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} launchBlockedReason={launchBlockedReason} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -731,7 +740,8 @@ export function RailRow({
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
-                  value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
+                  value={railLoopId}
+              recommendedId={recommendedLoopId}
                   onChange={onLoopChange}
                   freestyleAvailable={freestyleAvailable}
                   loopsEnabled={loopAvailable}
@@ -789,7 +799,7 @@ export function RailRow({
                     e.stopPropagation()
                   }}
                 >
-                  <SpecCard ticket={ticket} onClick={onTicketClick} dragDisabled={status === 'running'} />
+                  <SpecCard ticket={ticket} onClick={onTicketClick} dragDisabled={status === 'running'} onRail />
                 </div>
               ))}
             </SortableContext>

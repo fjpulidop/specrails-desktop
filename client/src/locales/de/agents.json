@@ -9,8 +9,9 @@
     },
     "banner": {
       "title": "Profilgestützte Pipeline erfordert specrails-core {{required}}+",
-      "body": "Dieses Projekt hat <code>{{version}}</code>. Führe <code>{{command}}</code> im Projekt aus, um den Profilmodus freizuschalten. Hier erstellte Profile werden trotzdem gespeichert; sie wirken sich nur erst nach dem Core-Update auf die Pipeline aus.",
-      "unknownVersion": "unbekannt"
+      "body": "Der Workspace dieses Projekts wurde mit specrails-core <code>{{version}}</code> eingerichtet. Aktualisiere Specrails Core unter Einstellungen → Updates; die Projekt-Workspaces werden nach dem Update automatisch aufgefrischt. Hier erstellte Profile werden trotzdem gespeichert; sie wirken sich nur erst nach der Aktualisierung des Workspaces auf die Pipeline aus.",
+      "unknownVersion": "unbekannt",
+      "openUpdates": "Core-Updates öffnen"
     }
   },
   "catalog": {

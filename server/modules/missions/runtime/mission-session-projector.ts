@@ -4,6 +4,7 @@ import type { ProviderAdapter } from '../../../providers/types'
 import { finaliseNormalisedResult } from '../../accounting/runtime/result-event'
 import type { ProjectionOp, ProjectionSink, TurnOrigin, Usage } from '../../agent-sessions'
 import { addAgentMessage, getAgentConversation } from '../../agents/runtime/agent-store'
+import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import { advanceSessionCursor, appendSubagentEvent, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
 
 type Broadcast = (message: Record<string, unknown>) => void
@@ -14,6 +15,8 @@ export interface MissionSessionProjectorDeps {
   adapterFor: (providerId: string) => ProviderAdapter
   /** The provider process of the session is gone (retired, crashed, closed). */
   onProcessEnded?: (conversationId: string) => void
+  /** Agent actions audit of the mission's project (null when it has none loaded). */
+  agentAudit?: (projectId: string) => Pick<AgentAuditRecorder, 'record'> | null
 }
 
 interface BackgroundTurn {
@@ -43,6 +46,7 @@ export class MissionSessionProjector implements ProjectionSink {
     const outbox: Array<Record<string, unknown>> = []
     const timestamp = new Date().toISOString()
     let processEnded = false
+    const audited: Array<{ name: string; input: unknown; role: string }> = []
     this.deps.db.transaction(() => {
       for (const op of ops) {
         switch (op.kind) {
@@ -62,6 +66,7 @@ export class MissionSessionProjector implements ProjectionSink {
             if (op.channel === 'text' && this.background.has(op.turnId)) outbox.push({ type: 'agent_stream', conversationId, turnId: op.turnId, delta: op.delta, timestamp })
             break
           case 'turn.tool':
+            if (op.tool.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'mission' })
             if (!this.background.has(op.turnId)) break
             outbox.push(op.tool.phase === 'started'
               ? { type: 'agent_tool', conversationId, turnId: op.turnId, tool: op.tool.name, toolId: op.tool.toolUseId, timestamp }
@@ -92,6 +97,7 @@ export class MissionSessionProjector implements ProjectionSink {
             break
           case 'subagent.output':
             if (!this.subagentKnown(op.subagentId)) break
+            if (op.tool?.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'subagent' })
             appendSubagentEvent(this.deps.db, conversationId, op.subagentId, op.seq, op.channel, op.delta, op.tool)
             outbox.push({ type: 'agent_subagent_event', conversationId, subagentId: op.subagentId, seq: op.seq, channel: op.channel, ...(op.delta !== null ? { delta: op.delta } : {}), ...(op.tool ? { tool: op.tool } : {}), timestamp })
             break
@@ -122,7 +128,19 @@ export class MissionSessionProjector implements ProjectionSink {
       advanceSessionCursor(this.deps.db, conversationId, seq)
     })()
     for (const message of outbox) this.deps.broadcast(message)
+    if (audited.length > 0) this.recordAudit(audited)
     if (processEnded) this.deps.onProcessEnded?.(conversationId)
+  }
+
+  /** After commit: the audit observes; it never joins the projection transaction. */
+  private recordAudit(tools: Array<{ name: string; input: unknown; role: string }>): void {
+    try {
+      if (!this.deps.agentAudit) return
+      const projectId = getAgentConversation(this.deps.db, this.conversationId)?.pinned_project_id
+      const recorder = projectId ? this.deps.agentAudit(projectId) : null
+      if (!recorder) return
+      for (const tool of tools) recordToolCall(recorder, { runId: this.conversationId, role: tool.role, source: 'core-session' }, tool.name, tool.input)
+    } catch { /* audit is observing only */ }
   }
 
   private subagentKnown(subagentId: string): boolean {

@@ -25,6 +25,29 @@ The CLI and the desktop client read the token automatically. The browser client 
 
 There is no UI to set or clear the token, and it is not an app setting.
 
+## Versioning and deprecation policy
+
+Every response under `/api` — desktop routes, project-scoped routes, public routes, auth rejections and 404s — carries the header:
+
+```http
+X-Specrails-Api-Version: 1
+```
+
+The header is set by middleware mounted in `server/index.ts` before any `/api` router (and exposed to allowed CORS origins), so no route can bypass it. `GET /api/health` (public) also returns `apiVersion`, and `GET /api/meta` (authenticated) returns the full version set. The constant lives in `server/api-version.ts`.
+
+Rules:
+
+1. **Additive changes keep the version.** New routes, new optional request fields and new response fields are not breaking. Clients must ignore response fields they do not know.
+2. **`apiVersion` is bumped only on a breaking change**: removing or renaming a route or field, changing a field's type or meaning, tightening validation of an existing request, or changing a WebSocket event contract. A bump is a `feat!`/`fix!` commit with a `BREAKING CHANGE:` footer.
+3. **Deprecate before removing.** A route or field to be removed is first marked deprecated: it keeps working, the deprecation is recorded in the ledger below and announced in `CHANGELOG.md` under a **Deprecations** heading for the release that ships it (see [CONTRIBUTING](../../CONTRIBUTING.md#api-changes-and-deprecations)).
+4. **Keep deprecated surface for at least two minor releases.** Something deprecated in `2.65.0` can be removed no earlier than `2.67.0`, and the removal itself is a breaking change under rule 2.
+
+Deprecation ledger (newest first):
+
+| Route or field | Deprecated in | Earliest removal | Replacement |
+|---|---|---|---|
+| — | — | — | No deprecations yet |
+
 This page is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/modules/code/runtime/code-explorer-router.ts`, and `server/jira-router.ts`. If you spot a discrepancy, please file an issue.
 
 ---
@@ -33,7 +56,7 @@ This page is hand-maintained against the route declarations in `server/*-router.
 
 | Prefix | Router | Auth | Notes |
 |--------|--------|------|-------|
-| `/api/health` | direct | none | Liveness probe (`{ status, version, uptime, projects, mode }`) |
+| `/api/health` | direct | none | Liveness probe (`{ status, version, apiVersion, uptime, projects, mode }`) |
 | `/api/token` | direct | none | Returns the auth token for local bootstrapping (loopback-only) |
 | `/api/docs` | `docs-router` | loopback-only (mounted before token auth) | Bundled documentation portal |
 | `/api/mobile/*` | `mobile-admin-router` | Bearer / X-Desktop-Token + loopback | Mobile Gateway admin (enable/pair/devices) |
@@ -63,8 +86,9 @@ A non-localhost `Origin` header is rejected by the CORS middleware with `403 For
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/projects` | List registered projects |
-| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini`, `kimi` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to default to `["claude"]`. 409 if the path is already registered or Kimi fails its executable/version/Core-target checks. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled). Kimi has no beta flag: it requires a usable `kimi` CLI ≥ 0.27.0 and a Core build that advertises the Kimi target. Kimi 0.27 has no safe non-billing authentication probe, so login/model configuration is confirmed by the first real turn |
+| `POST` | `/projects` | Register a project. Body `{ path, name?, provider?, providers? }`. Each provider value is one of `claude`, `codex`, `gemini`, `kimi` (registry-validated). `providers: string[]` enables a multi-provider project (first entry = primary/default); legacy single `provider` still honoured; omit both to register with the auto-detected provider set (`["claude"]` when nothing is detected yet). After `201` the workspace is assembled in the background for the detected providers; progress arrives as `project.assemble_progress` WS events. 409 if the path is already registered or Kimi fails its executable/version/Core-target checks. 400 if a provider is unknown, or if a disabled provider is selected: `codex` when `SPECRAILS_CODEX_BETA=0`, `gemini` when `SPECRAILS_GEMINI_BETA=0` (both default-enabled). Kimi has no beta flag: it requires a usable `kimi` CLI ≥ 0.27.0 and a Core build that advertises the Kimi target. Kimi 0.27 has no safe non-billing authentication probe, so login/model configuration is confirmed by the first real turn |
 | `DELETE` | `/projects/:id` | Unregister (does not delete the project directory) |
+| `POST` | `/projects/:id/assemble-retry` | Re-run the background workspace assembly for the providers that failed (every detected provider when none is recorded as failed). `202 { retrying: [...] }`, or `202 { alreadyRunning: true }` while one is running; `409` when no provider is detected; progress via `project.assemble_progress` |
 | `GET` | `/resolve?path=…` | Find a project by **exact** canonical filesystem path. No parent-directory walking — a subdirectory returns 404 |
 
 Example — register a project that uses both Claude and Gemini:
@@ -85,16 +109,20 @@ Example — register a project that uses both Claude and Gemini:
 |--------|------|-------|
 | `GET` | `/state` | `{ projects, projectCount, …todayStats }` (today's cross-project cost/run aggregates spread into the response) |
 | `GET` | `/cli-status` | Detected AI CLI provider + version (`{ provider, version }`), e.g. `claude`, `codex`, `gemini`, or `kimi` — runs the registered adapter's version probe. Registry-driven |
-| `GET` | `/available-providers` | Provider catalogue used by the setup wizard. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
+| `GET` | `/available-providers` | Provider catalogue used by the Add Project dialog (no-provider warning), mission and provider pickers. Registry-driven map (`{ claude, codex, gemini, kimi, tiers, providerIssues, launchDescriptors }`) reporting which CLIs are usable. Codex/Gemini are surfaced unless forced off by `SPECRAILS_CODEX_BETA=0` / `SPECRAILS_GEMINI_BETA=0` (both enabled by default). Kimi is reported unavailable, with a machine-readable `providerIssues.kimi`, when the CLI is missing/unusable, is older than 0.27.0, or the installed Core lacks the Kimi target. The bounded readiness probe is intentionally non-billing and cannot prove account authentication; a login/configuration problem is surfaced by the first model turn. `launchDescriptors` exposes each external CLI command; the app does not bundle a Kimi daemon/server |
+| `GET` | `/meta` | Versions a client negotiates with: `{ apiVersion, appVersion, coreVersion, contractSchemaVersion, channel, updateManifestUrl }`. `coreVersion` is the Core in use (active framework, else the located contract's Core, else the bundled one); `contractSchemaVersion` is the integration contract's `schemaVersion`; unknown values are `null`. `channel` is the update channel (`latest` or `stable`) and `updateManifestUrl` the Tauri updater manifest it reads |
 | `GET` | `/core-compat` | specrails-core version compatibility probe |
+| `GET` | `/core-update/status` | Core update status without network access. Includes `channel`, `resolvedDistTag` (`latest`/`stable`/`null`) and `channelFallback` (`true` when `stable` was requested but Core has no `stable` dist-tag, so `latest` was used). A version cached for another channel is never offered |
+| `POST` | `/core-update/check` | Resolve the channel's npm dist-tag (`stable` → `stable`, falling back to `latest` only on a 404 for the tag) and return the refreshed status |
+| `POST` | `/core-update/update` | Install the checked version (or `{ version }`). `202`; progress over the `core_update.progress` WebSocket event |
 | `GET` | `/setup-prerequisites` | Tool checks (`node`/`npm`/`npx`/`git`, optionally `uv`). Add `?diagnostic=1` to nest a `diagnostic` object: `{ pathSegments, pathSources, loginShellStatus, whichResults, nodeEnv, platform }` |
 
 ### Settings, budget, theme
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
-| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime? }`. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
+| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`) and `updateChannel` (`latest` default, or `stable`) |
+| `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime?, updateChannel? }`. `updateChannel` must be `latest` or `stable` (otherwise `400` and nothing is written); it selects the Desktop updater manifest and the Core npm dist-tag. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
 | `GET` | `/budget` | App-wide budget config |
 | `PATCH` | `/budget` | Update the app-wide daily budget |
 | `GET` | `/theme` | Current UI theme (defaults to `specrails`) |
@@ -191,6 +219,8 @@ Background turns also stream `agent_stream`, `agent_tool` and `agent_tool_result
 
 `agent_error` may carry `code` and `provider` for failures the client explains in the user's language. One example is `policy_unenforceable`, sent when a provider cannot honour "Allow sub-agents: off".
 
+Flow mode: `POST /agent/conversations/:id/send` also accepts `deliveryMode: 'interrupt'`, only while the conversation's Flow is active (`409 interrupt_requires_flow` otherwise). In a Flow every mid-turn input reaches Core as `session.send { delivery: 'interrupt' }`, which cuts the running turn and runs the input next; the reply continues the same user turn. A Flow turn on a host without `flowSessions` fails with `agent_error` code `flow_sessions_unavailable` (there is no legacy Flow transport). Flow turns are recorded in `agent_invocations` with `surface: 'flow'`.
+
 ### Webhooks
 
 | Method | Path | Notes |
@@ -236,6 +266,8 @@ Example — queue a command on a specific provider:
 | `GET` | `/issues` | GitHub issues linked to the project |
 | `GET` | `/jobs` | Job list (`?limit=&offset=&status=`) |
 | `GET` | `/jobs/export` | CSV/JSON export |
+| `GET` | `/jobs/:runId/audit` | Agent actions of one run (job id or loop run id) as an attachment. `?format=jsonl` (default) or `csv`. Pending batched rows are flushed first; at most 100 000 rows, oldest first; `X-Agent-Actions-Rows` carries the count. `400` invalid format. See [agent actions audit](agent-actions-audit.md) |
+| `GET` | `/agent-actions` | Project-wide agent actions export. `?format=jsonl\|csv&from=&to=` (ISO timestamps, inclusive). `400` for an invalid format, an unparsable timestamp or `from` after `to` |
 | `GET` | `/jobs/compare` | Compare metrics between two jobs |
 | `GET` | `/jobs/:id` | One job. Returns `{ job, events, phaseDefinitions }`; `job` is annotated with `hasTelemetry`, `tickets[]` (resolved from the command, powers the ticket header), `interactiveSettleMode` (`'finalize'` \| `'auto'` \| `null`) and `interactiveAcceptingTurns` (whether a resident session accepts turns right now — a between-steps loop run reports `'auto'`/`false` so the composer can phrase the waiting state) |
 | `DELETE` | `/jobs/:id` | Cancel a running or queued job |
@@ -294,6 +326,9 @@ Spending is tracked across six surfaces: `job`, `quick-spec`, `explore-spec`, `a
 | `GET` | `/invocations` | Paginated raw `ai_invocations` rows |
 | `GET` | `/tickets/:id/spending-summary` | Per-ticket cross-surface aggregate (powers `TicketSpendingLine`) |
 | `GET` | `/analytics/export?format=csv\|json&mode=summary\|raw&…` | Multi-section summary CSV/JSON, or raw rows (10 000 cap) |
+| `GET` | `/analytics/decision-times?period=7d\|30d\|90d\|all\|custom&from&to` | Time to decision / merge per delivery: `{ period, from, to, project, byLoop[] }`, each group `{ deliveries, toDecision, toMerge }` with `{ measured, pending, unknown, medianMs, p90Ms }`. Window = `on_review_at` (or `created_at` for legacy rows). `medianMs`/`p90Ms` are `null` when nothing is measurable; unknown is never zero. Repository children are excluded (counted via the group parent). 400 on an invalid period or a custom period without `from`/`to` |
+| `GET` | `/analytics/loop-economics?period=7d\|30d\|90d\|all\|custom&from&to` | Loop economics: `{ period, from, to, sources: { escapedDefects: tracked\|untracked, requirementsDemonstrated, triageAccuracy: unavailable }, project, byLoop[] }`. Each group: `{ hasData, delivered, merged, discarded, superseded, onReview, discardRate, cost: { pricedDeliveries, unpricedDeliveries, incompleteDeliveries, totalUsd, authoritativeUsd, estimatedUsd, avgCostUsd, estimatedShare }, decisionTimes, rounds: { measuredDeliveries, reviewRounds, fixerRounds, reviewPerDelivery, fixerPerDelivery }, escapedDefects, requirementsDemonstrated, triageAccuracy }`; loops add `loopId`, `loopName`. Delivered = parent delivery that reached `on_review` or beyond. Unknown values are `null`, never 0; published saved loops without deliveries appear with `hasData: false`. `escapedDefects` counts tickets whose `metadata.regressionOf` names a delivery in the window (null while no ticket carries a link). Same period validation as decision-times |
+| `GET` | `/analytics/loop-economics/deliveries?limit=50` | Recent delivered parent deliveries `{ deliveries: [{ id, loopId, loopName, decision, ticketIds, createdAt }] }` (max 200) — source of the ticket "Regression of" picker |
 
 Example — the Analytics dashboard payload (abridged):
 
@@ -325,13 +360,14 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `GET` | `/tickets` | Filters: `?status=`, `?label=`, `?q=` |
 | `GET` | `/tickets/:id` | One ticket |
 | `POST` | `/tickets` | Create |
-| `PATCH` | `/tickets/:id` | Update any subset of fields |
+| `PATCH` | `/tickets/:id` | Update any subset of fields. `metadata` merges keys; `metadata.regressionOf` (delivery id string ≤ 200 chars, escaped-defect link) is validated on create/update/commit-draft (400 otherwise) and `null` removes it |
 | `DELETE` | `/tickets/:id` | Delete (cascades the draft conversation if it is the last reference) |
 | `POST` | `/tickets/generate-spec` | Quick-mode generation. Body `{ idea, model?, contractRefine?, aiEngine?, attachmentIds?, pendingSpecId?, contextScope? }` (the spec text is `idea`, not `title`). Streams progress over WS |
 | `POST` | `/tickets/save-as-draft` | Persist an Explore conversation as a draft (idempotent on `conversationId`) |
 | `POST` | `/tickets/from-draft` | Commit a draft (flip-in-place) or insert a new ticket |
 | `POST` | `/tickets/from-prompt` | Create a ticket directly from a prompt |
 | `POST` | `/tickets/:id/contract-refine` | Retry Contract Refine for an existing ticket. `202` scheduled, `404` unknown ticket, `409` when the effective provider cannot enforce the required tool policy (`contract_refine_unsupported_for_<provider>`; this includes Kimi), the kill switch is active (`feature_disabled_by_env`), or the ticket has no origin conversation. Kimi is rejected before spawn or mutation |
+| `POST` | `/tickets/:id/triage` | Recalculate the [spec triage](spec-triage.md) (forced, even when the inputs hash is unchanged). `200 { triage }` with the stored `metadata.triage` record (`ready`, `unavailable` or `failed`), `400` invalid id, `404` unknown ticket, `409 { error: 'triage_not_applicable', reason }` for a cancelled spec, an epic or a Flow-held spec, `503 triage_unavailable` when the project has no triage service. The record is also broadcast as `ticket_updated` |
 | `POST` | `/tickets/:id/smash` | SMASH an epic into sub-specs |
 | `POST` | `/tickets/:id/smash/undo` | Undo a SMASH operation |
 | `DELETE` | `/tickets/:id/children` | Delete all children of an epic |
@@ -359,20 +395,20 @@ provides no authoritative token/USD envelope, so those values remain null.
 | `POST` | `/chat/conversations/:id/minimize` | Park the session (arms the idle-kill timer) |
 | `POST` | `/chat/conversations/:id/restore` | Cancel the idle-kill timer |
 
-### Setup wizard
+### Setup (API / MCP only)
 
-The setup wizard is a three-step flow (Configure / Install / Done). The `enrich/*` and `setup/start`+`setup/message` endpoints back the legacy AI-enriched flow that the app UI does not expose; they remain mounted for forward compatibility.
+The app UI has no setup wizard: adding a project assembles its workspace in the background (see `POST /api/projects` and `POST /api/projects/:id/assemble-retry`). These per-project routes remain mounted for the MCP `specrails_setup` tool and other API callers. The `enrich/*` and `setup/start`+`setup/message` endpoints back the legacy AI-enriched flow.
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `POST` | `/setup/install-config` | Write `.specrails/install-config.yaml` to the project |
-| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned core release — currently `specrails-core@^4.12.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
+| `POST` | `/setup/install` | Run `npx specrails-core init --from-config <file>` (the pinned Core range `CORE_PACKAGE_SPEC` from `server/core-package.ts` — currently `specrails-core@^6.0.0` — is resolved by SetupManager, overridable via `SPECRAILS_CORE_BIN`) |
 | `POST` | `/setup/start` | Legacy setup-chat session start |
 | `POST` | `/setup/message` | Legacy setup-chat turn |
 | `POST` | `/enrich/start` | Legacy AI-enrich session start |
 | `POST` | `/enrich/message` | Legacy AI-enrich turn |
 | `GET` | `/setup/checkpoints` | Checkpoint state + last log lines |
-| `POST` | `/setup/abort` | Abort the wizard |
+| `POST` | `/setup/abort` | Abort the in-progress install |
 
 ### Proposals
 
@@ -447,8 +483,8 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`) and `subagentRuntime` (default `null`) |
-| `PATCH` | `/settings` | Update. `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated). A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery |
+| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`), `reviewerFamilySuggestionDismissed` (default `false`), `reviewWipLimit` (default `null` = no limit) and `agentAuditRetentionDays` (default `30`) |
+| `PATCH` | `/settings` | Update. `reviewWipLimit` is an integer from 1 to 100 or `null` (otherwise `400` and nothing is written). `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated); `reviewerFamilySuggestionDismissed` must be a boolean. A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery. `agentAuditRetentionDays` must be an integer between 1 and 3650 |
 | `GET` | `/env-passthrough/status` | Value-free resolution status of every configured `worktreeEnvPassthrough` name: `{ loginShellRecovery, timeoutMs, checking, names: [{ name, status, shell, checkedAt, exitCode }] }`. `status` is `inherited`, `recovered`, `not-defined`, `probe-timeout`, `probe-failed`, or `pending` for a name never checked. Probes first only when a missing name has no valid cached result. Never returns values |
 | `POST` | `/env-passthrough/recheck` | Probe the login shell now (asynchronously, `SPECRAILS_LOGIN_SHELL_TIMEOUT_MS`, default 10 s), then return the same payload as the status route |
 | `GET` | `/terminal-settings` | Per-project terminal overrides |
@@ -479,16 +515,50 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 
 ---
 
+## `/api/projects/:projectId/flow/*`
+
+Flow mode ([guide](flow-mode.md)): build with an agent in an isolated worktree,
+then hand the worktree to a rail. Thin routes over the
+[Flow module](../../server/modules/flow/README.md). Every response carries the
+Flow as `{ id, conversationId, ticketId, state, branch, worktreePath, baseSha,
+headSha, coreSessionId, railIndex, deliveryId, step, createdAt, updatedAt }`;
+`state` is `active` / `paused` / `handed_off` / `delivered` / `discarded` /
+`needs-review` and `step` names an unfinished saga step (`start:*`, `handoff:*`).
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/flow/availability` | `{ available, reason, missing[] }`. Available only when Core sessions are usable and Core advertises `flowSessions` and `deriveChange`. |
+| `POST` | `/flow` | Start. Body `{ conversationId, idea, title?, flowId? }`. The mission must be pinned to this project and its provider must have a Core session driver on a host with `flowSessions`. Creates the placeholder spec, reserves the worktree and returns `201 { flow }`. Idempotent by `flowId`. `409 flow_already_open` (with `flowId`) when the conversation has an open Flow; `409 feature_unavailable` (with `missing`) without the capabilities; `400 conversation_not_pinned` / `idea_required`. |
+| `GET` | `/flow/by-conversation/:conversationId` | `{ flow }`: the open Flow, else the latest one, else `null`. |
+| `GET` | `/flow/:flowId` | `{ flow }`; `404 flow_not_found`. |
+| `POST` | `/flow/:flowId/pause` | Closes the Flow's Core session (a running Flow turn is stopped); worktree and spec stay. Idempotent. |
+| `POST` | `/flow/:flowId/resume` | Reopens the session lazily on the next turn. `409 flow_worktree_missing` when the worktree disappeared. Idempotent. |
+| `POST` | `/flow/:flowId/discard` | Closes the session, removes the Flow worktree and branch and deletes the placeholder spec. `409 illegal_transition` after a hand-off. Idempotent. |
+| `POST` | `/flow/:flowId/hand-off` | Body `{ railIndex, loopId?, aiEngine?, model?, reasoning_effort? }`; `loopId` defaults to `factory:flow-spec` (never the rail's default loop). Commits the worktree (HEAD frozen), closes the session, assigns the Flow spec to a free rail and launches it with `flowId`. Returns `202 { flow, loopRunIds, deliveryId }`. A refused launch keeps its status and code (`409 rail_not_empty`, `409 flow_worktree_mismatch`, `409 pr_decision_pending`…) and the Flow returns to `paused`. |
+| `GET` | `/flow/:flowId/diff` | `{ branch, baseSha, headSha, files: [{ path, status, additions, deletions }], totals: { files, additions, deletions } }` — working tree against the Flow base, overlay and `node_modules` excluded. Empty once the Flow is no longer open. |
+| `GET` | `/flow/:flowId/cost` | `{ flowId, costUsd, turns, unpricedTurns, tokensIn, tokensOut }` — provider-billed cost of the Flow's turns only; turns without billed cost are counted in `unpricedTurns`, never estimated. |
+
+WebSocket: `flow.state` `{ projectId, conversationId, flowId, flow, timestamp }`
+on every committed state change (project-scoped).
+
+The launched `factory:flow-spec` loop exists only on a Core with `deriveChange: 1`
+(`409 engine_unsupported` otherwise; `400 flow_id_required` without `flowId`).
+When its delivery reaches review the Flow settles: spec rewrite, Jira create and
+review transition as durable effects ([settlement](flow-mode.md#settlement)). The
+delivery's review packet carries `derivation` and `flowSettlement`.
+
+---
+
 ## `/api/projects/:projectId/rails/*`
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/` | List rails |
+| `GET` | `/` | List rails. Also returns `reviewWip { limit, pending: [{ deliveryId, railIndex, ticketIds, decision, since }], reached }` (the review WIP limit and the deliveries that count against it) |
 | `PUT` | `/:railIndex/tickets` | Assign tickets to a rail. Body `{ ticketIds: number[], mode?, profileName?, aiEngine? }`. An omitted `mode` keeps the rail's stored mode; `mode` must be `implement` / `freestyle` / `loop` (400 otherwise), with `batch-implement` / `batch` normalized to `implement`. |
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
 | `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `freestyle` / `loop` (the removed Batch mode's `batch-implement` / `batch` are accepted as input aliases and normalized to `implement`); a factory `loopId` maps to its canonical rail mode (`factory:batch` resolves to `factory:implement`). `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive?, flowId? }`. `flowId` (sent by the Flow hand-off, never by the dashboard) adopts that Flow's frozen worktree: the rail must carry exactly the Flow spec (`409 flow_rail_mismatch`), the Flow must be waiting for the launch (`409 flow_handoff_not_ready`), the launch must be isolated (`409 flow_requires_isolation`), relaunch/revision/target PR/follow-up/base options are refused (`400 flow_handoff_incompatible`) and a mount/branch/HEAD discrepancy returns `409 flow_worktree_mismatch`. `loopId: 'factory:flow-spec'` without `flowId` returns `400 flow_id_required`. `mode` is `implement` / `freestyle` / `loop` (the removed Batch mode's `batch-implement` / `batch` are accepted as input aliases and normalized to `implement`); a factory `loopId` maps to its canonical rail mode (`factory:batch` resolves to `factory:implement`). `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. While the project or app-wide daily budget is exhausted, this route and `/relaunch` return `409 { error: 'daily_budget_exceeded', scope, budgetUsd, spentUsd, resetsAt, detail, action }` and spawn nothing. `POST /loop-runs` and `POST /loop-runs/:id/resume` return the same body. Resume also continues a `budget_paused` run in place. When the project's `reviewWipLimit` is reached and the launch would open a new delivery, this route and `/relaunch` return `409 { error: 'review_wip_limit_reached', limit, pending: [{ deliveryId, railIndex, ticketIds, since }], detail, action }` and spawn nothing. Continuations of an existing delivery (`revisionOfDeliveryId`, Relaunch of a recorded delivery, `targetPrNumber`, `followUp`, or a rail that still owns an active delivery) are exempt. |
 | `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 | `POST` | `/:railIndex/relaunch` | Relaunch a settled source. Body `{ sourceId: deliveryId or 'run:<runId>', originConversationId?, originSurface? }`. Uses its recorded specs and admitted options, restores empty assignments after preflight and atomically replaces an undelivered failed generation. Returns the same `202` launch response. Reused/removed rails, active/stale sources, missing specs/workflow and delivered work needing recovery return actionable errors. Request-side workflow overrides are ignored. |
 
@@ -732,7 +802,9 @@ Every project-scoped message includes a `projectId` field. App-level messages ha
 | `jira.outbox_changed` | project | The durable write-back outbox changed (op enqueued/drained/dead-lettered) |
 | `jira.degraded` | project | A write-back op was dead-lettered or a path is blocked; sync continues |
 
-### Setup wizard
+### Setup (API / MCP install flow)
+
+Emitted by the legacy per-project `/setup/*` install flow (MCP `specrails_setup`). Background workspace assembly after `POST /api/projects` reports through the app-level `project.assemble_progress` event instead.
 
 | Type | Scope | Notes |
 |------|-------|-------|

@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { createDefinitionEventProjection, readDefinitionUsage } from './loop-definition-events'
 import { recordLegacyLaunch } from './legacy-launch-telemetry'
 import { runDefinitionLoop, type DefinitionCompletion, type DefinitionInterrupt, type DefinitionLoopInvocation, type DefinitionRuntimeResult, type DefinitionResumeControls } from './loop-definition-run'
@@ -330,6 +331,10 @@ export interface LoopRunRequest {
    *  EVERY ai-step prompt — after the follow-up, before the history. A note
    *  edited mid-run never changes what this run received. */
   addenda?: { ids: string[]; briefing: string }
+  /** Flow -> Spec (Flow mode): the Flow reservation commit Core measures the
+   *  change from (`repositories[].baseSha`) and the bounded conversation
+   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`. */
+  flowDerivation?: { baseSha: string | null; summary: string }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
@@ -596,6 +601,27 @@ export function extractChangeId(text: string): string | undefined {
 type PausedHumanDecision =
   | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }
   | { action: 'stop' }
+
+/** The daily budget a run is paused on — structurally the admission gate's
+ *  409 body (`daily_budget_exceeded`), bound by the composition root. */
+export interface LoopBudgetBreach {
+  error: 'daily_budget_exceeded'
+  scope: 'project' | 'desktop'
+  budgetUsd: number
+  spentUsd: number
+  resetsAt: string
+  detail: string
+  action: string
+}
+
+/** Pause kind recorded on `loop_runs.restart_reason` and the paused event for a
+ *  run stopped between AI steps by the daily budget. Resumable in place. */
+export const BUDGET_PAUSED = 'budget_paused' as const
+
+export type BudgetResumeResult =
+  | { status: 'resumed' }
+  | { status: 'not_budget_paused' }
+  | { status: 'over_budget'; rejection: LoopBudgetBreach }
 
 type LoopRecordedResult = {
   cost?: number
@@ -914,6 +940,8 @@ export class LoopRunManager {
   private readonly _pausedHumanDecisions = new Map<string, {
     reason: string
     pending?: DefinitionInterrupt[]
+    /** Present when the pause is `budget_paused` rather than a human decision. */
+    budget?: LoopBudgetBreach
     resolve: (decision: PausedHumanDecision) => void
   }>()
 
@@ -923,9 +951,42 @@ export class LoopRunManager {
     private readonly executors: LoopExecutors,
     private readonly now: () => number = () => Date.now(),
     /** `idleTimeoutMs`: override the env-resolved loop-step idle watchdog
-     *  (tests). Undefined ⇒ resolveLoopStepIdleTimeoutMs() per run. */
-    private readonly options: { idleTimeoutMs?: number } = {},
+     *  (tests). Undefined ⇒ resolveLoopStepIdleTimeoutMs() per run.
+     *  `dailyBudget`: the project/app-wide daily budget gate (null = within
+     *  budget). Consulted between AI steps; absent ⇒ no budget guard. */
+    private readonly options: {
+      idleTimeoutMs?: number
+      dailyBudget?: () => LoopBudgetBreach | null
+      /** Agent actions audit sink bound to this project (observing only). */
+      agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
+    } = {},
   ) {}
+
+  /** Best-effort budget read: an unreadable budget never stops a run. */
+  private _dailyBudgetBreach(): LoopBudgetBreach | null {
+    try { return this.options.dailyBudget?.() ?? null } catch { return null }
+  }
+
+  /** The budget a run is paused on (`budget_paused`), else null. */
+  budgetPause(runId: string): LoopBudgetBreach | null {
+    const budget = this._pausedHumanDecisions.get(runId)?.budget
+    return budget ? structuredClone(budget) : null
+  }
+
+  /** Resume a `budget_paused` run once the budget allows the next step. While
+   *  still exhausted the run stays paused and the caller gets the 409 body. */
+  resumeBudgetPause(runId: string): BudgetResumeResult {
+    const paused = this._pausedHumanDecisions.get(runId)
+    if (!paused?.budget) return { status: 'not_budget_paused' }
+    const rejection = this._dailyBudgetBreach()
+    if (rejection) {
+      paused.budget = rejection
+      return { status: 'over_budget', rejection: structuredClone(rejection) }
+    }
+    this._pausedHumanDecisions.delete(runId)
+    paused.resolve({ action: 'resume', text: '' })
+    return { status: 'resumed' }
+  }
 
   /** WebSocket delivery is advisory. A disconnected/misbehaving listener must
    * never change launch, accounting, traversal, or terminal outcomes. */
@@ -1031,6 +1092,7 @@ export class LoopRunManager {
   sendInteractiveTurn(jobId: string, text: string, control?: { interruptId?: string; approve?: boolean }): boolean {
     if (this.definitionForkOwnsRun(jobId)) return false
     const paused = this._pausedHumanDecisions.get(jobId)
+    if (paused?.budget) return this.resumeBudgetPause(jobId).status === 'resumed'
     if (paused) {
       if (paused.pending?.length) {
         const selected = control?.interruptId ? paused.pending.find(item => item.id === control.interruptId) : paused.pending.length === 1 ? paused.pending[0] : undefined
@@ -1228,7 +1290,7 @@ export class LoopRunManager {
     const maxIterations = req.graph.config.maxIterations
     // 0 ⇒ no whole-run deadline (built-in pipeline loops opt out of the wall
     // clock; maxIterations / maxCostUsd remain the runaway guards).
-    const deadline = req.graph.config.timeoutMinutes > 0
+    let deadline = req.graph.config.timeoutMinutes > 0
       ? this.now() + req.graph.config.timeoutMinutes * 60_000
       : Infinity
     // Per-step AI timeout (ms) — undefined falls back to the executor default,
@@ -1391,6 +1453,9 @@ export class LoopRunManager {
     // identical to QueueManager — so JobStatusPanel parses real activity
     // (thinking/reading/editing/tool steps) instead of staying on "Connecting…".
     // Non-JSON lines fall back to a plain log line.
+    // Agent actions audit for one-shot AI steps (provider JSONL) and Core
+    // agent-event tool lines. Observing only: a tap failure never reaches the run.
+    const auditTap = this.options.agentAudit ? createStreamAuditTap(this.options.agentAudit, { runId, jobId: runId, role: 'loop' }) : null
     const onRawLine = (line: string): void => {
       if (!line) return
       let eventType: string | undefined
@@ -1398,6 +1463,7 @@ export class LoopRunManager {
         const parsed = JSON.parse(line) as { type?: unknown; role?: unknown }
         if (typeof parsed.type === 'string') eventType = parsed.type
         else if (typeof parsed.role === 'string') eventType = parsed.role
+        auditTap?.(parsed)
       } catch { /* not JSON */ }
       if (!eventType) { logLine(line); return }
       if (eventType === 'runtime-efficiency-event') {
@@ -1725,6 +1791,77 @@ export class LoopRunManager {
       return decision
     }
 
+    // rail-loop-budget-guard: the daily budget ran out between AI steps. The run
+    // parks as `paused` (restart_reason `budget_paused`) on the same in-process
+    // pause the human-decision path uses — no new lifecycle. Resume re-checks the
+    // budget and continues from the next step; Stop settles 'stopped'. The pause
+    // does not consume the run's wall-clock deadline.
+    const awaitBudget = async (breach: LoopBudgetBreach): Promise<'continue' | 'stop'> => {
+      let current = breach
+      for (;;) {
+        const reason = `${current.detail} ${current.action}`
+        const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
+          this._pausedHumanDecisions.set(runId, { reason, budget: current, resolve })
+        })
+        logLine(`\n■ Loop paused (${BUDGET_PAUSED}) — ${current.detail} Raise the budget, then resume: the run continues from the next step.`, 'stderr')
+        const pausedAtMs = this.now()
+        pauseLoopRun(this.db, runId, {
+          iterationCount: iteration,
+          totalCostUsd: totalCost,
+          totalTokens,
+          totalDurationMs: totalDuration,
+        }, BUDGET_PAUSED)
+        this._emit({
+          type: 'loop.run_paused',
+          projectId: req.projectId,
+          loopRunId: runId,
+          railIndex: req.railIndex ?? null,
+          reason,
+          ticketIds: exactTicketIds,
+          pauseKind: BUDGET_PAUSED,
+          budget: { scope: current.scope, budgetUsd: current.budgetUsd, spentUsd: current.spentUsd, resetsAt: current.resetsAt },
+        })
+        this._emit({
+          type: 'job.interactive',
+          projectId: req.projectId,
+          jobId: runId,
+          acceptingTurns: true,
+          pendingInterrupts: [],
+          settleMode: 'auto',
+          timestamp: new Date(pausedAtMs).toISOString(),
+        })
+        const decision = await decisionPromise
+        if (this._disposed) return new Promise(() => { /* startup recovery owns settlement */ })
+        if (decision.action === 'stop' || this._cancelled.has(runId)) {
+          logLine(`\n■ Loop stop requested while paused on the daily budget.`, 'stderr')
+          return 'stop'
+        }
+        if (Number.isFinite(deadline)) deadline += Math.max(0, this.now() - pausedAtMs)
+        const still = this._dailyBudgetBreach()
+        if (still) { current = still; continue }
+        resumeLoopRun(this.db, runId)
+        const resumedAt = new Date(this.now()).toISOString()
+        logLine(`\n▶ Loop resumed — the daily budget allows the next step.`)
+        this._emit({
+          type: 'loop.run_resumed',
+          projectId: req.projectId,
+          loopRunId: runId,
+          railIndex: req.railIndex ?? null,
+          ticketIds: exactTicketIds,
+        })
+        this._emit({
+          type: 'job.interactive',
+          projectId: req.projectId,
+          jobId: runId,
+          acceptingTurns: false,
+          pendingInterrupts: [],
+          settleMode: 'auto',
+          timestamp: resumedAt,
+        })
+        return 'continue'
+      }
+    }
+
     const recoveryCounts = new Map<string, number>()
     let phaseRecovery: { failedId: string; target: string; detail: string; artifactOnly: boolean } | undefined
     const recoverPhase = (node: LoopNode, detail: string, previousFailure: boolean): string | undefined => {
@@ -1764,11 +1901,17 @@ export class LoopRunManager {
           onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) },
           invoke: input => { this.claimDefinition({ ...req, runId }); return this.executors.runDefinition!(input) }, isCancelled: () => this._cancelled.has(runId),
           remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes*60_000-activeDurationMs) : undefined,
-          onLine: logLine, onRuntimeEvent: projectEvent, onSpawn: child => {
+          onLine: logLine, onRuntimeEvent: auditTap ? event => { auditTap(event); return projectEvent(event) } : projectEvent, onSpawn: child => {
             this._activeChild.set(runId, child)
             if (this._cancelled.has(runId)) this.cancelResident(runId, false)
           },
           onInvocationEnd: result => { this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
+          // Core schedules every step inside one invocation; the only boundary
+          // Desktop owns is the re-invocation after a human decision.
+          beforeContinuation: async () => {
+            const breach = this._dailyBudgetBreach()
+            return breach ? awaitBudget(breach) : 'continue'
+          },
         })
         definitionCompletion = result.completion
         if (result.durationMs !== undefined) totalDuration = result.durationMs
@@ -1788,6 +1931,13 @@ export class LoopRunManager {
 
         const node = byId.get(nodeId)
         if (!node) { outcome = 'failed'; break }
+        // Daily budget: checked BETWEEN AI steps (the launch gate covered the
+        // first one). The current step always finishes; the next AI-bearing
+        // node waits on a resumable `budget_paused` pause.
+        if ((node.type === 'ai-step' || node.type === 'decider') && stepNum > 0) {
+          const breach = this._dailyBudgetBreach()
+          if (breach && (await awaitBudget(breach)) === 'stop') { outcome = 'stopped'; break }
+        }
         const succs = successors(req.graph, node.id)
         // The RAIL governs provider/model/effort for the whole run — nodes do
         // NOT override (decided in design: "lo que pongamos en el rail manda").
@@ -2597,6 +2747,7 @@ export class LoopRunManager {
         zombieTimeoutMs: input.plan.idleTimeoutMs ?? input.plan.inactivityTimeoutMs ?? 0,
         onZombieTimeout: () => { stalled = true },
         nextEventSeq: input.nextEventSeq,
+        ...(this.options.agentAudit ? { onProviderEvent: createStreamAuditTap(this.options.agentAudit, { runId: input.runId, jobId: input.runId, role: 'loop' }) } : {}),
         persistTurnUsage: (usage, completedEventSeq, checkpoint) => {
           const checkpointTurn = this.db.transaction(() => {
             accumulateInteractiveTurn(this.db, input.runId, usage)

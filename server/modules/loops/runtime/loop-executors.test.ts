@@ -370,6 +370,21 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
       expect(envs[0].SPECRAILS_TICKETS_PATH).toBe('/a/local-tickets.json')
       expect(envs[1].SPECRAILS_TICKETS_PATH).toBe('/b/local-tickets.json')
     })
+
+    it('asks the base-env provider for the step provider allowlist (minimal agent environment)', async () => {
+      getAdapter.mockReturnValue({ ...fakeAdapter('claude'), envAllowlist: ['ANTHROPIC_*', 'CLAUDE_CONFIG_DIR'] })
+      const requested: Array<readonly string[]> = []
+      const ex = createLoopExecutors({ env: (allowlist) => { requested.push(allowlist); return { PATH: '/bin' } } })
+      await ex.runAiStep({ ...step, cwd: '/wt' })
+      expect(requested).toContainEqual(['ANTHROPIC_*', 'CLAUDE_CONFIG_DIR'])
+    })
+
+    it('shell steps receive no provider names in the minimal agent environment', async () => {
+      const requested: Array<readonly string[]> = []
+      const ex = createLoopExecutors({ env: (allowlist) => { requested.push(allowlist); return { ...process.env } } })
+      await ex.runShell({ command: 'exit 0', cwd: process.cwd() })
+      expect(requested).toEqual([[]])
+    })
   })
 
   describe('git-agnostic signal (SPECRAILS_GIT_AUTO)', () => {

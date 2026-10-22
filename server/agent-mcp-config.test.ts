@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, prepareAgentMcpSpec, rotateAgentSessionCapability, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
+import { GEMINI_PLAN_MCP_POLICY_FILE, resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, prepareAgentMcpSpec, rotateAgentSessionCapability, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { unregisterAdapter } from './providers/registry'
 
@@ -283,6 +283,42 @@ describe('agent MCP capability transport', () => {
       const settings = JSON.parse(fs.readFileSync(path.join(cwd, '.gemini', 'settings.json'), 'utf-8'))
       expect(settings.mcpServers.specrails.env.SPECRAILS_MCP_PORT).toBe('4321')
       expect(settings.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toContain('mcp.capability')
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  it('gemini read-only turn: writes a plan-mode policy that allows exactly the registered MCP servers', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
+    try {
+      const external = [
+        { id: 'a', name: 'docs', config: { command: 'node', args: ['docs.js'] } },
+        { id: 'b', name: 'bad"name', config: { command: 'node' } },
+      ]
+      const wiring = prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-ro', cwd, port: 4200, capability, external, readOnly: true })
+      expect(wiring.extraArgs[0]).toBe('--policy')
+      const policyFile = wiring.extraArgs[1]!
+      expect(policyFile).toBe(path.join(cwd, '.gemini', GEMINI_PLAN_MCP_POLICY_FILE))
+      const policy = fs.readFileSync(policyFile, 'utf8')
+      expect(policy).toContain('mcpName = "specrails"')
+      expect(policy).toContain('mcpName = "docs"')
+      // Unsafe names never reach the TOML file.
+      expect(policy).not.toContain('bad')
+      // Rules only apply in plan mode, so they cannot widen a yolo/default turn.
+      expect(policy.match(/modes = \["plan"\]/g)).toHaveLength(2)
+      expect(policy).not.toMatch(/toolName = "(write_file|replace|run_shell_command)"/)
+      if (process.platform !== 'win32') expect(fs.statSync(policyFile).mode & 0o777).toBe(0o600)
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  it('gemini default turn: no policy argument, byte-identical to the pre-read-only wiring', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
+    try {
+      const wiring = prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-rw', cwd, port: 4200, capability })
+      expect(wiring.extraArgs).toEqual([])
+      expect(fs.existsSync(path.join(cwd, '.gemini', GEMINI_PLAN_MCP_POLICY_FILE))).toBe(false)
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true })
     }

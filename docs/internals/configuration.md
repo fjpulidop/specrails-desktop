@@ -49,7 +49,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 | **Language** | App-wide UI language (hot-switch, no restart). Eight built-ins: `en`, `es`, `fr`, `de`, `pt`, `it`, `zh`, `ja`. | `ui_language` (unset = follow the OS language; only an explicit pick is persisted) |
 | **Mobile Access** | Enable the mobile-companion gateway, pair/revoke devices, and rotate the device cert identity. | — (loopback + token still enforced server-side) |
 | **specrails-tech** | Base URL for the external specrails-tech agents service. | `specrails_tech_url` = `http://localhost:3000` (the `SPECRAILS_TECH_URL` env var is only a fallback when this setting is unset — the stored setting wins) |
-| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
+| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded; rail/loop launches get `409 daily_budget_exceeded` and running loops pause `budget_paused` between AI steps — see [tracking cost](../tracking-cost.md#rails-and-loops-over-budget)) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
 | **OS Notifications** | Desktop notification preferences for long-running jobs and budget events. | — |
 | **Outbound Webhooks** | HTTP webhooks fired on `job.completed`, `job.failed`, `job.canceled`, `daily_budget_exceeded`, and `desktop_daily_budget_exceeded`. | webhooks table (a hook created without an explicit events list defaults to `["job.completed","job.failed","job.canceled"]`) |
 | **Code section** | Plain-language file-summary language (`en` / `es`) and the monthly summary budget cap. | `summary_language` = `en`, `summary_monthly_budget_usd` = `5.00` |
@@ -71,8 +71,12 @@ Project settings apply to a single project. Open them from the project's **Setti
 |---------|------------------|
 | **Pipeline Telemetry** | Opt-in toggle that injects OpenTelemetry env vars into pipeline job spawns so they emit OTLP signals back to the app. Off by default. |
 | **Rail Pre-prompt** | Text prepended to every rail launch for this project. |
-| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (Claude and Kimi advertise this autonomous rail mode). |
+| **Freestyle pre-prompt** | Text prepended to Freestyle-mode launches (every CLI provider and local engine advertises this autonomous rail mode; only Claude adds the interactive in-job chat). |
+| **Worktree environment** | Names of environment variables passed to the project's agents (values are read at spawn time, never stored). |
+| **Agent environment** | `inherit` (default) or `minimal`. See [Agent environment mode](#agent-environment-mode). |
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
+| **Review limit** | `reviewWipLimit` (`config.review_wip_limit`): how many deliveries may wait for review at once. Running (`building`), undecided (`on_review`) and open app PRs (`pr_draft`/`pr_ready`) count, one per top-level delivery. Empty = no limit (default); the UI suggests 5. At the limit every rail launch door refuses a **new** delivery with `409 review_wip_limit_reached`. Changes to an existing delivery (revision, Relaunch, PR follow-up) stay allowed. See [safe PR flow](safe-pr-review-flow.md#review-wip-limit). |
+| **Agent actions audit** | `agentAuditRetentionDays` (default 30, 1–3650): how long the project keeps its log of what agents read, wrote, executed, called over MCP or fetched. Older rows are deleted 5 seconds after the project opens and then daily. See [agent actions audit](agent-actions-audit.md). |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
 | **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. |
 | **Setup commands** | Idempotent commands Core runs inside the repository checkout before every verification plan, for example `npx playwright install chromium`. Same entry shape as `verification` (`repositoryId`, `command`, `args`, optional `cwd`, `env`, `timeoutMs`, `key`, `label`), stored under `setup`, no auto-detection. Credential-like `env` keys are refused and `key` values must be unique across `setup` and `verification`. A failing setup command ends the run as blocked by the host environment. The list reaches Core only when the installed Core advertises the `setupCommands` capability; older cores receive the configuration without it and the run log records a one-line note. |
@@ -143,12 +147,12 @@ specrails-desktop remove <project-id>    # Unregister a project by ID
 specrails-desktop implement "#42"                  # Queue /specrails:implement for spec #42
 specrails-desktop implement "#40" "#41" "#43"        # One aggregate implement run over several specs
 specrails-desktop "any raw prompt"                 # Pass a raw prompt straight to the AI CLI
-specrails-desktop /specrails:health-check          # Pass any slash command directly
+specrails-desktop /specrails:retry                 # Pass any slash command directly
 ```
 
 > **Always quote issue refs.** An unquoted `#` starts a shell comment, so `implement #40 #41` silently drops the refs. Quote each one: `"#40" "#41"`.
 
-**Known verbs** (automatically prefixed with `/specrails:`): `implement`, `why`, `get-backlog-specs`, `auto-propose-backlog-specs`, `propose-spec`, `refactor-recommender`, `health-check`, `compat-check`, `enrich`. The removed `batch-implement` verb is mapped to `implement`. Any other first argument is passed as a raw prompt.
+**Known verbs** (automatically prefixed with `/specrails:`; `KNOWN_VERBS` in `cli/args.ts`): `implement`, `retry` — the only `/specrails:*` commands Core 6 ships. The removed `batch-implement` verb is mapped to `implement`. Any other first argument (including retired Core commands such as `why` or `health-check`) is passed as a raw prompt.
 
 ### Port override example
 
@@ -221,6 +225,71 @@ receives one aggregated warning, for example
 `[environment] NODE_AUTH_TOKEN not available (probe-timeout); configure it in the login shell or launch from a terminal`.
 Statuses, logs and MCP output contain names and states only, never values.
 
+#### Agent environment mode
+
+The project setting `agentEnvMode` (Project Settings → **Agent environment**,
+stored as `config.agent_env_mode`) decides what the Desktop server environment
+an agent process receives.
+
+- **`inherit`** (default). Unchanged behavior: agents receive the Desktop
+  environment, plus the passthrough overlay on the paths that already applied it
+  (rail jobs, loops, runtime controls).
+- **`minimal`**. Agents receive a fresh environment built from:
+  - a shared allowlist: `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `LANG`,
+    `LANGUAGE`, `LC_*`, `TMPDIR`, `TMP`, `TEMP`, `TERM`, `COLORTERM`, `TZ`,
+    `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`,
+    `XDG_RUNTIME_DIR`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY` (both
+    cases), `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`;
+  - Windows essentials, matched case-insensitively on Windows: `SystemRoot`,
+    `SystemDrive`, `windir`, `ComSpec`, `PATHEXT`, `USERPROFILE`, `USERNAME`,
+    `USERDOMAIN`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`,
+    `ProgramData`, `ALLUSERSPROFILE`, `PUBLIC`, `ProgramFiles`,
+    `ProgramFiles(x86)`, `ProgramW6432`, `CommonProgramFiles*`,
+    `NUMBER_OF_PROCESSORS`, `PROCESSOR_*` (architecture, identifier), `OS`,
+    `COMPUTERNAME`. `windowsSpawnEnv` still backfills the canonical values;
+  - Specrails' own variables (`SPECRAILS_*`), including the relocation,
+    profile, telemetry and repo-map overlays added per spawn;
+  - the auth/config names each provider adapter declares in `envAllowlist`:
+
+    | Provider | Names |
+    |----------|-------|
+    | Claude | `ANTHROPIC_*`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_*`, `DISABLE_AUTOUPDATER` |
+    | Codex | `CODEX_*`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT` |
+    | Gemini | `GEMINI_*`, `GOOGLE_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GENAI_USE_VERTEXAI`, `CLOUDSDK_CONFIG` |
+    | Kimi | `KIMI_*`, `MOONSHOT_*` |
+    | Local engine | the connection's `apiKeyEnv`, when set |
+
+    A spawn receives only its provider's names. Core-hosted work (loop
+    definitions, Implement runs driven by Core, runtime controls, mission
+    session hosts) receives every registered provider's names, because Core may
+    launch any configured role provider. Loop shell steps receive no provider
+    names;
+  - the project's passthrough names, with login-shell recovery as above.
+
+  Everything else (cloud credentials such as `AWS_*`, `GITHUB_TOKEN`, database
+  URLs, unrelated API keys) is withheld. Add a name to the passthrough list when
+  a tool needs it, for example `AWS_PROFILE` for Claude on Bedrock.
+
+Every project agent spawn path builds its base environment through one builder
+(`resolveProjectAgentEnv` / `projectAgentSourceEnv` in `server/project-env.ts`,
+pure policy in `server/modules/execution/domain/agent-env.ts`): rail jobs
+(headless and interactive), loop AI steps, deciders, shell steps and Core
+definition runs, runtime controls, missions (legacy runners and the Core session
+host of a project scope), project chats and Explore, spec generation, proposals,
+Contract Refine, SMASH, agent refinement and AI ticket edits. Not covered yet:
+the project setup wizard, project builder chat, file summaries, agent generation
+and conversation-title helpers; they keep the Desktop environment.
+
+The mode applies to processes started after the change. A running mission
+session host keeps the environment it started with until it restarts.
+
+`GET /api/projects/:projectId/agent-env/status` returns, without values, the
+mode, the shared allowlist patterns, the Desktop variable names that pass them,
+the configured passthrough names and, per provider, its patterns and the extra
+names they admit. The Project Settings card renders this list. The MCP
+`specrails_env` tool reports the mode in `get` but cannot change it, so an agent
+cannot widen its own environment.
+
 A few env vars are read directly by the app. The two most useful operational ones:
 
 | Variable | Description |
@@ -245,6 +314,12 @@ own: Claude through its login/config, Codex via `codex login`, Gemini through
 its native key/config, and Kimi via `kimi login` or user-managed
 `~/.kimi-code/config.toml`. See [Kimi](../kimi.md), [Codex](../codex.md), and
 [Gemini](../gemini.md).
+
+### Mission read-only policy
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_MISSION_READ_ONLY` | Default on. Mission (agent chat) turns use the provider's native read-only boundary, and the `specrails_*` MCP tools stay callable. Claude spawns with only read-only built-in tools, Codex uses its read-only sandbox, Gemini uses plan mode plus a plan-scoped MCP policy, and local engines use the runner's read-only tool set. Core mission sessions get the matching `permissions`/`tools` policy. Kimi has no native read-only mode and is unchanged. Set to `false` to restore the previous write-capable mission argv and session policy without a release. See [read-only missions](mission-read-only-policy.md). |
 
 ### Core agent sessions (rollout)
 
@@ -279,6 +354,36 @@ Core launches on the chosen provider (delegated), at the cost of a cold start
 and no shared prompt cache. The UI asks for confirmation before leaving the
 default. The setting is read-only over the Specrails MCP. See
 [agent sessions](agent-sessions.md#sub-agent-runtime-who-launches-them).
+
+**Reviewer model family suggestion.** When two or more providers are usable, the
+loop editor suggests running the reviewer on a different model family than the
+developer (Claude ↔ Codex first, then Gemini, Kimi and local engines), since a
+different family catches different mistakes. It is advisory only: the default
+roles never change unless the user clicks **Apply**, which edits the loop draft.
+**Dismiss** stores `reviewerFamilySuggestionDismissed` (`config.reviewer_family_suggestion_dismissed`,
+row removed when `false`) for that project.
+
+### Spec triage and role engines
+
+| Variable | Effect |
+|----------|--------|
+| `SPECRAILS_SPEC_TRIAGE` | Default on. A created or edited `draft`/`todo` spec is triaged automatically (debounced, asynchronous). Set to `false` to stop the automatic triggers; **Recalculate** (`POST /tickets/:id/triage`) keeps working. See [spec triage](spec-triage.md). |
+
+Desktop-owned role engines live in `<workspace>/.specrails/loop-role-engines.json`
+(`GET/PUT /:projectId/agent-runtime/loop-roles`), next to Core's
+`agent-runtime.json`. Each role is `{ provider, model?, effort? }`; an absent
+role falls back as described:
+
+| Role | Used by | Default when absent |
+|------|---------|---------------------|
+| `verifier` | Loop ai-steps under a `roles` rail launch | The rail's primary engine |
+| `decider` | The Loop Decider under a `roles` rail launch | The rail's primary engine |
+| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
+
+A role whose provider is no longer detected falls back to its default. A stale
+model falls back to the provider's default model. The triage role must name a
+provider that can enforce a pure-output tool policy, otherwise the triage is
+recorded as unavailable.
 
 For the full catalogue of feature flags and kill switches (`SPECRAILS_*` server gates, `VITE_FEATURE_*` client flags, `SPECRAILS_CODEX_BETA`, `SPECRAILS_GEMINI_BETA`, `SPECRAILS_EXPLORE_*`), see [../customizing.md](../customizing.md#environment-variables).
 

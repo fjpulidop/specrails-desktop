@@ -39,6 +39,48 @@ export interface ProjectSettings {
   allowSubagents: boolean
   /** Who runs sub-agents. null = the mission agent's own provider (native, its defaults). */
   subagentRuntime: SubagentRuntimeSetting | null
+  /** The user dismissed the "run the reviewer on a different model family"
+   *  suggestion for this project. Off by default; purely advisory UI state. */
+  reviewerFamilySuggestionDismissed: boolean
+  /** Review WIP limit: how many deliveries may wait for review at once
+   *  (building, on review, or an open app PR). null = no limit (default). */
+  reviewWipLimit: number | null
+  /** Environment given to this project's agent processes. `inherit` (default)
+   *  forwards the Desktop environment as before; `minimal` forwards only an
+   *  allowlist, the passthrough names and the provider's own auth/config names. */
+  agentEnvMode: AgentEnvMode
+  /** Days the agent actions audit log keeps rows (1-3650, default 30). */
+  agentAuditRetentionDays: number
+}
+
+/** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
+export const REVIEW_WIP_LIMIT_MAX = 100
+
+/** An integer from 1 to REVIEW_WIP_LIMIT_MAX, or null to remove the limit. */
+export function parseReviewWipLimit(value: unknown): number | null {
+  if (value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > REVIEW_WIP_LIMIT_MAX) {
+    throw new SettingsValidationError(`reviewWipLimit must be an integer from 1 to ${REVIEW_WIP_LIMIT_MAX}, or null for no limit`)
+  }
+  return value
+}
+
+export type AgentEnvMode = 'inherit' | 'minimal'
+
+export function parseAgentEnvMode(value: unknown): AgentEnvMode {
+  if (value === 'inherit' || value === 'minimal') return value
+  throw new SettingsValidationError("agentEnvMode must be 'inherit' or 'minimal'")
+}
+
+export const DEFAULT_AGENT_AUDIT_RETENTION_DAYS = 30
+export const MAX_AGENT_AUDIT_RETENTION_DAYS = 3650
+
+/** Strict integer day count; values outside 1-3650 are rejected. */
+export function parseAgentAuditRetentionDays(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_AGENT_AUDIT_RETENTION_DAYS) {
+    throw new SettingsValidationError(`agentAuditRetentionDays must be an integer between 1 and ${MAX_AGENT_AUDIT_RETENTION_DAYS}`)
+  }
+  return value
 }
 
 /** A provider, model and effort chosen for sub-agents (see core-agent-sessions-host D9). */
@@ -121,11 +163,18 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
       throw new SettingsValidationError(error instanceof Error ? error.message : 'invalid worktreeEnvPassthrough')
     }
   }
+  if (values.reviewWipLimit !== undefined) patch.reviewWipLimit = parseReviewWipLimit(values.reviewWipLimit)
+  if (values.agentEnvMode !== undefined) patch.agentEnvMode = parseAgentEnvMode(values.agentEnvMode)
   if (values.subagentRuntime !== undefined) patch.subagentRuntime = parseSubagentRuntimeSetting(values.subagentRuntime)
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents
   }
+  if (values.reviewerFamilySuggestionDismissed !== undefined) {
+    if (typeof values.reviewerFamilySuggestionDismissed !== 'boolean') throw new SettingsValidationError('reviewerFamilySuggestionDismissed must be a boolean')
+    patch.reviewerFamilySuggestionDismissed = values.reviewerFamilySuggestionDismissed
+  }
+  if (values.agentAuditRetentionDays !== undefined) patch.agentAuditRetentionDays = parseAgentAuditRetentionDays(values.agentAuditRetentionDays)
   if (values.integrationBranch !== undefined) {
     const branch = values.integrationBranch
     if (typeof branch !== 'string') throw new SettingsValidationError('integrationBranch must be a string')

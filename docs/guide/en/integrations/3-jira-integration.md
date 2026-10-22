@@ -15,7 +15,7 @@ All write-backs go through a durable, crash-safe outbox, so a momentary Jira hic
 
 ## Connecting a board
 
-You connect from a project's **Settings** page (there's also an optional "Configure Jira" step at the end of the Add-Project wizard). The connect wizard walks you through:
+You connect from the **Plugins** page in the left sidebar: click **Install** on the Jira card and choose the project. The connect wizard walks you through:
 
 1. **Test** — enter your Jira URL and credentials, and Specrails verifies the connection.
 2. **Pick a project** — choose which Jira project to sync with.
@@ -52,7 +52,7 @@ So you can experiment freely — flip it on, run a few rails, flip it off — wi
 
 ## Day-to-day
 
-Once connected, the project's Settings page shows a **connected card** where you can:
+Once connected, the Jira card on the **Plugins** page switches to **Manage**. Choose the project there to open its **connected card**, where you can:
 
 - **Sync now** — force an immediate poll instead of waiting for the timer.
 - **Retry dead-letters** — re-run any write-backs that got stuck.
@@ -69,4 +69,4 @@ Specs backed by Jira show a **Jira key badge** (like `PROJ-123`) on their card, 
 
 ## Turning it off
 
-If you ever want to fully back out, just **Disconnect** from Settings. Your specs return to local-only behavior, and the Jira metadata simply sits unused — nothing is destroyed.
+If you ever want to fully back out, just **Disconnect** from the connected card. Your specs return to local-only behavior, and the Jira metadata simply sits unused — nothing is destroyed.

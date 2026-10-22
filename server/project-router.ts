@@ -7,6 +7,7 @@ import { isCodeExplorerEnabled } from './feature-flags'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import { createHooksRouter } from './hooks'
 import { createRailsRouter } from './modules/delivery/runtime/rails-router'
+import { registerFlowHttp } from './modules/flow/adapters/http'
 import { createProfilesRouter } from './modules/agents/runtime/profiles-router'
 import { createPluginsRouter } from './plugins-router'
 import { createCodeExplorerRouter, filterCodeExplorerActivityPaths } from './modules/code/runtime/code-explorer-router'
@@ -110,6 +111,9 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     ))
     hooksRouter(req, res, next)
   })
+
+  // Flow mode routes (/:projectId/flow...), thin adapter over the Flow use cases.
+  registerFlowHttp(router, (req) => ctx(req).flow)
 
   // Mount rails router under each project
   const railsRouter = createRailsRouter()

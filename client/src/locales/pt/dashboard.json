@@ -183,7 +183,10 @@
     "skipInFlight_one": "{{count}} ignorado (spec já em andamento)",
     "skipInFlight_other": "{{count}} ignorados (specs já em andamento)",
     "failedCount_one": "{{count}} falhou",
-    "failedCount_other": "{{count}} falharam"
+    "failedCount_other": "{{count}} falharam",
+    "skipBudget": "{{count}} acima do orçamento diário",
+    "skipReviewLimit_one": "{{count}} retido pelo limite de revisão",
+    "skipReviewLimit_other": "{{count}} retidos pelo limite de revisão"
   },
   "launchAllDialog": {
     "title": "Lançar todos os rails",
@@ -199,7 +202,12 @@
     "costTitle": "Custo multiplicado.",
     "costBody": "Cada rail gera sua própria execução de IA — o gasto escala com o número de rails.",
     "launch_one": "Lançar {{count}} rail",
-    "launch_other": "Lançar {{count}} rails"
+    "launch_other": "Lançar {{count}} rails",
+    "reviewLimitTitle": "Limite de revisão: {{pending}}/{{limit}} aguardando.",
+    "reviewLimitNone_one": "{{count}} rail abriria uma nova entrega, por isso nada é iniciado. Decida antes uma entrega pendente.",
+    "reviewLimitNone_other": "{{count}} rails abririam novas entregas, por isso nada é iniciado. Decida antes uma entrega pendente.",
+    "reviewLimitPartial_one": "Só {{launched}} podem começar agora; {{count}} rail aguarda até que uma entrega seja decidida.",
+    "reviewLimitPartial_other": "Só {{launched}} podem começar agora; {{count}} rails aguardam até que uma entrega seja decidida."
   },
   "railControls": {
     "viewJobLog": "Ver log do job",
@@ -221,7 +229,9 @@
     "worktreesNeedsReview": "{{count}} para revisar",
     "execSteps": "{{count}} passos",
     "execLines": "{{count}} linhas",
-    "openspec": "SDD Quick (OpenSpec)"
+    "openspec": "SDD Quick (OpenSpec)",
+    "recommended": "Recomendado",
+    "recommendedOption": "{{label}} · recomendado"
   },
   "railRow": {
     "moveToSpecs": "Mover para Specs",
@@ -271,5 +281,15 @@
   },
   "rail": {
     "rolesNoFreestyle": "O Freestyle precisa de um único provedor — escolha Implement ou um loop antes de mudar este rail para motores por papel."
+  },
+  "reviewWip": {
+    "badge": "Em revisão {{pending}}/{{limit}}",
+    "title": "Entregas aguardando revisão (limite {{limit}}). Clique para listá-las.",
+    "reachedTitle": "Limite de revisão atingido ({{limit}}). Novos lançamentos aguardam até que uma entrega seja decidida.",
+    "panelTitle": "Aguardando revisão",
+    "panelBody": "Entregas em execução, entregas aguardando decisão e PRs abertos contam para o limite de {{limit}}.",
+    "panelReached": "O limite de {{limit}} foi atingido. Decida uma destas (Criar PR, mesclar ou descartar) para iniciar trabalho novo. Alterações nestas entregas continuam permitidas.",
+    "empty": "Nada aguardando revisão.",
+    "playBlocked": "Limite de revisão atingido ({{pending}}/{{limit}} aguardando). Decida uma entrega para iniciar trabalho novo."
   }
 }

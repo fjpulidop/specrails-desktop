@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
 import { Plus, RefreshCw, X } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
+import { notifyReviewWipLimitChanged, parseReviewWipLimitInput, REVIEW_WIP_LIMIT_MAX, SUGGESTED_REVIEW_WIP_LIMIT } from '../../../lib/review-wip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
@@ -807,6 +808,190 @@ export function ProjectBudgetSection() {
             </div>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Review WIP limit (review-wip-limit) ──────────────────────────────────────
+// How many deliveries may wait for review at once. Empty = no limit (default).
+// Every launch door refuses a NEW delivery at the limit; changes to an
+// existing delivery stay allowed.
+export function ProjectReviewWipSection() {
+  const { t } = useTranslation('settings')
+  const { activeProjectId } = useDesktop()
+  const [value, setValue] = useState('')
+  const [saved, setSaved] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const touchedRef = useRef(false)
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    let cancelled = false
+    setLoaded(false)
+    touchedRef.current = false
+    fetch(`${getApiBase()}/settings`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { reviewWipLimit?: number | null } | null) => {
+        if (cancelled || !data) return
+        const limit = typeof data.reviewWipLimit === 'number' ? data.reviewWipLimit : null
+        setSaved(limit)
+        if (!touchedRef.current) setValue(limit === null ? '' : String(limit))
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [activeProjectId])
+
+  async function save(raw: string) {
+    const limit = parseReviewWipLimitInput(raw)
+    if (limit === undefined) {
+      toast.error(t('reviewWip.invalid', { max: REVIEW_WIP_LIMIT_MAX }))
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch(`${getApiBase()}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewWipLimit: limit }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || `HTTP ${res.status}`)
+      }
+      setSaved(limit)
+      setValue(limit === null ? '' : String(limit))
+      notifyReviewWipLimitChanged(limit)
+      toast.success(limit === null ? t('reviewWip.removed') : t('reviewWip.saved', { count: limit }))
+    } catch (err) {
+      toast.error(t('reviewWip.saveFailed'), { description: (err as Error).message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!loaded) return <SectionSkeleton />
+
+  return (
+    <Card data-testid="review-wip-section">
+      <CardHeader>
+        <CardTitle>{t('reviewWip.title')}</CardTitle>
+        <CardDescription>{t('reviewWip.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <label htmlFor="review-wip-limit" className="text-xs font-medium">{t('reviewWip.label')}</label>
+        <p className="text-xs text-muted-foreground">{t('reviewWip.help', { suggested: SUGGESTED_REVIEW_WIP_LIMIT })}</p>
+        <div className="flex items-center gap-2">
+          <Input
+            id="review-wip-limit"
+            type="number"
+            min="1"
+            max={String(REVIEW_WIP_LIMIT_MAX)}
+            step="1"
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => { touchedRef.current = true; setValue(e.target.value) }}
+            placeholder={t('reviewWip.placeholder')}
+            className="h-8 w-28 text-xs font-mono"
+            data-testid="review-wip-input"
+          />
+          {saved === null && value.trim() === '' && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { touchedRef.current = true; setValue(String(SUGGESTED_REVIEW_WIP_LIMIT)) }} data-testid="review-wip-suggest">
+              {t('reviewWip.useSuggested', { suggested: SUGGESTED_REVIEW_WIP_LIMIT })}
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" className="ml-auto h-7 text-xs" disabled={saving} onClick={() => { void save(value) }} data-testid="review-wip-save">
+            {saving ? t('common:states.saving') : t('common:actions.save')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+const AUDIT_RETENTION_MAX_DAYS = 3650
+
+/** Agent actions audit: how long the per-project log of what agents read,
+ *  wrote, executed, called over MCP or fetched is kept (default 30 days). */
+export function ProjectAgentAuditSection() {
+  const { t } = useTranslation('settings')
+  const { activeProjectId } = useDesktop()
+  const [days, setDays] = useState('30')
+  const [isSaving, setIsSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const touchedRef = useRef(false)
+
+  useEffect(() => {
+    if (!activeProjectId) return
+    let cancelled = false
+    setLoaded(false)
+    touchedRef.current = false
+    fetch(`${getApiBase()}/settings`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { agentAuditRetentionDays?: number } | null) => {
+        if (cancelled || !data || touchedRef.current) return
+        if (typeof data.agentAuditRetentionDays === 'number') setDays(String(data.agentAuditRetentionDays))
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [activeProjectId])
+
+  if (!loaded) return <SectionSkeleton />
+
+  async function save() {
+    const parsed = Number(days.trim())
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > AUDIT_RETENTION_MAX_DAYS) {
+      toast.error(t('agentAudit.invalidDays', { max: AUDIT_RETENTION_MAX_DAYS }))
+      return
+    }
+    setIsSaving(true)
+    try {
+      const res = await fetch(`${getApiBase()}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentAuditRetentionDays: parsed }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(body.error || 'Failed to save')
+      }
+      toast.success(t('agentAudit.saved', { count: parsed }))
+    } catch (err) {
+      toast.error(t('agentAudit.saveFailed'), { description: (err as Error).message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('agentAudit.title')}</CardTitle>
+        <CardDescription>{t('agentAudit.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{t('agentAudit.retentionLabel')}</span>
+          <Input
+            type="number"
+            min={1}
+            max={AUDIT_RETENTION_MAX_DAYS}
+            step={1}
+            value={days}
+            onChange={(e) => { touchedRef.current = true; setDays(e.target.value) }}
+            className="w-24"
+            aria-label={t('agentAudit.retentionLabel')}
+            data-testid="agent-audit-retention-input"
+          />
+          <span className="text-muted-foreground">{t('agentAudit.daysUnit')}</span>
+        </label>
+        <p className="text-[11px] text-muted-foreground">{t('agentAudit.caveat')}</p>
+        <Button size="sm" onClick={save} disabled={isSaving} data-testid="agent-audit-retention-save">
+          {t('agentAudit.save')}
+        </Button>
       </CardContent>
     </Card>
   )

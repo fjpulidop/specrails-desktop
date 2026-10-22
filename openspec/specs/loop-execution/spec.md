@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change loop-builder. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: App-Owned Iteration Loop
 
 The `LoopRunManager` engine SHALL own the iteration loop for every loop run: it SHALL traverse the published loop graph, increment a monotonic iteration counter on each pass through the loop body, and enforce both the `maxIterations` limit and the configured timeout. The run MUST stop as soon as either limit is reached, and the engine MUST NOT delegate iteration counting or limit enforcement to specrails-core or to any AI node.
@@ -222,7 +224,7 @@ The loop runner SHALL support capturing a value from an ai-step's output during 
 A loop AI step whose per-step timeout is disabled (`aiStepTimeoutMinutes = 0`, the factory-loop default) SHALL still be bounded by the engine's inactivity watchdog: when the step's provider produces no stream activity for the configured idle threshold, the engine SHALL tear the step down, record `loop_step_end` with `status: 'stalled'` and `reason: 'idle_timeout'`, retry the step once by resume, and on a second stall settle the run as `stalled` rather than leaving it `running` indefinitely. Disabling the watchdog via its env contract SHALL restore the untimed behaviour byte-identically.
 
 #### Scenario: Factory step cannot run forever
-- **WHEN** a `factory:batch` step's provider wedges with no output past the idle threshold, and the resumed attempt wedges again
+- **WHEN** a `factory:implement` step's provider wedges with no output past the idle threshold, and the resumed attempt wedges again
 - **THEN** the run settles `stalled`, broadcasts `loop.run_completed` with `status: 'stalled'` and the job row leaves `running`
 
 #### Scenario: Timed steps are unchanged
@@ -263,4 +265,3 @@ Background continuation SHALL retain the session's existing cancellation, timeou
 - **THEN** the existing termination path SHALL take precedence
 - **AND** the host SHALL NOT send further continuation input
 - **AND** recorded usage SHALL retain each accepted result exactly once
-

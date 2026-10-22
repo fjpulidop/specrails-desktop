@@ -51,7 +51,13 @@ for specialized recipes. `LoopAgentsEditor` imports historical project agents
 only on explicit action and discards responses after project switches.
 `LoopTurnLimits` (Advanced settings) lists every AI step with its role and an
 editable **Maximum turns**; `lib/loop-role-agents.ts` is the shared role read/write
-used by it and the per-step panel. See
+used by it and the per-step panel. `ReviewerFamilySuggestion` (shown wherever the
+reviewer engine is visible) offers to move the reviewer to another model family when
+two or more providers are usable (`useAvailableProviders`) and the reviewer resolves
+to the developer's provider (`inherit` = the project's primary). The choice comes
+from `lib/reviewer-family-suggestion.ts` (Claude ↔ Codex first, then Gemini, Kimi,
+local engines). Apply edits only the draft; Dismiss persists per project as
+`reviewerFamilySuggestionDismissed`. See
 [workflow ownership](../../../../docs/internals/desktop-owned-workflows.md) for
 compatibility and frozen-run behavior.
 
