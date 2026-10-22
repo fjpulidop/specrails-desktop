@@ -648,7 +648,9 @@ export class AgentChatManager {
       : ''
     const flowNote = flowTurn
       ? ` | Flow: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)`
-      : await this._flowOfferable(conversationId) ? ' | Flow: offerable' : ''
+      // Only await when Flow is wired: an unconditional await would put a
+      // microtask before the spawn on every mission turn (no Flow port ⇒ no offer).
+      : this._flowTurns?.offerable && await this._flowOfferable(conversationId) ? ' | Flow: offerable' : ''
     const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}${flowNote}`
     const contextPrefix = conversation.pinned_project_id
       ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`

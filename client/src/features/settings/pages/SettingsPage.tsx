@@ -128,6 +128,7 @@ export default function SettingsPage() {
       <ProjectBudgetSection />
 
       <ProjectReviewWipSection />
+
       <ProjectAgentAuditSection />
 
       <TerminalSettingsSection mode="project" />
