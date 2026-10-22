@@ -1,0 +1,15 @@
+# Gitleaks configuration for the repository-wide secret scan (CI `secret-scan`).
+#
+# The default rule set stays in force. The only exceptions are tests whose job
+# is to prove that secrets are redacted or filtered: they must contain
+# realistic, FAKE credentials. Keep this list limited to such tests; never
+# allowlist source files.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used only by redaction and environment-filtering tests"
+paths = [
+  '''^server/modules/audit/__tests__/domain\.test\.ts$''',
+  '''^server/modules/execution/__tests__/agent-env\.test\.ts$''',
+]

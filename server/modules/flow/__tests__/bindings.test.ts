@@ -35,6 +35,10 @@ beforeEach(() => {
   repo = path.join(tmp, 'repo')
   fs.mkdirSync(repo)
   git(['init', '-q', '-b', 'main'])
+  // CI runners have no global git identity; the freeze commit runs through the
+  // production git runner, so give the repository (and its worktrees) one.
+  git(['config', 'user.name', 't'])
+  git(['config', 'user.email', 't@t'])
   fs.writeFileSync(path.join(repo, 'README.md'), 'hello\n')
   git(['add', '.'])
   git(['commit', '-q', '-m', 'init'])
