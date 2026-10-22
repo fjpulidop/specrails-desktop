@@ -283,7 +283,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; it cannot go back to the Flow', session.id)
     }
     const stopped = ports.rails.stoppedDelivery(deliveryId)
-    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null), now: ports.clock.now() })
+    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null, stopped?.derivation ?? null), now: ports.clock.now() })
     // Delivery owns the transaction: its ledger row disappears and this Flow
     // becomes the owner again, or neither happens.
     ports.rails.returnWorktree({
@@ -313,7 +313,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
    */
   async function returnToFlow(input: { deliveryId: string }): Promise<FlowSession> {
     const session = flowOfDelivery(input.deliveryId)
-    return serialized(`flow:${session.id}`, async () => {
+    const result = await serialized(`flow:${session.id}`, async () => {
       const returned = await returnWorktree(load(session.id), input.deliveryId)
       if (returned.session.state !== 'paused') return returned.session
       try {
@@ -323,6 +323,28 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         return load(session.id)
       }
     })
+    await announceReturn(result, input.deliveryId)
+    return result
+  }
+
+  /**
+   * Back to Flow, visibly: the card with what the reviewer asked for, then ONE
+   * automatic Flow turn that starts on it (only while the Flow is active —
+   * a paused Flow keeps the briefing for the person's next turn). Both are
+   * idempotent by delivery; a failure never undoes the return.
+   */
+  async function announceReturn(session: FlowSession, deliveryId: string): Promise<void> {
+    const conversation = ports.conversation
+    if (!conversation || session.deliveryId !== deliveryId) return
+    try {
+      const stopped = ports.rails.stoppedDelivery(deliveryId)
+      conversation.postReturnCard({ conversationId: session.conversationId, flowId: session.id, deliveryId, findings: stopped?.findings ?? null, derivation: stopped?.derivation ?? null })
+      if (session.state === 'active' && session.returnBriefing) {
+        await conversation.startReturnTurn({ conversationId: session.conversationId, flowId: session.id, deliveryId })
+      }
+    } catch (error) {
+      log.warn(`[flow] ${session.id} return briefing not announced: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**

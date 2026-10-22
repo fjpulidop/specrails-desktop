@@ -13,7 +13,6 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/RailPrDecisionStrip.tsx](components/RailPrDecisionStrip.tsx)
 - [components/RepositoryDeliveries.tsx](components/RepositoryDeliveries.tsx)
 - [components/TargetPrLaunchDialog.tsx](components/TargetPrLaunchDialog.tsx)
-- [components/LoopChip.tsx](components/LoopChip.tsx) — which loop produced a delivery (localized built-ins, custom name, "Loop" fallback); mission card and rail strip
 - [components/TopRiskLine.tsx](components/TopRiskLine.tsx)
 - [context/RailPrDecisionContext.tsx](context/RailPrDecisionContext.tsx)
 - [lib/pr-delivery.ts](lib/pr-delivery.ts)

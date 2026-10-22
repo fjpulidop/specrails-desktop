@@ -1032,5 +1032,15 @@
       "returnFailed": "Flow に戻れませんでした：{{detail}}",
       "relaunchFailed": "Flow → Spec を再実行できませんでした：{{detail}}"
     }
+  },
+  "flowReturn": {
+    "title": "レビュアーの指摘",
+    "noFindings": "Flow → Spec の実行は納品前に停止しました。ワークツリーはすべての変更とともにこの Flow に戻りました。",
+    "coverage": "スペックは変更された {{files}} ファイルのうち {{explained}} を説明しています",
+    "unexplained": "どの要件にも説明されていないファイル",
+    "moreFiles_one": "ほか {{count}} ファイル",
+    "moreFiles_other": "ほか {{count}} ファイル",
+    "next": "Flow エージェントがこれから着手します。いつでも指示や停止ができます。",
+    "automaticTurn": "自動ターン · Flow に戻る"
   }
 }

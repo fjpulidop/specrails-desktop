@@ -1032,5 +1032,15 @@
       "returnFailed": "Could not go back to Flow: {{detail}}",
       "relaunchFailed": "Could not relaunch Flow → Spec: {{detail}}"
     }
+  },
+  "flowReturn": {
+    "title": "What the reviewer asked for",
+    "noFindings": "The Flow → Spec run stopped before delivery; the worktree is back in this Flow with every change it made.",
+    "coverage": "The spec explains {{explained}} of {{files}} changed files",
+    "unexplained": "Not explained by any requirement",
+    "moreFiles_one": "+{{count}} more file",
+    "moreFiles_other": "+{{count}} more files",
+    "next": "The Flow agent starts on this now; you can steer or stop it at any time.",
+    "automaticTurn": "Automatic turn · Back to Flow"
   }
 }

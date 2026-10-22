@@ -1032,5 +1032,15 @@
       "returnFailed": "No se pudo volver a Flow: {{detail}}",
       "relaunchFailed": "No se pudo relanzar Flow → Spec: {{detail}}"
     }
+  },
+  "flowReturn": {
+    "title": "Lo que pidió el revisor",
+    "noFindings": "La ejecución de Flow → Spec se detuvo antes de entregar; el worktree vuelve a este Flow con todos sus cambios.",
+    "coverage": "La spec explica {{explained}} de {{files}} archivos cambiados",
+    "unexplained": "Sin explicar por ningún requisito",
+    "moreFiles_one": "+{{count}} archivo más",
+    "moreFiles_other": "+{{count}} archivos más",
+    "next": "El agente del Flow empieza ahora con esto; puedes guiarlo o detenerlo en cualquier momento.",
+    "automaticTurn": "Turno automático · Volver a Flow"
   }
 }

@@ -326,7 +326,16 @@ two actions.
   Flow bar resumes it) and `flow_sessions.return_briefing` (migration 78)
   holds the review: the next Flow turn carries it on the USER turn (never
   the system prompt) and the Flow clears it once that turn completes
-  (`briefingDelivered`); a new hand-off drops an undelivered one.
+  (`briefingDelivered`); a new hand-off drops an undelivered one. The return
+  is also announced (`FlowConversation` port, idempotent by delivery): a
+  visible system card "What the reviewer asked for" (`flow-return-briefing`
+  row: issues, score, failing checks, spec coverage with unexplained files)
+  and, when the session opened, ONE automatic Flow turn (durable queue id
+  `flow-return:<deliveryId>`, rendered as an automatic briefing) through the
+  normal Flow turn path — accounted, interruptible — in which the agent says
+  in two lines what it will fix and starts, offering an `options` block first
+  when a finding leaves a genuine decision. A paused return only shows the
+  card; the briefing waits for the person's next turn.
 - **Relaunch** — `POST /flow/by-delivery/:deliveryId/relaunch`: the same
   return, then the ordinary hand-off (freeze, launch) on the same rail with
   the stopped launch's engine choices. The new run re-derives the existing

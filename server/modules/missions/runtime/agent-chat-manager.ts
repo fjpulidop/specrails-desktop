@@ -72,6 +72,7 @@ import { createCoreSessionRunner, type CoreInvocationResult } from './core-sessi
 import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { FlowTurn, FlowTurnContext } from './flow-turn-context'
+import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
 import { conversationSessionState, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
@@ -1591,6 +1592,45 @@ export class AgentChatManager {
   }
 
   private readonly _systemTurnRuns = new Set<string>()
+
+  /**
+   * Persist an app-authored system row once per `dedupeKey` (durable: an
+   * existing row with the same key is never duplicated, across restarts too)
+   * and broadcast `agent_system_row` so open clients append it live. NEVER throws.
+   */
+  postSystemRow(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null {
+    if (this._disposed) return null
+    try {
+      if (!getAgentConversation(this._db, conversationId)) return null
+      const existing = findAgentSystemMessages(this._db, conversationId, (content) => {
+        try { return (JSON.parse(content) as { dedupeKey?: unknown }).dedupeKey === dedupeKey } catch { return false }
+      })
+      if (existing.length > 0) return null
+      const content = { ...row, dedupeKey }
+      const message = addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(content) })
+      this._broadcast({ type: 'agent_system_row', conversationId, messageId: message.id, ...content, timestamp: message.created_at })
+      return message.id
+    } catch (err) {
+      console.error(`[agent-chat] postSystemRow failed (${conversationId}):`, err)
+      return null
+    }
+  }
+
+  /**
+   * Start ONE automatic, app-authored turn through the normal path (queued
+   * behind a live turn, Flow-aware, accounted, interruptible). The durable
+   * queue id `turnKey` makes a repeat (reload, retry, restart) a no-op. It is
+   * rendered as a muted automatic briefing, never as the person's speech.
+   * Returns once admitted; the turn runs in the background. NEVER throws.
+   */
+  async startAutomaticTurn(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'> {
+    if (this._disposed || !getAgentConversation(this._db, conversationId)) return 'skipped'
+    if (getAgentInput(this._db, conversationId, opts.turnKey)) return 'skipped'
+    const ref = { kind: FAILURE_BRIEFING_REF_KIND, id: opts.turnKey, label: opts.label, token: '', metadata: { automatic: true } } as unknown as AgentContextReference
+    void this.sendMessage(conversationId, text, { queueId: opts.turnKey, contextRefs: [ref] }).catch((err: unknown) =>
+      console.error(`[agent-chat] automatic turn failed (${conversationId}):`, err))
+    return 'started'
+  }
 
   /**
    * Dismiss a RUN-ONLY card (mission-rail-cards: a shared-cwd launch keyed on a

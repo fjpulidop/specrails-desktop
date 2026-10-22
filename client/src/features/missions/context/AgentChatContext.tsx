@@ -954,7 +954,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
               : q
           )),
         }))
-      } else if (msg.type === 'agent_run_failure') {
+      } else if (msg.type === 'agent_run_failure' || msg.type === 'agent_system_row') {
         // mission-rail-cards: the server persisted a `run-failure` system row
         // and broadcast it; append it to the ACTIVE thread so the failure
         // marker appears live (background threads rehydrate on select).

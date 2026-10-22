@@ -14,7 +14,7 @@ import type { PrDeliveryFlowReview } from '../../../types'
 /** Issues shown before "Show all". */
 export const FLOW_REVIEW_VISIBLE_ISSUES = 4
 
-export function AgentFlowReviewBlock({ review, children }: { review: PrDeliveryFlowReview; children?: ReactNode }) {
+export function AgentFlowReviewBlock({ review, children, hideNext = false }: { review: PrDeliveryFlowReview; children?: ReactNode; hideNext?: boolean }) {
   const { t } = useTranslation('agent')
   const [expanded, setExpanded] = useState(false)
   const visible = expanded ? review.issues : review.issues.slice(0, FLOW_REVIEW_VISIBLE_ISSUES)
@@ -75,7 +75,7 @@ export function AgentFlowReviewBlock({ review, children }: { review: PrDeliveryF
           ))}
         </div>
       )}
-      <p className="mt-1.5 leading-4 text-foreground/55">{t('runCard.review.next')}</p>
+      {!hideNext && <p className="mt-1.5 leading-4 text-foreground/55">{t('runCard.review.next')}</p>}
       {children && <div className="mt-2 flex flex-wrap items-center gap-1.5">{children}</div>}
     </div>
   )

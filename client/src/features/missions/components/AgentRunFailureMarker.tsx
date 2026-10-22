@@ -55,6 +55,8 @@ export function AgentRunFailureMarker({ row, conversationId = null }: { row: Run
 export function AgentSystemBriefing({ content, contextRefs }: { content: string; contextRefs?: AgentContextReference[] }) {
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
+  // Automatic turns other than a run failure (Back to Flow) name themselves.
+  const automatic = (contextRefs?.[0] as { metadata?: { automatic?: unknown } } | undefined)?.metadata?.automatic === true
   return (
     <div data-testid="agent-system-briefing" className="flex flex-col items-end gap-1">
       <button
@@ -67,7 +69,7 @@ export function AgentSystemBriefing({ content, contextRefs }: { content: string;
         )}
       >
         <Sparkles className="h-3 w-3 text-accent-primary/70" aria-hidden />
-        {t('runFailure.briefing.title')}
+        {automatic ? t('flowReturn.automaticTurn') : t('runFailure.briefing.title')}
         {open ? <ChevronDown className="h-3 w-3 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />}
       </button>
       {open && (

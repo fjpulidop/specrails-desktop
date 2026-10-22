@@ -24,6 +24,7 @@ import { getAdapter } from '../../../providers'
 import { supportsContractRefine } from '../../../providers/runtime'
 import { captureProcessAdmission } from '../../../process-admission'
 import { resolveDefaultSpecModel } from '../../../project-router-helpers'
+import { readSettleEvidence } from '../../delivery/runtime/delivery-evidence'
 import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
 import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from '../../delivery/runtime/flow-worktree-return'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
@@ -37,7 +38,7 @@ import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../.
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, transition,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
   type DerivedChangeText, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
@@ -47,7 +48,14 @@ import type { FlowService } from '../application'
 export interface FlowAgentHost {
   assertFlowSupport(conversationId: string): Promise<void>
   closeFlowSession(conversationId: string, coreSessionId: string, reason: string): Promise<void>
+  /** Persist + broadcast a system row once per `dedupeKey` (null when skipped). Never throws. */
+  postSystemRow?(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null
+  /** Start ONE automatic, app-authored turn keyed by `turnKey` (durable dedup). Never throws. */
+  startAutomaticTurn?(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'>
 }
+
+/** The automatic turn after Back to Flow (the briefing itself rides the Flow turn). */
+export const FLOW_RETURN_TURN_TEXT = 'Back to Flow: the Flow → Spec run came back with the findings above. In at most 2 short lines say what you will fix, then start fixing it in this worktree. If a finding leaves a genuine decision to me (for example removing behaviour nobody asked for versus recording it as a requirement), offer it as an `options` block before editing and wait for my answer.'
 
 export const systemClock: Clock = { now: () => new Date().toISOString() }
 
@@ -408,7 +416,11 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
       stoppedDelivery(deliveryId) {
         const row = getPrDelivery(ctx.db, deliveryId)
         if (!row) return null
-        return { railIndex: row.rail_index, options: launchOptionsOf(row.launch_config_json), findings: toPrDeliverySnapshot(row).flowReview ?? null }
+        const derivation = readSettleEvidence(row.settle_evidence)?.units[0]?.runtime?.derivation ?? null
+        return {
+          railIndex: row.rail_index, options: launchOptionsOf(row.launch_config_json), findings: toPrDeliverySnapshot(row).flowReview ?? null,
+          derivation: derivation ? { change: derivation.change, files: derivation.files, explained: derivation.explained, unexplainedFiles: derivation.unexplainedFiles.slice(0, FLOW_UNEXPLAINED_FILES_CAP), unexplainedOmitted: derivation.unexplainedOmitted + Math.max(0, derivation.unexplainedFiles.length - FLOW_UNEXPLAINED_FILES_CAP) } : null,
+        }
       },
       returnWorktree({ deliveryId, worktreePath, detail, commit }) {
         try {
@@ -418,6 +430,19 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
           if (error instanceof FlowReturnRejectedError) throw new FlowConflictError(error.code, error.message)
           throw error
         }
+      },
+    },
+    conversation: {
+      postReturnCard({ conversationId, flowId, deliveryId, findings, derivation }) {
+        deps.agentHost()?.postSystemRow?.(conversationId, {
+          kind: 'flow-return-briefing', flowId, deliveryId,
+          reason: findings?.reason ?? null, score: findings?.score ?? null, summary: findings?.summary ?? null,
+          issues: findings?.issues ?? [], issuesOmitted: findings?.issuesOmitted ?? 0, failingChecks: findings?.failingChecks ?? [],
+          derivation, at: clock.now(),
+        }, `flow-return-briefing:${deliveryId}`)
+      },
+      async startReturnTurn({ conversationId, deliveryId }) {
+        await deps.agentHost()?.startAutomaticTurn?.(conversationId, FLOW_RETURN_TURN_TEXT, { turnKey: `flow-return:${deliveryId}`, label: 'Back to Flow' })
       },
     },
     processes: deps.processes ?? { stop: async () => {} },

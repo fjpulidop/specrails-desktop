@@ -367,6 +367,61 @@ describe('Flow turns in missions', () => {
     })
   })
 
+  describe('Back to Flow: the review card and the automatic Flow turn', () => {
+    const card = { kind: 'flow-return-briefing', flowId: 'f1', deliveryId: 'd1', reason: 'review', score: 58, issues: ['Tag the tests'], issuesOmitted: 0, failingChecks: [], summary: null, derivation: null }
+
+    it('posts the card once per delivery, durably (a restarted manager does not duplicate it)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      expect(manager.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toEqual(expect.any(String))
+      expect(manager.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toBeNull()
+      const restarted = new AgentChatManager(() => {}, db, 4200, null)
+      expect(restarted.postSystemRow(conversation.id, card, 'flow-return-briefing:d1')).toBeNull()
+      await restarted.shutdown()
+      const rows = db.prepare("SELECT content FROM agent_messages WHERE conversation_id = ? AND role = 'system'").all(conversation.id) as Array<{ content: string }>
+      expect(rows).toHaveLength(1)
+      expect(JSON.parse(rows[0]!.content)).toMatchObject({ kind: 'flow-return-briefing', deliveryId: 'd1', issues: ['Tag the tests'] })
+      expect(broadcasts.filter((message) => message.type === 'agent_system_row')).toHaveLength(1)
+    })
+
+    it('starts ONE automatic Flow turn carrying the briefing through the normal Flow path; repeats and restarts never duplicate it', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      const briefingDelivered = vi.fn(async () => { flow = flowTurn() })
+      flow = { ...flowTurn(), briefing: '[Back from Flow → Spec — automatic context, not typed by the user]\nIssues to address:\n1. Tag the tests' }
+      manager.setFlowTurnContext({ forConversation: () => flow, briefingDelivered })
+      await expect(manager.startAutomaticTurn(conversation.id, 'Back to Flow: say what you will fix, then fix it.', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('started')
+      await waitFor(() => doneCount() === 1)
+      const send = host.requests.find((request) => request.method === 'session.send')!
+      expect(send.params.sessionId).toBe('flow:f1')
+      const text = String((send.params.input as { text: string }).text)
+      expect(text).toContain('1. Tag the tests')
+      expect(text).toContain('Back to Flow: say what you will fix')
+      await waitFor(() => briefingDelivered.mock.calls.length === 1)
+      // Accounted as a Flow turn; rendered as an automatic briefing, not the person's speech.
+      expect(db.prepare("SELECT surface FROM agent_invocations WHERE conversation_id = ? AND surface = 'flow'").all(conversation.id)).toHaveLength(1)
+      const user = db.prepare("SELECT context_refs FROM agent_messages WHERE conversation_id = ? AND role = 'user'").get(conversation.id) as { context_refs: string }
+      expect(JSON.parse(user.context_refs)[0]).toMatchObject({ kind: 'system-briefing', id: 'flow-return:d1', metadata: { automatic: true } })
+      await expect(manager.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      const restarted = new AgentChatManager(() => {}, db, 4200, null)
+      await expect(restarted.startAutomaticTurn(conversation.id, 'again', { turnKey: 'flow-return:d1', label: 'Back to Flow' })).resolves.toBe('skipped')
+      await restarted.shutdown()
+      expect(host.requests.filter((request) => request.method === 'session.send')).toHaveLength(1)
+    })
+
+    it('the automatic turn can be interrupted like any turn', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      flow = flowTurn()
+      host.holdTurn = true
+      await manager.startAutomaticTurn(conversation.id, 'Back to Flow: fix it.', { turnKey: 'flow-return:d2', label: 'Back to Flow' })
+      await waitFor(() => broadcasts.some((message) => message.type === 'agent_stream'))
+      expect(manager.abort(conversation.id)).toBe(true)
+      await waitFor(() => host.requests.some((request) => request.method === 'session.interrupt'))
+      // Core settles the interrupted turn.
+      host.emit('flow:f1', [{ type: 'turn.completed', turnId: `t${host.turn}`, status: 'interrupted', text: 'partial', usage }])
+      await waitFor(() => !manager.isBusy(conversation.id))
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+    })
+  })
+
   it('tells the operator on the USER turn when Flow is offerable (system prompt unchanged)', async () => {
     const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
     manager.setFlowTurnContext({ forConversation: () => null, offerable: async () => true })

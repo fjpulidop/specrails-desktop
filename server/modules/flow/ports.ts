@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowDerivationCoverage, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -122,7 +122,7 @@ export interface FlowRailLauncher {
   launch(input: { flowId: string; conversationId: string; ticketId: number; railIndex: number; options: FlowLaunchOptions }): Promise<{ loopRunIds: string[]; deliveryId: string | null }>
   /** A Flow → Spec delivery that stopped before delivery: its rail, its launch
    * choices (for Relaunch) and the review findings. Null when unknown. */
-  stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null } | null
+  stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null; derivation?: FlowDerivationCoverage | null } | null
   /** Back to Flow: delivery removes its ledger row for the adopted worktree and
    * closes the delivery in ONE transaction; `commit` (the Flow's own state
    * change) runs inside it, so ownership moves atomically. Throws (409) when
@@ -174,6 +174,18 @@ export interface Clock {
   now(): string
 }
 
+/**
+ * The mission conversation a Flow belongs to: Back to Flow tells the person
+ * what the reviewer asked for and lets the Flow agent start on it. Both are
+ * idempotent by delivery and never throw.
+ */
+export interface FlowConversation {
+  /** Post the visible "What the reviewer asked for" card (once per delivery). */
+  postReturnCard(input: { conversationId: string; flowId: string; deliveryId: string; findings: FlowReviewFindings | null; derivation: FlowDerivationCoverage | null }): void
+  /** Start ONE automatic Flow turn that works on the return briefing (once per delivery). */
+  startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string }): Promise<void>
+}
+
 export interface FlowPorts {
   repository: FlowRepository
   tickets: FlowTickets
@@ -189,4 +201,6 @@ export interface FlowPorts {
   ids: () => string
   /** Whether the selected Core can run Flow at all (capability gating). */
   availability: () => Promise<{ available: boolean; reason: string; missing: string[] }>
+  /** Back to Flow card + automatic turn (absent: the briefing waits for the person's next turn). */
+  conversation?: FlowConversation
 }

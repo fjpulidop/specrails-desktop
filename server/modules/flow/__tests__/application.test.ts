@@ -117,7 +117,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     ...overrides,
   }
   const warn = vi.fn()
-  return { service: createFlowService(ports, { warn }), repository, tickets, worktrees, agent, processes, rails, usage, notifier, availability, warn, effects, publication, jira, timeShift }
+  return { service: createFlowService(ports, { warn }), ports, repository, tickets, worktrees, agent, processes, rails, usage, notifier, availability, warn, effects, publication, jira, timeShift }
 }
 
 const startInput = { conversationId: 'conv-1', idea: 'Try a kanban board\nwith drag and drop' }
@@ -582,6 +582,45 @@ describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
     await again.service.returnToFlow({ deliveryId: 'delivery-1' })
     await again.service.handOffFlow({ flowId: other.id, railIndex: 2 })
     expect(again.repository.get(other.id)?.returnBriefing ?? null).toBeNull()
+  })
+
+  it('announces the return once: the review card, then ONE automatic Flow turn (only when active); relaunch announces nothing', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}) }
+    const ctx = setup({ conversation })
+    ctx.rails.stoppedDelivery.mockImplementation(() => ({
+      railIndex: 2, options: {},
+      findings: { reason: 'review' as const, summary: 'Two gaps', issues: ['Tag the tests'], issuesOmitted: 0, score: 58, failingChecks: [] },
+      derivation: { change: 'fx', files: 9, explained: 6, unexplainedFiles: ['src/fx/shake.ts'], unexplainedOmitted: 0 },
+    }))
+    const flow = await handedOff(ctx)
+    const returned = await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(conversation.postReturnCard).toHaveBeenCalledWith({ conversationId: 'conv-1', flowId: flow.id, deliveryId: 'delivery-1',
+      findings: expect.objectContaining({ issues: ['Tag the tests'], score: 58 }), derivation: expect.objectContaining({ files: 9, explained: 6 }) })
+    expect(conversation.startReturnTurn).toHaveBeenCalledWith({ conversationId: 'conv-1', flowId: flow.id, deliveryId: 'delivery-1' })
+    // The briefing names the coverage gap and the conduct of the automatic turn.
+    expect(returned.returnBriefing).toContain('explains 6 of 9 changed files')
+    expect(returned.returnBriefing).toContain('src/fx/shake.ts')
+    expect(returned.returnBriefing).toContain('`options` block BEFORE editing')
+
+    // A paused return (session did not open) shows the card but waits for the person.
+    const paused = setup({ conversation: { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}) } })
+    await handedOff(paused)
+    paused.agent.open.mockRejectedValueOnce(new Error('provider down'))
+    await paused.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(paused.ports.conversation!.postReturnCard).toHaveBeenCalledTimes(1)
+    expect(paused.ports.conversation!.startReturnTurn).not.toHaveBeenCalled()
+
+    // A failing announcement never undoes the return.
+    const failing = setup({ conversation: { postReturnCard: vi.fn(() => { throw new Error('db gone') }), startReturnTurn: vi.fn(async () => {}) } })
+    await handedOff(failing)
+    await expect(failing.service.returnToFlow({ deliveryId: 'delivery-1' })).resolves.toMatchObject({ state: 'active' })
+
+    // Relaunch path unchanged: no card, no automatic turn.
+    const relaunch = setup({ conversation: { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}) } })
+    await handedOff(relaunch)
+    await relaunch.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    expect(relaunch.ports.conversation!.postReturnCard).not.toHaveBeenCalled()
+    expect(relaunch.ports.conversation!.startReturnTurn).not.toHaveBeenCalled()
   })
 
   it('stays paused (ownership already returned) when the agent session cannot open', async () => {

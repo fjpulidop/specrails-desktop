@@ -1378,7 +1378,7 @@ export type WsMessage =
   | { type: 'agent_conversation_created'; conversationId: string; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
-  | AgentPrDecisionMessage | AgentRunFailureMessage
+  | AgentPrDecisionMessage | AgentRunFailureMessage | AgentSystemRowMessage
   | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage | BlueprintGeneratingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
   | BlueprintMilestoneProgressMessage | BlueprintMilestoneCompletedMessage | MilestoneChainChangedMessage | LoopProviderLimitMessage
@@ -1802,6 +1802,17 @@ export interface AgentRunFailureMessage extends RunFailureRow {
   conversationId: string
   messageId: string
   timestamp: string
+}
+
+/** An app-authored system row (e.g. the Back to Flow review card) was appended to a conversation. */
+export interface AgentSystemRowMessage {
+  type: 'agent_system_row'
+  conversationId: string
+  messageId: string
+  kind: string
+  dedupeKey: string
+  timestamp: string
+  [field: string]: unknown
 }
 
 /**

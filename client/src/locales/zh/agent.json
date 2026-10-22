@@ -1032,5 +1032,15 @@
       "returnFailed": "无法回到 Flow：{{detail}}",
       "relaunchFailed": "无法重新运行 Flow → Spec：{{detail}}"
     }
+  },
+  "flowReturn": {
+    "title": "审查者的要求",
+    "noFindings": "Flow → Spec 运行在交付前停止；工作树已带着全部改动回到此 Flow。",
+    "coverage": "规格说明了 {{files}} 个已更改文件中的 {{explained}} 个",
+    "unexplained": "未被任何需求说明的文件",
+    "moreFiles_one": "另有 {{count}} 个文件",
+    "moreFiles_other": "另有 {{count}} 个文件",
+    "next": "Flow 代理现在开始处理；你可以随时引导或停止它。",
+    "automaticTurn": "自动回合 · 返回 Flow"
   }
 }

@@ -23,6 +23,7 @@ import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
 import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
 import { focusPrCard, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowReturnCard'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -284,6 +285,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 const failure = parseRunFailureRow(m.content)
                 if (failure) return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} />
               }
+              // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
+              const flowReturn = parseFlowReturnBriefingRow(m.content)
+              if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null

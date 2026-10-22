@@ -635,6 +635,18 @@ export interface FlowReviewFindings {
   failingChecks: ReadonlyArray<{ command: string; exitCode: number | null }>
 }
 
+/** How much of the Flow's change the derived spec explains (Flow → Spec derivation coverage). */
+export interface FlowDerivationCoverage {
+  change: string | null
+  files: number
+  explained: number
+  unexplainedFiles: readonly string[]
+  unexplainedOmitted: number
+}
+
+/** Unexplained files listed in the briefing and on the card. */
+export const FLOW_UNEXPLAINED_FILES_CAP = 20
+
 /** Upper bound of the return briefing a Flow turn carries. */
 export const FLOW_RETURN_BRIEFING_LIMIT = 8_000
 
@@ -644,7 +656,7 @@ export const FLOW_RETURN_BRIEFING_LIMIT = 8_000
  * conduct (address them with the person in this worktree, keep the scope,
  * then hand off again). Untrusted review text is quoted, never obeyed.
  */
-export function buildReturnBriefing(findings: FlowReviewFindings | null): string {
+export function buildReturnBriefing(findings: FlowReviewFindings | null, derivation: FlowDerivationCoverage | null = null): string {
   const lines = ['[Back from Flow → Spec — automatic context, not typed by the user]']
   if (!findings) {
     lines.push('The Flow → Spec run stopped before delivery and the worktree is back in this Flow, with every change the run made. Ask the person how to proceed before changing anything.')
@@ -663,7 +675,12 @@ export function buildReturnBriefing(findings: FlowReviewFindings | null): string
   if (findings.failingChecks.length) {
     lines.push('', `Failing checks: ${findings.failingChecks.map((check) => `${check.command}${check.exitCode !== null ? ` (exit ${check.exitCode})` : ''}`).join('; ')}`)
   }
-  lines.push('', 'Conduct: summarise these findings for the person in a few lines and agree what to do. Fix what they confirm in this worktree; add the missing tests and tag each one with `[spec:<capability>/<requirement-slug>]` for the requirement it proves. A behaviour the person did not ask for is removed or explicitly confirmed by them, never kept silently. Then offer to hand off to Flow → Spec again.')
+  if (derivation && derivation.files > 0 && derivation.explained < derivation.files) {
+    const listed = derivation.unexplainedFiles.slice(0, FLOW_UNEXPLAINED_FILES_CAP)
+    const more = derivation.unexplainedOmitted + Math.max(0, derivation.unexplainedFiles.length - listed.length)
+    lines.push('', `Spec coverage: the derived change explains ${derivation.explained} of ${derivation.files} changed files.${listed.length ? ` Not explained by any requirement: ${listed.join(', ')}${more > 0 ? ` (+${more} more)` : ''}.` : ''}`)
+  }
+  lines.push('', 'Conduct: in at most 2 short lines, say what you will fix, then start fixing it in this worktree. If the findings leave a genuine decision to the person (for example removing behaviour nobody asked for versus recording it as a requirement in the spec), offer it as an `options` block BEFORE editing and wait for the answer. Add the missing tests and tag each one with `[spec:<capability>/<requirement-slug>]` for the requirement it proves. A behaviour the person did not ask for is removed or explicitly confirmed by them, never kept silently. When the fixes are done, offer to hand off to Flow → Spec again.')
   const text = lines.join('\n')
   return text.length <= FLOW_RETURN_BRIEFING_LIMIT ? text : `${text.slice(0, FLOW_RETURN_BRIEFING_LIMIT - 1).trimEnd()}…`
 }
