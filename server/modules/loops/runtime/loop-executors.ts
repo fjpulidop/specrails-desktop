@@ -15,7 +15,7 @@ import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, r
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
@@ -28,7 +28,7 @@ import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { terminalResultError } from '../../../providers/terminal-result'
 import { readClaudeBackgroundTasks } from '../../../providers/claude-background-tasks'
 import { FOREGROUND_RULE } from './loop-constants'
-import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES } from './loop-flow-spec-recipe'
+import { FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, type FlowChangeIdHolder } from './loop-flow-spec-recipe'
 import type { RunExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
@@ -173,6 +173,22 @@ function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string 
  * the first file. Oversized input is truncated at the byte bound (the builder
  * already bounds it; this is the last line of defence).
  */
+/** Who holds `openspec/changes/<id>` in a Flow worktree (see FlowChangeIdHolder). Read-only. */
+export function flowChangeHolder(cwd: string, baseSha: string | null, id: string): FlowChangeIdHolder {
+  const changes = join(cwd, 'openspec', 'changes')
+  try {
+    const archive = join(changes, 'archive')
+    if (existsSync(archive) && readdirSync(archive).some((name) => name === id || name.endsWith(`-${id}`))) return 'taken'
+    if (!existsSync(join(changes, id))) return 'free'
+    if (!baseSha) return 'taken'
+    // Present at the Flow base: someone else's change. Absent there: this Flow's own earlier derivation.
+    execFileSync('git', ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`], { cwd, stdio: 'ignore', timeout: 5_000, windowsHide: true })
+    return 'taken'
+  } catch {
+    return existsSync(join(changes, id)) ? 'own' : 'free'
+  }
+}
+
 export function writeFlowSummary(pipelineDir: string, summary: string): void {
   const file = join(pipelineDir, FLOW_SUMMARY_FILE)
   if (lstatSync(file, { throwIfNoEntry: false })) return
@@ -277,7 +293,11 @@ export function createLoopExecutors(
         const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
-      const seeded = seedChangeId({ ...request, runId })
+      // Flow -> Spec derives ONE change for code that already exists: it is named
+      // after the spec title (never addenda), and no delta briefing applies.
+      const seeded = request.flowDerivation
+        ? { id: flowChangeId(request.spec?.title, (id) => flowChangeHolder(request.cwd, request.flowDerivation!.baseSha, id)), source: 'flow' as const }
+        : seedChangeId({ ...request, runId })
       const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
         ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
         : undefined
