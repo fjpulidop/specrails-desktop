@@ -1552,8 +1552,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           {!terminal && presentation.deliveryBlocked && (
             <div className="flex flex-wrap items-center gap-1.5">
               {settlementRunId && !presentation.manualRecovery && !recoveryIsRecheck && (
-                <button
-                  type="button"
+                // Retrying delivers the work: outward, the strip only points at it.
+                <RunPrimaryButton
+                  primary={{ id: 'retry-delivery', label: t('prCard.retryDelivery'), kind: 'outward', rank: 1 }}
                   onClick={() => void retryDelivery()}
                   disabled={anyBusy || retryingDelivery}
                   title={t('prCard.retryDeliveryHint')}
@@ -1563,7 +1564,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                 >
                   {retryingDelivery ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
                   {t('prCard.retryDelivery')}
-                </button>
+                </RunPrimaryButton>
               )}
               {inspectLocalResultAction}
               {recoverAndRetryAction}

@@ -528,6 +528,24 @@ describe('strip panel', () => {
   })
 })
 
+describe('the strip primary for a blocked delivery', () => {
+  it('Retry delivery is OUTWARD: the strip shows it and opens the card focused on it, never retrying itself', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'pr_failed', statusCode: 'commit_failed', runIds: ['r1'] })])
+    const s = await screen.findByTestId('mission-run-strip')
+    const primary = await within(s).findByTestId('mission-run-strip-primary')
+    expect(primary).toHaveTextContent('Retry delivery')
+    expect(primary).toHaveAttribute('data-kind', 'outward')
+    const retry = within(s).getByTestId('agent-pr-retry-delivery')
+    expect(retry).toHaveAttribute('data-run-primary-id', 'retry-delivery')
+    const clicked = vi.fn()
+    retry.addEventListener('click', clicked)
+    await act(async () => { fireEvent.click(primary) })
+    expect(panel()).toHaveAttribute('data-open', 'true')
+    await waitFor(() => expect(document.activeElement).toBe(retry))
+    expect(clicked).not.toHaveBeenCalled()
+  })
+})
+
 // ── Several live runs: ONE strip + switcher ───────────────────────────────────
 describe('several live runs', () => {
   const two = [
