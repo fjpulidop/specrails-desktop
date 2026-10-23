@@ -988,7 +988,7 @@
       "resume": "Reprendre le Flow",
       "pause": "Pause",
       "discard": "Abandonner",
-      "thisIsIt": "C’est ça",
+      "thisIsIt": "C’est bon",
       "discarded": "Flow abandonné",
       "files_one": "{{count}} fichier",
       "files_other": "{{count}} fichiers",
@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "Transformez ce Flow en PR relue",
       "rationale": "Un rail reprend le worktree du Flow, dérive la spec et lance vérification et revue.",
       "loop": "Flow → Spec",
       "launch": "Lancer",
@@ -1093,5 +1093,10 @@
     "next": "L’agent du Flow s’y met maintenant ; vous pouvez l’orienter ou l’arrêter à tout moment.",
     "automaticTurn": "Tour automatique · Retour au Flow",
     "titleFailure": "Pourquoi Flow → Spec s’est arrêté"
+  },
+  "turnErrors": {
+    "providerInactivity": "Le fournisseur n’a plus répondu pendant trop longtemps, le tour s’est donc arrêté. Renvoyez votre message pour continuer.",
+    "toolInactivity": "Un outil a tourné trop longtemps sans activité du fournisseur, le tour s’est donc arrêté. Renvoyez votre message pour continuer, ou demandez à l’agent de découper l’étape.",
+    "generic": "Le tour de l’agent a échoué."
   }
 }

@@ -988,7 +988,7 @@
       "resume": "Retomar Flow",
       "pause": "Pausar",
       "discard": "Descartar",
-      "thisIsIt": "É isto",
+      "thisIsIt": "Já está",
       "discarded": "Flow descartado",
       "files_one": "{{count}} ficheiro",
       "files_other": "{{count}} ficheiros",
@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "Transforme este Flow num PR revisto",
       "rationale": "Um rail assume o worktree do Flow, deriva a spec e executa verificação e revisão.",
       "loop": "Flow → Spec",
       "launch": "Lançar",
@@ -1093,5 +1093,10 @@
     "next": "O agente do Flow começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
     "automaticTurn": "Turno automático · Voltar ao Flow",
     "titleFailure": "Porque é que Flow → Spec parou"
+  },
+  "turnErrors": {
+    "providerInactivity": "O fornecedor deixou de responder durante demasiado tempo, por isso o turno terminou. Envie a mensagem novamente para continuar.",
+    "toolInactivity": "Uma ferramenta ficou demasiado tempo sem atividade do fornecedor, por isso o turno terminou. Envie a mensagem novamente ou peça ao agente para dividir o passo.",
+    "generic": "O turno do agente falhou."
   }
 }

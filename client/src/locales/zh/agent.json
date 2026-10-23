@@ -988,7 +988,7 @@
       "resume": "恢复 Flow",
       "pause": "暂停",
       "discard": "丢弃",
-      "thisIsIt": "就是这样",
+      "thisIsIt": "完成了",
       "discarded": "已丢弃 Flow",
       "files_one": "{{count}} 个文件",
       "files_other": "{{count}} 个文件",
@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "把这个 Flow 变成经过评审的 PR",
       "rationale": "由轨道接管 Flow 的 worktree，推导 spec，并运行验证和审查。",
       "loop": "Flow → Spec",
       "launch": "启动",
@@ -1093,5 +1093,10 @@
     "next": "Flow 代理现在开始处理；你可以随时引导或停止它。",
     "automaticTurn": "自动回合 · 返回 Flow",
     "titleFailure": "Flow → Spec 停止的原因"
+  },
+  "turnErrors": {
+    "providerInactivity": "提供方长时间没有响应，本轮已结束。请重新发送消息以继续。",
+    "toolInactivity": "某个工具运行过久且提供方没有任何活动，本轮已结束。请重新发送消息以继续，或让智能体拆分该步骤。",
+    "generic": "智能体本轮执行失败。"
   }
 }

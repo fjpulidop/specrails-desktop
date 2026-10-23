@@ -429,13 +429,24 @@ export interface AgentChatContextValue {
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
 
+/**
+ * Known Core turn failures, matched on Core's own (English) wording, read in
+ * the person's language. Order matters: the tool variant contains the plain one.
+ */
+const KNOWN_TURN_ERRORS: ReadonlyArray<readonly [string, string]> = [
+  ['A tool call produced no provider activity before the tool inactivity limit', 'agent:turnErrors.toolInactivity'],
+  ['No provider activity before the inactivity limit', 'agent:turnErrors.providerInactivity'],
+]
+
 /** A Core failure the user can act on reads in their language; others keep the server text. */
-function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
+export function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
   if (msg.code === 'policy_unenforceable') {
     const provider = msg.provider ? msg.provider.charAt(0).toUpperCase() + msg.provider.slice(1) : ''
     return i18n.t('agent:subagents.policyUnenforceable', { provider })
   }
-  return msg.error || 'The agent turn failed.'
+  const known = msg.error ? KNOWN_TURN_ERRORS.find(([text]) => msg.error!.includes(text)) : undefined
+  if (known) return i18n.t(known[1])
+  return msg.error || i18n.t('agent:turnErrors.generic')
 }
 
 interface WsAgentMsg {

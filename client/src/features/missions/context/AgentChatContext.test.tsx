@@ -956,3 +956,15 @@ describe('self-healing mission cards (missed broadcasts)', () => {
     expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('building')
   })
 })
+
+describe('describeAgentError (known Core turn failures)', () => {
+  it('reads the inactivity limits in the person\'s language and keeps unknown server text', async () => {
+    const { describeAgentError } = await import('./AgentChatContext')
+    expect(describeAgentError({ error: 'Core session turn failed: No provider activity before the inactivity limit' }))
+      .toBe('The provider stopped responding for too long, so the turn ended. Send your message again to continue.')
+    expect(describeAgentError({ error: 'A tool call produced no provider activity before the tool inactivity limit' }))
+      .toBe('A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.')
+    expect(describeAgentError({ error: 'quota exceeded' })).toBe('quota exceeded')
+    expect(describeAgentError({})).toBe('The agent turn failed.')
+  })
+})

@@ -988,7 +988,7 @@
       "resume": "Flow fortsetzen",
       "pause": "Pausieren",
       "discard": "Verwerfen",
-      "thisIsIt": "Das ist es",
+      "thisIsIt": "Fertig",
       "discarded": "Flow verworfen",
       "files_one": "{{count}} Datei",
       "files_other": "{{count}} Dateien",
@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "Mach aus diesem Flow einen geprüften PR",
       "rationale": "Eine Rail übernimmt den Flow-Worktree, leitet die Spec ab und führt Verifikation und Review aus.",
       "loop": "Flow → Spec",
       "launch": "Starten",
@@ -1093,5 +1093,10 @@
     "next": "Der Flow-Agent beginnt jetzt damit; du kannst ihn jederzeit lenken oder stoppen.",
     "automaticTurn": "Automatischer Zug · Zurück zu Flow",
     "titleFailure": "Warum Flow → Spec angehalten wurde"
+  },
+  "turnErrors": {
+    "providerInactivity": "Der Anbieter hat zu lange nicht reagiert, daher wurde der Zug beendet. Sende deine Nachricht erneut, um fortzufahren.",
+    "toolInactivity": "Ein Tool lief zu lange ohne Aktivität des Anbieters, daher wurde der Zug beendet. Sende deine Nachricht erneut oder bitte den Agenten, den Schritt aufzuteilen.",
+    "generic": "Der Zug des Agenten ist fehlgeschlagen."
   }
 }

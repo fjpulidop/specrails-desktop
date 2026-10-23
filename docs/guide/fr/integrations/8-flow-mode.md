@@ -1,6 +1,6 @@
 # Flow : construire d’abord, la spec ensuite
 
-Flow permet de construire avec un agent quand vous ne savez pas encore exactement ce que vous voulez. Vous parlez à l’agent dans votre mission, il écrit et exécute du vrai code dans un worktree isolé et, quand le résultat est le bon, vous dites **C’est ça** : un rail reprend le worktree, dérive la spec et exécute la vérification, la revue et la livraison habituelles.
+Flow permet de construire avec un agent quand vous ne savez pas encore exactement ce que vous voulez. Vous parlez à l’agent dans votre mission, il écrit et exécute du vrai code dans un worktree isolé et, quand le résultat est le bon, vous dites **C’est bon** : un rail reprend le worktree, dérive la spec et exécute la vérification, la revue et la livraison habituelles.
 
 Implement sert à déléguer un travail que vous savez déjà décrire. Flow sert à le découvrir.
 
@@ -25,7 +25,7 @@ La conversation change d’aspect (un fin liseré d’accent sur le bord) et une
 - **Voir les modifications** liste chaque fichier modifié avec son statut et ses +/− ;
 - **Pause** arrête l’agent et conserve le worktree et la spec. La mission affiche alors **Reprendre le Flow** ;
 - **Abandonner** supprime le worktree, sa branche et la spec provisoire, après confirmation ;
-- **C’est ça** — l’action principale, ci-dessous.
+- **C’est bon** — l’action principale, ci-dessous.
 
 Vous pouvez écrire pendant que l’agent travaille : en Flow, votre message **interrompt** l’étape en cours (le bouton d’envoi devient un éclair) et l’agent repart aussitôt avec vos nouvelles informations. La bande git sous le compositeur affiche la branche du worktree.
 
@@ -35,9 +35,9 @@ L’agent Flow lance lui-même le typecheck et les tests pour vérifier son trav
 
 Une fois l’app à l’écoute, l’agent vous donne ses adresses sous forme de liens et la barre Flow affiche **Aperçu** avec un point vert : il ouvre l’app dans votre navigateur. Son menu contient l’adresse réseau et **Arrêter l’app**. L’app tourne dans le worktree du Flow, jamais dans votre checkout principal, et Specrails l’arrête quand vous mettez en pause, abandonnez ou transmettez le Flow.
 
-## C’est ça
+## C’est bon
 
-Quand le résultat vous convient, appuyez sur **C’est ça**. La barre Flow et le traitement visuel disparaissent et la carte de lancement de rail habituelle apparaît, avec la boucle **Flow → Spec** présélectionnée et un rail libre choisi pour vous. Ajustez le moteur, le modèle ou l’effort si besoin et appuyez sur **Lancer**. Si la limite de revue ou un budget est atteint, la carte l’indique et ne lance rien. **Pas encore** vous ramène au Flow.
+Quand le résultat vous convient, appuyez sur **C’est bon**. La barre Flow et le traitement visuel disparaissent et la carte de lancement de rail habituelle apparaît, avec la boucle **Flow → Spec** présélectionnée et un rail libre choisi pour vous. Ajustez le moteur, le modèle ou l’effort si besoin et appuyez sur **Lancer**. Si la limite de revue ou un budget est atteint, la carte l’indique et ne lance rien. **Pas encore** vous ramène au Flow.
 
 Le rail dérive la spec Specrails et le changement OpenSpec à partir de ce que vous avez construit, les vérifie et les relit, et la carte de livraison apparaît dans la mission comme pour toute exécution.
 

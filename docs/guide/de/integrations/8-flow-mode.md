@@ -1,6 +1,6 @@
 # Flow: erst bauen, dann die Spec
 
-Mit Flow baust du gemeinsam mit einem Agenten, wenn du noch nicht genau weißt, was du willst. Du sprichst in deiner Mission mit dem Agenten, er schreibt und startet echten Code in einem isolierten Worktree, und wenn das Ergebnis passt, sagst du **Das ist es**: Eine Rail übernimmt den Worktree, leitet die Spec ab und führt die übliche Verifikation, Review und Auslieferung aus.
+Mit Flow baust du gemeinsam mit einem Agenten, wenn du noch nicht genau weißt, was du willst. Du sprichst in deiner Mission mit dem Agenten, er schreibt und startet echten Code in einem isolierten Worktree, und wenn das Ergebnis passt, sagst du **Fertig**: Eine Rail übernimmt den Worktree, leitet die Spec ab und führt die übliche Verifikation, Review und Auslieferung aus.
 
 Implement ist zum Delegieren von Arbeit, die du schon beschreiben kannst. Flow ist zum Entdecken.
 
@@ -25,7 +25,7 @@ Die Unterhaltung ändert ihr Aussehen (eine feine Akzentlinie am Rand), und übe
 - **Änderungen ansehen** listet jede geänderte Datei mit Status und +/−;
 - **Pausieren** stoppt den Agenten und behält Worktree und Spec. Die Mission zeigt dann **Flow fortsetzen**;
 - **Verwerfen** löscht nach einer Bestätigung Worktree, Branch und vorläufige Spec;
-- **Das ist es** – die Hauptaktion, siehe unten.
+- **Fertig** – die Hauptaktion, siehe unten.
 
 Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Button wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Die Git-Leiste unter dem Eingabefeld zeigt den Branch des Worktrees.
 
@@ -35,9 +35,9 @@ Der Flow-Agent führt Typecheck und Tests selbst aus, um seine Arbeit zu prüfen
 
 Sobald die App lauscht, nennt dir der Agent ihre Adressen als Links und die Flow-Leiste zeigt **Vorschau** mit einem grünen Punkt: Sie öffnet die App in deinem Browser. Ihr Menü enthält die Netzwerkadresse und **App beenden**. Die App läuft im Flow-Worktree, nie in deinem Haupt-Checkout, und Specrails beendet sie, wenn du den Flow pausierst, verwirfst oder übergibst.
 
-## Das ist es
+## Fertig
 
-Bist du mit dem Ergebnis zufrieden, drücke **Das ist es**. Flow-Leiste und visuelle Hervorhebung verschwinden, und die gewohnte Rail-Startkarte erscheint – mit vorausgewähltem Loop **Flow → Spec** und einer freien Rail. Passe Engine, Modell oder Aufwand an, wenn du willst, und drücke **Starten**. Ist das Review-Limit oder ein Budget erreicht, sagt die Karte das und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
+Bist du mit dem Ergebnis zufrieden, drücke **Fertig**. Flow-Leiste und visuelle Hervorhebung verschwinden, und die gewohnte Rail-Startkarte erscheint – mit vorausgewähltem Loop **Flow → Spec** und einer freien Rail. Passe Engine, Modell oder Aufwand an, wenn du willst, und drücke **Starten**. Ist das Review-Limit oder ein Budget erreicht, sagt die Karte das und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
 
 Die Rail leitet aus dem Gebauten die Specrails-Spec und die OpenSpec-Änderung ab, verifiziert und prüft sie, und die Auslieferungskarte erscheint in der Mission wie bei jedem Lauf.
 

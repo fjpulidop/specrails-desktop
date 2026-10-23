@@ -521,6 +521,18 @@ branch in the git strip, interrupting sends) and a dock above the composer.
 `flow.state` events are applied only for projects a mounted view watches; a
 reconnect refetches the watched Flows.
 
+**Copy layer.** Flow surfaces never show raw English server text outside a
+collapsed **Technical details**: failures map by step and code
+(`flow-failure.ts`: `flowFailureStep`, `flowErrorMessage`), Flow API refusals
+read by `flow.errors.<code>` (the server detail is at most a secondary line,
+e.g. a toast description), and the mission chat maps Core's known turn
+failures — "No provider activity before the inactivity limit" and "A tool
+call produced no provider activity before the tool inactivity limit" — to
+`agent:turnErrors.*` (`describeAgentError`). The hand-off button reads "This
+is it" (es "Ya está", de "Fertig", fr "C’est bon", it "Ecco fatto", ja "これで
+完成", pt "Já está", zh "完成了") and the hand-off card is headed "Turn this
+Flow into a reviewed PR".
+
 ## Known limitations
 
 - A conversation re-pinned to another project while a Flow is open stops

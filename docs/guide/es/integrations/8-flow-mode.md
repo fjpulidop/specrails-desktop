@@ -1,6 +1,6 @@
 # Flow: construir primero, spec después
 
-Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en un worktree aislado y, cuando el resultado es el bueno, dices **Esto es**: un rail toma el worktree, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
+Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en un worktree aislado y, cuando el resultado es el bueno, dices **Ya está**: un rail toma el worktree, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
 
 Implement sirve para delegar trabajo que ya sabes describir. Flow, para descubrirlo.
 
@@ -25,7 +25,7 @@ La conversación cambia de aspecto (una fina línea de acento en el borde) y apa
 - **Ver cambios** lista cada fichero cambiado con su estado y +/−;
 - **Pausar** detiene al agente y conserva el worktree y la spec. La misión muestra entonces **Reanudar Flow**;
 - **Descartar** borra el worktree, su rama y la spec provisional, tras una confirmación;
-- **Esto es**: la acción principal, más abajo.
+- **Ya está**: la acción principal, más abajo.
 
 Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. La franja de git bajo el compositor muestra la rama del worktree.
 
@@ -35,9 +35,9 @@ El agente de Flow ejecuta él mismo el typecheck y los tests para comprobar su t
 
 Cuando la app escucha, el agente te da sus direcciones como enlaces y la barra de Flow muestra **Vista previa** con un punto verde: abre la app en tu navegador. Su menú tiene la dirección de red y **Detener app**. La app se ejecuta en el worktree del Flow, nunca en tu checkout principal, y Specrails la detiene cuando pausas, descartas o entregas el Flow.
 
-## Esto es
+## Ya está
 
-Cuando el resultado te convenza, pulsa **Esto es**. La barra de Flow y el tratamiento visual desaparecen y aparece la tarjeta de lanzamiento de rail de siempre, con el loop **Flow → Spec** preseleccionado y un rail libre elegido por ti. Ajusta el motor, el modelo o el esfuerzo si quieres y pulsa **Lanzar**. Si se ha alcanzado el límite de revisión o un presupuesto, la tarjeta lo dice y no lanza. **Todavía no** te devuelve al Flow.
+Cuando el resultado te convenza, pulsa **Ya está**. La barra de Flow y el tratamiento visual desaparecen y aparece la tarjeta de lanzamiento de rail de siempre, con el loop **Flow → Spec** preseleccionado y un rail libre elegido por ti. Ajusta el motor, el modelo o el esfuerzo si quieres y pulsa **Lanzar**. Si se ha alcanzado el límite de revisión o un presupuesto, la tarjeta lo dice y no lanza. **Todavía no** te devuelve al Flow.
 
 El rail deriva la spec de Specrails y el cambio OpenSpec a partir de lo que construiste, lo verifica y lo revisa, y la tarjeta de entrega aparece en la misión como en cualquier ejecución.
 

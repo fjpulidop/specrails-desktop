@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "Turn this Flow into a reviewed PR",
       "rationale": "A rail takes over the Flow worktree, derives the spec and runs verification and review.",
       "loop": "Flow → Spec",
       "launch": "Launch",
@@ -1093,5 +1093,10 @@
     "next": "The Flow agent starts on this now; you can steer or stop it at any time.",
     "automaticTurn": "Automatic turn · Back to Flow",
     "titleFailure": "Why Flow → Spec stopped"
+  },
+  "turnErrors": {
+    "providerInactivity": "The provider stopped responding for too long, so the turn ended. Send your message again to continue.",
+    "toolInactivity": "A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.",
+    "generic": "The agent turn failed."
   }
 }

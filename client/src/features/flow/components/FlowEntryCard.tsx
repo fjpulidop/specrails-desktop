@@ -15,6 +15,7 @@ import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/FlowContext'
 import { FlowApiError, flowApi, flowRepositoryChoice, type Flow, type FlowRepositoryOption } from '../lib/flow-api'
 import { missingCapabilityKeys } from '../lib/flow-offer'
+import { flowErrorMessage } from '../lib/flow-failure'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
 
 interface Props {
@@ -89,7 +90,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
     } catch (err) {
       if (err instanceof FlowApiError && err.code === 'feature_unavailable') ctx.loadAvailability(projectId, true)
       setErrorCode(err instanceof FlowApiError ? err.code : null)
-      setError(err instanceof FlowApiError ? t(`flow.errors.${err.code}`, { defaultValue: err.detail || err.code }) : t('flow.errors.generic'))
+      setError(flowErrorMessage(t, err).message)
     } finally {
       setBusy(false)
     }

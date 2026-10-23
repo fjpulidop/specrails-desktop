@@ -1040,7 +1040,7 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
+      "heading": "Trasforma questo Flow in una PR revisionata",
       "rationale": "Un rail prende in carico il worktree del Flow, deriva la spec ed esegue verifica e revisione.",
       "loop": "Flow → Spec",
       "launch": "Lancia",
@@ -1093,5 +1093,10 @@
     "next": "L’agente del Flow inizia ora; puoi guidarlo o fermarlo in qualsiasi momento.",
     "automaticTurn": "Turno automatico · Torna al Flow",
     "titleFailure": "Perché Flow → Spec si è fermato"
+  },
+  "turnErrors": {
+    "providerInactivity": "Il provider non ha risposto troppo a lungo, quindi il turno è terminato. Invia di nuovo il messaggio per continuare.",
+    "toolInactivity": "Uno strumento è rimasto troppo a lungo senza attività del provider, quindi il turno è terminato. Invia di nuovo il messaggio o chiedi all’agente di dividere il passaggio.",
+    "generic": "Il turno dell’agente non è riuscito."
   }
 }

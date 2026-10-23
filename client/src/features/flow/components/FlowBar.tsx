@@ -14,7 +14,8 @@ import { AlertTriangle, Check, Copy, FileDiff, GitBranch, Loader2, Pause, Play, 
 import { cn } from '../../../lib/utils'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { useFlowContext } from '../context/FlowContext'
-import { flowApi, FlowApiError, type Flow, type FlowCost, type FlowDiff } from '../lib/flow-api'
+import { flowApi, type Flow, type FlowCost, type FlowDiff } from '../lib/flow-api'
+import { flowErrorMessage } from '../lib/flow-failure'
 import { flowCostDisplay } from '../lib/flow-offer'
 import { FlowAppPreview } from './FlowAppPreview'
 import { FlowChangesDialog } from './FlowChangesDialog'
@@ -96,7 +97,9 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
       await ctx[kind](projectId, flow)
       if (kind === 'discard') { setDiscardOpen(false); toast.success(t('flow.bar.discarded')) }
     } catch (error) {
-      toast.error(error instanceof FlowApiError ? t(`flow.errors.${error.code}`, { defaultValue: error.detail || error.code }) : t('flow.errors.generic'))
+      // Localized by code; the server's own detail is only the secondary line.
+      const { message, detail } = flowErrorMessage(t, error)
+      toast.error(message, detail ? { description: detail } : undefined)
     } finally {
       setBusy(null)
     }
