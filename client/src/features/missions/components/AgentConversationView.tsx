@@ -233,7 +233,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // The inline surface caps the conversation column so it reads like Cursor's
   // centered thread on wide screens; the floating panel fills its own frame.
   const threadClass = inline
-    ? 'mx-auto flex w-full max-w-[1040px] min-h-0 flex-1 flex-col overflow-hidden'
+    ? 'mx-auto flex w-full max-w-[992px] min-h-0 flex-1 flex-col overflow-hidden'
     : 'flex min-h-0 flex-1 flex-col overflow-hidden'
 
   return (

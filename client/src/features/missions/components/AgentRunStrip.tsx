@@ -695,7 +695,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       data-run-key={selected.key}
       data-tone={selected.tone}
       {...selected.attributes}
-      className={cn('relative shrink-0 pb-2', inline ? 'mx-auto w-full max-w-[960px] px-4' : 'px-3')}
+      className={cn('relative shrink-0 pb-2', inline ? 'w-full px-4' : 'px-3')}
     >
       <div className="relative">
         {/* Panels: every run's full card stays mounted (it measures the run);
