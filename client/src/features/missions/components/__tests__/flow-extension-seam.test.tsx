@@ -161,7 +161,7 @@ describe('missions extension seam (Flow mode)', () => {
       }),
     }
 
-    it('shows the mode chip next to the tier chip, the top accent line and the mode placeholder', async () => {
+    it('shows the mode chip next to the tier chip and the mode placeholder, without an accent line', async () => {
       renderPanel(COMPOSER_MODE)
       await waitFor(() => expect(chat).not.toBeNull())
       await act(async () => { chat!.open() })

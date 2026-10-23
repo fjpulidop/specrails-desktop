@@ -985,8 +985,8 @@
       "pause": "Pausar Flow",
       "discard": "Descartar",
       "discarded": "Flow descartado",
-      "files_one": "{{count}} fichero",
-      "files_other": "{{count}} ficheros",
+      "files_one": "{{count}} archivo",
+      "files_other": "{{count}} archivos",
       "filesTitle": "Archivos cambiados en la rama de Flow",
       "costTitle": "Coste real de los turnos de este Flow, según factura el proveedor",
       "costPartial_one": "{{count}} turno no tiene coste informado por el proveedor y no se incluye",
@@ -1027,9 +1027,9 @@
       "body": "Descartar borra todo esto y no se puede deshacer:",
       "cancel": "Conservar Flow",
       "confirm": "Descartar Flow",
-      "lossFiles_one": "{{count}} fichero cambiado",
-      "lossFiles_other": "{{count}} ficheros cambiados",
-      "lossNoChanges": "Aún no hay ficheros cambiados",
+      "lossFiles_one": "{{count}} archivo cambiado",
+      "lossFiles_other": "{{count}} archivos cambiados",
+      "lossNoChanges": "Aún no hay archivos cambiados",
       "lossUnknown": "Todos los cambios de la rama de Flow",
       "lossSpec": "La spec provisional del tablero"
     },
@@ -1239,6 +1239,9 @@
       "decision": "Abrir la decisión",
       "failed": "Ver qué falló",
       "paused": "Ver por qué se pausó"
+    },
+    "attention": {
+      "failed": "Requiere atención: falló una ejecución"
     }
   },
   "flowBoundary": {

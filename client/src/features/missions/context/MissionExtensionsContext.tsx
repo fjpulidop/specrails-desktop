@@ -82,8 +82,8 @@ export interface MissionConversationMode {
   hideGitStrip?: boolean
   /** While a turn runs, a send interrupts it instead of queueing. */
   interruptWhileBusy?: boolean
-  /** The composer works in the extension's mode: a chip next to the tier chip,
-   * a thin accent line on top and the mode's own placeholder. */
+  /** The composer works in the extension's mode: a chip next to the tier chip
+   * and the mode's own placeholder. */
   composer?: { badge: MissionModeBadge; placeholder?: string } | null
   /** A label next to the mission title in its header ("In Flow"). */
   headerBadge?: MissionModeBadge | null

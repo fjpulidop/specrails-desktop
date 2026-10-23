@@ -27,7 +27,7 @@ import { FlowRunFailure } from './FlowRunFailure'
 
 /**
  * The missions mode of a conversation while it is in Flow (open, paused or
- * needing review): the composer names the mode (chip, accent line, its own
+ * needing review): the composer names the mode (chip and its own
  * placeholder), the header says "In Flow" (the board's wording), and the git
  * strip steps aside — the branch lives in the run strip. Only an ACTIVE Flow
  * that is not being handed off interrupts on send and marks the surface.

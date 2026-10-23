@@ -50,12 +50,14 @@ const agentChatState: {
   streamingIds: Set<string>
   unreadIds: Set<string>
   attentionIds: Set<string>
+  attentionKinds: Map<string, 'decision' | 'failed'>
   favoriteIds: Set<string>
 } = {
   active: null,
   streamingIds: new Set(),
   unreadIds: new Set(),
   attentionIds: new Set(),
+  attentionKinds: new Map(),
   favoriteIds: new Set(),
 }
 
@@ -67,6 +69,7 @@ vi.mock('../../features/missions/context/AgentChatContext', () => ({
     streamingConversationIds: agentChatState.streamingIds,
     unreadConversationIds: agentChatState.unreadIds,
     attentionConversationIds: agentChatState.attentionIds,
+    attentionKinds: agentChatState.attentionKinds,
     favoriteConversationIds: agentChatState.favoriteIds,
     selectConversation: mockSelectConversation,
     deleteConversation: mockDeleteConversation,
@@ -96,6 +99,7 @@ beforeEach(() => {
   agentChatState.streamingIds = new Set()
   agentChatState.unreadIds = new Set()
   agentChatState.attentionIds = new Set()
+  agentChatState.attentionKinds = new Map()
   agentChatState.favoriteIds = new Set()
 })
 
@@ -239,6 +243,17 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(mark).toHaveAttribute('title', 'Waiting for your decision')
     expect(mark).toHaveTextContent('Waiting for your decision')
     expect(document.querySelectorAll('[data-testid="mission-attention-mark"]')).toHaveLength(1)
+  })
+
+  it('tells a failed run apart from a waiting decision, in words', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    agentChatState.attentionKinds = new Map([['c-1', 'failed']])
+    renderExpanded()
+    const mark = document.querySelector('[data-testid="mission-attention-mark"]') as HTMLElement
+    expect(mark).toHaveAttribute('data-kind', 'failed')
+    expect(mark).toHaveAttribute('title', 'Needs attention: a run failed')
+    expect(mark).toHaveTextContent('Needs attention: a run failed')
+    expect(mark).not.toHaveTextContent('Waiting for your decision')
   })
 
   it('marks a mission in Flow with the extension’s icon and "In Flow"', async () => {

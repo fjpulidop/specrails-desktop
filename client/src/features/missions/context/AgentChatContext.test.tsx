@@ -119,6 +119,7 @@ function Harness() {
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
       <span data-testid="attention-ids">{[...agentChat.attentionConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-kinds">{[...(agentChat.attentionKinds ?? new Map())].map(([id, kind]) => `${id}=${kind}`).sort().join(',')}</span>
       <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
         const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
@@ -558,6 +559,7 @@ describe('AgentChatContext attention (waiting for the person)', () => {
     expect(screen.getByTestId('attention-ids').textContent).toBe('')
     await act(async () => { wsHandler!(ws('on_review')) })
     expect(screen.getByTestId('attention-ids').textContent).toBe('c2')
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c2=decision')
     await act(async () => { wsHandler!(ws('discarded')) })
     expect(screen.getByTestId('attention-ids').textContent).toBe('')
   })
@@ -570,6 +572,8 @@ describe('AgentChatContext attention (waiting for the person)', () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await waitFor(() => expect(screen.getByTestId('attention-ids').textContent).toBe('c1'))
+    // A failed run is told apart from a waiting decision.
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c1=failed')
   })
 })
 

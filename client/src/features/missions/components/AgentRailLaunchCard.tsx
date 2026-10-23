@@ -171,6 +171,10 @@ export interface RailLaunchHandOff {
   details?: ReactNode
   /** A note shown right under the confirmation line (e.g. the engine fallback: it changes what launches). */
   note?: string | null
+  /** Shown at the end of the confirmation line (e.g. the cost so far). */
+  lineAside?: ReactNode
+  /** A short secondary note under the line (e.g. what a partial cost leaves out). */
+  lineNote?: ReactNode
   playLabel: string
   dismissLabel: string
   /** Intent kind recorded on the anchor message. */
@@ -680,8 +684,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       <div role="group" aria-label={handOff.heading} data-testid="agent-rail-launch-card" data-hand-off="true" className="space-y-2 px-0.5 text-xs">
         <p data-testid="rail-card-hand-off-line" className="text-[13px] leading-5 text-foreground/90">
           {handOff.summary(railWords)}
+          {handOff.lineAside}
         </p>
         {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-[12px] leading-4 text-foreground/75">{handOff.note}</p>}
+        {handOff.lineNote}
         {notes}
         {inlineError && (
           <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">

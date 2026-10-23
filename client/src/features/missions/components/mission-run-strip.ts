@@ -147,9 +147,27 @@ export function deliveryRunTone(
  * strip's `reportRunAttention`; their calm states (`info`) never do.
  */
 export function deliveryNeedsPerson(envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'phase' | 'runtime' | 'statusCode' | 'hasDelivery'>): boolean {
-  if (!isPrEnvelopePinned(envelope)) return false
+  return deliveryAttention(envelope) !== null
+}
+
+/** Why a mission needs the person: a decision waits, or a run failed. */
+export type MissionAttentionKind = 'decision' | 'failed'
+
+/** The kind of attention a delivery asks for (null when it needs nobody). */
+export function deliveryAttention(envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'phase' | 'runtime' | 'statusCode' | 'hasDelivery'>): MissionAttentionKind | null {
+  if (!isPrEnvelopePinned(envelope)) return null
   const tone = deliveryRunTone(envelope, null)
-  return tone === 'decision' || tone === 'failed'
+  return tone === 'decision' || tone === 'failed' ? tone : null
+}
+
+/** One mission's attention from several sources: a waiting decision outranks a failure. */
+export function mergeAttention(kinds: Iterable<MissionAttentionKind>): MissionAttentionKind | null {
+  let merged: MissionAttentionKind | null = null
+  for (const kind of kinds) {
+    if (kind === 'decision') return 'decision'
+    merged = kind
+  }
+  return merged
 }
 
 /** A stable identity per strip entry. */

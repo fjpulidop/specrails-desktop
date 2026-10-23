@@ -1239,6 +1239,9 @@
       "decision": "打开决定",
       "failed": "查看失败原因",
       "paused": "查看暂停原因"
+    },
+    "attention": {
+      "failed": "需要处理：有运行失败"
     }
   },
   "flowBoundary": {

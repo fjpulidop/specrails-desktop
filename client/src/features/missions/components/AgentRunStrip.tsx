@@ -7,9 +7,10 @@
 // the current step in plain words, progress, elapsed time and billed cost.
 // A primary action appears only when the run needs the person. The run's card
 // DECLARES it (run-primary.tsx: id, label, kind, handler). A `local` action
-// (Resume, Relaunch, Back to Flow) runs in one click, in place; an `outward`
-// one (Create PR, Publish, Reopen, Approve, Launch) is never fired from here:
-// the strip opens the panel with focus on the card's own control.
+// (Resume, Back to Flow) runs in one click, in place; an `outward` one (Create
+// PR, Publish, Reopen, Approve, Relaunch, Retry delivery, Launch) is never
+// fired from here: the strip opens the panel with focus on the card's own
+// control.
 //
 // The strip never swaps the run it shows while the person uses it (panel open,
 // focus inside, a run picked in the switcher). A run that starts needing the
@@ -348,13 +349,13 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   // strip cannot (it reports only while mounted).
   const reported = useRef(new Map<string, string>())
   const attentionSignature = attentionOwnedElsewhere ? '' : entries.filter((entry) => entry.source === 'extension')
-    .map((entry) => `${entry.key}=${entry.urgency === 'decision' || entry.urgency === 'failed' ? 1 : 0}`).join('|')
+    .map((entry) => `${entry.key}=${entry.urgency === 'decision' || entry.urgency === 'failed' ? entry.urgency : 0}`).join('|')
   useEffect(() => {
     if (!reportRunAttention) return
-    const now = new Map<string, boolean>()
+    const now = new Map<string, boolean | 'decision' | 'failed'>()
     if (!attentionOwnedElsewhere) {
       for (const entry of entriesRef.current) {
-        if (entry.source === 'extension') now.set(entry.key, entry.urgency === 'decision' || entry.urgency === 'failed')
+        if (entry.source === 'extension') now.set(entry.key, entry.urgency === 'decision' || entry.urgency === 'failed' ? entry.urgency : false)
       }
     }
     for (const [key, owner] of reported.current) {

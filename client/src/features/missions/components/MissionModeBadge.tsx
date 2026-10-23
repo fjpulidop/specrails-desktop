@@ -46,13 +46,16 @@ export function MissionModeRowMark({ badge }: { badge: Badge }) {
   )
 }
 
-/** The "waiting for your decision" mark of a mission list row: a dot with its words. */
-export function MissionAttentionMark() {
+/** A mission list row's attention mark: a dot with its words — a waiting
+ *  decision ("Waiting for your decision") or a failed run ("Needs attention:
+ *  a run failed"), never told apart by color alone. */
+export function MissionAttentionMark({ kind = 'decision' }: { kind?: 'decision' | 'failed' }) {
   const { t } = useTranslation('agent')
+  const words = kind === 'failed' ? t('runStrip.attention.failed') : t('runStrip.decision.generic')
   return (
-    <span className="inline-flex shrink-0 items-center" title={t('runStrip.decision.generic')} data-testid="mission-attention-mark">
-      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary ring-2 ring-accent-primary/20" />
-      <span className="sr-only">{t('runStrip.decision.generic')}</span>
+    <span className="inline-flex shrink-0 items-center" title={words} data-testid="mission-attention-mark" data-kind={kind}>
+      <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full ring-2', kind === 'failed' ? 'bg-destructive ring-destructive/20' : 'bg-accent-primary ring-accent-primary/20')} />
+      <span className="sr-only">{words}</span>
     </span>
   )
 }

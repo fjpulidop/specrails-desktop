@@ -1239,6 +1239,9 @@
       "decision": "Apri la decisione",
       "failed": "Vedi cosa è fallito",
       "paused": "Vedi perché è in pausa"
+    },
+    "attention": {
+      "failed": "Richiede attenzione: un’esecuzione è fallita"
     }
   },
   "flowBoundary": {

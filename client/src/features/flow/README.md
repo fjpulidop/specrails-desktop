@@ -26,7 +26,7 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 
 `FlowMissionsBridge` fills the missions seam: the `flow-offer` fence card, the
 conversation mode (`useFlowConversationMode`: while a Flow is open the
-composer's **Flow** chip, accent line and placeholder, "In Flow" by the
+composer's **Flow** chip and placeholder, "In Flow" by the
 mission title, no git strip; only an active Flow interrupts sends), the
 Flow's runs in the mission's run strip (`useLiveRuns` → [`FlowLiveRuns`](components/FlowLiveRuns.tsx)),
 the words for the steps of Flow → Spec (`describeRun` → `describeFlowRun`),

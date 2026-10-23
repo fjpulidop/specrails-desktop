@@ -1239,6 +1239,9 @@
       "decision": "Entscheidung öffnen",
       "failed": "Fehler ansehen",
       "paused": "Grund der Pause ansehen"
+    },
+    "attention": {
+      "failed": "Braucht Aufmerksamkeit: ein Lauf ist fehlgeschlagen"
     }
   },
   "flowBoundary": {

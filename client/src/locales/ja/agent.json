@@ -1239,6 +1239,9 @@
       "decision": "判断を開く",
       "failed": "失敗内容を見る",
       "paused": "一時停止の理由を見る"
+    },
+    "attention": {
+      "failed": "要対応：実行が失敗しました"
     }
   },
   "flowBoundary": {

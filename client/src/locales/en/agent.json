@@ -1239,6 +1239,9 @@
       "decision": "Open the decision",
       "failed": "See what failed",
       "paused": "See why it paused"
+    },
+    "attention": {
+      "failed": "Needs attention: a run failed"
     }
   },
   "flowBoundary": {

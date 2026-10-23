@@ -432,6 +432,21 @@ describe('Flow mode in the conversation', () => {
     expect(screen.getByTestId('flow-bar-cost-partial')).toHaveTextContent('1 turn has no provider-reported cost and is not included')
   })
 
+  it('the hand-off shows the cost so far on its main line; a partial cost explains its "*" in words and in a short visible note', async () => {
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => String(input).endsWith('/cost')
+      ? respond(200, { flowId: 'f1', costUsd: 0.5, turns: 3, unpricedTurns: 2 })
+      : base(input, init))
+    render(<Providers><FlowStrip /></Providers>)
+    fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
+    const line = await screen.findByTestId('rail-card-hand-off-line')
+    await waitFor(() => expect(within(line).getByTestId('flow-hand-off-cost')).toHaveTextContent('$0.500* so far'))
+    // Without opening "Change how": the asterisk is explained visibly and for screen readers.
+    expect(within(line).getByTestId('flow-hand-off-cost')).toHaveTextContent('(2 turns have no provider-reported cost and are not included)')
+    expect(screen.getByTestId('flow-hand-off-cost-partial')).toHaveTextContent('* 2 turns have no provider-reported cost and are not included')
+    expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('$0.500* so far (2 turns have no provider-reported cost')
+  })
+
   it('Pause and Hand off carry their strip letters (P, H) in the tooltip; P works only with the strip focused', async () => {
     render(<Providers><FlowStrip /></Providers>)
     const pause = await screen.findByTestId('flow-bar-pause')

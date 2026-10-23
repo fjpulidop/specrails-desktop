@@ -51,7 +51,7 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
 import { derivePrCards } from '../components/agent-pr-pinning'
-import { deliveryNeedsPerson } from '../components/mission-run-strip'
+import { deliveryAttention, mergeAttention, type MissionAttentionKind } from '../components/mission-run-strip'
 import { useMissionRunAttention } from './MissionExtensionsContext'
 import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
@@ -361,6 +361,8 @@ export interface AgentChatContextValue {
   /** Conversations with a delivery waiting for the person (a review decision,
    *  an approval, a failure nobody acted on) — the mission list's attention mark. */
   attentionConversationIds: ReadonlySet<string>
+  /** Why each of those missions needs the person: a decision waits (wins) or a run failed. */
+  attentionKinds?: ReadonlyMap<string, MissionAttentionKind>
   /** Per-conversation live slices (stream/tools/queue) — feeds the mission
    *  selector's queued-count badges without flattening to the active thread. */
   liveByConversation: ReadonlyMap<string, AgentConvLive>
@@ -420,7 +422,7 @@ export interface AgentChatContextValue {
   resyncRunCards?: () => void
   /** An extension's live run (Flow) waits for the person or not: the same
    *  sidebar attention dot a delivery feeds (keyed by the strip entry). */
-  reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean) => void
+  reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind) => void
   /** Apply the authoritative snapshot returned by a card action immediately;
    *  the persisted message/WS update later becomes an idempotent no-op.
    *  Standalone cards receive `untracked` so they can still use a local
@@ -672,27 +674,28 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   // Attention: per conversation, which deliveries wait for the person. WS
   // envelopes cover every conversation; the open one is recomputed from its rows.
-  const [attentionByConversation, setAttentionByConversation] = useState<ReadonlyMap<string, ReadonlyMap<string, boolean>>>(new Map())
+  const [attentionByConversation, setAttentionByConversation] = useState<ReadonlyMap<string, ReadonlyMap<string, MissionAttentionKind>>>(new Map())
   const recordAttention = useCallback((conversationId: string, envelope: AgentPrDecisionEnvelope): void => {
-    const needs = deliveryNeedsPerson(envelope)
+    const kind = deliveryAttention(envelope)
     setAttentionByConversation((current) => {
       const before = current.get(conversationId)
-      if ((before?.get(envelope.prDeliveryId) ?? false) === needs) return current
+      if ((before?.get(envelope.prDeliveryId) ?? null) === kind) return current
       const deliveries = new Map(before ?? [])
-      if (needs) deliveries.set(envelope.prDeliveryId, true)
+      if (kind) deliveries.set(envelope.prDeliveryId, kind)
       else deliveries.delete(envelope.prDeliveryId)
       return new Map(current).set(conversationId, deliveries)
     })
   }, [])
   // Extension runs without an app-wide source report theirs from the strip:
   // kept apart so the open conversation's delivery recompute never wipes them.
-  const [runAttention, setRunAttention] = useState<ReadonlyMap<string, ReadonlySet<string>>>(new Map())
-  const reportRunAttention = useCallback((conversationId: string, runKey: string, needsPerson: boolean): void => {
+  const [runAttention, setRunAttention] = useState<ReadonlyMap<string, ReadonlyMap<string, MissionAttentionKind>>>(new Map())
+  const reportRunAttention = useCallback((conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind): void => {
+    const kind: MissionAttentionKind | null = needsPerson === true ? 'decision' : needsPerson === false ? null : needsPerson
     setRunAttention((current) => {
       const before = current.get(conversationId)
-      if ((before?.has(runKey) ?? false) === needsPerson) return current
-      const keys = new Set(before ?? [])
-      if (needsPerson) keys.add(runKey)
+      if ((before?.get(runKey) ?? null) === kind) return current
+      const keys = new Map(before ?? [])
+      if (kind) keys.set(runKey, kind)
       else keys.delete(runKey)
       return new Map(current).set(conversationId, keys)
     })
@@ -700,13 +703,25 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   // An extension that derives its runs' attention app-wide (Flow, from its
   // per-project watch) feeds the dot for every listed mission, open or not.
   const extensionAttention = useMissionRunAttention(conversations)
-  const attentionConversationIds = useMemo<ReadonlySet<string>>(() => {
-    const ids = new Set<string>()
-    for (const [conversationId, deliveries] of attentionByConversation) if (deliveries.size > 0) ids.add(conversationId)
-    for (const [conversationId, keys] of runAttention) if (keys.size > 0) ids.add(conversationId)
-    for (const [conversationId, keys] of extensionAttention) if (keys.size > 0) ids.add(conversationId)
-    return ids
+  const attentionKinds = useMemo<ReadonlyMap<string, MissionAttentionKind>>(() => {
+    const kinds = new Map<string, MissionAttentionKind[]>()
+    const add = (conversationId: string, values: Iterable<MissionAttentionKind>): void => {
+      const list = kinds.get(conversationId) ?? []
+      list.push(...values)
+      if (list.length) kinds.set(conversationId, list)
+    }
+    for (const [conversationId, deliveries] of attentionByConversation) add(conversationId, deliveries.values())
+    for (const [conversationId, keys] of runAttention) add(conversationId, keys.values())
+    // An extension's app-wide source says only "needs you": read as a decision.
+    for (const [conversationId, keys] of extensionAttention) if (keys.size > 0) add(conversationId, ['decision'])
+    const merged = new Map<string, MissionAttentionKind>()
+    for (const [conversationId, list] of kinds) {
+      const kind = mergeAttention(list)
+      if (kind) merged.set(conversationId, kind)
+    }
+    return merged
   }, [attentionByConversation, runAttention, extensionAttention])
+  const attentionConversationIds = useMemo<ReadonlySet<string>>(() => new Set(attentionKinds.keys()), [attentionKinds])
 
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -1715,11 +1730,14 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const activeConversationId = active?.id ?? null
   useEffect(() => {
     if (!activeConversationId) return
-    const deliveries = new Map<string, boolean>()
-    for (const envelope of derivePrCards(messages).byDeliveryId.values()) if (deliveryNeedsPerson(envelope)) deliveries.set(envelope.prDeliveryId, true)
+    const deliveries = new Map<string, MissionAttentionKind>()
+    for (const envelope of derivePrCards(messages).byDeliveryId.values()) {
+      const kind = deliveryAttention(envelope)
+      if (kind) deliveries.set(envelope.prDeliveryId, kind)
+    }
     setAttentionByConversation((current) => {
       const before = current.get(activeConversationId)
-      if (before && before.size === deliveries.size && [...deliveries.keys()].every((id) => before.has(id))) return current
+      if (before && before.size === deliveries.size && [...deliveries].every(([id, kind]) => before.get(id) === kind)) return current
       return new Map(current).set(activeConversationId, deliveries)
     })
   }, [activeConversationId, messages])
@@ -1728,7 +1746,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
-    unreadConversationIds, attentionConversationIds, favoriteConversationIds,
+    unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -1741,7 +1759,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
-    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, attentionConversationIds, favoriteConversationIds,
+    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,

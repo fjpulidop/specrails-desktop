@@ -81,7 +81,9 @@ function ConversationRow({
   const label = conversation.title?.trim() || t('untitled')
   const [confirming, setConfirming] = useState(false)
   // Marks next to the title: a delivery waits for the person; the mission is in Flow.
-  const attention = useAgentChat().attentionConversationIds?.has(conversation.id) ?? false
+  const chat = useAgentChat()
+  const attention = chat.attentionConversationIds?.has(conversation.id) ?? false
+  const attentionKind = chat.attentionKinds?.get(conversation.id) ?? 'decision'
   const markRefs = useMemo(() => [{ id: conversation.id, pinned_project_id: conversation.pinned_project_id ?? null }], [conversation.id, conversation.pinned_project_id])
   const modeMark = useMissionConversationMarks(markRefs).get(conversation.id) ?? null
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -177,7 +179,7 @@ function ConversationRow({
             )}
           </span>
           {modeMark && <MissionModeRowMark badge={modeMark} />}
-          {attention && <MissionAttentionMark />}
+          {attention && <MissionAttentionMark kind={attentionKind} />}
           {/* Compact "time since last interaction" (Cursor style) — swaps out
               for the delete action on hover so the row never shows both. */}
           <span
