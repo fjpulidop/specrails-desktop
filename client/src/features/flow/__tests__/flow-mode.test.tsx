@@ -25,6 +25,7 @@ import { FlowMissionsBridge, useFlowConversationMode } from '../components/FlowM
 import { FlowEntryCard } from '../components/FlowEntryCard'
 import { AgentRunStrip } from '../../missions/components/AgentRunStrip'
 import { FlowOfferCard } from '../components/FlowOfferCard'
+import { flowStateAnnouncement } from '../components/FlowDock'
 import { describeFlowRun } from '../components/FlowLiveRuns'
 import { useFlowLiveStats } from '../components/FlowStripControls'
 import { useFlowConversationMarks } from '../components/FlowConversationMarks'
@@ -514,7 +515,7 @@ describe('Flow mode in the conversation', () => {
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       if (String(input).endsWith('/flow/f1/close')) {
         calls.push({ url: String(input), method: init?.method ?? 'GET', body: null })
-        current = flow({ state: 'discarded' })
+        current = flow({ state: 'closed' })
         return respond(200, { flow: current })
       }
       if (String(input).endsWith('/flow/f1/diff')) return respond(200, { branch: 'feat/7-calm-dashboard', baseSha: 'a', headSha: 'b', files: [], totals: { files: 0, additions: 0, deletions: 0 } })
@@ -792,5 +793,13 @@ describe('useFlowLiveStats polling', () => {
       spy.mockRestore()
       vi.useRealTimers()
     }
+  })
+})
+
+describe('Flow state announcements', () => {
+  it('says a closed Flow kept its branch (a real terminal state, not a discard)', () => {
+    expect(flowStateAnnouncement('needs-review', 'closed')).toBe('closed')
+    expect(flowStateAnnouncement('closed', 'closed')).toBeNull()
+    expect(i18n.t('flow.announce.closed', { ns: 'agent' })).toBe('Flow closed. Its branch was kept.')
   })
 })

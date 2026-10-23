@@ -77,9 +77,10 @@ describe('Flow run tone (one rule for the strip and the attention dot)', () => {
     expect(actualTone.flowOpenRunTone('paused')).toBe('paused')
     expect(actualTone.flowOpenRunTone('needs-review')).toBe('info')
     expect(actualTone.flowOpenRunTone('handed_off')).toBeNull()
+    expect(actualTone.flowOpenRunTone('closed')).toBeNull()
     // Paused and needs-review are not decisions: no Flow state lights the dot on its own
     // (a Flow → Spec run that fails or waits is a delivery and feeds the dot itself).
-    for (const state of ['active', 'paused', 'needs-review', 'handed_off', 'delivered', 'discarded'] as const) {
+    for (const state of ['active', 'paused', 'needs-review', 'handed_off', 'delivered', 'discarded', 'closed'] as const) {
       expect(actualTone.flowNeedsPerson(state)).toBe(false)
     }
   })

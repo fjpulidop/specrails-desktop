@@ -54,7 +54,8 @@ reads the new `deliveries`/`capabilities` contract fields additively;
 `needs-review` is set only by startup reconciliation, when the Flow's
 worktree disappeared (or a compensation could not remove it). It cannot be
 discarded (nothing there is provably Flow's to delete); **Close this Flow**
-(`close`, `POST /flow/:flowId/close`) ends it as `discarded` WITHOUT releasing
+(`close`, `POST /flow/:flowId/close`) ends it in the terminal `closed` state
+(migration 81; Flows closed before it read `discarded`) WITHOUT releasing
 anything: the branch and any surviving worktree stay, the spec's Flow label
 becomes `closed` (hidden) and the history says "Left Flow · closed, branch
 kept". The state machine (`flow/domain.ts`) is pure; it returns

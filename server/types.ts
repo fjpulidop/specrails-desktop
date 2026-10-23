@@ -796,7 +796,7 @@ export interface FlowSessionWire {
   id: string
   conversationId: string
   ticketId: number | null
-  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+  state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
   branch: string | null
   worktreePath: string | null
   baseSha: string | null

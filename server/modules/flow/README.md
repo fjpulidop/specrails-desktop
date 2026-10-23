@@ -14,7 +14,7 @@ ports-and-adapters slice.
 | Settlement plan (effect keys, order, backoff), conversation summary (message window, reply first lines), Back to Flow briefing and spec-rewrite text builders | [domain.ts](domain.ts) (pure) |
 | Use cases: start, pause, resume, discard, hand-off, Back to Flow / Relaunch (by delivery), return-briefing delivery, delivered, settlement (run, replay, observe delivery), reconcile, read models | [application.ts](application.ts) |
 | Outbound contracts (repository, tickets, worktree, agent session, background processes, rail launch, usage, notifier, clock) | [ports.ts](ports.ts) |
-| `flow_sessions` SQL (migration 74; `return_briefing` migration 78) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
+| `flow_sessions` SQL (migration 74; `return_briefing` migration 78; `closed` state migration 81) and `flow_effects` (migration 75), project database | [adapters/sqlite.ts](adapters/sqlite.ts) |
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
 | Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `FlowTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
@@ -23,8 +23,8 @@ ports-and-adapters slice.
 ## Lifecycle
 
 `start` → `active` ⇄ `paused` → `handed_off` → `delivered`; `discard` from
-`active`/`paused` → `discarded`; `close` from `needs-review` → `discarded`
-without releasing anything (branch kept, spec label `closed`); `returned` (Back to Flow) from `handed_off`
+`active`/`paused` → `discarded`; `close` from `needs-review` → `closed`
+(terminal, migration 81) without releasing anything (branch kept, spec label `closed`); `returned` (Back to Flow) from `handed_off`
 → `paused` when the Flow → Spec run stopped with requested changes (by hand)
 or failed outright (automatically: `observeDelivery`/`replaySettlement` see
 `deliveryState().crashed` and run the same idempotent `returnToFlow`; the

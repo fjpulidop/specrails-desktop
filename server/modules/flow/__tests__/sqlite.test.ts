@@ -63,6 +63,9 @@ describe('SQLite Flow repository (migration 74)', () => {
     repository.insert(flow({ id: 'b', conversationId: 'c2', state: 'handed_off' }))
     repository.insert(flow({ id: 'c', conversationId: 'c3', state: 'paused', step: 'handoff:launch' }))
     repository.insert(flow({ id: 'd', conversationId: 'c4', state: 'discarded' }))
+    // A closed Flow (migration 81) is terminal: stored, read back, never reconciled.
+    repository.insert(flow({ id: 'e', conversationId: 'c5', state: 'closed' }))
+    expect(repository.get('e')?.state).toBe('closed')
     expect(repository.listUnsettled().map((session) => session.id).sort()).toEqual(['a', 'c'])
   })
 

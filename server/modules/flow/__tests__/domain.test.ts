@@ -87,13 +87,13 @@ describe('Flow state machine — start saga', () => {
 })
 
 describe('Flow state machine — transition table', () => {
-  const states: FlowState[] = ['active', 'paused', 'handed_off', 'delivered', 'discarded', 'needs-review']
+  const states: FlowState[] = ['active', 'paused', 'handed_off', 'delivered', 'discarded', 'closed', 'needs-review']
   // Legal (state, command) pairs for a settled Flow (no saga step).
   const legal: Record<string, FlowState[]> = {
     pause: ['active', 'paused'],
     resume: ['active', 'paused'],
     discard: ['active', 'paused', 'discarded'],
-    close: ['needs-review', 'discarded'],
+    close: ['needs-review', 'closed'],
     beginHandOff: ['active', 'paused', 'handed_off'], // handed_off: same rail is an idempotent repeat
     delivered: ['handed_off', 'delivered'],
     adoptionReverted: ['handed_off'],
@@ -151,7 +151,8 @@ describe('Flow state machine — transition table', () => {
 describe('Flow state machine — close (needs-review)', () => {
   it('ends the Flow without releasing anything: the branch stays and the spec loses its label', () => {
     const closed = transition(flow({ state: 'needs-review', coreSessionId: null }), commands.close)
-    expect(closed.session).toMatchObject({ state: 'discarded', branch: 'feat/7-idea', worktreePath: '/wt/flow-1/ticket-7' })
+    expect(closed.session).toMatchObject({ state: 'closed', branch: 'feat/7-idea', worktreePath: '/wt/flow-1/ticket-7' })
+    expect(isTerminalFlow(closed.session)).toBe(true)
     expect(closed.effects).toEqual([{ kind: 'setTicketFlowState', ticketId: 7, state: 'closed' }])
     expect(closed.effects.some((effect) => effect.kind === 'releaseWorktree' || effect.kind === 'deletePlaceholderTicket')).toBe(false)
     // Repeating it is a no-op; an open Flow is discarded, never closed.

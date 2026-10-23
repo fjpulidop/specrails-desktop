@@ -971,7 +971,8 @@
           "handed_off": "Flow handed off to a rail",
           "delivered": "Flow delivered",
           "discarded": "Flow discarded",
-          "needs-review": "Flow needs review"
+          "needs-review": "Flow needs review",
+          "closed": "Flow closed (branch kept)"
         },
         "viewRun": "View run"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Flow needs review",
         "handed_off": "Handed off to a rail",
         "delivered": "Delivered",
-        "discarded": "Discarded"
+        "discarded": "Discarded",
+        "closed": "Closed"
       },
       "disabled": {
         "settling": "Wait until the Flow finishes saving its state",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow handed off to a rail.",
       "delivered": "Flow delivered.",
       "discarded": "Flow discarded.",
-      "returned": "Back in Flow: the work returned with what the hand-off found."
+      "returned": "Back in Flow: the work returned with what the hand-off found.",
+      "closed": "Flow closed. Its branch was kept."
     },
     "strip": {
       "label": "Flow",

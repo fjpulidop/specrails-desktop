@@ -971,7 +971,8 @@
           "handed_off": "Flow 已交给 Rail",
           "delivered": "Flow 已完成",
           "discarded": "Flow 已丢弃",
-          "needs-review": "Flow 需要检查"
+          "needs-review": "Flow 需要检查",
+          "closed": "Flow 已关闭（保留分支）"
         },
         "viewRun": "查看运行"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Flow 需要检查",
         "handed_off": "已交给 Rail",
         "delivered": "已完成",
-        "discarded": "已丢弃"
+        "discarded": "已丢弃",
+        "closed": "已关闭"
       },
       "disabled": {
         "settling": "请等待 Flow 保存完状态",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow 已交给 Rail。",
       "delivered": "Flow 已交付。",
       "discarded": "Flow 已丢弃。",
-      "returned": "已回到 Flow：工作连同移交中发现的问题一起返回。"
+      "returned": "已回到 Flow：工作连同移交中发现的问题一起返回。",
+      "closed": "Flow 已关闭，分支已保留。"
     },
     "strip": {
       "label": "Flow",

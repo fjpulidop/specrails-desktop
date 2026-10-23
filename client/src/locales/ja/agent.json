@@ -971,7 +971,8 @@
           "handed_off": "Flow をレールに引き渡し済み",
           "delivered": "Flow 完了",
           "discarded": "Flow 破棄済み",
-          "needs-review": "Flow の確認が必要です"
+          "needs-review": "Flow の確認が必要です",
+          "closed": "Flow を終了 (ブランチは保持)"
         },
         "viewRun": "実行を表示"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Flow の確認が必要です",
         "handed_off": "レールに引き渡し済み",
         "delivered": "完了",
-        "discarded": "破棄済み"
+        "discarded": "破棄済み",
+        "closed": "終了"
       },
       "disabled": {
         "settling": "Flow が状態の保存を終えるまでお待ちください",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow をレールに引き渡しました。",
       "delivered": "Flow が完了しました。",
       "discarded": "Flow を破棄しました。",
-      "returned": "Flow に戻りました：引き渡しで見つかった内容とともに作業が戻りました。"
+      "returned": "Flow に戻りました：引き渡しで見つかった内容とともに作業が戻りました。",
+      "closed": "Flow を終了しました。ブランチは保持されています。"
     },
     "strip": {
       "label": "Flow",

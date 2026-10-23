@@ -6,7 +6,8 @@
 
 import { API_ORIGIN } from '../../../lib/origin'
 
-export type FlowState = 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+/** `closed`: a needs-review Flow the person ended keeping its branch (terminal). */
+export type FlowState = 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
 export type FlowStep = 'start:ticket' | 'start:worktree' | 'start:session' | 'handoff:freeze' | 'handoff:launch'
 
 export interface Flow {

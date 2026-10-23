@@ -971,7 +971,8 @@
           "handed_off": "Flow an einen Rail übergeben",
           "delivered": "Flow ausgeliefert",
           "discarded": "Flow verworfen",
-          "needs-review": "Flow muss geprüft werden"
+          "needs-review": "Flow muss geprüft werden",
+          "closed": "Flow geschlossen (Branch behalten)"
         },
         "viewRun": "Lauf ansehen"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Flow muss geprüft werden",
         "handed_off": "An einen Rail übergeben",
         "delivered": "Ausgeliefert",
-        "discarded": "Verworfen"
+        "discarded": "Verworfen",
+        "closed": "Geschlossen"
       },
       "disabled": {
         "settling": "Warte, bis der Flow seinen Zustand gespeichert hat",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow an einen Rail übergeben.",
       "delivered": "Flow ausgeliefert.",
       "discarded": "Flow verworfen.",
-      "returned": "Zurück im Flow: Die Arbeit kam mit den Ergebnissen der Übergabe zurück."
+      "returned": "Zurück im Flow: Die Arbeit kam mit den Ergebnissen der Übergabe zurück.",
+      "closed": "Flow geschlossen. Sein Branch wurde behalten."
     },
     "strip": {
       "label": "Flow",

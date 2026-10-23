@@ -12,11 +12,14 @@
  *
  * `needs-review` is reached only by startup reconciliation, when the worktree a
  * Flow owns has disappeared (or a compensation could not remove it). Closing it
- * (`close`) ends the Flow as `discarded` without deleting the branch. Sagas (start, hand-off) record their progress in
- * `step` so a restart can complete or compensate them.
+ * (`close`) ends the Flow as `closed` (terminal) without deleting the branch.
+ * Sagas (start, hand-off) record their progress in `step` so a restart can
+ * complete or compensate them.
  */
 
-export type FlowState = 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'needs-review'
+/** `closed`: a needs-review Flow the person ended keeping its branch (terminal;
+ * nothing was released). Rows closed before migration 81 read `discarded`. */
+export type FlowState = 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
 
 /** States whose Flow still owns its conversation (at most one per conversation). */
 export const OPEN_FLOW_STATES: readonly FlowState[] = Object.freeze(['active', 'paused'])
@@ -168,7 +171,7 @@ export function isOpenFlow(session: Pick<FlowSession, 'state'>): boolean {
 }
 
 export function isTerminalFlow(session: Pick<FlowSession, 'state'>): boolean {
-  return session.state === 'delivered' || session.state === 'discarded' || session.state === 'needs-review'
+  return session.state === 'delivered' || session.state === 'discarded' || session.state === 'closed' || session.state === 'needs-review'
 }
 
 /** Title of the placeholder spec, from the free idea that started the Flow. */
@@ -292,12 +295,13 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
     }
     case 'close': {
       // Only a Flow reconciliation could not settle: nothing is released (the
-      // person keeps the branch). The terminal state is `discarded`; the
+      // person keeps the branch). The terminal state is `closed`, never
+      // `discarded` (which means the worktree and branch were removed); the
       // history boundary records `closed`, and the spec loses its Flow label.
-      if (session.state === 'discarded') return { session, effects: [] }
+      if (session.state === 'closed') return { session, effects: [] }
       if (session.state !== 'needs-review' || session.step !== null) illegal(session, command)
       const effects: FlowEffect[] = session.ticketId !== null ? [{ kind: 'setTicketFlowState', ticketId: session.ticketId, state: 'closed' }] : []
-      return { session: next(session, { state: 'discarded', coreSessionId: null }, now), effects }
+      return { session: next(session, { state: 'closed', coreSessionId: null }, now), effects }
     }
     case 'begin-hand-off': {
       if (session.state === 'handed_off' && session.railIndex === command.railIndex) return { session, effects: [] }

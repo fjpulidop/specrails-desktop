@@ -1,7 +1,7 @@
 // ─── Flow dock (missions ConversationDock slot) ───────────────────────────────
 // The Flow's runs live in the mission's run strip (FlowLiveRuns). What stays
 // in the dock are the Flow's state announcements (active, paused, needs
-// review, handed off, back in Flow, delivered, discarded), said through the
+// review, handed off, back in Flow, delivered, discarded, closed), said through the
 // strip's ONE polite live region (`announce`) so nothing is announced twice.
 
 import { useEffect, useRef } from 'react'
@@ -15,7 +15,7 @@ export function flowStateAnnouncement(previous: Flow['state'] | null, next: Flow
   if (previous === next) return null
   if (previous === 'handed_off' && (next === 'active' || next === 'paused')) return 'returned'
   if (previous === null) return null
-  if (next === 'active' || next === 'paused' || next === 'needs-review' || next === 'handed_off' || next === 'delivered' || next === 'discarded') return next
+  if (next === 'active' || next === 'paused' || next === 'needs-review' || next === 'handed_off' || next === 'delivered' || next === 'discarded' || next === 'closed') return next
   return null
 }
 

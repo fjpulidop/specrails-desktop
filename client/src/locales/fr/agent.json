@@ -971,7 +971,8 @@
           "handed_off": "Flow remis à un rail",
           "delivered": "Flow livré",
           "discarded": "Flow abandonné",
-          "needs-review": "Le Flow doit être vérifié"
+          "needs-review": "Le Flow doit être vérifié",
+          "closed": "Flow fermé (branche conservée)"
         },
         "viewRun": "Voir l’exécution"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Le Flow doit être vérifié",
         "handed_off": "Remis à un rail",
         "delivered": "Livré",
-        "discarded": "Abandonné"
+        "discarded": "Abandonné",
+        "closed": "Fermé"
       },
       "disabled": {
         "settling": "Attendez que le Flow ait fini d’enregistrer son état",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow remis à un rail.",
       "delivered": "Flow livré.",
       "discarded": "Flow abandonné.",
-      "returned": "De retour dans le Flow : le travail est revenu avec ce que la remise a trouvé."
+      "returned": "De retour dans le Flow : le travail est revenu avec ce que la remise a trouvé.",
+      "closed": "Flow fermé. Sa branche a été conservée."
     },
     "strip": {
       "label": "Flow",

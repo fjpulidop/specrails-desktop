@@ -971,7 +971,8 @@
           "handed_off": "Flow pasado a un rail",
           "delivered": "Flow entregado",
           "discarded": "Flow descartado",
-          "needs-review": "El Flow necesita revisión"
+          "needs-review": "El Flow necesita revisión",
+          "closed": "Flow cerrado (rama conservada)"
         },
         "viewRun": "Ver ejecución"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "El Flow necesita revisión",
         "handed_off": "Pasado a un rail",
         "delivered": "Entregado",
-        "discarded": "Descartado"
+        "discarded": "Descartado",
+        "closed": "Cerrado"
       },
       "disabled": {
         "settling": "Espera a que el Flow termine de guardar su estado",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow pasado a un rail.",
       "delivered": "Flow entregado.",
       "discarded": "Flow descartado.",
-      "returned": "De vuelta en Flow: el trabajo volvió con lo que encontró el rail."
+      "returned": "De vuelta en Flow: el trabajo volvió con lo que encontró el rail.",
+      "closed": "Flow cerrado. Su rama se ha conservado."
     },
     "strip": {
       "label": "Flow",

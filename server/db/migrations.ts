@@ -1864,6 +1864,53 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('repository_id')) db.exec('ALTER TABLE flow_sessions ADD COLUMN repository_id TEXT')
   },
 
+  // Migration 81: a real `closed` Flow state. Closing a needs-review Flow keeps
+  // its branch (nothing is released), which `discarded` (worktree and branch
+  // removed) misrepresented. SQLite cannot alter a CHECK constraint, so the
+  // table is rebuilt with every row, column and index preserved (flow_sessions
+  // has no triggers and no foreign keys). Rows closed before this migration
+  // stay `discarded`: nothing durable tells them apart.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (cols.size === 0) return
+    const value = (column: string): string => (cols.has(column) ? column : 'NULL')
+    db.exec(`
+      DROP TABLE IF EXISTS flow_sessions_v81;
+      CREATE TABLE flow_sessions_v81 (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        ticket_id       INTEGER,
+        state           TEXT NOT NULL CHECK (state IN ('active','paused','handed_off','delivered','discarded','closed','needs-review')),
+        branch          TEXT,
+        worktree_path   TEXT,
+        base_sha        TEXT,
+        head_sha        TEXT,
+        core_session_id TEXT,
+        rail_index      INTEGER,
+        delivery_id     TEXT,
+        step            TEXT CHECK (step IS NULL OR step IN ('start:ticket','start:worktree','start:session','handoff:freeze','handoff:launch')),
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL,
+        return_briefing TEXT,
+        derived_changes TEXT,
+        repository_id   TEXT
+      );
+      INSERT INTO flow_sessions_v81 (id, conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
+        core_session_id, rail_index, delivery_id, step, created_at, updated_at, return_briefing, derived_changes, repository_id)
+      SELECT id, conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
+        core_session_id, rail_index, delivery_id, step, created_at, updated_at,
+        ${value('return_briefing')}, ${value('derived_changes')}, ${value('repository_id')}
+      FROM flow_sessions ORDER BY rowid;
+      DROP TABLE flow_sessions;
+      ALTER TABLE flow_sessions_v81 RENAME TO flow_sessions;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_sessions_open_conversation
+        ON flow_sessions(conversation_id) WHERE state IN ('active','paused');
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_conversation ON flow_sessions(conversation_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_ticket ON flow_sessions(ticket_id);
+      CREATE INDEX IF NOT EXISTS idx_flow_sessions_delivery ON flow_sessions(delivery_id);
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

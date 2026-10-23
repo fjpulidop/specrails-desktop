@@ -222,8 +222,8 @@ describe('startFlow', () => {
     // The worktree survived: the panel still reads what it holds.
     await expect(service.diffSummary('flow-1')).resolves.toMatchObject({ totals: { files: 1 } })
     const closed = await service.closeFlow('flow-1')
-    expect(closed).toMatchObject({ state: 'discarded', branch: 'feat/7-idea' })
-    expect(repository.get('flow-1')?.state).toBe('discarded')
+    expect(closed).toMatchObject({ state: 'closed', branch: 'feat/7-idea' })
+    expect(repository.get('flow-1')?.state).toBe('closed')
     expect(worktrees.release).not.toHaveBeenCalled()
     expect(tickets.deletePlaceholder).not.toHaveBeenCalled()
     expect(tickets.setFlowState).toHaveBeenLastCalledWith(7, 'closed')

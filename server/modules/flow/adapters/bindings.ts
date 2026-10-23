@@ -624,8 +624,11 @@ export function createFlowHandOffAuthority(
           // so the hand-off card gives way to the run card that appears with it
           // instead of waiting for the rest of the launch.
           setImmediate(() => {
-            const adopted = repository.get(flowId)
-            if (adopted?.state === 'handed_off' && adopted.deliveryId === adoption.deliveryId) onChanged?.(adopted)
+            // Best effort: the connection may be gone (project closed) by then.
+            try {
+              const adopted = repository.get(flowId)
+              if (adopted?.state === 'handed_off' && adopted.deliveryId === adoption.deliveryId) onChanged?.(adopted)
+            } catch { /* clients rehydrate through GET */ }
           })
         },
         release() {

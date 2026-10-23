@@ -971,7 +971,8 @@
           "handed_off": "Flow affidato a un rail",
           "delivered": "Flow consegnato",
           "discarded": "Flow scartato",
-          "needs-review": "Il Flow va controllato"
+          "needs-review": "Il Flow va controllato",
+          "closed": "Flow chiuso (branch conservato)"
         },
         "viewRun": "Vedi esecuzione"
       },
@@ -999,7 +1000,8 @@
         "needs-review": "Il Flow va controllato",
         "handed_off": "Affidato a un rail",
         "delivered": "Consegnato",
-        "discarded": "Scartato"
+        "discarded": "Scartato",
+        "closed": "Chiuso"
       },
       "disabled": {
         "settling": "Attendi che il Flow finisca di salvare il suo stato",
@@ -1102,7 +1104,8 @@
       "handed_off": "Flow affidato a un rail.",
       "delivered": "Flow consegnato.",
       "discarded": "Flow scartato.",
-      "returned": "Di nuovo in Flow: il lavoro è tornato con ciò che ha trovato il rail."
+      "returned": "Di nuovo in Flow: il lavoro è tornato con ciò che ha trovato il rail.",
+      "closed": "Flow chiuso. Il suo branch è stato conservato."
     },
     "strip": {
       "label": "Flow",
