@@ -978,7 +978,7 @@
       "controls": "Flow 操作",
       "viewChanges": "查看更改",
       "resume": "恢复 Flow",
-      "pause": "暂停",
+      "pause": "暂停 Flow",
       "discard": "丢弃",
       "discarded": "已丢弃 Flow",
       "files_one": "{{count}} 个文件",
@@ -1203,7 +1203,6 @@
       "settled": "{{run}} 已结束",
       "needsYou": "{{run}} 需要你处理"
     },
-    "attention": "等待你的决定",
     "event": {
       "launched": "已在 {{run}} 上启动",
       "failed": "{{run}} 失败：{{reason}}",

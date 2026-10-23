@@ -90,7 +90,12 @@ through `useLiveRuns` (Flow) and name steps through `describeRun`; a live run
 can hear its panel close (`onPanelClose`: Esc, a click outside, the toggle or
 another run — Flow's hand-off treats it as "Not yet"), and a run with a `mode`
 keeps the mode's icon as its mark in every state, badged with the state's
-shape.
+shape. The switcher marks each run with the same per-state shape (never color
+alone), and a strip with one run still shows its name. An extension run in a
+`decision` or `failed` tone feeds the mission list's attention dot like a
+delivery (`reportRunAttention`); calm states never do. Every run primary (the
+strip's, the hand-off Launch, the card primary, Flow's Start) shares ONE
+recipe, `PRIMARY_ACTION_SHAPE` / `PRIMARY_ACTION` in `run-primary.tsx`.
 
 The history never repeats what is live: each milestone is one event line
 ([`AgentRunEventLine`](components/AgentRunEventLine.tsx)) in its chronological

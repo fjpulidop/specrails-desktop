@@ -49,9 +49,9 @@ export function MissionModeRowMark({ badge }: { badge: Badge }) {
 export function MissionAttentionMark() {
   const { t } = useTranslation('agent')
   return (
-    <span className="inline-flex shrink-0 items-center" title={t('runStrip.attention')} data-testid="mission-attention-mark">
+    <span className="inline-flex shrink-0 items-center" title={t('runStrip.decision.generic')} data-testid="mission-attention-mark">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary ring-2 ring-accent-primary/20" />
-      <span className="sr-only">{t('runStrip.attention')}</span>
+      <span className="sr-only">{t('runStrip.decision.generic')}</span>
     </span>
   )
 }

@@ -21,13 +21,13 @@ Se o seu Specrails Core ainda não consegue executar o Flow, o botão fica desat
 
 O modo Flow é indicado onde olha, com a sua própria cor de Flow: o compositor mostra um chip **Flow** ao lado do de autonomia e a dica *Diga ao agente o que mudar neste Flow…*; o título da missão indica **Em Flow**, tal como a sua linha na lista de missões. A conversa marca onde entrou e saiu do Flow, e as respostas do agente escritas em Flow levam uma pequena marca **Flow** junto à hora.
 
-A faixa logo acima do compositor mostra o Flow numa linha curta: o seu estado, **Flow · 7 ficheiros**, **Pausar** e a ação principal, **Passar a um rail**. Quando uma ação não está disponível (o Flow ainda está a guardar, há outra ação em curso), ao passar o rato diz porquê. Abra a linha com a sua seta, como qualquer outra execução, para ver o resto:
+A faixa logo acima do compositor mostra o Flow numa linha curta: o seu estado, **Flow · 7 ficheiros**, **Pausar Flow** e a ação principal, **Passar a um rail**. Quando uma ação não está disponível (o Flow ainda está a guardar, há outra ação em curso), ao passar o rato diz porquê. Abra a linha com a sua seta, como qualquer outra execução, para ver o resto:
 
 - o **ramo** (clique para copiar o nome), as **alterações** com linhas adicionadas e removidas (clique para listar cada ficheiro alterado com o estado e os +/−) e o **custo até agora** tal como faturado pelo fornecedor. Mostra `—` até um turno ter custo reportado, e nunca uma estimativa; um `*` assinala um total que deixa de fora turnos sem preço, com uma nota a dizer quantos;
 - **Pré-visualizar** enquanto a app do Flow está a correr (ver abaixo);
 - **Descartar**, à parte, apaga as alterações do Flow, o seu ramo e a spec provisória. A confirmação lista o que perde: os ficheiros alterados com os seus +/−, o ramo e a spec.
 
-**Pausar** para o agente e mantém as suas alterações e a spec. A linha mostra então **Retomar Flow**.
+**Pausar Flow** para o agente e mantém as suas alterações e a spec. A linha mostra então **Retomar Flow**.
 
 Pode escrever enquanto o agente trabalha: no Flow, a sua mensagem **interrompe** o passo atual (o botão de enviar passa a ser um raio) e o agente continua logo com a nova informação. Enquanto o Flow está aberto, a faixa de git sob o compositor sai do caminho: o painel do Flow já mostra o seu ramo.
 

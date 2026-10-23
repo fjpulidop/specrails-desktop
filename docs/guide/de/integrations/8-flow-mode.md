@@ -21,13 +21,13 @@ Kann dein Specrails Core Flow noch nicht ausführen, ist Starten deaktiviert und
 
 Der Flow-Modus wird dort benannt, wo du hinschaust, in seiner eigenen Flow-Farbe: Der Composer zeigt einen **Flow**-Chip neben dem Autonomie-Chip und den Hinweis *Sag dem Agenten, was er in diesem Flow ändern soll…*; der Missionstitel zeigt **Im Flow**, ebenso ihre Zeile in der Missionsliste. Das Gespräch markiert, wo du Flow betreten und verlassen hast, und die im Flow geschriebenen Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke.
 
-Die Leiste direkt über dem Composer zeigt den Flow in einer kurzen Zeile: seinen Status, **Flow · 7 Dateien**, **Pausieren** und die Hauptaktion **Übergeben**. Ist eine Aktion nicht verfügbar (der Flow speichert noch, eine andere Aktion läuft), sagt der Hover-Text warum. Öffne die Zeile mit ihrem Pfeil, wie jeden anderen Lauf, um den Rest zu sehen:
+Die Leiste direkt über dem Composer zeigt den Flow in einer kurzen Zeile: seinen Status, **Flow · 7 Dateien**, **Flow pausieren** und die Hauptaktion **Übergeben**. Ist eine Aktion nicht verfügbar (der Flow speichert noch, eine andere Aktion läuft), sagt der Hover-Text warum. Öffne die Zeile mit ihrem Pfeil, wie jeden anderen Lauf, um den Rest zu sehen:
 
 - den **Branch** (Klick kopiert den Namen), die **Änderungen** mit hinzugefügten und entfernten Zeilen (Klick listet jede geänderte Datei mit Status und +/−) und die **Kosten bisher**, wie vom Anbieter abgerechnet. Bis ein Zug gemeldete Kosten hat, steht dort `—`, nie eine Schätzung; ein `*` markiert eine Summe ohne unbepreiste Züge, mit einem Hinweis, wie viele es sind;
 - **Vorschau**, solange die App des Flows läuft (siehe unten);
 - **Verwerfen**, abgesetzt, löscht die Änderungen des Flows, seinen Branch und die Platzhalter-Spec. Die Bestätigung listet, was verloren geht: die geänderten Dateien mit ihren +/−, den Branch und die Spec.
 
-**Pausieren** stoppt den Agenten und behält deine Änderungen und die Spec. Die Zeile zeigt dann **Flow fortsetzen**.
+**Flow pausieren** stoppt den Agenten und behält deine Änderungen und die Spec. Die Zeile zeigt dann **Flow fortsetzen**.
 
 Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Knopf wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Solange der Flow offen ist, tritt die Git-Leiste unter dem Composer zur Seite: Das Panel des Flows zeigt seinen Branch bereits.
 

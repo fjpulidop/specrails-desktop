@@ -978,7 +978,7 @@
       "controls": "Azioni del Flow",
       "viewChanges": "Vedi modifiche",
       "resume": "Riprendi Flow",
-      "pause": "Pausa",
+      "pause": "Sospendi Flow",
       "discard": "Scarta",
       "discarded": "Flow scartato",
       "files_one": "{{count}} file",
@@ -1203,7 +1203,6 @@
       "settled": "{{run}} è terminato",
       "needsYou": "{{run}} ha bisogno di te"
     },
-    "attention": "In attesa della tua decisione",
     "event": {
       "launched": "Avviato su {{run}}",
       "failed": "{{run}} non riuscito: {{reason}}",

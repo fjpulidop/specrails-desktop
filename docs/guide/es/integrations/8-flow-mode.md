@@ -21,13 +21,13 @@ Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivad
 
 El modo Flow se nombra allí donde miras, con su propio color de Flow: el compositor muestra un chip **Flow** junto al de autonomía y la pista *Dile al agente qué cambiar en este Flow…*; el título de la misión indica **En Flow**, igual que su fila en la lista de misiones. La conversación marca dónde entraste y saliste de Flow, y las respuestas del agente escritas en Flow llevan una pequeña marca **Flow** junto a su hora.
 
-La franja justo encima del compositor muestra el Flow en una fila corta: su estado, **Flow · 7 archivos**, **Pausar** y la acción principal, **Pasar a un rail**. Cuando una acción no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué. Abre la fila con su flecha, como cualquier otra ejecución, para ver el resto:
+La franja justo encima del compositor muestra el Flow en una fila corta: su estado, **Flow · 7 archivos**, **Pausar Flow** y la acción principal, **Pasar a un rail**. Cuando una acción no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué. Abre la fila con su flecha, como cualquier otra ejecución, para ver el resto:
 
 - la **rama** (pulsa para copiar su nombre), los **cambios** con líneas añadidas y eliminadas (pulsa para ver cada archivo con su estado y +/−) y el **coste hasta ahora** según factura el proveedor. Muestra `—` hasta que un turno tiene coste informado, y nunca una estimación; un `*` marca un total que deja fuera turnos sin precio, con una nota que dice cuántos;
 - **Vista previa** mientras la app del Flow está en marcha (ver más abajo);
 - **Descartar**, aparte, borra los cambios del Flow, su rama y la spec provisional. La confirmación enumera lo que pierdes: los archivos cambiados con sus +/−, la rama y la spec.
 
-**Pausar** detiene al agente y conserva tus cambios y la spec. La fila muestra entonces **Reanudar Flow**.
+**Pausar Flow** detiene al agente y conserva tus cambios y la spec. La fila muestra entonces **Reanudar Flow**.
 
 Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. Mientras el Flow está abierto, la franja de git bajo el compositor se aparta: el panel del Flow ya muestra su rama.
 

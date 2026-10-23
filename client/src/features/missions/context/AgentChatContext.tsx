@@ -417,6 +417,9 @@ export interface AgentChatContextValue {
   /** Re-read the active mission's run cards now (a strip waiting on a run that
    *  has not shown yet; normally the WS events and the resync poll do it). */
   resyncRunCards?: () => void
+  /** An extension's live run (Flow) waits for the person or not: the same
+   *  sidebar attention dot a delivery feeds (keyed by the strip entry). */
+  reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean) => void
   /** Apply the authoritative snapshot returned by a card action immediately;
    *  the persisted message/WS update later becomes an idempotent no-op.
    *  Standalone cards receive `untracked` so they can still use a local
@@ -680,11 +683,25 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return new Map(current).set(conversationId, deliveries)
     })
   }, [])
+  // Extension runs (Flow) report theirs from the strip: kept apart so the open
+  // conversation's delivery recompute never wipes them.
+  const [runAttention, setRunAttention] = useState<ReadonlyMap<string, ReadonlySet<string>>>(new Map())
+  const reportRunAttention = useCallback((conversationId: string, runKey: string, needsPerson: boolean): void => {
+    setRunAttention((current) => {
+      const before = current.get(conversationId)
+      if ((before?.has(runKey) ?? false) === needsPerson) return current
+      const keys = new Set(before ?? [])
+      if (needsPerson) keys.add(runKey)
+      else keys.delete(runKey)
+      return new Map(current).set(conversationId, keys)
+    })
+  }, [])
   const attentionConversationIds = useMemo<ReadonlySet<string>>(() => {
     const ids = new Set<string>()
     for (const [conversationId, deliveries] of attentionByConversation) if (deliveries.size > 0) ids.add(conversationId)
+    for (const [conversationId, keys] of runAttention) if (keys.size > 0) ids.add(conversationId)
     return ids
-  }, [attentionByConversation])
+  }, [attentionByConversation, runAttention])
 
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -1713,7 +1730,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    resyncRunCards, applyPrDecisionSnapshot,
+    resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
     visibility, open, close, minimize, toggle,
@@ -1726,7 +1743,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    resyncRunCards, applyPrDecisionSnapshot,
+    resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the

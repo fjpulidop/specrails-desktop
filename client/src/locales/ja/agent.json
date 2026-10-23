@@ -978,7 +978,7 @@
       "controls": "Flow のアクション",
       "viewChanges": "変更を表示",
       "resume": "Flow を再開",
-      "pause": "一時停止",
+      "pause": "Flow を一時停止",
       "discard": "破棄",
       "discarded": "Flow を破棄しました",
       "files_one": "{{count}} ファイル",
@@ -1203,7 +1203,6 @@
       "settled": "{{run}} が終了しました",
       "needsYou": "{{run}} があなたの対応を待っています"
     },
-    "attention": "あなたの判断待ち",
     "event": {
       "launched": "{{run}} で起動",
       "failed": "{{run}} が失敗: {{reason}}",

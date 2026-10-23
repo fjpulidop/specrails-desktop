@@ -21,13 +21,13 @@ If your Specrails Core cannot run Flow yet, Start is disabled and the card lists
 
 Flow mode is named where you look, in its own Flow color: the composer shows a **Flow** chip next to the autonomy chip and the hint *Tell the agent what to change in this Flow…*; the mission title reads **In Flow**, and so does its row in the mission list. The conversation marks where you entered and left Flow, and the agent's replies written in Flow carry a small **Flow** mark next to their time.
 
-The strip just above the composer shows the Flow in one short row: its status, **Flow · 7 files**, **Pause** and the main action, **Hand off**. When an action is unavailable (the Flow is still saving, another action runs), hovering it says why. Open the row with its chevron, like any other run, to see the rest:
+The strip just above the composer shows the Flow in one short row: its status, **Flow · 7 files**, **Pause Flow** and the main action, **Hand off**. When an action is unavailable (the Flow is still saving, another action runs), hovering it says why. Open the row with its chevron, like any other run, to see the rest:
 
 - the **branch** (click to copy its name), the **changes** with lines added and removed (click to list every changed file with its status and +/−), and the **cost so far** as billed by the provider. It shows `—` until a turn has a reported cost, and never an estimate; a `*` marks a total that leaves out unpriced turns, with a note saying how many;
 - **Preview** while the Flow's app runs (see below);
 - **Discard**, set apart, deletes the Flow's changes, its branch and the placeholder spec. The confirmation lists what you lose: the changed files with their +/−, the branch and the spec.
 
-**Pause** stops the agent and keeps your changes and the spec. The row then shows **Resume Flow**.
+**Pause Flow** stops the agent and keeps your changes and the spec. The row then shows **Resume Flow**.
 
 You can write while the agent is working: in Flow your message **interrupts** the current step (the send button turns into a lightning bolt) and the agent continues with your new information right away. While the Flow is open, the git strip under the composer steps aside: the Flow's panel already shows its branch.
 

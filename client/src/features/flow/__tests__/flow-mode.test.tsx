@@ -204,6 +204,14 @@ describe('FlowEntryCard in a workspace (repository target)', () => {
     expect(screen.getByTestId('flow-entry-repository-api')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('flow-entry-repository-api')).toHaveTextContent('Suggested by the agent')
     expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('aria-checked', 'false')
+    // A radio group: one tab stop (the checked radio), arrows move the choice and the focus.
+    expect(screen.getByTestId('flow-entry-repository-api')).toHaveAttribute('tabindex', '0')
+    expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('tabindex', '-1')
+    fireEvent.keyDown(screen.getByTestId('flow-entry-repository-api'), { key: 'ArrowDown' })
+    expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('aria-checked', 'true')
+    expect(document.activeElement).toBe(screen.getByTestId('flow-entry-repository-web'))
+    fireEvent.keyDown(screen.getByTestId('flow-entry-repository-web'), { key: 'ArrowDown' })
+    expect(screen.getByTestId('flow-entry-repository-api')).toHaveAttribute('aria-checked', 'true')
     fireEvent.click(screen.getByTestId('flow-entry-repository-web'))
     expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('aria-checked', 'true')
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
@@ -282,6 +290,8 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Flow · 3 files'))
     // Flow's own color marks the running Flow (running runs keep the info accent).
     expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-flow)' })
+    // A strip showing only the Flow still names it.
+    expect(screen.getByTestId('mission-run-strip-label')).toHaveTextContent('Flow')
     const row = within(screen.getByTestId('mission-run-strip-bar'))
     const toolbar = row.getByRole('toolbar', { name: 'Flow actions' })
     expect([...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))).toEqual(['flow-bar-pause', 'flow-bar-hand-off'])

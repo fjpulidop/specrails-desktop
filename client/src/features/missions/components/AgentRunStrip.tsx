@@ -22,13 +22,14 @@
 // while hidden: they measure the run (live step, vitals) the strip shows.
 // State changes are announced politely.
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
+import { useAgentChat } from '../context/AgentChatContext'
 import { modeAccent, useMissionExtensions, useMissionLiveRuns, type MissionLiveRun, type MissionModeBadge } from '../context/MissionExtensionsContext'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentRailLaunchCard } from './AgentRailLaunchCard'
@@ -42,12 +43,11 @@ import {
   proposalRunKey, readStripPick, urgencyOfTone, writeStripPick,
   type MissionRunCardSummary, type MissionRunTone, type MissionRunUrgency, type MissionRunVitalsSnapshot,
 } from './mission-run-strip'
-import { bestRunPrimary, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
+import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 
-/** The strip's primary action style — extensions reuse it for their own primary. */
-export const RUN_STRIP_PRIMARY =
-  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-accent-primary px-2.5 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-accent-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'
+/** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
+export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
 
 /** A quiet control inside the strip (switcher, overflow). */
 const QUIET_CONTROL =
@@ -116,21 +116,9 @@ function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolea
   return <StateGlyph tone={tone} quiet={quiet} className={MARK_CLASS} />
 }
 
-/** Small tone dot for the switcher. */
+/** The switcher's small state mark: the same shape per state as the strip mark (never color alone). */
 function ToneDot({ tone }: { tone: MissionRunTone }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'h-1.5 w-1.5 shrink-0 rounded-full',
-        tone === 'decision' && 'bg-accent-primary',
-        tone === 'failed' && 'bg-destructive',
-        tone === 'paused' && 'bg-accent-warning',
-        tone === 'info' && 'bg-foreground/45',
-        (tone === 'running' || tone === 'launching') && 'bg-accent-info',
-      )}
-    />
-  )
+  return <StateGlyph tone={tone} quiet className="h-3 w-3 shrink-0" />
 }
 
 /** A run that started needing the person while another was shown: a dot AND words. */
@@ -173,6 +161,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   const reduced = useReducedMotion()
   const { describeRun, ConversationDock } = useMissionExtensions()
   const extensionRuns = useMissionLiveRuns({ conversationId, projectId, inline })
+  const { reportRunAttention } = useAgentChat()
 
   // What the hidden cards measured: their live summary and each run's vitals.
   const [summaries, setSummaries] = useState<ReadonlyMap<string, MissionRunCardSummary>>(new Map())
@@ -244,22 +233,30 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     const totals = missionRunTotals(envelope.runIds ?? [], vitals.get(key))
     const meta = tone === 'launching' ? <MetaSkeleton /> : (
       <>
+        {/* Each figure: the short visible form, and its words for screen readers
+            (a generic span cannot carry an accessible name). */}
         {totals.progress && (
-          <span data-testid="mission-run-strip-progress" aria-label={t('runStrip.progressAria', { done: totals.progress.done, total: totals.progress.total })}>
-            {totals.progress.done}/{totals.progress.total}
+          <span data-testid="mission-run-strip-progress">
+            <span aria-hidden>{totals.progress.done}/{totals.progress.total}</span>
+            <span className="sr-only">{t('runStrip.progressAria', { done: totals.progress.done, total: totals.progress.total })}</span>
           </span>
         )}
         {totals.progress && <Dot />}
-        <span data-testid="mission-run-strip-elapsed" aria-label={totals.elapsedMs !== null ? t('prCard.runElapsedAria', { elapsed: formatRunElapsed(totals.elapsedMs) }) : undefined}>
-          {totals.elapsedMs !== null ? formatRunElapsed(totals.elapsedMs) : '—'}
+        <span data-testid="mission-run-strip-elapsed">
+          {totals.elapsedMs !== null ? (
+            <>
+              <span aria-hidden>{formatRunElapsed(totals.elapsedMs)}</span>
+              <span className="sr-only">{t('prCard.runElapsedAria', { elapsed: formatRunElapsed(totals.elapsedMs) })}</span>
+            </>
+          ) : <span aria-hidden>—</span>}
         </span>
         <Dot />
-        <span
-          data-testid="mission-run-strip-cost"
-          title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}
-          aria-label={totals.costUsd !== null ? t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) }) : t('runStrip.costNone')}
-        >
-          {totals.costUsd !== null ? `${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}` : '—'}
+        <span data-testid="mission-run-strip-cost" title={totals.costPartial ? t('runStrip.costPartial') : t('runStrip.costTitle')}>
+          <span aria-hidden>{totals.costUsd !== null ? `${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}` : '—'}</span>
+          <span className="sr-only">
+            {totals.costUsd !== null ? t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) }) : t('runStrip.costNone')}
+            {totals.costUsd !== null && !totals.costPartial ? ` (${t('runStrip.costTitle')})` : ''}
+          </span>
           {/* The `*` is said in words too, not only in a tooltip. */}
           {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
         </span>
@@ -331,6 +328,29 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   }, [proposals, deliveries, extensionRuns, deliveryEntry, conversationId, projectId, t])
   const entriesRef = useRef(entries)
   entriesRef.current = entries
+
+  // An extension's run that waits for the person (decision or failure) feeds
+  // the mission list's attention dot like a delivery does; a calm state (the
+  // Flow's "Ready to turn into a PR") does not. Deliveries report from their
+  // envelopes (deliveryNeedsPerson), so only extension runs are reported here.
+  const reported = useRef(new Map<string, string>())
+  const attentionSignature = entries.filter((entry) => entry.source === 'extension')
+    .map((entry) => `${entry.key}=${entry.urgency === 'decision' || entry.urgency === 'failed' ? 1 : 0}`).join('|')
+  useEffect(() => {
+    if (!reportRunAttention) return
+    const now = new Map<string, boolean>()
+    for (const entry of entriesRef.current) {
+      if (entry.source === 'extension') now.set(entry.key, entry.urgency === 'decision' || entry.urgency === 'failed')
+    }
+    for (const [key, owner] of reported.current) {
+      if (owner === conversationId && !now.has(key)) reportRunAttention(conversationId, key, false)
+    }
+    reported.current = new Map()
+    for (const [key, needs] of now) {
+      reportRunAttention(conversationId, key, needs)
+      reported.current.set(key, conversationId)
+    }
+  }, [attentionSignature, conversationId, reportRunAttention])
 
   // ── Which run shows ───────────────────────────────────────────────────────────
   // The person's pick (switcher), the open panel and focus inside the strip
@@ -585,12 +605,11 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     if (restoreFocus) moreRef.current?.focus()
   }, [])
   if (!selected) {
-    // Same positions as the full strip below: the dock keeps its state.
+    // Keyed like the full strip below: the dock and the live region keep their state.
     return (
       <>
-        {null}
-        {dock}
-        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+        <Fragment key="dock">{dock}</Fragment>
+        <div key="announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
       </>
     )
   }
@@ -664,6 +683,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   return (
     <>
     <div
+      key="strip"
       ref={stripRef}
       onKeyDown={onKeyDown}
       onFocus={() => { if (!focusKey) setFocusKey(selected.key) }}
@@ -758,7 +778,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           )}
           {showPrimary && primary?.kind !== 'local' && <span id={`${panelId}-primary-hint`} hidden>{t('runStrip.opensCard')}</span>}
 
-          {(entries.length > 1 || selected.source !== 'extension') && (
+          {entries.length > 0 && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
               {entries.length === 1 ? (
                 <span className="max-w-[11rem] truncate px-1 text-[11px] text-foreground/70" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
@@ -835,8 +855,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
         </motion.div>
       </div>
     </div>
-    {dock}
-    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+    <Fragment key="dock">{dock}</Fragment>
+    <div key="announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
     </>
   )
 }

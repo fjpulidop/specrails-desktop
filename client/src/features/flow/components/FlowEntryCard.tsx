@@ -6,7 +6,7 @@
 // project with several Git repositories it also shows WHERE the Flow runs:
 // the repository the agent triaged, changeable among the Git members.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, Check, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
@@ -17,6 +17,7 @@ import { FlowApiError, flowApi, flowRepositoryChoice, type Flow, type FlowReposi
 import { missingCapabilityKeys } from '../lib/flow-offer'
 import { flowErrorMessage } from '../lib/flow-failure'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
+import { PRIMARY_ACTION_SHAPE } from '../../missions/components/run-primary'
 
 interface Props {
   idea: string
@@ -92,6 +93,24 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
   const loading = !!projectId && (!availability || repositories === undefined)
   const blockReasonId = `flow-entry-blocked-${conversationId ?? 'none'}`
   const needsRepository = !!choice?.show && !selectedRepositoryId
+  // Radio group keyboard: one tab stop, arrows move the choice (and focus).
+  const radioRefs = useRef(new Map<string, HTMLButtonElement>())
+  const candidates = choice?.show ? choice.candidates : []
+  const tabStopId = candidates.some((candidate) => candidate.id === selectedRepositoryId) ? selectedRepositoryId : candidates[0]?.id ?? null
+  const onRadioKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    const last = candidates.length - 1
+    let next: number | null = null
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = index >= last ? 0 : index + 1
+    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = index <= 0 ? last : index - 1
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = last
+    if (next === null) return
+    event.preventDefault()
+    const target = candidates[next]
+    if (!target) return
+    setPickedRepositoryId(target.id)
+    radioRefs.current.get(target.id)?.focus()
+  }
 
   const startFlow = async () => {
     if (!ctx || !projectId || !conversationId || busy || blockReason || loading || needsRepository) return
@@ -143,14 +162,17 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
               {t('flow.entry.repository.label')}
             </p>
             <div role="radiogroup" aria-labelledby="flow-entry-repository-label" aria-describedby="flow-entry-repository-hint" className="grid max-h-44 gap-1 overflow-y-auto pr-0.5">
-              {choice.candidates.map((candidate) => {
+              {choice.candidates.map((candidate, index) => {
                 const checked = candidate.id === selectedRepositoryId
                 return (
                   <button
                     key={candidate.id}
+                    ref={(node) => { if (node) radioRefs.current.set(candidate.id, node); else radioRefs.current.delete(candidate.id) }}
                     type="button"
                     role="radio"
                     aria-checked={checked}
+                    tabIndex={candidate.id === tabStopId ? 0 : -1}
+                    onKeyDown={(event) => onRadioKeyDown(event, index)}
                     data-agent-interactive
                     data-testid={`flow-entry-repository-${candidate.id}`}
                     disabled={busy}
@@ -213,9 +235,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             onClick={() => void startFlow()}
             disabled={busy || loading || !!blockReason || needsRepository}
             aria-describedby={blockReason ? blockReasonId : undefined}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md bg-accent-flow px-3 py-1 text-xs font-semibold text-background shadow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
-            )}
+            className={cn(PRIMARY_ACTION_SHAPE, 'bg-accent-flow text-background hover:bg-accent-flow/90 focus-visible:ring-accent-flow/60')}
           >
             {busy || loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
             {busy ? t('flow.entry.starting') : t('flow.entry.start')}

@@ -38,7 +38,7 @@ import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
 import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSelector'
-import { RunPrimaryButton } from './run-primary'
+import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
 import type { LocalTicket } from '../../../types'
 import { openAddenda } from '../../specs/lib/spec-addenda-core'
 import { readyTriage, type SpecTriageReady } from '../../specs/lib/spec-triage'
@@ -706,7 +706,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             data-testid="rail-card-play"
             disabled={!!busy || loading || !!blockReason}
             onClick={() => void play()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={PRIMARY_ACTION}
           >
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
             {busy === 'launch' ? t('railCard.launching') : handOff.playLabel}
@@ -1060,7 +1060,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             data-testid="rail-card-play"
             disabled={!!busy || loading || !!blockReason}
             onClick={() => void play()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1 text-xs font-semibold text-white shadow transition-colors hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={PRIMARY_ACTION}
           >
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
             {busy === 'launch' ? t('railCard.launching') : t('railCard.play')}

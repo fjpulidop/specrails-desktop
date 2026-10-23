@@ -978,7 +978,7 @@
       "controls": "Flow actions",
       "viewChanges": "View changes",
       "resume": "Resume Flow",
-      "pause": "Pause",
+      "pause": "Pause Flow",
       "discard": "Discard",
       "discarded": "Flow discarded",
       "files_one": "{{count}} file",
@@ -1203,7 +1203,6 @@
       "settled": "{{run}} finished",
       "needsYou": "{{run}} needs you"
     },
-    "attention": "Waiting for your decision",
     "event": {
       "launched": "Launched on {{run}}",
       "failed": "{{run}} failed: {{reason}}",

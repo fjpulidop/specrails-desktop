@@ -21,13 +21,13 @@ Se il tuo Specrails Core non può ancora eseguire Flow, Avvia è disattivato e l
 
 La modalità Flow è nominata dove guardi, con il suo colore di Flow: il compositore mostra un chip **Flow** accanto a quello dell’autonomia e il suggerimento *Di’ all’agente cosa cambiare in questo Flow…*; il titolo della missione indica **In Flow**, così come la sua riga nell’elenco delle missioni. La conversazione segna dove sei entrato e uscito da Flow, e le risposte dell’agente scritte in Flow hanno un piccolo segno **Flow** accanto all’ora.
 
-La striscia subito sopra il compositore mostra il Flow in una riga breve: il suo stato, **Flow · 7 file**, **Pausa** e l’azione principale, **Affida**. Quando un’azione non è disponibile (il Flow sta ancora salvando, è in corso un’altra azione), passandoci sopra si legge perché. Apri la riga con la sua freccia, come qualsiasi altra esecuzione, per vedere il resto:
+La striscia subito sopra il compositore mostra il Flow in una riga breve: il suo stato, **Flow · 7 file**, **Sospendi Flow** e l’azione principale, **Affida**. Quando un’azione non è disponibile (il Flow sta ancora salvando, è in corso un’altra azione), passandoci sopra si legge perché. Apri la riga con la sua freccia, come qualsiasi altra esecuzione, per vedere il resto:
 
 - il **branch** (clic per copiarne il nome), le **modifiche** con le righe aggiunte e rimosse (clic per elencare ogni file modificato con il suo stato e i +/−) e il **costo finora** come fatturato dal provider. Mostra `—` finché un turno non ha un costo comunicato, mai una stima; un `*` segnala un totale che esclude turni senza prezzo, con una nota che dice quanti;
 - **Anteprima** mentre l’app del Flow è in esecuzione (vedi sotto);
 - **Scarta**, in disparte, elimina le modifiche del Flow, il suo branch e la spec provvisoria. La conferma elenca cosa perdi: i file modificati con i loro +/−, il branch e la spec.
 
-**Pausa** ferma l’agente e conserva le tue modifiche e la spec. La riga mostra quindi **Riprendi Flow**.
+**Sospendi Flow** ferma l’agente e conserva le tue modifiche e la spec. La riga mostra quindi **Riprendi Flow**.
 
 Puoi scrivere mentre l’agente lavora: in Flow il tuo messaggio **interrompe** il passo in corso (il pulsante di invio diventa un fulmine) e l’agente prosegue subito con le nuove informazioni. Finché il Flow è aperto, la striscia git sotto il compositore si fa da parte: il pannello del Flow mostra già il suo branch.
 

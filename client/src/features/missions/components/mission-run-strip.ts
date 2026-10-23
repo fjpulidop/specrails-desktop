@@ -142,7 +142,9 @@ export function deliveryRunTone(
 /**
  * The delivery waits for the person (the sidebar's attention dot): a review
  * decision, an approval, or a failure nobody acted on yet. Envelope-only, so it
- * also works for conversations that are not open.
+ * also works for conversations that are not open. Extension runs (Flow) feed
+ * the same dot with the same rule (a `decision` or `failed` tone) through the
+ * strip's `reportRunAttention`; their calm states (`info`) never do.
  */
 export function deliveryNeedsPerson(envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'phase' | 'runtime' | 'statusCode' | 'hasDelivery'>): boolean {
   if (!isPrEnvelopePinned(envelope)) return false

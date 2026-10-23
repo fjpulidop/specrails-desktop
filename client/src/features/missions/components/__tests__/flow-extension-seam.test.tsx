@@ -219,6 +219,20 @@ describe('missions extension seam (Flow mode)', () => {
       await waitFor(() => expect(document.activeElement).toBe(play))
     })
 
+    it('an extension run that waits for the person feeds the mission list attention dot; a calm one does not', async () => {
+      let tone: 'decision' | 'info' = 'info'
+      const RUNS: MissionExtensions = {
+        useLiveRuns: () => [{ key: 'flow:f1', label: 'Flow', tone, headline: 'Ready to turn into a PR' }],
+      }
+      await openWith([message('m1', 'user', 'hi')], RUNS)
+      await screen.findByTestId('mission-run-strip')
+      expect(chat!.attentionConversationIds.has('c1')).toBe(false)
+      tone = 'decision'
+      // Re-render with the new tone (the slot is read on render).
+      await act(async () => { await chat!.selectConversation('c1') })
+      await waitFor(() => expect(chat!.attentionConversationIds.has('c1')).toBe(true))
+    })
+
     it('the turn mark comes from the extension seam (its icon and color), never hard-coded', async () => {
       const TurnIcon = (props: { className?: string }) => <svg data-testid="turn-mode-icon" {...props} />
       await openWith([

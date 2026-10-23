@@ -209,6 +209,7 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
             data-testid="flow-bar-changes"
             onClick={() => setChangesOpen(true)}
             title={t('flow.bar.filesTitle')}
+            aria-describedby={`flow-bar-${flow.id}-files-hint`}
             aria-label={totals && totals.files > 0
               ? t('flow.bar.viewChangesStats', { files: filesLabel, additions: totals.additions, deletions: totals.deletions })
               : `${t('flow.bar.viewChanges')} · ${filesLabel}`}
@@ -223,6 +224,7 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
               </>
             )}
           </button>
+          <span id={`flow-bar-${flow.id}-files-hint`} hidden>{t('flow.bar.filesTitle')}</span>
         </div>
       )}
       {!needsReview && (
@@ -230,6 +232,8 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
           <span className={label}>{t('flow.panel.cost')}</span>
           <span data-testid="flow-bar-cost" className="tabular-nums text-foreground/85" title={t('flow.bar.costTitle')}>
             {costView.usd ?? '—'}{costView.partial && costView.usd ? '*' : ''}
+            {/* The tooltip's words for screen readers too. */}
+            <span className="sr-only"> ({t('flow.bar.costTitle')})</span>
           </span>
           {costView.partial && costView.usd && (
             <span data-testid="flow-bar-cost-partial" className="min-w-0 text-foreground/70">

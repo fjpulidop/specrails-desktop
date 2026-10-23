@@ -45,7 +45,7 @@ import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
 import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
-import { RunPrimaryButton } from './run-primary'
+import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -1160,8 +1160,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
                 : degradedDraft ? t('prCard.title.pr_draft_degraded')
                   : flowSpecDelivered ? t('prCard.title.flowSpecDelivered') : t(`prCard.title.${decision}`)
 
-  const primaryBtn =
-    'inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-primary/90 disabled:cursor-default disabled:opacity-60'
+  const primaryBtn = PRIMARY_ACTION
   const ghostBtn = cn(
     'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60',
     'border-border/60 text-foreground/70 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',

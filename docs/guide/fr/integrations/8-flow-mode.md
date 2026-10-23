@@ -21,13 +21,13 @@ Si votre Specrails Core ne peut pas encore exécuter Flow, Démarrer est désact
 
 Le mode Flow est nommé là où vous regardez, dans sa propre couleur de Flow : le compositeur affiche une puce **Flow** à côté de celle d’autonomie et l’indication *Dites à l’agent quoi modifier dans ce Flow…* ; le titre de la mission indique **En Flow**, tout comme sa ligne dans la liste des missions. La conversation marque où vous êtes entré dans Flow et où vous en êtes sorti, et les réponses de l’agent écrites en Flow portent une petite marque **Flow** à côté de leur heure.
 
-Le bandeau juste au-dessus du compositeur montre le Flow sur une ligne courte : son état, **Flow · 7 fichiers**, **Pause** et l’action principale, **Remettre**. Quand une action est indisponible (le Flow enregistre encore, une autre action est en cours), le survol dit pourquoi. Ouvrez la ligne avec son chevron, comme n’importe quelle exécution, pour voir le reste :
+Le bandeau juste au-dessus du compositeur montre le Flow sur une ligne courte : son état, **Flow · 7 fichiers**, **Suspendre le Flow** et l’action principale, **Remettre**. Quand une action est indisponible (le Flow enregistre encore, une autre action est en cours), le survol dit pourquoi. Ouvrez la ligne avec son chevron, comme n’importe quelle exécution, pour voir le reste :
 
 - la **branche** (cliquez pour copier son nom), les **modifications** avec les lignes ajoutées et supprimées (cliquez pour lister chaque fichier modifié avec son état et ses +/−), et le **coût jusqu’ici** tel que facturé par le fournisseur. Il affiche `—` tant qu’aucun tour n’a de coût déclaré, jamais une estimation ; un `*` signale un total qui exclut des tours sans prix, avec une note indiquant combien ;
 - **Aperçu** tant que l’app du Flow tourne (voir plus bas) ;
 - **Abandonner**, à l’écart, supprime les modifications du Flow, sa branche et la spec provisoire. La confirmation liste ce que vous perdez : les fichiers modifiés avec leurs +/−, la branche et la spec.
 
-**Pause** arrête l’agent et conserve vos modifications et la spec. La ligne affiche alors **Reprendre le Flow**.
+**Suspendre le Flow** arrête l’agent et conserve vos modifications et la spec. La ligne affiche alors **Reprendre le Flow**.
 
 Vous pouvez écrire pendant que l’agent travaille : en Flow, votre message **interrompt** l’étape en cours (le bouton d’envoi devient un éclair) et l’agent continue aussitôt avec vos nouvelles informations. Tant que le Flow est ouvert, la bande git sous le compositeur s’efface : le panneau du Flow montre déjà sa branche.
 

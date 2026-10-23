@@ -19,6 +19,18 @@
 
 import { createContext, forwardRef, useContext, useEffect, useRef, type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react'
 
+/**
+ * The ONE recipe of a run's primary button (strip primary, hand-off Launch,
+ * card primary, Flow Start): shape, type, focus and disabled state. Pair it
+ * with a color: PRIMARY_ACTION is the primary accent; a mode passes its own
+ * (Flow: accent-flow) on the same shape.
+ */
+export const PRIMARY_ACTION_SHAPE =
+  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'
+
+export const PRIMARY_ACTION =
+  `${PRIMARY_ACTION_SHAPE} bg-accent-primary text-white hover:bg-accent-primary/90 focus-visible:ring-accent-primary/60`
+
 export type RunPrimaryKind = 'outward' | 'local'
 
 export interface RunPrimaryDeclaration {
