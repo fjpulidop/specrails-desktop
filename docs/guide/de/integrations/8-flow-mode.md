@@ -22,12 +22,12 @@ Kann dein Specrails Core Flow noch nicht ausführen, ist der Button deaktiviert 
 Die Unterhaltung ändert ihr Aussehen (eine feine Akzentlinie am Rand), und über dem Eingabefeld erscheint eine Leiste:
 
 - der **Branch** des Worktrees, die **geänderten Dateien** mit hinzugefügten und entfernten Zeilen und die **echten Kosten** des Flows bisher, wie vom Anbieter abgerechnet. Bis ein Turn gemeldete Kosten hat, steht dort `—` – nie eine Schätzung;
-- **Änderungen ansehen** listet jede geänderte Datei mit Status und +/−;
+- ein Klick auf die **geänderten Dateien** listet jede Datei mit Status und +/−, ein Klick auf den **Branch** kopiert seinen Namen;
 - **Pausieren** stoppt den Agenten und behält Worktree und Spec. Die Mission zeigt dann **Flow fortsetzen**;
-- **Verwerfen** löscht nach einer Bestätigung Worktree, Branch und vorläufige Spec;
-- **Fertig** – die Hauptaktion, siehe unten.
+- **Verwerfen**, links abgesetzt, löscht Worktree, Branch und vorläufige Spec. Die Bestätigung nennt, was verloren geht: die geänderten Dateien mit ihren +/−, den Branch und die Spec;
+- **Fertig** – die Hauptaktion, siehe unten. Ist sie nicht verfügbar (der Flow speichert noch, eine andere Aktion läuft), sagt der Hinweis beim Darüberfahren, warum.
 
-Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Button wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Die Git-Leiste unter dem Eingabefeld zeigt den Branch des Worktrees.
+Du kannst schreiben, während der Agent arbeitet: Im Flow **unterbricht** deine Nachricht den aktuellen Schritt (der Senden-Button wird zum Blitz), und der Agent macht sofort mit deinen neuen Informationen weiter. Solange die Leiste sichtbar ist, tritt die Git-Leiste unter dem Eingabefeld zurück: Die Flow-Leiste zeigt den Branch des Worktrees bereits.
 
 ## Die App ausprobieren
 
@@ -40,6 +40,8 @@ Sobald die App lauscht, nennt dir der Agent ihre Adressen als Links und die Flow
 Bist du mit dem Ergebnis zufrieden, drücke **Fertig**. Flow-Leiste und visuelle Hervorhebung verschwinden, und die gewohnte Rail-Startkarte erscheint – mit vorausgewähltem Loop **Flow → Spec** und einer freien Rail. Passe Engine, Modell oder Aufwand an, wenn du willst, und drücke **Starten**. Ist das Review-Limit oder ein Budget erreicht, sagt die Karte das und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
 
 Die Rail leitet aus dem Gebauten die Specrails-Spec und die OpenSpec-Änderung ab, verifiziert und prüft sie, und die Auslieferungskarte erscheint in der Mission wie bei jedem Lauf.
+
+Über der Startkarte zeigt eine einzeilige Zusammenfassung, was an die Rail geht (Dateien und Zeilen), und die bisherigen Kosten des Flows. Scheitert der Lauf aus technischen Gründen, kehrt die Arbeit von selbst und unversehrt in diesen Flow zurück: Die Karte sagt in einfachen Worten, was fehlgeschlagen ist (die Codes stehen unter **Technische Details**), und der Agent erhält den Fehler und erklärt ihn. Verlangt die Prüfung Änderungen, bietet die Karte **Zurück zu Flow** oder **Neu starten** an. Ist die Auslieferung abgeschlossen, schließt die Mission den Flow mit einer Zusammenfassung ab: der Pull-Request, die aus dem Gebauten neu geschriebene Spec, die archivierte OpenSpec-Änderung und – falls vorhanden – der Jira-Vorgang.
 
 ## Gut zu wissen
 

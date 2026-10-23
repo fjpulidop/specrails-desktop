@@ -7,8 +7,8 @@
 //     messages (e.g. ```flow-offer). Missions strips the block and renders the
 //     registered card in its place; unknown tags stay plain markdown.
 //   - useConversationMode: a hook returning the visual/behavioural mode of a
-//     conversation (surface data-attributes, the branch the git strip shows,
-//     whether a busy send interrupts the running turn).
+//     conversation (surface data-attributes, the branch the git strip shows or
+//     whether it hides, whether a busy send interrupts the running turn).
 //   - ConversationDock: a component rendered above the composer (sticky bars
 //     and pinned cards owned by the extension).
 //   - RunCardActions: extra actions on a run/PR card whose outcome the
@@ -50,8 +50,10 @@ export interface MissionFenceCardProps {
 export interface MissionConversationMode {
   /** `data-*` attributes applied to the conversation surface (theme hooks). */
   attributes?: Readonly<Record<`data-${string}`, string>>
-  /** Replaces the git strip with a read-only branch (e.g. a Flow worktree). */
+  /** Replaces the git strip with a read-only branch (e.g. a worktree). */
   gitBranch?: { branch: string; label: string } | null
+  /** The extension shows the branch itself (the Flow bar): no git strip at all. */
+  hideGitStrip?: boolean
   /** While a turn runs, a send interrupts it instead of queueing. */
   interruptWhileBusy?: boolean
 }

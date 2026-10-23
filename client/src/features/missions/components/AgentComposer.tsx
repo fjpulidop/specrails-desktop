@@ -918,8 +918,9 @@ export function AgentComposer({
         </div>
       </div>
       {/* Git strip: current branch (switchable) + last commit of the mission's
-          pinned project. Hidden without a project or outside a git repo. */}
-      {gitProjectId && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
+          pinned project. Hidden without a project, outside a git repo, or when
+          the conversation's extension shows its own branch (the Flow bar). */}
+      {gitProjectId && !conversationMode?.hideGitStrip && <AgentGitBar projectId={gitProjectId} branchOverride={conversationMode?.gitBranch ?? null} />}
       {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
         <BackgroundProcessLogsModal
           process={backgroundProcessHistory.find(process => backgroundProcessKey(process) === backgroundProcessKey(selectedProcess)) ?? selectedProcess}

@@ -22,12 +22,12 @@ Si votre Specrails Core ne peut pas encore exécuter Flow, le bouton est désact
 La conversation change d’aspect (un fin liseré d’accent sur le bord) et une barre apparaît au-dessus du compositeur :
 
 - la **branche** du worktree, les **fichiers modifiés** avec les lignes ajoutées et supprimées, et le **coût réel** du Flow jusqu’ici, tel que facturé par le fournisseur. Elle affiche `—` tant qu’aucun tour n’a de coût communiqué, et jamais d’estimation ;
-- **Voir les modifications** liste chaque fichier modifié avec son statut et ses +/− ;
+- cliquez sur les **fichiers modifiés** pour lister chaque fichier avec son statut et ses +/−, et sur la **branche** pour copier son nom ;
 - **Pause** arrête l’agent et conserve le worktree et la spec. La mission affiche alors **Reprendre le Flow** ;
-- **Abandonner** supprime le worktree, sa branche et la spec provisoire, après confirmation ;
-- **C’est bon** — l’action principale, ci-dessous.
+- **Abandonner**, à l’écart sur la gauche, supprime le worktree, sa branche et la spec provisoire. La confirmation énumère ce que vous perdez : les fichiers modifiés avec leurs +/−, la branche et la spec ;
+- **C’est bon** — l’action principale, ci-dessous. Quand elle est indisponible (le Flow enregistre encore, une autre action est en cours), son survol indique pourquoi.
 
-Vous pouvez écrire pendant que l’agent travaille : en Flow, votre message **interrompt** l’étape en cours (le bouton d’envoi devient un éclair) et l’agent repart aussitôt avec vos nouvelles informations. La bande git sous le compositeur affiche la branche du worktree.
+Vous pouvez écrire pendant que l’agent travaille : en Flow, votre message **interrompt** l’étape en cours (le bouton d’envoi devient un éclair) et l’agent repart aussitôt avec vos nouvelles informations. Tant que la barre est visible, la bande git sous le compositeur s’efface : la barre affiche déjà la branche du worktree.
 
 ## Essayer l’app
 
@@ -40,6 +40,8 @@ Une fois l’app à l’écoute, l’agent vous donne ses adresses sous forme de
 Quand le résultat vous convient, appuyez sur **C’est bon**. La barre Flow et le traitement visuel disparaissent et la carte de lancement de rail habituelle apparaît, avec la boucle **Flow → Spec** présélectionnée et un rail libre choisi pour vous. Ajustez le moteur, le modèle ou l’effort si besoin et appuyez sur **Lancer**. Si la limite de revue ou un budget est atteint, la carte l’indique et ne lance rien. **Pas encore** vous ramène au Flow.
 
 Le rail dérive la spec Specrails et le changement OpenSpec à partir de ce que vous avez construit, les vérifie et les relit, et la carte de livraison apparaît dans la mission comme pour toute exécution.
+
+Au-dessus de la carte de lancement, un récapitulatif d’une ligne indique ce qui part vers le rail (fichiers et lignes) et le coût du Flow jusqu’ici. Si l’exécution échoue pour une raison technique, le travail revient de lui-même dans ce Flow, intact : la carte explique simplement ce qui a échoué (les codes restent sous **Détails techniques**) et l’agent reçoit l’erreur et l’explique. Si la revue demande des modifications, la carte propose **Revenir dans Flow** ou **Relancer**. Une fois la livraison finalisée, la mission clôt le Flow par un résumé : la pull request, la spec réécrite à partir de ce que vous avez construit, le changement OpenSpec archivé et le ticket Jira s’il existe.
 
 ## Bon à savoir
 

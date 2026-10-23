@@ -517,6 +517,24 @@ describe('settlement (arch 4.6)', () => {
     expect(ctx.effects.rows.size).toBe(3)
   })
 
+  it('posts the closing summary once the spec rewrite and the Jira create settled, never before', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postDeliveredSummary: vi.fn() }
+    const ctx = await delivered({ conversation })
+    ctx.jira.linked.mockReturnValue(false)
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    // The review transition still waits for the issue link: the summary does not.
+    expect(statuses(ctx)).toMatchObject({ 'rewrite-spec': 'done', 'jira-create': 'done', 'jira-review': 'pending' })
+    expect(conversation.postDeliveredSummary).toHaveBeenCalledWith({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId: 7,
+      settlement: { specRewrite: 'done', jiraCreate: 'done', jiraReview: 'pending' } })
+
+    const waiting = await delivered({ conversation: { ...conversation, postDeliveredSummary: vi.fn() } })
+    waiting.publication.rewriteSpec.mockResolvedValue({ ok: false, error: 'provider down' })
+    await waiting.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await waiting.service.runSettlement('flow-1')
+    expect(waiting.ports.conversation!.postDeliveredSummary).not.toHaveBeenCalled()
+  })
+
   it('skips Jira for a project that is not connected', async () => {
     const ctx = await delivered()
     ctx.jira.connected.mockReturnValue(false)

@@ -647,6 +647,29 @@ describe('automatic return of a failed Flow → Spec run (real SQLite)', () => {
   })
 })
 
+describe('Flow closing summary binding', () => {
+  it('posts ONE flow-delivered row with the PR, the archived change and the Jira key', async () => {
+    const ctx = context()
+    const tickets = createFlowTickets(ctx)
+    const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: 'conv-1', title: 'Board', description: 'board', startedAt: 't' })
+    tickets.markDelivered(ticketId, { openspecChangeName: 'kanban-board' })
+    const { createPrDelivery } = await import('../../delivery/runtime/rail-pr-store')
+    createPrDelivery(ctx.db, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: 'conv-1', launchConfig: { mode: 'loop' } })
+    ctx.db.prepare('UPDATE rail_pr_deliveries SET pr_url = ?, pr_number = ? WHERE id = ?').run('https://github.com/o/r/pull/42', 42, 'delivery-1')
+    const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}), postSystemRow: vi.fn(() => 'row-1') }
+    const bound = createFlowPorts({
+      ctx, repository: createSqliteFlowRepository(ctx.db), effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
+      agentHost: () => host, availability: async () => ({ available: true, reason: 'ok', missing: [] }), clock: { now: () => 'now' },
+    })
+    bound.conversation!.postDeliveredSummary!({ conversationId: 'conv-1', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId, settlement: { specRewrite: 'done', jiraCreate: 'skipped', jiraReview: 'skipped' } })
+    expect(host.postSystemRow).toHaveBeenCalledWith('conv-1', {
+      kind: 'flow-delivered', flowId: 'flow-1', deliveryId: 'delivery-1', ticketId,
+      prUrl: 'https://github.com/o/r/pull/42', prNumber: 42, changeName: 'kanban-board', changeArchived: true,
+      specRewrite: 'done', jiraCreate: 'skipped', jiraKey: null, at: 'now',
+    }, 'flow-delivered:flow-1')
+  })
+})
+
 describe('Flow freeze after Back to Flow keeps the Flow\'s own derived change (real git + SQLite)', () => {
   const LEGACY = 'ticket-8-addenda-3e1942024602'
 

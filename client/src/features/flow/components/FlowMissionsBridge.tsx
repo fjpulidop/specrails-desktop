@@ -8,7 +8,6 @@
 // that failed outright. Missions never import this feature.
 
 import type { ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
 import '../flow.css'
 import { MissionExtensionsProvider, type MissionConversationMode, type MissionExtensions } from '../../missions/context/MissionExtensionsContext'
 import { FlowProvider, useConversationFlow, useFlowContext } from '../context/FlowContext'
@@ -18,15 +17,15 @@ import { FlowOfferCard } from './FlowOfferCard'
 import { FlowRunCardActions } from './FlowRunCardActions'
 import { FlowRunFailure } from './FlowRunFailure'
 
-/** The missions mode of a conversation while its Flow is active. */
+/** The missions mode of a conversation while its Flow is active. The Flow bar
+ * shows (and copies) the worktree branch, so the git strip steps aside. */
 export function useFlowConversationMode(conversationId: string | null, projectId: string | null): MissionConversationMode | null {
-  const { t } = useTranslation('agent')
   const ctx = useFlowContext()
   const { flow } = useConversationFlow(conversationId, projectId)
   if (!flow || flow.state !== 'active' || ctx?.wrappingUp.has(flow.id)) return null
   return {
     attributes: { 'data-flow': 'active' },
-    gitBranch: flow.branch ? { branch: flow.branch, label: t('flow.gitLabel') } : null,
+    hideGitStrip: true,
     interruptWhileBusy: true,
   }
 }

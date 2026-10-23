@@ -587,8 +587,28 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         ports.effects.save(next)
         if (next.status !== 'pending') ports.notifier.changed(load(flowId))
       }
-      return summarizeSettlement(ports.effects.list(flowId))
+      const summary = summarizeSettlement(ports.effects.list(flowId))
+      announceDelivered(session, summary)
+      return summary
     })
+  }
+
+  /**
+   * The Flow's closing summary in its conversation, once the spec rewrite and
+   * the Jira create settled (done, skipped or failed for good). The Jira
+   * review transition may still wait for the issue link: it never holds the
+   * summary back. Idempotent by Flow (the conversation dedupes); never throws.
+   */
+  function announceDelivered(session: FlowSession, summary: FlowSettlementSummary): void {
+    const conversation = ports.conversation
+    if (!conversation?.postDeliveredSummary || session.state !== 'delivered' || session.ticketId === null) return
+    const settled = (status: FlowSettlementSummary['specRewrite']) => status !== null && status !== 'pending'
+    if (!settled(summary.specRewrite) || !settled(summary.jiraCreate)) return
+    try {
+      conversation.postDeliveredSummary({ conversationId: session.conversationId, flowId: session.id, deliveryId: session.deliveryId, ticketId: session.ticketId, settlement: summary })
+    } catch (error) {
+      log.warn(`[flow] ${session.id} closing summary not posted: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /** Startup replay: settle Flows whose delivery reached review while the app

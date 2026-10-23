@@ -892,7 +892,6 @@
     "sendHint": "Detiene el paso actual y le da tu mensaje al agente ahora"
   },
   "flow": {
-    "gitLabel": "Worktree de Flow",
     "missing": {
       "sessions": "Las sesiones de agente de Core están desactivadas o no disponibles",
       "flowSessions": "Tu Specrails Core todavía no puede interrumpir a un agente en marcha",
@@ -944,7 +943,8 @@
         "noProject": "Fija esta misión a un proyecto para usar Flow.",
         "open": "Esta misión ya tiene un Flow.",
         "missing": "Flow necesita un Specrails Core más reciente:",
-        "unavailable": "Flow no está disponible ahora mismo."
+        "unavailable": "Flow no está disponible ahora mismo.",
+        "goToFlow": "Ir a ese Flow"
       },
       "cancel": "Cancelar",
       "start": "Empezar Flow",
@@ -976,7 +976,8 @@
           "delivered": "Flow entregado",
           "discarded": "Flow descartado",
           "needs-review": "El Flow necesita revisión"
-        }
+        },
+        "viewRun": "Ver ejecución"
       },
       "why": "Por qué pregunta el agente",
       "waitForReply": "Podrás elegir cuando el agente termine esta respuesta."
@@ -1005,7 +1006,14 @@
         "handed_off": "Entregado",
         "delivered": "Completado",
         "discarded": "Descartado"
-      }
+      },
+      "disabled": {
+        "settling": "Espera a que el Flow termine de guardar su estado",
+        "busy": "Espera a que termine la acción en curso",
+        "noSpec": "La spec del Flow aún no está lista"
+      },
+      "working": "El agente está trabajando",
+      "viewChangesStats": "Ver cambios · {{files}}, +{{additions}} −{{deletions}}"
     },
     "preview": {
       "open": "Vista previa",
@@ -1020,9 +1028,14 @@
     },
     "discard": {
       "title": "¿Descartar este Flow?",
-      "body": "Se borran el worktree, su rama y la spec provisional. No se puede deshacer.",
+      "body": "Descartar borra todo esto y no se puede deshacer:",
       "cancel": "Conservar Flow",
-      "confirm": "Descartar Flow"
+      "confirm": "Descartar Flow",
+      "lossFiles_one": "{{count}} fichero cambiado",
+      "lossFiles_other": "{{count}} ficheros cambiados",
+      "lossNoChanges": "Aún no hay ficheros cambiados",
+      "lossUnknown": "Todos los cambios del worktree del Flow",
+      "lossSpec": "La spec provisional del tablero"
     },
     "changes": {
       "title": "Cambios del Flow",
@@ -1045,7 +1058,10 @@
       "loop": "Flow → Spec",
       "launch": "Lanzar",
       "notYet": "Todavía no",
-      "engineFallback": "{{provider}} no puede ejecutar Flow → Spec en este equipo, así que se ha seleccionado el motor por defecto del rail. Puedes cambiarlo abajo."
+      "engineFallback": "{{provider}} no puede ejecutar Flow → Spec en este equipo, así que se ha seleccionado el motor por defecto del rail. Puedes cambiarlo abajo.",
+      "cost": "{{cost}} hasta ahora",
+      "costUnknown": "aún sin coste facturado",
+      "safetyNet": "Si el rail falla, vuelves a este Flow con tu trabajo intacto."
     },
     "review": {
       "backToFlow": "Volver a Flow",
@@ -1081,6 +1097,15 @@
         "failure": "Fallo",
         "detail": "Detalle"
       }
+    },
+    "announce": {
+      "active": "Flow activo: el agente escribe en su worktree.",
+      "paused": "Flow en pausa.",
+      "needs-review": "El Flow necesita revisión: falta su worktree.",
+      "handed_off": "Flow entregado a un rail.",
+      "delivered": "Flow entregado.",
+      "discarded": "Flow descartado.",
+      "returned": "De vuelta en Flow: el trabajo volvió con lo que encontró Flow → Spec."
     }
   },
   "flowReturn": {
@@ -1098,5 +1123,16 @@
     "providerInactivity": "El proveedor dejó de responder demasiado tiempo y el turno terminó. Vuelve a enviar tu mensaje para continuar.",
     "toolInactivity": "Una herramienta estuvo demasiado tiempo sin actividad del proveedor y el turno terminó. Vuelve a enviar tu mensaje para continuar o pide al agente que divida el paso.",
     "generic": "El turno del agente falló."
+  },
+  "flowDelivered": {
+    "title": "Flow entregado",
+    "pr": "Abrir el pull request",
+    "prNumber": "Pull request #{{number}}",
+    "specRewritten": "Spec reescrita a partir de lo que construiste",
+    "specKept": "La reescritura de la spec no terminó; se conserva su borrador",
+    "change": "Cambio de OpenSpec {{change}}",
+    "changeArchived": "Cambio de OpenSpec {{change}} archivado",
+    "jira": "Incidencia de Jira {{key}}",
+    "jiraPending": "Creando la incidencia de Jira"
   }
 }

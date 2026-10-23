@@ -35,6 +35,16 @@ Flow", and the codes only under **Technical details**. The same block renders
 inside the Flow's return card. Flow API refusals read by code
 (`flowErrorMessage`); the server detail is never the headline.
 
+## Flow bar and hand-off
+
+`FlowBar` shows the copyable branch (the mission's git strip steps aside via
+`hideGitStrip`), a files ± stat that opens `FlowChangesDialog`, and a toolbar
+with **Discard** apart from the primary **This is it**; disabled controls say
+why. `FlowDiscardDialog` lists what is lost. `FlowDock` announces state
+changes in a polite live region. `FlowHandOffCard` adds a one-line recap
+(files ±, cost so far, the safety net) above the launch card, and the offer
+stub's **View run** focuses the run card (missions' card focus bus).
+
 ## Repository target
 
 In a workspace (folder primary) or a project with several Git repositories,

@@ -468,6 +468,10 @@ create while the Flow is `active`/`paused`, and the run settlement in
 `project-registry` excludes Flow-held specs from its own `onRailReview`, so a
 Flow spec is never transitioned before its issue exists nor transitioned twice.
 
+Once the spec rewrite and the Jira create settled, the conversation gets the
+Flow's closing summary (`flow-delivered` row, once per Flow; see
+[Client](#client)).
+
 ## Jira
 
 `isFlowHeldTicket` (metadata.flow state `active` or `paused`) blocks every
@@ -503,18 +507,21 @@ Feature [`client/src/features/flow`](../../client/src/features/flow/README.md).
 Missions never import it: the composition root mounts `FlowMissionsBridge`
 around the mission chat and fills the missions extension seam
 ([MissionExtensionsContext](../../client/src/features/missions/context/MissionExtensionsContext.tsx)):
-a `flow-offer` fence card, a conversation mode (`data-flow="active"`, worktree
-branch in the git strip, interrupting sends) and a dock above the composer.
+a `flow-offer` fence card, a conversation mode (`data-flow="active"`,
+`hideGitStrip` — the Flow bar already shows and copies the worktree branch —
+and interrupting sends), a dock above the composer, the run card's Back to
+Flow / Relaunch and the `RunFailureOutcome` of a failed Flow → Spec run.
 
 | Piece | Behaviour |
 | --- | --- |
 | Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Flow. The user turn carries `Flow: offerable` only when `FlowTurnContext.offerable` says so (Flow available, conversation pinned, no open Flow), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, repositoryId?}) renders `FlowOfferCard`: Flow and spec + Implement with equal weight, always in that order, and the reason as neutral context ("Why the agent asked"). Flow and Implement never compete: the prompt forbids recommending or ranking either; a legacy `recommended` still parses (and still drives fence promotion) but the card ignores it. Fence promotion re-tags {idea, reason} (or a legacy {idea, recommended}) from generic JSON on both sides. While a reply streams the choices are disabled with a visible hint. |
 | Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. In a workspace or a project with several Git repositories it shows the target repository (radio list of Git members, the agent's triage marked "Suggested by the agent") and sends `repositoryId`; `flow_repository_*` refusals read in plain words. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
 | Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `chosenMode`, `config.flowId`; a legacy `recommendedMode` is still accepted and stored, never sent by the client) and `flow-hand-off`; unique per (kind, proposalIndex). Flow kinds are accepted even with mission rail cards off. |
-| Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
+| Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar`: the copyable branch, the files ± stat (a button that opens the changes dialog), provider-billed cost or `—`; the toolbar keeps **Discard** apart on the left (a separator before Preview, Pause and the primary **This is it**), and a disabled control carries its reason (tooltip + `aria-describedby`: saving, another action, no spec yet). The discard confirmation lists what is lost (changed files with +/−, branch, placeholder spec). `FlowDock` announces state changes in a polite live region (active, paused, needs review, handed off, back in Flow, delivered, discarded); the working dot has a text equivalent. The app's keyboard shortcut system is global and route-level, so the bar adds no shortcuts (several Flow bars can be visible in split views and most keystrokes go to the composer, where shortcuts are suppressed). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
 | Preview | While an app the agent started for this Flow (a background process tagged `flowId`, from the mission's `BackgroundProcessesContext`) announces `appUrls`, `FlowAppPreview` shows **Preview** with a live dot: it opens the local address in the system browser, like the mission's app chips (Desktop has no embedded preview for mission apps). Its menu has the network address (or says the app only listens on this computer) and **Stop app**. Hidden when nothing runs and on a paused Flow. |
 | Paused / needs-review | Compact bar: Resume Flow; needs-review explains the missing worktree, no destructive action. |
-| This is it | Client-only: bar and treatment animate out and `FlowHandOffCard` (the rail launch card in hand-off mode: Flow spec, `factory:flow-spec`, a free empty rail) calls `POST /flow/:id/hand-off`. Refusals render inline; "Not yet" returns to the Flow. |
+| This is it | Client-only: bar and treatment animate out and `FlowHandOffCard` (the rail launch card in hand-off mode, headed "Turn this Flow into a reviewed PR": Flow spec, `factory:flow-spec`, a free empty rail) calls `POST /flow/:id/hand-off`. Above it, a one-line recap: files ±, the cost so far, and "If the rail fails, you return to this Flow with your work intact". Refusals render inline; "Not yet" returns to the Flow. The offer's "Flow handed off to Rail N" record has **View run**, which focuses the run card through the shared card focus bus. |
+| Closing summary | Once a delivered Flow's spec rewrite and Jira create settled (done, skipped or failed for good — the Jira review transition may still wait for the issue link), `runSettlement` posts ONE `flow-delivered` system row (`FlowConversation.postDeliveredSummary`, dedupe `flow-delivered:<flowId>`): the PR link, the spec-rewrite outcome, the archived OpenSpec change and the Jira key when linked. Missions renders it as `AgentFlowDeliveredCard`. |
 | Board | `metadata.flow.state` `active`/`paused` ⇒ "In Flow" label linking to the conversation; the spec cannot be dragged to a rail; inside a rail (handed off) or `delivered` ⇒ no label. |
 | Analytics | `flow` surface label; agent missions show the Flow share (`flowCostUsd`, `flowTurns`). |
 

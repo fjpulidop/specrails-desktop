@@ -22,6 +22,8 @@ import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
 import { flowHandOffEngine } from '../lib/flow-engine'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
+import { flowCostDisplay } from '../lib/flow-offer'
+import { useFlowLiveStats } from './FlowBar'
 
 /** The message whose flow-offer decision started this Flow (null if none). */
 export function findFlowAnchor(
@@ -48,6 +50,10 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
   )
   const local = useLocalIntents()
   const anchor = useMemo(() => findFlowAnchor(messages, local, flow.id), [messages, local, flow.id])
+  // The milestone recap: what goes to the rail, what it cost, and the safety net.
+  const { diff, cost } = useFlowLiveStats(projectId, flow, false)
+  const costView = flowCostDisplay(cost)
+  const totals = diff?.totals ?? null
 
   const proposal: RailLaunchProposal = useMemo(() => ({
     version: 1,
@@ -94,6 +100,18 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
 
   return (
     <div data-testid="flow-hand-off-card">
+      {!intent && (
+        <p data-testid="flow-hand-off-recap" className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
+          <span className="tabular-nums text-foreground/75">
+            {t('flow.bar.files', { count: totals?.files ?? 0 })}
+            {totals && totals.files > 0 && <> <span className="text-accent-success">+{totals.additions}</span> <span className="text-destructive">−{totals.deletions}</span></>}
+            {' · '}
+            {costView.usd ? t('flow.handOff.cost', { cost: `${costView.usd}${costView.partial ? '*' : ''}` }) : t('flow.handOff.costUnknown')}
+          </span>
+          {' — '}
+          {t('flow.handOff.safetyNet')}
+        </p>
+      )}
       {!intent && engine.fallbackFrom && (
         <p data-testid="flow-hand-off-engine-note" className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
           {t('flow.handOff.engineFallback', { provider: providerLabel(engine.fallbackFrom) })}

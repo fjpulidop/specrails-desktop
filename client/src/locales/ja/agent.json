@@ -892,7 +892,6 @@
     "sendHint": "現在のステップを止めて、すぐにメッセージをエージェントに渡します"
   },
   "flow": {
-    "gitLabel": "Flow worktree",
     "missing": {
       "sessions": "Core のエージェントセッションが無効か利用できません",
       "flowSessions": "お使いの Specrails Core は実行中のエージェントにまだ割り込めません",
@@ -944,7 +943,8 @@
         "noProject": "Flow を使うには、このミッションをプロジェクトに固定してください。",
         "open": "このミッションにはすでに Flow があります。",
         "missing": "Flow には新しい Specrails Core が必要です:",
-        "unavailable": "現在 Flow は利用できません。"
+        "unavailable": "現在 Flow は利用できません。",
+        "goToFlow": "その Flow へ移動"
       },
       "cancel": "キャンセル",
       "start": "Flow を開始",
@@ -976,7 +976,8 @@
           "delivered": "Flow 完了",
           "discarded": "Flow 破棄済み",
           "needs-review": "Flow の確認が必要です"
-        }
+        },
+        "viewRun": "実行を表示"
       },
       "why": "エージェントが尋ねた理由",
       "waitForReply": "エージェントがこの返信を終えると選べます。"
@@ -1005,7 +1006,14 @@
         "handed_off": "引き渡し済み",
         "delivered": "完了",
         "discarded": "破棄済み"
-      }
+      },
+      "disabled": {
+        "settling": "Flow が状態の保存を終えるまでお待ちください",
+        "busy": "実行中の操作が終わるまでお待ちください",
+        "noSpec": "Flow の spec はまだ準備できていません"
+      },
+      "working": "エージェントが作業中です",
+      "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}"
     },
     "preview": {
       "open": "プレビュー",
@@ -1020,9 +1028,14 @@
     },
     "discard": {
       "title": "この Flow を破棄しますか?",
-      "body": "worktree、そのブランチ、仮の spec が削除されます。元に戻せません。",
+      "body": "破棄すると次のものがすべて削除され、元に戻せません:",
       "cancel": "Flow を残す",
-      "confirm": "Flow を破棄"
+      "confirm": "Flow を破棄",
+      "lossFiles_one": "変更済みファイル {{count}} 件",
+      "lossFiles_other": "変更済みファイル {{count}} 件",
+      "lossNoChanges": "変更済みファイルはまだありません",
+      "lossUnknown": "Flow の worktree のすべての変更",
+      "lossSpec": "ボード上の仮の spec"
     },
     "changes": {
       "title": "Flow の変更",
@@ -1045,7 +1058,10 @@
       "loop": "Flow → Spec",
       "launch": "起動",
       "notYet": "まだ",
-      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。下で変更できます。"
+      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。下で変更できます。",
+      "cost": "ここまで {{cost}}",
+      "costUnknown": "請求済みコストはまだありません",
+      "safetyNet": "レールが失敗しても、作業をそのままにこの Flow に戻ります。"
     },
     "review": {
       "backToFlow": "Flow に戻る",
@@ -1081,6 +1097,15 @@
         "failure": "失敗",
         "detail": "詳細"
       }
+    },
+    "announce": {
+      "active": "Flow 実行中: エージェントが worktree に書き込みます。",
+      "paused": "Flow を一時停止しました。",
+      "needs-review": "Flow の確認が必要です: worktree が見つかりません。",
+      "handed_off": "Flow をレールに引き渡しました。",
+      "delivered": "Flow を納品しました。",
+      "discarded": "Flow を破棄しました。",
+      "returned": "Flow に戻りました: Flow → Spec の結果とともに作業が戻りました。"
     }
   },
   "flowReturn": {
@@ -1098,5 +1123,16 @@
     "providerInactivity": "プロバイダーの応答が長時間なかったため、ターンを終了しました。続けるにはメッセージをもう一度送信してください。",
     "toolInactivity": "ツールがプロバイダーの応答なしに長時間実行されたため、ターンを終了しました。続けるにはメッセージをもう一度送信するか、ステップを分けるようエージェントに依頼してください。",
     "generic": "エージェントのターンが失敗しました。"
+  },
+  "flowDelivered": {
+    "title": "Flow を納品しました",
+    "pr": "プルリクエストを開く",
+    "prNumber": "プルリクエスト #{{number}}",
+    "specRewritten": "作ったものから spec を書き直しました",
+    "specKept": "spec の書き直しは完了しませんでした。下書きは保持されています",
+    "change": "OpenSpec の変更 {{change}}",
+    "changeArchived": "OpenSpec の変更 {{change}} をアーカイブしました",
+    "jira": "Jira 課題 {{key}}",
+    "jiraPending": "Jira 課題を作成中"
   }
 }

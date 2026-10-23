@@ -1,10 +1,13 @@
 // ─── Flow bar ─────────────────────────────────────────────────────────────────
-// Sticky strip above the composer while a Flow is open: branch, files changed,
-// real cost (provider-billed turns only; "—" when nothing is priced) and the
-// controls. Controls are DATA (FlowBarControl[]) so new ones slot in without
-// touching the layout. Paused and needs-review Flows render compact variants.
-// While the Flow's app runs (started by the agent through Specrails), a
-// Preview control opens it (FlowAppPreview).
+// Sticky strip above the composer while a Flow is open: the worktree branch
+// (copyable — the git strip steps aside while the bar shows), files changed
+// (a button that opens the changes), real cost (provider-billed turns only;
+// "—" when nothing is priced) and the controls. Controls are DATA
+// (FlowBarControl[]) so new ones slot in without touching the layout; the
+// destructive Discard sits apart from the primary "This is it", and a
+// disabled control says why. Paused and needs-review Flows render compact
+// variants. While the Flow's app runs (started by the agent through
+// Specrails), a Preview control opens it (FlowAppPreview).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,6 +31,8 @@ export interface FlowBarControl {
   onSelect: () => void
   tone?: 'default' | 'primary' | 'danger'
   disabled?: boolean
+  /** Why the control is disabled (tooltip + aria-describedby). */
+  disabledReason?: string | null
   busy?: boolean
 }
 
@@ -54,8 +59,10 @@ export function useFlowLiveStats(projectId: string, flow: Flow, working: boolean
   return { diff, cost, refresh }
 }
 
-function ControlButton({ control, compact }: { control: FlowBarControl; compact: boolean }) {
+function ControlButton({ control, compact, flowId }: { control: FlowBarControl; compact: boolean; flowId: string }) {
   const Icon = control.busy ? Loader2 : control.icon
+  const reason = control.disabled && !control.busy ? control.disabledReason ?? null : null
+  const reasonId = reason ? `flow-bar-${flowId}-${control.id}-reason` : undefined
   return (
     <button
       type="button"
@@ -64,7 +71,8 @@ function ControlButton({ control, compact }: { control: FlowBarControl; compact:
       onClick={control.onSelect}
       disabled={control.disabled || control.busy}
       aria-label={control.label}
-      title={control.label}
+      aria-describedby={reasonId}
+      title={reason ? `${control.label} — ${reason}` : control.label}
       className={cn(
         'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info disabled:cursor-not-allowed disabled:opacity-50',
         control.tone === 'primary' && 'bg-accent-info px-2.5 text-background shadow hover:opacity-90',
@@ -74,6 +82,7 @@ function ControlButton({ control, compact }: { control: FlowBarControl; compact:
     >
       <Icon className={cn('h-3.5 w-3.5', control.busy && 'animate-spin')} aria-hidden />
       <span className={cn(compact && control.tone !== 'primary' && 'sr-only')}>{control.label}</span>
+      {reason && <span id={reasonId} className="sr-only" data-testid={`flow-bar-${control.id}-reason`}>{reason}</span>}
     </button>
   )
 }
@@ -112,18 +121,24 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
 
   const paused = flow.state === 'paused'
   const needsReview = flow.state === 'needs-review'
+  // Why an action waits, in the person's words (never a silent disabled button).
+  const waitReason = settling ? t('flow.bar.disabled.settling') : busy ? t('flow.bar.disabled.busy') : null
+  const handOffReason = waitReason ?? (flow.ticketId === null ? t('flow.bar.disabled.noSpec') : null)
+  // Discard stands apart (leading group); the primary action closes the row.
+  const destructive: FlowBarControl[] = needsReview ? [] : [
+    { id: 'discard', label: t('flow.bar.discard'), icon: Trash2, onSelect: () => setDiscardOpen(true), tone: 'danger', disabled: settling || !!busy, disabledReason: waitReason },
+  ]
   const controls: FlowBarControl[] = needsReview ? [] : [
-    { id: 'changes', label: t('flow.bar.viewChanges'), icon: FileDiff, onSelect: () => setChangesOpen(true) },
     paused
-      ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, tone: 'primary' }
-      : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling },
-    { id: 'discard', label: t('flow.bar.discard'), icon: Trash2, onSelect: () => setDiscardOpen(true), tone: 'danger', disabled: settling || !!busy },
-    { id: 'this-is-it', label: t('flow.bar.thisIsIt'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: settling || !!busy || flow.ticketId === null },
+      ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary' }
+      : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason },
+    { id: 'this-is-it', label: t('flow.bar.thisIsIt'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason },
   ]
 
   const costView = flowCostDisplay(cost)
   const totals = diff?.totals
   const compact = !inline
+  const filesLabel = t('flow.bar.files', { count: totals?.files ?? 0 })
 
   return (
     <motion.div
@@ -133,9 +148,11 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
       transition={{ duration: 0.22, ease: 'easeOut' }}
       role="region"
       aria-label={t('flow.bar.label')}
+      tabIndex={-1}
       data-testid="flow-bar"
+      data-flow-id={flow.id}
       data-flow-state={flow.state}
-      className={cn('shrink-0 px-3 pb-2', inline && 'mx-auto w-full max-w-[960px] px-4')}
+      className={cn('shrink-0 px-3 pb-2 outline-none [&:focus>div:first-child]:ring-2 [&:focus>div:first-child]:ring-accent-info/40', inline && 'mx-auto w-full max-w-[960px] px-4')}
     >
       <div className={cn(
         'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border px-2.5 py-1.5 backdrop-blur',
@@ -146,11 +163,12 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
             ? <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" aria-hidden />
             : paused
               ? <Waves className="h-3.5 w-3.5 text-foreground/50" aria-hidden />
-              : <span className="flow-live-dot inline-block h-2 w-2 rounded-full" data-busy={working} aria-hidden />}
+              : <span className="flow-live-dot inline-block h-2 w-2 rounded-full" data-busy={working} aria-hidden title={working ? t('flow.bar.working') : undefined} />}
           {t(`flow.bar.state.${flow.state}`, { defaultValue: t('flow.bar.state.active') })}
+          {working && <span className="sr-only" data-testid="flow-bar-working">{t('flow.bar.working')}</span>}
         </span>
         {flow.branch && (
-          <button type="button" onClick={copyBranch} title={t('git.copyBranch')} data-agent-interactive className="inline-flex min-w-0 max-w-[14rem] items-center gap-1 rounded-md px-1 py-0.5 font-mono text-[11px] text-foreground/65 hover:bg-surface hover:text-foreground">
+          <button type="button" onClick={copyBranch} title={t('git.copyBranch')} aria-label={`${t('git.copyBranch')}: ${flow.branch}`} data-agent-interactive data-testid="flow-bar-branch" className="inline-flex min-w-0 max-w-[14rem] items-center gap-1 rounded-md px-1 py-0.5 font-mono text-[11px] text-foreground/65 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50">
             <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">{flow.branch}</span>
             <Copy className="h-2.5 w-2.5 shrink-0 opacity-50" aria-hidden />
@@ -158,13 +176,26 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
         )}
         {!needsReview && (
           <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-foreground/60" data-testid="flow-bar-stats">
-            <span title={t('flow.bar.filesTitle')}>{t('flow.bar.files', { count: totals?.files ?? 0 })}</span>
-            {totals && totals.files > 0 && (
-              <>
-                <span className="text-accent-success">+{totals.additions}</span>
-                <span className="text-destructive">−{totals.deletions}</span>
-              </>
-            )}
+            <button
+              type="button"
+              data-agent-interactive
+              data-testid="flow-bar-changes"
+              onClick={() => setChangesOpen(true)}
+              title={t('flow.bar.filesTitle')}
+              aria-label={totals && totals.files > 0
+                ? t('flow.bar.viewChangesStats', { files: filesLabel, additions: totals.additions, deletions: totals.deletions })
+                : `${t('flow.bar.viewChanges')} · ${filesLabel}`}
+              className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50"
+            >
+              <FileDiff className="h-3 w-3 shrink-0" aria-hidden />
+              <span>{filesLabel}</span>
+              {totals && totals.files > 0 && (
+                <>
+                  <span className="text-accent-success">+{totals.additions}</span>
+                  <span className="text-destructive">−{totals.deletions}</span>
+                </>
+              )}
+            </button>
             <span aria-hidden className="text-foreground/25">·</span>
             <span data-testid="flow-bar-cost" title={costView.partial ? t('flow.bar.costPartial', { count: cost?.unpricedTurns ?? 0 }) : t('flow.bar.costTitle')}>
               {costView.usd ?? '—'}{costView.partial && costView.usd ? '*' : ''}
@@ -172,8 +203,10 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
           </span>
         )}
         <div className="ml-auto flex items-center gap-0.5" role="toolbar" aria-label={t('flow.bar.controls')}>
+          {destructive.map((control) => <ControlButton key={control.id} control={control} compact={compact} flowId={flow.id} />)}
+          {destructive.length > 0 && <span aria-hidden className="mx-1 h-4 w-px bg-border/70" data-testid="flow-bar-separator" />}
           {flow.state === 'active' && <FlowAppPreview flow={flow} compact={compact} />}
-          {controls.map((control) => <ControlButton key={control.id} control={control} compact={compact} />)}
+          {controls.map((control) => <ControlButton key={control.id} control={control} compact={compact} flowId={flow.id} />)}
         </div>
         {(paused || needsReview) && (
           <p className="basis-full text-[11px] leading-4 text-foreground/55" data-testid="flow-bar-note">
@@ -182,7 +215,7 @@ export function FlowBar({ projectId, flow, inline }: { projectId: string; flow: 
         )}
       </div>
       {changesOpen && <FlowChangesDialog projectId={projectId} flow={flow} initial={diff} onClose={() => setChangesOpen(false)} />}
-      <FlowDiscardDialog open={discardOpen} busy={busy === 'discard'} onOpenChange={setDiscardOpen} onConfirm={() => void run('discard')} />
+      <FlowDiscardDialog open={discardOpen} busy={busy === 'discard'} branch={flow.branch} totals={totals ?? null} onOpenChange={setDiscardOpen} onConfirm={() => void run('discard')} />
     </motion.div>
   )
 }

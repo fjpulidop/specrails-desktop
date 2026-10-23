@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowRunFailure, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowRunFailure, FlowSession, FlowSettlementEffect, FlowSettlementSummary, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -207,6 +207,10 @@ export interface FlowConversation {
   /** Start ONE automatic Flow turn that works on the return briefing (once per
    * delivery); `failure` ⇒ the run failed outright (no review findings). */
   startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string; failure?: FlowRunFailure }): Promise<void>
+  /** The closing summary once a delivered Flow settled its spec and Jira
+   * (PR link, rewritten spec, archived OpenSpec change, Jira key). Once per
+   * Flow; never throws. Absent ⇒ the run card alone tells the outcome. */
+  postDeliveredSummary?(input: { conversationId: string; flowId: string; deliveryId: string | null; ticketId: number; settlement: FlowSettlementSummary }): void
 }
 
 /** The project's repositories (target triage of a new Flow). */

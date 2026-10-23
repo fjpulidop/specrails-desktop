@@ -13,7 +13,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
-import { Ban, CheckCircle2, FileText, Hammer, Sparkles, Waves } from 'lucide-react'
+import { ArrowUpRight, Ban, CheckCircle2, FileText, Hammer, Sparkles, Waves } from 'lucide-react'
+import { focusPrCard } from '../../missions/components/agent-run-failure'
 import { cn } from '../../../lib/utils'
 import type { MissionFenceCardProps } from '../../missions/context/MissionExtensionsContext'
 import { patchAgentMessageIntent, type AgentMessageIntent } from '../../missions/lib/agent-api'
@@ -46,7 +47,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
   }
 
   if (decided) {
-    return <FlowOfferStub intent={decided} handOff={handOff} flow={flow} />
+    return <FlowOfferStub intent={decided} handOff={handOff} flow={flow} conversationId={conversationId} />
   }
 
   const choose = async (mode: FlowMode) => {
@@ -79,6 +80,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
         conversationId={conversationId}
         provider={active?.id === conversationId ? active?.provider : null}
         blockedByOpenFlow={isOpenFlow(flow)}
+        openFlowId={isOpenFlow(flow) ? flow!.id : null}
         onStarted={onStarted}
         onCancel={() => setView('choose')}
       />
@@ -154,10 +156,15 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
 }
 
 /** Frozen record of the decision (and of the Flow's hand-off when it happened). */
-function FlowOfferStub({ intent, handOff, flow }: { intent: AgentMessageIntent; handOff: AgentMessageIntent | null; flow: Flow | null }) {
+function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: AgentMessageIntent; handOff: AgentMessageIntent | null; flow: Flow | null; conversationId: string | null }) {
   const { t } = useTranslation('agent')
   const dismissed = intent.status === 'dismissed'
   const chosen = intent.chosenMode ?? null
+  // The hand-off record links to its run card (the shared card focus bus).
+  const launched = !dismissed && chosen === 'flow' && handOff?.status === 'launched'
+  const runTarget = launched
+    ? { prDeliveryId: handOff!.prDeliveryId ?? (flow && flow.id === intent.config?.flowId ? flow.deliveryId : null), runIds: handOff!.runIds ?? [] }
+    : null
   const flowLabel = handOff && handOff.status === 'launched'
     ? t('flow.offer.stub.handedOff', { rail: typeof handOff.railIndex === 'number' ? handOff.railIndex + 1 : '?' })
     : flow && flow.id === intent.config?.flowId
@@ -176,6 +183,18 @@ function FlowOfferStub({ intent, handOff, flow }: { intent: AgentMessageIntent; 
       <span className="min-w-0 flex-1 truncate">
         {dismissed ? t('flow.offer.stub.dismissed') : chosen === 'flow' ? flowLabel : t('flow.offer.stub.implement')}
       </span>
+      {runTarget && (runTarget.prDeliveryId || runTarget.runIds.length > 0) && (
+        <button
+          type="button"
+          data-agent-interactive
+          data-testid="flow-offer-stub-view-run"
+          onClick={() => focusPrCard({ prDeliveryId: runTarget.prDeliveryId, runIds: runTarget.runIds, conversationId })}
+          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] font-medium text-accent-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50"
+        >
+          {t('flow.offer.stub.viewRun')}
+          <ArrowUpRight className="h-3 w-3" aria-hidden />
+        </button>
+      )}
     </div>
   )
 }

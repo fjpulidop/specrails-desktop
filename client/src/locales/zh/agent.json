@@ -892,7 +892,6 @@
     "sendHint": "停止当前步骤，立即把你的消息交给智能体"
   },
   "flow": {
-    "gitLabel": "Flow worktree",
     "missing": {
       "sessions": "Core 智能体会话已关闭或不可用",
       "flowSessions": "你的 Specrails Core 还不能打断正在运行的智能体",
@@ -944,7 +943,8 @@
         "noProject": "将此任务固定到某个项目后才能使用 Flow。",
         "open": "此任务已有一个 Flow。",
         "missing": "Flow 需要更新版本的 Specrails Core：",
-        "unavailable": "Flow 目前不可用。"
+        "unavailable": "Flow 目前不可用。",
+        "goToFlow": "前往该 Flow"
       },
       "cancel": "取消",
       "start": "开始 Flow",
@@ -976,7 +976,8 @@
           "delivered": "Flow 已完成",
           "discarded": "Flow 已丢弃",
           "needs-review": "Flow 需要检查"
-        }
+        },
+        "viewRun": "查看运行"
       },
       "why": "智能体为何询问",
       "waitForReply": "智能体完成这条回复后即可选择。"
@@ -1005,7 +1006,14 @@
         "handed_off": "已交接",
         "delivered": "已完成",
         "discarded": "已丢弃"
-      }
+      },
+      "disabled": {
+        "settling": "请等待 Flow 保存完状态",
+        "busy": "请等待当前操作完成",
+        "noSpec": "Flow 的 spec 尚未就绪"
+      },
+      "working": "智能体正在工作",
+      "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}"
     },
     "preview": {
       "open": "预览",
@@ -1020,9 +1028,14 @@
     },
     "discard": {
       "title": "丢弃这个 Flow？",
-      "body": "worktree、其分支和临时 spec 都会被删除，且无法撤销。",
+      "body": "放弃会删除以下全部内容，且无法撤销：",
       "cancel": "保留 Flow",
-      "confirm": "丢弃 Flow"
+      "confirm": "丢弃 Flow",
+      "lossFiles_one": "{{count}} 个已更改文件",
+      "lossFiles_other": "{{count}} 个已更改文件",
+      "lossNoChanges": "尚无已更改文件",
+      "lossUnknown": "Flow worktree 中的所有更改",
+      "lossSpec": "看板上的占位 spec"
     },
     "changes": {
       "title": "Flow 更改",
@@ -1045,7 +1058,10 @@
       "loop": "Flow → Spec",
       "launch": "启动",
       "notYet": "暂不",
-      "engineFallback": "{{provider}} 无法在此设备上运行 Flow → Spec，因此已选择该 rail 的默认引擎。你可以在下方更改。"
+      "engineFallback": "{{provider}} 无法在此设备上运行 Flow → Spec，因此已选择该 rail 的默认引擎。你可以在下方更改。",
+      "cost": "目前 {{cost}}",
+      "costUnknown": "尚无计费成本",
+      "safetyNet": "如果轨道失败，你会带着完好的工作回到此 Flow。"
     },
     "review": {
       "backToFlow": "回到 Flow",
@@ -1081,6 +1097,15 @@
         "failure": "失败",
         "detail": "详情"
       }
+    },
+    "announce": {
+      "active": "Flow 已激活：智能体在其 worktree 中编写。",
+      "paused": "Flow 已暂停。",
+      "needs-review": "Flow 需要检查：其 worktree 已缺失。",
+      "handed_off": "Flow 已交给轨道。",
+      "delivered": "Flow 已交付。",
+      "discarded": "Flow 已放弃。",
+      "returned": "已回到 Flow：工作已连同 Flow → Spec 的发现一起返回。"
     }
   },
   "flowReturn": {
@@ -1098,5 +1123,16 @@
     "providerInactivity": "提供方长时间没有响应，本轮已结束。请重新发送消息以继续。",
     "toolInactivity": "某个工具运行过久且提供方没有任何活动，本轮已结束。请重新发送消息以继续，或让智能体拆分该步骤。",
     "generic": "智能体本轮执行失败。"
+  },
+  "flowDelivered": {
+    "title": "Flow 已交付",
+    "pr": "打开拉取请求",
+    "prNumber": "拉取请求 #{{number}}",
+    "specRewritten": "已根据你构建的内容重写 spec",
+    "specKept": "spec 重写未完成；已保留其草稿",
+    "change": "OpenSpec 变更 {{change}}",
+    "changeArchived": "OpenSpec 变更 {{change}} 已归档",
+    "jira": "Jira 问题 {{key}}",
+    "jiraPending": "正在创建 Jira 问题"
   }
 }

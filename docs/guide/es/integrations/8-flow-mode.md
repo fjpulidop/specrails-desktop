@@ -22,12 +22,12 @@ Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivad
 La conversación cambia de aspecto (una fina línea de acento en el borde) y aparece una barra encima del compositor:
 
 - la **rama** del worktree, los **ficheros cambiados** con líneas añadidas y eliminadas, y el **gasto real** del Flow hasta ahora según factura el proveedor. Muestra `—` hasta que un turno tiene coste informado, y nunca una estimación;
-- **Ver cambios** lista cada fichero cambiado con su estado y +/−;
+- pulsa los **ficheros cambiados** para ver cada fichero con su estado y +/−, y la **rama** para copiar su nombre;
 - **Pausar** detiene al agente y conserva el worktree y la spec. La misión muestra entonces **Reanudar Flow**;
-- **Descartar** borra el worktree, su rama y la spec provisional, tras una confirmación;
-- **Ya está**: la acción principal, más abajo.
+- **Descartar**, separado a la izquierda, borra el worktree, su rama y la spec provisional. La confirmación enumera lo que pierdes: los ficheros cambiados con sus +/−, la rama y la spec;
+- **Ya está**: la acción principal, más abajo. Cuando no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué.
 
-Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. La franja de git bajo el compositor muestra la rama del worktree.
+Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. Mientras la barra está visible, la franja de git bajo el compositor se aparta: la barra ya muestra la rama del worktree.
 
 ## Prueba la app
 
@@ -40,6 +40,8 @@ Cuando la app escucha, el agente te da sus direcciones como enlaces y la barra d
 Cuando el resultado te convenza, pulsa **Ya está**. La barra de Flow y el tratamiento visual desaparecen y aparece la tarjeta de lanzamiento de rail de siempre, con el loop **Flow → Spec** preseleccionado y un rail libre elegido por ti. Ajusta el motor, el modelo o el esfuerzo si quieres y pulsa **Lanzar**. Si se ha alcanzado el límite de revisión o un presupuesto, la tarjeta lo dice y no lanza. **Todavía no** te devuelve al Flow.
 
 El rail deriva la spec de Specrails y el cambio OpenSpec a partir de lo que construiste, lo verifica y lo revisa, y la tarjeta de entrega aparece en la misión como en cualquier ejecución.
+
+Encima de la tarjeta de lanzamiento, un resumen de una línea muestra lo que va al rail (ficheros y líneas) y el coste del Flow hasta ahora. Si la ejecución falla por un motivo técnico, el trabajo vuelve solo a este Flow, intacto: la tarjeta dice en palabras sencillas qué falló (los códigos quedan en **Detalles técnicos**) y el agente recibe el error y lo explica. Si la revisión pide cambios, la tarjeta ofrece **Volver a Flow** o **Relanzar**. Cuando la entrega se asienta, la misión cierra el Flow con un resumen: el pull request, la spec reescrita a partir de lo que construiste, el cambio de OpenSpec archivado y la incidencia de Jira si la hay.
 
 ## Conviene saber
 

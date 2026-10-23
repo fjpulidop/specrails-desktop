@@ -536,6 +536,21 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
       async startReturnTurn({ conversationId, deliveryId, failure }) {
         await deps.agentHost()?.startAutomaticTurn?.(conversationId, failure ? FLOW_FAILURE_RETURN_TURN_TEXT : FLOW_RETURN_TURN_TEXT, { turnKey: `flow-return:${deliveryId}`, label: 'Back to Flow' })
       },
+      postDeliveredSummary({ conversationId, flowId, deliveryId, ticketId, settlement }) {
+        const row = deliveryId ? getPrDelivery(ctx.db, deliveryId) : undefined
+        const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(ticketId)]
+        const changeName = typeof ticket?.metadata?.openspecChangeName === 'string' ? ticket.metadata.openspecChangeName : null
+        let jiraKey: string | null = null
+        try { const link = getLinkByLocalId(ctx.db, ticketId); jiraKey = link && !link.tombstoned ? link.jiraKey : null } catch { jiraKey = null }
+        deps.agentHost()?.postSystemRow?.(conversationId, {
+          kind: 'flow-delivered', flowId, deliveryId, ticketId,
+          prUrl: row?.pr_url ?? null, prNumber: row?.pr_number ?? null,
+          // Flow → Spec archives the change before it delivers (its `archive` step).
+          changeName, changeArchived: Boolean(changeName),
+          specRewrite: settlement.specRewrite, jiraCreate: settlement.jiraCreate, jiraKey,
+          at: clock.now(),
+        }, `flow-delivered:${flowId}`)
+      },
     },
     processes: deps.processes ?? { stop: async () => {} },
     effects: deps.effects,

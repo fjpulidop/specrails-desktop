@@ -248,3 +248,21 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     expect(screen.getByTestId('mission-run-failure')).toBeInTheDocument()
   })
 })
+
+describe('Flow closing summary', () => {
+  it('names the PR, the rewritten spec, the archived change and the Jira issue', async () => {
+    const { AgentFlowDeliveredCard, parseFlowDeliveredRow } = await import('../../missions/components/AgentFlowDeliveredCard')
+    const row = parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-delivered', flowId: 'flow-1', deliveryId: 'delivery-1', prUrl: 'https://github.com/o/r/pull/42', prNumber: 42,
+      changeName: 'kanban-board', changeArchived: true, specRewrite: 'done', jiraCreate: 'done', jiraKey: 'SR-12' }))!
+    render(<AgentFlowDeliveredCard row={row} />)
+    expect(screen.getByText('Flow delivered')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-flow-delivered-pr').querySelector('a')!.getAttribute('href')).toBe('https://github.com/o/r/pull/42')
+    expect(screen.getByTestId('agent-flow-delivered-pr')).toHaveTextContent('Pull request #42')
+    expect(screen.getByTestId('agent-flow-delivered-spec')).toHaveTextContent('Spec rewritten from what you built')
+    expect(screen.getByTestId('agent-flow-delivered-change')).toHaveTextContent('OpenSpec change kanban-board archived')
+    expect(screen.getByTestId('agent-flow-delivered-jira')).toHaveTextContent('Jira issue SR-12')
+    // Never a javascript: link, never another row kind.
+    expect(parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-delivered', flowId: 'f', prUrl: 'javascript:alert(1)' }))!.prUrl).toBeNull()
+    expect(parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-return-briefing', flowId: 'f' }))).toBeNull()
+  })
+})

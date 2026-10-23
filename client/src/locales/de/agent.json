@@ -892,7 +892,6 @@
     "sendHint": "Stoppt den aktuellen Schritt und gibt dem Agenten jetzt deine Nachricht"
   },
   "flow": {
-    "gitLabel": "Flow-Worktree",
     "missing": {
       "sessions": "Core-Agentensitzungen sind deaktiviert oder nicht verfügbar",
       "flowSessions": "Dein Specrails Core kann einen laufenden Agenten noch nicht unterbrechen",
@@ -944,7 +943,8 @@
         "noProject": "Hefte diese Mission an ein Projekt, um Flow zu nutzen.",
         "open": "Diese Mission hat bereits einen Flow.",
         "missing": "Flow braucht einen neueren Specrails Core:",
-        "unavailable": "Flow ist gerade nicht verfügbar."
+        "unavailable": "Flow ist gerade nicht verfügbar.",
+        "goToFlow": "Zu diesem Flow"
       },
       "cancel": "Abbrechen",
       "start": "Flow starten",
@@ -976,7 +976,8 @@
           "delivered": "Flow ausgeliefert",
           "discarded": "Flow verworfen",
           "needs-review": "Flow muss geprüft werden"
-        }
+        },
+        "viewRun": "Lauf ansehen"
       },
       "why": "Warum der Agent fragt",
       "waitForReply": "Du kannst wählen, sobald der Agent diese Antwort beendet hat."
@@ -1005,7 +1006,14 @@
         "handed_off": "Übergeben",
         "delivered": "Ausgeliefert",
         "discarded": "Verworfen"
-      }
+      },
+      "disabled": {
+        "settling": "Warte, bis der Flow seinen Zustand gespeichert hat",
+        "busy": "Warte, bis die laufende Aktion abgeschlossen ist",
+        "noSpec": "Die Spec des Flows ist noch nicht bereit"
+      },
+      "working": "Der Agent arbeitet",
+      "viewChangesStats": "Änderungen ansehen · {{files}}, +{{additions}} −{{deletions}}"
     },
     "preview": {
       "open": "Vorschau",
@@ -1020,9 +1028,14 @@
     },
     "discard": {
       "title": "Diesen Flow verwerfen?",
-      "body": "Worktree, Branch und vorläufige Spec werden gelöscht. Das lässt sich nicht rückgängig machen.",
+      "body": "Verwerfen löscht all das, und es lässt sich nicht rückgängig machen:",
       "cancel": "Flow behalten",
-      "confirm": "Flow verwerfen"
+      "confirm": "Flow verwerfen",
+      "lossFiles_one": "{{count}} geänderte Datei",
+      "lossFiles_other": "{{count}} geänderte Dateien",
+      "lossNoChanges": "Noch keine geänderten Dateien",
+      "lossUnknown": "Alle Änderungen im Worktree des Flows",
+      "lossSpec": "Die vorläufige Spec auf dem Board"
     },
     "changes": {
       "title": "Flow-Änderungen",
@@ -1045,7 +1058,10 @@
       "loop": "Flow → Spec",
       "launch": "Starten",
       "notYet": "Noch nicht",
-      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, daher ist die Standard-Engine der Rail ausgewählt. Du kannst sie unten ändern."
+      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, daher ist die Standard-Engine der Rail ausgewählt. Du kannst sie unten ändern.",
+      "cost": "bisher {{cost}}",
+      "costUnknown": "noch keine abgerechneten Kosten",
+      "safetyNet": "Scheitert die Rail, kehrst du mit unversehrter Arbeit in diesen Flow zurück."
     },
     "review": {
       "backToFlow": "Zurück zu Flow",
@@ -1081,6 +1097,15 @@
         "failure": "Fehler",
         "detail": "Detail"
       }
+    },
+    "announce": {
+      "active": "Flow aktiv: Der Agent schreibt in seinem Worktree.",
+      "paused": "Flow pausiert.",
+      "needs-review": "Der Flow muss geprüft werden: Sein Worktree fehlt.",
+      "handed_off": "Flow an eine Rail übergeben.",
+      "delivered": "Flow ausgeliefert.",
+      "discarded": "Flow verworfen.",
+      "returned": "Zurück im Flow: Die Arbeit ist mit dem Ergebnis von Flow → Spec zurück."
     }
   },
   "flowReturn": {
@@ -1098,5 +1123,16 @@
     "providerInactivity": "Der Anbieter hat zu lange nicht reagiert, daher wurde der Zug beendet. Sende deine Nachricht erneut, um fortzufahren.",
     "toolInactivity": "Ein Tool lief zu lange ohne Aktivität des Anbieters, daher wurde der Zug beendet. Sende deine Nachricht erneut oder bitte den Agenten, den Schritt aufzuteilen.",
     "generic": "Der Zug des Agenten ist fehlgeschlagen."
+  },
+  "flowDelivered": {
+    "title": "Flow ausgeliefert",
+    "pr": "Pull-Request öffnen",
+    "prNumber": "Pull-Request #{{number}}",
+    "specRewritten": "Spec aus dem Gebauten neu geschrieben",
+    "specKept": "Die Spec konnte nicht neu geschrieben werden; ihr Entwurf bleibt erhalten",
+    "change": "OpenSpec-Änderung {{change}}",
+    "changeArchived": "OpenSpec-Änderung {{change}} archiviert",
+    "jira": "Jira-Vorgang {{key}}",
+    "jiraPending": "Jira-Vorgang wird erstellt"
   }
 }

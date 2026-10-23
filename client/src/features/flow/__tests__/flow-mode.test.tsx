@@ -241,7 +241,8 @@ describe('FlowEntryCard in a workspace (repository target)', () => {
 describe('Flow mode in the conversation', () => {
   it('turns the conversation into Flow mode only while the Flow is active', async () => {
     const { result } = renderHook(() => useFlowConversationMode('c1', 'p1'), { wrapper: Providers })
-    await waitFor(() => expect(result.current).toEqual({ attributes: { 'data-flow': 'active' }, gitBranch: { branch: 'feat/7-calm-dashboard', label: 'Flow worktree' }, interruptWhileBusy: true }))
+    // The Flow bar carries the (copyable) branch: the git strip steps aside.
+    await waitFor(() => expect(result.current).toEqual({ attributes: { 'data-flow': 'active' }, hideGitStrip: true, interruptWhileBusy: true }))
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'paused' }) }))
     expect(result.current).toBeNull()
   })
@@ -259,6 +260,37 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(dialog.querySelectorAll('[data-testid="flow-changes-file"]')).toHaveLength(3))
     expect(dialog).toHaveTextContent('src/App.tsx')
     expect(dialog).toHaveTextContent('—')
+  })
+
+  it('keeps Discard apart from the primary action, and the file stat opens the changes', async () => {
+    render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+    const toolbar = await screen.findByRole('toolbar', { name: 'Flow actions' })
+    const order = [...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))
+    expect(order).toEqual(['flow-bar-discard', 'flow-bar-separator', 'flow-bar-pause', 'flow-bar-this-is-it'])
+    await waitFor(() => expect(screen.getByTestId('flow-bar-changes')).toHaveAccessibleName('View changes · 3 files, +10 −2'))
+    expect(screen.getByTestId('flow-bar-branch')).toHaveAccessibleName('Copy branch name: feat/7-calm-dashboard')
+  })
+
+  it('a disabled "This is it" says why (tooltip and description)', async () => {
+    current = flow({ step: 'handoff:freeze' })
+    render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+    const handOff = await screen.findByTestId('flow-bar-this-is-it')
+    expect(handOff).toBeDisabled()
+    expect(handOff).toHaveAccessibleDescription('Wait until the Flow finishes saving its state')
+    expect(handOff.getAttribute('title')).toContain('Wait until the Flow finishes saving its state')
+  })
+
+  it('announces state changes politely, including the way back from a rail', async () => {
+    const { rerender } = render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+    await screen.findByTestId('flow-bar')
+    const announcer = screen.getByTestId('flow-state-announcer')
+    expect(announcer).toHaveAttribute('aria-live', 'polite')
+    expect(announcer).toHaveTextContent('')
+    act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'handed_off' }) }))
+    await waitFor(() => expect(screen.getByTestId('flow-state-announcer')).toHaveTextContent('Flow handed off to a rail.'))
+    act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'active' }) }))
+    await waitFor(() => expect(screen.getByTestId('flow-state-announcer')).toHaveTextContent('Back in Flow'))
+    rerender(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
   })
 
   describe('Preview of the app the Flow agent started', () => {
@@ -350,7 +382,11 @@ describe('Flow mode in the conversation', () => {
     render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
     fireEvent.click(await screen.findByTestId('flow-bar-discard'))
     const dialog = await screen.findByTestId('flow-discard-dialog')
-    expect(dialog).toHaveTextContent('The worktree, its branch and the placeholder spec are deleted')
+    // It names what is lost: the changed files with their lines, the branch and the spec.
+    expect(dialog).toHaveTextContent('cannot be undone')
+    await waitFor(() => expect(screen.getByTestId('flow-discard-files')).toHaveTextContent('3 changed files+10−2'))
+    expect(screen.getByTestId('flow-discard-loss')).toHaveTextContent('feat/7-calm-dashboard')
+    expect(screen.getByTestId('flow-discard-loss')).toHaveTextContent('The placeholder spec on the board')
     expect(calls.some((c) => c.url.endsWith('/discard'))).toBe(false)
     await act(async () => { fireEvent.click(screen.getByTestId('flow-discard-confirm')) })
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/discard') && c.method === 'POST')).toBe(true))
@@ -372,6 +408,10 @@ describe('Flow mode in the conversation', () => {
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
     const card = await screen.findByTestId('flow-hand-off-card')
     await waitFor(() => expect(screen.queryByTestId('flow-bar')).toBeNull())
+    // The milestone recap: what goes to the rail, its cost, and the safety net.
+    await waitFor(() => expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('3 files +10 −2 · $0.420 so far'))
+    expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('If the rail fails, you return to this Flow with your work intact.')
+    expect(card).toHaveTextContent('Turn this Flow into a reviewed PR')
     expect(card).toHaveTextContent('Flow → Spec')
     expect(card).toHaveTextContent('#7')
     expect(screen.queryByTestId('rail-card-repositories')).toBeNull()
@@ -471,5 +511,18 @@ describe('FlowOfferCard through the AgentMessage extension chain', () => {
         { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 't', railIndex: 1 },
       ]} /></Providers>)
     expect(screen.getByTestId('flow-offer-stub-flow')).toHaveTextContent('Flow handed off to Rail 2')
+  })
+
+  it('the hand-off record links to its run card', () => {
+    const focused = vi.fn()
+    window.addEventListener('specrails:focus-pr-card', focused)
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'x', reason: 'r' }} index={0} messageId="m1" conversationId="c1" projectId="p1" isLatest={false} isStreaming={false}
+      intents={[
+        { kind: 'flow-offer', proposalIndex: 0, status: 'accepted', at: 't', chosenMode: 'flow', config: { flowId: 'f1' } },
+        { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 't', railIndex: 1, runIds: ['run-1'], prDeliveryId: 'delivery-1' },
+      ]} /></Providers>)
+    fireEvent.click(screen.getByTestId('flow-offer-stub-view-run'))
+    expect((focused.mock.calls[0]![0] as CustomEvent).detail).toEqual({ prDeliveryId: 'delivery-1', runIds: ['run-1'], conversationId: 'c1' })
+    window.removeEventListener('specrails:focus-pr-card', focused)
   })
 })

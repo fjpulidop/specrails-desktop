@@ -28,13 +28,24 @@ interface Props {
   provider?: string | null
   /** Another Flow is already open in this conversation. */
   blockedByOpenFlow?: boolean
+  /** That open Flow (the note offers to jump to its bar). */
+  openFlowId?: string | null
   onStarted: (flow: Flow) => void
   onCancel: () => void
 }
 
 type RepositoryLoad = { projectId: string; repositories: FlowRepositoryOption[] | null }
 
-export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, projectId, conversationId, provider, blockedByOpenFlow = false, onStarted, onCancel }: Props) {
+/** Bring an open Flow's bar into view and focus it (it lives above the composer). */
+export function focusFlowBar(flowId: string): boolean {
+  const bar = document.querySelector<HTMLElement>(`[data-testid="flow-bar"][data-flow-id="${CSS.escape(flowId)}"]`)
+  if (!bar) return false
+  bar.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  bar.focus({ preventScroll: true })
+  return true
+}
+
+export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId = null, projectId, conversationId, provider, blockedByOpenFlow = false, openFlowId = null, onStarted, onCancel }: Props) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
   const ctx = useFlowContext()
@@ -78,6 +89,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             ? t('flow.entry.repository.noGit')
             : null
   const loading = !!projectId && (!availability || repositories === undefined)
+  const blockReasonId = `flow-entry-blocked-${conversationId ?? 'none'}`
   const needsRepository = !!choice?.show && !selectedRepositoryId
 
   const startFlow = async () => {
@@ -115,7 +127,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
-        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border-l-2 border-accent-info/50 bg-surface/40 px-3 py-2 text-xs italic text-foreground/75">
+        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 border-l-2 border-accent-info/50 bg-surface/40 px-3 py-2 text-xs italic text-foreground/75">
           {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
           {idea}
         </blockquote>
@@ -170,7 +182,13 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
         )}
         {blockReason && (
           <div role="note" data-testid="flow-entry-blocked" className="rounded-lg border border-accent-warning/35 bg-accent-warning/10 px-2.5 py-2 text-xs text-accent-warning">
-            <p className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
+            <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
+            {blockedByOpenFlow && openFlowId && (
+              <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-[11px] font-medium text-foreground/75 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50">
+                {t('flow.entry.blocked.goToFlow')}
+              </button>
+            )}
             {missing.length > 0 && (
               <ul className="mt-1 list-disc space-y-0.5 pl-6 text-foreground/70">
                 {missing.map((label) => <li key={label}>{label}</li>)}
@@ -193,7 +211,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             data-testid="flow-entry-start"
             onClick={() => void startFlow()}
             disabled={busy || loading || !!blockReason || needsRepository}
-            aria-describedby={blockReason ? 'flow-entry-title' : undefined}
+            aria-describedby={blockReason ? blockReasonId : undefined}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md bg-accent-info px-3 py-1 text-xs font-semibold text-background shadow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
             )}

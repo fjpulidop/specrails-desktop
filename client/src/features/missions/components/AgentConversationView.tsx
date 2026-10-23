@@ -24,6 +24,7 @@ import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
 import { focusPrCard, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
 import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowReturnCard'
+import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from './AgentFlowDeliveredCard'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -288,6 +289,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
+              // Flow delivered: the closing summary (server-authored, once per Flow).
+              const flowDelivered = parseFlowDeliveredRow(m.content)
+              if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null

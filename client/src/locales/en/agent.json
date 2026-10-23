@@ -892,7 +892,6 @@
     "sendHint": "Stops the current step and gives the agent your message now"
   },
   "flow": {
-    "gitLabel": "Flow worktree",
     "missing": {
       "sessions": "Core agent sessions are turned off or unavailable",
       "flowSessions": "Your Specrails Core cannot interrupt a running agent yet",
@@ -944,7 +943,8 @@
         "noProject": "Pin this mission to a project to use Flow.",
         "open": "This mission already has a Flow.",
         "missing": "Flow needs a newer Specrails Core:",
-        "unavailable": "Flow is not available right now."
+        "unavailable": "Flow is not available right now.",
+        "goToFlow": "Go to that Flow"
       },
       "cancel": "Cancel",
       "start": "Start Flow",
@@ -976,7 +976,8 @@
           "delivered": "Flow delivered",
           "discarded": "Flow discarded",
           "needs-review": "Flow needs review"
-        }
+        },
+        "viewRun": "View run"
       },
       "why": "Why the agent asked",
       "waitForReply": "You can choose once the agent finishes this reply."
@@ -1005,7 +1006,14 @@
         "handed_off": "Handed off",
         "delivered": "Delivered",
         "discarded": "Discarded"
-      }
+      },
+      "disabled": {
+        "settling": "Wait until the Flow finishes saving its state",
+        "busy": "Wait for the current action to finish",
+        "noSpec": "The Flow’s spec isn’t ready yet"
+      },
+      "working": "The agent is working",
+      "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}"
     },
     "preview": {
       "open": "Preview",
@@ -1020,9 +1028,14 @@
     },
     "discard": {
       "title": "Discard this Flow?",
-      "body": "The worktree, its branch and the placeholder spec are deleted. This cannot be undone.",
+      "body": "Discarding deletes all of this, and it cannot be undone:",
       "cancel": "Keep Flow",
-      "confirm": "Discard Flow"
+      "confirm": "Discard Flow",
+      "lossFiles_one": "{{count}} changed file",
+      "lossFiles_other": "{{count}} changed files",
+      "lossNoChanges": "No changed files yet",
+      "lossUnknown": "Every change in the Flow worktree",
+      "lossSpec": "The placeholder spec on the board"
     },
     "changes": {
       "title": "Flow changes",
@@ -1045,7 +1058,10 @@
       "loop": "Flow → Spec",
       "launch": "Launch",
       "notYet": "Not yet",
-      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail default engine is selected. You can change it below."
+      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail default engine is selected. You can change it below.",
+      "cost": "{{cost}} so far",
+      "costUnknown": "no billed cost yet",
+      "safetyNet": "If the rail fails, you return to this Flow with your work intact."
     },
     "review": {
       "backToFlow": "Back to Flow",
@@ -1081,6 +1097,15 @@
         "failure": "Failure",
         "detail": "Detail"
       }
+    },
+    "announce": {
+      "active": "Flow active: the agent writes in its worktree.",
+      "paused": "Flow paused.",
+      "needs-review": "The Flow needs review: its worktree is missing.",
+      "handed_off": "Flow handed off to a rail.",
+      "delivered": "Flow delivered.",
+      "discarded": "Flow discarded.",
+      "returned": "Back in Flow: the work returned with what Flow → Spec found."
     }
   },
   "flowReturn": {
@@ -1098,5 +1123,16 @@
     "providerInactivity": "The provider stopped responding for too long, so the turn ended. Send your message again to continue.",
     "toolInactivity": "A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.",
     "generic": "The agent turn failed."
+  },
+  "flowDelivered": {
+    "title": "Flow delivered",
+    "pr": "Open the pull request",
+    "prNumber": "Pull request #{{number}}",
+    "specRewritten": "Spec rewritten from what you built",
+    "specKept": "The spec rewrite did not complete; its draft is kept",
+    "change": "OpenSpec change {{change}}",
+    "changeArchived": "OpenSpec change {{change}} archived",
+    "jira": "Jira issue {{key}}",
+    "jiraPending": "Jira issue being created"
   }
 }

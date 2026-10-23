@@ -95,7 +95,9 @@ completed run without a PR delivery row), `onFlowDelivered` records
 `delivered` and enqueues `flow:<flowId>:rewrite-spec`, `:jira-create`,
 `:jira-review` in `flow_effects`. They run in order with attempts and backoff,
 resume at startup (`replaySettlement`) and every 30 s, and never block or
-revert the delivery. The Flow → Spec loop itself lives in `loops`
+revert the delivery. Once the rewrite and the Jira create settled, the
+conversation gets ONE closing summary (`FlowConversation.postDeliveredSummary`
+→ `flow-delivered` row: PR, spec rewrite, archived change, Jira key). The Flow → Spec loop itself lives in `loops`
 (`factory:flow-spec`). Details: [Flow mode](../../../docs/internals/flow-mode.md#settlement).
 
 ## Verify a change
