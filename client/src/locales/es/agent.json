@@ -665,7 +665,7 @@
       "feature_unavailable": "Flow no está disponible",
       "daily_budget_exceeded": "Presupuesto diario alcanzado: no se ha lanzado nada.",
       "review_wip_limit_reached": "Límite de revisión alcanzado: no se ha lanzado nada.",
-      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear un worktree aislado."
+      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto."
     },
     "stub": {
       "launched": "Lanzado → Rail {{rail}}",
@@ -909,7 +909,7 @@
       "flow_freeze_failed": "Los cambios de tu Flow no se pudieron guardar para pasarlo a un rail.",
       "flow_head_mismatch": "Tu Flow cambió mientras se pasaba a un rail. Inténtalo de nuevo.",
       "flow_handoff_not_adopted": "El rail arrancó sin hacerse cargo de los cambios de tu Flow.",
-      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear un worktree aislado.",
+      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto.",
       "flow_not_found": "Este Flow ya no existe.",
       "flow_failed": "Flow encontró un error inesperado. Inténtalo de nuevo.",
       "conversation_not_found": "Esta misión ya no existe.",

@@ -316,9 +316,9 @@
       "review_changes_requested": "O revisor solicitou alterações",
       "returned_to_flow": "De volta ao Flow",
       "flowSpecChanges": "Ainda não está pronto: o revisor pediu alterações",
-      "flowSpecDelivered": "O seu Flow já é um PR revisto",
+      "flowSpecDelivered": "Seu Flow agora é uma PR revisada",
       "flowSpecFailed": "A passagem a um rail parou",
-      "flowSpecBuilding": "A transformar o seu Flow num PR revisto"
+      "flowSpecBuilding": "Transformando seu Flow em uma PR revisada"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
     "buildingExistingPrHint": "O Specrails está a trabalhar no ramo da PR existente e irá enviar as alterações de revisão para essa mesma PR.",
@@ -657,15 +657,15 @@
       "scope_save_failed": "Não foi possível guardar os repositórios da spec.",
       "repository_scope_incomplete": "Falta um repositório exigido pelas specs para o lançamento. Reveja as atribuições acima.",
       "rail_not_empty": "Esse rail já tem specs",
-      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a passagem a um rail",
+      "flow_freeze_failed": "Não foi possível salvar as alterações do Flow para a passagem a um rail",
       "flow_head_mismatch": "O seu Flow mudou durante a passagem a um rail. Tente de novo",
       "flow_already_handed_off": "Este Flow já foi passado a um rail",
-      "flow_handoff_not_adopted": "O rail arrancou sem assumir as alterações do seu Flow",
+      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Flow",
       "illegal_transition": "O Flow mudou de estado entretanto",
       "feature_unavailable": "O Flow não está disponível",
       "daily_budget_exceeded": "Orçamento diário atingido. Nada foi iniciado.",
       "review_wip_limit_reached": "Limite de revisão atingido. Nada foi iniciado.",
-      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar um worktree isolado."
+      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto."
     },
     "stub": {
       "launched": "Lançado → Rail {{rail}}",
@@ -709,7 +709,7 @@
     "triageLabel": "Triagem",
     "handOff": {
       "newRail": "Um novo rail",
-      "changeHow": "Mudar como"
+      "changeHow": "Ajustar opções"
     }
   },
   "runCard": {
@@ -757,15 +757,15 @@
         "check": "As verificações ainda falham"
       },
       "score": "pontuação {{score}}",
-      "issues_one": "{{count}} ponto",
-      "issues_other": "{{count}} pontos",
+      "issues_one": "{{count}} problema",
+      "issues_other": "{{count}} problemas",
       "showAll": "Ver todos ({{count}})",
       "showLess": "Ver menos",
       "omitted_one": "+{{count}} a mais na revisão da execução",
       "omitted_other": "+{{count}} a mais na revisão da execução",
-      "failingChecks": "Falham",
+      "failingChecks": "Falhando",
       "check": "{{command}} · saída {{code}}",
-      "next": "As rondas de correção automática não resolveram isto. Volte ao Flow para resolver com o agente ou relance a partir do mesmo ramo do Flow.",
+      "next": "As rodadas de correção automática não resolveram isso. Volte ao Flow para resolver com o agente ou relance a partir do mesmo branch do Flow.",
       "returned": "De volta ao Flow: as suas alterações voltaram ao Flow com a revisão. Continue na faixa do Flow."
     }
   },
@@ -877,8 +877,8 @@
     "retryFailed": "Ainda indisponível. Verifique o log do app para ver a causa.",
     "dismiss": "Dispensar",
     "subagents": {
-      "delegation_unsupported": "Sub-agentes em {{provider}} exigem um Specrails Core mais recente, então o agente desta missão inicia os próprios sub-agentes.",
-      "driver_unavailable": "{{provider}} não está disponível no runtime de sessões, então o agente desta missão inicia os próprios sub-agentes."
+      "delegation_unsupported": "Subagentes em {{provider}} exigem um Specrails Core mais recente, então o agente desta missão inicia os próprios subagentes.",
+      "driver_unavailable": "{{provider}} não está disponível no runtime de sessões, então o agente desta missão inicia os próprios subagentes."
     }
   },
   "cardPending": "A preparar um cartão…",
@@ -890,31 +890,31 @@
   "flow": {
     "missing": {
       "sessions": "As sessões de agente do Core estão desligadas ou indisponíveis",
-      "flowSessions": "O seu Specrails Core ainda não consegue interromper um agente em execução",
-      "deriveChange": "O seu Specrails Core ainda não consegue derivar uma spec a partir do código"
+      "flowSessions": "Seu Specrails Core ainda não consegue interromper um agente em execução",
+      "deriveChange": "Seu Specrails Core ainda não consegue derivar uma spec a partir do código"
     },
     "errors": {
       "generic": "O Flow não conseguiu concluir essa ação. Tente novamente.",
-      "network": "Não foi possível contactar o Specrails.",
+      "network": "Não foi possível se conectar ao Specrails.",
       "feature_unavailable": "O Flow não está disponível com o Specrails Core instalado.",
       "flow_already_open": "Esta missão já tem um Flow. Retome-o ou descarte-o primeiro.",
-      "illegal_transition": "O Flow mudou de estado entretanto. Atualize e tente novamente.",
-      "flow_worktree_missing": "A cópia do projeto deste Flow já não existe. Reveja o ramo do Flow antes de continuar.",
-      "flow_repository_required": "Escolha o repositório em que este Flow corre.",
-      "flow_repository_not_git": "O Flow precisa de um repositório Git para o seu ramo; uma pasta simples não serve. Escolha um repositório Git.",
-      "flow_repository_unknown": "Esse repositório já não faz parte deste projeto. Escolha outro.",
-      "flow_repository_missing": "O repositório do Flow já não está disponível neste projeto.",
+      "illegal_transition": "O Flow mudou de estado nesse meio-tempo. Atualize e tente novamente.",
+      "flow_worktree_missing": "A cópia do projeto deste Flow não existe mais. Verifique o branch do Flow antes de continuar.",
+      "flow_repository_required": "Escolha o repositório em que este Flow é executado.",
+      "flow_repository_not_git": "O Flow precisa de um repositório Git para o seu branch; uma pasta simples não serve. Escolha um repositório Git.",
+      "flow_repository_unknown": "Esse repositório não faz mais parte deste projeto. Escolha outro.",
+      "flow_repository_missing": "O repositório do Flow não está mais disponível neste projeto.",
       "rail_not_empty": "Esse rail já tem specs. Escolha um rail livre e vazio.",
       "flow_already_handed_off": "Este Flow já foi passado a um rail.",
-      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a passagem a um rail.",
-      "flow_head_mismatch": "O seu Flow mudou durante a passagem a um rail. Tente de novo.",
-      "flow_handoff_not_adopted": "O rail arrancou sem assumir as alterações do seu Flow.",
-      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar um worktree isolado.",
-      "flow_not_found": "Este Flow já não existe.",
+      "flow_freeze_failed": "Não foi possível salvar as alterações do Flow para a passagem a um rail.",
+      "flow_head_mismatch": "Seu Flow mudou durante a passagem a um rail. Tente de novo.",
+      "flow_handoff_not_adopted": "O rail iniciou sem assumir as alterações do seu Flow.",
+      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto.",
+      "flow_not_found": "Este Flow não existe mais.",
       "flow_failed": "O Flow encontrou um erro inesperado. Tente novamente.",
-      "conversation_not_found": "Esta missão já não existe.",
+      "conversation_not_found": "Esta missão não existe mais.",
       "conversation_not_pinned": "Fixe esta missão ao projeto antes de iniciar um Flow.",
-      "flow_not_handed_off": "Este Flow já não está à espera dessa execução.",
+      "flow_not_handed_off": "Este Flow não está mais aguardando essa execução.",
       "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a passá-lo a um rail a partir da faixa do Flow.",
       "flow_return_busy": "A execução está ocupada com outra ação. Tente novamente daqui a pouco.",
       "flow_return_not_allowed": "Só uma passagem a um rail que parou antes da entrega pode voltar ao seu Flow.",
@@ -923,20 +923,20 @@
     },
     "entry": {
       "heading": "Iniciar um Flow",
-      "body": "O Specrails cria uma cópia à parte do projeto no seu próprio ramo do Flow, onde o agente pode escrever código. O seu ramo principal não é tocado.",
+      "body": "O Specrails cria uma cópia à parte do projeto no próprio branch do Flow, onde o agente pode escrever código. Seu branch principal não é alterado.",
       "provider": "O agente trabalha com {{provider}} e só escreve na cópia do Flow.",
       "providerUnknown": "O agente só escreve na cópia do Flow.",
       "repository": {
         "label": "Repositório",
-        "hint": "O Flow trabalha numa cópia à parte deste repositório.",
-        "choose": "Escolha o repositório em que este Flow corre",
-        "loading": "A carregar repositórios…",
+        "hint": "O Flow trabalha em uma cópia à parte deste repositório.",
+        "choose": "Escolha o repositório em que este Flow é executado",
+        "loading": "Carregando repositórios…",
         "loadFailed": "Não foi possível carregar os repositórios do projeto. Tente novamente.",
         "suggested": "Sugerido pelo agente",
-        "noGit": "Este projeto não tem repositório Git. O Flow precisa de um para o seu ramo."
+        "noGit": "Este projeto não tem repositório Git. O Flow precisa de um para o seu branch."
       },
       "blocked": {
-        "noProject": "Fixe esta missão num projeto para usar o Flow.",
+        "noProject": "Fixe esta missão em um projeto para usar o Flow.",
         "open": "Esta missão já tem um Flow.",
         "missing": "O Flow precisa de um Specrails Core mais recente:",
         "unavailable": "O Flow não está disponível neste momento.",
@@ -944,29 +944,29 @@
       },
       "cancel": "Cancelar",
       "start": "Iniciar Flow",
-      "starting": "A iniciar…"
+      "starting": "Iniciando…"
     },
     "offer": {
-      "heading": "Como quer construí-lo?",
+      "heading": "Como você quer construí-lo?",
       "notNow": "Agora não",
       "implementReply": "Vamos escrever primeiro a spec e depois lançar o Implement.",
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Construam juntos num ramo do Flow à parte; a spec vem no fim."
+          "hint": "Construa junto com o agente em um branch do Flow à parte; a spec vem no fim."
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "Acordem primeiro uma spec e depois delegue-a a um rail."
+          "hint": "Combine primeiro uma spec com o agente e depois passe-a a um rail."
         }
       },
       "stub": {
-        "flow": "Escolheu Flow",
-        "implement": "Escolheu spec + Implement",
+        "flow": "Você escolheu Flow",
+        "implement": "Você escolheu spec + Implement",
         "dismissed": "Proposta descartada",
         "handedOff": "Flow passado ao Rail {{rail}}",
         "state": {
-          "active": "Flow em curso",
+          "active": "Flow em andamento",
           "paused": "Flow em pausa",
           "handed_off": "Flow passado a um rail",
           "delivered": "Flow concluído",
@@ -975,8 +975,8 @@
         },
         "viewRun": "Ver execução"
       },
-      "why": "Porque é que o agente pergunta",
-      "waitForReply": "Poderá escolher quando o agente terminar esta resposta."
+      "why": "Por que o agente pergunta",
+      "waitForReply": "Você poderá escolher quando o agente terminar esta resposta."
     },
     "bar": {
       "controls": "Ações do Flow",
@@ -985,14 +985,14 @@
       "pause": "Pausar Flow",
       "discard": "Descartar",
       "discarded": "Flow descartado",
-      "files_one": "{{count}} ficheiro",
-      "files_other": "{{count}} ficheiros",
-      "filesTitle": "Ficheiros alterados no ramo do Flow",
-      "costTitle": "Custo real dos turnos deste Flow, conforme faturado pelo fornecedor",
-      "costPartial_one": "{{count}} turno não tem custo comunicado pelo fornecedor e não está incluído",
-      "costPartial_other": "{{count}} turnos não têm custo comunicado pelo fornecedor e não estão incluídos",
-      "needsReview": "A cópia do projeto deste Flow desapareceu. Nada foi apagado; reveja o ramo do Flow antes de continuar.",
-      "pausedNote": "Em pausa. As suas alterações e a spec são mantidas; retome quando quiser.",
+      "files_one": "{{count}} arquivo",
+      "files_other": "{{count}} arquivos",
+      "filesTitle": "Arquivos alterados no branch do Flow",
+      "costTitle": "Custo real dos turnos deste Flow, conforme cobrado pelo provedor",
+      "costPartial_one": "{{count}} turno não tem custo informado pelo provedor e não está incluído",
+      "costPartial_other": "{{count}} turnos não têm custo informado pelo provedor e não estão incluídos",
+      "needsReview": "A cópia do projeto deste Flow desapareceu. Nada foi apagado; verifique o branch do Flow antes de continuar.",
+      "pausedNote": "Em pausa. Suas alterações e a spec são mantidas; retome quando quiser.",
       "state": {
         "active": "Flow",
         "paused": "Flow em pausa",
@@ -1002,8 +1002,8 @@
         "discarded": "Descartado"
       },
       "disabled": {
-        "settling": "Aguarde até o Flow terminar de guardar o seu estado",
-        "busy": "Aguarde que a ação em curso termine",
+        "settling": "Aguarde até o Flow terminar de salvar o estado",
+        "busy": "Aguarde a ação atual terminar",
         "noSpec": "A spec do Flow ainda não está pronta"
       },
       "viewChangesStats": "Ver alterações · {{files}}, +{{additions}} −{{deletions}}",
@@ -1012,11 +1012,11 @@
     "preview": {
       "open": "Pré-visualizar",
       "openTitle": "Abrir a app em {{url}} no navegador",
-      "stopping": "A parar…",
+      "stopping": "Parando…",
       "more": "Ações da app",
       "local": "Abrir neste computador",
       "network": "Abrir na rede local",
-      "localOnly": "Acessível apenas a partir deste computador. Peça ao agente para a reiniciar exposta na rede local para a abrir num telemóvel.",
+      "localOnly": "Acessível apenas neste computador. Peça ao agente para reiniciá-la exposta na rede local para abri-la em um celular.",
       "stop": "Parar app",
       "stopFailed": "Não foi possível parar a app"
     },
@@ -1025,15 +1025,15 @@
       "body": "Descartar apaga tudo isto e não é possível desfazer:",
       "cancel": "Manter Flow",
       "confirm": "Descartar Flow",
-      "lossFiles_one": "{{count}} ficheiro alterado",
-      "lossFiles_other": "{{count}} ficheiros alterados",
-      "lossNoChanges": "Ainda não há ficheiros alterados",
-      "lossUnknown": "Todas as alterações no ramo do Flow",
+      "lossFiles_one": "{{count}} arquivo alterado",
+      "lossFiles_other": "{{count}} arquivos alterados",
+      "lossNoChanges": "Ainda não há arquivos alterados",
+      "lossUnknown": "Todas as alterações no branch do Flow",
       "lossSpec": "A spec provisória no quadro"
     },
     "changes": {
       "title": "Alterações do Flow",
-      "subtitle": "Ramo {{branch}} comparado com o ponto de partida",
+      "subtitle": "Branch {{branch}} comparado com o ponto de partida",
       "subtitleNoBranch": "Alterações comparadas com o ponto de partida do Flow",
       "refresh": "Atualizar",
       "loadFailed": "Não foi possível carregar as alterações.",
@@ -1041,28 +1041,28 @@
       "status": {
         "added": "Adicionado",
         "modified": "Modificado",
-        "deleted": "Eliminado",
+        "deleted": "Excluído",
         "renamed": "Renomeado",
-        "untracked": "Novo, não seguido"
+        "untracked": "Novo, não rastreado"
       }
     },
     "handOff": {
-      "heading": "Transforme este Flow num PR revisto",
+      "heading": "Transforme este Flow em uma PR revisada",
       "loop": "Passagem do Flow a um rail",
       "launch": "Lançar",
       "notYet": "Ainda não",
       "engineFallback": "{{provider}} não pode executar a passagem do Flow a um rail nesta máquina, por isso foi selecionado o motor padrão do rail.",
       "cost": "{{cost}} até agora",
       "costUnknown": "ainda sem custo faturado",
-      "line_one": "{{rail}} vai transformar o seu ficheiro alterado num PR revisto. Se falhar, o seu trabalho fica a salvo.",
-      "line_other": "{{rail}} vai transformar os seus {{count}} ficheiros alterados num PR revisto. Se falhar, o seu trabalho fica a salvo.",
-      "lineNoCount": "{{rail}} vai transformar as suas alterações num PR revisto. Se falhar, o seu trabalho fica a salvo."
+      "line_one": "{{rail}} vai transformar seu arquivo alterado em uma PR revisada. Se falhar, seu trabalho fica a salvo.",
+      "line_other": "{{rail}} vai transformar seus {{count}} arquivos alterados em uma PR revisada. Se falhar, seu trabalho fica a salvo.",
+      "lineNoCount": "{{rail}} vai transformar suas alterações em uma PR revisada. Se falhar, seu trabalho fica a salvo."
     },
     "review": {
       "backToFlow": "Voltar ao Flow",
       "backToFlowHint": "Reabra este Flow com as mesmas alterações; o agente recebe a revisão no próximo turno",
       "relaunch": "Relançar",
-      "relaunchHint": "Tentar de novo a partir do mesmo ramo do Flow, rail e motor",
+      "relaunchHint": "Tentar de novo a partir do mesmo branch do Flow, rail e motor",
       "returned": "De volta ao Flow. O agente tem a revisão.",
       "relaunched": "Relançado no Rail {{index}}",
       "returnFailed": "Não foi possível voltar ao Flow: {{detail}}",
@@ -1072,31 +1072,31 @@
     },
     "failure": {
       "step": {
-        "derive": "Não foi possível escrever a spec a partir das suas alterações",
-        "verify": "Não foi possível verificar as suas alterações",
+        "derive": "Não foi possível escrever a spec a partir de suas alterações",
+        "verify": "Não foi possível verificar suas alterações",
         "review": "A revisão não conseguiu terminar",
         "fix": "As correções automáticas não conseguiram terminar",
-        "archive": "Não foi possível guardar a spec concluída",
+        "archive": "Não foi possível arquivar a spec concluída",
         "settle": "Não foi possível devolver o resultado",
         "unknown": "A passagem a um rail parou antes de terminar"
       },
       "cause": "Causa:",
-      "next": "O seu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
-      "nextReturned": "O seu trabalho está intacto. De volta ao Flow, o agente tem o erro.",
+      "next": "Seu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
+      "nextReturned": "Seu trabalho está intacto. De volta ao Flow, o agente tem o erro.",
       "returned": "De volta ao Flow",
       "technical": {
         "title": "Detalhes técnicos",
         "repository": "Repositório",
-        "step": "Passo",
+        "step": "Etapa",
         "status": "Estado",
         "failure": "Falha",
         "detail": "Detalhe"
       }
     },
     "announce": {
-      "active": "Flow ativo: o agente escreve no ramo do Flow.",
+      "active": "Flow ativo: o agente escreve no branch do Flow.",
       "paused": "Flow em pausa.",
-      "needs-review": "O Flow precisa de revisão: a sua cópia do projeto desapareceu.",
+      "needs-review": "O Flow precisa de revisão: sua cópia do projeto desapareceu.",
       "handed_off": "Flow passado a um rail.",
       "delivered": "Flow entregue.",
       "discarded": "Flow descartado.",
@@ -1104,28 +1104,28 @@
     },
     "strip": {
       "label": "Flow",
-      "ready": "Pronto para virar um PR",
-      "launching": "A passar a um rail…",
-      "launchingOn": "A passar a {{rail}}…",
-      "stillHandingOff": "Ainda a passar a {{rail}}…",
+      "ready": "Pronto para virar uma PR",
+      "launching": "Passando a um rail…",
+      "launchingOn": "Passando a {{rail}}…",
+      "stillHandingOff": "Ainda passando a {{rail}}…",
       "refresh": "Atualizar",
       "step": {
-        "derive": "Escrevendo a spec a partir das suas alterações",
+        "derive": "Escrevendo a spec a partir de suas alterações",
         "verify": "Verificando suas alterações",
         "review": "Revisando a alteração",
         "fix": "Aplicando as correções da revisão",
-        "archive": "A guardar a spec concluída",
-        "settle": "A devolver o resultado"
+        "archive": "Arquivando a spec concluída",
+        "settle": "Devolvendo o resultado"
       },
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
-      "description": "Modo Flow: o agente escreve no ramo do Flow, não no seu ramo principal",
+      "description": "Modo Flow: o agente escreve no branch do Flow, não no seu branch principal",
       "placeholder": "Diga ao agente o que mudar neste Flow…"
     },
     "panel": {
-      "branch": "Ramo",
+      "branch": "Branch",
       "changes": "Alterações",
       "cost": "Custo até agora",
       "actions": "Mais ações do Flow"
@@ -1133,30 +1133,30 @@
   },
   "flowReturn": {
     "title": "O que o revisor pediu",
-    "noFindings": "A passagem a um rail parou antes da entrega; as suas alterações voltaram intactas a este Flow.",
+    "noFindings": "A passagem a um rail parou antes da entrega; suas alterações voltaram intactas a este Flow.",
     "coverage": "A spec explica {{explained}} de {{files}} arquivos alterados",
     "unexplained": "Não explicados por nenhum requisito",
-    "moreFiles_one": "+{{count}} arquivo",
-    "moreFiles_other": "+{{count}} arquivos",
+    "moreFiles_one": "+{{count}} arquivo a mais",
+    "moreFiles_other": "+{{count}} arquivos a mais",
     "next": "O agente do Flow começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
-    "automaticTurn": "Turno automático · Voltar ao Flow",
-    "titleFailure": "Porque é que a passagem a um rail parou"
+    "automaticTurn": "Turno automático · De volta ao Flow",
+    "titleFailure": "Por que a passagem a um rail parou"
   },
   "turnErrors": {
-    "providerInactivity": "O fornecedor deixou de responder durante demasiado tempo, por isso o turno terminou. Envie a mensagem novamente para continuar.",
-    "toolInactivity": "Uma ferramenta ficou demasiado tempo sem atividade do fornecedor, por isso o turno terminou. Envie a mensagem novamente ou peça ao agente para dividir o passo.",
+    "providerInactivity": "O provedor parou de responder por tempo demais, então o turno terminou. Envie a mensagem novamente para continuar.",
+    "toolInactivity": "Uma ferramenta ficou tempo demais sem atividade do provedor, então o turno terminou. Envie a mensagem novamente para continuar ou peça ao agente para dividir o passo.",
     "generic": "O turno do agente falhou."
   },
   "flowDelivered": {
     "title": "Flow entregue",
     "pr": "Abrir o pull request",
     "prNumber": "Pull request #{{number}}",
-    "specRewritten": "Spec reescrita a partir do que construiu",
-    "specKept": "A reescrita da spec não terminou; o rascunho mantém-se",
-    "change": "Alteração da spec {{change}}",
-    "changeArchived": "Alteração da spec {{change}} arquivada",
+    "specRewritten": "Spec reescrita a partir do que você construiu",
+    "specKept": "A reescrita da spec não terminou; o rascunho foi mantido",
+    "change": "Mudança de spec {{change}}",
+    "changeArchived": "Mudança de spec {{change}} arquivada",
     "jira": "Issue do Jira {{key}}",
-    "jiraPending": "Issue do Jira a ser criada"
+    "jiraPending": "Issue do Jira sendo criada"
   },
   "runStrip": {
     "launching": "Iniciando em {{rail}}…",
@@ -1167,9 +1167,9 @@
       "approval": "Aguardando sua aprovação",
       "changes": "O revisor pediu alterações",
       "on_review": "Pronto para sua revisão",
-      "pr_draft": "PR em rascunho pronto para publicar",
+      "pr_draft": "PR em rascunho pronta para publicar",
       "no_changes": "Concluído sem alterações",
-      "pr_closed": "PR fechado sem merge",
+      "pr_closed": "PR fechada sem merge",
       "generic": "Aguardando sua decisão"
     },
     "failed": {
@@ -1181,7 +1181,7 @@
       "launch_failed": "A execução não conseguiu iniciar",
       "delivery_failed": "Não foi possível entregar o resultado",
       "push_failed": "Não foi possível enviar o branch",
-      "pr_failed": "Não foi possível criar o PR"
+      "pr_failed": "Não foi possível criar a PR"
     },
     "progressAria": "{{done}} de {{total}} execuções concluídas",
     "costTitle": "Custo real cobrado pelo provedor até agora",

@@ -315,7 +315,7 @@
       "discarded": "破棄済み",
       "review_changes_requested": "レビュアーが変更を依頼しました",
       "returned_to_flow": "Flow に戻りました",
-      "flowSpecChanges": "まだ準備できていません: レビュアーが変更を求めました",
+      "flowSpecChanges": "まだ完成していません：レビュアーが変更を求めました",
       "flowSpecDelivered": "Flow がレビュー済みの PR になりました",
       "flowSpecFailed": "引き渡しが停止しました",
       "flowSpecBuilding": "Flow をレビュー済みの PR にしています"
@@ -665,7 +665,7 @@
       "feature_unavailable": "Flow は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました。何も起動していません。",
       "review_wip_limit_reached": "レビュー上限に達しました。何も起動していません。",
-      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。"
     },
     "stub": {
       "launched": "起動しました → レール {{rail}}",
@@ -761,12 +761,12 @@
       "issues_other": "指摘 {{count}} 件",
       "showAll": "すべて表示（{{count}}）",
       "showLess": "折りたたむ",
-      "omitted_one": "実行のレビューにさらに {{count}} 件",
-      "omitted_other": "実行のレビューにさらに {{count}} 件",
+      "omitted_one": "ほか {{count}} 件（実行のレビューを参照）",
+      "omitted_other": "ほか {{count}} 件（実行のレビューを参照）",
       "failingChecks": "失敗",
       "check": "{{command}} · 終了コード {{code}}",
-      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと解決するか、同じ Flow ブランチから再起動してください。",
-      "returned": "Flow に戻りました: 変更はレビューとともに Flow に戻りました。Flow のストリップで続けてください。"
+      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと解決するか、同じ Flow ブランチから再実行してください。",
+      "returned": "Flow に戻りました：変更はレビュー結果とともにこの Flow に戻っています。Flow のストリップから続けてください。"
     }
   },
   "runFailure": {
@@ -909,7 +909,7 @@
       "flow_freeze_failed": "引き渡しのために Flow の変更を保存できませんでした。",
       "flow_head_mismatch": "引き渡し中に Flow が変更されました。もう一度お試しください。",
       "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました。",
-      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。",
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
       "flow_not_found": "この Flow はもう存在しません。",
       "flow_failed": "Flow で予期しないエラーが発生しました。もう一度お試しください。",
       "conversation_not_found": "このミッションはもう存在しません。",
@@ -917,7 +917,7 @@
       "flow_not_handed_off": "この Flow はもうその実行を待っていません。",
       "flow_rail_unknown": "その実行のレールが不明です。Flow のストリップからもう一度引き渡してください。",
       "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
-      "flow_return_not_allowed": "納品前に停止した引き渡しだけが Flow に戻れます。",
+      "flow_return_not_allowed": "完了前に停止した引き渡しだけが Flow に戻れます。",
       "flow_return_not_found": "その実行は Flow の引き渡しではありません。",
       "flow_return_worktree_mismatch": "その実行はこの Flow の変更を引き継いでいません。"
     },
@@ -1022,7 +1022,7 @@
     },
     "discard": {
       "title": "この Flow を破棄しますか?",
-      "body": "破棄すると次のものがすべて削除され、元に戻せません:",
+      "body": "破棄すると次のものがすべて削除され、元に戻せません：",
       "cancel": "Flow を残す",
       "confirm": "Flow を破棄",
       "lossFiles_one": "変更済みファイル {{count}} 件",
@@ -1054,9 +1054,9 @@
       "engineFallback": "{{provider}} はこのマシンで Flow の引き渡しを実行できないため、レールのデフォルトエンジンを選択しました。",
       "cost": "ここまで {{cost}}",
       "costUnknown": "請求済みコストはまだありません",
-      "line_one": "{{rail}} が変更した 1 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
-      "line_other": "{{rail}} が変更した {{count}} 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
-      "lineNoCount": "{{rail}} が変更内容をレビュー済みの PR にします。失敗しても作業は失われません。"
+      "line_one": "{{rail}} が、あなたが変更した 1 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
+      "line_other": "{{rail}} が、あなたが変更した {{count}} 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
+      "lineNoCount": "{{rail}} が、あなたの変更内容をレビュー済みの PR にします。失敗しても作業は失われません。"
     },
     "review": {
       "backToFlow": "Flow に戻る",
@@ -1064,9 +1064,9 @@
       "relaunch": "再実行",
       "relaunchHint": "同じ Flow ブランチ、レール、エンジンでもう一度試します",
       "returned": "Flow に戻りました。エージェントにレビューが渡っています。",
-      "relaunched": "レール {{index}} で再起動しました",
+      "relaunched": "レール {{index}} で再実行しました",
       "returnFailed": "Flow に戻れませんでした：{{detail}}",
-      "relaunchFailed": "再起動できませんでした: {{detail}}",
+      "relaunchFailed": "再実行できませんでした：{{detail}}",
       "backToFlowFailureHint": "同じ変更のままこの Flow を再開します。エージェントは次のターンでエラーを受け取ります",
       "returnedFailure": "Flow に戻りました。エージェントにエラーが渡っています。"
     },
@@ -1080,9 +1080,9 @@
         "settle": "結果を返せませんでした",
         "unknown": "引き渡しが完了前に停止しました"
       },
-      "cause": "原因:",
+      "cause": "原因：",
       "next": "作業内容はそのままです。Flow に戻ると、エージェントがエラーを受け取ります。",
-      "nextReturned": "作業内容はそのままです。Flow に戻り、エージェントはエラーを把握しています。",
+      "nextReturned": "作業内容はそのままです。Flow に戻り、エージェントにエラーが渡っています。",
       "returned": "Flow に戻りました",
       "technical": {
         "title": "技術的な詳細",
@@ -1094,13 +1094,13 @@
       }
     },
     "announce": {
-      "active": "Flow 有効: エージェントは Flow のブランチに書き込みます。",
+      "active": "Flow 有効：エージェントは Flow のブランチに書き込みます。",
       "paused": "Flow を一時停止しました。",
-      "needs-review": "Flow の確認が必要です: プロジェクトのコピーが見つかりません。",
+      "needs-review": "Flow の確認が必要です：プロジェクトのコピーが見つかりません。",
       "handed_off": "Flow をレールに引き渡しました。",
-      "delivered": "Flow を納品しました。",
+      "delivered": "Flow が完了しました。",
       "discarded": "Flow を破棄しました。",
-      "returned": "Flow に戻りました: 引き渡しで見つかった内容とともに作業が戻りました。"
+      "returned": "Flow に戻りました：引き渡しで見つかった内容とともに作業が戻りました。"
     },
     "strip": {
       "label": "Flow",
@@ -1114,14 +1114,14 @@
         "verify": "変更を検証中",
         "review": "変更をレビュー中",
         "fix": "レビューの修正を適用中",
-        "archive": "完成した spec を保存しています",
-        "settle": "結果を返しています"
+        "archive": "完成した spec を保存中",
+        "settle": "結果を返却中"
       },
       "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
-      "description": "Flow モード: エージェントはメインブランチではなく Flow のブランチに書き込みます",
+      "description": "Flow モード：エージェントはメインブランチではなく Flow のブランチに書き込みます",
       "placeholder": "この Flow で何を変えるかエージェントに伝えてください…"
     },
     "panel": {
@@ -1133,8 +1133,8 @@
   },
   "flowReturn": {
     "title": "レビュアーの指摘",
-    "noFindings": "引き渡しは納品前に停止しました。変更はそのままこの Flow に戻っています。",
-    "coverage": "スペックは変更された {{files}} ファイルのうち {{explained}} を説明しています",
+    "noFindings": "引き渡しは完了前に停止しました。変更はそのままこの Flow に戻っています。",
+    "coverage": "spec は変更された {{files}} 個のファイルのうち {{explained}} 個を説明しています",
     "unexplained": "どの要件にも説明されていないファイル",
     "moreFiles_one": "ほか {{count}} ファイル",
     "moreFiles_other": "ほか {{count}} ファイル",
@@ -1148,10 +1148,10 @@
     "generic": "エージェントのターンが失敗しました。"
   },
   "flowDelivered": {
-    "title": "Flow を納品しました",
+    "title": "Flow が完了しました",
     "pr": "プルリクエストを開く",
     "prNumber": "プルリクエスト #{{number}}",
-    "specRewritten": "作ったものから spec を書き直しました",
+    "specRewritten": "作成した内容に合わせて spec を書き直しました",
     "specKept": "spec の書き直しは完了しませんでした。下書きは保持されています",
     "change": "spec の変更 {{change}}",
     "changeArchived": "spec の変更 {{change}} をアーカイブしました",
@@ -1161,8 +1161,8 @@
   "runStrip": {
     "launching": "{{rail}} で起動中…",
     "running": "作業中",
-    "paused": "一時停止中。あなたを待っています",
-    "pausedReason": "一時停止中: {{reason}}",
+    "paused": "一時停止中。あなたの対応を待っています",
+    "pausedReason": "一時停止中：{{reason}}",
     "decision": {
       "approval": "あなたの承認待ち",
       "changes": "レビュアーが変更を求めています",
@@ -1188,12 +1188,12 @@
     "costPartial": "一部の実行はまだ請求コストがなく、含まれていません",
     "costNone": "まだ請求コストはありません",
     "state": {
-      "launching": "起動中:",
-      "running": "実行中:",
-      "decision": "あなた待ち:",
-      "failed": "失敗:",
-      "paused": "一時停止中:",
-      "info": "お知らせ:"
+      "launching": "起動中：",
+      "running": "実行中：",
+      "decision": "対応待ち：",
+      "failed": "失敗：",
+      "paused": "一時停止中：",
+      "info": "お知らせ："
     },
     "proposal": "{{tickets}} の起動が提案されました",
     "proposalNoTickets": "起動が提案されました",
@@ -1203,25 +1203,25 @@
     "withShortcut": "{{label}}（{{keys}}）",
     "cycleHint": "実行を切り替え：{{keys}}",
     "hideDetails": "詳細を隠す",
-    "switcher": "実行中のラン",
-    "more": "ほかの実行 ({{count}})",
+    "switcher": "進行中の実行",
+    "more": "ほかの実行（{{count}}）",
     "announce": {
       "settled": "{{run}} が終了しました",
       "shown": "{{run}} を表示中：{{state}}",
       "needsYou": "{{run}} があなたの対応を待っています"
     },
     "event": {
-      "launched": "{{run}} で起動",
-      "failed": "{{run}} が失敗: {{reason}}",
+      "launched": "{{run}} で起動しました",
+      "failed": "{{run}} が失敗：{{reason}}",
       "openRun": "実行を表示",
-      "proposed": "起動が提案されました。あなたを待っています",
+      "proposed": "起動が提案されました。あなたの確認を待っています",
       "backToFlow": "Flow に戻りました",
       "flowReturned": "{{run}} が作業を Flow に戻しました",
-      "delivered": "納品済み: PR {{pr}}",
+      "delivered": "納品済み：PR {{pr}}",
       "deliveredNoPr": "{{run}} で納品済み",
       "superseded": "{{run}} は新しい実行に置き換えられました",
       "discarded": "{{run}} は破棄されました",
-      "changes": "{{run}}: レビュアーが変更を求めています"
+      "changes": "{{run}}：レビュアーが変更を求めています"
     },
     "needsYou": "対応待ち",
     "opensCard": "実行のカードを開き、そこで確認できます",

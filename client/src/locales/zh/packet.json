@@ -266,7 +266,7 @@
     "showAll_one": "再显示 {{count}} 项"
   },
   "baseline": {
-    "title": "在工作经过之处创建规格",
+    "title": "已为本次工作涉及的代码创建规格",
     "status": {
       "planned": "已规划基线：{{requirements}} 项现状需求，{{tests}} 个特征测试",
       "passed": "基线已在未修改的代码上得到证明：{{requirements}} 项现状需求，{{tests}} 个特征测试",

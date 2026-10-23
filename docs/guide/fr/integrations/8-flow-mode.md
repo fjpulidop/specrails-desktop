@@ -11,7 +11,7 @@ Vous n’avez jamais à demander Flow par son nom. Quand vous décrivez quelque 
 - **Flow** : le construire ensemble maintenant ; la spec vient à la fin.
 - **Spec + Implement** : s’accorder d’abord sur une spec, puis la déléguer à un rail.
 
-Les deux chemins ont le même poids et apparaissent toujours dans le même ordre : aucun n’est recommandé, c’est vous qui choisissez. Sous **Pourquoi l’agent demande**, l’agent dit en une phrase ce qui l’a fait demander, et il n’insistera pas quel que soit votre choix ou si vous appuyez sur **Pas maintenant**.
+Les deux chemins ont le même poids et apparaissent toujours dans le même ordre : aucun n’est recommandé, c’est vous qui choisissez. Sous **Pourquoi l’agent pose la question**, l’agent dit en une phrase ce qui l’a fait demander, et il n’insistera pas quel que soit votre choix ou si vous appuyez sur **Pas maintenant**.
 
 Choisir Flow ouvre une confirmation : Specrails crée une copie séparée du projet sur sa propre branche de Flow, où l’agent peut écrire du code, et votre branche principale n’est pas touchée. Appuyez sur **Démarrer le Flow**. Une spec provisoire apparaît sur le board avec le libellé **En Flow** (cliquez dessus pour revenir à la mission).
 
@@ -41,7 +41,7 @@ Une fois l’app à l’écoute, l’agent vous donne ses adresses en liens et l
 
 Quand le résultat vous convient, appuyez sur **Remettre**. La ligne indique **Prêt à devenir une PR** et ouvre une seule ligne au-dessus : *Rail 2 transformera vos 7 fichiers modifiés en PR relue. En cas d’échec, votre travail est en sécurité.* Appuyez sur **Lancer**, ou sur **Pas encore** pour revenir au Flow ; fermer la ligne (Échap ou un clic ailleurs) revient à **Pas encore**. Si le moteur de votre conversation ne peut pas exécuter la remise sur cette machine, une note juste sous la ligne le dit et le moteur par défaut du rail est utilisé.
 
-Le rail, le moteur, le modèle et l’effort sont déjà choisis pour vous (un rail libre et le moteur de votre conversation). Pour les changer, ouvrez **Changer la méthode** ; vous y voyez aussi ce qui a changé et le coût jusqu’ici. Pendant le démarrage, le bandeau montre le lancement sans trou, puis suit l’exécution étape par étape. Si la limite de revue ou un budget est atteint, la ligne le dit et rien n’est lancé. Si l’exécution n’apparaît pas au bout de 45 secondes, le bandeau cesse de tourner et indique **Remise à Rail 2 toujours en cours…** avec **Actualiser**.
+Le rail, le moteur, le modèle et l’effort sont déjà choisis pour vous (un rail libre et le moteur de votre conversation). Pour les changer, ouvrez **Changer la méthode** ; vous y voyez aussi ce qui a changé et le coût jusqu’ici. Pendant le démarrage, le bandeau montre le lancement sans interruption, puis suit l’exécution étape par étape. Si la limite de revue ou un budget est atteint, la ligne le dit et rien n’est lancé. Si l’exécution n’apparaît pas au bout de 45 secondes, le bandeau cesse de tourner et indique **Remise à Rail 2 toujours en cours…** avec **Actualiser**.
 
 Le rail dérive la spec et son changement de spec à partir de ce que vous avez construit, la vérifie et la relit, et la carte de livraison apparaît dans la mission comme pour toute exécution.
 
@@ -52,6 +52,6 @@ Si l’exécution échoue pour une raison technique, le travail revient de lui-m
 - Flow n’écrit que sur sa propre branche. Hors de Flow, les missions restent en lecture seule.
 - Un seul Flow par mission à la fois. Une pause survit au redémarrage de l’app.
 - Si la copie du projet du Flow disparaît, le Flow est marqué **doit être vérifié** (pour information, rien à décider) et rien n’est supprimé.
-- La barre ne change jamais l’exécution que vous regardez. Si une autre se met à vous attendre entre-temps, son nom dans le sélecteur de la barre indique **vous attend**.
+- Le bandeau ne change jamais l’exécution que vous regardez. Si une autre se met à vous attendre entre-temps, son nom dans le sélecteur du bandeau indique **vous attend**.
 - Jira ne reçoit rien tant que vous êtes en Flow ni si vous l’abandonnez.
-- Le coût de Flow apparaît dans Analytique comme surface à part, **Flow**, et dans le bloc des missions d’agent.
+- Le coût de Flow apparaît dans Analytics comme surface à part, **Flow**, et dans le bloc des missions d’agent.

@@ -191,7 +191,7 @@
   "nonGoals": {
     "title": "Out of scope",
     "ariaLabel": "Out of scope, one item per line",
-    "placeholder": "What this spec deliberately does not change or deliver — one item per line",
+    "placeholder": "What this spec deliberately does not change or deliver. One item per line",
     "onePerLine": "One item per line",
     "add": "Add what this spec leaves out"
   }

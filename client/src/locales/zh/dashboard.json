@@ -33,8 +33,8 @@
     "railWorktreesNoCommits": "worktree 隔离不可用：仓库还没有任何提交 — 先做一次初始提交再重新启动。",
     "railWorktreesError": "Worktree 隔离失败 — 此次运行将在没有 PR 审查流程的情况下继续（无实施卡片）。请查看下方错误详情。",
     "onReviewCannotMoveToRail": "该 Spec 正在等待 PR 评审 — 请先处理 PR 决定",
-    "onReviewNotLaunchable": "该 Rail 上有 Spec 正在等待 PR 评审 — 请先处理 PR 决定再启动",
-    "launchRepositoryHasNoCommits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建隔离的 worktree。"
+    "onReviewNotLaunchable": "该 Rail 上有 Spec 正在等待 PR 评审，请先处理 PR 决定再启动。",
+    "launchRepositoryHasNoCommits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建项目的隔离副本。"
   },
   "railPr": {
     "operation": {

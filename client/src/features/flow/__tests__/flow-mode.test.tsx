@@ -138,7 +138,7 @@ describe('FlowEntryCard', () => {
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
     const error = await screen.findByTestId('flow-entry-error')
-    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.')
     expect(error).not.toHaveTextContent('invalid reference')
     expect(onStarted).not.toHaveBeenCalled()
   })

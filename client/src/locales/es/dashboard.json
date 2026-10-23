@@ -33,8 +33,8 @@
     "railWorktreesNoCommits": "Aislamiento por worktrees no disponible: el repositorio aún no tiene commits — haz un commit inicial y relanza.",
     "railWorktreesError": "La aislación por worktrees falló — este run continúa SIN el flujo de revisión por PR (sin tarjeta de implementación). Mira el detalle del error abajo.",
     "onReviewCannotMoveToRail": "Esta spec está pendiente de revisión de PR — resuelve primero la decisión de la PR",
-    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR — resuelve la decisión de la PR antes de lanzar",
-    "launchRepositoryHasNoCommits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear un worktree aislado."
+    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR. Decide sobre la PR antes de lanzar.",
+    "launchRepositoryHasNoCommits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto."
   },
   "railPr": {
     "operation": {

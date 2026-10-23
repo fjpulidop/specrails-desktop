@@ -447,7 +447,7 @@
     "saveFailed": "Impossible d'enregistrer le réglage",
     "jiraPostClarifications": {
       "label": "Publier les clarifications de l'architecte dans Jira",
-      "description": "Quand un run se met en pause avec les questions de l'architecte, ou continue sur des hypothèses, elles sont publiées en commentaire sur l'issue Jira liée. Une réponse y est enregistrée sur la spec comme clarification.",
+      "description": "Quand un run se met en pause avec les questions de l'architecte, ou continue sur des hypothèses, elles sont publiées en commentaire sur le ticket Jira lié. Une réponse y est enregistrée sur la spec comme clarification.",
       "enabled": "Les clarifications seront publiées dans Jira",
       "disabled": "Les clarifications resteront dans Specrails"
     },

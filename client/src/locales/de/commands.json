@@ -94,7 +94,7 @@
       "prevItem": "Vorheriges Listenelement",
       "runStripFocus": "Zum Laufstreifen der Mission springen (erneut drücken, um Details ein- oder auszublenden)",
       "runStripCycle": "Vorheriger / nächster Lauf im Laufstreifen (außerhalb von Textfeldern)",
-      "runStripBack": "Laufstreifen verlassen und zurück, wo du warst",
+      "runStripBack": "Laufstreifen verlassen und dorthin zurückkehren, wo du warst",
       "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
       "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)"
     }

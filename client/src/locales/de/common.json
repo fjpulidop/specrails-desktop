@@ -84,7 +84,7 @@
     "ref_mismatch": "Branch-Referenz stimmt nicht überein",
     "restart_pending": "Wartet auf Wiederherstellung des Workflows",
     "review_changes_requested": "Reviewer hat Änderungen angefordert",
-    "returned_to_flow": "An Flow zurückgegeben"
+    "returned_to_flow": "An den Flow zurückgegeben"
   },
   "prRecovery": {
     "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher. Versuche es gleich noch einmal.",
@@ -166,7 +166,7 @@
   },
   "initialCommit": {
     "action": "Ersten Commit erstellen",
-    "creating": "Ersten Commit wird erstellt…",
+    "creating": "Erster Commit wird erstellt…",
     "createdRelaunch": "Erster Commit erstellt. Starte den Rail erneut.",
     "errors": {
       "git_identity_missing": "Git hat keine Autorenidentität. Setze zuerst user.name und user.email.",

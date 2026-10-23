@@ -296,7 +296,7 @@
     "title": {
       "no_changes": "Keine Änderungen erforderlich",
       "partial": "Teilweise implementiert",
-      "delivery_blocked": "Implementierung abgeschlossen: Bereitstellung erfordert Aufmerksamkeit",
+      "delivery_blocked": "Implementierung abgeschlossen: Die Auslieferung braucht Aufmerksamkeit",
       "update_failed": "Implementierung abgeschlossen: Aktualisierung fehlgeschlagen",
       "pr_closed": "PR ohne Merge geschlossen",
       "superseded": "Durch einen neueren Lauf ersetzt",
@@ -314,8 +314,8 @@
       "merged": "PR gemergt",
       "discarded": "Verworfen",
       "review_changes_requested": "Der Reviewer hat Änderungen angefordert",
-      "returned_to_flow": "Zurück in Flow",
-      "flowSpecChanges": "Noch nicht fertig: Die Review verlangt Änderungen",
+      "returned_to_flow": "Zurück im Flow",
+      "flowSpecChanges": "Noch nicht fertig: Der Reviewer hat Änderungen angefordert",
       "flowSpecDelivered": "Dein Flow ist jetzt ein geprüfter PR",
       "flowSpecFailed": "Die Übergabe wurde angehalten",
       "flowSpecBuilding": "Dein Flow wird zu einem geprüften PR"
@@ -403,8 +403,8 @@
       "discardLocalBody": "Die wiederherstellbare lokale Iteration wird nur entfernt, wenn dies weiterhin sicher ist; wurde sie verändert, bleibt sie mit einer Warnung erhalten. Ein vorhandener PR und sein Branch bleiben unverändert. Ein entferntes Ergebnis kann nicht wiederhergestellt werden."
     },
     "degraded": {
-      "pushed": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden. Versuche es erneut, um abzuschließen.",
-      "localOnly": "Die Änderungen wurden lokal zusammengestellt, aber nicht gepusht. Versuche es erneut, um die PR zu veröffentlichen."
+      "pushed": "Der Branch wurde gepusht, aber der PR konnte nicht erstellt werden. Versuche es erneut, um abzuschließen.",
+      "localOnly": "Die Änderungen wurden lokal zusammengestellt, aber nicht gepusht. Versuche es erneut, um den PR zu veröffentlichen."
     },
     "alreadyResolved": "Bereits anderweitig erledigt",
     "actionFailed": "Aktion fehlgeschlagen",
@@ -665,7 +665,7 @@
       "feature_unavailable": "Flow ist nicht verfügbar",
       "daily_budget_exceeded": "Tagesbudget erreicht. Es wurde nichts gestartet.",
       "review_wip_limit_reached": "Review-Limit erreicht. Es wurde nichts gestartet.",
-      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails einen isolierten Worktree anlegen kann."
+      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann."
     },
     "stub": {
       "launched": "Gestartet → Rail {{rail}}",
@@ -709,7 +709,7 @@
     "triageLabel": "Triage",
     "handOff": {
       "newRail": "Ein neuer Rail",
-      "changeHow": "Wie ändern"
+      "changeHow": "Vorgehen ändern"
     }
   },
   "runCard": {
@@ -722,7 +722,7 @@
       "cancelled": "Abgebrochen",
       "unknown": "Unbekannt",
       "changes_requested": "Änderungen angefordert",
-      "returned": "Zurück in Flow"
+      "returned": "Zurück im Flow"
     },
     "title": {
       "running": "Implementierung im Projekt-Checkout…",
@@ -733,10 +733,10 @@
       "cancelled": "Run abgebrochen",
       "unknown": "Run-Status unbekannt",
       "changes_requested": "Der Reviewer hat Änderungen angefordert",
-      "returned": "Zurück in Flow"
+      "returned": "Zurück im Flow"
     },
     "noDeliveryNote": "Keine PR-Phase: Dieses Projekt hat kein Git-Repository und keine Commits, daher wurde die Arbeit direkt im Projektordner abgelegt.",
-    "noDeliveryHint": "Läuft direkt im Projektordner (kein Git-Repository und keine Commits, daher wird keine PR vorgeschlagen).",
+    "noDeliveryHint": "Läuft direkt im Projektordner (kein Git-Repository und keine Commits, daher wird kein PR vorgeschlagen).",
     "failure": {
       "title": "Warum es gestoppt hat",
       "step": "Schritt {{step}}",
@@ -748,7 +748,7 @@
       "recover": "Wiederherstellen und erneut versuchen",
       "relaunch": "Neu starten"
     },
-    "relaunchSent": "Rail {{index}} neu gestartet. Eine neue Karte folgt dem Run.",
+    "relaunchSent": "Rail {{index}} neu gestartet. Eine neue Karte folgt dem Lauf.",
     "relaunchFailed": "Der Rail konnte nicht neu gestartet werden",
     "relaunchBlockedActive": "Der Rail hat noch einen aktiven Run",
     "review": {
@@ -761,9 +761,9 @@
       "issues_other": "{{count}} Punkte",
       "showAll": "Alle {{count}} anzeigen",
       "showLess": "Weniger anzeigen",
-      "omitted_one": "+{{count}} weiterer im Review des Laufs",
-      "omitted_other": "+{{count}} weitere im Review des Laufs",
-      "failingChecks": "Fehlschlagend",
+      "omitted_one": "+{{count}} weiterer in der Review des Laufs",
+      "omitted_other": "+{{count}} weitere in der Review des Laufs",
+      "failingChecks": "Fehlgeschlagen",
       "check": "{{command}} · Exit {{code}}",
       "next": "Die automatischen Korrekturrunden haben das nicht gelöst. Geh zurück in den Flow, um es mit dem Agenten zu klären, oder starte neu vom selben Flow-Branch.",
       "returned": "Zurück im Flow: Deine Änderungen sind mit der Review in ihren Flow zurückgekehrt. Mach in der Flow-Leiste weiter."
@@ -909,13 +909,13 @@
       "flow_freeze_failed": "Die Änderungen deines Flows konnten für die Übergabe nicht gesichert werden.",
       "flow_head_mismatch": "Dein Flow hat sich während der Übergabe geändert. Versuch es noch einmal.",
       "flow_handoff_not_adopted": "Der Rail ist gestartet, ohne die Änderungen deines Flows zu übernehmen.",
-      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails einen isolierten Worktree anlegen kann.",
+      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann.",
       "flow_not_found": "Dieser Flow existiert nicht mehr.",
       "flow_failed": "Flow ist auf einen unerwarteten Fehler gestoßen. Versuche es erneut.",
       "conversation_not_found": "Diese Mission existiert nicht mehr.",
       "conversation_not_pinned": "Hefte diese Mission an das Projekt, bevor du einen Flow startest.",
       "flow_not_handed_off": "Dieser Flow wartet nicht mehr auf diesen Lauf.",
-      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib ihn erneut mit „Übergeben“ in der Flow-Leiste.",
+      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib den Flow erneut über „Übergeben“ in der Flow-Leiste.",
       "flow_return_busy": "Der Lauf ist mit einer anderen Aktion beschäftigt. Versuche es gleich noch einmal.",
       "flow_return_not_allowed": "Nur eine Übergabe, die vor der Auslieferung angehalten hat, kann in ihren Flow zurück.",
       "flow_return_not_found": "Dieser Lauf ist keine Flow-Übergabe.",
@@ -953,7 +953,7 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Baut es gemeinsam auf einem eigenen Flow-Branch; die Spec kommt am Ende."
+          "hint": "Gemeinsam auf einem eigenen Flow-Branch bauen; die Spec kommt am Ende."
         },
         "implement": {
           "title": "Spec + Implement",
@@ -1016,13 +1016,13 @@
       "more": "App-Aktionen",
       "local": "Auf diesem Computer öffnen",
       "network": "Im lokalen Netzwerk öffnen",
-      "localOnly": "Nur von diesem Computer erreichbar. Bitte den Agenten, sie im lokalen Netzwerk freigegeben neu zu starten, um sie auf einem Smartphone zu öffnen.",
+      "localOnly": "Nur von diesem Computer erreichbar. Bitte den Agenten, sie mit Freigabe im lokalen Netzwerk neu zu starten, damit du sie auf einem Smartphone öffnen kannst.",
       "stop": "App beenden",
       "stopFailed": "Die App konnte nicht beendet werden"
     },
     "discard": {
       "title": "Diesen Flow verwerfen?",
-      "body": "Verwerfen löscht all das, und es lässt sich nicht rückgängig machen:",
+      "body": "Verwerfen löscht Folgendes unwiderruflich:",
       "cancel": "Flow behalten",
       "confirm": "Flow verwerfen",
       "lossFiles_one": "{{count}} geänderte Datei",
@@ -1059,13 +1059,13 @@
       "lineNoCount": "{{rail}} macht aus deinen Änderungen einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten."
     },
     "review": {
-      "backToFlow": "Zurück zu Flow",
+      "backToFlow": "Zurück zum Flow",
       "backToFlowHint": "Öffne diesen Flow mit denselben Änderungen wieder; der Agent erhält die Review in seinem nächsten Zug",
       "relaunch": "Neu starten",
       "relaunchHint": "Erneut versuchen mit demselben Flow-Branch, Rail und derselben Engine",
       "returned": "Zurück im Flow. Der Agent hat die Review.",
       "relaunched": "Auf Rail {{index}} neu gestartet",
-      "returnFailed": "Zurück zu Flow nicht möglich: {{detail}}",
+      "returnFailed": "Rückkehr zum Flow nicht möglich: {{detail}}",
       "relaunchFailed": "Neustart nicht möglich: {{detail}}",
       "backToFlowFailureHint": "Öffne diesen Flow mit denselben Änderungen wieder; der Agent erhält den Fehler in seinem nächsten Zug",
       "returnedFailure": "Zurück im Flow. Der Agent hat den Fehler."
@@ -1074,7 +1074,7 @@
       "step": {
         "derive": "Die Spec konnte nicht aus deinen Änderungen geschrieben werden",
         "verify": "Deine Änderungen konnten nicht geprüft werden",
-        "review": "Die Prüfung konnte nicht abgeschlossen werden",
+        "review": "Die Review konnte nicht abgeschlossen werden",
         "fix": "Die automatischen Korrekturen konnten nicht abgeschlossen werden",
         "archive": "Die fertige Spec konnte nicht abgelegt werden",
         "settle": "Das Ergebnis konnte nicht zurückgegeben werden",
@@ -1110,10 +1110,10 @@
       "stillHandingOff": "Wird noch an {{rail}} übergeben…",
       "refresh": "Aktualisieren",
       "step": {
-        "derive": "Spec aus deinen Änderungen schreiben",
+        "derive": "Spec wird aus deinen Änderungen geschrieben",
         "verify": "Deine Änderungen werden geprüft",
         "review": "Die Änderung wird reviewt",
-        "fix": "Korrekturen aus dem Review werden angewendet",
+        "fix": "Korrekturen aus der Review werden angewendet",
         "archive": "Fertige Spec wird abgelegt",
         "settle": "Das Ergebnis wird zurückgegeben"
       },
@@ -1139,7 +1139,7 @@
     "moreFiles_one": "+{{count}} weitere Datei",
     "moreFiles_other": "+{{count}} weitere Dateien",
     "next": "Der Flow-Agent beginnt jetzt damit; du kannst ihn jederzeit lenken oder stoppen.",
-    "automaticTurn": "Automatischer Zug · Zurück zu Flow",
+    "automaticTurn": "Automatischer Zug · Zurück zum Flow",
     "titleFailure": "Warum die Übergabe angehalten hat"
   },
   "turnErrors": {
@@ -1203,7 +1203,7 @@
     "withShortcut": "{{label}} ({{keys}})",
     "cycleHint": "Lauf wechseln: {{keys}}",
     "hideDetails": "Details ausblenden",
-    "switcher": "Laufende Läufe",
+    "switcher": "Aktive Läufe",
     "more": "Weitere Läufe ({{count}})",
     "announce": {
       "settled": "{{run}} ist abgeschlossen",
@@ -1215,7 +1215,7 @@
       "failed": "{{run}} fehlgeschlagen: {{reason}}",
       "openRun": "Lauf anzeigen",
       "proposed": "Start vorgeschlagen. Wartet auf dich",
-      "backToFlow": "Zurück zu Flow",
+      "backToFlow": "Zurück zum Flow",
       "flowReturned": "{{run}} hat die Arbeit an den Flow zurückgegeben",
       "delivered": "Ausgeliefert: PR {{pr}}",
       "deliveredNoPr": "Auf {{run}} ausgeliefert",
@@ -1224,7 +1224,7 @@
       "changes": "{{run}}: Der Reviewer hat Änderungen angefordert"
     },
     "needsYou": "braucht dich",
-    "opensCard": "Öffnet die Karte des Laufs, damit du dort bestätigst",
+    "opensCard": "Öffnet die Karte des Laufs, damit du dort bestätigen kannst",
     "open": {
       "decision": "Entscheidung öffnen",
       "failed": "Fehler ansehen",
@@ -1237,7 +1237,7 @@
     "turnMark": "Flow",
     "reason": {
       "started": "gestartet",
-      "returned": "von einer Rail zurück",
+      "returned": "von einem Rail zurück",
       "handed_off": "an einen Rail übergeben",
       "discarded": "verworfen"
     }

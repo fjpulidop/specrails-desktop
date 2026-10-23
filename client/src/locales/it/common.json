@@ -84,7 +84,7 @@
     "ref_mismatch": "Il riferimento del branch non corrisponde",
     "restart_pending": "In attesa del ripristino del workflow",
     "review_changes_requested": "Il revisore ha richiesto modifiche",
-    "returned_to_flow": "Restituito a Flow"
+    "returned_to_flow": "Tornato in Flow"
   },
   "prRecovery": {
     "inProgress": "Il ripristino del progetto è ancora in corso. La consegna è al sicuro; riprova tra poco.",
@@ -169,7 +169,7 @@
     "creating": "Creazione del commit iniziale…",
     "createdRelaunch": "Commit iniziale creato. Avvia di nuovo il rail.",
     "errors": {
-      "git_identity_missing": "Git non ha un'identità autore. Imposta prima user.name e user.email.",
+      "git_identity_missing": "Git non ha un’identità autore. Imposta prima user.name e user.email.",
       "repository_has_commits": "Questo repository ha già dei commit.",
       "generic": "Impossibile creare il commit iniziale."
     }

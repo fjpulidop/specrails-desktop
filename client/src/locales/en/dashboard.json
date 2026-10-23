@@ -33,8 +33,8 @@
     "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch.",
     "railWorktreesError": "Worktree isolation failed — this run continues WITHOUT the PR review flow (no implementation card). See the error detail below.",
     "onReviewCannotMoveToRail": "This spec is awaiting PR review — resolve the PR decision first",
-    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review — resolve the PR decision before launching",
-    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree."
+    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review. Resolve the PR decision before launching.",
+    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
   },
   "railPr": {
     "operation": {

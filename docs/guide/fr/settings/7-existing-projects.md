@@ -8,7 +8,7 @@ Chaque spec peut lister ce qu'elle ne change volontairement **pas**. Quick et Ex
 
 ## Questions de l'architecte dans Jira
 
-Dans **Réglages ▸ Ancrage dans les projets existants**, activez **Publier les clarifications de l'architecte dans Jira**. Quand un run s'arrête parce que l'architecte a besoin d'une réponse, ou continue sur des hypothèses, Specrails les publie en un commentaire sur l'issue Jira liée. Répondez à ce commentaire dans Jira : la réponse est ajoutée à la spec comme clarification et le prochain run de la spec la lit. Vous pouvez toujours répondre à un run en pause depuis l'application.
+Dans **Réglages ▸ Ancrage dans les projets existants**, activez **Publier les clarifications de l'architecte dans Jira**. Quand un run s'arrête parce que l'architecte a besoin d'une réponse, ou continue sur des hypothèses, Specrails les publie en un commentaire sur le ticket Jira lié. Répondez à ce commentaire dans Jira : la réponse est ajoutée à la spec comme clarification et le prochain run de la spec la lit. Vous pouvez toujours répondre à un run en pause depuis l'application.
 
 ## Exigences démontrées
 

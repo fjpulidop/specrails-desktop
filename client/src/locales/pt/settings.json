@@ -394,22 +394,22 @@
       "explainScope": "Cada projeto tem sua própria configuração nas configurações do projeto. Missões com subagentes em execução aplicam a mudança quando eles terminam."
     },
     "runtime": {
-      "label": "Executar sub-agentes com",
+      "label": "Executar subagentes com",
       "same": "Igual ao agente da missão",
-      "sameHint": "Os sub-agentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
-      "chosenHint": "Missões em {{provider}} iniciam os próprios sub-agentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
-      "providerLabel": "Provedor dos sub-agentes",
-      "modelLabel": "Modelo dos sub-agentes",
-      "effortLabel": "Esforço dos sub-agentes",
-      "claudeEffortHint": "Os sub-agentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
-      "saved": "Os sub-agentes agora rodam com {{provider}}",
-      "reset": "Os sub-agentes voltam a seguir o agente da missão",
+      "sameHint": "Os subagentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
+      "chosenHint": "Missões em {{provider}} iniciam os próprios subagentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
+      "providerLabel": "Provedor dos subagentes",
+      "modelLabel": "Modelo dos subagentes",
+      "effortLabel": "Esforço dos subagentes",
+      "claudeEffortHint": "Os subagentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
+      "saved": "Os subagentes agora rodam com {{provider}}",
+      "reset": "Os subagentes voltam a seguir o agente da missão",
       "confirm": {
-        "title": "Executar os sub-agentes com {{provider}}?",
-        "body": "Em missões com outro provedor, os sub-agentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
-        "cost": "Mais lento e possivelmente mais caro: cada sub-agente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
-        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada sub-agente e deixe-os trabalhando após a resposta da missão.",
-        "native": "Missões que já usam {{provider}} mantêm sub-agentes nativos, agora com este modelo e esforço.",
+        "title": "Executar os subagentes com {{provider}}?",
+        "body": "Em missões com outro provedor, os subagentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
+        "cost": "Mais lento e possivelmente mais caro: cada subagente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
+        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada subagente e deixe-os trabalhando após a resposta da missão.",
+        "native": "Missões que já usam {{provider}} mantêm subagentes nativos, agora com este modelo e esforço.",
         "cancel": "Manter igual à missão",
         "accept": "Usar {{provider}}"
       }
@@ -453,7 +453,7 @@
     },
     "baselineOnTouch": {
       "label": "Baseline ao tocar",
-      "description": "Quando uma mudança alcança código que nenhuma spec descreve, primeiro escreva testes de caracterização (comprovados no código inalterado) e uma spec as-built mínima. Adiciona custo, mostrado à parte.",
+      "description": "Quando uma mudança alcança código que nenhuma spec descreve, primeiro são escritos testes de caracterização (comprovados no código inalterado) e uma spec as-built mínima. Adiciona custo, mostrado à parte.",
       "enabled": "Baseline ao tocar ativado",
       "disabled": "Baseline ao tocar desativado"
     }

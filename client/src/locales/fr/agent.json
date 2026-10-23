@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} en file",
     "delete": "Supprimer la mission \"{{title}}\"",
     "deleteConfirm": "Supprimer ?",
-    "deleteLiveConfirm": "L'agent travaille. Supprimer quand même ?",
+    "deleteLiveConfirm": "L’agent travaille. Supprimer quand même ?",
     "confirmDelete": "Confirmer la suppression",
     "cancelDelete": "Garder la mission",
     "deleteFailed": "Impossible de supprimer la mission"
@@ -403,7 +403,7 @@
       "discardLocalBody": "L’itération locale récupérable ne sera supprimée que si cela reste sans risque ; si elle a changé, elle sera conservée avec un avertissement. Toute PR existante et sa branche resteront inchangées. Un résultat supprimé ne peut pas être récupéré."
     },
     "degraded": {
-      "pushed": "La branche a été poussée mais la PR n'a pas pu être créée. Réessayez pour terminer.",
+      "pushed": "La branche a été poussée mais la PR n’a pas pu être créée. Réessayez pour terminer.",
       "localOnly": "Les modifications ont été assemblées en local mais pas poussées. Réessayez pour publier la PR."
     },
     "alreadyResolved": "Déjà résolue ailleurs",
@@ -440,7 +440,7 @@
     "resumeFromStep": "Reprendre depuis {{step}}",
     "resumeFromStepHint": "L'étape {{step}} interrompue est relancée depuis son début ; le travail déjà sur le disque est conservé.",
     "retryDelivery": "Relancer la livraison",
-    "retryDeliveryHint": "Ne refait que la dernière étape (commit, push et PR) sur la branche de cette exécution. Aucun travail d'IA n'est refait.",
+    "retryDeliveryHint": "Ne refait que la dernière étape (commit, push et PR) sur la branche de cette exécution. Aucun travail d’IA n’est refait.",
     "retryDeliverySent": "Nouvelle tentative de livraison…",
     "retryDeliveryFailed": "Impossible de relancer la livraison"
   },
@@ -665,7 +665,7 @@
       "feature_unavailable": "Flow n’est pas disponible",
       "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé.",
       "review_wip_limit_reached": "Limite de revue atteinte : rien n’a été lancé.",
-      "repository_has_no_commits": "Ce dépôt n'a encore aucun commit. Faites un premier commit pour que Specrails puisse créer un worktree isolé."
+      "repository_has_no_commits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet."
     },
     "stub": {
       "launched": "Lancé → Rail {{rail}}",
@@ -761,11 +761,11 @@
       "issues_other": "{{count}} points",
       "showAll": "Tout afficher ({{count}})",
       "showLess": "Afficher moins",
-      "omitted_one": "+{{count}} autre dans la relecture de l'exécution",
-      "omitted_other": "+{{count}} autres dans la relecture de l'exécution",
+      "omitted_one": "+{{count}} autre dans la relecture de l’exécution",
+      "omitted_other": "+{{count}} autres dans la relecture de l’exécution",
       "failingChecks": "En échec",
       "check": "{{command}} · code {{code}}",
-      "next": "Les tours de correction automatique ne l’ont pas résolu. Revenez au Flow pour le régler avec l’agent, ou relancez depuis la même branche du Flow.",
+      "next": "Les tours de correction automatique ne les ont pas résolus. Revenez au Flow pour les régler avec l’agent, ou relancez depuis la même branche du Flow.",
       "returned": "De retour dans le Flow : vos modifications sont revenues dans leur Flow avec la revue. Continuez dans le bandeau du Flow."
     }
   },
@@ -909,7 +909,7 @@
       "flow_freeze_failed": "Les modifications de votre Flow n’ont pas pu être enregistrées pour la remise.",
       "flow_head_mismatch": "Votre Flow a changé pendant la remise. Réessayez.",
       "flow_handoff_not_adopted": "Le rail a démarré sans reprendre les modifications de votre Flow.",
-      "repository_has_no_commits": "Ce dépôt n'a encore aucun commit. Faites un premier commit pour que Specrails puisse créer un worktree isolé.",
+      "repository_has_no_commits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet.",
       "flow_not_found": "Ce Flow n’existe plus.",
       "flow_failed": "Flow a rencontré une erreur inattendue. Réessayez.",
       "conversation_not_found": "Cette mission n’existe plus.",
@@ -975,7 +975,7 @@
         },
         "viewRun": "Voir l’exécution"
       },
-      "why": "Pourquoi l’agent demande",
+      "why": "Pourquoi l’agent pose la question",
       "waitForReply": "Vous pourrez choisir quand l’agent aura terminé cette réponse."
     },
     "bar": {
@@ -1011,18 +1011,18 @@
     },
     "preview": {
       "open": "Aperçu",
-      "openTitle": "Ouvrir l’app à {{url}} dans votre navigateur",
-      "stopping": "Arrêt…",
+      "openTitle": "Ouvrir l’app à l’adresse {{url}} dans votre navigateur",
+      "stopping": "Arrêt en cours…",
       "more": "Actions de l’app",
       "local": "Ouvrir sur cet ordinateur",
       "network": "Ouvrir sur le réseau local",
-      "localOnly": "Accessible uniquement depuis cet ordinateur. Demandez à l’agent de la relancer exposée sur le réseau local pour l’ouvrir depuis un téléphone.",
+      "localOnly": "Accessible uniquement depuis cet ordinateur. Pour l’ouvrir depuis un téléphone, demandez à l’agent de la relancer en l’exposant sur le réseau local.",
       "stop": "Arrêter l’app",
       "stopFailed": "Impossible d’arrêter l’app"
     },
     "discard": {
       "title": "Abandonner ce Flow ?",
-      "body": "Abandonner supprime tout ceci, de façon irréversible :",
+      "body": "L’abandon supprime définitivement tout ce qui suit :",
       "cancel": "Garder le Flow",
       "confirm": "Abandonner le Flow",
       "lossFiles_one": "{{count}} fichier modifié",
@@ -1047,7 +1047,7 @@
       }
     },
     "handOff": {
-      "heading": "Transformez ce Flow en PR relue",
+      "heading": "Transformer ce Flow en PR relue",
       "loop": "Remise du Flow",
       "launch": "Lancer",
       "notYet": "Pas encore",
@@ -1064,7 +1064,7 @@
       "relaunch": "Relancer",
       "relaunchHint": "Réessayer depuis la même branche du Flow, le même rail et le même moteur",
       "returned": "De retour dans le Flow. L’agent a la revue.",
-      "relaunched": "Relancé sur le rail {{index}}",
+      "relaunched": "Relancé sur le Rail {{index}}",
       "returnFailed": "Impossible de revenir dans Flow : {{detail}}",
       "relaunchFailed": "Relance impossible : {{detail}}",
       "backToFlowFailureHint": "Rouvrez ce Flow avec les mêmes modifications ; l’agent reçoit l’erreur à son prochain tour",
@@ -1135,7 +1135,7 @@
     "title": "Ce que le relecteur a demandé",
     "noFindings": "La remise s’est arrêtée avant la livraison ; vos modifications sont revenues intactes dans ce Flow.",
     "coverage": "La spec explique {{explained}} des {{files}} fichiers modifiés",
-    "unexplained": "Expliqués par aucune exigence",
+    "unexplained": "Aucune exigence ne les explique",
     "moreFiles_one": "+{{count}} fichier de plus",
     "moreFiles_other": "+{{count}} fichiers de plus",
     "next": "L’agent du Flow s’y met maintenant ; vous pouvez l’orienter ou l’arrêter à tout moment.",
@@ -1161,7 +1161,7 @@
   "runStrip": {
     "launching": "Lancement sur {{rail}}…",
     "running": "En cours",
-    "paused": "En pause. Vous attend",
+    "paused": "En pause, en attente de votre part",
     "pausedReason": "En pause : {{reason}}",
     "decision": {
       "approval": "En attente de votre approbation",
@@ -1173,24 +1173,24 @@
       "generic": "En attente de votre décision"
     },
     "failed": {
-      "generic": "Arrêté sur une erreur",
-      "implementation_failed": "L'implémentation a échoué",
-      "stalled": "L'exécution s'est bloquée",
-      "stuck": "L'exécution est coincée",
-      "provider_limit": "La limite d'utilisation du fournisseur l'a arrêtée",
-      "launch_failed": "L'exécution n'a pas pu démarrer",
-      "delivery_failed": "Le résultat n'a pas pu être livré",
-      "push_failed": "La branche n'a pas pu être poussée",
-      "pr_failed": "La PR n'a pas pu être créée"
+      "generic": "Arrêté à cause d’une erreur",
+      "implementation_failed": "L’implémentation a échoué",
+      "stalled": "L’exécution n’avance plus",
+      "stuck": "L’exécution est bloquée",
+      "provider_limit": "La limite d’utilisation du fournisseur l’a arrêtée",
+      "launch_failed": "L’exécution n’a pas pu démarrer",
+      "delivery_failed": "Le résultat n’a pas pu être livré",
+      "push_failed": "La branche n’a pas pu être poussée",
+      "pr_failed": "La PR n’a pas pu être créée"
     },
     "progressAria": "{{done}} exécutions terminées sur {{total}}",
-    "costTitle": "Coût réel facturé par le fournisseur jusqu'ici",
-    "costPartial": "Certaines exécutions n'ont pas encore de coût facturé et ne sont pas incluses",
+    "costTitle": "Coût réel facturé par le fournisseur jusqu’ici",
+    "costPartial": "Certaines exécutions n’ont pas encore de coût facturé et ne sont pas incluses",
     "costNone": "Aucun coût facturé pour le moment",
     "state": {
       "launching": "Lancement :",
       "running": "En cours :",
-      "decision": "Vous attend :",
+      "decision": "En attente de vous :",
       "failed": "Échec :",
       "paused": "En pause :",
       "info": "Pour information :"
@@ -1204,7 +1204,7 @@
     "cycleHint": "Changer d’exécution : {{keys}}",
     "hideDetails": "Masquer les détails",
     "switcher": "Exécutions en cours",
-    "more": "Plus d'exécutions ({{count}})",
+    "more": "Autres exécutions ({{count}})",
     "announce": {
       "settled": "{{run}} est terminé",
       "shown": "Affichage de {{run}} : {{state}}",
@@ -1213,9 +1213,9 @@
     "event": {
       "launched": "Lancé sur {{run}}",
       "failed": "{{run}} a échoué : {{reason}}",
-      "openRun": "Afficher l'exécution",
-      "proposed": "Lancement proposé. Vous attend",
-      "backToFlow": "Retour à Flow",
+      "openRun": "Afficher l’exécution",
+      "proposed": "Lancement proposé, en attente de votre décision",
+      "backToFlow": "Revenir dans Flow",
       "flowReturned": "{{run}} a renvoyé le travail au Flow",
       "delivered": "Livré : PR {{pr}}",
       "deliveredNoPr": "Livré sur {{run}}",
@@ -1224,11 +1224,11 @@
       "changes": "{{run}} : le relecteur a demandé des modifications"
     },
     "needsYou": "vous attend",
-    "opensCard": "Ouvre la carte de l'exécution pour que vous confirmiez là",
+    "opensCard": "Ouvre la carte de l’exécution pour y confirmer",
     "open": {
       "decision": "Ouvrir la décision",
       "failed": "Voir ce qui a échoué",
-      "paused": "Voir pourquoi il est en pause"
+      "paused": "Voir la raison de la pause"
     }
   },
   "flowBoundary": {
@@ -1237,7 +1237,7 @@
     "turnMark": "Flow",
     "reason": {
       "started": "démarré",
-      "returned": "de retour d'un rail",
+      "returned": "de retour d’un rail",
       "handed_off": "remis à un rail",
       "discarded": "abandonné"
     }

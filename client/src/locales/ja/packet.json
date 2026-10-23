@@ -246,7 +246,7 @@
   },
   "requirements": {
     "title": "実証済みの要件 {{demonstrated}}/{{total}}",
-    "touched": "この変更で触れた要件: {{demonstrated}}/{{total}} 実証済み",
+    "touched": "この変更で触れた要件：{{demonstrated}}/{{total}} 実証済み",
     "caveat": "Specrails による計測：要件 ID のタグが付いたテストが成功した検証で実行された場合に数えます。参考情報であり、レビュー結果は変わりません。",
     "caveatNoReceipt": "このトレースの一部には検証レシートがないため、それらの要件はまだ実証済みとして数えられません。",
     "undemonstratedTitle_other": "未実証の要件 {{count}} 件",
@@ -266,7 +266,7 @@
     "showAll_one": "さらに {{count}} 件表示"
   },
   "baseline": {
-    "title": "作業が通過した箇所にスペックを作成",
+    "title": "作業が触れた箇所にスペックを作成",
     "status": {
       "planned": "ベースライン計画済み：現状要件 {{requirements}} 件、特性テスト {{tests}} 件",
       "passed": "変更前のコードでベースラインを実証：現状要件 {{requirements}} 件、特性テスト {{tests}} 件",

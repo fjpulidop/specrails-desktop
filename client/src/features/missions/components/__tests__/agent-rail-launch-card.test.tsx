@@ -524,7 +524,7 @@ describe('AgentRailLaunchCard', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     const error = await screen.findByTestId('rail-card-error')
-    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    expect(error).toHaveTextContent('This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.')
     expect(error).not.toHaveTextContent('invalid reference')
   })
 

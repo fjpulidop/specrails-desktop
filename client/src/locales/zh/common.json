@@ -167,7 +167,7 @@
   "initialCommit": {
     "action": "创建初始提交",
     "creating": "正在创建初始提交…",
-    "createdRelaunch": "已创建初始提交。请重新启动该轨道。",
+    "createdRelaunch": "已创建初始提交。请再次启动该 Rail。",
     "errors": {
       "git_identity_missing": "Git 没有作者身份。请先设置 user.name 和 user.email。",
       "repository_has_commits": "此仓库已有提交。",

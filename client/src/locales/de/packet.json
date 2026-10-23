@@ -266,7 +266,7 @@
     "showLess": "Weniger anzeigen"
   },
   "baseline": {
-    "title": "Spec dort erstellt, wo die Arbeit vorbeikam",
+    "title": "Spec für den Code erstellt, den die Arbeit berührt hat",
     "status": {
       "planned": "Baseline geplant: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
       "passed": "Baseline am unveränderten Code bestätigt: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
@@ -284,8 +284,8 @@
     "caveat": "Charakterisierungstests beschreiben das heutige Verhalten; Core hat sie vor jeder Änderung am unveränderten Code ausgeführt."
   },
   "humanEyes": {
-    "title_one": "Braucht menschlichen Blick: {{count}} Projektregel",
-    "title_other": "Braucht menschlichen Blick: {{count}} Projektregeln",
-    "caveat": "Für dieses Projekt geschriebene Regeln, die keine automatische Prüfung durchsetzen kann. Prüfen Sie sie selbst, bevor Sie annehmen."
+    "title_one": "Menschliche Prüfung nötig: {{count}} Projektregel",
+    "title_other": "Menschliche Prüfung nötig: {{count}} Projektregeln",
+    "caveat": "Für dieses Projekt geschriebene Regeln, die keine automatische Prüfung durchsetzen kann. Prüfe sie selbst, bevor du annimmst."
   }
 }

@@ -443,11 +443,11 @@
   "anchoring": {
     "title": "Verankerung in bestehenden Projekten",
     "description": "Optionale Verhaltensweisen, die Läufen helfen, das bestehende Projekt zu respektieren. Jede braucht einen Core, der sie unterstützt.",
-    "coreRequired": "Der installierte Core unterstützt das noch nicht. Aktualisieren Sie Core, um es zu aktivieren.",
+    "coreRequired": "Der installierte Core unterstützt das noch nicht. Aktualisiere Core, um es zu aktivieren.",
     "saveFailed": "Einstellung konnte nicht gespeichert werden",
     "jiraPostClarifications": {
       "label": "Klärungsfragen des Architekten in Jira posten",
-      "description": "Wenn ein Lauf mit Fragen des Architekten pausiert oder mit Annahmen fortfährt, werden sie als Kommentar im verknüpften Jira-Issue gepostet. Eine Antwort dort wird an der Spec als Klärung festgehalten.",
+      "description": "Wenn ein Lauf mit Fragen des Architekten pausiert oder mit Annahmen fortfährt, werden sie als Kommentar im verknüpften Jira-Vorgang gepostet. Eine Antwort dort wird an der Spec als Klärung festgehalten.",
       "enabled": "Klärungen werden in Jira gepostet",
       "disabled": "Klärungen bleiben in Specrails"
     },
@@ -460,11 +460,11 @@
   },
   "rules": {
     "title": "Projektregeln",
-    "description": "Die Prüfungen, die das Projekt bereits ausführt, und jede schriftliche Regel, eingestuft als durchgesetzt, automatisierbar oder nur menschlich. Nur menschliche Regeln erscheinen in jedem Review-Paket.",
+    "description": "Die Prüfungen, die das Projekt bereits ausführt, und jede schriftliche Regel, eingestuft als durchgesetzt, automatisierbar oder nur manuell prüfbar. Manuell zu prüfende Regeln erscheinen in jedem Review-Paket.",
     "rerun": "Inventur erneut ausführen",
     "running": "Inventur läuft…",
-    "coreRequired": "Der installierte Core unterstützt die Regelinventur nicht. Aktualisieren Sie Core, um sie auszuführen.",
-    "missing": "Noch keine Inventur. Führen Sie sie aus, um die Gates und Regeln des Projekts aufzulisten.",
+    "coreRequired": "Der installierte Core unterstützt die Regelinventur nicht. Aktualisiere Core, um sie auszuführen.",
+    "missing": "Noch keine Inventur. Führe sie aus, um die Gates und Regeln des Projekts aufzulisten.",
     "invalid": "Die Regeldatei konnte nicht gelesen werden: {{message}}",
     "inventoryDone": "Regelinventur aktualisiert",
     "inventoryFailed": "Die Regelinventur ist fehlgeschlagen",
@@ -472,7 +472,7 @@
     "specFailed": "Spec konnte nicht erstellt werden",
     "status": {
       "automatable": "Automatisierbar",
-      "humanOnly": "Nur menschlich",
+      "humanOnly": "Nur manuell",
       "enforcedBy": "Durchgesetzt",
       "unclassified": "Nicht eingestuft"
     },
@@ -486,7 +486,7 @@
     "dropped_one": "{{count}} Eintrag passte nicht zum Format und wurde übersprungen",
     "dropped_other": "{{count}} Einträge passten nicht zum Format und wurden übersprungen",
     "classification": {
-      "offline": "Die Regeln wurden offline erfasst und sind noch nicht eingestuft. Führen Sie die Inventur mit einem konfigurierten Anbieter erneut aus.",
+      "offline": "Die Regeln wurden offline erfasst und sind noch nicht eingestuft. Führe die Inventur mit einem konfigurierten Anbieter erneut aus.",
       "unavailable": "Es ist kein Anbieter zum Einstufen der Regeln konfiguriert.",
       "failed": "Das Einstufen der Regeln ist fehlgeschlagen.",
       "empty": "Es wurden keine schriftlichen Regeln gefunden.",

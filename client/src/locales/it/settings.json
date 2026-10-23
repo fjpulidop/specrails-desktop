@@ -447,13 +447,13 @@
     "saveFailed": "Impossibile salvare l'impostazione",
     "jiraPostClarifications": {
       "label": "Pubblica i chiarimenti dell'architetto su Jira",
-      "description": "Quando un run si mette in pausa con le domande dell'architetto, o prosegue su ipotesi, vengono pubblicate come commento sull'issue Jira collegata. Una risposta lì viene registrata sulla spec come chiarimento.",
+      "description": "Quando un run si mette in pausa con le domande dell'architetto, o prosegue sulla base di ipotesi, queste vengono pubblicate come commento sull'issue Jira collegata. Una risposta lì viene registrata sulla spec come chiarimento.",
       "enabled": "I chiarimenti verranno pubblicati su Jira",
       "disabled": "I chiarimenti resteranno in Specrails"
     },
     "baselineOnTouch": {
       "label": "Baseline al contatto",
-      "description": "Quando una modifica raggiunge codice che nessuna spec descrive, scrivi prima test di caratterizzazione (dimostrati sul codice invariato) e una spec as-built minima. Aggiunge costo, mostrato a parte.",
+      "description": "Quando una modifica raggiunge codice che nessuna spec descrive, prima vengono scritti test di caratterizzazione (dimostrati sul codice invariato) e una spec as-built minima. Aggiunge costo, mostrato a parte.",
       "enabled": "Baseline al contatto attivata",
       "disabled": "Baseline al contatto disattivata"
     }

@@ -191,7 +191,7 @@
   "nonGoals": {
     "title": "Fuori ambito",
     "ariaLabel": "Fuori ambito, un elemento per riga",
-    "placeholder": "Ciò che questa spec volutamente non cambia né consegna — un elemento per riga",
+    "placeholder": "Ciò che questa spec volutamente non cambia né consegna. Un elemento per riga",
     "onePerLine": "Un elemento per riga",
     "add": "Aggiungi ciò che questa spec lascia fuori"
   }

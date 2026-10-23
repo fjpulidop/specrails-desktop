@@ -440,7 +440,7 @@
     "resumeFromStep": "Riprendi da {{step}}",
     "resumeFromStepHint": "Il passaggio {{step}} interrotto riparte dall'inizio; il lavoro già su disco viene conservato.",
     "retryDelivery": "Riprova la consegna",
-    "retryDeliveryHint": "Ripete solo l'ultimo passo (commit, push e PR) sul branch di questa esecuzione. Nessun lavoro dell'IA viene rifatto.",
+    "retryDeliveryHint": "Ripete solo l’ultimo passo (commit, push e PR) sul branch di questa esecuzione. Nessun lavoro dell’IA viene rifatto.",
     "retryDeliverySent": "Nuovo tentativo di consegna…",
     "retryDeliveryFailed": "Impossibile riprovare la consegna"
   },
@@ -634,7 +634,7 @@
     },
     "notes": {
       "railMissing": "Il Rail {{index}} non esiste più. Scegli un altro rail o creane uno.",
-      "railBusy": "Il Rail {{index}} è {{state}}, quindi non è possibile avviarlo lì.",
+      "railBusy": "Il Rail {{index}} è {{state}}, quindi non è possibile avviare lì.",
       "useFree": "Usa il Rail {{index}}",
       "specsDropped": "Non più in questo progetto: {{ids}}",
       "engineStale": "{{engine}} non è rilevato su questa macchina. Verrà usato {{fallback}}.",
@@ -665,7 +665,7 @@
       "feature_unavailable": "Flow non è disponibile",
       "daily_budget_exceeded": "Budget giornaliero raggiunto: non è stato avviato nulla.",
       "review_wip_limit_reached": "Limite di revisione raggiunto: non è stato avviato nulla.",
-      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare un worktree isolato."
+      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare una copia isolata del progetto."
     },
     "stub": {
       "launched": "Lanciato → Rail {{rail}}",
@@ -709,7 +709,7 @@
     "triageLabel": "Triage",
     "handOff": {
       "newRail": "Un nuovo rail",
-      "changeHow": "Cambia come"
+      "changeHow": "Cambia impostazioni"
     }
   },
   "runCard": {
@@ -757,15 +757,15 @@
         "check": "I controlli falliscono ancora"
       },
       "score": "punteggio {{score}}",
-      "issues_one": "{{count}} punto",
-      "issues_other": "{{count}} punti",
+      "issues_one": "{{count}} problema",
+      "issues_other": "{{count}} problemi",
       "showAll": "Mostra tutti ({{count}})",
       "showLess": "Mostra meno",
-      "omitted_one": "+{{count}} altro nella revisione dell'esecuzione",
-      "omitted_other": "+{{count}} altri nella revisione dell'esecuzione",
-      "failingChecks": "Falliscono",
+      "omitted_one": "+{{count}} altro nella revisione dell’esecuzione",
+      "omitted_other": "+{{count}} altri nella revisione dell’esecuzione",
+      "failingChecks": "Non superati",
       "check": "{{command}} · uscita {{code}}",
-      "next": "I giri di correzione automatica non l’hanno risolto. Torna al Flow per sistemarlo con l’agente, oppure rilancia dallo stesso branch del Flow.",
+      "next": "I giri di correzione automatica non li hanno risolti. Torna in Flow per sistemarli con l’agente, oppure rilancia dallo stesso branch del Flow.",
       "returned": "Di nuovo in Flow: le tue modifiche sono tornate al loro Flow con la revisione. Continua nella striscia del Flow."
     }
   },
@@ -909,7 +909,7 @@
       "flow_freeze_failed": "Non è stato possibile salvare le modifiche del Flow per l’affidamento.",
       "flow_head_mismatch": "Il Flow è cambiato durante l’affidamento. Riprova.",
       "flow_handoff_not_adopted": "Il rail è partito senza prendere in carico le modifiche del Flow.",
-      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare un worktree isolato.",
+      "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare una copia isolata del progetto.",
       "flow_not_found": "Questo Flow non esiste più.",
       "flow_failed": "Flow ha riscontrato un errore imprevisto. Riprova.",
       "conversation_not_found": "Questa missione non esiste più.",
@@ -953,7 +953,7 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Costruitelo insieme su un branch del Flow separato; la spec arriva alla fine."
+          "hint": "Costruiscilo insieme all’agente su un branch del Flow separato; la spec arriva alla fine."
         },
         "implement": {
           "title": "Spec + Implement",
@@ -1012,7 +1012,7 @@
     "preview": {
       "open": "Anteprima",
       "openTitle": "Apri l’app su {{url}} nel browser",
-      "stopping": "Arresto…",
+      "stopping": "Arresto in corso…",
       "more": "Azioni dell’app",
       "local": "Apri su questo computer",
       "network": "Apri sulla rete locale",
@@ -1138,13 +1138,13 @@
     "unexplained": "Non spiegati da alcun requisito",
     "moreFiles_one": "+{{count}} altro file",
     "moreFiles_other": "+{{count}} altri file",
-    "next": "L’agente del Flow inizia ora; puoi guidarlo o fermarlo in qualsiasi momento.",
-    "automaticTurn": "Turno automatico · Torna al Flow",
+    "next": "L’agente del Flow inizia a lavorarci ora; puoi guidarlo o fermarlo in qualsiasi momento.",
+    "automaticTurn": "Turno automatico · Di nuovo in Flow",
     "titleFailure": "Perché l’affidamento si è fermato"
   },
   "turnErrors": {
     "providerInactivity": "Il provider non ha risposto troppo a lungo, quindi il turno è terminato. Invia di nuovo il messaggio per continuare.",
-    "toolInactivity": "Uno strumento è rimasto troppo a lungo senza attività del provider, quindi il turno è terminato. Invia di nuovo il messaggio o chiedi all’agente di dividere il passaggio.",
+    "toolInactivity": "Uno strumento è rimasto in esecuzione troppo a lungo senza attività del provider, quindi il turno è terminato. Invia di nuovo il messaggio per continuare o chiedi all’agente di dividere il passaggio.",
     "generic": "Il turno dell’agente non è riuscito."
   },
   "flowDelivered": {
@@ -1153,8 +1153,8 @@
     "prNumber": "Pull request #{{number}}",
     "specRewritten": "Spec riscritta da ciò che hai costruito",
     "specKept": "La riscrittura della spec non è stata completata; la bozza resta",
-    "change": "Modifica alla spec {{change}}",
-    "changeArchived": "Modifica alla spec {{change}} archiviata",
+    "change": "Modifica della spec {{change}}",
+    "changeArchived": "Modifica della spec {{change}} archiviata",
     "jira": "Issue Jira {{key}}",
     "jiraPending": "Issue Jira in creazione"
   },
@@ -1174,11 +1174,11 @@
     },
     "failed": {
       "generic": "Fermato da un errore",
-      "implementation_failed": "L'implementazione non è riuscita",
-      "stalled": "L'esecuzione si è bloccata",
-      "stuck": "L'esecuzione è rimasta bloccata",
-      "provider_limit": "Il limite d'uso del provider l'ha fermata",
-      "launch_failed": "L'esecuzione non è partita",
+      "implementation_failed": "L’implementazione non è riuscita",
+      "stalled": "L’esecuzione si è bloccata",
+      "stuck": "L’esecuzione è rimasta bloccata",
+      "provider_limit": "Il limite d’uso del provider l’ha fermata",
+      "launch_failed": "L’esecuzione non è partita",
       "delivery_failed": "Non è stato possibile consegnare il risultato",
       "push_failed": "Non è stato possibile fare il push del branch",
       "pr_failed": "Non è stato possibile creare la PR"
@@ -1193,7 +1193,7 @@
       "decision": "Ti aspetta:",
       "failed": "Non riuscito:",
       "paused": "In pausa:",
-      "info": "Per informazione:"
+      "info": "Per tua informazione:"
     },
     "proposal": "Avvio proposto per {{tickets}}",
     "proposalNoTickets": "Avvio proposto",
@@ -1207,24 +1207,24 @@
     "more": "Altre esecuzioni ({{count}})",
     "announce": {
       "settled": "{{run}} è terminato",
-      "shown": "Visualizzi {{run}}: {{state}}",
+      "shown": "Stai visualizzando {{run}}: {{state}}",
       "needsYou": "{{run}} ha bisogno di te"
     },
     "event": {
       "launched": "Avviato su {{run}}",
       "failed": "{{run}} non riuscito: {{reason}}",
-      "openRun": "Mostra l'esecuzione",
+      "openRun": "Mostra l’esecuzione",
       "proposed": "Avvio proposto. Ti aspetta",
       "backToFlow": "Di nuovo in Flow",
       "flowReturned": "{{run}} ha rimandato il lavoro al Flow",
       "delivered": "Consegnato: PR {{pr}}",
       "deliveredNoPr": "Consegnato su {{run}}",
-      "superseded": "{{run}} è stato sostituito da un'esecuzione più recente",
+      "superseded": "{{run}} è stato sostituito da un’esecuzione più recente",
       "discarded": "{{run}} è stato scartato",
       "changes": "{{run}}: il revisore ha chiesto modifiche"
     },
     "needsYou": "ti aspetta",
-    "opensCard": "Apre la scheda dell'esecuzione per confermare lì",
+    "opensCard": "Apre la scheda dell’esecuzione per confermare lì",
     "open": {
       "decision": "Apri la decisione",
       "failed": "Vedi cosa è fallito",

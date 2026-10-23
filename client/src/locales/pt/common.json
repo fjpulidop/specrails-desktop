@@ -166,7 +166,7 @@
   },
   "initialCommit": {
     "action": "Criar commit inicial",
-    "creating": "A criar o commit inicial…",
+    "creating": "Criando o commit inicial…",
     "createdRelaunch": "Commit inicial criado. Lance o rail novamente.",
     "errors": {
       "git_identity_missing": "O Git não tem identidade de autor. Configure primeiro user.name e user.email.",
