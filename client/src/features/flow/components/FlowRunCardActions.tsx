@@ -21,7 +21,7 @@ import { flowErrorMessage } from '../lib/flow-failure'
 
 type Pending = 'return' | 'relaunch' | null
 
-const BUTTON = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:pointer-events-none disabled:opacity-50'
+const BUTTON = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:pointer-events-none disabled:opacity-50'
 
 export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCode, busy }: MissionRunCardActionsProps) {
   const { t } = useTranslation('agent')
@@ -88,7 +88,7 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
       {/* The hints the tooltips show, for keyboard and screen-reader users too. */}
       <span id={`${hintId}-back`} hidden>{t(review ? 'flow.review.backToFlowHint' : 'flow.review.backToFlowFailureHint')}</span>
       <span id={`${hintId}-relaunch`} hidden>{t('flow.review.relaunchHint')}</span>
-      {error && <p className="w-full text-[11px] leading-4 text-destructive" role="alert" data-testid="flow-review-error">{error}</p>}
+      {error && <p className="w-full text-[12px] leading-4 text-destructive" role="alert" data-testid="flow-review-error">{error}</p>}
     </>
   )
 }
