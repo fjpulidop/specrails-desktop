@@ -35,14 +35,13 @@ describe('SQLite settings repository contract', () => {
 })
 
 describe('allowSubagents persistence', () => {
-  it('defaults to off, persists per project and clears its row when turned off', () => {
+  it('defaults to on, persists per project and records an explicit opt-out', () => {
     const first = setup(), second = setup()
-    expect(first.service.getSettings().allowSubagents).toBe(false)
+    expect(first.service.getSettings().allowSubagents).toBe(true)
+    expect(first.service.updateSettings({ allowSubagents: false }).allowSubagents).toBe(false)
+    expect(second.service.getSettings().allowSubagents).toBe(true)
+    expect(first.db.prepare("SELECT value FROM queue_state WHERE key = 'config.allow_subagents'").get()).toEqual({ value: 'false' })
     expect(first.service.updateSettings({ allowSubagents: true }).allowSubagents).toBe(true)
-    expect(second.service.getSettings().allowSubagents).toBe(false)
-    first.service.updateSettings({ allowSubagents: false })
-    expect(first.db.prepare("SELECT 1 FROM queue_state WHERE key = 'config.allow_subagents'").get()).toBeUndefined()
-    expect(first.service.getSettings().allowSubagents).toBe(false)
   })
 })
 

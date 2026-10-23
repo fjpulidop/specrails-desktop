@@ -61,7 +61,7 @@ function useSubagentSettings(url: string | null, method: 'PATCH' | 'PUT'): Subag
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { allowSubagents?: boolean; subagentRuntime?: SubagentRuntimeSetting | null } | null) => {
         if (cancelled || !data) return
-        setEnabledState(data.allowSubagents === true)
+        setEnabledState(data.allowSubagents !== false)
         setRuntimeState(data.subagentRuntime ?? null)
       })
       .catch(() => {})

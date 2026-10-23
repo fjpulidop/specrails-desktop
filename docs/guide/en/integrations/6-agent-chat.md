@@ -68,7 +68,7 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 
 ## Sub-agents
 
-Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **off by default**: they multiply what one request costs.
+Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **on by default**; turn them off per project if you want to keep each request's cost down, since they multiply what one request costs.
 
 - **Turn them on per project.** Open the project's **Settings → Sub-agents** and switch on **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
 - **Choose who runs them.** Under **Run sub-agents with**, the default **Same as the mission agent** lets the mission's own CLI launch them natively: fastest, and they share its prompt cache. Pick a provider, model and effort instead to mix providers — for example a Codex mission with Claude sub-agents. Missions already on that provider stay native with that model; on another provider Specrails launches each sub-agent itself, which starts colder and can cost more, but gives you more control and shows each one's real cost. Specrails asks you to confirm before switching, and those sub-agents carry a provider badge in the mission.

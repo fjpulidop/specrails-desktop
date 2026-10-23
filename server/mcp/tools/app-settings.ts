@@ -172,5 +172,5 @@ function writeNumOrClear(db: Parameters<typeof setDesktopSetting>[0], key: strin
 
 async function projectSubagentSettings(ctx: Parameters<typeof apiCall>[0], projectId: string) {
   const settings = (await apiCall(ctx, 'GET', `/projects/${encodeURIComponent(projectId)}/settings`)) as { allowSubagents?: boolean; subagentRuntime?: unknown }
-  return { projectAllowSubagents: settings.allowSubagents === true, projectSubagentRuntime: settings.subagentRuntime ?? null }
+  return { projectAllowSubagents: settings.allowSubagents !== false, projectSubagentRuntime: settings.subagentRuntime ?? null }
 }

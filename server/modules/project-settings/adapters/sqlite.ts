@@ -58,7 +58,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',
     worktreeEnvPassthrough: parseWorktreeEnvPassthrough(worktreeEnvPassthroughRow?.value),
-    allowSubagents: settings.get('config.allow_subagents')?.value === 'true',
+    // Sub-agents default on: only an explicit opt-out disables them.
+    allowSubagents: settings.get('config.allow_subagents')?.value !== 'false',
     subagentRuntime: readSubagentRuntime(settings.get('config.subagent_runtime')?.value),
     reviewerFamilySuggestionDismissed: settings.get('config.reviewer_family_suggestion_dismissed')?.value === 'true',
     reviewWipLimit: readReviewWipLimit(settings.get('config.review_wip_limit')?.value),
@@ -116,11 +117,7 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
     }
   }
   if (patch.allowSubagents !== undefined) {
-    if (patch.allowSubagents) {
-      db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.allow_subagents', 'true')`).run()
-    } else {
-      db.prepare(`DELETE FROM queue_state WHERE key = 'config.allow_subagents'`).run()
-    }
+    db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.allow_subagents', ?)`).run(patch.allowSubagents ? 'true' : 'false')
   }
   if (patch.reviewerFamilySuggestionDismissed !== undefined) {
     if (patch.reviewerFamilySuggestionDismissed) db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.reviewer_family_suggestion_dismissed', 'true')`).run()

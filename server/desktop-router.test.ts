@@ -1186,13 +1186,13 @@ describe('desktop-router', () => {
       expect(res.body.costAlertThresholdUsd).toBeNull()
     })
 
-    it('reads and writes the app-wide "Allow sub-agents" and notifies only on change', async () => {
+    it('defaults the app-wide "Allow sub-agents" to on, writes it and notifies only on change', async () => {
       const { app, registry } = createApp()
-      expect((await request(app).get('/api/settings')).body.allowSubagents).toBe(false)
-      expect((await request(app).put('/api/settings').send({ allowSubagents: true })).status).toBe(200)
       expect((await request(app).get('/api/settings')).body.allowSubagents).toBe(true)
+      expect((await request(app).put('/api/settings').send({ allowSubagents: false })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.allowSubagents).toBe(false)
       expect(registry.notifySettingsChanged).toHaveBeenCalledExactlyOnceWith({ projectId: null })
-      await request(app).put('/api/settings').send({ allowSubagents: true })
+      await request(app).put('/api/settings').send({ allowSubagents: false })
       expect(registry.notifySettingsChanged).toHaveBeenCalledOnce()
     })
 

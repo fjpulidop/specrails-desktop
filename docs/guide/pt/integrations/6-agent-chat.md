@@ -69,7 +69,7 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 
 ## Subagentes
 
-Alguns provedores podem distribuir partes de uma tarefa para **subagentes**: ajudantes que trabalham em paralelo e continuam depois que o agente responde. Os subagentes vêm **desativados por padrão** porque multiplicam o custo de um pedido.
+Alguns provedores podem distribuir partes de uma tarefa para **subagentes**: ajudantes que trabalham em paralelo e continuam depois que o agente responde. Os subagentes vêm **ativados por padrão**; desative-os por projeto se quiser conter o custo, porque multiplicam o custo de um pedido.
 
 - **Ative por projeto.** Abra **Configurações → Subagentes** do projeto e ative **Permitir subagentes neste projeto**. Vale para missões, exploração e refinamentos do projeto; os pipelines de Implement nunca são afetados. Missões sem projeto seguem **Configurações do app → Provedores de IA → Permitir subagentes em missões sem projeto**.
 - **Escolha quem os executa.** Em **Executar sub-agentes com**, a opção padrão **Igual ao agente da missão** deixa o próprio CLI da missão iniciá-los nativamente: é o mais rápido, e eles compartilham o cache de prompt. Escolha um provedor, modelo e esforço para combinar provedores — por exemplo, uma missão em Codex com subagentes em Claude. Missões que já usam esse provedor continuam nativas com esse modelo; com outro provedor, o Specrails inicia cada subagente por conta própria, que começa a frio e pode custar mais, mas dá mais controle e mostra o custo real de cada um. O Specrails pede confirmação antes da troca, e esses subagentes exibem um selo do provedor na missão.

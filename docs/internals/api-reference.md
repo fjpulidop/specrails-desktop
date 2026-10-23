@@ -121,7 +121,7 @@ Example — register a project that uses both Claude and Gemini:
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`) and `updateChannel` (`latest` default, or `stable`) |
+| `GET` | `/settings` | App-wide settings, including `allowSubagents` (default `true`), `subagentRuntime` (default `null`) and `updateChannel` (`latest` default, or `stable`) |
 | `PUT` | `/settings` | Update any subset of `{ port?, specrailsTechUrl?, costAlertThresholdUsd?, allowSubagents?, subagentRuntime?, updateChannel? }`. `updateChannel` must be `latest` or `stable` (otherwise `400` and nothing is written); it selects the Desktop updater manifest and the Core npm dist-tag. `subagentRuntime` is `null` (same as the mission agent) or `{ provider, model, effort: string \| null }` for missions without a project; an invalid value returns `400`. `allowSubagents` is the app-wide "Allow sub-agents" setting for missions without a project. It must be a boolean (otherwise `400` and nothing is written), and a change refreshes the policy of open sessions |
 | `GET` | `/budget` | App-wide budget config |
 | `PATCH` | `/budget` | Update the app-wide daily budget |
@@ -483,7 +483,7 @@ Gated by `requireBrowserCaptureEnabled` — returns 404 when the feature is disa
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/settings` | Project settings, including `allowSubagents` (default `false`), `subagentRuntime` (default `null`), `reviewerFamilySuggestionDismissed` (default `false`), `reviewWipLimit` (default `null` = no limit), `agentAuditRetentionDays` (default `30`), `jiraPostClarifications` (default `false`) and `baselineOnTouch` (default `false`) |
+| `GET` | `/settings` | Project settings, including `allowSubagents` (default `true`), `subagentRuntime` (default `null`), `reviewerFamilySuggestionDismissed` (default `false`), `reviewWipLimit` (default `null` = no limit), `agentAuditRetentionDays` (default `30`), `jiraPostClarifications` (default `false`) and `baselineOnTouch` (default `false`) |
 | `PATCH` | `/settings` | Update. `reviewWipLimit` is an integer from 1 to 100 or `null` (otherwise `400` and nothing is written). `allowSubagents` must be a boolean; `subagentRuntime` is `null` or `{ provider, model, effort: string \| null }` (strictly validated); `reviewerFamilySuggestionDismissed` must be a boolean. A change to either refreshes the sub-agent policy of the project's open agent sessions. A change to `worktreeEnvPassthrough` (names only) re-warms the project's login-shell recovery. `agentAuditRetentionDays` must be an integer between 1 and 3650. `jiraPostClarifications` and `baselineOnTouch` must be booleans (see [existing-project anchoring](existing-project-anchoring.md)) |
 | `GET` | `/core/phase3-capabilities` | `{ architectClarifications, specTrace, baselineOnTouch, rulesInventory }` booleans from the active Core's `runtime api` (all `false` when Core is unavailable). The settings UI gates each switch on its flag |
 | `GET` | `/rules` | Project rules inventory (`.specrails/rules.json`, workspace first, then the repository): `{ supported, running, state: 'missing' }`, `{ ..., state: 'invalid', file, message }` or `{ ..., state: 'ok', file, modifiedAt, inventory: { generatedAt, gates, rules[{ id, index, text, source, status: enforcedBy\|automatable\|humanOnly\|unclassified, enforcedBy, proposedCheck }], counts, classification, dropped } }`. `supported` is Core `rulesInventory: 1` |

@@ -335,7 +335,8 @@ project-less missions. Session journals live in
 stores only a rebuildable projection. See
 [agent sessions](../../server/modules/agent-sessions/README.md).
 
-**Allow sub-agents** is a setting, not a flag, and it is off by default. The
+**Allow sub-agents** is a setting, not a flag, and it is on by default (only an
+explicit `'false'` row disables it). The
 project setting `allowSubagents` (`config.allow_subagents`) applies to that
 project's conversational agents (missions, explore, refinements). The app
 setting (`agent_allow_subagents` in `desktop_settings`) covers missions without

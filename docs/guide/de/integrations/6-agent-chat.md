@@ -69,7 +69,7 @@ Antworten strömen flüssig herein und landen bereits formatiert (Überschriften
 
 ## Sub-Agenten
 
-Manche Anbieter können Teile einer Aufgabe an **Sub-Agenten** abgeben – Helfer, die parallel arbeiten und weitermachen, nachdem der Agent geantwortet hat. Sub-Agenten sind **standardmäßig aus**, weil sie die Kosten einer Anfrage vervielfachen.
+Manche Anbieter können Teile einer Aufgabe an **Sub-Agenten** abgeben – Helfer, die parallel arbeiten und weitermachen, nachdem der Agent geantwortet hat. Sub-Agenten sind **standardmäßig an**; schalte sie pro Projekt aus, wenn du die Kosten niedrig halten willst, denn sie vervielfachen die Kosten einer Anfrage.
 
 - **Pro Projekt einschalten.** Öffne in den Projekteinstellungen den Bereich **Sub-Agenten** und aktiviere **Sub-Agenten in diesem Projekt erlauben**. Das gilt für Missionen, Explore und Verfeinerungen dieses Projekts; Implement-Pipelines sind nie betroffen. Missionen ohne Projekt folgen **App-Einstellungen → KI-Anbieter → Sub-Agenten in Missionen ohne Projekt erlauben**.
 - **Wählen Sie, wer sie ausführt.** Unter **Sub-Agenten ausführen mit** lässt die Standardoption **Wie der Missions-Agent** das CLI der Mission sie nativ starten: am schnellsten, und sie teilen dessen Prompt-Cache. Wählen Sie stattdessen Anbieter, Modell und Aufwand, um Anbieter zu kombinieren – etwa eine Codex-Mission mit Claude-Sub-Agenten. Missionen, die bereits diesen Anbieter nutzen, bleiben mit diesem Modell nativ; bei einem anderen Anbieter startet Specrails jeden Sub-Agenten selbst, was kälter startet und mehr kosten kann, Ihnen aber mehr Kontrolle gibt und die echten Kosten jedes einzelnen zeigt. Specrails fragt vor dem Wechsel nach einer Bestätigung, und diese Sub-Agenten tragen in der Mission ein Anbieter-Badge.

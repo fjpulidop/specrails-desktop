@@ -966,11 +966,11 @@ export function touchProject(db: DbInstance, id: string): void {
   ).run(id)
 }
 
-/** App-global "Allow sub-agents" for missions without a project (default off). */
+/** App-global "Allow sub-agents" for missions without a project (default on; only an explicit opt-out disables it). */
 export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
 
 export function getGlobalAllowSubagents(db: DbInstance): boolean {
-  return getDesktopSetting(db, GLOBAL_ALLOW_SUBAGENTS_KEY) === 'true'
+  return getDesktopSetting(db, GLOBAL_ALLOW_SUBAGENTS_KEY) !== 'false'
 }
 
 /** App-wide "Run sub-agents with" for missions without a project; null = the mission agent's provider. */
