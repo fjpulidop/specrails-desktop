@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "你想怎样构建它？",
-      "recommended": "推荐",
       "notNow": "暂不",
       "implementReply": "我们先写 spec，再运行 Implement。",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "你选择了 spec + Implement",
         "dismissed": "已忽略建议",
         "handedOff": "Flow 已交给轨道 {{rail}}",
-        "overrode": "推荐：{{mode}}",
         "state": {
           "active": "Flow 进行中",
           "paused": "Flow 已暂停",
@@ -979,7 +977,9 @@
           "discarded": "Flow 已丢弃",
           "needs-review": "Flow 需要检查"
         }
-      }
+      },
+      "why": "智能体为何询问",
+      "waitForReply": "智能体完成这条回复后即可选择。"
     },
     "bar": {
       "label": "Flow 控制",

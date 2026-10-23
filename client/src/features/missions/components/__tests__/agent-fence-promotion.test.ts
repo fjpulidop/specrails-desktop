@@ -27,6 +27,9 @@ describe('promoteAgentProtocolFences', () => {
     expect(promoteAgentProtocolFences('```json\n' + offer + '\n```')).toContain('```flow-offer\n')
     expect(detectProtocolShape({ idea: 'x', recommended: 'spike' })).toBeNull()
     expect(detectProtocolShape({ idea: 'x', recommended: 'implement', reason: 'well defined' })).toBe('flow-offer')
+    // Today's neutral offer: an idea and its reason, no recommendation.
+    expect(detectProtocolShape({ idea: 'x', reason: 'The look is still open' })).toBe('flow-offer')
+    expect(detectProtocolShape({ idea: 'x', reason: 'r', title: 't', description: 'd', priority: 'high' })).toBe('spec-draft')
   })
   it('leaves ambiguous json, invalid json, protocol-tagged and quoted fences alone', () => {
     const plain = '```json\n{"foo": 1}\n```'

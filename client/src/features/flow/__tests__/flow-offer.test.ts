@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { flowCostDisplay, missingCapabilityKeys, otherMode, parseFlowOffer } from '../lib/flow-offer'
+import { FLOW_OFFER_MODES, flowCostDisplay, missingCapabilityKeys, parseFlowOffer } from '../lib/flow-offer'
 import { flowRepositoryChoice } from '../lib/flow-api'
 import boundaries from '../../boundaries.json'
 
 describe('flow-offer protocol', () => {
   it('normalizes a valid offer and drops unusable ones', () => {
     expect(parseFlowOffer({ idea: '  Try a calmer dashboard ', reason: 'Visual', recommended: 'flow', title: 'Calm' }))
-      .toEqual({ idea: 'Try a calmer dashboard', reason: 'Visual', recommended: 'flow', title: 'Calm', repositoryId: null })
-    expect(parseFlowOffer({ idea: 'x', recommended: 'implement' })).toEqual({ idea: 'x', reason: null, recommended: 'implement', title: null, repositoryId: null })
+      .toEqual({ idea: 'Try a calmer dashboard', reason: 'Visual', title: 'Calm', repositoryId: null })
+    // Neutral offers carry no recommendation; a legacy one is parsed and ignored.
+    expect(parseFlowOffer({ idea: 'x', reason: 'Open shape' })).toEqual({ idea: 'x', reason: 'Open shape', title: null, repositoryId: null })
+    expect(parseFlowOffer({ idea: 'x', recommended: 'implement' })).toEqual({ idea: 'x', reason: null, title: null, repositoryId: null })
     expect(parseFlowOffer({ idea: '', recommended: 'flow' })).toBeNull()
     expect(parseFlowOffer({ idea: 'x', recommended: 'spike' })).toBeNull()
     expect(parseFlowOffer(['x'])).toBeNull()
     expect(parseFlowOffer(null)).toBeNull()
-    expect(otherMode('flow')).toBe('implement')
-    expect(otherMode('implement')).toBe('flow')
+    expect(FLOW_OFFER_MODES).toEqual(['flow', 'implement'])
   })
 
   it('keeps the agent\'s repository triage (workspace / multi-repository projects)', () => {

@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "どのように作りますか?",
-      "recommended": "おすすめ",
       "notNow": "今はしない",
       "implementReply": "まず spec を書いてから Implement を実行しましょう。",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "Spec + Implement を選びました",
         "dismissed": "提案を閉じました",
         "handedOff": "Flow をレール {{rail}} に引き渡しました",
-        "overrode": "おすすめ: {{mode}}",
         "state": {
           "active": "Flow 進行中",
           "paused": "Flow 一時停止中",
@@ -979,7 +977,9 @@
           "discarded": "Flow 破棄済み",
           "needs-review": "Flow の確認が必要です"
         }
-      }
+      },
+      "why": "エージェントが尋ねた理由",
+      "waitForReply": "エージェントがこの返信を終えると選べます。"
     },
     "bar": {
       "label": "Flow の操作",

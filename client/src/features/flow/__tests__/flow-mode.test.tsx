@@ -407,17 +407,38 @@ describe('Flow mode in the conversation', () => {
 })
 
 describe('FlowOfferCard through the AgentMessage extension chain', () => {
-  const offer = (recommended: 'flow' | 'implement') => `This one is exploratory.\n\n\`\`\`flow-offer\n${JSON.stringify({ idea: 'Prototype a calmer dashboard', reason: 'The look is still open.', recommended })}\n\`\`\``
+  const offer = (recommended?: 'flow' | 'implement') => `This one is exploratory.\n\n\`\`\`flow-offer\n${JSON.stringify({ idea: 'Prototype a calmer dashboard', reason: 'The look is still open.', ...(recommended ? { recommended } : {}) })}\n\`\`\``
 
-  it('strips the fence and renders the recommendation with the other path one click away', async () => {
+  it('strips the fence and shows both paths with equal weight, Flow first, and the reason as neutral context', async () => {
     current = null
-    render(<Providers><AgentMessage role="assistant" content={offer('flow')} messageId="m1" conversationId="c1" refsProjectId="p1" isLatest /></Providers>)
+    render(<Providers><AgentMessage role="assistant" content={offer()} messageId="m1" conversationId="c1" refsProjectId="p1" isLatest /></Providers>)
     const card = await screen.findByTestId('flow-offer-card')
-    expect(card).toHaveAttribute('data-recommended', 'flow')
-    expect(card).toHaveTextContent('The look is still open.')
-    expect(screen.getByTestId('flow-offer-choose-flow')).toHaveTextContent('Recommended')
-    expect(screen.getByTestId('flow-offer-choose-implement')).toBeInTheDocument()
+    expect(card).not.toHaveAttribute('data-recommended')
+    expect(screen.getByTestId('flow-offer-reason')).toHaveTextContent('Why the agent asked')
+    expect(screen.getByTestId('flow-offer-reason')).toHaveTextContent('The look is still open.')
+    const choices = [...card.querySelectorAll('[data-testid^="flow-offer-choose-"]')]
+    expect(choices.map((choice) => choice.getAttribute('data-testid'))).toEqual(['flow-offer-choose-flow', 'flow-offer-choose-implement'])
+    expect(choices[0]!.className).toBe(choices[1]!.className.replace(/accent-primary/g, 'accent-info'))
+    expect(card).not.toHaveTextContent('Recommended')
     expect(screen.queryByText(/"recommended"/)).toBeNull()
+  })
+
+  it('a legacy offer that still recommends a path renders the same neutral card', async () => {
+    current = null
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'Prototype it', recommended: 'implement' }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming={false} /></Providers>)
+    const choices = [...screen.getByTestId('flow-offer-card').querySelectorAll('[data-testid^="flow-offer-choose-"]')]
+    expect(choices.map((choice) => choice.getAttribute('data-testid'))).toEqual(['flow-offer-choose-flow', 'flow-offer-choose-implement'])
+    expect(screen.getByTestId('flow-offer-card')).not.toHaveTextContent('Recommended')
+  })
+
+  it('while the agent is still replying, the choices wait and say why', () => {
+    current = null
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'Prototype it', reason: 'Open' }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming /></Providers>)
+    const flowChoice = screen.getByTestId('flow-offer-choose-flow')
+    expect(flowChoice).toBeDisabled()
+    const hint = screen.getByTestId('flow-offer-streaming-hint')
+    expect(hint).toHaveTextContent('You can choose once the agent finishes this reply.')
+    expect(flowChoice.getAttribute('aria-describedby')).toBe(hint.id)
   })
 
   it('Implement records the choice and replies to the agent', async () => {
@@ -427,19 +448,18 @@ describe('FlowOfferCard through the AgentMessage extension chain', () => {
     const implement = await screen.findByTestId('flow-offer-choose-implement')
     await act(async () => { fireEvent.click(implement) })
     await waitFor(() => expect(onSend).toHaveBeenCalledWith("Let's write the spec first and run Implement."))
-    expect(calls.find((c) => c.url.includes('/messages/m1/intent'))!.body).toEqual({ kind: 'flow-offer', proposalIndex: 0, recommendedMode: 'flow', status: 'accepted', chosenMode: 'implement' })
-    expect(await screen.findByTestId('flow-offer-stub-implement')).toHaveTextContent('recommended: Flow')
+    expect(calls.find((c) => c.url.includes('/messages/m1/intent'))!.body).toEqual({ kind: 'flow-offer', proposalIndex: 0, status: 'accepted', chosenMode: 'implement' })
+    expect(await screen.findByTestId('flow-offer-stub-implement')).not.toHaveTextContent('recommended')
   })
 
   it('Flow opens the entry card and Start records chosenMode + flowId', async () => {
     current = null
     render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'Prototype it', recommended: 'implement' }} index={0} messageId="m1" conversationId="c1" projectId="p1" intents={null} isLatest isStreaming={false} /></Providers>)
-    expect(screen.getByTestId('flow-offer-choose-implement')).toHaveTextContent('Recommended')
     fireEvent.click(screen.getByTestId('flow-offer-choose-flow'))
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
     await waitFor(() => expect(calls.find((c) => c.url.includes('/intent'))?.body).toEqual({
-      kind: 'flow-offer', proposalIndex: 0, recommendedMode: 'implement', status: 'accepted', chosenMode: 'flow', config: { flowId: 'f1' },
+      kind: 'flow-offer', proposalIndex: 0, status: 'accepted', chosenMode: 'flow', config: { flowId: 'f1' },
     }))
     expect(await screen.findByTestId('flow-offer-stub-flow')).toHaveTextContent('Flow in progress')
   })

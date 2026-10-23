@@ -11,7 +11,7 @@ Du musst Flow nicht beim Namen nennen. Beschreibst du etwas Exploratives oder Vi
 - **Flow** – jetzt gemeinsam bauen; die Spec kommt am Ende.
 - **Spec + Implement** – zuerst eine Spec vereinbaren, dann an eine Rail delegieren.
 
-Die Karte markiert den empfohlenen Weg und begründet ihn in einem Satz. Der andere Weg ist immer einen Klick entfernt, und der Agent besteht nicht darauf, wenn du ihn wählst oder **Nicht jetzt** drückst.
+Beide Wege sind gleich gewichtet und erscheinen immer in derselben Reihenfolge: Keiner wird empfohlen, du entscheidest. Unter **Warum der Agent fragt** sagt der Agent in einem Satz, was ihn zur Frage gebracht hat, und er besteht auf nichts – egal, welchen Weg du wählst oder ob du **Nicht jetzt** drückst.
 
 Wählst du Flow, öffnet sich eine Bestätigung: Specrails erstellt einen isolierten Worktree, in dem der Agent Code schreiben kann; dein Hauptbranch bleibt unberührt. Drücke **Flow starten**. Auf dem Board erscheint eine vorläufige Spec mit dem Label **Im Flow** (ein Klick führt zurück zur Mission).
 

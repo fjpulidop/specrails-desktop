@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "Come vuoi costruirlo?",
-      "recommended": "Consigliato",
       "notNow": "Non ora",
       "implementReply": "Scriviamo prima la spec e poi lanciamo Implement.",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "Hai scelto spec + Implement",
         "dismissed": "Proposta scartata",
         "handedOff": "Flow affidato al Rail {{rail}}",
-        "overrode": "consigliato: {{mode}}",
         "state": {
           "active": "Flow in corso",
           "paused": "Flow in pausa",
@@ -979,7 +977,9 @@
           "discarded": "Flow scartato",
           "needs-review": "Il Flow va controllato"
         }
-      }
+      },
+      "why": "Perché l’agente lo chiede",
+      "waitForReply": "Potrai scegliere quando l’agente avrà finito questa risposta."
     },
     "bar": {
       "label": "Controlli del Flow",

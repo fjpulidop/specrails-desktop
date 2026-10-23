@@ -1,9 +1,10 @@
 // ─── flow-offer protocol + display helpers (pure) ─────────────────────────────
 // The operator emits ONE fenced ```flow-offer block (see
 // server/modules/missions/runtime/agent-operator-prompt.ts FLOW_OFFER_SECTION):
-// { idea, reason, recommended: 'flow' | 'implement', title?, repositoryId? }.
-// `repositoryId`: the Git repository the agent triaged the idea into (workspace
-// and multi-repository projects); the entry card preselects it.
+// { idea, reason, title?, repositoryId? }. Flow and Implement never compete:
+// older offers carried `recommended: 'flow' | 'implement'`, which still parses
+// but is ignored. `repositoryId`: the Git repository the agent triaged the idea
+// into (workspace and multi-repository projects); the entry card preselects it.
 
 import type { FlowCapability, FlowCost } from './flow-api'
 
@@ -11,8 +12,8 @@ export type FlowMode = 'flow' | 'implement'
 
 export interface FlowOffer {
   idea: string
+  /** Why the agent asked (neutral context, never a preference). */
   reason: string | null
-  recommended: FlowMode
   title: string | null
   /** The agent's triage of the target repository (null ⇒ none named). */
   repositoryId: string | null
@@ -29,16 +30,16 @@ export function parseFlowOffer(payload: unknown): FlowOffer | null {
   const o = payload as Record<string, unknown>
   const idea = typeof o.idea === 'string' ? o.idea.trim().slice(0, MAX_IDEA) : ''
   if (!idea) return null
-  if (o.recommended !== 'flow' && o.recommended !== 'implement') return null
+  // A legacy `recommended` is tolerated but must still be one of the two modes.
+  if (o.recommended !== undefined && o.recommended !== null && o.recommended !== 'flow' && o.recommended !== 'implement') return null
   const reason = typeof o.reason === 'string' && o.reason.trim() ? o.reason.trim() : null
   const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim().slice(0, 200) : null
   const repositoryId = typeof o.repositoryId === 'string' && o.repositoryId.trim() && o.repositoryId.length <= 200 ? o.repositoryId.trim() : null
-  return { idea, reason, recommended: o.recommended, title, repositoryId }
+  return { idea, reason, title, repositoryId }
 }
 
-export function otherMode(mode: FlowMode): FlowMode {
-  return mode === 'flow' ? 'implement' : 'flow'
-}
+/** The two paths, always in this order and with equal weight. */
+export const FLOW_OFFER_MODES: readonly FlowMode[] = Object.freeze(['flow', 'implement'])
 
 /** Missing Core capabilities → i18n keys (friendly words, never raw ids). */
 export function missingCapabilityKeys(missing: readonly FlowCapability[]): string[] {

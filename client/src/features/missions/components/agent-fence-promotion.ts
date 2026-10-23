@@ -24,8 +24,10 @@ export function detectProtocolShape(value: unknown): Shape | null {
   }
   if (!isRecord(value)) return null
   if (isRecord(value.restated) && isRecord(value.alternative) && typeof value.discriminator === 'string') return 'problem-frame'
-  // flow-mode: the Flow-or-Implement offer = an idea plus the recommended mode.
-  if (typeof value.idea === 'string' && (value.recommended === 'flow' || value.recommended === 'implement')) return 'flow-offer'
+  // flow-mode: the Flow-or-Implement offer = an idea plus its neutral reason
+  // (older offers carried a `recommended` mode instead; still recognized).
+  if (typeof value.idea === 'string' && (value.recommended === 'flow' || value.recommended === 'implement'
+    || (typeof value.reason === 'string' && !('title' in value) && !('description' in value)))) return 'flow-offer'
   if (typeof value.title === 'string' && typeof value.description === 'string'
     && ('acceptanceCriteria' in value || 'labels' in value || 'priority' in value)) return 'spec-draft'
   // mission-rail-cards: a launch proposal = a ticket list plus at least one

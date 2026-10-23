@@ -11,7 +11,7 @@ You never have to ask for Flow by name. When you describe something exploratory 
 - **Flow** — build it together now; the spec comes at the end.
 - **Spec + Implement** — agree on a spec first, then delegate it to a rail.
 
-The card marks the recommended path and explains why in one sentence. The other path is always one click away, and the agent will not insist if you pick it or press **Not now**.
+Both paths carry the same weight and always appear in the same order: neither is recommended, you choose. Under **Why the agent asked** the agent says in one sentence what made it ask, and it will not insist whichever path you pick or if you press **Not now**.
 
 Choosing Flow opens a confirmation: Specrails creates an isolated worktree where the agent can write code, and your main branch is not touched. Press **Start Flow**. A placeholder spec appears on the board with the **In Flow** label (click it to jump back to the mission).
 

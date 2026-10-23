@@ -916,12 +916,12 @@
       "flow_handoff_not_adopted": "Le rail a démarré sans reprendre le worktree du Flow.",
       "repository_has_no_commits": "Ce dépôt n'a encore aucun commit. Faites un premier commit pour que Specrails puisse créer un worktree isolé.",
       "flow_not_found": "Ce Flow n’existe plus.",
-      "flow_failed": "Flow a rencontré une erreur inattendue. Réessaie.",
+      "flow_failed": "Flow a rencontré une erreur inattendue. Réessayez.",
       "conversation_not_found": "Cette mission n’existe plus.",
-      "conversation_not_pinned": "Épingle cette mission au projet avant de lancer un Flow.",
+      "conversation_not_pinned": "Épinglez cette mission au projet avant de lancer un Flow.",
       "flow_not_handed_off": "Ce Flow n’attend plus cette exécution.",
-      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Relance la remise depuis la barre Flow.",
-      "flow_return_busy": "L’exécution est occupée par une autre action. Réessaie dans un instant.",
+      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Relancez la remise depuis la barre Flow.",
+      "flow_return_busy": "L’exécution est occupée par une autre action. Réessayez dans un instant.",
       "flow_return_not_allowed": "Seule une exécution Flow → Spec arrêtée avant la livraison peut revenir dans son Flow.",
       "flow_return_not_found": "Cette exécution n’est pas une exécution Flow → Spec.",
       "flow_return_worktree_mismatch": "Cette exécution n’a pas repris le worktree de ce Flow."
@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "Comment voulez-vous le construire ?",
-      "recommended": "Recommandé",
       "notNow": "Pas maintenant",
       "implementReply": "Écrivons d’abord la spec, puis lançons Implement.",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "Vous avez choisi spec + Implement",
         "dismissed": "Proposition écartée",
         "handedOff": "Flow confié au Rail {{rail}}",
-        "overrode": "recommandé : {{mode}}",
         "state": {
           "active": "Flow en cours",
           "paused": "Flow en pause",
@@ -979,7 +977,9 @@
           "discarded": "Flow abandonné",
           "needs-review": "Le Flow doit être vérifié"
         }
-      }
+      },
+      "why": "Pourquoi l’agent demande",
+      "waitForReply": "Vous pourrez choisir quand l’agent aura terminé cette réponse."
     },
     "bar": {
       "label": "Commandes du Flow",
@@ -1061,8 +1061,8 @@
     },
     "failure": {
       "step": {
-        "derive": "Impossible d’écrire la spec à partir de tes modifications",
-        "verify": "Impossible de vérifier tes modifications",
+        "derive": "Impossible d’écrire la spec à partir de vos modifications",
+        "verify": "Impossible de vérifier vos modifications",
         "review": "La revue n’a pas pu se terminer",
         "fix": "Les corrections automatiques n’ont pas pu se terminer",
         "archive": "Impossible d’archiver le changement OpenSpec",
@@ -1070,8 +1070,8 @@
         "unknown": "Flow → Spec s’est arrêté avant la fin"
       },
       "cause": "Cause :",
-      "next": "Ton travail est intact. De retour dans Flow, l’agent reçoit l’erreur.",
-      "nextReturned": "Ton travail est intact. De retour dans Flow, l’agent a l’erreur.",
+      "next": "Votre travail est intact. De retour dans Flow, l’agent reçoit l’erreur.",
+      "nextReturned": "Votre travail est intact. De retour dans Flow, l’agent a l’erreur.",
       "returned": "Revenu dans Flow",
       "technical": {
         "title": "Détails techniques",

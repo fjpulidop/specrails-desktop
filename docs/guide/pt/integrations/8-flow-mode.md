@@ -11,7 +11,7 @@ Não precisa de pedir o Flow pelo nome. Quando descreve algo exploratório ou vi
 - **Flow** — construir em conjunto agora; a spec chega no fim.
 - **Spec + Implement** — acordar primeiro uma spec e depois delegá-la a um rail.
 
-O cartão assinala o caminho recomendado e explica porquê numa frase. O outro caminho está sempre a um clique, e o agente não insiste se o escolher ou carregar em **Agora não**.
+Os dois caminhos têm o mesmo peso e aparecem sempre pela mesma ordem: nenhum é recomendado, quem escolhe é você. Em **Porque é que o agente pergunta**, o agente explica numa frase o que o levou a perguntar, e não insiste, seja qual for o caminho escolhido ou se carregar em **Agora não**.
 
 Ao escolher Flow abre-se uma confirmação: o Specrails cria um worktree isolado onde o agente pode escrever código, e o seu ramo principal não é tocado. Carregue em **Iniciar Flow**. No board aparece uma spec provisória com a etiqueta **Em Flow** (clique nela para voltar à missão).
 

@@ -505,8 +505,14 @@ describe('Flow or Implement offer (flow-mode)', () => {
 
   it('teaches the flow-offer fence, the routing criterion and the no-insist rule', () => {
     expect(FLOW_OFFER_SECTION).toContain('```flow-offer')
-    for (const key of ['"idea"', '"reason"', '"recommended"']) expect(FLOW_OFFER_SECTION).toContain(key)
-    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain[\s\S]*recommend Flow/)
+    for (const key of ['"idea"', '"reason"']) expect(FLOW_OFFER_SECTION).toContain(key)
+    // Flow and Implement never compete: the agent explains, it never recommends.
+    expect(FLOW_OFFER_SECTION).not.toContain('"recommended"')
+    expect(FLOW_OFFER_SECTION).not.toMatch(/recommend (Flow|spec)/)
+    expect(FLOW_OFFER_SECTION).toContain('never recommend, rank or favour one of them')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('never recommend, rank or favour either')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).not.toContain('recommended')
+    expect(FLOW_OFFER_SECTION).toMatch(/Exploratory, visual, or the shape is uncertain/)
     expect(FLOW_OFFER_SECTION).toMatch(/Well defined[\s\S]*spec \+ Implement/)
     expect(FLOW_OFFER_SECTION).toContain('one suggestion per idea')
     expect(FLOW_OFFER_SECTION).toContain('never insist after')

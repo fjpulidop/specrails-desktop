@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "Wie möchtest du es bauen?",
-      "recommended": "Empfohlen",
       "notNow": "Nicht jetzt",
       "implementReply": "Lass uns zuerst die Spec schreiben und dann Implement starten.",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "Du hast Spec + Implement gewählt",
         "dismissed": "Angebot verworfen",
         "handedOff": "Flow an Rail {{rail}} übergeben",
-        "overrode": "empfohlen: {{mode}}",
         "state": {
           "active": "Flow läuft",
           "paused": "Flow pausiert",
@@ -979,7 +977,9 @@
           "discarded": "Flow verworfen",
           "needs-review": "Flow muss geprüft werden"
         }
-      }
+      },
+      "why": "Warum der Agent fragt",
+      "waitForReply": "Du kannst wählen, sobald der Agent diese Antwort beendet hat."
     },
     "bar": {
       "label": "Flow-Steuerung",

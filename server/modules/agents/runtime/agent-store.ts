@@ -52,7 +52,8 @@ export interface AgentMessage {
  * `proposalIndex` (0-based order of ```rail-launch blocks in the message) was
  * launched (→ runIds / railIndex / the FINAL edited config) or dismissed.
  * `flow-offer`: the Flow-or-Implement offer was accepted (`chosenMode`) or
- * dismissed, with the agent's `recommendedMode`. `flow-hand-off`: the Flow of
+ * dismissed (`recommendedMode` only on legacy decisions: Flow and Implement no
+ * longer compete, so the card never records one). `flow-hand-off`: the Flow of
  * that offer was handed to a rail (the launch card's decision). Decisions are
  * unique per (kind, proposalIndex).
  */

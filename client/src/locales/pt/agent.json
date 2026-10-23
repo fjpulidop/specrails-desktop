@@ -916,12 +916,12 @@
       "flow_handoff_not_adopted": "O rail arrancou sem assumir o worktree do Flow.",
       "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar um worktree isolado.",
       "flow_not_found": "Este Flow já não existe.",
-      "flow_failed": "O Flow encontrou um erro inesperado. Tenta novamente.",
+      "flow_failed": "O Flow encontrou um erro inesperado. Tente novamente.",
       "conversation_not_found": "Esta missão já não existe.",
-      "conversation_not_pinned": "Fixa esta missão ao projeto antes de iniciar um Flow.",
+      "conversation_not_pinned": "Fixe esta missão ao projeto antes de iniciar um Flow.",
       "flow_not_handed_off": "Este Flow já não está à espera dessa execução.",
-      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volta a entregar a partir da barra do Flow.",
-      "flow_return_busy": "A execução está ocupada com outra ação. Tenta novamente daqui a pouco.",
+      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a entregar a partir da barra do Flow.",
+      "flow_return_busy": "A execução está ocupada com outra ação. Tente novamente daqui a pouco.",
       "flow_return_not_allowed": "Só uma execução de Flow → Spec parada antes da entrega pode voltar ao seu Flow.",
       "flow_return_not_found": "Essa execução não é de Flow → Spec.",
       "flow_return_worktree_mismatch": "Essa execução não assumiu o worktree deste Flow."
@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "Como quer construí-lo?",
-      "recommended": "Recomendado",
       "notNow": "Agora não",
       "implementReply": "Vamos escrever primeiro a spec e depois lançar o Implement.",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "Escolheu spec + Implement",
         "dismissed": "Proposta descartada",
         "handedOff": "Flow entregue ao Rail {{rail}}",
-        "overrode": "recomendado: {{mode}}",
         "state": {
           "active": "Flow em curso",
           "paused": "Flow em pausa",
@@ -979,7 +977,9 @@
           "discarded": "Flow descartado",
           "needs-review": "O Flow precisa de revisão"
         }
-      }
+      },
+      "why": "Porque é que o agente pergunta",
+      "waitForReply": "Poderá escolher quando o agente terminar esta resposta."
     },
     "bar": {
       "label": "Controlos do Flow",
@@ -1061,8 +1061,8 @@
     },
     "failure": {
       "step": {
-        "derive": "Não foi possível escrever a spec a partir das tuas alterações",
-        "verify": "Não foi possível verificar as tuas alterações",
+        "derive": "Não foi possível escrever a spec a partir das suas alterações",
+        "verify": "Não foi possível verificar as suas alterações",
         "review": "A revisão não conseguiu terminar",
         "fix": "As correções automáticas não conseguiram terminar",
         "archive": "Não foi possível arquivar a alteração OpenSpec",
@@ -1070,8 +1070,8 @@
         "unknown": "Flow → Spec parou antes de terminar"
       },
       "cause": "Causa:",
-      "next": "O teu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
-      "nextReturned": "O teu trabalho está intacto. De volta ao Flow, o agente tem o erro.",
+      "next": "O seu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
+      "nextReturned": "O seu trabalho está intacto. De volta ao Flow, o agente tem o erro.",
       "returned": "De volta ao Flow",
       "technical": {
         "title": "Detalhes técnicos",

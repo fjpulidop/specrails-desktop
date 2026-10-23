@@ -952,7 +952,6 @@
     },
     "offer": {
       "heading": "How do you want to build it?",
-      "recommended": "Recommended",
       "notNow": "Not now",
       "implementReply": "Let's write the spec first and run Implement.",
       "mode": {
@@ -970,7 +969,6 @@
         "implement": "You chose spec + Implement",
         "dismissed": "Offer dismissed",
         "handedOff": "Flow handed off to Rail {{rail}}",
-        "overrode": "recommended: {{mode}}",
         "state": {
           "active": "Flow in progress",
           "paused": "Flow paused",
@@ -979,7 +977,9 @@
           "discarded": "Flow discarded",
           "needs-review": "Flow needs review"
         }
-      }
+      },
+      "why": "Why the agent asked",
+      "waitForReply": "You can choose once the agent finishes this reply."
     },
     "bar": {
       "label": "Flow controls",
