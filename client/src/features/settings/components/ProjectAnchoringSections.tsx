@@ -138,10 +138,15 @@ type RuleStatus = 'enforcedBy' | 'automatable' | 'humanOnly' | 'unclassified'
 interface ProjectRule { id: string; index: number; text: string; source: string | null; status: RuleStatus; enforcedBy: string | null; proposedCheck: string | null }
 interface RulesClassification { status: string; provider: string | null; model: string | null; reason: string | null; classifiedAt: string | null }
 interface RulesInventory { generatedAt: string | null; gates: Array<{ id: string; kind: string; command: string; source?: string | null }>; rules: ProjectRule[]; counts: Partial<Record<RuleStatus, number>>; classification?: RulesClassification | null; dropped: number }
-type RulesResponse =
-  | { supported: boolean; running: boolean; state: 'missing' }
-  | { supported: boolean; running: boolean; state: 'invalid'; file: string; message: string }
-  | { supported: boolean; running: boolean; state: 'ok'; file: string; modifiedAt: string | null; inventory: RulesInventory }
+/** How the latest inventory run ended (the automatic run after setup has nobody watching a toast). */
+interface RulesLastRun { trigger: 'setup' | 'manual'; ok: boolean; exitCode: number | null; output: string | null; at: string }
+type RulesResponse = { supported: boolean; running: boolean; lastRun?: RulesLastRun } & (
+  | { state: 'missing' }
+  | { state: 'invalid'; file: string; message: string }
+  | { state: 'ok'; file: string; modifiedAt: string | null; inventory: RulesInventory })
+
+/** While the server runs an inventory this panel did not start (after setup), re-read at this pace. */
+const RULES_RUNNING_POLL_MS = 3000
 
 const STATUS_ORDER: RuleStatus[] = ['automatable', 'humanOnly', 'enforcedBy', 'unclassified']
 const STATUS_ICON: Record<RuleStatus, typeof Eye> = { automatable: Sparkles, humanOnly: Eye, enforcedBy: CheckCircle2, unclassified: CircleSlash }
@@ -173,6 +178,15 @@ export function ProjectRulesSection() {
     void load(signal)
     return () => { signal.cancelled = true }
   }, [activeProjectId, load])
+
+  // The automatic inventory after setup runs on the server: follow it until it ends.
+  const serverRunning = Boolean(data?.running) && !running
+  useEffect(() => {
+    if (!serverRunning) return
+    const signal = { cancelled: false }
+    const timer = setInterval(() => { void load(signal) }, RULES_RUNNING_POLL_MS)
+    return () => { signal.cancelled = true; clearInterval(timer) }
+  }, [serverRunning, load])
 
   async function rerun() {
     setRunning(true)
@@ -233,6 +247,15 @@ export function ProjectRulesSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {!data.supported ? <p className="text-[11px] text-accent-warning" data-testid="rules-unsupported">{t('rules.coreRequired')}</p> : null}
+        {data.running && !running ? <p role="status" className="text-xs text-muted-foreground" data-testid="rules-auto-running">{t('rules.autoRunning')}</p> : null}
+        {!busy && data.lastRun && !data.lastRun.ok ? (
+          <div role="alert" className="space-y-1 rounded-md border border-accent-warning/40 bg-accent-warning/5 p-2.5 text-xs" data-testid="rules-last-run-failed">
+            <p className="font-medium text-foreground">{t(data.lastRun.trigger === 'setup' ? 'rules.lastRun.setupFailed' : 'rules.lastRun.manualFailed', { date: new Date(data.lastRun.at).toLocaleString(i18n.language) })}</p>
+            {data.lastRun.output ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">{data.lastRun.output.split('\n').slice(-6).join('\n')}</pre> : null}
+            <p className="text-foreground/75">{t('rules.lastRun.retryHint')}</p>
+          </div>
+        ) : null}
+        {!busy && data.lastRun?.ok && data.lastRun.trigger === 'setup' ? <p className="text-[11px] text-muted-foreground" data-testid="rules-last-run-setup">{t('rules.lastRun.setupDone')}</p> : null}
         {data.state === 'missing' ? <p className="text-xs text-muted-foreground" data-testid="rules-missing">{t('rules.missing')}</p> : null}
         {data.state === 'invalid' ? <p className="text-xs text-accent-warning" data-testid="rules-invalid">{t('rules.invalid', { message: data.message })}</p> : null}
         {data.state === 'ok' ? (

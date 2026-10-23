@@ -491,6 +491,13 @@
       "failed": "Le classement des règles a échoué.",
       "empty": "Aucune règle écrite n'a été trouvée.",
       "unknown": "Les règles ne sont pas classées."
+    },
+    "autoRunning": "L’inventaire s’exécute après la configuration. Cette liste se met à jour quand il se termine.",
+    "lastRun": {
+      "setupFailed": "L’inventaire automatique après la configuration a échoué ({{date}}).",
+      "manualFailed": "La dernière exécution de l’inventaire a échoué ({{date}}).",
+      "retryHint": "Corrigez la cause indiquée ci-dessus, puis relancez l’inventaire.",
+      "setupDone": "Inventorié automatiquement après la configuration."
     }
   }
 }

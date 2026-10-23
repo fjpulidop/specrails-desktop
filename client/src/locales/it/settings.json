@@ -491,6 +491,13 @@
       "failed": "La classificazione delle regole non è riuscita.",
       "empty": "Non sono state trovate regole scritte.",
       "unknown": "Le regole non sono classificate."
+    },
+    "autoRunning": "L’inventario è in esecuzione dopo la configurazione. Questo elenco si aggiorna al termine.",
+    "lastRun": {
+      "setupFailed": "L’inventario automatico dopo la configurazione non è riuscito ({{date}}).",
+      "manualFailed": "L’ultima esecuzione dell’inventario non è riuscita ({{date}}).",
+      "retryHint": "Correggi la causa indicata sopra, poi riesegui l’inventario.",
+      "setupDone": "Inventariato automaticamente dopo la configurazione."
     }
   }
 }

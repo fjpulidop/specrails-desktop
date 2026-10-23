@@ -491,6 +491,13 @@
       "failed": "Das Einstufen der Regeln ist fehlgeschlagen.",
       "empty": "Es wurden keine schriftlichen Regeln gefunden.",
       "unknown": "Die Regeln sind nicht eingestuft."
+    },
+    "autoRunning": "Das Inventar läuft nach der Einrichtung. Diese Liste wird aktualisiert, sobald es fertig ist.",
+    "lastRun": {
+      "setupFailed": "Das automatische Inventar nach der Einrichtung ist fehlgeschlagen ({{date}}).",
+      "manualFailed": "Der letzte Inventarlauf ist fehlgeschlagen ({{date}}).",
+      "retryHint": "Behebe die oben gezeigte Ursache und starte das Inventar erneut.",
+      "setupDone": "Nach der Einrichtung automatisch inventarisiert."
     }
   }
 }

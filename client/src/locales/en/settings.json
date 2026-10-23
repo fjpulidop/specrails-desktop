@@ -491,6 +491,13 @@
       "failed": "Classifying the rules failed.",
       "empty": "No written rules were found.",
       "unknown": "The rules are not classified."
+    },
+    "autoRunning": "The inventory is running after setup. This list updates when it finishes.",
+    "lastRun": {
+      "setupFailed": "The automatic inventory after setup failed ({{date}}).",
+      "manualFailed": "The last inventory run failed ({{date}}).",
+      "retryHint": "Fix the cause shown above, then re-run the inventory.",
+      "setupDone": "Inventoried automatically after setup."
     }
   }
 }

@@ -491,6 +491,13 @@
       "unknown": "规则尚未分类。"
     },
     "gates_one": "{{count}} 个关卡",
-    "dropped_one": "{{count}} 个条目不符合格式，已跳过"
+    "dropped_one": "{{count}} 个条目不符合格式，已跳过",
+    "autoRunning": "正在设置后运行清单。完成后此列表会更新。",
+    "lastRun": {
+      "setupFailed": "设置后的自动清单失败（{{date}}）。",
+      "manualFailed": "上次清单运行失败（{{date}}）。",
+      "retryHint": "修复上面显示的原因，然后重新运行清单。",
+      "setupDone": "已在设置后自动生成清单。"
+    }
   }
 }

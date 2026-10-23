@@ -1,6 +1,7 @@
 import type { Request, Response, Router } from 'express'
 import { specFromRule } from '../domain'
-import { readProjectRules, runRulesInventory, type RulesInventoryRunResult, type RulesProject } from '../runtime/rules-store'
+import { readProjectRules, type RulesInventoryRunResult, type RulesProject } from '../runtime/rules-store'
+import { createRulesInventoryRuns, type RulesInventoryRuns } from '../runtime/rules-inventory-runs'
 
 /** Ports the composition binds per request (project-scoped, no global state). */
 export interface ProjectRulesHttpPorts {
@@ -14,14 +15,15 @@ export interface ProjectRulesHttpPorts {
 
 /**
  * Project rules (task 4.4):
- *  - `GET  /:projectId/rules`            — the inventory and whether Core supports it.
+ *  - `GET  /:projectId/rules`            — the inventory, whether Core supports it, whether a
+ *                                          run is in flight and how the last run ended (`lastRun`).
  *  - `POST /:projectId/rules/inventory`  — re-run Core's inventory (one at a time per project).
  *  - `POST /:projectId/rules/specs`      — turn an `automatable` rule into a spec (`{ id }` or `{ index }`).
  * Without the Core capability every write answers 409 `rules_inventory_unsupported`
  * and the read reports `supported: false`; an existing file is still shown.
  */
-export function registerProjectRulesHttp(router: Router, portsFor: (req: Request) => ProjectRulesHttpPorts): void {
-  const running = new Set<string>()
+export function registerProjectRulesHttp(router: Router, portsFor: (req: Request) => ProjectRulesHttpPorts, runs: RulesInventoryRuns = createRulesInventoryRuns()): void {
+  // Shared with the automatic run after project setup (one run per project at a time).
 
   const read = (ports: ProjectRulesHttpPorts) => {
     const result = readProjectRules(ports.project)
@@ -33,7 +35,8 @@ export function registerProjectRulesHttp(router: Router, portsFor: (req: Request
   router.get('/:projectId/rules', async (req: Request, res: Response) => {
     try {
       const ports = portsFor(req)
-      res.json({ supported: await ports.supported(), running: running.has(ports.project.id), ...read(ports) })
+      const lastRun = runs.lastRun(ports.project.id)
+      res.json({ supported: await ports.supported(), running: runs.isRunning(ports.project.id), ...(lastRun ? { lastRun } : {}), ...read(ports) })
     } catch (error) {
       console.error('[project-rules] read failed:', error)
       res.status(500).json({ error: 'rules_read_failed' })
@@ -43,17 +46,14 @@ export function registerProjectRulesHttp(router: Router, portsFor: (req: Request
   router.post('/:projectId/rules/inventory', async (req: Request, res: Response) => {
     const ports = portsFor(req)
     if (!(await ports.supported())) { res.status(409).json({ error: 'rules_inventory_unsupported', message: 'Update Core to a version with the project rules inventory' }); return }
-    if (running.has(ports.project.id)) { res.status(409).json({ error: 'rules_inventory_running', message: 'The inventory is already running for this project' }); return }
-    running.add(ports.project.id)
     try {
-      const run = await (ports.runInventory ?? runRulesInventory)(ports.project)
+      const run = await runs.run(ports.project, 'manual', ports.runInventory)
+      if (!run) { res.status(409).json({ error: 'rules_inventory_running', message: 'The inventory is already running for this project' }); return }
       const after = read(ports)
       res.status(run.ok ? 200 : 502).json({ ok: run.ok, exitCode: run.exitCode, output: run.output, ...after })
     } catch (error) {
       console.error('[project-rules] inventory failed:', error)
       res.status(500).json({ error: 'rules_inventory_failed' })
-    } finally {
-      running.delete(ports.project.id)
     }
   })
 

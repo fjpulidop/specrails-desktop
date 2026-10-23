@@ -2127,15 +2127,20 @@
     "publicEntries": [
       "adapters/http.ts",
       "domain.ts",
+      "runtime/rules-inventory-runs.ts",
       "runtime/rules-store.ts"
     ],
     "dependencies": {
       "adapters/http.ts": [
         "../domain",
+        "../runtime/rules-inventory-runs",
         "../runtime/rules-store",
         "express"
       ],
       "domain.ts": [],
+      "runtime/rules-inventory-runs.ts": [
+        "./rules-store"
+      ],
       "runtime/rules-store.ts": [
         "../../../core-runtime",
         "../../../path-resolver",

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1164 source/build files. Nearby tests are linked where names
+Includes 1165 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1497,6 +1497,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/project-rules/runtime
 
+- [rules-inventory-runs.ts](../../server/modules/project-rules/runtime/rules-inventory-runs.ts) · [test](../../server/modules/project-rules/runtime/rules-inventory-runs.test.ts)
 - [rules-store.ts](../../server/modules/project-rules/runtime/rules-store.ts) · [test](../../server/modules/project-rules/runtime/rules-store.test.ts)
 
 ## server/modules/project-settings

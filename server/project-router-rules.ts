@@ -5,6 +5,7 @@
 import type { Request } from 'express'
 import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
 import { registerProjectRulesHttp } from './modules/project-rules/adapters/http'
+import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
 import { mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { LocalTicket, TicketCreatedMessage } from './types'
@@ -54,5 +55,5 @@ export function registerRulesRoutes({ router, ctx, ticketPath }: ProjectRoutesDe
         return created
       },
     }
-  })
+  }, rulesInventoryRuns)
 }

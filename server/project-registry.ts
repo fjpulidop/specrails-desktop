@@ -104,6 +104,8 @@ import { createFlowService, type FlowService } from './modules/flow'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
 import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
 import { SpecTriageService } from './modules/specs/runtime/triage'
+import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
+import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
@@ -400,6 +402,7 @@ export class ProjectRegistry {
 
   removeProject(id: string): void {
     this._clearLoadRetry(id)
+    rulesInventoryRuns.forget(id)
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
     // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
@@ -1102,6 +1105,17 @@ export class ProjectRegistry {
       // an `ai_invocations` row (surface='setup'). Returns null until the project
       // context exists, in which case nothing is recorded (best-effort).
       (pid) => this._contexts.get(pid)?.db ?? null,
+      // After a setup succeeded, run Core's rules inventory once in the
+      // background (gated on Core `rulesInventory`; idempotent; a failure is
+      // logged and shown in the project's rules panel). Never blocks setup.
+      (pid) => {
+        const target = this._contexts.get(pid)?.project
+        if (!target) return
+        void rulesInventoryRuns.runAfterSetup(
+          { id: target.id, slug: target.slug, path: target.path },
+          async () => (await corePhase3Capabilities()).rulesInventory,
+        )
+      },
     )
     const proposalManager = new ProposalManager(
       boundBroadcast,

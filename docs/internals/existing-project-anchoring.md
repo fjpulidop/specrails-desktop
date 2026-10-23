@@ -132,6 +132,16 @@ The [project-rules module](../../server/modules/project-rules/README.md) owns it
   [--artifact-root <dir>]` (one at a time per project). Core's `init` runs the
   inventory **offline**, so rules stay `unclassified` until Desktop re-runs it
   with a configured provider (`agents.architect` of `agent-runtime.json`).
+- **After setup.** When a project's setup succeeds (`setup_complete`, or a
+  silent assemble with at least one provider assembled) Desktop runs the
+  inventory once in the background (`rulesInventoryRuns.runAfterSetup`, in
+  [rules-inventory-runs.ts](../../server/modules/project-rules/runtime/rules-inventory-runs.ts)):
+  gated on `rulesInventory`, at most once per project per app run, never while
+  another run is in flight, and skipped when the stored inventory is already
+  `classified`, `cached` or `empty`. It never blocks setup. The panel follows a
+  run it did not start (`running`, re-read every 3 s) and shows how the last
+  run ended (`lastRun`): an automatic failure stays visible with Core's output
+  and **Re-run inventory**.
 - **Create spec.** An `automatable` rule (addressed by its id) becomes a ticket
   (source `rules`, labels `rules`, `automation`, non-goals set) in one click.
 - **Needs human eyes.** `humanOnly` rules are frozen into

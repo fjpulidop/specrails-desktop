@@ -5,13 +5,14 @@ import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerProjectRulesHttp, type ProjectRulesHttpPorts } from './http'
+import { createRulesInventoryRuns, type RulesInventoryRuns } from '../runtime/rules-inventory-runs'
 
 describe('project rules HTTP adapter', () => {
   let dir: string
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-http-')) })
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 
-  function app(over: Partial<ProjectRulesHttpPorts> = {}) {
+  function app(over: Partial<ProjectRulesHttpPorts> = {}, runs?: RulesInventoryRuns) {
     const ports: ProjectRulesHttpPorts = {
       project: { id: 'p1', slug: `rules-${process.pid}`, path: dir },
       supported: async () => true,
@@ -26,7 +27,7 @@ describe('project rules HTTP adapter', () => {
     const server = express()
     server.use(express.json())
     const router = express.Router()
-    registerProjectRulesHttp(router, () => ports)
+    registerProjectRulesHttp(router, () => ports, runs)
     server.use('/api/projects', router)
     return { server, ports }
   }
@@ -67,6 +68,21 @@ describe('project rules HTTP adapter', () => {
     const res = await first
     expect(res.status).toBe(502)
     expect(res.body).toMatchObject({ ok: false, exitCode: 2, output: 'unknown command rules', state: 'missing' })
+    // The panel reads how the last run ended.
+    expect((await request(server).get('/api/projects/p1/rules')).body.lastRun).toMatchObject({ trigger: 'manual', ok: false, exitCode: 2, output: 'unknown command rules' })
+  })
+
+  it('shares the run with the automatic inventory after setup: running, refused re-run, last run', async () => {
+    let release!: () => void
+    const runs = createRulesInventoryRuns({ run: () => new Promise((resolve) => { release = () => resolve({ ok: false, exitCode: 1, output: 'no provider' }) }), log: { warn: vi.fn() } })
+    const { server, ports } = app({ runInventory: undefined }, runs)
+    const auto = runs.runAfterSetup(ports.project, async () => true)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect((await request(server).get('/api/projects/p1/rules')).body).toMatchObject({ running: true, state: 'missing' })
+    expect((await request(server).post('/api/projects/p1/rules/inventory')).body.error).toBe('rules_inventory_running')
+    release()
+    await expect(auto).resolves.toBe('failed')
+    expect((await request(server).get('/api/projects/p1/rules')).body).toMatchObject({ running: false, lastRun: { trigger: 'setup', ok: false, output: 'no provider' } })
   })
 
   it('answers 404 for a spec request without an inventory', async () => {

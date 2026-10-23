@@ -113,4 +113,37 @@ describe('ProjectRulesSection', () => {
     expect(screen.getByTestId('rules-invalid')).toBeTruthy()
     expect(screen.getByTestId('rules-rerun')).toHaveProperty('disabled', true)
   })
+
+  it('follows the automatic inventory after setup and shows how it ended', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      let phase: 'running' | 'failed' = 'running'
+      global.fetch = vi.fn(async () => jsonRes(phase === 'running'
+        ? { supported: true, running: true, state: 'missing' }
+        : { supported: true, running: false, state: 'missing', lastRun: { trigger: 'setup', ok: false, exitCode: 1, output: 'line 1\nNo provider can classify the rules', at: '2026-10-24T08:00:00Z' } })) as unknown as typeof fetch
+      render(<ProjectRulesSection />)
+      expect(await screen.findByTestId('rules-auto-running')).toHaveTextContent('running after setup')
+      expect(screen.getByTestId('rules-rerun')).toHaveProperty('disabled', true)
+      phase = 'failed'
+      await vi.advanceTimersByTimeAsync(3100)
+      const failure = await screen.findByTestId('rules-last-run-failed')
+      expect(failure).toHaveTextContent('The automatic inventory after setup failed')
+      expect(failure).toHaveTextContent('No provider can classify the rules')
+      expect(screen.queryByTestId('rules-auto-running')).toBeNull()
+      expect(screen.getByTestId('rules-rerun')).toHaveProperty('disabled', false)
+      const calls = vi.mocked(fetch).mock.calls.length
+      await vi.advanceTimersByTimeAsync(7000)
+      // Polling stops once the run ended.
+      expect(vi.mocked(fetch).mock.calls.length).toBe(calls)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('notes a successful automatic inventory', async () => {
+    global.fetch = vi.fn(async () => jsonRes({ ...INVENTORY, lastRun: { trigger: 'setup', ok: true, exitCode: 0, output: null, at: '2026-10-24T08:00:00Z' } })) as unknown as typeof fetch
+    render(<ProjectRulesSection />)
+    expect(await screen.findByTestId('rules-last-run-setup')).toHaveTextContent('Inventoried automatically after setup.')
+    expect(screen.queryByTestId('rules-last-run-failed')).toBeNull()
+  })
 })
