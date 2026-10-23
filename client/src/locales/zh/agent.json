@@ -438,7 +438,11 @@
     "mergedLocally": "已在本地集成到 {{base}}",
     "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
     "resumeFromStep": "从 {{step}} 继续",
-    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。"
+    "resumeFromStepHint": "被中断的 {{step}} 步骤将从头重新运行；磁盘上已有的工作会保留。",
+    "retryDelivery": "重试交付",
+    "retryDeliveryHint": "只在此运行的分支上重复最后一步（提交、推送和 PR），不会重做任何 AI 工作。",
+    "retryDeliverySent": "正在重试交付…",
+    "retryDeliveryFailed": "无法重试交付"
   },
   "specDraft": {
     "heading": "规格草稿",

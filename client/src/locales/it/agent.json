@@ -438,7 +438,11 @@
     "mergedLocally": "Integrato in {{base}} in locale",
     "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
     "resumeFromStep": "Riprendi da {{step}}",
-    "resumeFromStepHint": "Il passaggio {{step}} interrotto riparte dall'inizio; il lavoro già su disco viene conservato."
+    "resumeFromStepHint": "Il passaggio {{step}} interrotto riparte dall'inizio; il lavoro già su disco viene conservato.",
+    "retryDelivery": "Riprova la consegna",
+    "retryDeliveryHint": "Ripete solo l'ultimo passo (commit, push e PR) sul branch di questa esecuzione. Nessun lavoro dell'IA viene rifatto.",
+    "retryDeliverySent": "Nuovo tentativo di consegna…",
+    "retryDeliveryFailed": "Impossibile riprovare la consegna"
   },
   "specDraft": {
     "heading": "Bozza della spec",

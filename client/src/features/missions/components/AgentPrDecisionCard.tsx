@@ -467,6 +467,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const liveRun: RuntimeRun | null = runtime.runs.find((r) => r.runId === primaryRunId) ?? runtime.runs[0] ?? null
   const actionableRun: RuntimeRun | null = liveRun ?? (primaryRunId ? runtimeRunFromSnapshot(envelope, primaryRunId) : null)
   const [relaunching, setRelaunching] = useState(false)
+  const [retryingDelivery, setRetryingDelivery] = useState(false)
   const relaunchInFlight = useRef(false)
   const [relaunchAccepted, setRelaunchAccepted] = useState(false)
   const [relaunchError, setRelaunchError] = useState<string | null>(null)
@@ -1218,6 +1219,25 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   )
 
   const recoveryIsRecheck = presentation.recoveryRecheck
+  // A blocked delivery whose run finished: repeat ONLY the settlement (commit,
+  // push, PR) on the run's own worktree. No AI work is redone.
+  const settlementRunId = (envelope.runIds ?? []).length === 1 ? envelope.runIds![0] : null
+  const retryDelivery = async () => {
+    if (!settlementRunId || retryingDelivery) return
+    setRetryingDelivery(true)
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/loop-runs/${encodeURIComponent(settlementRunId)}/resume`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      if (res.ok) { toast.success(t('prCard.retryDeliverySent')); return }
+      const body = await res.json().catch(() => null) as { error?: string; detail?: string } | null
+      toast.error(t('prCard.retryDeliveryFailed'), { description: body?.detail ?? body?.error ?? `HTTP ${res.status}` })
+    } catch (e) {
+      toast.error(t('prCard.retryDeliveryFailed'), { description: e instanceof Error ? e.message : undefined })
+    } finally {
+      setRetryingDelivery(false)
+    }
+  }
   const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (recoveryIsRecheck ? (
     <button
       type="button"
@@ -1531,6 +1551,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           )}
           {!terminal && presentation.deliveryBlocked && (
             <div className="flex flex-wrap items-center gap-1.5">
+              {settlementRunId && !presentation.manualRecovery && !recoveryIsRecheck && (
+                <button
+                  type="button"
+                  onClick={() => void retryDelivery()}
+                  disabled={anyBusy || retryingDelivery}
+                  title={t('prCard.retryDeliveryHint')}
+                  data-testid="agent-pr-retry-delivery"
+                  data-agent-interactive
+                  className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {retryingDelivery ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
+                  {t('prCard.retryDelivery')}
+                </button>
+              )}
               {inspectLocalResultAction}
               {recoverAndRetryAction}
               {presentation.continuation

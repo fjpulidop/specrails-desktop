@@ -438,7 +438,11 @@
     "mergedLocally": "Lokal in {{base}} integriert",
     "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
     "resumeFromStep": "Ab {{step}} fortsetzen",
-    "resumeFromStepHint": "Der unterbrochene Schritt {{step}} läuft erneut von vorn; die bereits gespeicherte Arbeit bleibt erhalten."
+    "resumeFromStepHint": "Der unterbrochene Schritt {{step}} läuft erneut von vorn; die bereits gespeicherte Arbeit bleibt erhalten.",
+    "retryDelivery": "Auslieferung wiederholen",
+    "retryDeliveryHint": "Wiederholt nur den letzten Schritt (Commit, Push und PR) auf dem Branch dieses Laufs. Keine KI-Arbeit wird wiederholt.",
+    "retryDeliverySent": "Auslieferung wird wiederholt…",
+    "retryDeliveryFailed": "Die Auslieferung konnte nicht wiederholt werden"
   },
   "specDraft": {
     "heading": "Spec-Entwurf",

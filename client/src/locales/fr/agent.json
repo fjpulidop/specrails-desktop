@@ -438,7 +438,11 @@
     "mergedLocally": "Intégré dans {{base}} en local",
     "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
     "resumeFromStep": "Reprendre depuis {{step}}",
-    "resumeFromStepHint": "L'étape {{step}} interrompue est relancée depuis son début ; le travail déjà sur le disque est conservé."
+    "resumeFromStepHint": "L'étape {{step}} interrompue est relancée depuis son début ; le travail déjà sur le disque est conservé.",
+    "retryDelivery": "Relancer la livraison",
+    "retryDeliveryHint": "Ne refait que la dernière étape (commit, push et PR) sur la branche de cette exécution. Aucun travail d'IA n'est refait.",
+    "retryDeliverySent": "Nouvelle tentative de livraison…",
+    "retryDeliveryFailed": "Impossible de relancer la livraison"
   },
   "specDraft": {
     "heading": "Brouillon de spec",

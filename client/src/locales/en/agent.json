@@ -438,7 +438,11 @@
     },
     "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
     "resumeFromStep": "Resume from {{step}}",
-    "resumeFromStepHint": "The interrupted {{step}} step runs again from its start; the work already on disk is kept."
+    "resumeFromStepHint": "The interrupted {{step}} step runs again from its start; the work already on disk is kept.",
+    "retryDelivery": "Retry delivery",
+    "retryDeliveryHint": "Repeats only the final step (commit, push and PR) on this run's own branch. No AI work is redone.",
+    "retryDeliverySent": "Retrying the delivery…",
+    "retryDeliveryFailed": "Could not retry the delivery"
   },
   "specDraft": {
     "heading": "Spec draft",

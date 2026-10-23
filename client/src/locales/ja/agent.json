@@ -438,7 +438,11 @@
     "mergedLocally": "ローカルで {{base}} に統合しました",
     "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
     "resumeFromStep": "{{step}} から再開",
-    "resumeFromStepHint": "中断された {{step}} ステップを最初から再実行します。ディスク上の作業内容は保持されます。"
+    "resumeFromStepHint": "中断された {{step}} ステップを最初から再実行します。ディスク上の作業内容は保持されます。",
+    "retryDelivery": "納品を再試行",
+    "retryDeliveryHint": "この実行のブランチで最後のステップ（コミット、プッシュ、PR）だけを繰り返します。AI の作業はやり直しません。",
+    "retryDeliverySent": "納品を再試行しています…",
+    "retryDeliveryFailed": "納品を再試行できませんでした"
   },
   "specDraft": {
     "heading": "スペック下書き",

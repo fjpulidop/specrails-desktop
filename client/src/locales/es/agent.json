@@ -438,7 +438,11 @@
     },
     "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
     "resumeFromStep": "Reanudar desde {{step}}",
-    "resumeFromStepHint": "El paso {{step}} interrumpido se vuelve a ejecutar desde el principio; se conserva el trabajo ya guardado en disco."
+    "resumeFromStepHint": "El paso {{step}} interrumpido se vuelve a ejecutar desde el principio; se conserva el trabajo ya guardado en disco.",
+    "retryDelivery": "Reintentar la entrega",
+    "retryDeliveryHint": "Repite solo el paso final (commit, push y PR) sobre la rama de este run. No se rehace trabajo de IA.",
+    "retryDeliverySent": "Reintentando la entrega…",
+    "retryDeliveryFailed": "No se pudo reintentar la entrega"
   },
   "specDraft": {
     "heading": "Borrador de spec",

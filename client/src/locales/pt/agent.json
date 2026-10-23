@@ -438,7 +438,11 @@
     "mergedLocally": "Integrado em {{base}} localmente",
     "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
     "resumeFromStep": "Retomar a partir de {{step}}",
-    "resumeFromStepHint": "A etapa {{step}} interrompida é executada novamente desde o início; o trabalho já salvo em disco é mantido."
+    "resumeFromStepHint": "A etapa {{step}} interrompida é executada novamente desde o início; o trabalho já salvo em disco é mantido.",
+    "retryDelivery": "Tentar a entrega de novo",
+    "retryDeliveryHint": "Repete apenas o passo final (commit, push e PR) no branch desta execução. Nenhum trabalho de IA é refeito.",
+    "retryDeliverySent": "Tentando a entrega de novo…",
+    "retryDeliveryFailed": "Não foi possível tentar a entrega de novo"
   },
   "specDraft": {
     "heading": "Rascunho da spec",
