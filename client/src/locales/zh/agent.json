@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} 条排队",
     "delete": "删除任务 \"{{title}}\"",
     "deleteConfirm": "删除？",
-    "deleteLiveConfirm": "代理正在工作 — 仍要删除？",
+    "deleteLiveConfirm": "代理正在工作。仍要删除吗？",
     "confirmDelete": "确认删除",
     "cancelDelete": "保留任务",
     "deleteFailed": "无法删除任务"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "将「{{title}}」添加到收藏",
   "removeFavoriteConversation": "从收藏中移除「{{title}}」",
   "confirmShort": "确认？",
-  "imagesUnsupported": "该提供商暂不支持读取图片 — 请附加文本文件",
+  "imagesUnsupported": "该提供商暂不支持读取图片。请改为附加文本文件",
   "effort": {
     "label": "推理强度",
     "minimal": "最小",
@@ -279,7 +279,7 @@
     },
     "markDone": "标记为完成",
     "refine": "细化",
-    "completedNote": "已确认 — spec 已移至完成",
+    "completedNote": "已确认。spec 已移至完成",
     "partialSummary": "{{total}} 个中 {{succeeded}} 个完成，{{failed}} 个失败",
     "unit": {
       "failed": "实现失败",
@@ -296,8 +296,8 @@
     "title": {
       "no_changes": "无需更改",
       "partial": "部分实现完成",
-      "delivery_blocked": "实现完成 — 交付需要处理",
-      "update_failed": "实现完成 — 更新失败",
+      "delivery_blocked": "实现完成：交付需要处理",
+      "update_failed": "实现完成：更新失败",
       "pr_closed": "PR 已关闭但未合并",
       "superseded": "已被较新的运行取代",
       "existing_pr_updated": "现有 PR 已更新",
@@ -360,8 +360,8 @@
     "verifyPr": "验证 PR",
     "discard": "丢弃",
     "confirmDiscard": "确认丢弃？",
-    "mergedNote": "已合并 — Spec 已移至完成",
-    "discardedNote": "已丢弃 — Spec 已退回待办",
+    "mergedNote": "已合并。Spec 已移至完成",
+    "discardedNote": "已丢弃。Spec 已退回待办",
     "implementationFailedNote": "实现运行在生成可交付内容前失败。请打开运行日志查看失败原因，然后在重新启动前丢弃此卡片。",
     "dismiss": "关闭后续任务",
     "discardLocalResult": "丢弃本地结果",
@@ -403,8 +403,8 @@
       "discardLocalBody": "仅在仍可安全删除时才会移除可恢复的本地迭代；如果它已发生变化，将保留并显示警告。任何现有 PR 及其分支都不会改变。已删除的结果无法恢复。"
     },
     "degraded": {
-      "pushed": "分支已推送，但无法创建 PR — 请重试以完成。",
-      "localOnly": "更改已在本地组装但未推送 — 请重试以发布 PR。"
+      "pushed": "分支已推送，但无法创建 PR。请重试以完成。",
+      "localOnly": "更改已在本地组装但未推送。请重试以发布 PR。"
     },
     "alreadyResolved": "已在其他地方处理",
     "actionFailed": "操作失败",
@@ -468,12 +468,12 @@
     "openPullRequest": "打开 PR #{{id}}",
     "openJob": "打开任务 {{id}}",
     "openLoop": "打开循环 {{id}}",
-    "ticketNotFound": "未找到 Spec #{{id}} — 可能已被删除",
+    "ticketNotFound": "未找到 Spec #{{id}}，可能已被删除",
     "pullRequestUrlMissing": "PR #{{id}} 被引用但没有 URL",
     "pullRequestNotFound": "在此项目中找不到 PR #{{id}}",
-    "jobNotFound": "未找到任务 — 可能已被删除",
-    "loopNotFound": "未找到循环 — 可能已被删除",
-    "lookupFailed": "无法验证该引用 — 请重试"
+    "jobNotFound": "未找到任务，可能已被删除",
+    "loopNotFound": "未找到循环，可能已被删除",
+    "lookupFailed": "无法验证该引用，请重试"
   },
   "header": {
     "untitled": "未命名任务",
@@ -633,12 +633,12 @@
       "baseBranch": "基础分支"
     },
     "notes": {
-      "railMissing": "Rail {{index}} 已不存在 — 请选择其他 Rail 或新建一个。",
-      "railBusy": "Rail {{index}} 当前{{state}} — 无法在此启动。",
+      "railMissing": "Rail {{index}} 已不存在。请选择其他 Rail 或新建一个。",
+      "railBusy": "Rail {{index}} 当前{{state}}，无法在此启动。",
       "useFree": "使用 Rail {{index}}",
       "specsDropped": "已不在此项目中：{{ids}}",
-      "engineStale": "本机未检测到 {{engine}} — 将使用 {{fallback}}。",
-      "modelStale": "{{model}} 不可用 — 将使用 {{fallback}}。"
+      "engineStale": "本机未检测到 {{engine}}，将使用 {{fallback}}。",
+      "modelStale": "{{model}} 不可用，将使用 {{fallback}}。"
     },
     "block": {
       "noProject": "此任务未固定到任何项目。",
@@ -663,8 +663,8 @@
       "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改",
       "illegal_transition": "Flow 的状态已发生变化",
       "feature_unavailable": "Flow 不可用",
-      "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
-      "review_wip_limit_reached": "已达到评审上限——未启动任何任务。",
+      "daily_budget_exceeded": "已达到每日预算，未启动任何任务。",
+      "review_wip_limit_reached": "已达到评审上限，未启动任何任务。",
       "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建隔离的 worktree。"
     },
     "stub": {
@@ -679,7 +679,7 @@
       "title": "解决 PR 上的 {{count}} 条评审意见",
       "excluded": "不要改动",
       "verification": "验证",
-      "specUntouched": "不会编辑 spec 及其 Jira 描述——范围随本次运行一起传递。",
+      "specUntouched": "不会编辑 spec 及其 Jira 描述。范围随本次运行一起传递。",
       "source": {
         "pasted": "粘贴",
         "github": "来自 GitHub"
@@ -735,8 +735,8 @@
       "changes_requested": "审阅者要求修改",
       "returned": "已回到 Flow"
     },
-    "noDeliveryNote": "无 PR 阶段 — 此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
-    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交 — 不会提议 PR）。",
+    "noDeliveryNote": "无 PR 阶段：此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
+    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交，因此不会提议 PR）。",
     "failure": {
       "title": "停止原因",
       "step": "步骤 {{step}}",
@@ -748,7 +748,7 @@
       "recover": "恢复并重试",
       "relaunch": "重新启动"
     },
-    "relaunchSent": "Rail {{index}} 已重新启动 — 新卡片将跟踪此运行。",
+    "relaunchSent": "Rail {{index}} 已重新启动。新卡片将跟踪此运行。",
     "relaunchFailed": "无法重新启动该 Rail",
     "relaunchBlockedActive": "该 Rail 仍有活动的运行",
     "review": {

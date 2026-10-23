@@ -87,7 +87,7 @@
     "returned_to_flow": "Returned to Flow"
   },
   "prRecovery": {
-    "inProgress": "Project recovery is still in progress. Your delivery is safe — retry in a moment.",
+    "inProgress": "Project recovery is still in progress. Your delivery is safe. Retry in a moment.",
     "interrupted": "A previous delivery action was interrupted during restart. Your work was preserved; review the current state and retry when ready."
   },
   "modal": {

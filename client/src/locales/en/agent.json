@@ -70,7 +70,7 @@
     "hint": "↑↓ to navigate · Enter saves · Esc cancels",
     "save": "Save pending message",
     "cancel": "Cancel editing",
-    "dispatched": "That message was already delivered — your text is kept as a draft",
+    "dispatched": "That message was already delivered. Your text is kept as a draft",
     "saveFailed": "Couldn’t save the pending message"
   },
   "git": {
@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} queued",
     "delete": "Delete mission \"{{title}}\"",
     "deleteConfirm": "Delete?",
-    "deleteLiveConfirm": "Agent is working — delete anyway?",
+    "deleteLiveConfirm": "The agent is working. Delete anyway?",
     "confirmDelete": "Confirm delete",
     "cancelDelete": "Keep mission",
     "deleteFailed": "Couldn't delete the mission"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "Add \"{{title}}\" to favorites",
   "removeFavoriteConversation": "Remove \"{{title}}\" from favorites",
   "confirmShort": "confirm?",
-  "imagesUnsupported": "This provider can't read images yet — attach text files instead",
+  "imagesUnsupported": "This provider can't read images yet. Attach text files instead",
   "effort": {
     "label": "Effort",
     "minimal": "Minimal",
@@ -294,8 +294,8 @@
       "pr_ready": "PR ready for merge",
       "no_changes": "No changes needed",
       "partial": "Partially implemented",
-      "delivery_blocked": "Implementation complete — delivery needs attention",
-      "update_failed": "Implementation complete — update failed",
+      "delivery_blocked": "Implementation complete: delivery needs attention",
+      "update_failed": "Implementation complete: update failed",
       "pr_closed": "PR closed without merge",
       "superseded": "Superseded by a newer run",
       "existing_pr_updated": "Existing PR updated",
@@ -367,10 +367,10 @@
     "reopen": "Reopen",
     "createPartialPr": "Create PR with {{count}}",
     "confirmDiscard": "Confirm discard?",
-    "mergedNote": "Merged — specs moved to Done",
-    "discardedNote": "Discarded — specs returned to the backlog",
+    "mergedNote": "Merged. Specs moved to Done",
+    "discardedNote": "Discarded. Specs returned to the backlog",
     "supersededNote": "A newer implementation run replaced this card.",
-    "completedNote": "Confirmed — specs moved to Done",
+    "completedNote": "Confirmed. Specs moved to Done",
     "noChangesExisting": "No new changes were needed; the existing PR is unchanged.",
     "noChangesNote": "No code changes were needed. Mark the specs done or return them to the backlog to refine.",
     "deliveryNeedsAttention": "Implementation complete; delivery needs attention",
@@ -383,8 +383,8 @@
     "safetyArchiveHint": "Temporary workspace files were preserved outside the PR as a precaution. You can inspect or remove them manually.",
     "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
     "degraded": {
-      "pushed": "The branch was pushed but the PR could not be created — retry to finish.",
-      "localOnly": "The changes were assembled locally but not pushed — retry to publish the PR."
+      "pushed": "The branch was pushed but the PR could not be created. Retry to finish.",
+      "localOnly": "The changes were assembled locally but not pushed. Retry to publish the PR."
     },
     "alreadyResolved": "Already resolved elsewhere",
     "actionFailed": "Action failed",
@@ -468,12 +468,12 @@
     "openPullRequest": "Open PR #{{id}}",
     "openJob": "Open job {{id}}",
     "openLoop": "Open loop {{id}}",
-    "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
+    "ticketNotFound": "Spec #{{id}} not found. It may have been deleted",
     "pullRequestUrlMissing": "PR #{{id}} was referenced without a URL",
     "pullRequestNotFound": "PR #{{id}} could not be found in this project",
-    "jobNotFound": "Job not found — it may have been deleted",
-    "loopNotFound": "Loop not found — it may have been deleted",
-    "lookupFailed": "Couldn't verify the reference — try again"
+    "jobNotFound": "Job not found. It may have been deleted",
+    "loopNotFound": "Loop not found. It may have been deleted",
+    "lookupFailed": "Couldn't verify the reference. Try again"
   },
   "header": {
     "untitled": "Untitled mission",
@@ -633,12 +633,12 @@
       "baseBranch": "Base branch"
     },
     "notes": {
-      "railMissing": "Rail {{index}} no longer exists — pick another rail or create one.",
-      "railBusy": "Rail {{index}} is {{state}} — launching there is blocked.",
+      "railMissing": "Rail {{index}} no longer exists. Pick another rail or create one.",
+      "railBusy": "Rail {{index}} is {{state}}, so launching there is blocked.",
       "useFree": "Use Rail {{index}}",
       "specsDropped": "Not in this project any more: {{ids}}",
-      "engineStale": "{{engine}} is not detected on this machine — using {{fallback}}.",
-      "modelStale": "{{model}} is not available — using {{fallback}}."
+      "engineStale": "{{engine}} is not detected on this machine. Using {{fallback}}.",
+      "modelStale": "{{model}} is not available. Using {{fallback}}."
     },
     "block": {
       "noProject": "This mission is not pinned to a project.",
@@ -663,8 +663,8 @@
       "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes",
       "illegal_transition": "The Flow changed state meanwhile",
       "feature_unavailable": "Flow is not available",
-      "daily_budget_exceeded": "Daily budget reached — nothing was launched.",
-      "review_wip_limit_reached": "Review limit reached — nothing was launched.",
+      "daily_budget_exceeded": "Daily budget reached. Nothing was launched.",
+      "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
       "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree."
     },
     "stub": {
@@ -679,7 +679,7 @@
       "title": "Resolve {{count}} review comment(s) on the PR",
       "excluded": "Do not change",
       "verification": "Verify",
-      "specUntouched": "The spec and its Jira description are not edited — the scope travels with the run.",
+      "specUntouched": "The spec and its Jira description are not edited. The scope travels with the run.",
       "source": {
         "pasted": "pasted",
         "github": "from GitHub"
@@ -735,8 +735,8 @@
       "changes_requested": "The reviewer requested changes",
       "returned": "Back in Flow"
     },
-    "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
-    "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
+    "noDeliveryNote": "No PR phase: this project has no git repository or commits, so the work landed directly in the project folder.",
+    "noDeliveryHint": "Running directly in the project folder (no git repository or commits, so no PR will be proposed).",
     "failure": {
       "title": "Why it stopped",
       "step": "step {{step}}",
@@ -748,7 +748,7 @@
       "recover": "Recover & retry",
       "relaunch": "Relaunch"
     },
-    "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
+    "relaunchSent": "Rail {{index}} relaunched. A new card will follow the run.",
     "relaunchFailed": "Could not relaunch the rail",
     "relaunchBlockedActive": "The rail still has an active run",
     "review": {

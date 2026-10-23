@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} in coda",
     "delete": "Elimina missione \"{{title}}\"",
     "deleteConfirm": "Eliminare?",
-    "deleteLiveConfirm": "L'agente sta lavorando — eliminare comunque?",
+    "deleteLiveConfirm": "L'agente sta lavorando. Eliminare comunque?",
     "confirmDelete": "Conferma eliminazione",
     "cancelDelete": "Mantieni missione",
     "deleteFailed": "Impossibile eliminare la missione"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "Aggiungi «{{title}}» ai preferiti",
   "removeFavoriteConversation": "Rimuovi «{{title}}» dai preferiti",
   "confirmShort": "confermare?",
-  "imagesUnsupported": "Questo provider non legge ancora le immagini — allega file di testo",
+  "imagesUnsupported": "Questo provider non legge ancora le immagini. Allega file di testo",
   "effort": {
     "label": "Sforzo",
     "minimal": "Minimo",
@@ -279,7 +279,7 @@
     },
     "markDone": "Segna come completate",
     "refine": "Perfeziona",
-    "completedNote": "Confermato — le spec sono passate a Completate",
+    "completedNote": "Confermato. Le spec sono passate a Completate",
     "partialSummary": "{{succeeded}} di {{total}} completate; {{failed}} non riuscite",
     "unit": {
       "failed": "implementazione non riuscita",
@@ -296,8 +296,8 @@
     "title": {
       "no_changes": "Nessuna modifica necessaria",
       "partial": "Implementazione parziale",
-      "delivery_blocked": "Implementazione completa — la consegna richiede attenzione",
-      "update_failed": "Implementazione completa — aggiornamento non riuscito",
+      "delivery_blocked": "Implementazione completata: la consegna richiede attenzione",
+      "update_failed": "Implementazione completata: aggiornamento non riuscito",
       "pr_closed": "PR chiusa senza merge",
       "superseded": "Sostituita da un’esecuzione più recente",
       "existing_pr_updated": "PR esistente aggiornata",
@@ -360,8 +360,8 @@
     "verifyPr": "Verifica PR",
     "discard": "Scarta",
     "confirmDiscard": "Confermare lo scarto?",
-    "mergedNote": "Merge effettuato — le spec sono passate a Completato",
-    "discardedNote": "Scartata — le spec sono tornate nel backlog",
+    "mergedNote": "Merge effettuato. Le spec sono passate a Completate",
+    "discardedNote": "Scartata. Le spec sono tornate nel backlog",
     "implementationFailedNote": "Il run di implementazione non è riuscito prima di produrre qualcosa di consegnabile. Apri il log del run per controllare l'errore, poi scarta questa scheda prima di rilanciare.",
     "dismiss": "Chiudi follow-up",
     "discardLocalResult": "Elimina risultato locale",
@@ -403,8 +403,8 @@
       "discardLocalBody": "L’iterazione locale recuperabile verrà rimossa solo se è ancora sicuro farlo; se è cambiata, sarà conservata con un avviso. Qualsiasi PR esistente e il suo branch resteranno invariati. Un risultato rimosso non può essere recuperato."
     },
     "degraded": {
-      "pushed": "Il ramo è stato inviato ma non è stato possibile creare la PR — riprova per completare.",
-      "localOnly": "Le modifiche sono state assemblate in locale ma non inviate — riprova per pubblicare la PR."
+      "pushed": "Il branch è stato inviato ma non è stato possibile creare la PR. Riprova per completare.",
+      "localOnly": "Le modifiche sono state assemblate in locale ma non inviate. Riprova per pubblicare la PR."
     },
     "alreadyResolved": "Già risolta altrove",
     "actionFailed": "Azione non riuscita",
@@ -468,12 +468,12 @@
     "openPullRequest": "Apri PR #{{id}}",
     "openJob": "Apri il job {{id}}",
     "openLoop": "Apri loop {{id}}",
-    "ticketNotFound": "Spec #{{id}} non trovata — potrebbe essere stata eliminata",
+    "ticketNotFound": "Spec #{{id}} non trovata. Potrebbe essere stata eliminata",
     "pullRequestUrlMissing": "La PR #{{id}} è stata citata senza URL",
     "pullRequestNotFound": "La PR #{{id}} non è stata trovata in questo progetto",
-    "jobNotFound": "Job non trovato — potrebbe essere stato eliminato",
-    "loopNotFound": "Loop non trovato — potrebbe essere stato eliminato",
-    "lookupFailed": "Impossibile verificare il riferimento — riprova"
+    "jobNotFound": "Job non trovato. Potrebbe essere stato eliminato",
+    "loopNotFound": "Loop non trovato. Potrebbe essere stato eliminato",
+    "lookupFailed": "Impossibile verificare il riferimento. Riprova"
   },
   "header": {
     "untitled": "Missione senza titolo",
@@ -633,12 +633,12 @@
       "baseBranch": "Branch di base"
     },
     "notes": {
-      "railMissing": "Il Rail {{index}} non esiste più — scegli un altro rail o creane uno.",
-      "railBusy": "Il Rail {{index}} è {{state}} — il lancio lì è bloccato.",
+      "railMissing": "Il Rail {{index}} non esiste più. Scegli un altro rail o creane uno.",
+      "railBusy": "Il Rail {{index}} è {{state}}, quindi non è possibile avviarlo lì.",
       "useFree": "Usa il Rail {{index}}",
       "specsDropped": "Non più in questo progetto: {{ids}}",
-      "engineStale": "{{engine}} non è rilevato su questa macchina — verrà usato {{fallback}}.",
-      "modelStale": "{{model}} non è disponibile — verrà usato {{fallback}}."
+      "engineStale": "{{engine}} non è rilevato su questa macchina. Verrà usato {{fallback}}.",
+      "modelStale": "{{model}} non è disponibile. Verrà usato {{fallback}}."
     },
     "block": {
       "noProject": "Questa missione non è fissata a nessun progetto.",
@@ -735,8 +735,8 @@
       "changes_requested": "Il revisore ha richiesto modifiche",
       "returned": "Tornato in Flow"
     },
-    "noDeliveryNote": "Nessuna fase PR — questo progetto non ha un repository git né commit, quindi il lavoro è stato applicato direttamente nella cartella del progetto.",
-    "noDeliveryHint": "Esecuzione diretta nella cartella del progetto (nessun repository git né commit — non verrà proposta alcuna PR).",
+    "noDeliveryNote": "Nessuna fase PR: questo progetto non ha un repository git né commit, quindi il lavoro è stato applicato direttamente nella cartella del progetto.",
+    "noDeliveryHint": "Esecuzione diretta nella cartella del progetto (nessun repository git né commit, quindi non verrà proposta alcuna PR).",
     "failure": {
       "title": "Perché si è fermato",
       "step": "passo {{step}}",
@@ -748,7 +748,7 @@
       "recover": "Recupera e riprova",
       "relaunch": "Rilancia"
     },
-    "relaunchSent": "Rail {{index}} rilanciato — una nuova scheda seguirà il run.",
+    "relaunchSent": "Rail {{index}} rilanciato. Una nuova scheda seguirà il run.",
     "relaunchFailed": "Impossibile rilanciare il rail",
     "relaunchBlockedActive": "Il rail ha ancora un run attivo",
     "review": {

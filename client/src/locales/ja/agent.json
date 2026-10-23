@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} 件キュー中",
     "delete": "ミッション \"{{title}}\" を削除",
     "deleteConfirm": "削除しますか？",
-    "deleteLiveConfirm": "エージェントが作業中です — それでも削除しますか？",
+    "deleteLiveConfirm": "エージェントが作業中です。それでも削除しますか？",
     "confirmDelete": "削除を確定",
     "cancelDelete": "ミッションを残す",
     "deleteFailed": "ミッションを削除できませんでした"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "「{{title}}」をお気に入りに追加",
   "removeFavoriteConversation": "「{{title}}」をお気に入りから削除",
   "confirmShort": "削除しますか？",
-  "imagesUnsupported": "このプロバイダーはまだ画像を読み取れません — テキストファイルを添付してください",
+  "imagesUnsupported": "このプロバイダーはまだ画像を読み取れません。テキストファイルを添付してください",
   "effort": {
     "label": "エフォート",
     "minimal": "最小",
@@ -279,7 +279,7 @@
     },
     "markDone": "完了にする",
     "refine": "改善する",
-    "completedNote": "確認済み — spec を完了に移動しました",
+    "completedNote": "確認済み。spec を完了に移動しました",
     "partialSummary": "{{total}} 件中 {{succeeded}} 件完了、{{failed}} 件失敗",
     "unit": {
       "failed": "実装失敗",
@@ -296,8 +296,8 @@
     "title": {
       "no_changes": "変更は不要でした",
       "partial": "一部を実装しました",
-      "delivery_blocked": "実装完了 — 配信に対応が必要です",
-      "update_failed": "実装完了 — 更新に失敗しました",
+      "delivery_blocked": "実装完了：配信に対応が必要です",
+      "update_failed": "実装完了：更新に失敗しました",
       "pr_closed": "PR はマージされずに閉じられました",
       "superseded": "新しい実行に置き換えられました",
       "existing_pr_updated": "既存の PR を更新しました",
@@ -360,8 +360,8 @@
     "verifyPr": "PRを検証",
     "discard": "破棄",
     "confirmDiscard": "破棄しますか？",
-    "mergedNote": "マージ済み — スペックは完了に移動しました",
-    "discardedNote": "破棄済み — スペックはバックログに戻されました",
+    "mergedNote": "マージ済み。スペックを完了に移動しました",
+    "discardedNote": "破棄済み。スペックをバックログに戻しました",
     "implementationFailedNote": "実装の実行は、配信可能な成果物が生成される前に失敗しました。実行ログで失敗内容を確認し、再実行する前にこのカードを破棄してください。",
     "dismiss": "フォローアップを閉じる",
     "discardLocalResult": "ローカル結果を破棄",
@@ -403,8 +403,8 @@
       "discardLocalBody": "復旧可能なローカル反復は、安全に削除できる場合にのみ削除されます。変更されている場合は警告とともに保持されます。既存の PR とブランチは変更されません。削除された結果は復旧できません。"
     },
     "degraded": {
-      "pushed": "ブランチはプッシュされましたが、PR を作成できませんでした — 再試行して完了してください。",
-      "localOnly": "変更はローカルで組み立てられましたが、プッシュされていません — 再試行して PR を公開してください。"
+      "pushed": "ブランチはプッシュされましたが、PR を作成できませんでした。再試行して完了してください。",
+      "localOnly": "変更はローカルでまとめられましたが、プッシュされていません。再試行して PR を公開してください。"
     },
     "alreadyResolved": "すでに他の場所で解決済み",
     "actionFailed": "操作に失敗しました",
@@ -468,12 +468,12 @@
     "openPullRequest": "PR #{{id}} を開く",
     "openJob": "ジョブ {{id}} を開く",
     "openLoop": "ループ {{id}} を開く",
-    "ticketNotFound": "スペック #{{id}} が見つかりません — 削除された可能性があります",
+    "ticketNotFound": "スペック #{{id}} が見つかりません。削除された可能性があります",
     "pullRequestUrlMissing": "PR #{{id}} は URL なしで参照されました",
     "pullRequestNotFound": "このプロジェクトで PR #{{id}} が見つかりません",
-    "jobNotFound": "ジョブが見つかりません — 削除された可能性があります",
-    "loopNotFound": "ループが見つかりません — 削除された可能性があります",
-    "lookupFailed": "参照を確認できませんでした — もう一度お試しください"
+    "jobNotFound": "ジョブが見つかりません。削除された可能性があります",
+    "loopNotFound": "ループが見つかりません。削除された可能性があります",
+    "lookupFailed": "参照を確認できませんでした。もう一度お試しください"
   },
   "header": {
     "untitled": "無題のミッション",
@@ -633,12 +633,12 @@
       "baseBranch": "ベースブランチ"
     },
     "notes": {
-      "railMissing": "レール {{index}} はもう存在しません — 別のレールを選ぶか、新しく作成してください。",
-      "railBusy": "レール {{index}} は{{state}}です — ここでは起動できません。",
+      "railMissing": "レール {{index}} はもう存在しません。別のレールを選ぶか、新しく作成してください。",
+      "railBusy": "レール {{index}} は{{state}}のため、ここでは起動できません。",
       "useFree": "レール {{index}} を使う",
       "specsDropped": "このプロジェクトに存在しません: {{ids}}",
-      "engineStale": "このマシンで {{engine}} が検出されません — {{fallback}} を使用します。",
-      "modelStale": "{{model}} は利用できません — {{fallback}} を使用します。"
+      "engineStale": "このマシンで {{engine}} が検出されません。{{fallback}} を使用します。",
+      "modelStale": "{{model}} は利用できません。{{fallback}} を使用します。"
     },
     "block": {
       "noProject": "このミッションはプロジェクトに固定されていません。",
@@ -663,8 +663,8 @@
       "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました",
       "illegal_transition": "その間に Flow の状態が変わりました",
       "feature_unavailable": "Flow は利用できません",
-      "daily_budget_exceeded": "1日の予算に達しました — 何も起動していません。",
-      "review_wip_limit_reached": "レビュー上限に達しました — 何も起動していません。",
+      "daily_budget_exceeded": "1日の予算に達しました。何も起動していません。",
+      "review_wip_limit_reached": "レビュー上限に達しました。何も起動していません。",
       "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
     },
     "stub": {
@@ -735,7 +735,7 @@
       "changes_requested": "レビュアーが変更を依頼しました",
       "returned": "Flow に戻りました"
     },
-    "noDeliveryNote": "PR フェーズなし — このプロジェクトには git リポジトリもコミットもないため、作業はプロジェクトフォルダーに直接反映されました。",
+    "noDeliveryNote": "PR フェーズなし：このプロジェクトには git リポジトリもコミットもないため、作業はプロジェクトフォルダーに直接反映されました。",
     "noDeliveryHint": "プロジェクトフォルダーで直接実行しています（git リポジトリもコミットもないため、PR は提案されません）。",
     "failure": {
       "title": "停止した理由",
@@ -748,7 +748,7 @@
       "recover": "復旧して再試行",
       "relaunch": "再起動"
     },
-    "relaunchSent": "レール {{index}} を再起動しました — 新しいカードが実行を追跡します。",
+    "relaunchSent": "レール {{index}} を再起動しました。新しいカードが実行を追跡します。",
     "relaunchFailed": "レールを再起動できませんでした",
     "relaunchBlockedActive": "レールにはまだ実行中の処理があります",
     "review": {

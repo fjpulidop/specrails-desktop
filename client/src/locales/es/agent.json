@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} en cola",
     "delete": "Eliminar misión \"{{title}}\"",
     "deleteConfirm": "¿Eliminar?",
-    "deleteLiveConfirm": "El agente está trabajando — ¿eliminar igualmente?",
+    "deleteLiveConfirm": "El agente está trabajando. ¿Eliminar igualmente?",
     "confirmDelete": "Confirmar eliminación",
     "cancelDelete": "Conservar misión",
     "deleteFailed": "No se pudo eliminar la misión"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "Añadir «{{title}}» a favoritas",
   "removeFavoriteConversation": "Quitar «{{title}}» de favoritas",
   "confirmShort": "¿confirmar?",
-  "imagesUnsupported": "Este proveedor aún no lee imágenes — adjunta archivos de texto",
+  "imagesUnsupported": "Este proveedor aún no lee imágenes. Adjunta archivos de texto",
   "effort": {
     "label": "Esfuerzo",
     "minimal": "Mínimo",
@@ -294,8 +294,8 @@
       "pr_ready": "PR lista para el merge",
       "no_changes": "No hacían falta cambios",
       "partial": "Implementación parcial",
-      "delivery_blocked": "Implementación completa — la entrega requiere atención",
-      "update_failed": "Implementación completa — falló la actualización",
+      "delivery_blocked": "Implementación completa: la entrega requiere atención",
+      "update_failed": "Implementación completa: falló la actualización",
       "pr_closed": "PR cerrada sin merge",
       "superseded": "Sustituida por una ejecución más reciente",
       "existing_pr_updated": "PR existente actualizada",
@@ -367,10 +367,10 @@
     "reopen": "Reabrir",
     "createPartialPr": "Crear PR con {{count}}",
     "confirmDiscard": "¿Confirmar descarte?",
-    "mergedNote": "Merge completado — las specs han pasado a Hecho",
-    "discardedNote": "Descartada — las specs han vuelto al backlog",
+    "mergedNote": "Merge completado. Las specs han pasado a Hecho",
+    "discardedNote": "Descartada. Las specs han vuelto al backlog",
     "supersededNote": "Una ejecución de implementación más reciente sustituyó esta tarjeta.",
-    "completedNote": "Confirmado — las specs han pasado a Hecho",
+    "completedNote": "Confirmado. Las specs han pasado a Hecho",
     "noChangesExisting": "No hacían falta cambios nuevos; la PR existente no se ha modificado.",
     "noChangesNote": "No hacían falta cambios de código. Marca las specs como hechas o devuélvelas al backlog para refinarlas.",
     "deliveryNeedsAttention": "Implementación completa; la entrega requiere atención",
@@ -383,8 +383,8 @@
     "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
     "implementationFailedNote": "El run de implementación falló antes de generar algo entregable. Abre el log del run para revisar el fallo y descarta esta card antes de relanzar.",
     "degraded": {
-      "pushed": "La rama se subió pero no se pudo crear la PR — reintenta para terminar.",
-      "localOnly": "Los cambios se ensamblaron en local pero no se subieron — reintenta para publicar la PR."
+      "pushed": "La rama se subió pero no se pudo crear la PR. Reintenta para terminar.",
+      "localOnly": "Los cambios se ensamblaron en local pero no se subieron. Reintenta para publicar la PR."
     },
     "alreadyResolved": "Ya resuelta en otro sitio",
     "actionFailed": "La acción falló",
@@ -468,12 +468,12 @@
     "openPullRequest": "Abrir PR #{{id}}",
     "openJob": "Abrir job {{id}}",
     "openLoop": "Abrir loop {{id}}",
-    "ticketNotFound": "Spec #{{id}} no encontrada — puede haber sido eliminada",
+    "ticketNotFound": "Spec #{{id}} no encontrada. Puede haber sido eliminada",
     "pullRequestUrlMissing": "La PR #{{id}} se mencionó sin URL",
     "pullRequestNotFound": "No se pudo encontrar la PR #{{id}} en este proyecto",
-    "jobNotFound": "Job no encontrado — puede haber sido eliminado",
-    "loopNotFound": "Loop no encontrado — puede haber sido eliminado",
-    "lookupFailed": "No se pudo verificar la referencia — inténtalo de nuevo"
+    "jobNotFound": "Job no encontrado. Puede haber sido eliminado",
+    "loopNotFound": "Loop no encontrado. Puede haber sido eliminado",
+    "lookupFailed": "No se pudo verificar la referencia. Inténtalo de nuevo"
   },
   "header": {
     "untitled": "Misión sin título",
@@ -633,12 +633,12 @@
       "baseBranch": "Rama base"
     },
     "notes": {
-      "railMissing": "El Rail {{index}} ya no existe — elige otro rail o crea uno.",
-      "railBusy": "El Rail {{index}} está {{state}} — no se puede lanzar ahí.",
+      "railMissing": "El Rail {{index}} ya no existe. Elige otro rail o crea uno.",
+      "railBusy": "El Rail {{index}} está {{state}}, así que no se puede lanzar ahí.",
       "useFree": "Usar el Rail {{index}}",
       "specsDropped": "Ya no están en este proyecto: {{ids}}",
-      "engineStale": "{{engine}} no se detecta en este equipo — se usará {{fallback}}.",
-      "modelStale": "{{model}} no está disponible — se usará {{fallback}}."
+      "engineStale": "{{engine}} no se detecta en este equipo. Se usará {{fallback}}.",
+      "modelStale": "{{model}} no está disponible. Se usará {{fallback}}."
     },
     "block": {
       "noProject": "Esta misión no está fijada a ningún proyecto.",
@@ -735,8 +735,8 @@
       "changes_requested": "El revisor solicitó cambios",
       "returned": "De vuelta en Flow"
     },
-    "noDeliveryNote": "Sin fase de PR — este proyecto no tiene repositorio git ni commits, así que el trabajo se ha aplicado directamente en la carpeta del proyecto.",
-    "noDeliveryHint": "Ejecutando directamente en la carpeta del proyecto (sin repositorio git ni commits — no se propondrá ninguna PR).",
+    "noDeliveryNote": "Sin fase de PR: este proyecto no tiene repositorio git ni commits, así que el trabajo se ha aplicado directamente en la carpeta del proyecto.",
+    "noDeliveryHint": "Ejecutando directamente en la carpeta del proyecto (sin repositorio git ni commits, así que no se propondrá ninguna PR).",
     "failure": {
       "title": "Por qué se detuvo",
       "step": "paso {{step}}",
@@ -748,7 +748,7 @@
       "recover": "Recuperar y reintentar",
       "relaunch": "Relanzar"
     },
-    "relaunchSent": "Rail {{index}} relanzado — una nueva tarjeta seguirá el run.",
+    "relaunchSent": "Rail {{index}} relanzado. Una nueva tarjeta seguirá el run.",
     "relaunchFailed": "No se pudo relanzar el rail",
     "relaunchBlockedActive": "El rail todavía tiene un run activo",
     "review": {

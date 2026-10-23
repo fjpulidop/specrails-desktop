@@ -87,7 +87,7 @@
     "returned_to_flow": "An Flow zurückgegeben"
   },
   "prRecovery": {
-    "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher – versuche es gleich noch einmal.",
+    "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher. Versuche es gleich noch einmal.",
     "interrupted": "Eine frühere Lieferaktion wurde beim Neustart unterbrochen. Deine Arbeit wurde erhalten; prüfe den aktuellen Stand und versuche es erneut, wenn du bereit bist."
   },
   "modal": {

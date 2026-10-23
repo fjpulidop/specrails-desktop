@@ -1524,7 +1524,7 @@ describe('AgentComposer queue-edit mode', () => {
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     inputEditor(box, 'edited too late')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
-    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered. Your text is kept as a draft')
     expect(editorText(box)).toBe('edited too late') // NOTHING lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
@@ -1547,7 +1547,7 @@ describe('AgentComposer queue-edit mode', () => {
     await act(async () => {
       wsHandler!({ type: 'agent_dequeued', conversationId: 'c1', queueId: queueIdOf(1), text: 'about to go' })
     })
-    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered. Your text is kept as a draft')
     expect(editorText(box)).toBe('dirty edit in progress') // nothing lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
@@ -1564,7 +1564,7 @@ describe('AgentComposer queue-edit mode', () => {
     expect(editorText(box)).toBe('dirty correction')
     expect(agentApi.editQueuedAgentMessage).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Stop')).toBeInTheDocument()
-    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered. Your text is kept as a draft')
   })
 
   it('queue cleared (Stop) while editing pristine exits silently and restores the stashed draft', async () => {

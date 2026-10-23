@@ -361,8 +361,8 @@ describe('AgentPrDecisionCard states', () => {
     // A labelled, focusable region ("Open card" target) — never a live region itself.
     expect(card).toHaveAttribute('role', 'region')
     expect(card).not.toHaveAttribute('aria-live')
-    expect(screen.getByRole('status', { name: 'Implementation complete — delivery needs attention' })).toBeInTheDocument()
-    expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Implementation complete: delivery needs attention' })).toBeInTheDocument()
+    expect(screen.getByText('Implementation complete: delivery needs attention')).toBeInTheDocument()
     expect(screen.getByText(/^Implementation succeeded, but delivery is blocked/)).toBeInTheDocument()
     expect(screen.getByText('pre-commit hook rejected the commit')).toBeInTheDocument()
     expect(screen.getByTestId('agent-pr-status-code')).toHaveTextContent('Commit step failed')
@@ -537,7 +537,7 @@ describe('AgentPrDecisionCard states', () => {
         { ticketId: 7, branch: 'feat/7', succeeded: false, implementationOutcome: 'failed', deliveryOutcome: 'not_started', initialSha: null, finalSha: null },
       ],
     })} />)
-    expect(screen.getByText('Implementation complete — delivery needs attention')).toBeInTheDocument()
+    expect(screen.getByText('Implementation complete: delivery needs attention')).toBeInTheDocument()
     expect(screen.getByText(/Part of the implementation succeeded, but nothing is safely deliverable yet/)).toBeInTheDocument()
     expect(screen.queryByText(/^Implementation succeeded, but delivery is blocked/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Create/ })).not.toBeInTheDocument()
@@ -558,7 +558,7 @@ describe('AgentPrDecisionCard states', () => {
       decision: 'completed', implementationOutcome: 'succeeded', deliveryOutcome: 'no_changes',
     })} />)
     expect(screen.getByText('No changes needed')).toBeInTheDocument()
-    expect(screen.getByText('Confirmed — specs moved to Done')).toBeInTheDocument()
+    expect(screen.getByText('Confirmed. Specs moved to Done')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mark done' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Refine' })).not.toBeInTheDocument()
   })
@@ -568,7 +568,7 @@ describe('AgentPrDecisionCard states', () => {
       decision: 'pr_failed', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created',
       implementationOutcome: 'succeeded', deliveryOutcome: 'retryable_failure', statusCode: 'push_failed', isContinuation: true,
     })} />)
-    expect(screen.getByText('Implementation complete — update failed')).toBeInTheDocument()
+    expect(screen.getByText('Implementation complete: update failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
     retryable.unmount()
@@ -588,7 +588,7 @@ describe('AgentPrDecisionCard states', () => {
 
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dismiss follow-up' })).toBeInTheDocument()
-    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete: delivery needs attention')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Discard local result' })).not.toBeInTheDocument()
   })
 
@@ -600,7 +600,7 @@ describe('AgentPrDecisionCard states', () => {
 
     expect(screen.getByText('Implementation failed')).toBeInTheDocument()
     expect(screen.getByText(/implementation run failed/)).toBeInTheDocument()
-    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete: delivery needs attention')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry push' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
   })
@@ -614,7 +614,7 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByRole('button', { name: 'Integrate locally' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry push' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete: delivery needs attention')).not.toBeInTheDocument()
     draft.unmount()
 
     render(<AgentPrDecisionCard envelope={env({
@@ -625,7 +625,7 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByRole('button', { name: 'Integrate locally' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry push' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Implementation complete — delivery needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('Implementation complete: delivery needs attention')).not.toBeInTheDocument()
   })
 
   it('renders the durable operation lease and disables every competing action', () => {
@@ -658,13 +658,13 @@ describe('AgentPrDecisionCard states', () => {
 
   it('merged: static success note, no action buttons', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'merged', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created' })} />)
-    expect(screen.getByText('Merged — specs moved to Done')).toBeInTheDocument()
+    expect(screen.getByText('Merged. Specs moved to Done')).toBeInTheDocument()
     expect(nonChipButtons()).toHaveLength(0)
   })
 
   it('discarded: static muted note, no action buttons', () => {
     render(<AgentPrDecisionCard envelope={env({ decision: 'discarded' })} />)
-    expect(screen.getByText('Discarded — specs returned to the backlog')).toBeInTheDocument()
+    expect(screen.getByText('Discarded. Specs returned to the backlog')).toBeInTheDocument()
     expect(nonChipButtons()).toHaveLength(0)
   })
 
@@ -761,7 +761,7 @@ describe('AgentPrDecisionCard actions', () => {
     await act(async () => { fireEvent.click(create) })
 
     await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith(
-      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+      'Project recovery is still in progress. Your delivery is safe. Retry in a moment.',
     ))
     expect(vi.mocked(toast.info)).not.toHaveBeenCalledWith('Already resolved elsewhere')
     expect(vi.mocked(toast.warning)).not.toHaveBeenCalled()
@@ -779,7 +779,7 @@ describe('AgentPrDecisionCard actions', () => {
     await act(async () => { fireEvent.click(checkout) })
 
     await waitFor(() => expect(vi.mocked(toast.info)).toHaveBeenCalledWith(
-      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+      'Project recovery is still in progress. Your delivery is safe. Retry in a moment.',
     ))
     expect(vi.mocked(toast.warning)).not.toHaveBeenCalled()
     expect(vi.mocked(toast.error)).not.toHaveBeenCalled()
@@ -1015,7 +1015,7 @@ describe('AgentPrDecisionCard actions', () => {
     })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env()} />)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create PR' })) })
-    await waitFor(() => expect(screen.getByText('Implementation complete — update failed')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Implementation complete: update failed')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Retry push' })).toBeInTheDocument()
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Implementation complete; delivery needs attention', { description: 'remote temporarily unavailable' })
   })

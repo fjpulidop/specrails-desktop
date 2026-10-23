@@ -222,7 +222,7 @@ describe('AgentMissionSelector', () => {
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c2', delta: 'working…' }) })
     openDropdown()
     fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Agent is working — delete anyway?')
+    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('The agent is working. Delete anyway?')
     await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
     expect(agentApi.deleteAgentConversation).toHaveBeenCalledWith('c2')
   })

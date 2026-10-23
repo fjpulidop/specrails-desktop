@@ -188,7 +188,7 @@
     "queuedBadge": "{{n}} en file",
     "delete": "Supprimer la mission \"{{title}}\"",
     "deleteConfirm": "Supprimer ?",
-    "deleteLiveConfirm": "L'agent travaille — supprimer quand même ?",
+    "deleteLiveConfirm": "L'agent travaille. Supprimer quand même ?",
     "confirmDelete": "Confirmer la suppression",
     "cancelDelete": "Garder la mission",
     "deleteFailed": "Impossible de supprimer la mission"
@@ -253,7 +253,7 @@
   "addFavoriteConversation": "Ajouter « {{title}} » aux favorites",
   "removeFavoriteConversation": "Retirer « {{title}} » des favorites",
   "confirmShort": "confirmer ?",
-  "imagesUnsupported": "Ce fournisseur ne lit pas encore les images — joignez plutôt des fichiers texte",
+  "imagesUnsupported": "Ce fournisseur ne lit pas encore les images. Joignez plutôt des fichiers texte",
   "effort": {
     "label": "Effort",
     "minimal": "Minimal",
@@ -279,7 +279,7 @@
     },
     "markDone": "Marquer comme terminées",
     "refine": "Affiner",
-    "completedNote": "Confirmé — les specs sont passées à Terminé",
+    "completedNote": "Confirmé. Les specs sont passées à Terminé",
     "partialSummary": "{{succeeded}} sur {{total}} terminées ; {{failed}} en échec",
     "unit": {
       "failed": "échec de l’implémentation",
@@ -296,8 +296,8 @@
     "title": {
       "no_changes": "Aucune modification nécessaire",
       "partial": "Implémentation partielle",
-      "delivery_blocked": "Implémentation terminée — la livraison requiert votre attention",
-      "update_failed": "Implémentation terminée — échec de la mise à jour",
+      "delivery_blocked": "Implémentation terminée : la livraison requiert votre attention",
+      "update_failed": "Implémentation terminée : échec de la mise à jour",
       "pr_closed": "PR fermée sans fusion",
       "superseded": "Remplacée par une exécution plus récente",
       "existing_pr_updated": "PR existante mise à jour",
@@ -360,8 +360,8 @@
     "verifyPr": "Vérifier la PR",
     "discard": "Abandonner",
     "confirmDiscard": "Confirmer l'abandon ?",
-    "mergedNote": "Fusionnée — specs passées en Terminé",
-    "discardedNote": "Abandonnée — specs renvoyées vers le backlog",
+    "mergedNote": "Fusionnée. Les specs sont passées à Terminé",
+    "discardedNote": "Abandonnée. Les specs sont revenues dans le backlog",
     "implementationFailedNote": "Le run d’implémentation a échoué avant de produire quelque chose de livrable. Ouvrez le journal du run pour inspecter l’échec, puis abandonnez cette carte avant de relancer.",
     "dismiss": "Fermer le suivi",
     "discardLocalResult": "Supprimer le résultat local",
@@ -403,8 +403,8 @@
       "discardLocalBody": "L’itération locale récupérable ne sera supprimée que si cela reste sans risque ; si elle a changé, elle sera conservée avec un avertissement. Toute PR existante et sa branche resteront inchangées. Un résultat supprimé ne peut pas être récupéré."
     },
     "degraded": {
-      "pushed": "La branche a été poussée mais la PR n'a pas pu être créée — réessayez pour terminer.",
-      "localOnly": "Les modifications ont été assemblées en local mais pas poussées — réessayez pour publier la PR."
+      "pushed": "La branche a été poussée mais la PR n'a pas pu être créée. Réessayez pour terminer.",
+      "localOnly": "Les modifications ont été assemblées en local mais pas poussées. Réessayez pour publier la PR."
     },
     "alreadyResolved": "Déjà résolue ailleurs",
     "actionFailed": "L'action a échoué",
@@ -468,12 +468,12 @@
     "openPullRequest": "Ouvrir la PR #{{id}}",
     "openJob": "Ouvrir le job {{id}}",
     "openLoop": "Ouvrir la boucle {{id}}",
-    "ticketNotFound": "Spec #{{id}} introuvable — elle a peut-être été supprimée",
+    "ticketNotFound": "Spec #{{id}} introuvable. Elle a peut-être été supprimée",
     "pullRequestUrlMissing": "La PR #{{id}} est mentionnée sans URL",
     "pullRequestNotFound": "PR #{{id}} introuvable dans ce projet",
-    "jobNotFound": "Job introuvable — il a peut-être été supprimé",
-    "loopNotFound": "Boucle introuvable — elle a peut-être été supprimée",
-    "lookupFailed": "Impossible de vérifier la référence — réessayez"
+    "jobNotFound": "Job introuvable. Il a peut-être été supprimé",
+    "loopNotFound": "Boucle introuvable. Elle a peut-être été supprimée",
+    "lookupFailed": "Impossible de vérifier la référence. Réessayez"
   },
   "header": {
     "untitled": "Mission sans titre",
@@ -633,12 +633,12 @@
       "baseBranch": "Branche de base"
     },
     "notes": {
-      "railMissing": "Le Rail {{index}} n’existe plus — choisissez un autre rail ou créez-en un.",
-      "railBusy": "Le Rail {{index}} est {{state}} — impossible de lancer ici.",
+      "railMissing": "Le Rail {{index}} n’existe plus. Choisissez un autre rail ou créez-en un.",
+      "railBusy": "Le Rail {{index}} est {{state}} : impossible d’y lancer quoi que ce soit.",
       "useFree": "Utiliser le Rail {{index}}",
       "specsDropped": "Ne font plus partie de ce projet : {{ids}}",
-      "engineStale": "{{engine}} n’est pas détecté sur cette machine — {{fallback}} sera utilisé.",
-      "modelStale": "{{model}} n’est pas disponible — {{fallback}} sera utilisé."
+      "engineStale": "{{engine}} n’est pas détecté sur cette machine. {{fallback}} sera utilisé.",
+      "modelStale": "{{model}} n’est pas disponible. {{fallback}} sera utilisé."
     },
     "block": {
       "noProject": "Cette mission n’est épinglée à aucun projet.",
@@ -735,8 +735,8 @@
       "changes_requested": "Le relecteur a demandé des modifications",
       "returned": "Revenu dans Flow"
     },
-    "noDeliveryNote": "Pas de phase PR — ce projet n’a ni dépôt git ni commits, le travail a donc été appliqué directement dans le dossier du projet.",
-    "noDeliveryHint": "Exécution directe dans le dossier du projet (pas de dépôt git ni de commits — aucune PR ne sera proposée).",
+    "noDeliveryNote": "Pas de phase PR : ce projet n’a ni dépôt git ni commits, le travail a donc été appliqué directement dans le dossier du projet.",
+    "noDeliveryHint": "Exécution directe dans le dossier du projet (pas de dépôt git ni de commits, donc aucune PR ne sera proposée).",
     "failure": {
       "title": "Pourquoi ça s’est arrêté",
       "step": "étape {{step}}",
@@ -748,7 +748,7 @@
       "recover": "Récupérer et réessayer",
       "relaunch": "Relancer"
     },
-    "relaunchSent": "Rail {{index}} relancé — une nouvelle carte suivra le run.",
+    "relaunchSent": "Rail {{index}} relancé. Une nouvelle carte suivra le run.",
     "relaunchFailed": "Impossible de relancer le rail",
     "relaunchBlockedActive": "Le rail a encore un run actif",
     "review": {

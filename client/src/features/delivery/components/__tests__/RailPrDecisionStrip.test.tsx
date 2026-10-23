@@ -303,7 +303,7 @@ describe('RailPrDecisionStrip interactions', () => {
     fireEvent.click(create)
 
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith(
-      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+      'Project recovery is still in progress. Your delivery is safe. Retry in a moment.',
     ))
     expect(mockToast.info).not.toHaveBeenCalledWith('Already resolved elsewhere')
     expect(mockToast.warning).not.toHaveBeenCalled()
@@ -398,7 +398,7 @@ describe('RailPrDecisionStrip interactions', () => {
     fireEvent.click(button)
 
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith(
-      'Project recovery is still in progress. Your delivery is safe — retry in a moment.',
+      'Project recovery is still in progress. Your delivery is safe. Retry in a moment.',
     ))
     expect(mockToast.warning).not.toHaveBeenCalled()
     expect(button).toBeEnabled()
