@@ -702,7 +702,11 @@
       "retry": "読み込みを再試行",
       "checkScope": "実行前にリポジトリの選択を確認してください。"
     },
-    "triageLabel": "トリアージ"
+    "triageLabel": "トリアージ",
+    "handOff": {
+      "newRail": "新しいレール",
+      "changeHow": "方法を変更"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "この Flow をレビュー済みの PR にする",
-      "rationale": "レールが Flow の worktree を引き継ぎ、spec を導出して検証とレビューを実行します。",
       "loop": "Flow → Spec",
       "launch": "起動",
       "notYet": "まだ",
-      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。下で変更できます。",
+      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。",
       "cost": "ここまで {{cost}}",
       "costUnknown": "請求済みコストはまだありません",
-      "safetyNet": "レールが失敗しても、作業をそのままにこの Flow に戻ります。"
+      "line_one": "{{rail}} が変更した 1 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
+      "line_other": "{{rail}} が変更した {{count}} 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
+      "lineNoCount": "{{rail}} が変更内容をレビュー済みの PR にします。失敗しても作業は失われません。"
     },
     "review": {
       "backToFlow": "Flow に戻る",

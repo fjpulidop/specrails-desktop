@@ -702,7 +702,11 @@
       "retry": "Retry loading",
       "checkScope": "Review the repository selection before launching."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "A new rail",
+      "changeHow": "Change how"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "Turn this Flow into a reviewed PR",
-      "rationale": "A rail takes over the Flow worktree, derives the spec and runs verification and review.",
       "loop": "Flow → Spec",
       "launch": "Launch",
       "notYet": "Not yet",
-      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail default engine is selected. You can change it below.",
+      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail's default engine is selected.",
       "cost": "{{cost}} so far",
       "costUnknown": "no billed cost yet",
-      "safetyNet": "If the rail fails, you return to this Flow with your work intact."
+      "line_one": "{{rail}} will turn your changed file into a reviewed PR. If it fails, your work is safe.",
+      "line_other": "{{rail}} will turn your {{count}} changed files into a reviewed PR. If it fails, your work is safe.",
+      "lineNoCount": "{{rail}} will turn your changes into a reviewed PR. If it fails, your work is safe."
     },
     "review": {
       "backToFlow": "Back to Flow",

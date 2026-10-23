@@ -78,7 +78,7 @@ describe('Flow → Spec hand-off engine default', () => {
   it('preselects the Codex conversation\'s engine and launches with its aiEngine/model/effort', async () => {
     const card = await openHandOff()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
-    expect(screen.queryByTestId('flow-hand-off-engine-note')).toBeNull()
+    expect(screen.queryByTestId('rail-card-hand-off-note')).toBeNull()
     expect(card).not.toHaveTextContent('Claude Code')
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))
@@ -88,7 +88,11 @@ describe('Flow → Spec hand-off engine default', () => {
   it('falls back to the rail default with a note when the conversation\'s provider cannot run here', async () => {
     machine.detected = ['claude']
     await openHandOff()
-    expect(await screen.findByTestId('flow-hand-off-engine-note')).toHaveTextContent("Codex can't run Flow → Spec on this machine")
+    // The fallback only matters when changing how: it sits inside "Change how".
+    const note = await screen.findByTestId('rail-card-hand-off-note')
+    expect(note).toHaveTextContent("Codex can't run Flow → Spec on this machine")
+    expect(note.closest('[data-testid="rail-card-hand-off-settings"]')).not.toBeNull()
+    expect(screen.getByTestId('rail-card-hand-off-line')).not.toHaveTextContent('Codex')
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))

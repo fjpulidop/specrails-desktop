@@ -702,7 +702,11 @@
       "retry": "重新加载",
       "checkScope": "运行前请检查仓库选择。"
     },
-    "triageLabel": "分诊"
+    "triageLabel": "分诊",
+    "handOff": {
+      "newRail": "新建的 Rail",
+      "changeHow": "更改方式"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "把这个 Flow 变成经过评审的 PR",
-      "rationale": "由轨道接管 Flow 的 worktree，推导 spec，并运行验证和审查。",
       "loop": "Flow → Spec",
       "launch": "启动",
       "notYet": "暂不",
-      "engineFallback": "{{provider}} 无法在此设备上运行 Flow → Spec，因此已选择该 rail 的默认引擎。你可以在下方更改。",
+      "engineFallback": "{{provider}} 无法在此设备上运行 Flow → Spec，因此已选择该 Rail 的默认引擎。",
       "cost": "目前 {{cost}}",
       "costUnknown": "尚无计费成本",
-      "safetyNet": "如果轨道失败，你会带着完好的工作回到此 Flow。"
+      "line_one": "{{rail}} 会把你更改的 1 个文件变成经过评审的 PR。即使失败，你的工作也不会丢失。",
+      "line_other": "{{rail}} 会把你更改的 {{count}} 个文件变成经过评审的 PR。即使失败，你的工作也不会丢失。",
+      "lineNoCount": "{{rail}} 会把你的更改变成经过评审的 PR。即使失败，你的工作也不会丢失。"
     },
     "review": {
       "backToFlow": "回到 Flow",

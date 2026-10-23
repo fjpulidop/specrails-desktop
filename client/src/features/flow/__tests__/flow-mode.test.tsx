@@ -446,12 +446,22 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
     const card = within(screen.getByTestId('mission-run-strip-panel')).getByTestId('flow-hand-off-card')
     expect(screen.queryByTestId('flow-bar-this-is-it')).toBeNull()
-    // The milestone recap: what goes to the rail, its cost, and the safety net — inside the panel.
+    // ONE confirmation line: which rail, how many files, and the safety net.
+    await waitFor(() => expect(within(card).getByTestId('rail-card-hand-off-line')).toHaveTextContent(
+      'Rail 2 will turn your 3 changed files into a reviewed PR. If it fails, your work is safe.',
+    ))
+    expect(within(card).getByRole('group', { name: 'Turn this Flow into a reviewed PR' })).toBeInTheDocument()
+    // How (rail, engine, model, effort) waits under "Change how", prefilled; no loop selector at all.
+    const how = within(card).getByTestId('rail-card-hand-off-how')
+    expect(how).toHaveAttribute('aria-expanded', 'false')
+    expect(within(card).getByTestId('rail-card-hand-off-settings')).not.toBeVisible()
+    expect(screen.queryByTestId('rail-card-loop')).toBeNull()
+    fireEvent.click(how)
+    expect(how).toHaveAttribute('aria-expanded', 'true')
+    expect(within(card).getByTestId('rail-card-hand-off-settings')).toBeVisible()
+    expect(within(card).getByTestId('rail-card-rail')).toBeInTheDocument()
+    // What the Flow changed and cost so far lives there too.
     await waitFor(() => expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('3 files +10 −2 · $0.420 so far'))
-    expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('If the rail fails, you return to this Flow with your work intact.')
-    expect(card).toHaveTextContent('Turn this Flow into a reviewed PR')
-    expect(card).toHaveTextContent('Flow → Spec')
-    expect(card).toHaveTextContent('#7')
     expect(screen.queryByTestId('rail-card-repositories')).toBeNull()
     expect(screen.queryByTestId('rail-card-target-pr')).toBeNull()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())

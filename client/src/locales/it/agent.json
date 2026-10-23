@@ -702,7 +702,11 @@
       "retry": "Riprova il caricamento",
       "checkScope": "Controlla la selezione dei repository prima di avviare."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "Un nuovo rail",
+      "changeHow": "Cambia come"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "Trasforma questo Flow in una PR revisionata",
-      "rationale": "Un rail prende in carico il worktree del Flow, deriva la spec ed esegue verifica e revisione.",
       "loop": "Flow → Spec",
       "launch": "Lancia",
       "notYet": "Non ancora",
-      "engineFallback": "{{provider}} non può eseguire Flow → Spec su questa macchina, quindi è selezionato il motore predefinito del rail. Puoi cambiarlo qui sotto.",
+      "engineFallback": "{{provider}} non può eseguire Flow → Spec su questo computer, quindi è selezionato il motore predefinito del rail.",
       "cost": "{{cost}} finora",
       "costUnknown": "ancora nessun costo fatturato",
-      "safetyNet": "Se il rail fallisce, torni a questo Flow con il tuo lavoro intatto."
+      "line_one": "{{rail}} trasformerà il tuo file modificato in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.",
+      "line_other": "{{rail}} trasformerà i tuoi {{count}} file modificati in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.",
+      "lineNoCount": "{{rail}} trasformerà le tue modifiche in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro."
     },
     "review": {
       "backToFlow": "Torna in Flow",

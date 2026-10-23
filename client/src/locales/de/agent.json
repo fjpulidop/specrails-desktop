@@ -702,7 +702,11 @@
       "retry": "Laden erneut versuchen",
       "checkScope": "Prüfen Sie die Repository-Auswahl vor dem Start."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "Ein neuer Rail",
+      "changeHow": "Wie ändern"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "Mach aus diesem Flow einen geprüften PR",
-      "rationale": "Eine Rail übernimmt den Flow-Worktree, leitet die Spec ab und führt Verifikation und Review aus.",
       "loop": "Flow → Spec",
       "launch": "Starten",
       "notYet": "Noch nicht",
-      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, daher ist die Standard-Engine der Rail ausgewählt. Du kannst sie unten ändern.",
+      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, deshalb ist die Standard-Engine des Rails gewählt.",
       "cost": "bisher {{cost}}",
       "costUnknown": "noch keine abgerechneten Kosten",
-      "safetyNet": "Scheitert die Rail, kehrst du mit unversehrter Arbeit in diesen Flow zurück."
+      "line_one": "{{rail}} macht aus deiner geänderten Datei einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.",
+      "line_other": "{{rail}} macht aus deinen {{count}} geänderten Dateien einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.",
+      "lineNoCount": "{{rail}} macht aus deinen Änderungen einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten."
     },
     "review": {
       "backToFlow": "Zurück zu Flow",

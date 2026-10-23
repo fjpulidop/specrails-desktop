@@ -12,12 +12,12 @@
 // glass surface, header row with rail + `#` chips + status pill, muted rationale,
 // motion enter, reduced-motion safe, `data-agent-interactive` on every control.
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FollowUpProposal } from '../../rails/lib/rail-launch-draft'
 import { motion, useReducedMotion } from 'motion/react'
 import {
-  Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles,
+  Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles, ChevronRight,
   AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText, Pencil, RefreshCw,
 } from 'lucide-react'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
@@ -152,9 +152,16 @@ export type RailHandOffOutcome =
  * final dismissal.
  */
 export interface RailLaunchHandOff {
-  /** The only loop offered (preselected). */
+  /** The only loop (fixed: no selector is shown). */
   loop: { id: string; label: string }
+  /** What the hand-off is (the region's accessible name). */
   heading: string
+  /** The ONE confirmation line, given the words for the chosen rail ("Rail 2"). */
+  summary: (rail: string) => string
+  /** Extra context shown inside "Change how" (e.g. what the owner measured so far). */
+  details?: ReactNode
+  /** A note that only matters when changing how (e.g. the engine fallback). */
+  note?: string | null
   playLabel: string
   dismissLabel: string
   /** Intent kind recorded on the anchor message. */
@@ -554,6 +561,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   // honestly-labelled action ("Go to card") — it used to hide behind "View run",
   // which merely scrolled + flashed a card that is usually already pinned.
   const [logRunId, setLogRunId] = useState<string | null>(null)
+  const [howOpen, setHowOpen] = useState(false)
+  const howId = useId()
   if (decided) {
     const launched = decided.status === 'launched'
     const primaryRunId = decided.runIds?.[0] ?? null
@@ -626,6 +635,127 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const modelOptions: AgentToolbarOption[] = models.map((m) => ({ value: m.value, label: m.label ?? m.value }))
   const effortOptions: AgentToolbarOption[] = [{ value: NO_EFFORT, label: t('railCard.effortDefault') }, ...efforts.map((e) => ({ value: e, label: t(`effort.${e}`, { defaultValue: e }) }))]
   const profileOptions: AgentToolbarOption[] = [{ value: NO_PROFILE, label: t('railCard.profileNone') }, ...profiles.map((p) => ({ value: p.name, label: p.name }))]
+  // ── Hand-off: ONE confirmation line, the settings under "Change how" ────────
+  if (handOff) {
+    const chosenRail = resolvedRailIndex !== null ? rails.find((r) => r.railIndex === resolvedRailIndex) : undefined
+    const railWords = chosenRail ? railLabel(t, chosenRail) : t('railCard.handOff.newRail')
+    const notes = (
+      <>
+        {proposedRailMissing && <Note tone="warning" text={t('railCard.notes.railMissing', { index: (config.railIndex ?? 0) + 1 })} />}
+        {proposedRailBusy && proposedRail && (
+          <Note
+            tone="warning"
+            text={t('railCard.notes.railBusy', { index: proposedRail.railIndex + 1, state: t(`railCard.availability.${availabilityOf.get(proposedRail.railIndex) ?? 'busy'}`) })}
+            action={firstFreeRail ? { label: t('railCard.notes.useFree', { index: firstFreeRail.railIndex + 1 }), onClick: () => patch({ newRail: false, railIndex: firstFreeRail.railIndex }) } : undefined}
+          />
+        )}
+      </>
+    )
+    return (
+      <div role="group" aria-label={handOff.heading} data-testid="agent-rail-launch-card" data-hand-off="true" className="space-y-2 px-0.5 text-xs">
+        <p data-testid="rail-card-hand-off-line" className="text-[13px] leading-5 text-foreground/90">
+          {handOff.summary(railWords)}
+        </p>
+        {notes}
+        {inlineError && (
+          <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{t(`railCard.errors.${inlineError.error}`, { defaultValue: inlineError.error })}</div>
+              {inlineError.detail && <div>{inlineError.detail}</div>}
+              {inlineError.action && <div className="text-foreground/75">{inlineError.action}</div>}
+              {inlineError.error === 'repository_has_no_commits' && projectId && (
+                <InitialCommitButton projectId={projectId} className="mt-1.5" onCreated={() => setInlineError(null)} />
+              )}
+            </div>
+          </div>
+        )}
+        {loadError && projectId && <button type="button" data-agent-interactive disabled={!!busy} className="inline-flex items-center gap-1 text-xs text-accent-primary" onClick={() => setRefreshVersion(version => version + 1)}>
+          <RefreshCw className="h-3 w-3" aria-hidden />{t('railCard.repositories.retry')}
+        </button>}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-agent-interactive
+            data-testid="rail-card-hand-off-how"
+            aria-expanded={howOpen}
+            aria-controls={howId}
+            onClick={() => setHowOpen((value) => !value)}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+          >
+            <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none', howOpen && 'rotate-90')} aria-hidden />
+            {t('railCard.handOff.changeHow')}
+          </button>
+          <span className="min-w-0 flex-1 text-[12px] text-foreground/70" data-testid="rail-card-hand-off-status">
+            {blockReason && !inlineError ? blockReason : null}
+          </span>
+          <button
+            type="button"
+            data-agent-interactive
+            data-testid="rail-card-dismiss"
+            disabled={!!busy}
+            onClick={() => void dismiss()}
+            className="rounded-md px-2 py-1 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
+          >
+            {handOff.dismissLabel}
+          </button>
+          <RunPrimaryButton
+            primary={{ id: 'launch', label: handOff.playLabel, kind: 'outward' }}
+            data-agent-interactive
+            data-testid="rail-card-play"
+            disabled={!!busy || loading || !!blockReason}
+            onClick={() => void play()}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+            {busy === 'launch' ? t('railCard.launching') : handOff.playLabel}
+          </RunPrimaryButton>
+        </div>
+        <div id={howId} hidden={!howOpen} data-testid="rail-card-hand-off-settings" className="space-y-2 rounded-lg border border-border/50 bg-surface/30 p-2.5">
+          {handOff.details}
+          <div className="flex flex-wrap items-center gap-2">
+            <AgentToolbarSelector
+              label={t('railCard.fields.rail')}
+              icon={TrainFront}
+              value={railSelectorValue}
+              options={railOptions}
+              disabled={loading || !!busy}
+              testId="rail-card-rail"
+              onSelect={(v) => (v === NEW_RAIL ? patch({ newRail: true, railIndex: null }) : patch({ newRail: false, railIndex: Number(v) }))}
+            />
+            {(createsRail || proposedRail) && (
+              <input
+                type="text"
+                data-agent-interactive
+                data-testid="rail-card-name"
+                value={config.railName}
+                maxLength={60}
+                aria-label={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
+                placeholder={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
+                onChange={(e) => patch({ railName: e.target.value })}
+                className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/55 focus:border-accent-primary/50"
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+            {engineOptions.length > 1 && (
+              <AgentToolbarSelector label={t('railCard.fields.engine')} icon={Cpu} value={effectiveEngine ?? ''} options={engineOptions} disabled={!!busy} testId="rail-card-engine" onSelect={(v) => patch({ aiEngine: v, model: null, reasoningEffort: null, profileName: null })} />
+            )}
+            {!rolesEngine && modelOptions.length > 0 && (
+              <AgentToolbarSelector label={t('railCard.fields.model')} icon={Brain} value={effectiveModel ?? ''} options={modelOptions} disabled={!!busy} testId="rail-card-model" onSelect={(v) => patch({ model: v })} />
+            )}
+            {!rolesEngine && efforts.length > 0 && (
+              <AgentToolbarSelector label={t('railCard.fields.effort')} icon={Gauge} value={effectiveEffort ?? NO_EFFORT} options={effortOptions} disabled={!!busy} testId="rail-card-effort" onSelect={(v) => patch({ reasoningEffort: v === NO_EFFORT ? null : v })} />
+            )}
+          </div>
+          {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-[12px] leading-4 text-foreground/75">{handOff.note}</p>}
+          {engineStale && <Note tone="muted" text={t('railCard.notes.engineStale', { engine: config.aiEngine, fallback: effectiveEngine ? providerLabel(effectiveEngine) : '' })} />}
+          {modelStale && <Note tone="muted" text={t('railCard.notes.modelStale', { model: config.model, fallback: effectiveModel })} />}
+        </div>
+      </div>
+    )
+  }
+
   const statusPill = loading
     ? { tone: 'border-border/60 bg-surface/60 text-foreground/50', label: t('railCard.status.loading') }
     : blockReason
@@ -647,7 +777,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
         <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
           <Rocket className="h-3 w-3" />
-          {handOff ? handOff.heading : t('railCard.heading')}
+          {t('railCard.heading')}
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/55">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
@@ -724,7 +854,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                 className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-accent-primary/35 bg-accent-primary/10 py-0.5 pl-2 pr-1 text-[11px] font-medium text-accent-primary"
               >
                 <span className="truncate">#{id}{tk ? ` ${tk.title}` : ''}</span>
-                {!handOff && <button
+                <button
                   type="button"
                   data-agent-interactive
                   aria-label={t('railCard.fields.removeSpec', { id })}
@@ -733,11 +863,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
                   className="rounded-full p-0.5 text-accent-primary/60 hover:bg-accent-primary/20 hover:text-accent-primary"
                 >
                   <X className="h-3 w-3" />
-                </button>}
+                </button>
               </span>
             )
           })}
-          {!handOff && addableTickets.length > 0 && (
+          {addableTickets.length > 0 && (
             <AgentToolbarSelector
               label={t('railCard.fields.addSpec')}
               icon={Plus}
@@ -750,7 +880,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             />
           )}
         </div>
-        {!handOff && !loading && !loadError && projectId && (
+        {!loading && !loadError && projectId && (
           <div className="space-y-2.5 rounded-lg border border-border/50 bg-surface/30 p-2.5" data-testid="rail-card-repositories">
             <RepositoryScopeSelector showSingle repositories={repositories} value={launchRepositoryIds} onChange={changeRepositories} disabled={!!busy || !!scopeEdit}
               label={t('railCard.repositories.launch')} hint={t('railCard.repositories.launchHint')} />
@@ -814,15 +944,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           {!rolesEngine && efforts.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.effort')} icon={Gauge} value={effectiveEffort ?? NO_EFFORT} options={effortOptions} disabled={!!busy} testId="rail-card-effort" onSelect={(v) => patch({ reasoningEffort: v === NO_EFFORT ? null : v })} />
           )}
-          {!handOff && profilesApply && profiles.length > 0 && (
+          {profilesApply && profiles.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.profile')} icon={UserCog} value={effectiveProfile ?? NO_PROFILE} options={profileOptions} disabled={!!busy} testId="rail-card-profile" onSelect={(v) => patch({ profileName: v === NO_PROFILE ? null : v })} />
           )}
         </div>
         {engineStale && <Note tone="muted" text={t('railCard.notes.engineStale', { engine: config.aiEngine, fallback: effectiveEngine ? providerLabel(effectiveEngine) : '' })} />}
         {modelStale && <Note tone="muted" text={t('railCard.notes.modelStale', { model: config.model, fallback: effectiveModel })} />}
 
-        {/* Delivery target (optional) — fixed by a hand-off owner. */}
-        {!handOff && <div className="flex flex-wrap items-center gap-2 text-xs">
+        {/* Delivery target (optional). */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <label className="inline-flex items-center gap-1 text-foreground/60">
             <GitPullRequest className="h-3.5 w-3.5 text-accent-primary/70" />
             <span className="sr-only">{t('railCard.fields.targetPr')}</span>
@@ -853,7 +983,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/35 focus:border-accent-primary/50"
             />
           </label>
-        </div>}
+        </div>
 
         {config.followUp && (
           <div data-testid="rail-card-follow-up" className="rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-2 text-xs">
@@ -921,11 +1051,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             onClick={() => void dismiss()}
             className="rounded-md px-2 py-1 text-xs text-foreground/60 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50"
           >
-            {handOff ? handOff.dismissLabel : t('railCard.dismiss')}
+            {t('railCard.dismiss')}
           </button>
           {/* Launching starts a delivery: outward, the strip only points at it. */}
           <RunPrimaryButton
-            primary={{ id: 'launch', label: handOff ? handOff.playLabel : t('railCard.play'), kind: 'outward' }}
+            primary={{ id: 'launch', label: t('railCard.play'), kind: 'outward' }}
             data-agent-interactive
             data-testid="rail-card-play"
             disabled={!!busy || loading || !!blockReason}
@@ -933,7 +1063,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1 text-xs font-semibold text-white shadow transition-colors hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            {busy === 'launch' ? t('railCard.launching') : handOff ? handOff.playLabel : t('railCard.play')}
+            {busy === 'launch' ? t('railCard.launching') : t('railCard.play')}
           </RunPrimaryButton>
         </div>
       </div>

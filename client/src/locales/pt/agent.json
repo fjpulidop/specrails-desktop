@@ -702,7 +702,11 @@
       "retry": "Tentar carregar novamente",
       "checkScope": "Reveja a seleção de repositórios antes de lançar."
     },
-    "triageLabel": "Triagem"
+    "triageLabel": "Triagem",
+    "handOff": {
+      "newRail": "Um novo rail",
+      "changeHow": "Mudar como"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "Transforme este Flow num PR revisto",
-      "rationale": "Um rail assume o worktree do Flow, deriva a spec e executa verificação e revisão.",
       "loop": "Flow → Spec",
       "launch": "Lançar",
       "notYet": "Ainda não",
-      "engineFallback": "{{provider}} não pode executar o Flow → Spec nesta máquina, por isso foi selecionado o motor padrão do rail. Você pode alterá-lo abaixo.",
+      "engineFallback": "{{provider}} não pode executar o Flow → Spec nesta máquina, por isso foi selecionado o motor padrão do rail.",
       "cost": "{{cost}} até agora",
       "costUnknown": "ainda sem custo faturado",
-      "safetyNet": "Se o rail falhar, volta a este Flow com o seu trabalho intacto."
+      "line_one": "{{rail}} vai transformar o seu ficheiro alterado num PR revisto. Se falhar, o seu trabalho fica a salvo.",
+      "line_other": "{{rail}} vai transformar os seus {{count}} ficheiros alterados num PR revisto. Se falhar, o seu trabalho fica a salvo.",
+      "lineNoCount": "{{rail}} vai transformar as suas alterações num PR revisto. Se falhar, o seu trabalho fica a salvo."
     },
     "review": {
       "backToFlow": "Voltar ao Flow",

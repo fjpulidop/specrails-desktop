@@ -702,7 +702,11 @@
       "retry": "Réessayer le chargement",
       "checkScope": "Vérifiez la sélection des dépôts avant de lancer."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "Un nouveau rail",
+      "changeHow": "Changer la méthode"
+    }
   },
   "runCard": {
     "status": {
@@ -1040,14 +1044,15 @@
     },
     "handOff": {
       "heading": "Transformez ce Flow en PR relue",
-      "rationale": "Un rail reprend le worktree du Flow, dérive la spec et lance vérification et revue.",
       "loop": "Flow → Spec",
       "launch": "Lancer",
       "notYet": "Pas encore",
-      "engineFallback": "{{provider}} ne peut pas exécuter Flow → Spec sur cette machine : le moteur par défaut du rail est sélectionné. Vous pouvez le changer ci-dessous.",
+      "engineFallback": "{{provider}} ne peut pas exécuter Flow → Spec sur cette machine : le moteur par défaut du rail est sélectionné.",
       "cost": "{{cost}} jusqu’ici",
       "costUnknown": "pas encore de coût facturé",
-      "safetyNet": "Si le rail échoue, vous revenez dans ce Flow avec votre travail intact."
+      "line_one": "{{rail}} transformera votre fichier modifié en PR relue. En cas d’échec, votre travail est en sécurité.",
+      "line_other": "{{rail}} transformera vos {{count}} fichiers modifiés en PR relue. En cas d’échec, votre travail est en sécurité.",
+      "lineNoCount": "{{rail}} transformera vos modifications en PR relue. En cas d’échec, votre travail est en sécurité."
     },
     "review": {
       "backToFlow": "Revenir dans Flow",

@@ -1,9 +1,12 @@
-// ─── "This is it" → hand-off card ─────────────────────────────────────────────
-// The rail launch card everyone knows, in hand-off mode: the Flow's placeholder
-// spec, the Flow → Spec loop preselected, a free EMPTY rail (or a new one), the
-// engine/model/effort selectors, and the same inline refusals (review WIP
-// limit, budget, busy rail) the launch route reports. Launch calls the Flow
-// hand-off route, never the plain rails launch. The decision is recorded on
+// ─── "Hand off" → one confirmation line ──────────────────────────────────────
+// The rail launch card in hand-off mode reads as ONE line: "Rail 2 will turn
+// your 7 changed files into a reviewed PR. If it fails, your work is safe."
+// with Launch and Not yet. How (rail, engine, model, effort — prefilled; the
+// loop is fixed to Flow → Spec) sits under "Change how", with what the Flow
+// changed and cost so far and, only when relevant, the engine fallback note.
+// The same inline refusals (review WIP limit, budget, busy rail) the launch
+// route reports show under the line. Launch calls the Flow hand-off route,
+// never the plain rails launch. The decision is recorded on
 // the Flow offer message that started this Flow (`flow-hand-off`); without
 // one, the Flow's own state is the record. The engine/model/effort default to
 // the Flow conversation's current selection (the rail default only when that
@@ -50,10 +53,11 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
   )
   const local = useLocalIntents()
   const anchor = useMemo(() => findFlowAnchor(messages, local, flow.id), [messages, local, flow.id])
-  // The milestone recap: what goes to the rail, what it cost, and the safety net.
+  // What goes to the rail and what it cost so far (inside "Change how").
   const { diff, cost } = useFlowLiveStats(projectId, flow, false)
   const costView = flowCostDisplay(cost)
   const totals = diff?.totals ?? null
+  const fileCount = totals?.files ?? null
 
   const proposal: RailLaunchProposal = useMemo(() => ({
     version: 1,
@@ -69,13 +73,25 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
     targetPrNumber: null,
     baseBranch: null,
     railName: null,
-    rationale: t('flow.handOff.rationale'),
+    rationale: null,
     followUp: null,
   }), [flow.ticketId, t, engine.aiEngine, engine.model, engine.reasoningEffort])
 
   const handOff: RailLaunchHandOff = useMemo(() => ({
     loop: { id: FLOW_SPEC_LOOP_ID, label: t('flow.handOff.loop') },
     heading: t('flow.handOff.heading'),
+    summary: (rail: string) => fileCount !== null && fileCount > 0
+      ? t('flow.handOff.line', { rail, count: fileCount })
+      : t('flow.handOff.lineNoCount', { rail }),
+    details: (
+      <p data-testid="flow-hand-off-recap" className="text-[12px] leading-4 tabular-nums text-foreground/75">
+        {t('flow.bar.files', { count: totals?.files ?? 0 })}
+        {totals && totals.files > 0 && <> <span className="text-accent-success">+{totals.additions}</span> <span className="text-destructive">−{totals.deletions}</span></>}
+        {' · '}
+        {costView.usd ? t('flow.handOff.cost', { cost: `${costView.usd}${costView.partial ? '*' : ''}` }) : t('flow.handOff.costUnknown')}
+      </p>
+    ),
+    note: engine.fallbackFrom ? t('flow.handOff.engineFallback', { provider: providerLabel(engine.fallbackFrom) }) : null,
     playLabel: t('flow.handOff.launch'),
     dismissLabel: t('flow.handOff.notYet'),
     intentKind: 'flow-hand-off',
@@ -92,7 +108,7 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
         return { ok: false, error: error instanceof Error ? error.message : 'network' }
       }
     },
-  }), [anchor, ctx, flow, projectId, t])
+  }), [anchor, ctx, flow, projectId, t, fileCount, totals, costView.usd, costView.partial, engine.fallbackFrom])
 
   const intent: AgentMessageIntent | null = receipt
     ? { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: '', railIndex: receipt.railIndex, runIds: receipt.runIds, prDeliveryId: receipt.deliveryId }
@@ -100,23 +116,6 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
 
   return (
     <div data-testid="flow-hand-off-card">
-      {!intent && (
-        <p data-testid="flow-hand-off-recap" className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
-          <span className="tabular-nums text-foreground/75">
-            {t('flow.bar.files', { count: totals?.files ?? 0 })}
-            {totals && totals.files > 0 && <> <span className="text-accent-success">+{totals.additions}</span> <span className="text-destructive">−{totals.deletions}</span></>}
-            {' · '}
-            {costView.usd ? t('flow.handOff.cost', { cost: `${costView.usd}${costView.partial ? '*' : ''}` }) : t('flow.handOff.costUnknown')}
-          </span>
-          {' — '}
-          {t('flow.handOff.safetyNet')}
-        </p>
-      )}
-      {!intent && engine.fallbackFrom && (
-        <p data-testid="flow-hand-off-engine-note" className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
-          {t('flow.handOff.engineFallback', { provider: providerLabel(engine.fallbackFrom) })}
-        </p>
-      )}
       <AgentRailLaunchCard
         key={`${engine.aiEngine ?? 'default'}:${engine.model ?? ''}:${engine.reasoningEffort ?? ''}`}
         proposal={proposal}

@@ -51,8 +51,11 @@ a files ± stat that opens `FlowChangesDialog`, the billed cost, and a toolbar
 with **Discard** apart from the primary **This is it**; disabled controls say
 why. `FlowDiscardDialog` lists what is lost. **This is it** turns the entry
 into "Flow → Spec ready to launch" and opens `FlowHandOffCard` as the strip's
-panel (recap: files ±, cost so far, the safety net; then the rail launch card
-in hand-off mode). **Launch** is the strip's primary (the card's Play); while
+panel: ONE line ("Rail 2 will turn your 7 changed files into a reviewed PR.
+If it fails, your work is safe.") with **Launch** and **Not yet**; rail,
+engine, model and effort are prefilled under **Change how** (with the files ±,
+cost so far and, when relevant, the engine fallback note). **Launch** is
+declared as an outward primary: the strip only points at it; while
 the request runs (`FlowContext.launching`) and until the run's own entry
 shows (the hand-off receipt, `yieldsTo` its delivery) the strip is a launching
 skeleton. The offer stub's **View run** opens the run through missions' focus
