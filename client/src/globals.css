@@ -248,7 +248,7 @@
   --color-ring:                   hsl(187 100% 44%);
 
   --color-accent-primary:    hsl(187 100% 44%);  /* cyan */
-  --color-accent-info:       hsl(191 97% 55%);   /* electric cyan */
+  --color-accent-info:       hsl(234 92% 76%);   /* periwinkle — running, kept apart from the cyan primary */
   --color-accent-flow:       hsl(170 78% 50%);  /* teal, between success and the cyan primary */
   --color-accent-success:    hsl(152 78% 48%);   /* emerald */
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
@@ -291,7 +291,7 @@
   --color-ring:                   hsl(212 100% 62%);
 
   --color-accent-primary:    hsl(212 100% 62%);  /* light-side blue */
-  --color-accent-info:       hsl(212 100% 62%);  /* same hue as primary — ticket-directed */
+  --color-accent-info:       hsl(201 95% 68%);   /* sky — running, kept apart from the blue primary */
   --color-accent-flow:       hsl(266 85% 74%);  /* violet — teal would collide with SpecRails hues */
   --color-accent-success:    hsl(140 65% 50%);   /* core green */
   --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */

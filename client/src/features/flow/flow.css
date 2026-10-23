@@ -1,5 +1,5 @@
 /* ─── Flow mode ────────────────────────────────────────────────────────────────
- * The composer is where Flow mode shows (its chip, a thin accent line and its
+ * The composer is where Flow mode shows (its chip and its
  * own placeholder — missions renders them from the conversation mode); the
  * surface keeps `data-flow="active"` only as a hook. No screen tint, no
  * breathing edge: the mode is named, not painted. */

@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
-import { AlertTriangle, Check, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/FlowContext'
@@ -117,18 +117,18 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
       role="group"
       aria-labelledby="flow-entry-title"
       data-testid="flow-entry-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-info/30 bg-card/85 shadow-lg backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-accent-flow/30 bg-card/85 shadow-lg backdrop-blur"
     >
-      <div className="flex items-center gap-2 border-b border-border/40 bg-accent-info/[0.07] px-3.5 py-2">
-        <Sparkles className="h-3.5 w-3.5 text-accent-info" aria-hidden />
-        <span id="flow-entry-title" className="text-[10px] font-semibold uppercase tracking-widest text-accent-info">{t('flow.entry.heading')}</span>
+      <div className="flex items-center gap-2 border-b border-border/40 bg-accent-flow/[0.07] px-3.5 py-2">
+        <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
+        <span id="flow-entry-title" className="text-[10px] font-semibold uppercase tracking-widest text-accent-flow">{t('flow.entry.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         <p className="flex items-start gap-2 text-xs leading-5 text-foreground/80">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
-        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 border-l-2 border-accent-info/50 bg-surface/40 px-3 py-2 text-xs italic text-foreground/75">
+        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 border-l-2 border-accent-flow/50 bg-surface/40 px-3 py-2 text-xs italic text-foreground/75">
           {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
           {idea}
         </blockquote>
@@ -156,18 +156,18 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
                     disabled={busy}
                     onClick={() => setPickedRepositoryId(candidate.id)}
                     className={cn(
-                      'group flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 disabled:opacity-50',
-                      checked ? 'border-accent-info/60 bg-accent-info/10' : 'border-border/50 bg-surface/30 hover:border-accent-info/35 hover:bg-surface/60',
+                      'group flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50',
+                      checked ? 'border-accent-flow/60 bg-accent-flow/10' : 'border-border/50 bg-surface/30 hover:border-accent-flow/35 hover:bg-surface/60',
                     )}
                   >
-                    <span aria-hidden className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border', checked ? 'border-accent-info bg-accent-info text-background' : 'border-foreground/30')}>
+                    <span aria-hidden className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border', checked ? 'border-accent-flow bg-accent-flow text-background' : 'border-foreground/30')}>
                       {checked && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className={cn('truncate text-xs font-medium', checked ? 'text-foreground' : 'text-foreground/80')}>{candidate.name}</span>
                         {candidate.id === suggested && (
-                          <span className="shrink-0 rounded-full bg-accent-info/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent-info">{t('flow.entry.repository.suggested')}</span>
+                          <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent-flow">{t('flow.entry.repository.suggested')}</span>
                         )}
                       </span>
                       <span className="block truncate font-mono text-[10px] text-foreground/45" title={candidate.path}>{candidate.path}</span>
@@ -186,7 +186,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
-                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-[11px] font-medium text-foreground/75 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50">
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-[11px] font-medium text-foreground/75 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
                 {t('flow.entry.blocked.goToFlow')}
               </button>
             )}
@@ -214,7 +214,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             disabled={busy || loading || !!blockReason || needsRepository}
             aria-describedby={blockReason ? blockReasonId : undefined}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-md bg-accent-info px-3 py-1 text-xs font-semibold text-background shadow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
+              'inline-flex items-center gap-1.5 rounded-md bg-accent-flow px-3 py-1 text-xs font-semibold text-background shadow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
             )}
           >
             {busy || loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}

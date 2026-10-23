@@ -561,7 +561,7 @@ describe('FlowOfferCard through the AgentMessage extension chain', () => {
     expect(screen.getByTestId('flow-offer-reason')).toHaveTextContent('The look is still open.')
     const choices = [...card.querySelectorAll('[data-testid^="flow-offer-choose-"]')]
     expect(choices.map((choice) => choice.getAttribute('data-testid'))).toEqual(['flow-offer-choose-flow', 'flow-offer-choose-implement'])
-    expect(choices[0]!.className).toBe(choices[1]!.className.replace(/accent-primary/g, 'accent-info'))
+    expect(choices[0]!.className).toBe(choices[1]!.className.replace(/accent-primary/g, 'accent-flow'))
     expect(card).not.toHaveTextContent('Recommended')
     expect(screen.queryByText(/"recommended"/)).toBeNull()
   })

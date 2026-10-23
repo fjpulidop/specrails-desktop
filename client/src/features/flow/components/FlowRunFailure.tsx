@@ -50,7 +50,7 @@ export function FlowRunFailure({
       </p>
       {!embedded && (
         returned ? (
-          <p className="mt-2 inline-flex items-center gap-1 pl-5 font-medium text-accent-info" data-testid="flow-run-failure-returned">
+          <p className="mt-2 inline-flex items-center gap-1 pl-5 font-medium text-accent-flow" data-testid="flow-run-failure-returned">
             <Undo2 className="h-3 w-3" aria-hidden />
             {t('flow.failure.returned')}
           </p>
@@ -63,7 +63,7 @@ export function FlowRunFailure({
       )}
       {technical.length > 0 && (
         <details className="group mt-1.5 pl-5 text-[11px] leading-4 text-foreground/70" data-testid="flow-run-failure-technical">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-foreground/60 hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 [&::-webkit-details-marker]:hidden">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-foreground/60 hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             {t('flow.failure.technical.title')}
           </summary>

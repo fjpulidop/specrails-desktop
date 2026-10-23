@@ -343,7 +343,7 @@ const SPECRAILS_PALETTE = {
   primary:     'hsl(187 100% 44%)',   // cyan #00C3D2
   secondary:   'hsl(280 45% 62%)',    // violet
   success:     'hsl(152 78% 48%)',    // emerald
-  info:        'hsl(191 97% 55%)',    // electric cyan
+  info:        'hsl(234 92% 76%)',    // periwinkle — running, apart from the cyan primary
   warning:     'hsl(42 92% 58%)',     // amber
   highlight:   'hsl(248 75% 67%)',    // indigo
   destructive: 'hsl(12 80% 55%)',     // tomato-red
@@ -400,8 +400,8 @@ const GALAXY_PALETTE = {
   bgDeep:      'hsl(220 24% 2%)',
   fg:          'hsl(210 30% 94%)',    // cool near-white
   muted:       'hsl(215 15% 60%)',
-  primary:     'hsl(212 100% 62%)',   // light-side blue — shared by primary/ring/info
-  info:        'hsl(212 100% 62%)',   // same hue as primary (ticket-directed)
+  primary:     'hsl(212 100% 62%)',   // light-side blue — shared by primary/ring
+  info:        'hsl(201 95% 68%)',    // sky — running, apart from the blue primary
   secondary:   'hsl(210 12% 65%)',    // steel steel-gray/silver
   success:     'hsl(140 65% 50%)',    // core green
   warning:     'hsl(28 95% 56%)',     // pulse orange
