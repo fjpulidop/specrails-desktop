@@ -315,10 +315,10 @@
       "discarded": "已丢弃",
       "review_changes_requested": "审阅者要求修改",
       "returned_to_flow": "已回到 Flow",
-      "flowSpecChanges": "Flow → Spec — 审查者要求修改",
-      "flowSpecDelivered": "Flow → Spec 已交付",
-      "flowSpecFailed": "Flow → Spec 已停止",
-      "flowSpecBuilding": "Flow → Spec 正在把你的工作变成经过审查的 PR"
+      "flowSpecChanges": "尚未就绪：评审者要求修改",
+      "flowSpecDelivered": "你的 Flow 已成为经过评审的 PR",
+      "flowSpecFailed": "交付已停止",
+      "flowSpecBuilding": "正在把你的 Flow 变成经过评审的 PR"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -653,10 +653,10 @@
       "scope_save_failed": "无法保存规格的仓库。",
       "repository_scope_incomplete": "本次运行缺少规格所需的仓库。请检查上方的分配。",
       "rail_not_empty": "该轨道已有 spec",
-      "flow_freeze_failed": "无法保存 Flow 的 worktree",
-      "flow_head_mismatch": "交接期间 Flow 的 worktree 发生了变化",
+      "flow_freeze_failed": "无法为交付保存 Flow 的更改",
+      "flow_head_mismatch": "交付过程中 Flow 发生了变化。请重试",
       "flow_already_handed_off": "此 Flow 已交接",
-      "flow_handoff_not_adopted": "轨道没有接管 Flow 的 worktree",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改",
       "illegal_transition": "Flow 的状态已发生变化",
       "feature_unavailable": "Flow 不可用",
       "daily_budget_exceeded": "已达到每日预算——未启动任何任务。",
@@ -761,8 +761,8 @@
       "omitted_other": "运行审阅中还有 {{count}} 个",
       "failingChecks": "失败",
       "check": "{{command}} · 退出码 {{code}}",
-      "next": "自动修正轮次未能解决这些问题。回到 Flow 与智能体一起处理，或在同一 worktree 上重新运行 Flow → Spec。",
-      "returned": "已回到 Flow：worktree 已带着审阅意见回到其 Flow。请在 Flow 栏中继续。"
+      "next": "自动修正轮次没有解决这些问题。回到 Flow 与代理一起解决，或从相同的 Flow 分支重新启动。",
+      "returned": "已回到 Flow：你的更改已连同评审返回其 Flow。请在 Flow 栏中继续。"
     }
   },
   "runFailure": {
@@ -895,16 +895,16 @@
       "feature_unavailable": "当前安装的 Specrails Core 不支持 Flow。",
       "flow_already_open": "此任务已有一个 Flow。请先恢复或丢弃它。",
       "illegal_transition": "Flow 的状态已发生变化。请刷新后重试。",
-      "flow_worktree_missing": "Flow 的 worktree 已不存在。继续之前请先检查。",
+      "flow_worktree_missing": "此 Flow 的项目副本已不存在。继续之前请检查 Flow 分支。",
       "flow_repository_required": "选择此 Flow 运行所在的仓库。",
-      "flow_repository_not_git": "Flow 需要 Git 仓库；文件夹无法承载其 worktree。请选择一个 Git 仓库。",
+      "flow_repository_not_git": "Flow 需要 Git 仓库来创建分支；普通文件夹不行。请选择一个 Git 仓库。",
       "flow_repository_unknown": "该仓库已不属于此项目。请选择其他仓库。",
       "flow_repository_missing": "此 Flow 的仓库在该项目中已不可用。",
       "rail_not_empty": "该轨道已有 spec。请选择一个空闲且为空的轨道。",
       "flow_already_handed_off": "此 Flow 已交给某个轨道。",
-      "flow_freeze_failed": "无法为交接保存 Flow 的 worktree。",
-      "flow_head_mismatch": "交接期间 worktree 发生了变化。请重试。",
-      "flow_handoff_not_adopted": "轨道启动时没有接管 Flow 的 worktree。",
+      "flow_freeze_failed": "无法为交付保存 Flow 的更改。",
+      "flow_head_mismatch": "交付过程中 Flow 发生了变化。请重试。",
+      "flow_handoff_not_adopted": "Rail 已启动，但没有接管你 Flow 的更改。",
       "repository_has_no_commits": "此仓库还没有任何提交。请先创建一次初始提交，以便 Specrails 创建隔离的 worktree。",
       "flow_not_found": "此 Flow 已不存在。",
       "flow_failed": "Flow 遇到意外错误，请重试。",
@@ -913,23 +913,23 @@
       "flow_not_handed_off": "此 Flow 已不再等待该运行。",
       "flow_rail_unknown": "该运行的 rail 未知。请从 Flow 栏重新交接。",
       "flow_return_busy": "该运行正忙于其他操作，请稍后重试。",
-      "flow_return_not_allowed": "只有在交付前停止的 Flow → Spec 运行才能回到其 Flow。",
-      "flow_return_not_found": "该运行不是 Flow → Spec 运行。",
-      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的 worktree。"
+      "flow_return_not_allowed": "只有在完成前停止的交付才能回到其 Flow。",
+      "flow_return_not_found": "该运行不是 Flow 交付。",
+      "flow_return_worktree_mismatch": "该运行没有接管此 Flow 的更改。"
     },
     "entry": {
       "heading": "开始 Flow",
-      "body": "Specrails 会创建一个隔离的 worktree，智能体可以在其中编写代码。你的主分支不会被改动。",
-      "provider": "智能体使用 {{provider}} 工作，只在 worktree 内写入。",
-      "providerUnknown": "智能体只在 worktree 内写入。",
+      "body": "Specrails 会在专属的 Flow 分支上创建项目的独立副本，代理可以在其中编写代码。你的主分支不会被改动。",
+      "provider": "代理使用 {{provider}}，只在 Flow 的副本中写入。",
+      "providerUnknown": "代理只在 Flow 的副本中写入。",
       "repository": {
         "label": "仓库",
-        "hint": "Flow 在此仓库的隔离 worktree 中工作。",
+        "hint": "Flow 在此仓库的独立副本中工作。",
         "choose": "选择此 Flow 运行所在的仓库",
         "loading": "正在加载仓库…",
         "loadFailed": "无法加载项目的仓库。请重试。",
         "suggested": "由智能体建议",
-        "noGit": "此项目没有 Git 仓库。Flow 需要一个 Git 仓库来创建其 worktree。"
+        "noGit": "此项目没有 Git 仓库。Flow 需要它来创建分支。"
       },
       "blocked": {
         "noProject": "将此任务固定到某个项目后才能使用 Flow。",
@@ -949,7 +949,7 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "在隔离的 worktree 中与智能体一起构建，spec 在最后生成。"
+          "hint": "在独立的 Flow 分支上一起构建；spec 最后再写。"
         },
         "implement": {
           "title": "Spec + Implement",
@@ -980,21 +980,20 @@
       "resume": "恢复 Flow",
       "pause": "暂停",
       "discard": "丢弃",
-      "thisIsIt": "完成了",
       "discarded": "已丢弃 Flow",
       "files_one": "{{count}} 个文件",
       "files_other": "{{count}} 个文件",
-      "filesTitle": "Flow worktree 中更改的文件",
+      "filesTitle": "Flow 分支上更改的文件",
       "costTitle": "此 Flow 各轮的实际费用（以提供商计费为准）",
       "costPartial_one": "{{count}} 轮没有提供商报告的费用，未计入",
       "costPartial_other": "{{count}} 轮没有提供商报告的费用，未计入",
-      "needsReview": "Flow 的 worktree 丢失。没有删除任何内容；继续之前请检查分支。",
-      "pausedNote": "已暂停。worktree 和 spec 会保留，随时可以恢复。",
+      "needsReview": "此 Flow 的项目副本丢失。没有删除任何内容；继续之前请检查 Flow 分支。",
+      "pausedNote": "已暂停。你的更改和 spec 都会保留；随时可以继续。",
       "state": {
         "active": "Flow",
         "paused": "Flow 已暂停",
         "needs-review": "Flow 需要检查",
-        "handed_off": "已交接",
+        "handed_off": "已交给 Rail",
         "delivered": "已完成",
         "discarded": "已丢弃"
       },
@@ -1003,7 +1002,8 @@
         "busy": "请等待当前操作完成",
         "noSpec": "Flow 的 spec 尚未就绪"
       },
-      "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}"
+      "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}",
+      "handOff": "交付"
     },
     "preview": {
       "open": "预览",
@@ -1024,7 +1024,7 @@
       "lossFiles_one": "{{count}} 个已更改文件",
       "lossFiles_other": "{{count}} 个已更改文件",
       "lossNoChanges": "尚无已更改文件",
-      "lossUnknown": "Flow worktree 中的所有更改",
+      "lossUnknown": "Flow 分支上的所有更改",
       "lossSpec": "看板上的占位 spec"
     },
     "changes": {
@@ -1056,15 +1056,15 @@
     },
     "review": {
       "backToFlow": "回到 Flow",
-      "backToFlowHint": "在同一 worktree 上重新打开此 Flow；智能体会在下一轮收到审阅意见",
+      "backToFlowHint": "以相同的更改重新打开此 Flow；代理会在下一轮收到评审",
       "relaunch": "重新运行",
-      "relaunchHint": "在同一 worktree、轨道和引擎上再次运行 Flow → Spec",
-      "returned": "已回到 Flow — 智能体已收到审阅意见",
-      "relaunched": "已在轨道 {{index}} 上重新运行 Flow → Spec",
+      "relaunchHint": "使用相同的 Flow 分支、Rail 和引擎重试",
+      "returned": "已回到 Flow。代理已收到评审。",
+      "relaunched": "已在 Rail {{index}} 上重新启动",
       "returnFailed": "无法回到 Flow：{{detail}}",
-      "relaunchFailed": "无法重新运行 Flow → Spec：{{detail}}",
-      "backToFlowFailureHint": "在同一个 worktree 上重新打开此 Flow；代理会在下一轮收到该错误",
-      "returnedFailure": "已回到 Flow — 代理已掌握该错误"
+      "relaunchFailed": "无法重新启动：{{detail}}",
+      "backToFlowFailureHint": "以相同的更改重新打开此 Flow；代理会在下一轮收到错误",
+      "returnedFailure": "已回到 Flow。代理已收到错误。"
     },
     "failure": {
       "step": {
@@ -1072,9 +1072,9 @@
         "verify": "无法验证你的更改",
         "review": "评审未能完成",
         "fix": "自动修复未能完成",
-        "archive": "无法归档 OpenSpec 变更",
+        "archive": "无法归档 spec 变更",
         "settle": "无法交付结果",
-        "unknown": "Flow → Spec 在完成前停止了"
+        "unknown": "交付在完成前停止了"
       },
       "cause": "原因：",
       "next": "你的工作完好无损。回到 Flow 后，代理会收到该错误。",
@@ -1090,44 +1090,44 @@
       }
     },
     "announce": {
-      "active": "Flow 已激活：智能体在其 worktree 中编写。",
+      "active": "Flow 已启用：代理在 Flow 分支上写入。",
       "paused": "Flow 已暂停。",
-      "needs-review": "Flow 需要检查：其 worktree 已缺失。",
+      "needs-review": "Flow 需要检查：它的项目副本丢失了。",
       "handed_off": "Flow 已交给轨道。",
       "delivered": "Flow 已交付。",
       "discarded": "Flow 已放弃。",
-      "returned": "已回到 Flow：工作已连同 Flow → Spec 的发现一起返回。"
+      "returned": "已回到 Flow：工作连同交付中发现的问题一起返回。"
     },
     "strip": {
       "label": "Flow",
-      "ready": "Flow → Spec 可以启动",
-      "launching": "正在启动 Flow → Spec…",
-      "launchingOn": "正在 {{rail}} 上启动 Flow → Spec…",
+      "ready": "可以变成 PR 了",
+      "launching": "正在交给 Rail…",
+      "launchingOn": "正在交给 {{rail}}…",
       "step": {
         "derive": "正在根据你的更改编写 spec",
         "verify": "正在验证你的更改",
         "review": "正在审查更改",
         "fix": "正在应用审查修复",
-        "archive": "正在归档 OpenSpec 变更",
+        "archive": "正在归档 spec 变更",
         "settle": "正在交还结果"
       }
     },
     "mode": {
       "chip": "Flow",
-      "description": "Flow 模式：代理在 Flow 的隔离 worktree 中写入",
-      "placeholder": "告诉代理要在 worktree 中修改什么…"
+      "description": "Flow 模式：代理在 Flow 分支上写入，而不是你的主分支",
+      "placeholder": "告诉代理要在这个 Flow 中修改什么…"
     }
   },
   "flowReturn": {
     "title": "审查者的要求",
-    "noFindings": "Flow → Spec 运行在交付前停止；工作树已带着全部改动回到此 Flow。",
+    "noFindings": "交付在完成前停止；你的更改已完好地回到此 Flow。",
     "coverage": "规格说明了 {{files}} 个已更改文件中的 {{explained}} 个",
     "unexplained": "未被任何需求说明的文件",
     "moreFiles_one": "另有 {{count}} 个文件",
     "moreFiles_other": "另有 {{count}} 个文件",
     "next": "Flow 代理现在开始处理；你可以随时引导或停止它。",
     "automaticTurn": "自动回合 · 返回 Flow",
-    "titleFailure": "Flow → Spec 停止的原因"
+    "titleFailure": "交付停止的原因"
   },
   "turnErrors": {
     "providerInactivity": "提供方长时间没有响应，本轮已结束。请重新发送消息以继续。",
@@ -1140,15 +1140,15 @@
     "prNumber": "拉取请求 #{{number}}",
     "specRewritten": "已根据你构建的内容重写 spec",
     "specKept": "spec 重写未完成；已保留其草稿",
-    "change": "OpenSpec 变更 {{change}}",
-    "changeArchived": "OpenSpec 变更 {{change}} 已归档",
+    "change": "spec 变更 {{change}}",
+    "changeArchived": "spec 变更 {{change}} 已归档",
     "jira": "Jira 问题 {{key}}",
     "jiraPending": "正在创建 Jira 问题"
   },
   "runStrip": {
     "launching": "正在 {{rail}} 上启动…",
     "running": "工作中",
-    "paused": "已暂停 — 等待你处理",
+    "paused": "已暂停。等待你处理",
     "pausedReason": "已暂停：{{reason}}",
     "decision": {
       "approval": "等待你的批准",
@@ -1198,9 +1198,9 @@
       "launched": "已在 {{run}} 上启动",
       "failed": "{{run}} 失败：{{reason}}",
       "openRun": "查看运行",
-      "proposed": "已提议启动 — 等待你",
+      "proposed": "已提议启动。等待你处理",
       "backToFlow": "回到 Flow",
-      "flowReturned": "{{run}} 上的 Flow → Spec 已回到 Flow",
+      "flowReturned": "{{run}} 已把工作退回 Flow",
       "delivered": "已交付：PR {{pr}}",
       "deliveredNoPr": "已在 {{run}} 上交付",
       "superseded": "{{run}} 已被更新的运行取代",

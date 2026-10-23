@@ -5,7 +5,7 @@
 // real cost (provider-billed turns only; "—" when nothing is priced) and the
 // controls. Controls are DATA (FlowBarControl[]) so new ones slot in without
 // touching the layout; the destructive Discard sits apart from the primary
-// "This is it", and a disabled control says why. Paused and needs-review Flows
+// "Hand off", and a disabled control says why. Paused and needs-review Flows
 // add a one-line note. While the Flow's app runs (started by the agent through
 // Specrails), a Preview control opens it (FlowAppPreview).
 
@@ -71,7 +71,7 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
       disabled={control.disabled || control.busy}
       aria-label={control.label}
       aria-describedby={reasonId}
-      title={reason ? `${control.label} — ${reason}` : control.label}
+      title={reason ? `${control.label}: ${reason}` : control.label}
       className={cn(
         control.tone === 'primary'
           ? RUN_STRIP_PRIMARY
@@ -87,7 +87,7 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
   )
 }
 
-/** The Flow's strip controls: branch, files ±, cost, Discard apart, Preview, Pause/Resume, "This is it". */
+/** The Flow's strip controls: branch, files ±, cost, Discard apart, Preview, Pause/Resume, "Hand off". */
 export function FlowStripControls({ projectId, flow, inline, working }: { projectId: string; flow: Flow; inline: boolean; working: boolean }) {
   const { t } = useTranslation('agent')
   const ctx = useFlowContext()
@@ -130,7 +130,7 @@ export function FlowStripControls({ projectId, flow, inline, working }: { projec
     paused
       ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary' }
       : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason },
-    { id: 'this-is-it', label: t('flow.bar.thisIsIt'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason },
+    { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason },
   ]
 
   const costView = flowCostDisplay(cost)

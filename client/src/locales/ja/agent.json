@@ -315,10 +315,10 @@
       "discarded": "破棄済み",
       "review_changes_requested": "レビュアーが変更を依頼しました",
       "returned_to_flow": "Flow に戻りました",
-      "flowSpecChanges": "Flow → Spec — レビュアーが変更を求めました",
-      "flowSpecDelivered": "Flow → Spec 納品済み",
-      "flowSpecFailed": "Flow → Spec が停止しました",
-      "flowSpecBuilding": "Flow → Spec があなたの作業をレビュー済みの PR にしています"
+      "flowSpecChanges": "まだ準備できていません: レビュアーが変更を求めました",
+      "flowSpecDelivered": "Flow がレビュー済みの PR になりました",
+      "flowSpecFailed": "引き渡しが停止しました",
+      "flowSpecBuilding": "Flow をレビュー済みの PR にしています"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -653,10 +653,10 @@
       "scope_save_failed": "仕様のリポジトリを保存できませんでした。",
       "repository_scope_incomplete": "実行には仕様で必要なリポジトリが不足しています。上の割り当てを確認してください。",
       "rail_not_empty": "そのレールにはすでに spec があります",
-      "flow_freeze_failed": "Flow の worktree を保存できませんでした",
-      "flow_head_mismatch": "引き渡し中に Flow の worktree が変わりました",
+      "flow_freeze_failed": "引き渡しのために Flow の変更を保存できませんでした",
+      "flow_head_mismatch": "引き渡し中に Flow が変更されました。もう一度お試しください",
       "flow_already_handed_off": "この Flow はすでに引き渡されています",
-      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継ぎませんでした",
+      "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました",
       "illegal_transition": "その間に Flow の状態が変わりました",
       "feature_unavailable": "Flow は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました — 何も起動していません。",
@@ -761,8 +761,8 @@
       "omitted_other": "実行のレビューにさらに {{count}} 件",
       "failingChecks": "失敗",
       "check": "{{command}} · 終了コード {{code}}",
-      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと対応するか、同じ worktree で Flow → Spec を再実行してください。",
-      "returned": "Flow に戻りました：worktree はレビュー付きで Flow に戻りました。Flow バーから続けてください。"
+      "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと解決するか、同じ Flow ブランチから再起動してください。",
+      "returned": "Flow に戻りました: 変更はレビューとともに Flow に戻りました。Flow のバーで続けてください。"
     }
   },
   "runFailure": {
@@ -895,16 +895,16 @@
       "feature_unavailable": "インストール済みの Specrails Core では Flow を利用できません。",
       "flow_already_open": "このミッションにはすでに Flow があります。先に再開するか破棄してください。",
       "illegal_transition": "その間に Flow の状態が変わりました。更新してもう一度お試しください。",
-      "flow_worktree_missing": "Flow の worktree がもう存在しません。続ける前に確認してください。",
+      "flow_worktree_missing": "この Flow のプロジェクトのコピーはもう存在しません。続ける前に Flow のブランチを確認してください。",
       "flow_repository_required": "この Flow を実行するリポジトリを選んでください。",
-      "flow_repository_not_git": "Flow には Git リポジトリが必要です。フォルダーには worktree を作れません。Git リポジトリを選んでください。",
+      "flow_repository_not_git": "Flow のブランチには Git リポジトリが必要です。通常のフォルダーでは使えません。Git リポジトリを選んでください。",
       "flow_repository_unknown": "そのリポジトリはもうこのプロジェクトに含まれていません。別のものを選んでください。",
       "flow_repository_missing": "この Flow のリポジトリはもうこのプロジェクトで利用できません。",
       "rail_not_empty": "そのレールにはすでに spec があります。空いている空のレールを選んでください。",
       "flow_already_handed_off": "この Flow はすでにレールに引き渡されています。",
-      "flow_freeze_failed": "引き渡しのために Flow の worktree を保存できませんでした。",
-      "flow_head_mismatch": "引き渡し中に worktree が変わりました。もう一度お試しください。",
-      "flow_handoff_not_adopted": "レールが Flow の worktree を引き継がずに開始しました。",
+      "flow_freeze_failed": "引き渡しのために Flow の変更を保存できませんでした。",
+      "flow_head_mismatch": "引き渡し中に Flow が変更されました。もう一度お試しください。",
+      "flow_handoff_not_adopted": "レールは Flow の変更を引き継がずに開始しました。",
       "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。",
       "flow_not_found": "この Flow はもう存在しません。",
       "flow_failed": "Flow で予期しないエラーが発生しました。もう一度お試しください。",
@@ -913,23 +913,23 @@
       "flow_not_handed_off": "この Flow はもうその実行を待っていません。",
       "flow_rail_unknown": "その実行のレールが不明です。Flow バーからもう一度引き渡してください。",
       "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
-      "flow_return_not_allowed": "Flow に戻せるのは、納品前に停止した Flow → Spec の実行だけです。",
-      "flow_return_not_found": "その実行は Flow → Spec の実行ではありません。",
-      "flow_return_worktree_mismatch": "その実行はこの Flow の worktree を引き継いでいません。"
+      "flow_return_not_allowed": "納品前に停止した引き渡しだけが Flow に戻れます。",
+      "flow_return_not_found": "その実行は Flow の引き渡しではありません。",
+      "flow_return_worktree_mismatch": "その実行はこの Flow の変更を引き継いでいません。"
     },
     "entry": {
       "heading": "Flow を開始",
-      "body": "Specrails はエージェントがコードを書ける分離された worktree を作成します。メインブランチには触れません。",
-      "provider": "エージェントは {{provider}} で作業し、worktree の中にだけ書き込みます。",
-      "providerUnknown": "エージェントは worktree の中にだけ書き込みます。",
+      "body": "Specrails はプロジェクトの別コピーを専用の Flow ブランチに作成し、エージェントはそこでコードを書けます。メインブランチには触れません。",
+      "provider": "エージェントは {{provider}} で動作し、Flow のコピーにのみ書き込みます。",
+      "providerUnknown": "エージェントは Flow のコピーにのみ書き込みます。",
       "repository": {
         "label": "リポジトリ",
-        "hint": "Flow はこのリポジトリの分離された worktree で作業します。",
+        "hint": "Flow はこのリポジトリの別コピーで作業します。",
         "choose": "この Flow を実行するリポジトリを選んでください",
         "loading": "リポジトリを読み込み中…",
         "loadFailed": "プロジェクトのリポジトリを読み込めませんでした。もう一度お試しください。",
         "suggested": "エージェントの提案",
-        "noGit": "このプロジェクトには Git リポジトリがありません。Flow が worktree を作るには Git リポジトリが必要です。"
+        "noGit": "このプロジェクトには Git リポジトリがありません。Flow のブランチに必要です。"
       },
       "blocked": {
         "noProject": "Flow を使うには、このミッションをプロジェクトに固定してください。",
@@ -949,7 +949,7 @@
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "分離された worktree でエージェントと一緒に作り、spec は最後に作ります。"
+          "hint": "別の Flow ブランチで一緒に作り、spec は最後に作成します。"
         },
         "implement": {
           "title": "Spec + Implement",
@@ -980,21 +980,20 @@
       "resume": "Flow を再開",
       "pause": "一時停止",
       "discard": "破棄",
-      "thisIsIt": "これで完成",
       "discarded": "Flow を破棄しました",
       "files_one": "{{count}} ファイル",
       "files_other": "{{count}} ファイル",
-      "filesTitle": "Flow の worktree で変更されたファイル",
+      "filesTitle": "Flow のブランチで変更されたファイル",
       "costTitle": "この Flow のターンの実費（プロバイダーの請求額）",
       "costPartial_one": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
       "costPartial_other": "{{count}} ターンはプロバイダーからコストが報告されておらず、含まれていません",
-      "needsReview": "Flow の worktree が見つかりません。何も削除していません。続ける前にブランチを確認してください。",
-      "pausedNote": "一時停止中です。worktree と spec は保持されます。いつでも再開できます。",
+      "needsReview": "この Flow のプロジェクトのコピーが見つかりません。何も削除していません。続ける前に Flow のブランチを確認してください。",
+      "pausedNote": "一時停止中。変更内容と spec は保持されます。いつでも再開できます。",
       "state": {
         "active": "Flow",
         "paused": "Flow 一時停止中",
         "needs-review": "Flow の確認が必要です",
-        "handed_off": "引き渡し済み",
+        "handed_off": "レールに引き渡し済み",
         "delivered": "完了",
         "discarded": "破棄済み"
       },
@@ -1003,7 +1002,8 @@
         "busy": "実行中の操作が終わるまでお待ちください",
         "noSpec": "Flow の spec はまだ準備できていません"
       },
-      "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}"
+      "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}",
+      "handOff": "引き渡す"
     },
     "preview": {
       "open": "プレビュー",
@@ -1024,7 +1024,7 @@
       "lossFiles_one": "変更済みファイル {{count}} 件",
       "lossFiles_other": "変更済みファイル {{count}} 件",
       "lossNoChanges": "変更済みファイルはまだありません",
-      "lossUnknown": "Flow の worktree のすべての変更",
+      "lossUnknown": "Flow のブランチ上のすべての変更",
       "lossSpec": "ボード上の仮の spec"
     },
     "changes": {
@@ -1056,15 +1056,15 @@
     },
     "review": {
       "backToFlow": "Flow に戻る",
-      "backToFlowHint": "同じ worktree でこの Flow を再開します。エージェントは次のターンでレビューを受け取ります",
+      "backToFlowHint": "同じ変更のままこの Flow を再開します。エージェントは次のターンでレビューを受け取ります",
       "relaunch": "再実行",
-      "relaunchHint": "同じ worktree・レール・エンジンで Flow → Spec を再実行します",
-      "returned": "Flow に戻りました — エージェントはレビューを受け取っています",
-      "relaunched": "レール {{index}} で Flow → Spec を再実行しました",
+      "relaunchHint": "同じ Flow ブランチ、レール、エンジンでもう一度試します",
+      "returned": "Flow に戻りました。エージェントにレビューが渡っています。",
+      "relaunched": "レール {{index}} で再起動しました",
       "returnFailed": "Flow に戻れませんでした：{{detail}}",
-      "relaunchFailed": "Flow → Spec を再実行できませんでした：{{detail}}",
-      "backToFlowFailureHint": "同じ worktree でこの Flow を再開します。エージェントは次のターンでエラーを受け取ります",
-      "returnedFailure": "Flow に戻りました — エージェントはエラーを把握しています"
+      "relaunchFailed": "再起動できませんでした: {{detail}}",
+      "backToFlowFailureHint": "同じ変更のままこの Flow を再開します。エージェントは次のターンでエラーを受け取ります",
+      "returnedFailure": "Flow に戻りました。エージェントにエラーが渡っています。"
     },
     "failure": {
       "step": {
@@ -1072,9 +1072,9 @@
         "verify": "変更内容を検証できませんでした",
         "review": "レビューを完了できませんでした",
         "fix": "自動修正を完了できませんでした",
-        "archive": "OpenSpec の変更をアーカイブできませんでした",
+        "archive": "spec の変更をアーカイブできませんでした",
         "settle": "結果を引き渡せませんでした",
-        "unknown": "Flow → Spec は完了前に停止しました"
+        "unknown": "引き渡しが完了前に停止しました"
       },
       "cause": "原因:",
       "next": "作業内容はそのままです。Flow に戻ると、エージェントがエラーを受け取ります。",
@@ -1090,44 +1090,44 @@
       }
     },
     "announce": {
-      "active": "Flow 実行中: エージェントが worktree に書き込みます。",
+      "active": "Flow 有効: エージェントは Flow のブランチに書き込みます。",
       "paused": "Flow を一時停止しました。",
-      "needs-review": "Flow の確認が必要です: worktree が見つかりません。",
+      "needs-review": "Flow の確認が必要です: プロジェクトのコピーが見つかりません。",
       "handed_off": "Flow をレールに引き渡しました。",
       "delivered": "Flow を納品しました。",
       "discarded": "Flow を破棄しました。",
-      "returned": "Flow に戻りました: Flow → Spec の結果とともに作業が戻りました。"
+      "returned": "Flow に戻りました: 引き渡しで見つかった内容とともに作業が戻りました。"
     },
     "strip": {
       "label": "Flow",
-      "ready": "Flow → Spec を起動できます",
-      "launching": "Flow → Spec を起動中…",
-      "launchingOn": "{{rail}} で Flow → Spec を起動中…",
+      "ready": "PR にする準備ができました",
+      "launching": "レールに引き渡しています…",
+      "launchingOn": "{{rail}} に引き渡しています…",
       "step": {
         "derive": "変更から spec を作成中",
         "verify": "変更を検証中",
         "review": "変更をレビュー中",
         "fix": "レビューの修正を適用中",
-        "archive": "OpenSpec の変更をアーカイブ中",
+        "archive": "spec の変更をアーカイブしています",
         "settle": "結果を引き渡し中"
       }
     },
     "mode": {
       "chip": "Flow",
-      "description": "Flow モード: エージェントは Flow の隔離された worktree に書き込みます",
-      "placeholder": "worktree で何を変えるかエージェントに伝えてください…"
+      "description": "Flow モード: エージェントはメインブランチではなく Flow のブランチに書き込みます",
+      "placeholder": "この Flow で何を変えるかエージェントに伝えてください…"
     }
   },
   "flowReturn": {
     "title": "レビュアーの指摘",
-    "noFindings": "Flow → Spec の実行は納品前に停止しました。ワークツリーはすべての変更とともにこの Flow に戻りました。",
+    "noFindings": "引き渡しは納品前に停止しました。変更はそのままこの Flow に戻っています。",
     "coverage": "スペックは変更された {{files}} ファイルのうち {{explained}} を説明しています",
     "unexplained": "どの要件にも説明されていないファイル",
     "moreFiles_one": "ほか {{count}} ファイル",
     "moreFiles_other": "ほか {{count}} ファイル",
     "next": "Flow エージェントがこれから着手します。いつでも指示や停止ができます。",
     "automaticTurn": "自動ターン · Flow に戻る",
-    "titleFailure": "Flow → Spec が停止した理由"
+    "titleFailure": "引き渡しが停止した理由"
   },
   "turnErrors": {
     "providerInactivity": "プロバイダーの応答が長時間なかったため、ターンを終了しました。続けるにはメッセージをもう一度送信してください。",
@@ -1140,15 +1140,15 @@
     "prNumber": "プルリクエスト #{{number}}",
     "specRewritten": "作ったものから spec を書き直しました",
     "specKept": "spec の書き直しは完了しませんでした。下書きは保持されています",
-    "change": "OpenSpec の変更 {{change}}",
-    "changeArchived": "OpenSpec の変更 {{change}} をアーカイブしました",
+    "change": "spec の変更 {{change}}",
+    "changeArchived": "spec の変更 {{change}} をアーカイブしました",
     "jira": "Jira 課題 {{key}}",
     "jiraPending": "Jira 課題を作成中"
   },
   "runStrip": {
     "launching": "{{rail}} で起動中…",
     "running": "作業中",
-    "paused": "一時停止中 — あなたを待っています",
+    "paused": "一時停止中。あなたを待っています",
     "pausedReason": "一時停止中: {{reason}}",
     "decision": {
       "approval": "あなたの承認待ち",
@@ -1198,9 +1198,9 @@
       "launched": "{{run}} で起動",
       "failed": "{{run}} が失敗: {{reason}}",
       "openRun": "実行を表示",
-      "proposed": "起動が提案されました — あなた待ち",
+      "proposed": "起動が提案されました。あなたを待っています",
       "backToFlow": "Flow に戻りました",
-      "flowReturned": "{{run}} の Flow → Spec は Flow に戻りました",
+      "flowReturned": "{{run}} が作業を Flow に戻しました",
       "delivered": "納品済み: PR {{pr}}",
       "deliveredNoPr": "{{run}} で納品済み",
       "superseded": "{{run}} は新しい実行に置き換えられました",

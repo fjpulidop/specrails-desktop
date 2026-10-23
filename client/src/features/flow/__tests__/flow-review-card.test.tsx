@@ -108,11 +108,11 @@ describe('Flow → Spec requested changes on the mission card', () => {
     fireEvent.click(screen.getByTestId('flow-review-back-to-flow'))
     await act(async () => {})
     expect(flowContext.value!.returnToFlow).toHaveBeenCalledWith('p1', 'delivery-1')
-    expect(toast.success).toHaveBeenCalledWith('Back in Flow — the agent has the review')
+    expect(toast.success).toHaveBeenCalledWith('Back in Flow. The agent has the review.')
     fireEvent.click(screen.getByTestId('flow-review-relaunch'))
     await act(async () => {})
     expect(flowContext.value!.relaunch).toHaveBeenCalledWith('p1', 'delivery-1')
-    expect(toast.success).toHaveBeenCalledWith('Flow → Spec relaunched on rail 1')
+    expect(toast.success).toHaveBeenCalledWith('Relaunched on Rail 1')
   })
 
   it('a Flow → Spec run that failed outright relaunches through its Flow, never the plain rail relaunch', async () => {
@@ -185,7 +185,7 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
 
   it('says what failed in plain words, the cause, what happens next, and keeps the codes as technical details', () => {
     render(withFailure(<AgentPrDecisionCard envelope={crashed()} conversationId="conv-1" />))
-    expect(screen.getByText('Flow → Spec stopped')).toBeInTheDocument()
+    expect(screen.getByText('The hand-off stopped')).toBeInTheDocument()
     expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t write the spec from your changes')
     expect(screen.getByTestId('flow-run-failure-cause').textContent).toBe('Cause: OpenSpec 1.14.3 required; found 1.4.1')
     expect(screen.getByTestId('flow-run-failure-next').textContent).toBe('Your work is intact. Back in Flow, the agent gets the error.')
@@ -204,7 +204,7 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     // Back to Flow first, Relaunch second; the plain rail relaunch never shows.
     const actions = screen.getAllByRole('button').map((button) => button.getAttribute('data-testid')).filter((id) => id?.startsWith('flow-review-'))
     expect(actions).toEqual(['flow-review-back-to-flow', 'flow-review-relaunch'])
-    expect(screen.getByTestId('flow-review-back-to-flow').getAttribute('title')).toBe('Reopen this Flow on the same worktree; the agent receives the error on its next turn')
+    expect(screen.getByTestId('flow-review-back-to-flow').getAttribute('title')).toBe('Reopen this Flow with the same changes; the agent receives the error on its next turn')
     expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
   })
 
@@ -222,7 +222,7 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     fireEvent.click(screen.getByTestId('flow-review-back-to-flow'))
     await act(async () => {})
     expect(flowContext.value!.returnToFlow).toHaveBeenCalledWith('p1', 'delivery-1')
-    expect(toast.success).toHaveBeenCalledWith('Back in Flow — the agent has the error')
+    expect(toast.success).toHaveBeenCalledWith('Back in Flow. The agent has the error.')
   })
 
   it('names the repository of a multi-repository run in the technical details', () => {
@@ -235,9 +235,9 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
       failure: { stepId: 'archive', cause: 'OpenSpec aborted: missing Purpose', statusCode: 'implementation_failed', failureCode: null, statusDetail: null } }))!
     expect(row.failure).toMatchObject({ stepId: 'archive' })
     render(withFailure(<AgentFlowReturnCard row={row} conversationId="conv-1" />))
-    expect(screen.getByText('Why Flow → Spec stopped')).toBeInTheDocument()
+    expect(screen.getByText('Why the hand-off stopped')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('agent-flow-return-toggle'))
-    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t archive the OpenSpec change')
+    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t archive the spec change')
     expect(screen.getByTestId('flow-run-failure-cause').textContent).toContain('OpenSpec aborted: missing Purpose')
     expect(screen.queryByTestId('flow-review-back-to-flow')).toBeNull()
     expect(screen.queryByTestId('flow-run-failure-returned')).toBeNull()
@@ -260,7 +260,7 @@ describe('Flow closing summary', () => {
     expect(screen.getByTestId('agent-flow-delivered-pr').querySelector('a')!.getAttribute('href')).toBe('https://github.com/o/r/pull/42')
     expect(screen.getByTestId('agent-flow-delivered-pr')).toHaveTextContent('Pull request #42')
     expect(screen.getByTestId('agent-flow-delivered-spec')).toHaveTextContent('Spec rewritten from what you built')
-    expect(screen.getByTestId('agent-flow-delivered-change')).toHaveTextContent('OpenSpec change kanban-board archived')
+    expect(screen.getByTestId('agent-flow-delivered-change')).toHaveTextContent('Spec change kanban-board archived')
     expect(screen.getByTestId('agent-flow-delivered-jira')).toHaveTextContent('Jira issue SR-12')
     // Never a javascript: link, never another row kind.
     expect(parseFlowDeliveredRow(JSON.stringify({ kind: 'flow-delivered', flowId: 'f', prUrl: 'javascript:alert(1)' }))!.prUrl).toBeNull()

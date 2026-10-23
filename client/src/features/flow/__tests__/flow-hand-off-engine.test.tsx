@@ -70,7 +70,7 @@ function Providers({ children }: { children: ReactNode }) {
 
 async function openHandOff() {
   render(<Providers><AgentRunStrip conversationId="c1" projectId="p1" inline /></Providers>)
-  fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
+  fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
   return screen.findByTestId('flow-hand-off-card')
 }
 

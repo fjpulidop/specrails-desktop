@@ -2,7 +2,7 @@
 // One provider above the mission chat. It caches the Flow of each
 // (project, conversation) a view asked for, the per-project availability, and
 // three session-local UI facts: which Flows are "wrapping up" (the user pressed
-// "This is it" and the hand-off panel is showing), which hand-offs are in
+// "Hand off" and the hand-off panel is showing), which hand-offs are in
 // flight, and which were just handed off (the run strip keeps a launching
 // skeleton until the run itself shows).
 //

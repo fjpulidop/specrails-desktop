@@ -109,11 +109,11 @@ beforeEach(() => {
 })
 
 describe('FlowEntryCard', () => {
-  it('explains the isolated worktree and starts the Flow on Start', async () => {
+  it('explains the separate Flow branch and starts the Flow on Start', async () => {
     current = null
     const onStarted = vi.fn()
     render(<Providers><FlowEntryCard idea="Try a calmer dashboard" projectId="p1" conversationId="c1" provider="claude" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
-    expect(screen.getByText(/isolated worktree where the agent can write code\. Your main branch is not touched\./)).toBeInTheDocument()
+    expect(screen.getByText(/on its own Flow branch, where the agent can write code\. Your main branch is not touched\./)).toBeInTheDocument()
     expect(screen.getByTestId('flow-entry-idea')).toHaveTextContent('Try a calmer dashboard')
     expect(screen.getByText(/works with Claude/)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
@@ -238,7 +238,7 @@ describe('FlowEntryCard in a workspace (repository target)', () => {
     render(<Providers><FlowEntryCard idea="x" repositoryId="api" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
-    expect(await screen.findByTestId('flow-entry-error')).toHaveTextContent('Flow needs a Git repository; a folder cannot hold its worktree.')
+    expect(await screen.findByTestId('flow-entry-error')).toHaveTextContent('Flow needs a Git repository for its branch; a plain folder can\'t hold one.')
   })
 
   it('a single-repository project shows no choice and never sends a repository', async () => {
@@ -259,7 +259,7 @@ describe('Flow mode in the conversation', () => {
     // The run strip carries the (copyable) branch: the git strip steps aside.
     await waitFor(() => expect(result.current).toMatchObject({
       attributes: { 'data-flow': 'active' }, hideGitStrip: true, interruptWhileBusy: true,
-      composer: { badge: { label: 'Flow' }, placeholder: 'Tell the agent what to change in the worktree…' },
+      composer: { badge: { label: 'Flow' }, placeholder: 'Tell the agent what to change in this Flow…' },
       headerBadge: { label: 'In Flow' },
     }))
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'paused' }) }))
@@ -282,7 +282,7 @@ describe('Flow mode in the conversation', () => {
     expect(bar).toHaveTextContent('feat/7-calm-dashboard')
     await waitFor(() => expect(screen.getByTestId('flow-bar-stats')).toHaveTextContent('3 files+10−2'))
     expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.420')
-    for (const id of ['changes', 'pause', 'discard', 'this-is-it']) expect(screen.getByTestId(`flow-bar-${id}`)).toBeInTheDocument()
+    for (const id of ['changes', 'pause', 'discard', 'hand-off']) expect(screen.getByTestId(`flow-bar-${id}`)).toBeInTheDocument()
     expect(screen.getByRole('toolbar', { name: 'Flow actions' })).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('flow-bar-changes'))
     const dialog = await screen.findByTestId('flow-changes-dialog')
@@ -295,15 +295,15 @@ describe('Flow mode in the conversation', () => {
     render(<Providers><FlowStrip /></Providers>)
     const toolbar = await screen.findByRole('toolbar', { name: 'Flow actions' })
     const order = [...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))
-    expect(order).toEqual(['flow-bar-discard', 'flow-bar-separator', 'flow-bar-pause', 'flow-bar-this-is-it'])
+    expect(order).toEqual(['flow-bar-discard', 'flow-bar-separator', 'flow-bar-pause', 'flow-bar-hand-off'])
     await waitFor(() => expect(screen.getByTestId('flow-bar-changes')).toHaveAccessibleName('View changes · 3 files, +10 −2'))
     expect(screen.getByTestId('flow-bar-branch')).toHaveAccessibleName('Copy branch name: feat/7-calm-dashboard')
   })
 
-  it('a disabled "This is it" says why (tooltip and description)', async () => {
+  it('a disabled "Hand off" says why (tooltip and description)', async () => {
     current = flow({ step: 'handoff:freeze' })
     render(<Providers><FlowStrip /></Providers>)
-    const handOff = await screen.findByTestId('flow-bar-this-is-it')
+    const handOff = await screen.findByTestId('flow-bar-hand-off')
     expect(handOff).toBeDisabled()
     expect(handOff).toHaveAccessibleDescription('Wait until the Flow finishes saving its state')
     expect(handOff.getAttribute('title')).toContain('Wait until the Flow finishes saving its state')
@@ -400,7 +400,7 @@ describe('Flow mode in the conversation', () => {
     await act(async () => { fireEvent.click(pause) })
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'paused'))
     expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'paused')
-    expect(screen.getByTestId('flow-bar-note')).toHaveTextContent('The worktree and the spec are kept')
+    expect(screen.getByTestId('flow-bar-note')).toHaveTextContent('Your changes and the spec are kept')
     await act(async () => { fireEvent.click(screen.getByTestId('flow-bar-resume')) })
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
     expect(calls.map((c) => c.url).filter((u) => /\/(pause|resume)$/.test(u))).toEqual([
@@ -430,22 +430,22 @@ describe('Flow mode in the conversation', () => {
     expect(screen.queryByTestId('flow-bar-discard')).toBeNull()
   })
 
-  it('"This is it" morphs the strip into Flow → Spec and opens the hand-off as its panel; Launch goes through the hand-off route', async () => {
+  it('"Hand off" morphs the strip into "Ready to turn into a PR" and opens the hand-off as its panel; Launch goes through the hand-off route', async () => {
     const { result } = renderHook(() => useFlowConversationMode('c1', 'p1'), { wrapper: Providers })
     await waitFor(() => expect(result.current).not.toBeNull())
     render(<Providers><FlowStrip /></Providers>)
-    fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
+    fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
     const strip = screen.getByTestId('mission-run-strip')
     // Same run, same place: the strip morphs (same key) instead of a new block appearing.
     expect(strip).toHaveAttribute('data-run-key', 'flow:f1')
     expect(strip).toHaveAttribute('data-flow-state', 'wrapping-up')
     expect(strip).toHaveAttribute('data-tone', 'decision')
-    expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Flow → Spec ready to launch')
+    expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Ready to turn into a PR')
     // The hand-off settings open on their own as the strip's panel.
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
     const card = within(screen.getByTestId('mission-run-strip-panel')).getByTestId('flow-hand-off-card')
-    expect(screen.queryByTestId('flow-bar-this-is-it')).toBeNull()
+    expect(screen.queryByTestId('flow-bar-hand-off')).toBeNull()
     // ONE confirmation line: which rail, how many files, and the safety net.
     await waitFor(() => expect(within(card).getByTestId('rail-card-hand-off-line')).toHaveTextContent(
       'Rail 2 will turn your 3 changed files into a reviewed PR. If it fails, your work is safe.',
@@ -467,7 +467,7 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     // Launched: the strip keeps a launching skeleton until the run itself shows (no gap).
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Launching Flow → Spec on Rail 2…'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Handing off to Rail 2…'))
     expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'launching')
     expect(screen.getByTestId('mission-run-strip-skeleton')).toBeInTheDocument()
     expect(screen.queryByTestId('flow-hand-off-card')).toBeNull()
@@ -480,7 +480,7 @@ describe('Flow mode in the conversation', () => {
 
   it('the strip\'s own Launch never launches blind: it reopens the hand-off focused on Launch', async () => {
     render(<Providers><FlowStrip /></Providers>)
-    fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
+    fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     // Close the panel: the strip still offers Launch, which only points at the card's own control.
     fireEvent.keyDown(screen.getByTestId('mission-run-strip-panel'), { key: 'Escape' })
@@ -496,11 +496,11 @@ describe('Flow mode in the conversation', () => {
 
   it('"Not yet" returns to the Flow', async () => {
     render(<Providers><FlowStrip /></Providers>)
-    fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
+    fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
     await screen.findByTestId('flow-hand-off-card')
     fireEvent.click(screen.getByTestId('rail-card-dismiss'))
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
-    expect(screen.getByTestId('flow-bar-this-is-it')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-bar-hand-off')).toBeInTheDocument()
   })
 
   it('applies flow.state events only for watched projects', async () => {

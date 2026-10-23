@@ -67,7 +67,7 @@ export function AgentRunEventLine({
       className={cn(base, 'transition-colors hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50')}
     >
       {body}
-      {actionLabel && <span className="sr-only"> — {actionLabel}</span>}
+      {actionLabel && <span className="sr-only">. {actionLabel}</span>}
     </button>
   )
 }

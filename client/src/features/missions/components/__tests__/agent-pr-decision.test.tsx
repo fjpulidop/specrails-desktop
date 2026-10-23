@@ -176,11 +176,11 @@ describe('AgentPrDecisionCard states', () => {
   it('names the loop that ran (chip) and titles Flow → Spec outcomes after it; other loops keep their titles', () => {
     const flowReview = { reason: 'review' as const, summary: null, issues: ['Tag the tests'], issuesOmitted: 0, score: 58, failingChecks: [] }
     const { unmount } = render(<AgentPrDecisionCard envelope={env({ loopId: 'factory:flow-spec', loopName: 'Flow → Spec', decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'review_changes_requested', flowReview })} />)
-    expect(screen.getByText('Flow → Spec — the reviewer requested changes')).toBeInTheDocument()
+    expect(screen.getByText('Not ready yet: the reviewer requested changes')).toBeInTheDocument()
     expect(screen.getByTestId('loop-chip')).toHaveTextContent('Flow → Spec')
     unmount()
     const delivered = render(<AgentPrDecisionCard envelope={env({ loopId: 'factory:flow-spec', loopName: 'Flow → Spec', decision: 'on_review' })} />)
-    expect(screen.getByText('Flow → Spec delivered')).toBeInTheDocument()
+    expect(screen.getByText('Your Flow is now a reviewed PR')).toBeInTheDocument()
     delivered.unmount()
     const implement = render(<AgentPrDecisionCard envelope={env({ loopId: 'factory:implement', loopName: 'Implement', decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'implementation_failed' })} />)
     expect(screen.getAllByText('Implementation failed').length).toBeGreaterThan(0)

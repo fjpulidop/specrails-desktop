@@ -3,7 +3,7 @@
 // the strip morphs in place across its states:
 //   active / paused / needs review → "Flow" + branch · files ± · cost and the
 //                                    controls (FlowStripControls)
-//   "This is it"                   → "Flow → Spec · ready to launch": the
+//   "Hand off"                   → "Flow → Spec · ready to launch": the
 //                                    hand-off settings open as the strip's
 //                                    panel (recap, rail, engine) with Launch
 //                                    as the strip's primary action
@@ -43,7 +43,7 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
   const { isStreaming, active } = useAgentChat()
   const working = isStreaming && active?.id === conversationId && flow?.state === 'active'
   const wrappingUp = !!ctx && !!flow && ctx.wrappingUp.has(flow.id) && isOpenFlow(flow)
-  // Each "This is it" opens the hand-off panel once (a new token per press).
+  // Each "Hand off" opens the hand-off panel once (a new token per press).
   const handOffSeq = useRef({ flowId: '', on: false, seq: 0 })
   if (flow && (handOffSeq.current.flowId !== flow.id || handOffSeq.current.on !== wrappingUp)) {
     if (wrappingUp && !(handOffSeq.current.flowId === flow.id && handOffSeq.current.on)) handOffSeq.current.seq += 1

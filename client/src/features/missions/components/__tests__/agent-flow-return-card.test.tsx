@@ -46,7 +46,7 @@ describe('AgentFlowReturnCard (Back to Flow)', () => {
   it('without findings it still says where the work went', () => {
     render(<AgentFlowReturnCard row={parseFlowReturnBriefingRow(row({ reason: null, derivation: null }))!} />)
     fireEvent.click(screen.getByTestId('agent-flow-return-toggle'))
-    expect(screen.getByTestId('agent-flow-return-card')).toHaveTextContent('the worktree is back in this Flow')
+    expect(screen.getByTestId('agent-flow-return-card')).toHaveTextContent('your changes are back in this Flow, intact')
     expect(screen.queryByTestId('agent-flow-return-coverage')).toBeNull()
   })
 
