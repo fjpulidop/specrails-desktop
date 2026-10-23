@@ -2711,14 +2711,18 @@ export class QueueManager {
     // ─── Relocate-artifacts spawn env ──────────────────────────────────────
     // Merge SPECRAILS_REPO_DIR (+ workspace/tickets/state/etc.) so stage-3
     // `${SPECRAILS_REPO_DIR:-.}` re-pointing drives source/openspec/git I/O back
-    // into the repo. Per provider: gemini trusts the workspace cwd; codex gets
-    // NO CODEX_HOME override (all-or-nothing incl. auth → breaks the rail) and
-    // relies on cwd-based discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // into the repo. Per provider: codex gets NO CODEX_HOME override
+    // (all-or-nothing incl. auth → breaks the rail) and relies on cwd-based
+    // discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // Gemini trusts its spawn cwd in BOTH layouts (the workspace when
+    // relocated, the repo or rail worktree otherwise): headless `gemini -p`
+    // in an untrusted folder ignores the project's settings and subagents.
+    // The loop path gets the same through the runtime bridge (coreProviderEnv).
+    if (adapter.id === 'gemini') {
+      spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+    }
     if (execution.relocated) {
       spawnEnv = { ...spawnEnv, ...execution.env }
-      if (adapter.id === 'gemini') {
-        spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
-      }
       // openspec PATH shim (claude rails only): prepend a per-job shim dir that
       // re-points every BARE `openspec` call at the repo working tree, so a
       // skill- or un-wrapped-template-driven `openspec <verb>` from the workspace
