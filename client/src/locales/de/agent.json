@@ -1110,12 +1110,19 @@
         "fix": "Korrekturen aus dem Review werden angewendet",
         "archive": "Spec-Änderung wird archiviert",
         "settle": "Das Ergebnis wird zurückgegeben"
-      }
+      },
+      "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
       "description": "Flow-Modus: Der Agent schreibt im Flow-Branch, nicht in deinem Hauptbranch",
       "placeholder": "Sag dem Agenten, was er in diesem Flow ändern soll…"
+    },
+    "panel": {
+      "branch": "Branch",
+      "changes": "Änderungen",
+      "cost": "Kosten bisher",
+      "actions": "Weitere Flow-Aktionen"
     }
   },
   "flowReturn": {
@@ -1179,7 +1186,8 @@
       "running": "Läuft:",
       "decision": "Wartet auf dich:",
       "failed": "Fehlgeschlagen:",
-      "paused": "Pausiert:"
+      "paused": "Pausiert:",
+      "info": "Zur Info:"
     },
     "proposal": "Start vorgeschlagen für {{tickets}}",
     "proposalNoTickets": "Start vorgeschlagen",

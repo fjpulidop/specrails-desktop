@@ -120,7 +120,7 @@ export interface MissionRunFailureOutcomeProps {
 }
 
 /** How a run looks in the strip (see mission-run-strip.ts). */
-export type MissionLiveRunTone = 'launching' | 'running' | 'decision' | 'failed' | 'paused'
+export type MissionLiveRunTone = 'launching' | 'running' | 'decision' | 'failed' | 'paused' | 'info'
 
 /**
  * One extension-owned live run in the mission's run strip. Missions owns the

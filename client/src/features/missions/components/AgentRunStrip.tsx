@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
-import { AlertTriangle, BellRing, ChevronUp, Loader2, Pause } from 'lucide-react'
+import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
@@ -38,7 +38,7 @@ import {
   type FocusPrCardDetail, type OpenRunStripDetail,
 } from './agent-run-failure'
 import {
-  deliveryRunKey, deliveryRunTone, formatRunCost, heldStripKey, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
+  deliveryRunKey, deliveryRunTone, formatRunCost, heldStripKey, urgencyRank, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
   proposalRunKey, readStripPick, urgencyOfTone, writeStripPick,
   type MissionRunCardSummary, type MissionRunTone, type MissionRunUrgency, type MissionRunVitalsSnapshot,
 } from './mission-run-strip'
@@ -83,6 +83,7 @@ function StatusMark({ tone, quiet }: { tone: MissionRunTone; quiet: boolean }) {
   if (tone === 'decision') return <BellRing className={cn(MARK_CLASS, 'text-accent-primary')} aria-hidden />
   if (tone === 'failed') return <AlertTriangle className={cn(MARK_CLASS, 'text-destructive')} aria-hidden />
   if (tone === 'paused') return <Pause className={cn(MARK_CLASS, 'text-accent-warning')} aria-hidden />
+  if (tone === 'info') return <Info className={cn(MARK_CLASS, 'text-foreground/70')} aria-hidden />
   return (
     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
       <span className={cn('h-2 w-2 rounded-full bg-accent-info', !quiet && 'motion-safe:animate-pulse')} />
@@ -100,6 +101,7 @@ function ToneDot({ tone }: { tone: MissionRunTone }) {
         tone === 'decision' && 'bg-accent-primary',
         tone === 'failed' && 'bg-destructive',
         tone === 'paused' && 'bg-accent-warning',
+        tone === 'info' && 'bg-foreground/45',
         (tone === 'running' || tone === 'launching') && 'bg-accent-info',
       )}
     />
@@ -748,7 +750,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 }
 
 function urgencyOrder(entry: StripEntry): number {
-  return entry.urgency === 'decision' ? 0 : entry.urgency === 'failed' ? 1 : entry.urgency === 'running' ? 2 : 3
+  return urgencyRank(entry.urgency)
 }
 
 function extensionEntry(run: MissionLiveRun): StripEntry {
@@ -762,7 +764,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     headlineText: typeof run.headline === 'string' ? run.headline : run.label,
     meta: run.tone === 'launching' && !run.meta ? <MetaSkeleton /> : run.meta ?? null,
     controls: run.controls ?? null,
-    wantsPrimary: run.tone !== 'running' && run.tone !== 'launching',
+    wantsPrimary: run.tone !== 'running' && run.tone !== 'launching' && run.tone !== 'info',
     panel: run.panel ?? null,
     autoOpenToken: run.autoOpenToken ?? null,
     attributes: run.attributes ?? {},

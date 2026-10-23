@@ -45,12 +45,16 @@ by code (`flowErrorMessage`); the server detail is never the headline.
 ## Flow in the run strip and the hand-off
 
 The Flow is one entry of the mission's run strip, keyed `flow:<id>` so the
-strip morphs in place. Active, paused or needing review it shows
-[`FlowStripControls`](components/FlowStripControls.tsx): the copyable branch,
-a files ± stat that opens `FlowChangesDialog`, the billed cost, and a toolbar
-with **Discard** apart from the primary **This is it**; disabled controls say
-why. `FlowDiscardDialog` lists what is lost. **This is it** turns the entry
-into "Flow → Spec ready to launch" and opens `FlowHandOffCard` as the strip's
+strip morphs in place. Its row stays short: "Flow · 7 files", Pause (or
+Resume Flow) and the primary **Hand off**
+([`FlowStripControls`](components/FlowStripControls.tsx)); disabled controls
+say why. The chevron opens `FlowPanel`: the copyable branch, a files ± stat
+that opens `FlowChangesDialog`, the billed cost (with a visible note when
+partial), Preview and **Discard** set apart (`FlowDiscardDialog` lists what is
+lost). `useFlowLiveStats` measures diff and cost once per Flow and polls only
+while the agent works and the page is visible. A needs-review Flow is
+informational (`info` tone). **Hand off** turns the entry
+into "Ready to turn into a PR" and opens `FlowHandOffCard` as the strip's
 panel: ONE line ("Rail 2 will turn your 7 changed files into a reviewed PR.
 If it fails, your work is safe.") with **Launch** and **Not yet**; rail,
 engine, model and effort are prefilled under **Change how** (with the files ±,

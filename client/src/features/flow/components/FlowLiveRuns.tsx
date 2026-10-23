@@ -1,18 +1,23 @@
 // ─── Flow in the mission's run strip (missions useLiveRuns slot) ──────────────
 // A conversation's Flow is ONE entry of the run strip, keyed by the Flow so
 // the strip morphs in place across its states:
-//   active / paused / needs review → "Flow" + branch · files ± · cost and the
-//                                    controls (FlowStripControls)
-//   "Hand off"                   → "Flow → Spec · ready to launch": the
-//                                    hand-off settings open as the strip's
-//                                    panel (recap, rail, engine) with Launch
-//                                    as the strip's primary action
+//   active / paused                → "Flow · 7 files" with Pause (or Resume)
+//                                    and the primary Hand off on the row; the
+//                                    branch, files ±, cost, Preview and
+//                                    Discard live in its panel (FlowPanel)
+//   needs review                   → informational (the copy of the project
+//                                    is missing): the note in its panel
+//   Hand off                       → "Ready to turn into a PR": the hand-off
+//                                    line opens as the strip's panel, with
+//                                    Launch declared as an outward primary
 //   launching                      → a skeleton in the strip itself, kept
 //                                    after the request until the run shows
 //                                    (the entry yields to its delivery)
-// Also `describeRun`: the person's words for the steps of Flow → Spec.
+// The diff and cost are measured ONCE here (useFlowLiveStats) and shared by
+// the row and the panel. Also `describeRun`: the person's words for the steps
+// of the hand-off loop (Flow → Spec).
 
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
@@ -24,7 +29,7 @@ import { isOpenFlow } from '../lib/flow-api'
 import { flowFailureStep } from '../lib/flow-failure'
 import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
 import { FlowHandOffCard } from './FlowHandOffCard'
-import { FlowStripControls } from './FlowStripControls'
+import { FlowPanel, FlowStripControls, flowStripHeadline, useFlowLiveStats } from './FlowStripControls'
 
 /** Flow → Spec steps and failures in the person's words (null for other loops). */
 export function describeFlowRun(t: TFunction, input: MissionRunDescriptionInput): MissionRunDescription | null {
@@ -53,8 +58,12 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
   const launching = !!ctx && !!flow && ctx.launching.has(flow.id)
   const receipt = flow ? ctx?.handedOff.get(flow.id) ?? null : null
 
-  // Not memoized: the controls read live contexts (the agent's apps) and must re-render with the strip.
-  return liveRuns()
+  const openFlow = flow && projectId && (isOpenFlow(flow) || flow.state === 'needs-review') && !wrappingUp && !launching ? flow : null
+  const stats = useFlowLiveStats(projectId, openFlow, working)
+
+  // Memoized on what the entry shows; the controls and panel read their own
+  // live contexts (the agent's apps) and re-render on their own.
+  return useMemo(liveRuns, [ctx, flow, projectId, conversationId, inline, wrappingUp, launching, receipt, working, stats, handOffToken, t])
   function liveRuns(): readonly MissionLiveRun[] {
     if (!ctx || !flow || !projectId) return []
     const key = `flow:${flow.id}`
@@ -79,12 +88,14 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
       }]
     }
     if (!isOpenFlow(flow) && flow.state !== 'needs-review') return []
-    const tone = flow.state === 'paused' ? 'paused' : flow.state === 'needs-review' ? 'decision' : 'running'
+    // needs-review has nothing to decide on the row: it is informational.
+    const tone = flow.state === 'paused' ? 'paused' : flow.state === 'needs-review' ? 'info' : 'running'
     return [{
       key, label, attributes, tone,
       working,
-      headline: t(`flow.bar.state.${flow.state}`, { defaultValue: t('flow.bar.state.active') }),
-      controls: <FlowStripControls projectId={projectId} flow={flow} inline={inline} working={working} />,
+      headline: flowStripHeadline(t, flow, stats.diff),
+      controls: <FlowStripControls projectId={projectId} flow={flow} inline={inline} />,
+      panel: <FlowPanel projectId={projectId} flow={flow} stats={stats} />,
     }]
   }
 }

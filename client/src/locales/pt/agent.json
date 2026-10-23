@@ -1110,12 +1110,19 @@
         "fix": "Aplicando as correções da revisão",
         "archive": "Arquivando a alteração da spec",
         "settle": "Devolvendo o resultado"
-      }
+      },
+      "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
       "description": "Modo Flow: o agente escreve no ramo do Flow, não no seu ramo principal",
       "placeholder": "Diga ao agente o que mudar neste Flow…"
+    },
+    "panel": {
+      "branch": "Ramo",
+      "changes": "Alterações",
+      "cost": "Custo até agora",
+      "actions": "Mais ações do Flow"
     }
   },
   "flowReturn": {
@@ -1179,7 +1186,8 @@
       "running": "Em execução:",
       "decision": "Aguardando você:",
       "failed": "Falhou:",
-      "paused": "Pausado:"
+      "paused": "Pausado:",
+      "info": "Para sua informação:"
     },
     "proposal": "Lançamento proposto para {{tickets}}",
     "proposalNoTickets": "Lançamento proposto",

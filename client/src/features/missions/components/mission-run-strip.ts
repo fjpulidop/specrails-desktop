@@ -12,17 +12,22 @@
 import type { AgentPrDecisionEnvelope, MissionRunRuntime } from '../lib/agent-api'
 import { isPrEnvelopePinned } from './agent-pr-pinning'
 
-/** How the strip renders a run. `launching` is a skeleton, the rest carry data. */
-export type MissionRunTone = 'launching' | 'running' | 'decision' | 'failed' | 'paused'
+/**
+ * How the strip renders a run. `launching` is a skeleton, the rest carry data.
+ * `info` is a settled, informational state: nothing to decide right now (the
+ * run finished without changes, its PR was closed, a Flow needs a look).
+ */
+export type MissionRunTone = 'launching' | 'running' | 'decision' | 'failed' | 'paused' | 'info'
 
-/** Strip priority: what needs you first, then what broke, then what moves, then what waits. */
-export type MissionRunUrgency = 'decision' | 'failed' | 'running' | 'paused'
+/** Strip priority: what needs you first, then what broke, then what moves, then what waits, then what only informs. */
+export type MissionRunUrgency = 'decision' | 'failed' | 'running' | 'paused' | 'info'
 
 const URGENCY_RANK: Readonly<Record<MissionRunUrgency, number>> = Object.freeze({
   decision: 0,
   failed: 1,
   running: 2,
   paused: 3,
+  info: 4,
 })
 
 export function urgencyRank(urgency: MissionRunUrgency): number {

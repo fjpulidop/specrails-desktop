@@ -1110,12 +1110,19 @@
         "fix": "正在应用审查修复",
         "archive": "正在归档 spec 变更",
         "settle": "正在交还结果"
-      }
+      },
+      "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
       "description": "Flow 模式：代理在 Flow 分支上写入，而不是你的主分支",
       "placeholder": "告诉代理要在这个 Flow 中修改什么…"
+    },
+    "panel": {
+      "branch": "分支",
+      "changes": "更改",
+      "cost": "目前成本",
+      "actions": "更多 Flow 操作"
     }
   },
   "flowReturn": {
@@ -1179,7 +1186,8 @@
       "running": "运行中：",
       "decision": "等待你：",
       "failed": "失败：",
-      "paused": "已暂停："
+      "paused": "已暂停：",
+      "info": "供参考："
     },
     "proposal": "提议为 {{tickets}} 启动",
     "proposalNoTickets": "已提议启动",

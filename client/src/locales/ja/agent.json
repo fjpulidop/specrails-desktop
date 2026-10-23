@@ -1110,12 +1110,19 @@
         "fix": "レビューの修正を適用中",
         "archive": "spec の変更をアーカイブしています",
         "settle": "結果を引き渡し中"
-      }
+      },
+      "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
       "description": "Flow モード: エージェントはメインブランチではなく Flow のブランチに書き込みます",
       "placeholder": "この Flow で何を変えるかエージェントに伝えてください…"
+    },
+    "panel": {
+      "branch": "ブランチ",
+      "changes": "変更",
+      "cost": "これまでのコスト",
+      "actions": "その他の Flow 操作"
     }
   },
   "flowReturn": {
@@ -1179,7 +1186,8 @@
       "running": "実行中:",
       "decision": "あなた待ち:",
       "failed": "失敗:",
-      "paused": "一時停止中:"
+      "paused": "一時停止中:",
+      "info": "お知らせ:"
     },
     "proposal": "{{tickets}} の起動が提案されました",
     "proposalNoTickets": "起動が提案されました",

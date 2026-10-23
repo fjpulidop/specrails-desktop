@@ -27,6 +27,7 @@ import { FlowDock } from '../components/FlowDock'
 import { AgentRunStrip } from '../../missions/components/AgentRunStrip'
 import { FlowOfferCard } from '../components/FlowOfferCard'
 import { describeFlowRun } from '../components/FlowLiveRuns'
+import { useFlowLiveStats } from '../components/FlowStripControls'
 import { useFlowConversationMarks } from '../components/FlowConversationMarks'
 import i18n from '../../../lib/i18n'
 import { AgentMessage } from '../../missions/components/AgentMessage'
@@ -77,6 +78,13 @@ function mockFetch() {
     if (url.includes('/intent')) return respond(200, { message: { intents: [{ ...body, at: 'now' }] } })
     return respond(200, {})
   })
+}
+
+/** Opens the Flow's panel (the strip's chevron, like any other run). */
+async function openFlowPanel() {
+  fireEvent.click(await screen.findByTestId('mission-run-strip-toggle'))
+  await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
+  return screen.findByTestId('flow-panel')
 }
 
 /** What missions mounts above the composer: the run strip and the extension dock. */
@@ -271,19 +279,23 @@ describe('Flow mode in the conversation', () => {
     expect(result.current).toBeNull()
   })
 
-  it('shows Flow in the run strip with branch, files, real cost and the controls', async () => {
+  it('keeps the Flow row short (status, "Flow · N files", Pause, Hand off); branch, files, cost and Discard live in its panel', async () => {
     render(<Providers><FlowStrip /></Providers>)
     const bar = await screen.findByTestId('mission-run-strip')
     expect(bar).toHaveAttribute('data-flow-state', 'active')
     expect(bar).toHaveAttribute('data-tone', 'running')
-    expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Flow')
-    // Flow has no panel: the strip itself is the Flow bar.
-    expect(screen.queryByTestId('mission-run-strip-toggle')).toBeNull()
-    expect(bar).toHaveTextContent('feat/7-calm-dashboard')
-    await waitFor(() => expect(screen.getByTestId('flow-bar-stats')).toHaveTextContent('3 files+10−2'))
-    expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.420')
-    for (const id of ['changes', 'pause', 'discard', 'hand-off']) expect(screen.getByTestId(`flow-bar-${id}`)).toBeInTheDocument()
-    expect(screen.getByRole('toolbar', { name: 'Flow actions' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Flow · 3 files'))
+    const row = within(screen.getByTestId('mission-run-strip-bar'))
+    const toolbar = row.getByRole('toolbar', { name: 'Flow actions' })
+    expect([...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))).toEqual(['flow-bar-pause', 'flow-bar-hand-off'])
+    expect(row.queryByTestId('flow-bar-branch')).toBeNull()
+    expect(row.queryByTestId('flow-bar-discard')).toBeNull()
+    // The same chevron as any other run opens the details.
+    const panel = within(await openFlowPanel())
+    expect(panel.getByTestId('flow-bar-branch')).toHaveTextContent('feat/7-calm-dashboard')
+    await waitFor(() => expect(panel.getByTestId('flow-bar-stats')).toHaveTextContent('3 files+10−2'))
+    expect(panel.getByTestId('flow-bar-cost')).toHaveTextContent('$0.420')
+    expect(panel.getByTestId('flow-bar-discard')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('flow-bar-changes'))
     const dialog = await screen.findByTestId('flow-changes-dialog')
     await waitFor(() => expect(dialog.querySelectorAll('[data-testid="flow-changes-file"]')).toHaveLength(3))
@@ -291,11 +303,10 @@ describe('Flow mode in the conversation', () => {
     expect(dialog).toHaveTextContent('—')
   })
 
-  it('keeps Discard apart from the primary action, and the file stat opens the changes', async () => {
+  it('keeps Discard away from the primary action, and the file stat names its changes', async () => {
     render(<Providers><FlowStrip /></Providers>)
-    const toolbar = await screen.findByRole('toolbar', { name: 'Flow actions' })
-    const order = [...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))
-    expect(order).toEqual(['flow-bar-discard', 'flow-bar-separator', 'flow-bar-pause', 'flow-bar-hand-off'])
+    await openFlowPanel()
+    expect(within(screen.getByTestId('mission-run-strip-bar')).queryByTestId('flow-bar-discard')).toBeNull()
     await waitFor(() => expect(screen.getByTestId('flow-bar-changes')).toHaveAccessibleName('View changes · 3 files, +10 −2'))
     expect(screen.getByTestId('flow-bar-branch')).toHaveAccessibleName('Copy branch name: feat/7-calm-dashboard')
   })
@@ -303,6 +314,7 @@ describe('Flow mode in the conversation', () => {
   it('a disabled "Hand off" says why (tooltip and description)', async () => {
     current = flow({ step: 'handoff:freeze' })
     render(<Providers><FlowStrip /></Providers>)
+    expect(await screen.findByTestId('mission-run-strip')).toBeInTheDocument()
     const handOff = await screen.findByTestId('flow-bar-hand-off')
     expect(handOff).toBeDisabled()
     expect(handOff).toHaveAccessibleDescription('Wait until the Flow finishes saving its state')
@@ -344,6 +356,7 @@ describe('Flow mode in the conversation', () => {
     it('shows Preview with a live dot that opens the local address in the browser', async () => {
       background.processes = [app()]
       render(<Providers><FlowStrip /></Providers>)
+      await openFlowPanel()
       const preview = await screen.findByTestId('flow-bar-preview')
       expect(preview).toHaveTextContent('Preview')
       expect(preview).toHaveAccessibleName('Open the app at http://localhost:5173/ in your browser')
@@ -355,6 +368,7 @@ describe('Flow mode in the conversation', () => {
     it('offers the network address and Stop app in its menu', async () => {
       background.processes = [app()]
       render(<Providers><FlowStrip /></Providers>)
+      await openFlowPanel()
       fireEvent.click(await screen.findByTestId('flow-bar-preview-menu'))
       expect(screen.getByRole('menu', { name: 'App actions' })).toBeInTheDocument()
       fireEvent.click(screen.getByTestId('flow-preview-network'))
@@ -368,10 +382,13 @@ describe('Flow mode in the conversation', () => {
     it('says when the app only listens on this computer, and shows Stopping… while it stops', async () => {
       background.processes = [app({ appUrls: { local: ['http://localhost:3000/'], network: [] } })]
       const view = render(<Providers><FlowStrip /></Providers>)
+      await openFlowPanel()
       fireEvent.click(await screen.findByTestId('flow-bar-preview-menu'))
       expect(screen.getByTestId('flow-preview-local-only')).toHaveTextContent('Only reachable from this computer')
       expect(screen.queryByTestId('flow-preview-network')).toBeNull()
       background.processes = [app({ status: 'stopping' })]
+      // The real processes context re-renders its readers; the mocked hook needs a render of the panel.
+      act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow() }))
       view.rerender(<Providers><FlowStrip /></Providers>)
       await waitFor(() => expect(screen.getByTestId('flow-bar-preview')).toHaveTextContent('Stopping…'))
       expect(screen.getByTestId('flow-bar-preview')).toBeDisabled()
@@ -391,6 +408,7 @@ describe('Flow mode in the conversation', () => {
       ? respond(200, { flowId: 'f1', costUsd: 0, turns: 1, unpricedTurns: 1 })
       : String(input).includes('/by-conversation/') ? respond(200, { flow: current }) : respond(200, { files: [], totals: { files: 0, additions: 0, deletions: 0 } }))
     render(<Providers><FlowStrip /></Providers>)
+    await openFlowPanel()
     await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('—'))
   })
 
@@ -400,6 +418,7 @@ describe('Flow mode in the conversation', () => {
     await act(async () => { fireEvent.click(pause) })
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'paused'))
     expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'paused')
+    await openFlowPanel()
     expect(screen.getByTestId('flow-bar-note')).toHaveTextContent('Your changes and the spec are kept')
     await act(async () => { fireEvent.click(screen.getByTestId('flow-bar-resume')) })
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
@@ -410,6 +429,7 @@ describe('Flow mode in the conversation', () => {
 
   it('asks before discarding and only then calls discard', async () => {
     render(<Providers><FlowStrip /></Providers>)
+    await openFlowPanel()
     fireEvent.click(await screen.findByTestId('flow-bar-discard'))
     const dialog = await screen.findByTestId('flow-discard-dialog')
     // It names what is lost: the changed files with their lines, the branch and the spec.
@@ -423,9 +443,13 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(screen.queryByTestId('mission-run-strip')).toBeNull())
   })
 
-  it('explains needs-review without destructive controls', async () => {
+  it('explains needs-review as information (no decision tone), without destructive controls', async () => {
     current = flow({ state: 'needs-review' })
     render(<Providers><FlowStrip /></Providers>)
+    const strip = await screen.findByTestId('mission-run-strip')
+    expect(strip).toHaveAttribute('data-tone', 'info')
+    expect(screen.queryByTestId('mission-run-strip-primary')).toBeNull()
+    await openFlowPanel()
     expect(await screen.findByTestId('flow-bar-note')).toHaveTextContent('Nothing was deleted')
     expect(screen.queryByTestId('flow-bar-discard')).toBeNull()
   })
@@ -616,5 +640,34 @@ describe('Flow words and marks', () => {
     expect([...result.current.keys()].sort()).toEqual(['c1', 'c2'])
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'handed_off' }) }))
     expect([...result.current.keys()]).toEqual(['c2'])
+  })
+})
+
+describe('useFlowLiveStats polling', () => {
+  it('polls every 8 s only while the agent works AND the page is visible', async () => {
+    vi.useFakeTimers()
+    let visibility: DocumentVisibilityState = 'visible'
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
+    try {
+      const { rerender } = renderHook(({ working }) => useFlowLiveStats('p1', flow(), working), { initialProps: { working: true } })
+      const diffCalls = () => calls.filter((c) => c.url.endsWith('/flow/f1/diff')).length
+      await act(async () => { await Promise.resolve() })
+      const initial = diffCalls()
+      await act(async () => { vi.advanceTimersByTime(8000) })
+      expect(diffCalls()).toBe(initial + 1)
+      visibility = 'hidden'
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      await act(async () => { vi.advanceTimersByTime(24000) })
+      expect(diffCalls()).toBe(initial + 1)
+      visibility = 'visible'
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      rerender({ working: false })
+      const settled = diffCalls()
+      await act(async () => { vi.advanceTimersByTime(24000) })
+      expect(diffCalls()).toBe(settled)
+    } finally {
+      spy.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

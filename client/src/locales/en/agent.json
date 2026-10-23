@@ -1110,12 +1110,19 @@
         "fix": "Applying the review's fixes",
         "archive": "Archiving the spec change",
         "settle": "Handing the result back"
-      }
+      },
+      "headline": "{{state}} · {{files}}"
     },
     "mode": {
       "chip": "Flow",
       "description": "Flow mode: the agent writes on the Flow branch, not on your main branch",
       "placeholder": "Tell the agent what to change in this Flow…"
+    },
+    "panel": {
+      "branch": "Branch",
+      "changes": "Changes",
+      "cost": "Cost so far",
+      "actions": "More Flow actions"
     }
   },
   "flowReturn": {
@@ -1179,7 +1186,8 @@
       "running": "Running:",
       "decision": "Waiting for you:",
       "failed": "Failed:",
-      "paused": "Paused:"
+      "paused": "Paused:",
+      "info": "For your information:"
     },
     "proposal": "Launch proposed for {{tickets}}",
     "proposalNoTickets": "Launch proposed",
