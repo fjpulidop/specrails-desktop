@@ -99,6 +99,11 @@ live and clears with the mission closed, and the strip leaves those runs to
 it; otherwise the strip reports them while mounted (`reportRunAttention`). Every run primary (the
 strip's, the hand-off Launch, the card primary, Flow's Start) shares ONE
 recipe, `PRIMARY_ACTION_SHAPE` / `PRIMARY_ACTION` in `run-primary.tsx`.
+Keyboard shortcuts are conversation-scoped (`run-strip-keys.ts`): ⌥R jumps to
+the strip of the mission you are in (again: details), Esc returns, ⌥[ / ⌥]
+switch runs outside text fields, ←/→ move along the switcher, and a row
+control may claim a letter with `data-strip-key` that works only while the
+strip has focus (Flow's P and H).
 
 The history never repeats what is live: each milestone is one event line
 ([`AgentRunEventLine`](components/AgentRunEventLine.tsx)) in its chronological

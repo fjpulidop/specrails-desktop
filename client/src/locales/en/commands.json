@@ -73,7 +73,8 @@
     "categories": {
       "general": "General",
       "navigation": "Navigation",
-      "actions": "Actions"
+      "actions": "Actions",
+      "missions": "Missions"
     },
     "items": {
       "showCheatsheet": "Show keyboard shortcuts",
@@ -90,7 +91,12 @@
       "goAnalytics": "Go to Analytics",
       "goSettings": "Go to Settings",
       "nextItem": "Next item in list",
-      "prevItem": "Previous item in list"
+      "prevItem": "Previous item in list",
+      "runStripFocus": "Jump to the mission's run strip (press again to show or hide details)",
+      "runStripCycle": "Previous / next run in the run strip (outside text fields)",
+      "runStripBack": "Leave the run strip, back to where you were",
+      "flowPause": "Pause or resume the Flow (run strip focused)",
+      "flowHandOff": "Hand off the Flow (run strip focused)"
     }
   },
   "update": {

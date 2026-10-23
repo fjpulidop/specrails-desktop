@@ -40,4 +40,15 @@ describe('KeyboardShortcutsCheatsheet', () => {
     expect(screen.getByText('Go to Analytics')).toBeInTheDocument()
     expect(screen.getByText('Go to Settings')).toBeInTheDocument()
   })
+
+  it('lists the mission run strip shortcuts (conversation-scoped, Flow letters only inside the strip)', () => {
+    render(
+      <KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />,
+    )
+    expect(screen.getByText('Missions')).toBeInTheDocument()
+    expect(screen.getByText("Jump to the mission's run strip (press again to show or hide details)")).toBeInTheDocument()
+    expect(screen.getByText('Previous / next run in the run strip (outside text fields)')).toBeInTheDocument()
+    expect(screen.getByText('Pause or resume the Flow (run strip focused)')).toBeInTheDocument()
+    expect(screen.getByText('Hand off the Flow (run strip focused)')).toBeInTheDocument()
+  })
 })

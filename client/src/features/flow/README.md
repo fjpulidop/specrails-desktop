@@ -54,7 +54,8 @@ The Flow is one entry of the mission's run strip, keyed `flow:<id>` so the
 strip morphs in place. Its row stays short: "Flow · 7 files", Pause (or
 Resume Flow) and the primary **Hand off**
 ([`FlowStripControls`](components/FlowStripControls.tsx)); disabled controls
-say why. The chevron opens `FlowPanel`: the copyable branch, a files ± stat
+say why. While the strip has focus, **P** pauses or resumes and **H** hands
+off (`FlowBarControl.shortcut`, named in the tooltip); never globally. The chevron opens `FlowPanel`: the copyable branch, a files ± stat
 that opens `FlowChangesDialog`, the billed cost (with a visible note when
 partial), Preview and **Discard** set apart (`FlowDiscardDialog` lists what is
 lost). `useFlowLiveStats` measures diff and cost once per Flow and polls only

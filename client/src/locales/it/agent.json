@@ -1200,11 +1200,14 @@
     "proposalLabel": "Proposta",
     "panelLabel": "Dettagli di {{run}}",
     "showDetails": "Mostra dettagli",
+    "withShortcut": "{{label}} ({{keys}})",
+    "cycleHint": "Cambia esecuzione: {{keys}}",
     "hideDetails": "Nascondi dettagli",
     "switcher": "Esecuzioni in corso",
     "more": "Altre esecuzioni ({{count}})",
     "announce": {
       "settled": "{{run}} è terminato",
+      "shown": "Visualizzi {{run}}: {{state}}",
       "needsYou": "{{run}} ha bisogno di te"
     },
     "event": {

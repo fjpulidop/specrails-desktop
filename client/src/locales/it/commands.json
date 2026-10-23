@@ -73,7 +73,8 @@
     "categories": {
       "general": "Generale",
       "navigation": "Navigazione",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "missions": "Missioni"
     },
     "items": {
       "showCheatsheet": "Mostra scorciatoie da tastiera",
@@ -90,7 +91,12 @@
       "goAnalytics": "Vai ad Analytics",
       "goSettings": "Vai alle Impostazioni",
       "nextItem": "Elemento successivo nell'elenco",
-      "prevItem": "Elemento precedente nell'elenco"
+      "prevItem": "Elemento precedente nell'elenco",
+      "runStripFocus": "Vai alla striscia delle esecuzioni della missione (premi di nuovo per mostrare o nascondere i dettagli)",
+      "runStripCycle": "Esecuzione precedente / successiva nella striscia (fuori dai campi di testo)",
+      "runStripBack": "Esci dalla striscia delle esecuzioni e torna dov’eri",
+      "flowPause": "Sospendi o riprendi il Flow (striscia delle esecuzioni attiva)",
+      "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)"
     }
   },
   "update": {

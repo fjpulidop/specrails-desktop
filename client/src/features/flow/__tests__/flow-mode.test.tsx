@@ -432,6 +432,21 @@ describe('Flow mode in the conversation', () => {
     expect(screen.getByTestId('flow-bar-cost-partial')).toHaveTextContent('1 turn has no provider-reported cost and is not included')
   })
 
+  it('Pause and Hand off carry their strip letters (P, H) in the tooltip; P works only with the strip focused', async () => {
+    render(<Providers><FlowStrip /></Providers>)
+    const pause = await screen.findByTestId('flow-bar-pause')
+    const handOff = screen.getByTestId('flow-bar-hand-off')
+    expect(pause).toHaveAttribute('data-strip-key', 'p')
+    expect(pause).toHaveAttribute('aria-keyshortcuts', 'P')
+    expect(pause).toHaveAttribute('title', 'Pause Flow (P)')
+    expect(handOff).toHaveAttribute('data-strip-key', 'h')
+    expect(handOff).toHaveAttribute('title', 'Hand off (H)')
+    pause.focus()
+    await act(async () => { fireEvent.keyDown(pause, { key: 'p', code: 'KeyP' }) })
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'paused'))
+    expect(screen.getByTestId('flow-bar-resume')).toHaveAttribute('data-strip-key', 'p')
+  })
+
   it('pauses, then offers Resume Flow and resumes', async () => {
     render(<Providers><FlowStrip /></Providers>)
     const pause = await screen.findByTestId('flow-bar-pause')

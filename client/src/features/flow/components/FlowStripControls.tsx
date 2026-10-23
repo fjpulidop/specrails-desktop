@@ -8,7 +8,8 @@
 // priced, `*` plus a visible note when some turns are unpriced), Preview
 // while the Flow's app runs, and Discard set apart. Controls are DATA
 // (FlowBarControl[]) so new ones slot in without touching the layout; a
-// disabled control says why.
+// disabled control says why. While the strip has focus, P pauses or resumes
+// and H hands off (the strip's `data-strip-key`): never a global shortcut.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +35,8 @@ export interface FlowBarControl {
   /** Why the control is disabled (tooltip + aria-describedby). */
   disabledReason?: string | null
   busy?: boolean
+  /** A letter that triggers the control while the run strip has focus (`data-strip-key`). */
+  shortcut?: string
 }
 
 export interface FlowLiveStats {
@@ -84,8 +87,11 @@ export function useFlowLiveStats(projectId: string | null, flow: Flow | null, wo
 
 function ControlButton({ control, compact, flowId }: { control: FlowBarControl; compact: boolean; flowId: string }) {
   const Icon = control.busy ? Loader2 : control.icon
+  const { t } = useTranslation('agent')
   const reason = control.disabled && !control.busy ? control.disabledReason ?? null : null
   const reasonId = reason ? `flow-bar-${flowId}-${control.id}-reason` : undefined
+  const key = control.shortcut?.toUpperCase()
+  const named = key ? t('runStrip.withShortcut', { label: control.label, keys: key }) : control.label
   return (
     <button
       type="button"
@@ -95,7 +101,9 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
       disabled={control.disabled || control.busy}
       aria-label={control.label}
       aria-describedby={reasonId}
-      title={reason ? `${control.label}: ${reason}` : control.label}
+      aria-keyshortcuts={key}
+      data-strip-key={control.shortcut}
+      title={reason ? `${control.label}: ${reason}` : named}
       className={cn(
         control.tone === 'primary'
           ? RUN_STRIP_PRIMARY
@@ -148,9 +156,9 @@ export function FlowStripControls({ projectId, flow, inline }: { projectId: stri
   const handOffReason = waitReason ?? (flow.ticketId === null ? t('flow.bar.disabled.noSpec') : null)
   const controls: FlowBarControl[] = [
     paused
-      ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary' }
-      : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason },
-    { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason },
+      ? { id: 'resume', label: t('flow.bar.resume'), icon: Play, onSelect: () => void run('resume'), busy: busy === 'resume', disabled: settling, disabledReason: waitReason, tone: 'primary', shortcut: 'p' }
+      : { id: 'pause', label: t('flow.bar.pause'), icon: Pause, onSelect: () => void run('pause'), busy: busy === 'pause', disabled: settling, disabledReason: waitReason, shortcut: 'p' },
+    { id: 'hand-off', label: t('flow.bar.handOff'), icon: Check, onSelect: () => ctx?.setWrappingUp(flow.id, true), tone: paused ? 'default' : 'primary', disabled: !!handOffReason, disabledReason: handOffReason, shortcut: 'h' },
   ]
   return (
     <div className="flex items-center gap-0.5" role="toolbar" aria-label={t('flow.bar.controls')}>

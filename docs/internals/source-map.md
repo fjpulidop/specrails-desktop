@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1160 source/build files. Nearby tests are linked where names
+Includes 1161 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -531,6 +531,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-spec-draft.ts](../../client/src/features/missions/components/agent-spec-draft.ts)
 - [mission-run-strip.ts](../../client/src/features/missions/components/mission-run-strip.ts) · [test](../../client/src/features/missions/components/__tests__/mission-run-strip.test.ts)
 - [run-primary.tsx](../../client/src/features/missions/components/run-primary.tsx)
+- [run-strip-keys.ts](../../client/src/features/missions/components/run-strip-keys.ts) · [test](../../client/src/features/missions/components/__tests__/run-strip-keys.test.ts)
 - [useAgentProviderCatalog.ts](../../client/src/features/missions/components/useAgentProviderCatalog.ts)
 - [useRailLaunchProposals.ts](../../client/src/features/missions/components/useRailLaunchProposals.ts)
 

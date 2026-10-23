@@ -262,6 +262,41 @@ describe('missions extension seam (Flow mode)', () => {
       await waitFor(() => expect(chat!.attentionConversationIds.has('c2')).toBe(false))
     })
 
+    it('a row control claims a letter only while the strip has focus (data-strip-key), never from the composer', async () => {
+      const paused = vi.fn()
+      const handOff = vi.fn()
+      const RUNS: MissionExtensions = {
+        useLiveRuns: () => [{
+          key: 'flow:f1', label: 'Flow', tone: 'running', headline: 'Flow · 3 files',
+          controls: (
+            <>
+              <button type="button" data-strip-key="p" onClick={paused}>Pause Flow</button>
+              <button type="button" data-strip-key="h" disabled onClick={handOff}>Hand off</button>
+            </>
+          ),
+          panel: <p>Flow panel</p>,
+        }],
+      }
+      await openWith([message('m1', 'user', 'hi')], RUNS)
+      const strip = await screen.findByTestId('mission-run-strip')
+      const box = await screen.findByRole('textbox')
+      box.focus()
+      // From the composer a letter is just typing.
+      fireEvent.keyDown(box, { key: 'p', code: 'KeyP' })
+      expect(paused).not.toHaveBeenCalled()
+      // ⌥R into the strip, then P runs the claimed control; a disabled one does not fire.
+      fireEvent.keyDown(box, { key: '®', code: 'KeyR', altKey: true })
+      expect(strip.contains(document.activeElement)).toBe(true)
+      fireEvent.keyDown(document.activeElement!, { key: 'p', code: 'KeyP' })
+      expect(paused).toHaveBeenCalledTimes(1)
+      fireEvent.keyDown(document.activeElement!, { key: 'h', code: 'KeyH' })
+      expect(handOff).not.toHaveBeenCalled()
+      // Inside the open panel, letters belong to the panel's content.
+      await act(async () => { fireEvent.click(within(strip).getByTestId('mission-run-strip-toggle')) })
+      fireEvent.keyDown(within(strip).getByTestId('mission-run-strip-panel'), { key: 'p', code: 'KeyP' })
+      expect(paused).toHaveBeenCalledTimes(1)
+    })
+
     it('the turn mark comes from the extension seam (its icon and color), never hard-coded', async () => {
       const TurnIcon = (props: { className?: string }) => <svg data-testid="turn-mode-icon" {...props} />
       await openWith([

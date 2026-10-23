@@ -1200,11 +1200,14 @@
     "proposalLabel": "提案",
     "panelLabel": "{{run}} の詳細",
     "showDetails": "詳細を表示",
+    "withShortcut": "{{label}}（{{keys}}）",
+    "cycleHint": "実行を切り替え：{{keys}}",
     "hideDetails": "詳細を隠す",
     "switcher": "実行中のラン",
     "more": "ほかの実行 ({{count}})",
     "announce": {
       "settled": "{{run}} が終了しました",
+      "shown": "{{run}} を表示中：{{state}}",
       "needsYou": "{{run}} があなたの対応を待っています"
     },
     "event": {

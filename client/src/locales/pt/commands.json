@@ -73,7 +73,8 @@
     "categories": {
       "general": "Geral",
       "navigation": "Navegação",
-      "actions": "Ações"
+      "actions": "Ações",
+      "missions": "Missões"
     },
     "items": {
       "showCheatsheet": "Mostrar atalhos de teclado",
@@ -90,7 +91,12 @@
       "goAnalytics": "Ir para Análises",
       "goSettings": "Ir para Definições",
       "nextItem": "Item seguinte na lista",
-      "prevItem": "Item anterior na lista"
+      "prevItem": "Item anterior na lista",
+      "runStripFocus": "Ir para a faixa de execuções da missão (pressione de novo para mostrar ou ocultar os detalhes)",
+      "runStripCycle": "Execução anterior / seguinte na faixa (fora dos campos de texto)",
+      "runStripBack": "Sair da faixa de execuções e voltar para onde você estava",
+      "flowPause": "Pausar ou retomar o Flow (com a faixa de execuções em foco)",
+      "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)"
     }
   },
   "update": {

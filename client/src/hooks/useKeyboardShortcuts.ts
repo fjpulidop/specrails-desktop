@@ -8,7 +8,7 @@ export interface Shortcut {
   keys: string          // Display string, e.g. "G P" or "?"
   /** i18n key in the `commands` namespace — translated at render time by the cheatsheet. */
   descriptionKey: string
-  category: 'navigation' | 'actions' | 'general'
+  category: 'navigation' | 'actions' | 'general' | 'missions'
 }
 
 // All registered shortcuts for the cheatsheet
@@ -40,6 +40,17 @@ export const SHORTCUTS: Shortcut[] = [
   // Actions (contextual)
   { keys: 'J', descriptionKey: 'shortcuts.items.nextItem', category: 'actions' },
   { keys: 'K', descriptionKey: 'shortcuts.items.prevItem', category: 'actions' },
+
+  // Missions: the run strip of the mission you are in (missions/components/run-strip-keys.ts)
+  ...(FEATURE_AGENT_CHAT
+    ? ([
+      { keys: '⌥R', descriptionKey: 'shortcuts.items.runStripFocus', category: 'missions' },
+      { keys: '⌥[ ⌥]', descriptionKey: 'shortcuts.items.runStripCycle', category: 'missions' },
+      { keys: 'Esc', descriptionKey: 'shortcuts.items.runStripBack', category: 'missions' },
+      { keys: 'P', descriptionKey: 'shortcuts.items.flowPause', category: 'missions' },
+      { keys: 'H', descriptionKey: 'shortcuts.items.flowHandOff', category: 'missions' },
+    ] satisfies Shortcut[])
+    : []),
 ]
 
 // ─── Input detection ─────────────────────────────────────────────────────────

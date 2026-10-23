@@ -751,3 +751,76 @@ describe('thinking halo on the composer dock', () => {
     expect(within(dockCard).queryByTestId('agent-thinking-halo')).toBeNull()
   })
 })
+
+// ── Keyboard: conversation-scoped shortcuts (run-strip-keys.ts) ────────────────
+describe('run strip keyboard', () => {
+  const two = [
+    sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running', ticketIds: [4] }),
+    sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'on_review', ticketIds: [7] }),
+  ]
+  const altR = (target: Element) => fireEvent.keyDown(target, { key: '®', code: 'KeyR', altKey: true })
+  const altBracket = (target: Element, side: 'left' | 'right') =>
+    fireEvent.keyDown(target, { key: side === 'left' ? '“' : '‘', code: side === 'left' ? 'BracketLeft' : 'BracketRight', altKey: true })
+
+  it('⌥R jumps from the composer to the strip, again toggles its details, and Esc goes back to the composer', async () => {
+    await renderPanelWithMessages(two)
+    const s = await screen.findByTestId('mission-run-strip')
+    const toggle = within(s).getByTestId('mission-run-strip-toggle')
+    expect(toggle).toHaveAttribute('aria-keyshortcuts', 'Alt+R')
+    expect(toggle.getAttribute('title')).toMatch(/^Show details \((⌥R|Alt\+R)\)$/)
+    const composer = await screen.findByRole('textbox')
+    composer.focus()
+    // Modifier-based: it works while typing, and the Option character is not typed.
+    expect(altR(composer)).toBe(false)
+    expect(document.activeElement).toBe(toggle)
+    await act(async () => { altR(toggle) })
+    await waitFor(() => expect(panel()).toHaveAttribute('data-open', 'true'))
+    await waitFor(() => expect(document.activeElement).toBe(panel()))
+    await act(async () => { altR(panel()) })
+    expect(panel()).toHaveAttribute('data-open', 'false')
+    expect(document.activeElement).toBe(toggle)
+    fireEvent.keyDown(toggle, { key: 'Escape' })
+    expect(document.activeElement).toBe(composer)
+  })
+
+  it('⌥] / ⌥[ cycle the shown run outside text fields (announced), never while typing', async () => {
+    await renderPanelWithMessages(two)
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d2')
+    expect(within(s).getAllByTestId('mission-run-strip-switch')[0].getAttribute('title')).toMatch(/Switch runs: (⌥\[ ⌥\]|Alt\+\[ Alt\+\])/)
+    const composer = await screen.findByRole('textbox')
+    composer.focus()
+    // In a text field the bracket keys type (Option+[ is "[" on several layouts).
+    expect(altBracket(composer, 'right')).toBe(true)
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d2')
+    await act(async () => { altR(composer) })
+    await act(async () => { altBracket(document.activeElement!, 'right') })
+    expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d1')
+    expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Showing Rail 1')
+    // The bar re-keys on a new run: focus stays in the strip.
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip').contains(document.activeElement)).toBe(true))
+    await act(async () => { altBracket(document.activeElement!, 'left') })
+    expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d2')
+  })
+
+  it('← / → move along the switcher; ⌘/Ctrl combinations are left to the app', async () => {
+    await renderPanelWithMessages(two)
+    const s = await screen.findByTestId('mission-run-strip')
+    const switches = within(s).getAllByTestId('mission-run-strip-switch')
+    switches[0].focus()
+    fireEvent.keyDown(switches[0], { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(switches[1])
+    fireEvent.keyDown(switches[1], { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(switches[0])
+    expect(fireEvent.keyDown(document.body, { key: 'r', code: 'KeyR', altKey: true, metaKey: true })).toBe(true)
+    expect(document.activeElement).toBe(switches[0])
+  })
+
+  it('a mission without runs takes no shortcut (the key types as usual)', async () => {
+    await renderPanelWithMessages([])
+    const composer = await screen.findByRole('textbox')
+    composer.focus()
+    expect(altR(composer)).toBe(true)
+    expect(document.activeElement).toBe(composer)
+  })
+})

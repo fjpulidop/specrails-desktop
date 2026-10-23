@@ -1200,11 +1200,14 @@
     "proposalLabel": "Proposal",
     "panelLabel": "{{run}} details",
     "showDetails": "Show details",
+    "withShortcut": "{{label}} ({{keys}})",
+    "cycleHint": "Switch runs: {{keys}}",
     "hideDetails": "Hide details",
     "switcher": "Live runs",
     "more": "More runs ({{count}})",
     "announce": {
       "settled": "{{run}} finished",
+      "shown": "Showing {{run}}: {{state}}",
       "needsYou": "{{run}} needs you"
     },
     "event": {

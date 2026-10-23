@@ -73,7 +73,8 @@
     "categories": {
       "general": "一般",
       "navigation": "ナビゲーション",
-      "actions": "アクション"
+      "actions": "アクション",
+      "missions": "ミッション"
     },
     "items": {
       "showCheatsheet": "キーボードショートカットを表示",
@@ -90,7 +91,12 @@
       "goAnalytics": "分析へ移動",
       "goSettings": "設定へ移動",
       "nextItem": "リストの次の項目",
-      "prevItem": "リストの前の項目"
+      "prevItem": "リストの前の項目",
+      "runStripFocus": "ミッションの実行ストリップへ移動（もう一度押すと詳細を表示 / 非表示）",
+      "runStripCycle": "実行ストリップで前 / 次の実行へ（テキスト入力欄の外で）",
+      "runStripBack": "実行ストリップを離れ、元の場所に戻る",
+      "flowPause": "Flow を一時停止 / 再開（実行ストリップにフォーカス中）",
+      "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）"
     }
   },
   "update": {

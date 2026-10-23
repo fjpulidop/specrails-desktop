@@ -73,7 +73,8 @@
     "categories": {
       "general": "通用",
       "navigation": "导航",
-      "actions": "操作"
+      "actions": "操作",
+      "missions": "任务"
     },
     "items": {
       "showCheatsheet": "显示键盘快捷键",
@@ -90,7 +91,12 @@
       "goAnalytics": "前往分析",
       "goSettings": "前往设置",
       "nextItem": "列表中的下一项",
-      "prevItem": "列表中的上一项"
+      "prevItem": "列表中的上一项",
+      "runStripFocus": "跳到任务的运行条（再按一次显示或隐藏详情）",
+      "runStripCycle": "运行条中的上一个 / 下一个运行（在文本框之外）",
+      "runStripBack": "离开运行条，回到原来的位置",
+      "flowPause": "暂停或继续 Flow（运行条获得焦点时）",
+      "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）"
     }
   },
   "update": {

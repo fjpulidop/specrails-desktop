@@ -18,9 +18,10 @@ const CATEGORY_LABEL_KEYS: Record<Shortcut['category'], string> = {
   general: 'shortcuts.categories.general',
   navigation: 'shortcuts.categories.navigation',
   actions: 'shortcuts.categories.actions',
+  missions: 'shortcuts.categories.missions',
 }
 
-const CATEGORY_ORDER: Shortcut['category'][] = ['general', 'navigation', 'actions']
+const CATEGORY_ORDER: Shortcut['category'][] = ['general', 'navigation', 'actions', 'missions']
 
 function Kbd({ children }: { children: string }) {
   return (

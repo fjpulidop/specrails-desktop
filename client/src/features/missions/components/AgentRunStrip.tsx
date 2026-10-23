@@ -21,12 +21,18 @@
 // conversation closes it, focus returns to the strip). The cards stay mounted
 // while hidden: they measure the run (live step, vitals) the strip shows.
 // State changes are announced politely.
+//
+// Keyboard (run-strip-keys.ts), scoped to this mission: ⌥R jumps here (again:
+// details), ⌥[ / ⌥] switch runs outside text fields, Esc returns to where ⌥R
+// came from, ←/→ move along the switcher, and a row control may claim a
+// letter while the strip has focus (`data-strip-key`, Flow's P and H).
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide-react'
 import { cn } from '../../../lib/utils'
+import { keyboardLabel } from '../../../lib/keyboard-label'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -44,6 +50,7 @@ import {
   type MissionRunCardSummary, type MissionRunTone, type MissionRunUrgency, type MissionRunVitalsSnapshot,
 } from './mission-run-strip'
 import { bestRunPrimary, PRIMARY_ACTION, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
+import { isTextEntry, registerRunStrip, RUN_STRIP_ARIA_KEYS, RUN_STRIP_KEYS, stripKeyCode } from './run-strip-keys'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
@@ -611,12 +618,55 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     setOverflowOpen(false)
     if (restoreFocus) moreRef.current?.focus()
   }, [])
+  const switchRun = useCallback((key: string) => {
+    choose(key)
+    setOpenKey((current) => (current ? key : current))
+    setOverflowOpen(false)
+  }, [choose])
+
+  // ── Keyboard: this mission's strip in the app-wide shortcut layer ─────────────
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+  const returnFocus = useRef<Element | null>(null)
+  const live = useRef({ selectedKey: null as string | null, panelOpen: false })
+  live.current = { selectedKey: selected?.key ?? null, panelOpen: open && !!selected?.panel }
+  const focusStrip = useCallback(() => {
+    const bar = stripRef.current?.querySelector<HTMLElement>('[data-testid="mission-run-strip-bar"]')
+    const target = toggleRef.current
+      ?? bar?.querySelector<HTMLElement>('button:not([disabled])')
+      ?? bar?.querySelector<HTMLElement>('[data-testid="mission-run-strip-summary"]')
+    if (target) { try { target.focus({ preventScroll: true }) } catch { target.focus() } }
+  }, [])
+  useEffect(() => registerRunStrip({
+    surface: () => anchorRef.current?.closest('[data-mission-surface]') ?? null,
+    hasRuns: () => live.current.selectedKey !== null,
+    hasFocus: () => !!stripRef.current && stripRef.current.contains(document.activeElement),
+    focus: (from) => {
+      returnFocus.current = from && from !== document.body ? from : null
+      focusStrip()
+    },
+    togglePanel: () => {
+      const key = live.current.selectedKey
+      if (!key) return
+      if (live.current.panelOpen) { setOpenKey(null); toggleRef.current?.focus() } else { setOpenKey(key); setFocusPanel((n) => n + 1) }
+    },
+    cycle: (direction) => {
+      const list = entriesRef.current
+      if (list.length < 2) return
+      const index = list.findIndex((entry) => entry.key === live.current.selectedKey)
+      const next = list[(index + direction + list.length) % list.length]
+      const hadFocus = !!stripRef.current?.contains(document.activeElement)
+      switchRun(next.key)
+      setAnnouncement(t('runStrip.announce.shown', { run: next.label, state: next.headlineText }))
+      // The bar re-keys on a new run: keep the person's focus in the strip.
+      if (hadFocus) requestAnimationFrame(focusStrip)
+    },
+  }), [focusStrip, switchRun, t])
   if (!selected) {
     // Keyed like the full strip below: the dock and the live region keep their state.
     return (
       <>
         <Fragment key="dock">{dock}</Fragment>
-        <div key="announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+        <div key="announcer" ref={anchorRef} role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
       </>
     )
   }
@@ -636,9 +686,37 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     openPanel(selected.key)
   }
   const onKeyDown = (event: React.KeyboardEvent): void => {
-    if (event.key !== 'Escape') return
-    if (overflowOpen) { closeMenu(true); event.stopPropagation(); return }
-    if (panelOpen) { event.stopPropagation(); closePanel(true) }
+    const target = event.target as HTMLElement
+    const inPanel = !!panelRef.current?.contains(target)
+    if (event.key === 'Escape') {
+      if (overflowOpen) { closeMenu(true); event.stopPropagation(); return }
+      if (panelOpen) { event.stopPropagation(); closePanel(true); return }
+      // Nothing open: back to where ⌥R came from.
+      const back = returnFocus.current
+      returnFocus.current = null
+      if (back && back.isConnected && back instanceof HTMLElement) {
+        event.preventDefault()
+        event.stopPropagation()
+        back.focus()
+      }
+      return
+    }
+    if (inPanel || event.altKey || event.metaKey || event.ctrlKey || isTextEntry(target)) return
+    // ←/→ along the switcher's buttons (the "+N" menu keeps its own arrows).
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && target.matches('[data-testid="mission-run-strip-switch"]:not([role="menuitem"]), [data-testid="mission-run-strip-more"]')) {
+      const buttons = [...(stripRef.current?.querySelectorAll<HTMLElement>('[data-testid="mission-run-strip-switch"]:not([role="menuitem"]), [data-testid="mission-run-strip-more"]') ?? [])]
+      const index = buttons.indexOf(target)
+      const next = buttons[index + (event.key === 'ArrowRight' ? 1 : -1)]
+      if (next) { event.preventDefault(); next.focus() }
+      return
+    }
+    // A row control's own letter (Flow: P pause/resume, H hand off), only while the strip has focus.
+    if (event.shiftKey || !/^Key[A-Z]$/.test(event.code)) return
+    const claimed = [...(stripRef.current?.querySelectorAll<HTMLButtonElement>('[data-strip-key]') ?? [])]
+      .find((element) => !panelRef.current?.contains(element) && stripKeyCode(element.dataset.stripKey ?? '') === event.code)
+    if (!claimed) return
+    event.preventDefault()
+    if (!claimed.disabled) claimed.click()
   }
 
   // Switcher: every run when few, else the shown one + the two most urgent + "+N".
@@ -663,11 +741,9 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeMenu(true) }
     else if (event.key === 'Tab') { setOverflowOpen(false) }
   }
-  const switchTo = (key: string): void => {
-    choose(key)
-    if (openKey) setOpenKey(key)
-    setOverflowOpen(false)
-  }
+  const switchTo = switchRun
+  const focusKeys = keyboardLabel(RUN_STRIP_KEYS.focus)
+  const cycleHint = t('runStrip.cycleHint', { keys: `${keyboardLabel(RUN_STRIP_KEYS.previous)} ${keyboardLabel(RUN_STRIP_KEYS.next)}` })
 
   const toggleContent = (
     <>
@@ -751,7 +827,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
               data-testid="mission-run-strip-toggle"
               aria-expanded={panelOpen}
               aria-controls={panelId}
-              title={panelOpen ? t('runStrip.hideDetails') : t('runStrip.showDetails')}
+              aria-keyshortcuts={RUN_STRIP_ARIA_KEYS.focus}
+              title={t('runStrip.withShortcut', { label: panelOpen ? t('runStrip.hideDetails') : t('runStrip.showDetails'), keys: focusKeys })}
               onClick={() => (panelOpen ? closePanel(false) : openPanel(selected.key))}
               className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             >
@@ -762,7 +839,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
               />
             </button>
           ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-2 px-1.5 py-1" data-testid="mission-run-strip-summary">{toggleContent}</div>
+            <div tabIndex={-1} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50" data-testid="mission-run-strip-summary">{toggleContent}</div>
           )}
 
           {selected.controls}
@@ -800,7 +877,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                       data-run-key={entry.key}
                       aria-pressed={entry.key === selected.key}
                       aria-label={`${entry.label}: ${entry.headlineText}${needsYou.has(entry.key) ? `, ${t('runStrip.needsYou')}` : ''}`}
-                      title={`${entry.label} · ${entry.headlineText}`}
+                      title={`${entry.label} · ${entry.headlineText}\n${cycleHint}`}
                       onClick={() => switchTo(entry.key)}
                       className={cn(QUIET_CONTROL, entry.key === selected.key && 'bg-surface text-foreground')}
                     >
@@ -863,7 +940,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       </div>
     </div>
     <Fragment key="dock">{dock}</Fragment>
-    <div key="announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+    <div key="announcer" ref={anchorRef} role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
     </>
   )
 }

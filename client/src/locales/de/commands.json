@@ -73,7 +73,8 @@
     "categories": {
       "general": "Allgemein",
       "navigation": "Navigation",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "missions": "Missionen"
     },
     "items": {
       "showCheatsheet": "Tastaturkürzel anzeigen",
@@ -90,7 +91,12 @@
       "goAnalytics": "Zu Analytics",
       "goSettings": "Zu den Einstellungen",
       "nextItem": "Nächstes Listenelement",
-      "prevItem": "Vorheriges Listenelement"
+      "prevItem": "Vorheriges Listenelement",
+      "runStripFocus": "Zum Laufstreifen der Mission springen (erneut drücken, um Details ein- oder auszublenden)",
+      "runStripCycle": "Vorheriger / nächster Lauf im Laufstreifen (außerhalb von Textfeldern)",
+      "runStripBack": "Laufstreifen verlassen und zurück, wo du warst",
+      "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
+      "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)"
     }
   },
   "update": {

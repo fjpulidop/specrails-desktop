@@ -73,7 +73,8 @@
     "categories": {
       "general": "Général",
       "navigation": "Navigation",
-      "actions": "Actions"
+      "actions": "Actions",
+      "missions": "Missions"
     },
     "items": {
       "showCheatsheet": "Afficher les raccourcis clavier",
@@ -90,7 +91,12 @@
       "goAnalytics": "Aller à Analytics",
       "goSettings": "Aller aux paramètres",
       "nextItem": "Élément suivant dans la liste",
-      "prevItem": "Élément précédent dans la liste"
+      "prevItem": "Élément précédent dans la liste",
+      "runStripFocus": "Aller au bandeau des exécutions de la mission (appuyez à nouveau pour afficher ou masquer les détails)",
+      "runStripCycle": "Exécution précédente / suivante dans le bandeau (hors des champs de texte)",
+      "runStripBack": "Quitter le bandeau des exécutions et revenir où vous étiez",
+      "flowPause": "Suspendre ou reprendre le Flow (bandeau des exécutions actif)",
+      "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)"
     }
   },
   "update": {
