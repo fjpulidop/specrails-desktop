@@ -1582,7 +1582,6 @@ export class ProjectRegistry {
     specTriage = new SpecTriageService({
       project, db, ticketsPath: ticketStorePath, broadcast: boundBroadcast,
       notifyDesktopWrite: (revision) => ticketWatcher.notifyDesktopWrite(revision),
-      flowAvailable: async () => (await flowAvailability()).available,
     })
     specTriage.start()
     ctx.specTriage = specTriage

@@ -155,7 +155,6 @@
       "securitySurface": "安全",
       "none": "不影响公共 API、数据或安全"
     },
-    "flowHint": "建议使用 Flow",
     "filesLikely": "可能涉及的文件",
     "moreFiles_one": "另有 {{count}} 个文件",
     "moreFiles_other": "另有 {{count}} 个文件",

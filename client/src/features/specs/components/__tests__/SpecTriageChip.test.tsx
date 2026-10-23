@@ -27,7 +27,9 @@ describe('SpecTriageChip', () => {
     await waitFor(() => expect(screen.getAllByText('Touches the API and auth').length).toBeGreaterThan(0))
     expect(screen.getAllByText('Public API').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Security').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Flow suggested').length).toBeGreaterThan(0)
+    // A legacy record's mode is ignored: Flow and Implement never compete.
+    expect(screen.queryByText('Flow suggested')).toBeNull()
+    expect(screen.queryByText(/\bFlow\b/)).toBeNull()
     expect(screen.getAllByText('+1 more file').length).toBeGreaterThan(0)
     expect(screen.getAllByText('haiku · $0.0123').length).toBeGreaterThan(0)
     fireEvent.click(screen.getAllByTestId('triage-recalculate-7')[0])

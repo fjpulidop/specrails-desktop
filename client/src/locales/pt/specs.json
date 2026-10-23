@@ -155,7 +155,6 @@
       "securitySurface": "Segurança",
       "none": "Sem impacto em API pública, dados ou segurança"
     },
-    "flowHint": "Flow sugerido",
     "filesLikely": "Arquivos prováveis",
     "moreFiles_one": "+{{count}} arquivo",
     "moreFiles_other": "+{{count}} arquivos",

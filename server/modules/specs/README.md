@@ -58,12 +58,14 @@ architecture test pins it to zero imports. They cover canonical inputs,
 similar-spec selection, the prompt, output parsing and repair, the rail
 recommendation and the accuracy math.
 [`runtime/triage.ts`](runtime/triage.ts) has `SpecTriageService`. It gathers the
-inputs (ticket store, repo map, `file_provenance`, loops, Flow availability),
-hashes them and runs one call through
+inputs (ticket store, repo map, `file_provenance`, loops), hashes them and runs one call through
 [`runtime/triage-runner.ts`](runtime/triage-runner.ts) on the `triage` role
 engine. It then writes `metadata.triage` and records `ai_invocations`
 (surface `triage`). The project registry composes the service and feeds it the
-project broadcast. `POST /tickets/:id/triage` forces a recalculation. See
+project broadcast. `POST /tickets/:id/triage` forces a recalculation. The
+triage recommends a loop and a size for Implement only: Flow and Implement
+never compete, so it never ranks them (a legacy `recommendedMode` stays
+readable and is ignored). See
 [spec triage](../../../docs/internals/spec-triage.md).
 
 The [boundary manifest](../boundaries.json) records dependencies for every

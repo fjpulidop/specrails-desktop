@@ -155,7 +155,6 @@
       "securitySurface": "セキュリティ",
       "none": "公開 API・データ・セキュリティへの影響なし"
     },
-    "flowHint": "Flow を推奨",
     "filesLikely": "関係しそうなファイル",
     "moreFiles_one": "他 {{count}} 件",
     "moreFiles_other": "他 {{count}} 件",

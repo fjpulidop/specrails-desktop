@@ -17,7 +17,9 @@ export interface SpecTriageReady {
   securitySurface: boolean
   recommendedLoop: string
   recommendedLoopName?: string
-  recommendedMode: 'implement' | 'flow'
+  /** Legacy (server prompt v1) and ignored: Flow and Implement never compete,
+   *  so no surface ranks them. Kept optional so old records still parse. */
+  recommendedMode?: 'implement' | 'flow'
   rationale: string
   confidence: TriageConfidence
   inputsHash: string

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Gauge, Loader2, RefreshCw, ShieldAlert, Database, Plug, Waves } from 'lucide-react'
+import { Gauge, Loader2, RefreshCw, ShieldAlert, Database, Plug } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { cn } from '../../../lib/utils'
 import { anyTriage, recalculateSpecTriage, type SpecTriage, type SpecTriageReady } from '../lib/spec-triage'
@@ -151,7 +151,6 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
                 {!triage.publicInterfaces && !triage.dataModel && !triage.securitySurface && (
                   <span className="text-[10px] text-muted-foreground">{t('triage.flags.none')}</span>
                 )}
-                {triage.recommendedMode === 'flow' && <Flag icon={Waves} label={t('triage.flowHint')} tone="info" />}
               </div>
               {triage.filesLikely.length > 0 && (
                 <div className="pt-0.5">
@@ -181,12 +180,9 @@ export function SpecTriageChip({ ticket, onRecalculate }: Props) {
   )
 }
 
-function Flag({ icon: Icon, label, tone = 'warning' }: { icon: typeof Plug; label: string; tone?: 'warning' | 'info' }) {
+function Flag({ icon: Icon, label }: { icon: typeof Plug; label: string }) {
   return (
-    <span className={cn(
-      'inline-flex items-center gap-0.5 rounded border px-1 py-px text-[10px]',
-      tone === 'warning' ? 'border-accent-warning/50 text-accent-warning' : 'border-accent-info/50 text-accent-info',
-    )}>
+    <span className="inline-flex items-center gap-0.5 rounded border border-accent-warning/50 px-1 py-px text-[10px] text-accent-warning">
       <Icon className="h-2.5 w-2.5" aria-hidden />
       {label}
     </span>
