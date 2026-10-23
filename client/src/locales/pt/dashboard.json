@@ -165,7 +165,7 @@
     "mergedLocally": "Integrado em {{base}} localmente",
     "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
     "reviewChangesRequested": "Alterações solicitadas",
-    "reviewChangesRequestedHint": "Flow → Spec ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar."
+    "reviewChangesRequestedHint": "A passagem do Flow a um rail ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar."
   },
   "railsBoard": {
     "title": "Rails",

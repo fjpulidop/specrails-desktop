@@ -8,7 +8,7 @@ discovering.
 
 This guide covers the server and the client: the Flow lifecycle, the
 `factory:flow-spec` loop, the delivery settlement (spec rewrite, Jira create
-and review transition) and the client (Flow bar, cards, composer, board
+and review transition) and the client (Flow strip, cards, composer, board
 label). User guide: [Flow](../guide/en/integrations/8-flow-mode.md).
 OpenSpec change: [`flow-mode`](../../openspec/changes/flow-mode/).
 
@@ -377,7 +377,7 @@ two actions.
   and the run's changes (the derived change included) are never touched. The
   spec goes back to in progress, "In Flow" (`reopenTicket`), the agent
   session reopens (a session that cannot open leaves the Flow paused; the
-  Flow bar resumes it) and `flow_sessions.return_briefing` (migration 78)
+  Flow strip resumes it) and `flow_sessions.return_briefing` (migration 78)
   holds the review: the next Flow turn carries it on the USER turn (never
   the system prompt) and the Flow clears it once that turn completes
   (`briefingDelivered`); a new hand-off drops an undelivered one. The return
@@ -554,15 +554,24 @@ e.g. a toast description), and the mission chat maps Core's known turn
 failures — "No provider activity before the inactivity limit" and "A tool
 call produced no provider activity before the tool inactivity limit" — to
 `agent:turnErrors.*` (`describeAgentError`). The hand-off button reads "Hand
-off" (es "Entregar", de "Übergeben", fr "Remettre", it "Consegna", ja "引き渡す",
-pt "Entregar", zh "交付"); the hand-off region is named "Turn this Flow into a
+off" (es "Pasar a un rail", de "Übergeben", fr "Remettre", it "Affida", ja "引き渡す",
+pt "Passar a um rail", zh "交给 Rail"); the hand-off region is named "Turn this Flow into a
 reviewed PR" and the strip headline before launch reads "Ready to turn into a
 PR". Glossary for user copy: never "worktree" in headlines or primary copy
 (say "Flow branch" / es "rama de Flow", or "the Flow's copy" of the project);
 "rail" only as the board's noun ("Rail 2"), never as a verb; "spec change"
-instead of "OpenSpec change" ("Flow → Spec" and the exact OpenSpec names stay
-in **Technical details** and the loop's own name). Spanish keeps the
-handed-off state ("Pasado a un rail") distinct from delivered ("Entregado").
+instead of "OpenSpec change"; the loop reads "Flow hand-off" in user copy
+(`common:loopChip.flowSpec`, `flow.handOff.loop`), while "Flow → Spec" and the
+exact OpenSpec names stay in **Technical details** and internal docs. Every
+locale uses ONE verb family for the hand-off across button, progress, state
+and failure, kept apart from the PR-delivered state: es "Pasar a un rail" /
+"Pasando a un rail…" / "Pasado a un rail" / "El paso a un rail se detuvo"
+(delivered "Entregado"); fr "Remettre"/"remis" (delivered "Livré"); it
+"Affida"/"affidamento" (delivered "Consegnato"); pt "Passar a um rail"/
+"passagem" (delivered "entregue"/"Concluído"); zh "交给 Rail"/"移交" (delivered
+"已交付"/"已完成"); de "Übergeben"/"Übergabe" (delivered "Ausgeliefert"); ja
+"引き渡す" (delivered "完了"). Copy never names the "Flow bar" (it no longer
+exists): say the Flow strip, or the Hand off action.
 New strings avoid em-dash constructions ("Paused. Waiting for you").
 
 ## Known limitations
@@ -580,5 +589,5 @@ New strings avoid em-dash constructions ("Paused. Waiting for you").
   Core harness does not exercise `derive-change` until Core ships it.
 - The diff dialog lists files and line counts; the server does not return
   patch bodies yet.
-- "Hand off" is session-local: after a reload an open Flow shows its bar
-  again (nothing was sent to the server).
+- "Hand off" is session-local: after a reload an open Flow shows its strip
+  row again (nothing was sent to the server).

@@ -317,7 +317,7 @@
       "returned_to_flow": "Tornato in Flow",
       "flowSpecChanges": "Non ancora pronto: il revisore ha chiesto modifiche",
       "flowSpecDelivered": "Il tuo Flow ora è una PR revisionata",
-      "flowSpecFailed": "La consegna si è fermata",
+      "flowSpecFailed": "L’affidamento si è fermato",
       "flowSpecBuilding": "Il tuo Flow sta diventando una PR revisionata"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
@@ -653,9 +653,9 @@
       "scope_save_failed": "Impossibile salvare i repository della spec.",
       "repository_scope_incomplete": "Manca un repository richiesto dalle spec per l’avvio. Controlla le assegnazioni sopra.",
       "rail_not_empty": "Quel rail ha già delle spec",
-      "flow_freeze_failed": "Non è stato possibile salvare le modifiche del Flow per la consegna",
-      "flow_head_mismatch": "Il Flow è cambiato durante la consegna. Riprova",
-      "flow_already_handed_off": "Questo Flow è già stato affidato",
+      "flow_freeze_failed": "Non è stato possibile salvare le modifiche del Flow per l’affidamento",
+      "flow_head_mismatch": "Il Flow è cambiato durante l’affidamento. Riprova",
+      "flow_already_handed_off": "Questo Flow è già stato affidato a un rail",
       "flow_handoff_not_adopted": "Il rail è partito senza prendere in carico le modifiche del Flow",
       "illegal_transition": "Nel frattempo il Flow ha cambiato stato",
       "feature_unavailable": "Flow non è disponibile",
@@ -762,7 +762,7 @@
       "failingChecks": "Falliscono",
       "check": "{{command}} · uscita {{code}}",
       "next": "I giri di correzione automatica non l’hanno risolto. Torna al Flow per sistemarlo con l’agente, oppure rilancia dallo stesso branch del Flow.",
-      "returned": "Di nuovo in Flow: le tue modifiche sono tornate al loro Flow con la revisione. Continua nella barra del Flow."
+      "returned": "Di nuovo in Flow: le tue modifiche sono tornate al loro Flow con la revisione. Continua nella striscia del Flow."
     }
   },
   "runFailure": {
@@ -902,8 +902,8 @@
       "flow_repository_missing": "Il repository del Flow non è più disponibile in questo progetto.",
       "rail_not_empty": "Quel rail ha già delle spec. Scegli un rail libero e vuoto.",
       "flow_already_handed_off": "Questo Flow è già stato affidato a un rail.",
-      "flow_freeze_failed": "Non è stato possibile salvare le modifiche del Flow per la consegna.",
-      "flow_head_mismatch": "Il Flow è cambiato durante la consegna. Riprova.",
+      "flow_freeze_failed": "Non è stato possibile salvare le modifiche del Flow per l’affidamento.",
+      "flow_head_mismatch": "Il Flow è cambiato durante l’affidamento. Riprova.",
       "flow_handoff_not_adopted": "Il rail è partito senza prendere in carico le modifiche del Flow.",
       "repository_has_no_commits": "Questo repository non ha ancora commit. Fai un primo commit perché Specrails possa creare un worktree isolato.",
       "flow_not_found": "Questo Flow non esiste più.",
@@ -911,10 +911,10 @@
       "conversation_not_found": "Questa missione non esiste più.",
       "conversation_not_pinned": "Fissa questa missione al progetto prima di avviare un Flow.",
       "flow_not_handed_off": "Questo Flow non attende più quell’esecuzione.",
-      "flow_rail_unknown": "Il rail di quell’esecuzione è sconosciuto. Consegna di nuovo dalla barra di Flow.",
+      "flow_rail_unknown": "Il rail di quell’esecuzione è sconosciuto. Affidalo di nuovo dalla striscia del Flow.",
       "flow_return_busy": "L’esecuzione è occupata con un’altra azione. Riprova tra un momento.",
-      "flow_return_not_allowed": "Solo una consegna fermata prima del rilascio può tornare al suo Flow.",
-      "flow_return_not_found": "Quell’esecuzione non è una consegna di Flow.",
+      "flow_return_not_allowed": "Solo un affidamento fermato prima della consegna può tornare al suo Flow.",
+      "flow_return_not_found": "Quell’esecuzione non è un affidamento di Flow.",
       "flow_return_worktree_mismatch": "Quell’esecuzione non ha preso in carico le modifiche di questo Flow."
     },
     "entry": {
@@ -993,7 +993,7 @@
         "active": "Flow",
         "paused": "Flow in pausa",
         "needs-review": "Il Flow va controllato",
-        "handed_off": "Consegnato a un rail",
+        "handed_off": "Affidato a un rail",
         "delivered": "Consegnato",
         "discarded": "Scartato"
       },
@@ -1003,7 +1003,7 @@
         "noSpec": "La spec del Flow non è ancora pronta"
       },
       "viewChangesStats": "Vedi modifiche · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Consegna"
+      "handOff": "Affida"
     },
     "preview": {
       "open": "Anteprima",
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "Trasforma questo Flow in una PR revisionata",
-      "loop": "Flow → Spec",
+      "loop": "Affidamento del Flow",
       "launch": "Lancia",
       "notYet": "Non ancora",
-      "engineFallback": "{{provider}} non può eseguire Flow → Spec su questo computer, quindi è selezionato il motore predefinito del rail.",
+      "engineFallback": "{{provider}} non può eseguire l’affidamento del Flow su questo computer, quindi è selezionato il motore predefinito del rail.",
       "cost": "{{cost}} finora",
       "costUnknown": "ancora nessun costo fatturato",
       "line_one": "{{rail}} trasformerà il tuo file modificato in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.",
@@ -1072,9 +1072,9 @@
         "verify": "Impossibile verificare le tue modifiche",
         "review": "La revisione non è riuscita a terminare",
         "fix": "Le correzioni automatiche non sono riuscite a terminare",
-        "archive": "Impossibile archiviare la modifica alla spec",
-        "settle": "Impossibile consegnare il risultato",
-        "unknown": "La consegna si è fermata prima di finire"
+        "archive": "Impossibile salvare la spec completata",
+        "settle": "Impossibile restituire il risultato",
+        "unknown": "L’affidamento si è fermato prima di finire"
       },
       "cause": "Causa:",
       "next": "Il tuo lavoro è intatto. Tornando in Flow, l’agente riceve l’errore.",
@@ -1093,22 +1093,22 @@
       "active": "Flow attivo: l’agente scrive sul branch del Flow.",
       "paused": "Flow in pausa.",
       "needs-review": "Il Flow va controllato: la sua copia del progetto non c’è più.",
-      "handed_off": "Flow consegnato a un rail.",
+      "handed_off": "Flow affidato a un rail.",
       "delivered": "Flow consegnato.",
       "discarded": "Flow scartato.",
-      "returned": "Di nuovo in Flow: il lavoro è tornato con ciò che ha trovato la consegna."
+      "returned": "Di nuovo in Flow: il lavoro è tornato con ciò che ha trovato il rail."
     },
     "strip": {
       "label": "Flow",
       "ready": "Pronto a diventare una PR",
-      "launching": "Consegna a un rail…",
-      "launchingOn": "Consegna a {{rail}}…",
+      "launching": "Affidamento a un rail…",
+      "launchingOn": "Affidamento a {{rail}}…",
       "step": {
         "derive": "Scrittura della spec dalle tue modifiche",
         "verify": "Verifica delle tue modifiche",
         "review": "Revisione della modifica",
         "fix": "Applicazione delle correzioni della revisione",
-        "archive": "Archiviazione della modifica alla spec",
+        "archive": "Salvataggio della spec completata",
         "settle": "Restituzione del risultato"
       },
       "headline": "{{state}} · {{files}}"
@@ -1127,14 +1127,14 @@
   },
   "flowReturn": {
     "title": "Cosa ha chiesto il revisore",
-    "noFindings": "La consegna si è fermata prima del rilascio; le tue modifiche sono tornate intatte in questo Flow.",
+    "noFindings": "L’affidamento si è fermato prima della consegna; le tue modifiche sono tornate intatte in questo Flow.",
     "coverage": "La spec spiega {{explained}} di {{files}} file modificati",
     "unexplained": "Non spiegati da alcun requisito",
     "moreFiles_one": "+{{count}} altro file",
     "moreFiles_other": "+{{count}} altri file",
     "next": "L’agente del Flow inizia ora; puoi guidarlo o fermarlo in qualsiasi momento.",
     "automaticTurn": "Turno automatico · Torna al Flow",
-    "titleFailure": "Perché la consegna si è fermata"
+    "titleFailure": "Perché l’affidamento si è fermato"
   },
   "turnErrors": {
     "providerInactivity": "Il provider non ha risposto troppo a lungo, quindi il turno è terminato. Invia di nuovo il messaggio per continuare.",

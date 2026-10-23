@@ -165,7 +165,7 @@
     "mergedLocally": "已在本地集成到 {{base}}",
     "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
     "reviewChangesRequested": "需要修改",
-    "reviewChangesRequestedHint": "Flow → Spec 仍需修改。打开其任务卡片以回到 Flow 或重新运行。"
+    "reviewChangesRequestedHint": "Flow 移交仍需修改。打开其任务卡片以回到 Flow 或重新运行。"
   },
   "railsBoard": {
     "title": "Rails",

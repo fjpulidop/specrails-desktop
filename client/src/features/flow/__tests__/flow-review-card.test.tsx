@@ -237,7 +237,7 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     render(withFailure(<AgentFlowReturnCard row={row} conversationId="conv-1" />))
     expect(screen.getByText('Why the hand-off stopped')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('agent-flow-return-toggle'))
-    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t archive the spec change')
+    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t file the finished spec')
     expect(screen.getByTestId('flow-run-failure-cause').textContent).toContain('OpenSpec aborted: missing Purpose')
     expect(screen.queryByTestId('flow-review-back-to-flow')).toBeNull()
     expect(screen.queryByTestId('flow-run-failure-returned')).toBeNull()

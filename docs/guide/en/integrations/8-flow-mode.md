@@ -19,7 +19,7 @@ If your Specrails Core cannot run Flow yet, Start is disabled and the card lists
 
 ## While you are in Flow
 
-Flow mode is named where you look, in its own Flow color: the composer shows a **Flow** chip next to the autonomy chip, a thin line along its top and the hint *Tell the agent what to change in this Flow…*; the mission title reads **In Flow**, and so does its row in the mission list. The conversation marks where you entered and left Flow, and the agent's replies written in Flow carry a small **Flow** mark next to their time.
+Flow mode is named where you look, in its own Flow color: the composer shows a **Flow** chip next to the autonomy chip and the hint *Tell the agent what to change in this Flow…*; the mission title reads **In Flow**, and so does its row in the mission list. The conversation marks where you entered and left Flow, and the agent's replies written in Flow carry a small **Flow** mark next to their time.
 
 The strip just above the composer shows the Flow in one short row: its status, **Flow · 7 files**, **Pause** and the main action, **Hand off**. When an action is unavailable (the Flow is still saving, another action runs), hovering it says why. Open the row with its chevron, like any other run, to see the rest:
 

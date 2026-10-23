@@ -762,7 +762,7 @@
       "failingChecks": "失敗",
       "check": "{{command}} · 終了コード {{code}}",
       "next": "自動修正ラウンドでは解決しませんでした。Flow に戻ってエージェントと解決するか、同じ Flow ブランチから再起動してください。",
-      "returned": "Flow に戻りました: 変更はレビューとともに Flow に戻りました。Flow のバーで続けてください。"
+      "returned": "Flow に戻りました: 変更はレビューとともに Flow に戻りました。Flow のストリップで続けてください。"
     }
   },
   "runFailure": {
@@ -911,7 +911,7 @@
       "conversation_not_found": "このミッションはもう存在しません。",
       "conversation_not_pinned": "Flow を開始する前に、このミッションをプロジェクトに固定してください。",
       "flow_not_handed_off": "この Flow はもうその実行を待っていません。",
-      "flow_rail_unknown": "その実行のレールが不明です。Flow バーからもう一度引き渡してください。",
+      "flow_rail_unknown": "その実行のレールが不明です。Flow のストリップからもう一度引き渡してください。",
       "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
       "flow_return_not_allowed": "納品前に停止した引き渡しだけが Flow に戻れます。",
       "flow_return_not_found": "その実行は Flow の引き渡しではありません。",
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "この Flow をレビュー済みの PR にする",
-      "loop": "Flow → Spec",
+      "loop": "Flow の引き渡し",
       "launch": "起動",
       "notYet": "まだ",
-      "engineFallback": "{{provider}} はこのマシンで Flow → Spec を実行できないため、レールのデフォルトエンジンを選択しました。",
+      "engineFallback": "{{provider}} はこのマシンで Flow の引き渡しを実行できないため、レールのデフォルトエンジンを選択しました。",
       "cost": "ここまで {{cost}}",
       "costUnknown": "請求済みコストはまだありません",
       "line_one": "{{rail}} が変更した 1 個のファイルをレビュー済みの PR にします。失敗しても作業は失われません。",
@@ -1072,8 +1072,8 @@
         "verify": "変更内容を検証できませんでした",
         "review": "レビューを完了できませんでした",
         "fix": "自動修正を完了できませんでした",
-        "archive": "spec の変更をアーカイブできませんでした",
-        "settle": "結果を引き渡せませんでした",
+        "archive": "完成した spec を保存できませんでした",
+        "settle": "結果を返せませんでした",
         "unknown": "引き渡しが完了前に停止しました"
       },
       "cause": "原因:",
@@ -1108,8 +1108,8 @@
         "verify": "変更を検証中",
         "review": "変更をレビュー中",
         "fix": "レビューの修正を適用中",
-        "archive": "spec の変更をアーカイブしています",
-        "settle": "結果を引き渡し中"
+        "archive": "完成した spec を保存しています",
+        "settle": "結果を返しています"
       },
       "headline": "{{state}} · {{files}}"
     },

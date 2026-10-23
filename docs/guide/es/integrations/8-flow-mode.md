@@ -1,6 +1,6 @@
 # Flow: construir primero, spec después
 
-Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en su propia rama de Flow (una copia aparte de tu proyecto) y, cuando el resultado es el bueno, pulsas **Entregar**: un rail toma tus cambios, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
+Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en su propia rama de Flow (una copia aparte de tu proyecto) y, cuando el resultado es el bueno, pulsas **Pasar a un rail**: un rail toma tus cambios, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
 
 Implement sirve para delegar trabajo que ya sabes describir. Flow, para descubrirlo.
 
@@ -19,9 +19,9 @@ Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivad
 
 ## Mientras estás en Flow
 
-El modo Flow se nombra allí donde miras, con su propio color de Flow: el compositor muestra un chip **Flow** junto al de autonomía, una fina línea en su borde superior y la pista *Dile al agente qué cambiar en este Flow…*; el título de la misión indica **En Flow**, igual que su fila en la lista de misiones. La conversación marca dónde entraste y saliste de Flow, y las respuestas del agente escritas en Flow llevan una pequeña marca **Flow** junto a su hora.
+El modo Flow se nombra allí donde miras, con su propio color de Flow: el compositor muestra un chip **Flow** junto al de autonomía y la pista *Dile al agente qué cambiar en este Flow…*; el título de la misión indica **En Flow**, igual que su fila en la lista de misiones. La conversación marca dónde entraste y saliste de Flow, y las respuestas del agente escritas en Flow llevan una pequeña marca **Flow** junto a su hora.
 
-La franja justo encima del compositor muestra el Flow en una fila corta: su estado, **Flow · 7 archivos**, **Pausar** y la acción principal, **Entregar**. Cuando una acción no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué. Abre la fila con su flecha, como cualquier otra ejecución, para ver el resto:
+La franja justo encima del compositor muestra el Flow en una fila corta: su estado, **Flow · 7 archivos**, **Pausar** y la acción principal, **Pasar a un rail**. Cuando una acción no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué. Abre la fila con su flecha, como cualquier otra ejecución, para ver el resto:
 
 - la **rama** (pulsa para copiar su nombre), los **cambios** con líneas añadidas y eliminadas (pulsa para ver cada archivo con su estado y +/−) y el **coste hasta ahora** según factura el proveedor. Muestra `—` hasta que un turno tiene coste informado, y nunca una estimación; un `*` marca un total que deja fuera turnos sin precio, con una nota que dice cuántos;
 - **Vista previa** mientras la app del Flow está en marcha (ver más abajo);
@@ -37,9 +37,9 @@ El agente de Flow ejecuta él mismo el typecheck y los tests para comprobar su t
 
 Cuando la app escucha, el agente te da sus direcciones como enlaces y el panel del Flow muestra **Vista previa** con un punto verde: abre la app en tu navegador. Su menú tiene la dirección de red y **Detener app**. La app se ejecuta desde la copia del Flow, nunca desde tu checkout principal, y Specrails la detiene cuando pausas, descartas o entregas el Flow.
 
-## Entregar
+## Pasar a un rail
 
-Cuando el resultado te convenza, pulsa **Entregar**. La fila pasa a **Listo para convertirse en un PR** y abre una sola línea encima: *Rail 2 convertirá tus 7 archivos cambiados en un PR revisado. Si falla, tu trabajo está a salvo.* Pulsa **Lanzar**, o **Todavía no** para volver al Flow.
+Cuando el resultado te convenza, pulsa **Pasar a un rail**. La fila pasa a **Listo para convertirse en un PR** y abre una sola línea encima: *Rail 2 convertirá tus 7 archivos cambiados en un PR revisado. Si falla, tu trabajo está a salvo.* Pulsa **Lanzar**, o **Todavía no** para volver al Flow.
 
 El rail, el motor, el modelo y el esfuerzo ya están elegidos (un rail libre y el motor de tu conversación). Para cambiarlos, abre **Cambiar cómo**; ahí también ves qué cambió y el coste hasta ahora. Mientras arranca, la franja lo muestra lanzándose, sin huecos, y después sigue la ejecución paso a paso. Si se alcanza el límite de revisión o un presupuesto, la línea lo dice y no se lanza nada. El **Lanzar** de la propia franja nunca lanza por sí solo: vuelve a mostrar la línea con el foco en Lanzar, así que siempre confirmas allí.
 

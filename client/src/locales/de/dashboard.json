@@ -165,7 +165,7 @@
     "mergedLocally": "Lokal in {{base}} integriert",
     "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
     "reviewChangesRequested": "Änderungen angefordert",
-    "reviewChangesRequestedHint": "Flow → Spec braucht noch Änderungen. Öffne die Missionskarte, um zu Flow zurückzukehren oder neu zu starten."
+    "reviewChangesRequestedHint": "Die Flow-Übergabe braucht noch Änderungen. Öffne die Missionskarte, um zu Flow zurückzukehren oder neu zu starten."
   },
   "railsBoard": {
     "title": "Rails",

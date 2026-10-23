@@ -317,7 +317,7 @@
       "returned_to_flow": "De volta ao Flow",
       "flowSpecChanges": "Ainda não está pronto: o revisor pediu alterações",
       "flowSpecDelivered": "O seu Flow já é um PR revisto",
-      "flowSpecFailed": "A entrega parou",
+      "flowSpecFailed": "A passagem a um rail parou",
       "flowSpecBuilding": "A transformar o seu Flow num PR revisto"
     },
     "buildingHint": "Quando terminar, ser-lhe-á perguntado se quer criar a PR.",
@@ -653,9 +653,9 @@
       "scope_save_failed": "Não foi possível guardar os repositórios da spec.",
       "repository_scope_incomplete": "Falta um repositório exigido pelas specs para o lançamento. Reveja as atribuições acima.",
       "rail_not_empty": "Esse rail já tem specs",
-      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a entrega",
-      "flow_head_mismatch": "O seu Flow mudou durante a entrega. Tente de novo",
-      "flow_already_handed_off": "Este Flow já foi entregue",
+      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a passagem a um rail",
+      "flow_head_mismatch": "O seu Flow mudou durante a passagem a um rail. Tente de novo",
+      "flow_already_handed_off": "Este Flow já foi passado a um rail",
       "flow_handoff_not_adopted": "O rail arrancou sem assumir as alterações do seu Flow",
       "illegal_transition": "O Flow mudou de estado entretanto",
       "feature_unavailable": "O Flow não está disponível",
@@ -762,7 +762,7 @@
       "failingChecks": "Falham",
       "check": "{{command}} · saída {{code}}",
       "next": "As rondas de correção automática não resolveram isto. Volte ao Flow para resolver com o agente ou relance a partir do mesmo ramo do Flow.",
-      "returned": "De volta ao Flow: as suas alterações voltaram ao Flow com a revisão. Continue na barra do Flow."
+      "returned": "De volta ao Flow: as suas alterações voltaram ao Flow com a revisão. Continue na faixa do Flow."
     }
   },
   "runFailure": {
@@ -902,8 +902,8 @@
       "flow_repository_missing": "O repositório do Flow já não está disponível neste projeto.",
       "rail_not_empty": "Esse rail já tem specs. Escolha um rail livre e vazio.",
       "flow_already_handed_off": "Este Flow já foi passado a um rail.",
-      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a entrega.",
-      "flow_head_mismatch": "O seu Flow mudou durante a entrega. Tente de novo.",
+      "flow_freeze_failed": "Não foi possível guardar as alterações do Flow para a passagem a um rail.",
+      "flow_head_mismatch": "O seu Flow mudou durante a passagem a um rail. Tente de novo.",
       "flow_handoff_not_adopted": "O rail arrancou sem assumir as alterações do seu Flow.",
       "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar um worktree isolado.",
       "flow_not_found": "Este Flow já não existe.",
@@ -911,10 +911,10 @@
       "conversation_not_found": "Esta missão já não existe.",
       "conversation_not_pinned": "Fixe esta missão ao projeto antes de iniciar um Flow.",
       "flow_not_handed_off": "Este Flow já não está à espera dessa execução.",
-      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a entregar a partir da barra do Flow.",
+      "flow_rail_unknown": "O rail dessa execução é desconhecido. Volte a passá-lo a um rail a partir da faixa do Flow.",
       "flow_return_busy": "A execução está ocupada com outra ação. Tente novamente daqui a pouco.",
-      "flow_return_not_allowed": "Só uma entrega que parou antes de concluir pode voltar ao seu Flow.",
-      "flow_return_not_found": "Essa execução não é uma entrega de Flow.",
+      "flow_return_not_allowed": "Só uma passagem a um rail que parou antes da entrega pode voltar ao seu Flow.",
+      "flow_return_not_found": "Essa execução não é uma passagem de Flow a um rail.",
       "flow_return_worktree_mismatch": "Essa execução não assumiu as alterações deste Flow."
     },
     "entry": {
@@ -1003,7 +1003,7 @@
         "noSpec": "A spec do Flow ainda não está pronta"
       },
       "viewChangesStats": "Ver alterações · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Entregar"
+      "handOff": "Passar a um rail"
     },
     "preview": {
       "open": "Pré-visualizar",
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "Transforme este Flow num PR revisto",
-      "loop": "Flow → Spec",
+      "loop": "Passagem do Flow a um rail",
       "launch": "Lançar",
       "notYet": "Ainda não",
-      "engineFallback": "{{provider}} não pode executar o Flow → Spec nesta máquina, por isso foi selecionado o motor padrão do rail.",
+      "engineFallback": "{{provider}} não pode executar a passagem do Flow a um rail nesta máquina, por isso foi selecionado o motor padrão do rail.",
       "cost": "{{cost}} até agora",
       "costUnknown": "ainda sem custo faturado",
       "line_one": "{{rail}} vai transformar o seu ficheiro alterado num PR revisto. Se falhar, o seu trabalho fica a salvo.",
@@ -1072,9 +1072,9 @@
         "verify": "Não foi possível verificar as suas alterações",
         "review": "A revisão não conseguiu terminar",
         "fix": "As correções automáticas não conseguiram terminar",
-        "archive": "Não foi possível arquivar a alteração da spec",
-        "settle": "Não foi possível entregar o resultado",
-        "unknown": "A entrega parou antes de terminar"
+        "archive": "Não foi possível guardar a spec concluída",
+        "settle": "Não foi possível devolver o resultado",
+        "unknown": "A passagem a um rail parou antes de terminar"
       },
       "cause": "Causa:",
       "next": "O seu trabalho está intacto. De volta ao Flow, o agente recebe o erro.",
@@ -1096,20 +1096,20 @@
       "handed_off": "Flow passado a um rail.",
       "delivered": "Flow entregue.",
       "discarded": "Flow descartado.",
-      "returned": "De volta ao Flow: o trabalho voltou com o que a entrega encontrou."
+      "returned": "De volta ao Flow: o trabalho voltou com o que o rail encontrou."
     },
     "strip": {
       "label": "Flow",
       "ready": "Pronto para virar um PR",
-      "launching": "Passando a um rail…",
-      "launchingOn": "Passando a {{rail}}…",
+      "launching": "A passar a um rail…",
+      "launchingOn": "A passar a {{rail}}…",
       "step": {
         "derive": "Escrevendo a spec a partir das suas alterações",
         "verify": "Verificando suas alterações",
         "review": "Revisando a alteração",
         "fix": "Aplicando as correções da revisão",
-        "archive": "Arquivando a alteração da spec",
-        "settle": "Devolvendo o resultado"
+        "archive": "A guardar a spec concluída",
+        "settle": "A devolver o resultado"
       },
       "headline": "{{state}} · {{files}}"
     },
@@ -1127,14 +1127,14 @@
   },
   "flowReturn": {
     "title": "O que o revisor pediu",
-    "noFindings": "A entrega parou antes de concluir; as suas alterações voltaram intactas a este Flow.",
+    "noFindings": "A passagem a um rail parou antes da entrega; as suas alterações voltaram intactas a este Flow.",
     "coverage": "A spec explica {{explained}} de {{files}} arquivos alterados",
     "unexplained": "Não explicados por nenhum requisito",
     "moreFiles_one": "+{{count}} arquivo",
     "moreFiles_other": "+{{count}} arquivos",
     "next": "O agente do Flow começa agora; você pode orientá-lo ou pará-lo a qualquer momento.",
     "automaticTurn": "Turno automático · Voltar ao Flow",
-    "titleFailure": "Porque é que a entrega parou"
+    "titleFailure": "Porque é que a passagem a um rail parou"
   },
   "turnErrors": {
     "providerInactivity": "O fornecedor deixou de responder durante demasiado tempo, por isso o turno terminou. Envie a mensagem novamente para continuar.",

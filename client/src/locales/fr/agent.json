@@ -655,7 +655,7 @@
       "rail_not_empty": "Ce rail a déjà des specs",
       "flow_freeze_failed": "Les modifications de votre Flow n’ont pas pu être enregistrées pour la remise",
       "flow_head_mismatch": "Votre Flow a changé pendant la remise. Réessayez",
-      "flow_already_handed_off": "Ce Flow a déjà été confié",
+      "flow_already_handed_off": "Ce Flow a déjà été remis à un rail",
       "flow_handoff_not_adopted": "Le rail a démarré sans reprendre les modifications de votre Flow",
       "illegal_transition": "Le Flow a changé d’état entre-temps",
       "feature_unavailable": "Flow n’est pas disponible",
@@ -762,7 +762,7 @@
       "failingChecks": "En échec",
       "check": "{{command}} · code {{code}}",
       "next": "Les tours de correction automatique ne l’ont pas résolu. Revenez au Flow pour le régler avec l’agent, ou relancez depuis la même branche du Flow.",
-      "returned": "De retour dans le Flow : vos modifications sont revenues dans leur Flow avec la revue. Continuez dans la barre du Flow."
+      "returned": "De retour dans le Flow : vos modifications sont revenues dans leur Flow avec la revue. Continuez dans la bande du Flow."
     }
   },
   "runFailure": {
@@ -901,7 +901,7 @@
       "flow_repository_unknown": "Ce dépôt ne fait plus partie de ce projet. Choisissez-en un autre.",
       "flow_repository_missing": "Le dépôt du Flow n’est plus disponible dans ce projet.",
       "rail_not_empty": "Ce rail a déjà des specs. Choisissez un rail libre et vide.",
-      "flow_already_handed_off": "Ce Flow a déjà été confié à un rail.",
+      "flow_already_handed_off": "Ce Flow a déjà été remis à un rail.",
       "flow_freeze_failed": "Les modifications de votre Flow n’ont pas pu être enregistrées pour la remise.",
       "flow_head_mismatch": "Votre Flow a changé pendant la remise. Réessayez.",
       "flow_handoff_not_adopted": "Le rail a démarré sans reprendre les modifications de votre Flow.",
@@ -911,7 +911,7 @@
       "conversation_not_found": "Cette mission n’existe plus.",
       "conversation_not_pinned": "Épinglez cette mission au projet avant de lancer un Flow.",
       "flow_not_handed_off": "Ce Flow n’attend plus cette exécution.",
-      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Relancez la remise depuis la barre Flow.",
+      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Remettez-le de nouveau à un rail depuis la bande du Flow.",
       "flow_return_busy": "L’exécution est occupée par une autre action. Réessayez dans un instant.",
       "flow_return_not_allowed": "Seule une remise arrêtée avant la livraison peut revenir à son Flow.",
       "flow_return_not_found": "Cette exécution n’est pas une remise de Flow.",
@@ -960,11 +960,11 @@
         "flow": "Vous avez choisi Flow",
         "implement": "Vous avez choisi spec + Implement",
         "dismissed": "Proposition écartée",
-        "handedOff": "Flow confié au Rail {{rail}}",
+        "handedOff": "Flow remis au Rail {{rail}}",
         "state": {
           "active": "Flow en cours",
           "paused": "Flow en pause",
-          "handed_off": "Flow confié à un rail",
+          "handed_off": "Flow remis à un rail",
           "delivered": "Flow livré",
           "discarded": "Flow abandonné",
           "needs-review": "Le Flow doit être vérifié"
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "Transformez ce Flow en PR relue",
-      "loop": "Flow → Spec",
+      "loop": "Remise du Flow",
       "launch": "Lancer",
       "notYet": "Pas encore",
-      "engineFallback": "{{provider}} ne peut pas exécuter Flow → Spec sur cette machine : le moteur par défaut du rail est sélectionné.",
+      "engineFallback": "{{provider}} ne peut pas exécuter la remise du Flow sur cette machine : le moteur par défaut du rail est sélectionné.",
       "cost": "{{cost}} jusqu’ici",
       "costUnknown": "pas encore de coût facturé",
       "line_one": "{{rail}} transformera votre fichier modifié en PR relue. En cas d’échec, votre travail est en sécurité.",
@@ -1072,8 +1072,8 @@
         "verify": "Impossible de vérifier vos modifications",
         "review": "La revue n’a pas pu se terminer",
         "fix": "Les corrections automatiques n’ont pas pu se terminer",
-        "archive": "Impossible d’archiver le changement de spec",
-        "settle": "Impossible de remettre le résultat",
+        "archive": "Impossible de classer la spec terminée",
+        "settle": "Impossible de restituer le résultat",
         "unknown": "La remise s’est arrêtée avant la fin"
       },
       "cause": "Cause :",
@@ -1108,7 +1108,7 @@
         "verify": "Vérification de vos modifications",
         "review": "Relecture de la modification",
         "fix": "Application des corrections de la relecture",
-        "archive": "Archivage du changement de spec",
+        "archive": "Classement de la spec terminée",
         "settle": "Restitution du résultat"
       },
       "headline": "{{state}} · {{files}}"
@@ -1230,7 +1230,7 @@
     "reason": {
       "started": "démarré",
       "returned": "de retour d'un rail",
-      "handed_off": "confié à un rail",
+      "handed_off": "remis à un rail",
       "discarded": "abandonné"
     }
   }

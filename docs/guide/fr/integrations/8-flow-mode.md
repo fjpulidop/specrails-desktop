@@ -19,9 +19,9 @@ Si votre Specrails Core ne peut pas encore exécuter Flow, Démarrer est désact
 
 ## Pendant le Flow
 
-Le mode Flow est nommé là où vous regardez, dans sa propre couleur de Flow : le compositeur affiche une puce **Flow** à côté de celle d’autonomie, une fine ligne en haut et l’indication *Dites à l’agent quoi modifier dans ce Flow…* ; le titre de la mission indique **En Flow**, tout comme sa ligne dans la liste des missions. La conversation marque où vous êtes entré dans Flow et où vous en êtes sorti, et les réponses de l’agent écrites en Flow portent une petite marque **Flow** à côté de leur heure.
+Le mode Flow est nommé là où vous regardez, dans sa propre couleur de Flow : le compositeur affiche une puce **Flow** à côté de celle d’autonomie et l’indication *Dites à l’agent quoi modifier dans ce Flow…* ; le titre de la mission indique **En Flow**, tout comme sa ligne dans la liste des missions. La conversation marque où vous êtes entré dans Flow et où vous en êtes sorti, et les réponses de l’agent écrites en Flow portent une petite marque **Flow** à côté de leur heure.
 
-La barre juste au-dessus du compositeur montre le Flow sur une ligne courte : son état, **Flow · 7 fichiers**, **Pause** et l’action principale, **Remettre**. Quand une action est indisponible (le Flow enregistre encore, une autre action est en cours), le survol dit pourquoi. Ouvrez la ligne avec son chevron, comme n’importe quelle exécution, pour voir le reste :
+La bande juste au-dessus du compositeur montre le Flow sur une ligne courte : son état, **Flow · 7 fichiers**, **Pause** et l’action principale, **Remettre**. Quand une action est indisponible (le Flow enregistre encore, une autre action est en cours), le survol dit pourquoi. Ouvrez la ligne avec son chevron, comme n’importe quelle exécution, pour voir le reste :
 
 - la **branche** (cliquez pour copier son nom), les **modifications** avec les lignes ajoutées et supprimées (cliquez pour lister chaque fichier modifié avec son état et ses +/−), et le **coût jusqu’ici** tel que facturé par le fournisseur. Il affiche `—` tant qu’aucun tour n’a de coût déclaré, jamais une estimation ; un `*` signale un total qui exclut des tours sans prix, avec une note indiquant combien ;
 - **Aperçu** tant que l’app du Flow tourne (voir plus bas) ;
@@ -41,7 +41,7 @@ Une fois l’app à l’écoute, l’agent vous donne ses adresses en liens et l
 
 Quand le résultat vous convient, appuyez sur **Remettre**. La ligne indique **Prêt à devenir une PR** et ouvre une seule ligne au-dessus : *Rail 2 transformera vos 7 fichiers modifiés en PR relue. En cas d’échec, votre travail est en sécurité.* Appuyez sur **Lancer**, ou sur **Pas encore** pour revenir au Flow.
 
-Le rail, le moteur, le modèle et l’effort sont déjà choisis pour vous (un rail libre et le moteur de votre conversation). Pour les changer, ouvrez **Changer la méthode** ; vous y voyez aussi ce qui a changé et le coût jusqu’ici. Pendant le démarrage, la barre montre le lancement sans trou, puis suit l’exécution étape par étape. Si la limite de revue ou un budget est atteint, la ligne le dit et rien n’est lancé. Le **Lancer** de la barre elle-même ne lance jamais seul : il rouvre la ligne avec le focus sur Lancer, pour que vous confirmiez toujours là.
+Le rail, le moteur, le modèle et l’effort sont déjà choisis pour vous (un rail libre et le moteur de votre conversation). Pour les changer, ouvrez **Changer la méthode** ; vous y voyez aussi ce qui a changé et le coût jusqu’ici. Pendant le démarrage, la bande montre le lancement sans trou, puis suit l’exécution étape par étape. Si la limite de revue ou un budget est atteint, la ligne le dit et rien n’est lancé. Le **Lancer** de la barre elle-même ne lance jamais seul : il rouvre la ligne avec le focus sur Lancer, pour que vous confirmiez toujours là.
 
 Le rail dérive la spec et son changement de spec à partir de ce que vous avez construit, la vérifie et la relit, et la carte de livraison apparaît dans la mission comme pour toute exécution.
 

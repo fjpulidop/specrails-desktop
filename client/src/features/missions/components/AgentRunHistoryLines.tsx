@@ -12,17 +12,20 @@ import { GitPullRequest, Rocket, Undo2, XCircle, CheckCircle2 } from 'lucide-rea
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentRunEventLine, type RunEventTone } from './AgentRunEventLine'
+import { useLoopLabel } from '../../delivery/components/LoopChip'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusPrCard, type FocusPrCardDetail } from './agent-run-failure'
 
 function runName(t: (key: string, options?: Record<string, unknown>) => string, envelope: AgentPrDecisionEnvelope): string {
   return envelope.railName || t('prCard.rail', { index: envelope.railIndex + 1 })
 }
 
-/** "Launched on Rail 1 · #4 #7 · Flow → Spec" — opens the live run in the strip. */
+/** "Launched on Rail 1 · #4 #7 · Flow hand-off" — opens the live run in the strip. */
 export function AgentRunLaunchedLine({ envelope, conversationId }: { envelope: AgentPrDecisionEnvelope; conversationId: string }) {
   const { t } = useTranslation('agent')
   const tickets = envelope.ticketIds.map((id) => `#${id}`).join(' ')
-  const detail = [tickets, envelope.loopName].filter(Boolean).join(' · ')
+  // The loop's localized display name (built-ins never show their internal name).
+  const loop = useLoopLabel(envelope.loopId, envelope.loopName)
+  const detail = [tickets, envelope.loopId || envelope.loopName ? loop.label : null].filter(Boolean).join(' · ')
   return (
     <AgentRunEventLine
       icon={Rocket}
@@ -63,6 +66,7 @@ export function AgentSettledRunLine({ envelope, conversationId }: { envelope: Ag
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
   const outcome = settledRunOutcome(t, envelope)
+  const loop = useLoopLabel(envelope.loopId, envelope.loopName)
   // Focus bus: a collapsed card cannot hear the request — expand, then re-dispatch.
   const state = useRef({ open, envelope })
   state.current = { open, envelope }
@@ -91,7 +95,7 @@ export function AgentSettledRunLine({ envelope, conversationId }: { envelope: Ag
         tone={outcome.tone}
         testId="agent-settled-run-line"
         expanded={open}
-        detail={envelope.loopName ?? undefined}
+        detail={envelope.loopId || envelope.loopName ? loop.label : undefined}
         actionLabel={open ? t('runStrip.hideDetails') : t('runStrip.showDetails')}
         onActivate={() => setOpen((value) => !value)}
       >

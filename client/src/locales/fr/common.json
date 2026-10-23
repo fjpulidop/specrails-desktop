@@ -178,7 +178,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow → Spec",
+    "flowSpec": "Remise du Flow",
     "unknown": "Boucle",
     "title": "Boucle : {{name}}"
   }

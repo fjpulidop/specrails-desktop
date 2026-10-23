@@ -19,7 +19,7 @@ Kann dein Specrails Core Flow noch nicht ausführen, ist Starten deaktiviert und
 
 ## Während des Flows
 
-Der Flow-Modus wird dort benannt, wo du hinschaust, in seiner eigenen Flow-Farbe: Der Composer zeigt einen **Flow**-Chip neben dem Autonomie-Chip, eine feine Linie am oberen Rand und den Hinweis *Sag dem Agenten, was er in diesem Flow ändern soll…*; der Missionstitel zeigt **Im Flow**, ebenso ihre Zeile in der Missionsliste. Das Gespräch markiert, wo du Flow betreten und verlassen hast, und die im Flow geschriebenen Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke.
+Der Flow-Modus wird dort benannt, wo du hinschaust, in seiner eigenen Flow-Farbe: Der Composer zeigt einen **Flow**-Chip neben dem Autonomie-Chip und den Hinweis *Sag dem Agenten, was er in diesem Flow ändern soll…*; der Missionstitel zeigt **Im Flow**, ebenso ihre Zeile in der Missionsliste. Das Gespräch markiert, wo du Flow betreten und verlassen hast, und die im Flow geschriebenen Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke.
 
 Die Leiste direkt über dem Composer zeigt den Flow in einer kurzen Zeile: seinen Status, **Flow · 7 Dateien**, **Pausieren** und die Hauptaktion **Übergeben**. Ist eine Aktion nicht verfügbar (der Flow speichert noch, eine andere Aktion läuft), sagt der Hover-Text warum. Öffne die Zeile mit ihrem Pfeil, wie jeden anderen Lauf, um den Rest zu sehen:
 

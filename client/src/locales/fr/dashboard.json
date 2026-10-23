@@ -165,7 +165,7 @@
     "mergedLocally": "Intégré dans {{base}} en local",
     "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
     "reviewChangesRequested": "Modifications demandées",
-    "reviewChangesRequestedHint": "Flow → Spec a encore besoin de modifications. Ouvrez sa carte de mission pour revenir dans Flow ou relancer."
+    "reviewChangesRequestedHint": "La remise du Flow a encore besoin de modifications. Ouvrez sa carte de mission pour revenir dans Flow ou relancer."
   },
   "railsBoard": {
     "title": "Rails",

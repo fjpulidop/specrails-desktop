@@ -178,7 +178,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow → Spec",
+    "flowSpec": "Passagem do Flow a um rail",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   }

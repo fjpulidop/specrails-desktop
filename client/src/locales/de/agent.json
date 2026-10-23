@@ -901,7 +901,7 @@
       "flow_repository_unknown": "Dieses Repository gehört nicht mehr zu diesem Projekt. Wähle ein anderes.",
       "flow_repository_missing": "Das Repository des Flows ist in diesem Projekt nicht mehr verfügbar.",
       "rail_not_empty": "Diese Rail hat bereits Specs. Wähle eine freie, leere Rail.",
-      "flow_already_handed_off": "Dieser Flow wurde bereits an eine Rail übergeben.",
+      "flow_already_handed_off": "Dieser Flow wurde bereits an einen Rail übergeben.",
       "flow_freeze_failed": "Die Änderungen deines Flows konnten für die Übergabe nicht gesichert werden.",
       "flow_head_mismatch": "Dein Flow hat sich während der Übergabe geändert. Versuch es noch einmal.",
       "flow_handoff_not_adopted": "Der Rail ist gestartet, ohne die Änderungen deines Flows zu übernehmen.",
@@ -911,7 +911,7 @@
       "conversation_not_found": "Diese Mission existiert nicht mehr.",
       "conversation_not_pinned": "Hefte diese Mission an das Projekt, bevor du einen Flow startest.",
       "flow_not_handed_off": "Dieser Flow wartet nicht mehr auf diesen Lauf.",
-      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib erneut über die Flow-Leiste.",
+      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib ihn erneut mit „Übergeben“ in der Flow-Leiste.",
       "flow_return_busy": "Der Lauf ist mit einer anderen Aktion beschäftigt. Versuche es gleich noch einmal.",
       "flow_return_not_allowed": "Nur eine Übergabe, die vor der Auslieferung angehalten hat, kann in ihren Flow zurück.",
       "flow_return_not_found": "Dieser Lauf ist keine Flow-Übergabe.",
@@ -953,7 +953,7 @@
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "Zuerst eine Spec vereinbaren, dann an eine Rail delegieren."
+          "hint": "Zuerst eine Spec vereinbaren, dann an einen Rail delegieren."
         }
       },
       "stub": {
@@ -964,7 +964,7 @@
         "state": {
           "active": "Flow läuft",
           "paused": "Flow pausiert",
-          "handed_off": "Flow an eine Rail übergeben",
+          "handed_off": "Flow an einen Rail übergeben",
           "delivered": "Flow ausgeliefert",
           "discarded": "Flow verworfen",
           "needs-review": "Flow muss geprüft werden"
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "Mach aus diesem Flow einen geprüften PR",
-      "loop": "Flow → Spec",
+      "loop": "Flow-Übergabe",
       "launch": "Starten",
       "notYet": "Noch nicht",
-      "engineFallback": "{{provider}} kann Flow → Spec auf diesem Rechner nicht ausführen, deshalb ist die Standard-Engine des Rails gewählt.",
+      "engineFallback": "{{provider}} kann die Flow-Übergabe auf diesem Rechner nicht ausführen, deshalb ist die Standard-Engine des Rails gewählt.",
       "cost": "bisher {{cost}}",
       "costUnknown": "noch keine abgerechneten Kosten",
       "line_one": "{{rail}} macht aus deiner geänderten Datei einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.",
@@ -1072,8 +1072,8 @@
         "verify": "Deine Änderungen konnten nicht geprüft werden",
         "review": "Die Prüfung konnte nicht abgeschlossen werden",
         "fix": "Die automatischen Korrekturen konnten nicht abgeschlossen werden",
-        "archive": "Die Spec-Änderung konnte nicht archiviert werden",
-        "settle": "Das Ergebnis konnte nicht übergeben werden",
+        "archive": "Die fertige Spec konnte nicht abgelegt werden",
+        "settle": "Das Ergebnis konnte nicht zurückgegeben werden",
         "unknown": "Die Übergabe hat vor dem Ende angehalten"
       },
       "cause": "Ursache:",
@@ -1093,7 +1093,7 @@
       "active": "Flow aktiv: Der Agent schreibt im Flow-Branch.",
       "paused": "Flow pausiert.",
       "needs-review": "Der Flow muss geprüft werden: Seine Projektkopie fehlt.",
-      "handed_off": "Flow an eine Rail übergeben.",
+      "handed_off": "Flow an einen Rail übergeben.",
       "delivered": "Flow ausgeliefert.",
       "discarded": "Flow verworfen.",
       "returned": "Zurück im Flow: Die Arbeit kam mit den Ergebnissen der Übergabe zurück."
@@ -1108,7 +1108,7 @@
         "verify": "Deine Änderungen werden geprüft",
         "review": "Die Änderung wird reviewt",
         "fix": "Korrekturen aus dem Review werden angewendet",
-        "archive": "Spec-Änderung wird archiviert",
+        "archive": "Fertige Spec wird abgelegt",
         "settle": "Das Ergebnis wird zurückgegeben"
       },
       "headline": "{{state}} · {{files}}"
@@ -1230,7 +1230,7 @@
     "reason": {
       "started": "gestartet",
       "returned": "von einer Rail zurück",
-      "handed_off": "an eine Rail übergeben",
+      "handed_off": "an einen Rail übergeben",
       "discarded": "verworfen"
     }
   }

@@ -10,7 +10,7 @@ describe('LoopChip', () => {
     ['factory:sdd-quick-openspec', 'SDD Quick'],
     ['factory:revision', 'SDD Quick'],
     ['factory:freestyle', 'Freestyle'],
-    ['factory:flow-spec', 'Flow → Spec'],
+    ['factory:flow-spec', 'Flow hand-off'],
   ])('built-in %s → localized name with an icon', (loopId, label) => {
     render(<LoopChip loopId={loopId} loopName="whatever the row stored" />)
     const chip = screen.getByTestId('loop-chip')

@@ -911,7 +911,7 @@
       "conversation_not_found": "This mission no longer exists.",
       "conversation_not_pinned": "Pin this mission to the project before starting a Flow.",
       "flow_not_handed_off": "This Flow is no longer waiting on that run.",
-      "flow_rail_unknown": "The rail of that run is unknown. Hand off again from the Flow bar.",
+      "flow_rail_unknown": "The rail of that run is unknown. Hand it off again from the Flow strip.",
       "flow_return_busy": "The run is busy with another action. Try again in a moment.",
       "flow_return_not_allowed": "Only a hand-off that stopped before delivery can go back to its Flow.",
       "flow_return_not_found": "That run is not a Flow hand-off.",
@@ -1044,10 +1044,10 @@
     },
     "handOff": {
       "heading": "Turn this Flow into a reviewed PR",
-      "loop": "Flow → Spec",
+      "loop": "Flow hand-off",
       "launch": "Launch",
       "notYet": "Not yet",
-      "engineFallback": "{{provider}} can't run Flow → Spec on this machine, so the rail's default engine is selected.",
+      "engineFallback": "{{provider}} can't run the Flow hand-off on this machine, so the rail's default engine is selected.",
       "cost": "{{cost}} so far",
       "costUnknown": "no billed cost yet",
       "line_one": "{{rail}} will turn your changed file into a reviewed PR. If it fails, your work is safe.",
@@ -1072,7 +1072,7 @@
         "verify": "Couldn’t verify your changes",
         "review": "The review couldn’t finish",
         "fix": "The automatic fixes couldn’t finish",
-        "archive": "Couldn’t archive the spec change",
+        "archive": "Couldn’t file the finished spec",
         "settle": "Couldn’t hand the result back",
         "unknown": "The hand-off stopped before it finished"
       },
@@ -1108,7 +1108,7 @@
         "verify": "Verifying your changes",
         "review": "Reviewing the change",
         "fix": "Applying the review's fixes",
-        "archive": "Archiving the spec change",
+        "archive": "Filing the finished spec",
         "settle": "Handing the result back"
       },
       "headline": "{{state}} · {{files}}"

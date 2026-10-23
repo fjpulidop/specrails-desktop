@@ -178,7 +178,7 @@
     "implement": "Implement",
     "sddQuick": "SDD Quick",
     "freestyle": "Freestyle",
-    "flowSpec": "Flow → Spec",
+    "flowSpec": "Affidamento del Flow",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   }

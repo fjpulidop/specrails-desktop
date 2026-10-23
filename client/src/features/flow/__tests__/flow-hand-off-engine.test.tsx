@@ -90,7 +90,7 @@ describe('Flow → Spec hand-off engine default', () => {
     await openHandOff()
     // The fallback only matters when changing how: it sits inside "Change how".
     const note = await screen.findByTestId('rail-card-hand-off-note')
-    expect(note).toHaveTextContent("Codex can't run Flow → Spec on this machine")
+    expect(note).toHaveTextContent("Codex can't run the Flow hand-off on this machine")
     expect(note.closest('[data-testid="rail-card-hand-off-settings"]')).not.toBeNull()
     expect(screen.getByTestId('rail-card-hand-off-line')).not.toHaveTextContent('Codex')
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
