@@ -551,6 +551,12 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
           at: clock.now(),
         }, `flow-delivered:${flowId}`)
       },
+      postBoundary({ conversationId, flowId, event, reason, branch }) {
+        const at = clock.now()
+        deps.agentHost()?.postSystemRow?.(conversationId, {
+          kind: 'flow-boundary', flowId, event, reason, branch, at,
+        }, `flow-boundary:${flowId}:${event}:${reason}:${at}`)
+      },
     },
     processes: deps.processes ?? { stop: async () => {} },
     effects: deps.effects,

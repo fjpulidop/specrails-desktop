@@ -27,6 +27,7 @@ function service(overrides: Partial<Record<keyof FlowService, unknown>> = {}): F
     reconcile: vi.fn(),
     getFlow: vi.fn(() => FLOW),
     getByConversation: vi.fn(() => FLOW),
+    listOpen: vi.fn(() => [{ ...FLOW, branch: 'feat/7-idea', worktreePath: '/wt/secret' }]),
     diffSummary: vi.fn(async () => ({ branch: 'b', baseSha: null, headSha: null, files: [], totals: { files: 0, additions: 0, deletions: 0 } })),
     returnToFlow: vi.fn(async () => ({ ...FLOW, deliveryId: 'd-1' })),
     relaunchFlow: vi.fn(async () => ({ flow: { ...FLOW, state: 'handed_off' }, loopRunIds: ['run-2'], deliveryId: 'd-2' })),
@@ -52,6 +53,8 @@ describe('Flow HTTP routes', () => {
     expect(started.status).toBe(201)
     expect(flows.startFlow).toHaveBeenCalledWith({ conversationId: 'conv-1', idea: 'Try it', title: 'T', flowId: 'client-id' })
     expect((await request(server).get('/p1/flow/by-conversation/conv-1')).body).toEqual({ flow: FLOW })
+    // The mission list's mark: conversations in Flow, without worktree paths.
+    expect((await request(server).get('/p1/flow/open')).body).toEqual({ flows: [{ id: 'flow-1', conversationId: 'conv-1', state: 'active', branch: 'feat/7-idea' }] })
     expect((await request(server).get('/p1/flow/flow-1')).body).toEqual({ flow: FLOW })
     expect((await request(server).post('/p1/flow/flow-1/pause')).body.flow.state).toBe('paused')
     expect((await request(server).post('/p1/flow/flow-1/resume')).body.flow.state).toBe('active')

@@ -72,6 +72,11 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
     res.status(201).json({ flow })
   }))
 
+  // The project's conversations in Flow mode (the mission list marks them).
+  router.get('/:projectId/flow/open', withService((service, _req, res) => {
+    res.json({ flows: service.listOpen().map((flow) => ({ id: flow.id, conversationId: flow.conversationId, state: flow.state, branch: flow.branch })) })
+  }))
+
   router.get('/:projectId/flow/by-conversation/:conversationId', withService((service, req, res) => {
     const conversationId = String(req.params.conversationId ?? '')
     if (!conversationId || conversationId.length > 200) throw new FlowValidationError('invalid_conversation_id', 'Invalid conversation id')

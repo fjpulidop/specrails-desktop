@@ -211,6 +211,19 @@ export interface FlowConversation {
    * (PR link, rewritten spec, archived OpenSpec change, Jira key). Once per
    * Flow; never throws. Absent ⇒ the run card alone tells the outcome. */
   postDeliveredSummary?(input: { conversationId: string; flowId: string; deliveryId: string | null; ticketId: number; settlement: FlowSettlementSummary }): void
+  /** A boundary of the conversation's Flow mode, as one history line: the
+   * conversation entered Flow (started, or the work came back from a rail) or
+   * left it (handed off to a rail, discarded). The client marks the agent
+   * turns in between as Flow turns. Never throws; absent ⇒ no boundary lines. */
+  postBoundary?(input: FlowBoundary): void
+}
+
+export interface FlowBoundary {
+  conversationId: string
+  flowId: string
+  event: 'entered' | 'left'
+  reason: 'started' | 'returned' | 'handed_off' | 'discarded'
+  branch: string | null
 }
 
 /** The project's repositories (target triage of a new Flow). */

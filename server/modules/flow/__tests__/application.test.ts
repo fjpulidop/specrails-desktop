@@ -888,3 +888,37 @@ describe('automatic return after a Flow → Spec run fails outright', () => {
     expect(returned!.returnBriefing).toContain('Delivery detail: Programmatic workflow stopped before delivery')
   })
 })
+
+describe('Flow mode boundaries (history lines)', () => {
+  const conversationPort = () => ({ postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postBoundary: vi.fn() })
+
+  it('enters on start, leaves on hand-off, enters again on Back to Flow and leaves on discard', async () => {
+    const conversation = conversationPort()
+    const ctx = setup({ conversation })
+    const flow = await ctx.service.startFlow(startInput)
+    expect(conversation.postBoundary).toHaveBeenLastCalledWith({ conversationId: 'conv-1', flowId: flow.id, event: 'entered', reason: 'started', branch: 'feat/7-idea' })
+    await ctx.service.handOffFlow({ flowId: flow.id, railIndex: 2 })
+    expect(conversation.postBoundary).toHaveBeenLastCalledWith(expect.objectContaining({ event: 'left', reason: 'handed_off' }))
+    // The idempotent repeat of the same hand-off posts nothing new.
+    await ctx.service.handOffFlow({ flowId: flow.id, railIndex: 2 })
+    expect(conversation.postBoundary).toHaveBeenCalledTimes(2)
+    await ctx.service.returnToFlow({ deliveryId: 'delivery-1' })
+    expect(conversation.postBoundary).toHaveBeenLastCalledWith(expect.objectContaining({ event: 'entered', reason: 'returned' }))
+    expect(ctx.service.listOpen().map((open) => open.id)).toEqual([flow.id])
+    await ctx.service.discardFlow(flow.id)
+    expect(ctx.service.listOpen()).toEqual([])
+    expect(conversation.postBoundary).toHaveBeenLastCalledWith(expect.objectContaining({ event: 'left', reason: 'discarded' }))
+    expect(conversation.postBoundary).toHaveBeenCalledTimes(4)
+  })
+
+  it('a failed start or hand-off posts no boundary, and a throwing port never fails the transition', async () => {
+    const conversation = conversationPort()
+    const ctx = setup({ conversation })
+    ctx.worktrees.reserve.mockRejectedValueOnce(new Error('no worktree'))
+    await expect(ctx.service.startFlow(startInput)).rejects.toThrow('no worktree')
+    expect(conversation.postBoundary).not.toHaveBeenCalled()
+
+    const throwing = setup({ conversation: { ...conversationPort(), postBoundary: vi.fn(() => { throw new Error('db locked') }) } })
+    await expect(throwing.service.startFlow(startInput)).resolves.toMatchObject({ state: 'active' })
+  })
+})

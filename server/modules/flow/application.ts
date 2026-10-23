@@ -25,7 +25,7 @@ import {
   type FlowRunFailure,
   type FlowSession,
 } from './domain'
-import type { FlowDiffSummary, FlowLaunchOptions, FlowPorts } from './ports'
+import type { FlowBoundary, FlowDiffSummary, FlowLaunchOptions, FlowPorts } from './ports'
 
 /**
  * Flow use cases (imperative shell around the pure state machine). Start and
@@ -82,6 +82,15 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     ports.repository.save(session)
     ports.notifier.changed(session)
     return session
+  }
+
+  /** One history boundary of Flow mode (best effort: never fails the transition). */
+  function boundary(session: FlowSession, event: FlowBoundary['event'], reason: FlowBoundary['reason']): void {
+    try {
+      ports.conversation?.postBoundary?.({ conversationId: session.conversationId, flowId: session.id, event, reason, branch: session.branch })
+    } catch (error) {
+      log.warn(`[flow] boundary row not posted for ${session.id}: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   function load(flowId: string): FlowSession {
@@ -179,7 +188,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId, ...repositoryOf(session) })
         session = apply(session, { type: 'worktree-reserved', ...reserved, now: ports.clock.now() })
         const opened = await ports.agent.open({ flowId, conversationId, worktreePath: reserved.worktreePath })
-        return apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
+        const started = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
+        boundary(started, 'entered', 'started')
+        return started
       } catch (error) {
         const latest = ports.repository.get(flowId) ?? session
         const failed = transition(latest, { type: 'start-failed', now: ports.clock.now() })
@@ -242,7 +253,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         if (session.state === 'active') commit({ ...session, state: 'paused', coreSessionId: null, updatedAt: ports.clock.now() })
         throw error
       }
-      return commit(result.session)
+      const discarded = commit(result.session)
+      if ((isOpenFlow(session) || session.state === 'needs-review') && discarded.state === 'discarded') boundary(discarded, 'left', 'discarded')
+      return discarded
     })
   }
 
@@ -284,6 +297,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         throw new FlowConflictError('flow_handoff_not_adopted', 'The rail launched without adopting the Flow worktree', session.id)
       }
       ports.notifier.changed(after)
+      boundary(after, 'left', 'handed_off')
       return { flow: after, loopRunIds: launched.loopRunIds, deliveryId: launched.deliveryId ?? after.deliveryId }
     } catch (error) {
       const latest = ports.repository.get(session.id) ?? session
@@ -359,6 +373,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       commit: () => ports.repository.save(result.session),
     })
     ports.notifier.changed(result.session)
+    boundary(result.session, 'entered', 'returned')
     await settle(result.session, result.effects)
     return { session: result.session, railIndex: stopped?.railIndex ?? null, options: stopped?.options ?? {}, failure }
   }
@@ -681,6 +696,11 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
   }
 
   /** The conversation's open Flow, else its latest one (null when it never had a Flow). */
+  /** Conversations currently in Flow mode (open, paused or needing review) — the mission list's mark. */
+  function listOpen(): FlowSession[] {
+    return ports.repository.listUnsettled().filter((session) => session.state === 'active' || session.state === 'paused' || session.state === 'needs-review')
+  }
+
   function getByConversation(conversationId: string): FlowSession | null {
     return ports.repository.findOpenByConversation(conversationId) ?? ports.repository.latestByConversation(conversationId)
   }
@@ -722,6 +742,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     reconcile,
     getFlow,
     getByConversation,
+    listOpen,
     diffSummary,
     costSoFar,
     availability: () => ports.availability(),
