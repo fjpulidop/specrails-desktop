@@ -71,6 +71,8 @@ interface StripEntry {
   wantsPrimary: boolean
   panel: ReactNode | null
   autoOpenToken: string | null
+  /** The person closed this run's panel (extension runs). */
+  onPanelClose: (() => void) | null
   attributes: Readonly<Record<string, string>>
   announcement: string | null
   match: { prDeliveryId: string; runIds: readonly string[] } | null
@@ -79,27 +81,39 @@ interface StripEntry {
 
 const MARK_CLASS = 'h-3.5 w-3.5 shrink-0'
 
-/** The status mark: a shape per state, never color alone. A running run of an
- *  extension's mode (Flow) shows the mode's icon in the mode's color. */
-function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolean; mode: MissionModeBadge | null }) {
-  if (tone === 'running' && mode?.icon) {
-    const Icon = mode.icon
-    return (
-      <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" style={{ color: modeAccent(mode) }} data-testid="mission-run-strip-mode-mark" aria-hidden>
-        <Icon className={cn('h-3.5 w-3.5', !quiet && 'motion-safe:animate-pulse')} aria-hidden />
-      </span>
-    )
-  }
-  if (tone === 'launching') return <Loader2 className={cn(MARK_CLASS, 'text-foreground/45 motion-safe:animate-spin')} aria-hidden />
-  if (tone === 'decision') return <BellRing className={cn(MARK_CLASS, 'text-accent-primary')} aria-hidden />
-  if (tone === 'failed') return <AlertTriangle className={cn(MARK_CLASS, 'text-destructive')} aria-hidden />
-  if (tone === 'paused') return <Pause className={cn(MARK_CLASS, 'text-accent-warning')} aria-hidden />
-  if (tone === 'info') return <Info className={cn(MARK_CLASS, 'text-foreground/70')} aria-hidden />
+/** The state's own shape (never color alone). */
+function StateGlyph({ tone, quiet, className }: { tone: MissionRunTone; quiet: boolean; className: string }) {
+  if (tone === 'launching') return <Loader2 className={cn(className, 'text-foreground/70 motion-safe:animate-spin')} aria-hidden />
+  if (tone === 'decision') return <BellRing className={cn(className, 'text-accent-primary')} aria-hidden />
+  if (tone === 'failed') return <AlertTriangle className={cn(className, 'text-destructive')} aria-hidden />
+  if (tone === 'paused') return <Pause className={cn(className, 'text-accent-warning')} aria-hidden />
+  if (tone === 'info') return <Info className={cn(className, 'text-foreground/70')} aria-hidden />
   return (
-    <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+    <span className={cn('inline-flex shrink-0 items-center justify-center', className)} aria-hidden>
       <span className={cn('h-2 w-2 rounded-full bg-accent-info', !quiet && 'motion-safe:animate-pulse')} />
     </span>
   )
+}
+
+/** The status mark: a shape per state, never color alone. A run of an
+ *  extension's mode (Flow) keeps the mode's icon in the mode's color in every
+ *  state; outside running the state's shape sits on it as a small badge. */
+function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolean; mode: MissionModeBadge | null }) {
+  if (mode?.icon) {
+    const Icon = mode.icon
+    const running = tone === 'running'
+    return (
+      <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" style={{ color: modeAccent(mode) }} data-testid="mission-run-strip-mode-mark" data-tone={tone} aria-hidden>
+        <Icon className={cn('h-3.5 w-3.5', running && !quiet && 'motion-safe:animate-pulse')} aria-hidden />
+        {!running && (
+          <span className="absolute -bottom-1 -right-1 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-card" data-testid="mission-run-strip-state-badge">
+            <StateGlyph tone={tone} quiet={quiet} className="h-2 w-2" />
+          </span>
+        )}
+      </span>
+    )
+  }
+  return <StateGlyph tone={tone} quiet={quiet} className={MARK_CLASS} />
 }
 
 /** Small tone dot for the switcher. */
@@ -266,6 +280,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
         />
       ),
       autoOpenToken: null,
+      onPanelClose: null,
       attributes: { 'data-pr-delivery-id': envelope.prDeliveryId },
       announcement: `${label}: ${t(`runStrip.state.${tone}`)} ${headlineText}`,
       match: { prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds ?? [] },
@@ -296,6 +311,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           />
         ),
         autoOpenToken: null,
+        onPanelClose: null,
         attributes: {},
         announcement: `${t('runStrip.proposalLabel')}: ${headlineText}`,
         match: null,
@@ -313,6 +329,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     }
     return list
   }, [proposals, deliveries, extensionRuns, deliveryEntry, conversationId, projectId, t])
+  const entriesRef = useRef(entries)
+  entriesRef.current = entries
 
   // ── Which run shows ───────────────────────────────────────────────────────────
   // The person's pick (switcher), the open panel and focus inside the strip
@@ -428,6 +446,16 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the tokens
   }, [tokenSignature])
 
+  // The person closed a run's panel (any way: Esc, a click outside, the toggle,
+  // another run): its owner hears it once (Flow: the hand-off's "Not yet").
+  const previousOpenKey = useRef<string | null>(null)
+  useEffect(() => {
+    const previous = previousOpenKey.current
+    previousOpenKey.current = openKey
+    if (!previous || previous === openKey) return
+    entriesRef.current.find((entry) => entry.key === previous)?.onPanelClose?.()
+  }, [openKey])
+
   // A click in the conversation closes the panel (it is not a modal). Portaled
   // menus and dialogs of the card live outside the surface and never close it.
   useEffect(() => {
@@ -480,8 +508,6 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   // Focus bus: a history line asks for a run. A live run opens here; the card
   // hears the re-dispatch once visible (scroll, focus, pulse).
-  const entriesRef = useRef(entries)
-  entriesRef.current = entries
   useEffect(() => {
     const onFocus = (event: Event): void => {
       const detail = (event as CustomEvent<FocusPrCardDetail>).detail
@@ -834,6 +860,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     wantsPrimary: run.tone !== 'running' && run.tone !== 'launching' && run.tone !== 'info',
     panel: run.panel ?? null,
     autoOpenToken: run.autoOpenToken ?? null,
+    onPanelClose: run.onPanelClose ?? null,
     attributes: run.attributes ?? {},
     announcement: run.announcement ?? null,
     match: null,

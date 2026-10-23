@@ -1103,6 +1103,8 @@
       "ready": "Pronto para virar um PR",
       "launching": "A passar a um rail…",
       "launchingOn": "A passar a {{rail}}…",
+      "stillHandingOff": "Ainda a passar a {{rail}}…",
+      "refresh": "Atualizar",
       "step": {
         "derive": "Escrevendo a spec a partir das suas alterações",
         "verify": "Verificando suas alterações",

@@ -88,10 +88,12 @@ describe('Flow → Spec hand-off engine default', () => {
   it('falls back to the rail default with a note when the conversation\'s provider cannot run here', async () => {
     machine.detected = ['claude']
     await openHandOff()
-    // The fallback only matters when changing how: it sits inside "Change how".
+    // The fallback changes what launches: it shows on the main line, visible
+    // without opening "Change how".
     const note = await screen.findByTestId('rail-card-hand-off-note')
     expect(note).toHaveTextContent("Codex can't run the Flow hand-off on this machine")
-    expect(note.closest('[data-testid="rail-card-hand-off-settings"]')).not.toBeNull()
+    expect(note.closest('[data-testid="rail-card-hand-off-settings"]')).toBeNull()
+    expect(note).toBeVisible()
     expect(screen.getByTestId('rail-card-hand-off-line')).not.toHaveTextContent('Codex')
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })

@@ -3,7 +3,8 @@
 // your 7 changed files into a reviewed PR. If it fails, your work is safe."
 // with Launch and Not yet. How (rail, engine, model, effort — prefilled; the
 // loop is fixed to Flow → Spec) sits under "Change how", with what the Flow
-// changed and cost so far and, only when relevant, the engine fallback note.
+// changed and cost so far; the engine fallback note, when relevant, shows on
+// the main line (it changes what launches).
 // The same inline refusals (review WIP limit, budget, busy rail) the launch
 // route reports show under the line. Launch calls the Flow hand-off route,
 // never the plain rails launch. The decision is recorded on

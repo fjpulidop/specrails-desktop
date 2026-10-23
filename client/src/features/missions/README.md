@@ -86,7 +86,11 @@ ONE polite live region (the extension's `ConversationDock` speaks through its
 `announce`). Its "+N" menu has roving focus (arrows, Home/End, Esc back to the
 button); switcher entries carry their full name and state as accessible name
 and tooltip; a partial cost's `*` is also said in words. Extensions add their runs
-through `useLiveRuns` (Flow) and name steps through `describeRun`.
+through `useLiveRuns` (Flow) and name steps through `describeRun`; a live run
+can hear its panel close (`onPanelClose`: Esc, a click outside, the toggle or
+another run — Flow's hand-off treats it as "Not yet"), and a run with a `mode`
+keeps the mode's icon as its mark in every state, badged with the state's
+shape.
 
 The history never repeats what is live: each milestone is one event line
 ([`AgentRunEventLine`](components/AgentRunEventLine.tsx)) in its chronological

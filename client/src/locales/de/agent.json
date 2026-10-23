@@ -1103,6 +1103,8 @@
       "ready": "Bereit, ein PR zu werden",
       "launching": "Wird an einen Rail übergeben…",
       "launchingOn": "Wird an {{rail}} übergeben…",
+      "stillHandingOff": "Wird noch an {{rail}} übergeben…",
+      "refresh": "Aktualisieren",
       "step": {
         "derive": "Spec aus deinen Änderungen schreiben",
         "verify": "Deine Änderungen werden geprüft",

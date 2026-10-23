@@ -39,9 +39,9 @@ Quando l’app è in ascolto, l’agente ti dà i suoi indirizzi come link e il 
 
 ## Affida
 
-Quando il risultato ti convince, premi **Affida**. La riga indica **Pronto a diventare una PR** e apre una sola riga sopra: *Rail 2 trasformerà i tuoi 7 file modificati in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.* Premi **Lancia**, oppure **Non ancora** per tornare al Flow.
+Quando il risultato ti convince, premi **Affida**. La riga indica **Pronto a diventare una PR** e apre una sola riga sopra: *Rail 2 trasformerà i tuoi 7 file modificati in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.* Premi **Lancia**, oppure **Non ancora** per tornare al Flow; chiudere la riga (Esc o un clic altrove) equivale a **Non ancora**. Se il motore della conversazione non può eseguire l’affidamento su questo computer, una nota subito sotto la riga lo dice e si usa il motore predefinito del rail.
 
-Rail, motore, modello e sforzo sono già scelti per te (un rail libero e il motore della tua conversazione). Per cambiarli, apri **Cambia come**; lì vedi anche cosa è cambiato e il costo finora. Durante l’avvio la striscia mostra il lancio senza vuoti e poi segue l’esecuzione passo per passo. Se si raggiunge il limite di revisione o un budget, la riga lo dice e non parte nulla. Il **Lancia** della striscia stessa non lancia mai da solo: riporta la riga con il focus su Lancia, così confermi sempre lì.
+Rail, motore, modello e sforzo sono già scelti per te (un rail libero e il motore della tua conversazione). Per cambiarli, apri **Cambia come**; lì vedi anche cosa è cambiato e il costo finora. Durante l’avvio la striscia mostra il lancio senza vuoti e poi segue l’esecuzione passo per passo. Se si raggiunge il limite di revisione o un budget, la riga lo dice e non parte nulla. Se l’esecuzione non compare entro 45 secondi, la striscia smette di girare e mostra **Affidamento a Rail 2 ancora in corso…** con **Aggiorna**.
 
 Il rail ricava la spec e la sua modifica alla spec da ciò che hai costruito, la verifica e la revisiona, e la scheda di consegna compare nella missione come per qualsiasi esecuzione.
 

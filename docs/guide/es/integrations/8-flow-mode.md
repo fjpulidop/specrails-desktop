@@ -39,9 +39,9 @@ Cuando la app escucha, el agente te da sus direcciones como enlaces y el panel d
 
 ## Pasar a un rail
 
-Cuando el resultado te convenza, pulsa **Pasar a un rail**. La fila pasa a **Listo para convertirse en un PR** y abre una sola línea encima: *Rail 2 convertirá tus 7 archivos cambiados en un PR revisado. Si falla, tu trabajo está a salvo.* Pulsa **Lanzar**, o **Todavía no** para volver al Flow.
+Cuando el resultado te convenza, pulsa **Pasar a un rail**. La fila pasa a **Listo para convertirse en un PR** y abre una sola línea encima: *Rail 2 convertirá tus 7 archivos cambiados en un PR revisado. Si falla, tu trabajo está a salvo.* Pulsa **Lanzar**, o **Todavía no** para volver al Flow; cerrar la línea (Esc o un clic fuera) equivale a **Todavía no**. Si el motor de tu conversación no puede pasar el Flow a un rail en este equipo, una nota justo debajo de la línea lo dice y se usa el motor por defecto del rail.
 
-El rail, el motor, el modelo y el esfuerzo ya están elegidos (un rail libre y el motor de tu conversación). Para cambiarlos, abre **Cambiar cómo**; ahí también ves qué cambió y el coste hasta ahora. Mientras arranca, la franja lo muestra lanzándose, sin huecos, y después sigue la ejecución paso a paso. Si se alcanza el límite de revisión o un presupuesto, la línea lo dice y no se lanza nada. El **Lanzar** de la propia franja nunca lanza por sí solo: vuelve a mostrar la línea con el foco en Lanzar, así que siempre confirmas allí.
+El rail, el motor, el modelo y el esfuerzo ya están elegidos (un rail libre y el motor de tu conversación). Para cambiarlos, abre **Cambiar cómo**; ahí también ves qué cambió y el coste hasta ahora. Mientras arranca, la franja lo muestra lanzándose, sin huecos, y después sigue la ejecución paso a paso. Si se alcanza el límite de revisión o un presupuesto, la línea lo dice y no se lanza nada. Si la ejecución no aparece en 45 segundos, la franja deja de girar y dice **Aún pasando a Rail 2…** con **Actualizar**.
 
 El rail deriva la spec y su cambio de spec a partir de lo que construiste, lo verifica y lo revisa, y la tarjeta de entrega aparece en la misión como en cualquier ejecución.
 

@@ -157,6 +157,12 @@ export interface MissionLiveRun {
   panel?: ReactNode | null
   /** The panel opens on its own each time this token changes (e.g. the hand-off). */
   autoOpenToken?: string | null
+  /**
+   * The person closed this run's panel (Esc, a click in the conversation, the
+   * toggle, or switching to another run). Flow: closing the hand-off panel
+   * counts as "Not yet".
+   */
+  onPanelClose?: (() => void) | null
   /** Hidden as soon as missions shows this delivery (the launch skeleton yields to its run). */
   yieldsTo?: { prDeliveryId?: string | null; runIds?: readonly string[] } | null
   /** Polite announcement of the run's state (announced when it changes). */

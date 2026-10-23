@@ -1103,6 +1103,8 @@
       "ready": "Pronto a diventare una PR",
       "launching": "Affidamento a un rail…",
       "launchingOn": "Affidamento a {{rail}}…",
+      "stillHandingOff": "Affidamento a {{rail}} ancora in corso…",
+      "refresh": "Aggiorna",
       "step": {
         "derive": "Scrittura della spec dalle tue modifiche",
         "verify": "Verifica delle tue modifiche",

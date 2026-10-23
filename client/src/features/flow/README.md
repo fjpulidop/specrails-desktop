@@ -55,15 +55,21 @@ partial), Preview and **Discard** set apart (`FlowDiscardDialog` lists what is
 lost). `useFlowLiveStats` measures diff and cost once per Flow and polls only
 while the agent works and the page is visible. A needs-review Flow is
 informational (`info` tone). **Hand off** turns the entry
-into "Ready to turn into a PR" and opens `FlowHandOffCard` as the strip's
-panel: ONE line ("Rail 2 will turn your 7 changed files into a reviewed PR.
-If it fails, your work is safe.") with **Launch** and **Not yet**; rail,
-engine, model and effort are prefilled under **Change how** (with the files ±,
-cost so far and, when relevant, the engine fallback note). **Launch** is
-declared as an outward primary: the strip only points at it; while
-the request runs (`FlowContext.launching`) and until the run's own entry
-shows (the hand-off receipt, `yieldsTo` its delivery) the strip is a launching
-skeleton. The offer stub's **View run** opens the run through missions' focus
+into "Ready to turn into a PR" — a calm `info` tone (no bell, no attention
+dot: the person just asked for it) — and opens `FlowHandOffCard` as the
+strip's panel: ONE line ("Rail 2 will turn your 7 changed files into a
+reviewed PR. If it fails, your work is safe.") with **Launch** and **Not
+yet**, and the engine fallback note right under it when relevant; rail,
+engine, model and effort are prefilled under **Change how** (with the files ±
+and cost so far). Closing that panel any way (Esc, a click outside, the
+toggle, another run) is **Not yet** (the entry's `onPanelClose` seam).
+**Launch** is declared as an outward primary; while the request runs
+(`FlowContext.launching`) and until the run's own entry shows (the hand-off
+receipt, `yieldsTo` its delivery) the strip is a launching skeleton. After
+`HAND_OFF_SHOW_TIMEOUT_MS` (45 s) without the run it stops spinning: "Still
+handing off to Rail N…" with **Refresh** (re-reads the run cards and drops
+the receipt, so the Flow state rules). Every Flow entry keeps the Waves mark;
+the strip badges it with the state's shape. The offer stub's **View run** opens the run through missions' focus
 bus.
 
 ## Repository target

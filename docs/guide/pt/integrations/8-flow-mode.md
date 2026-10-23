@@ -39,9 +39,9 @@ Quando a app está à escuta, o agente dá-lhe os endereços como ligações e o
 
 ## Passar a um rail
 
-Quando estiver satisfeito com o resultado, prima **Passar a um rail**. A linha passa a **Pronto para virar um PR** e abre uma única linha por cima: *Rail 2 vai transformar os seus 7 ficheiros alterados num PR revisto. Se falhar, o seu trabalho fica a salvo.* Prima **Lançar**, ou **Ainda não** para voltar ao Flow.
+Quando estiver satisfeito com o resultado, prima **Passar a um rail**. A linha passa a **Pronto para virar um PR** e abre uma única linha por cima: *Rail 2 vai transformar os seus 7 ficheiros alterados num PR revisto. Se falhar, o seu trabalho fica a salvo.* Prima **Lançar**, ou **Ainda não** para voltar ao Flow; fechar a linha (Esc ou um clique fora) equivale a **Ainda não**. Se o motor da sua conversa não puder fazer a passagem a um rail nesta máquina, uma nota logo abaixo da linha di-lo e é usado o motor padrão do rail.
 
-O rail, o motor, o modelo e o esforço já estão escolhidos (um rail livre e o motor da sua conversa). Para os mudar, abra **Mudar como**; aí vê também o que mudou e o custo até agora. Enquanto a passagem a um rail arranca, a faixa mostra o lançamento sem lacunas e depois acompanha a execução passo a passo. Se for atingido o limite de revisão ou um orçamento, a linha di-lo e nada é lançado. O **Lançar** da própria faixa nunca lança sozinho: volta a mostrar a linha com o foco em Lançar, para que confirme sempre aí.
+O rail, o motor, o modelo e o esforço já estão escolhidos (um rail livre e o motor da sua conversa). Para os mudar, abra **Mudar como**; aí vê também o que mudou e o custo até agora. Enquanto a passagem a um rail arranca, a faixa mostra o lançamento sem lacunas e depois acompanha a execução passo a passo. Se for atingido o limite de revisão ou um orçamento, a linha di-lo e nada é lançado. Se a execução não aparecer ao fim de 45 segundos, a faixa deixa de girar e mostra **Ainda a passar a Rail 2…** com **Atualizar**.
 
 O rail deriva a spec e a respetiva alteração da spec a partir do que construiu, verifica-a e revê-a, e o cartão de entrega aparece na missão como em qualquer execução.
 

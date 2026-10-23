@@ -474,7 +474,9 @@ describe('Flow mode in the conversation', () => {
     // Same run, same place: the strip morphs (same key) instead of a new block appearing.
     expect(strip).toHaveAttribute('data-run-key', 'flow:f1')
     expect(strip).toHaveAttribute('data-flow-state', 'wrapping-up')
-    expect(strip).toHaveAttribute('data-tone', 'decision')
+    // Calm: the person just asked for it (no bell, no attention), and the Flow mark stays.
+    expect(strip).toHaveAttribute('data-tone', 'info')
+    expect(within(strip).getByTestId('mission-run-strip-mode-mark')).toHaveAttribute('data-tone', 'info')
     expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Ready to turn into a PR')
     // The hand-off settings open on their own as the strip's panel.
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
@@ -512,20 +514,41 @@ describe('Flow mode in the conversation', () => {
     expect(calls.some((c) => c.url.includes('/intent'))).toBe(false)
   })
 
-  it('the strip\'s own Launch never launches blind: it reopens the hand-off focused on Launch', async () => {
-    render(<Providers><FlowStrip /></Providers>)
+  it('closing the hand-off panel (Esc or a click in the conversation) counts as "Not yet": nothing launches', async () => {
+    render(<Providers><div data-mission-surface><p>conversation</p><FlowStrip /></div></Providers>)
     fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
-    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
-    // Close the panel: the strip still offers Launch, which only points at the card's own control.
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
     fireEvent.keyDown(screen.getByTestId('mission-run-strip-panel'), { key: 'Escape' })
-    const launch = await screen.findByTestId('mission-run-strip-primary')
-    expect(launch).toHaveTextContent('Launch')
-    await act(async () => { fireEvent.click(launch) })
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('rail-card-play')))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
+    expect(screen.getByTestId('flow-bar-hand-off')).toBeInTheDocument()
+    expect(screen.queryByTestId('mission-run-strip-primary')).toBeNull()
+    // Again, closed by a click in the conversation.
+    fireEvent.click(screen.getByTestId('flow-bar-hand-off'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
+    fireEvent.pointerDown(screen.getByText('conversation'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
     expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(false)
-    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
-    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'launching'))
+  })
+
+  it('a handed-off run that never shows stops spinning: "Still handing off…" with Refresh, then the Flow state rules', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<Providers><FlowStrip /></Providers>)
+      fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
+      await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+      await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+      await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Handing off to Rail 2…'))
+      expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'launching')
+      await act(async () => { vi.advanceTimersByTime(45_000) })
+      await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Still handing off to Rail 2…'))
+      expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'info')
+      expect(screen.queryByTestId('mission-run-strip-skeleton')).toBeNull()
+      await act(async () => { fireEvent.click(screen.getByTestId('flow-strip-refresh')) })
+      // The receipt is dropped: a handed-off Flow without its run leaves the strip to the run itself.
+      await waitFor(() => expect(screen.queryByTestId('mission-run-strip')).toBeNull())
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('"Not yet" returns to the Flow', async () => {

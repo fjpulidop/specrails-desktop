@@ -414,6 +414,9 @@ export interface AgentChatContextValue {
   /** Refresh the conversation list WITHOUT opening the floating panel. Used on
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
+  /** Re-read the active mission's run cards now (a strip waiting on a run that
+   *  has not shown yet; normally the WS events and the resync poll do it). */
+  resyncRunCards?: () => void
   /** Apply the authoritative snapshot returned by a card action immediately;
    *  the persisted message/WS update later becomes an idempotent no-op.
    *  Standalone cards receive `untracked` so they can still use a local
@@ -1140,6 +1143,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     unsettled: unsettledPrCard,
   })
   requestCardResyncRef.current = requestCardResync
+  const resyncRunCards = useCallback((): void => { void hydrateActivePrCards() }, [hydrateActivePrCards])
 
   const reconcileActiveTurns = useCallback(async (): Promise<void> => {
     try {
@@ -1709,7 +1713,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    applyPrDecisionSnapshot,
+    resyncRunCards, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
     visibility, open, close, minimize, toggle,
@@ -1722,7 +1726,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    applyPrDecisionSnapshot,
+    resyncRunCards, applyPrDecisionSnapshot,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the

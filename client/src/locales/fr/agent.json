@@ -762,7 +762,7 @@
       "failingChecks": "En échec",
       "check": "{{command}} · code {{code}}",
       "next": "Les tours de correction automatique ne l’ont pas résolu. Revenez au Flow pour le régler avec l’agent, ou relancez depuis la même branche du Flow.",
-      "returned": "De retour dans le Flow : vos modifications sont revenues dans leur Flow avec la revue. Continuez dans la bande du Flow."
+      "returned": "De retour dans le Flow : vos modifications sont revenues dans leur Flow avec la revue. Continuez dans le bandeau du Flow."
     }
   },
   "runFailure": {
@@ -911,7 +911,7 @@
       "conversation_not_found": "Cette mission n’existe plus.",
       "conversation_not_pinned": "Épinglez cette mission au projet avant de lancer un Flow.",
       "flow_not_handed_off": "Ce Flow n’attend plus cette exécution.",
-      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Remettez-le de nouveau à un rail depuis la bande du Flow.",
+      "flow_rail_unknown": "Le rail de cette exécution est inconnu. Remettez-le de nouveau à un rail depuis le bandeau du Flow.",
       "flow_return_busy": "L’exécution est occupée par une autre action. Réessayez dans un instant.",
       "flow_return_not_allowed": "Seule une remise arrêtée avant la livraison peut revenir à son Flow.",
       "flow_return_not_found": "Cette exécution n’est pas une remise de Flow.",
@@ -1103,6 +1103,8 @@
       "ready": "Prêt à devenir une PR",
       "launching": "Remise à un rail…",
       "launchingOn": "Remise à {{rail}}…",
+      "stillHandingOff": "Remise à {{rail}} toujours en cours…",
+      "refresh": "Actualiser",
       "step": {
         "derive": "Rédaction de la spec à partir de vos modifications",
         "verify": "Vérification de vos modifications",

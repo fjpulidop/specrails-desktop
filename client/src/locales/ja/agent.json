@@ -1103,6 +1103,8 @@
       "ready": "PR にする準備ができました",
       "launching": "レールに引き渡しています…",
       "launchingOn": "{{rail}} に引き渡しています…",
+      "stillHandingOff": "まだ {{rail}} に引き渡しています…",
+      "refresh": "更新",
       "step": {
         "derive": "変更から spec を作成中",
         "verify": "変更を検証中",

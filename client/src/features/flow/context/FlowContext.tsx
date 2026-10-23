@@ -53,6 +53,8 @@ export interface FlowContextValue {
   /** Relaunch Flow → Spec on the same worktree from that delivery. */
   relaunch: (projectId: string, deliveryId: string) => Promise<FlowHandOffResult>
   setWrappingUp: (flowId: string, on: boolean) => void
+  /** Drop the hand-off receipt (the strip stops waiting for the run; the Flow state rules). */
+  forgetHandOff: (flowId: string) => void
 }
 
 const FlowContext = createContext<FlowContextValue | null>(null)
@@ -260,8 +262,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   }, [entries, setOpenState])
 
   const value = useMemo<FlowContextValue>(() => ({
-    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp,
-  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp])
+    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff,
+  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff])
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>
 }

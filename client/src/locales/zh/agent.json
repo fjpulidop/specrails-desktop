@@ -1103,6 +1103,8 @@
       "ready": "可以变成 PR 了",
       "launching": "正在交给 Rail…",
       "launchingOn": "正在交给 {{rail}}…",
+      "stillHandingOff": "仍在交给 {{rail}}…",
+      "refresh": "刷新",
       "step": {
         "derive": "正在根据你的更改编写 spec",
         "verify": "正在验证你的更改",

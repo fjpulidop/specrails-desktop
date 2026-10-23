@@ -160,7 +160,7 @@ export interface RailLaunchHandOff {
   summary: (rail: string) => string
   /** Extra context shown inside "Change how" (e.g. what the owner measured so far). */
   details?: ReactNode
-  /** A note that only matters when changing how (e.g. the engine fallback). */
+  /** A note shown right under the confirmation line (e.g. the engine fallback: it changes what launches). */
   note?: string | null
   playLabel: string
   dismissLabel: string
@@ -656,6 +656,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         <p data-testid="rail-card-hand-off-line" className="text-[13px] leading-5 text-foreground/90">
           {handOff.summary(railWords)}
         </p>
+        {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-[12px] leading-4 text-foreground/75">{handOff.note}</p>}
         {notes}
         {inlineError && (
           <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
@@ -748,7 +749,6 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               <AgentToolbarSelector label={t('railCard.fields.effort')} icon={Gauge} value={effectiveEffort ?? NO_EFFORT} options={effortOptions} disabled={!!busy} testId="rail-card-effort" onSelect={(v) => patch({ reasoningEffort: v === NO_EFFORT ? null : v })} />
             )}
           </div>
-          {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-[12px] leading-4 text-foreground/75">{handOff.note}</p>}
           {engineStale && <Note tone="muted" text={t('railCard.notes.engineStale', { engine: config.aiEngine, fallback: effectiveEngine ? providerLabel(effectiveEngine) : '' })} />}
           {modelStale && <Note tone="muted" text={t('railCard.notes.modelStale', { model: config.model, fallback: effectiveModel })} />}
         </div>

@@ -1103,6 +1103,8 @@
       "ready": "Ready to turn into a PR",
       "launching": "Handing off to a rail…",
       "launchingOn": "Handing off to {{rail}}…",
+      "stillHandingOff": "Still handing off to {{rail}}…",
+      "refresh": "Refresh",
       "step": {
         "derive": "Writing the spec from your changes",
         "verify": "Verifying your changes",
