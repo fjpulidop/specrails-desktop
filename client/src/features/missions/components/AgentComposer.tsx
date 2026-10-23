@@ -46,6 +46,7 @@ import {
 import type { BackgroundProcess, JobSummary, LocalTicket } from '../../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
+import { MissionModeBadge } from './MissionModeBadge'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
@@ -216,6 +217,7 @@ export function AgentComposer({
   // strip shows the worktree branch.
   const conversationMode = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)
   const interrupting = isStreaming && !!conversationMode?.interruptWhileBusy
+  const composerMode = conversationMode?.composer ?? null
 
   const fileQuery = paletteTrigger?.mode === 'reference' ? paletteTrigger.query.trim() : ''
   const fileQueryKey = `${pinnedProjectId ?? ''}:${fileQuery}`
@@ -749,6 +751,7 @@ export function AgentComposer({
       <div
         data-testid="agent-composer-box"
         data-mission-composer
+        data-composer-mode={composerMode ? 'extension' : undefined}
         className={`relative flex flex-col gap-2 rounded-3xl border bg-card px-3 py-3 ${
           inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/30'
         }`}
@@ -761,6 +764,14 @@ export function AgentComposer({
         }}
       >
         <AgentThinkingHalo active={isStreaming} radius="1.5rem" inset={-1} />
+        {/* The extension's mode (Flow): a thin accent line along the top edge.
+            It fades in/out with the mode (instant under reduced motion). */}
+        <span
+          aria-hidden
+          data-testid="agent-composer-mode-line"
+          data-active={composerMode ? 'true' : 'false'}
+          className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-accent-info/70 transition-opacity duration-200 motion-reduce:transition-none ${composerMode ? 'opacity-100' : 'opacity-0'}`}
+        />
         {paletteOpen && (
           <AgentContextPalette
             items={visiblePaletteItems}
@@ -818,7 +829,7 @@ export function AgentComposer({
               if (files.length) { e.preventDefault(); void uploadFiles(files) }
             }}
             disabled={blocked}
-            placeholder={blocked ? t('noProvider.placeholder') : interrupting ? t('interrupt.placeholder') : isStreaming ? t('queue.placeholder') : t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
+            placeholder={blocked ? t('noProvider.placeholder') : interrupting ? t('interrupt.placeholder') : isStreaming ? t('queue.placeholder') : composerMode?.placeholder ?? t(`missionPlaceholders.${welcomeIndex}`, { defaultValue: t('composerPlaceholder') })}
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
             className={`min-h-[2.5rem] max-h-64 min-w-0 w-full resize-none overflow-y-auto bg-transparent text-sm outline-none ${
               inHistory ? 'italic text-foreground/50' : 'text-foreground'
@@ -847,6 +858,7 @@ export function AgentComposer({
           }}
         />}
           <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={() => void cycleTier()} />
+          {composerMode && <MissionModeBadge badge={composerMode.badge} variant="composer" testId="agent-composer-mode-chip" />}
           {activeId && backgroundProjectId && <button type="button" onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} aria-label={t('backgroundProcess.history.open')} title={t('backgroundProcess.history.open')} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md p-1.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><Terminal className="h-4 w-4" aria-hidden /></button>}        {active === null && !hideProjectSelector && (
           <div className="flex min-w-0 items-center overflow-hidden [&_button]:h-8 [&_button]:text-sm [&_button_span]:max-w-20 @max-[640px]:[&_button_span]:hidden"><AgentProjectSelector
             pinnedProjectId={draftPinnedProjectId}

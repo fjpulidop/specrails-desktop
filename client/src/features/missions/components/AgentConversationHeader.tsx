@@ -1,3 +1,5 @@
+import { useMissionConversationMode } from '../context/MissionExtensionsContext'
+import { MissionModeBadge } from './MissionModeBadge'
 import { useMissionPaneClose } from '../context/MissionSplitViewsContext'
 import { MissionWindowAction } from './MissionWindowAction'
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -92,6 +94,7 @@ export function AgentConversationHeader() {
     ? projects.find((p) => p.id === active.pinned_project_id) ?? null
     : null
   const title = active?.title?.trim() || t('header.untitled')
+  const headerBadge = useMissionConversationMode(active?.id ?? null, active?.pinned_project_id ?? null)?.headerBadge ?? null
   const isFavorite = active ? favoriteConversationIds.has(active.id) : false
 
   // Close the menu on outside-click / Esc.
@@ -249,11 +252,13 @@ export function AgentConversationHeader() {
             type="button"
             onDoubleClick={startRename}
             title={t('header.renameHint')}
-            className="min-w-0 flex-1 truncate text-left font-medium text-foreground/85"
+            className="min-w-0 truncate text-left font-medium text-foreground/85"
           >
             {title}
           </button>
         )}
+        {!editing && headerBadge && <MissionModeBadge badge={headerBadge} variant="header" />}
+        <span className="flex-1" aria-hidden />
       </div>
 
       <MissionWindowAction />

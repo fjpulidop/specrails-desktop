@@ -19,9 +19,15 @@ describe('AgentFlowReturnCard (Back to Flow)', () => {
     expect(parseFlowReturnBriefingRow(row({ reason: null }))!.review).toBeNull()
   })
 
-  it('shows what the reviewer asked for, the failing checks and the files no requirement explains; collapsible', () => {
+  it('is a "Back to Flow" history line that expands to what the reviewer asked for, the failing checks and the unexplained files', () => {
     render(<AgentFlowReturnCard row={parseFlowReturnBriefingRow(row())!} />)
     const card = screen.getByTestId('agent-flow-return-card')
+    const toggle = screen.getByTestId('agent-flow-return-toggle')
+    expect(toggle).toHaveTextContent('Back to Flow')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('agent-flow-return-body')).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(card).toHaveAttribute('aria-label', 'What the reviewer asked for')
     expect(card).toHaveTextContent('Tag the tests')
     expect(card).toHaveTextContent('score 58')
@@ -39,6 +45,7 @@ describe('AgentFlowReturnCard (Back to Flow)', () => {
 
   it('without findings it still says where the work went', () => {
     render(<AgentFlowReturnCard row={parseFlowReturnBriefingRow(row({ reason: null, derivation: null }))!} />)
+    fireEvent.click(screen.getByTestId('agent-flow-return-toggle'))
     expect(screen.getByTestId('agent-flow-return-card')).toHaveTextContent('the worktree is back in this Flow')
     expect(screen.queryByTestId('agent-flow-return-coverage')).toBeNull()
   })

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
 // Flow mode through the missions extension seam: the conversation surface gets
 // the extension's data attributes and a busy send interrupts. Harness mirrors
@@ -147,6 +147,97 @@ describe('missions extension seam (Flow mode)', () => {
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     await waitFor(() => expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(2))
     expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]).not.toHaveProperty('deliveryMode')
+  })
+
+  describe('composer mode (Flow named on the composer)', () => {
+    const Icon = (props: { className?: string }) => <svg data-testid="mode-icon" {...props} />
+    const COMPOSER_MODE: MissionExtensions = {
+      useConversationMode: () => ({
+        hideGitStrip: true,
+        composer: { badge: { label: 'Flow', description: 'Flow mode: the agent writes in the worktree', icon: Icon }, placeholder: 'Tell the agent what to change in the worktree…' },
+        headerBadge: { label: 'In Flow', icon: Icon },
+      }),
+    }
+
+    it('shows the mode chip next to the tier chip, the top accent line and the mode placeholder', async () => {
+      renderPanel(COMPOSER_MODE)
+      await waitFor(() => expect(chat).not.toBeNull())
+      await act(async () => { chat!.open() })
+      await waitFor(() => expect(chat!.active?.id).toBe('c-new'))
+      const chip = await screen.findByTestId('agent-composer-mode-chip')
+      expect(chip).toHaveTextContent('Flow')
+      expect(chip).toHaveAttribute('title', 'Flow mode: the agent writes in the worktree')
+      expect(within(chip).getByTestId('mode-icon')).toBeInTheDocument()
+      expect(screen.getByTestId('agent-composer-mode-line')).toHaveAttribute('data-active', 'true')
+      expect(screen.getByTestId('agent-composer-box')).toHaveAttribute('data-composer-mode', 'extension')
+      expect(screen.getByRole('textbox')).toHaveAttribute('data-placeholder', 'Tell the agent what to change in the worktree…')
+    })
+
+    it('without a mode the composer is plain', async () => {
+      renderPanel()
+      await waitFor(() => expect(chat).not.toBeNull())
+      await act(async () => { chat!.open() })
+      await screen.findByRole('textbox')
+      expect(screen.queryByTestId('agent-composer-mode-chip')).toBeNull()
+      expect(screen.getByTestId('agent-composer-mode-line')).toHaveAttribute('data-active', 'false')
+    })
+  })
+
+  describe('extension runs and Flow history', () => {
+    const message = (id: string, role: 'user' | 'assistant' | 'system', content: string) => ({ id, conversation_id: 'c1', role, content, created_at: '2026-10-22T10:00:00.000Z' })
+    const boundary = (id: string, event: 'entered' | 'left', reason: string) => message(id, 'system', JSON.stringify({ kind: 'flow-boundary', flowId: 'f1', event, reason, branch: 'feat/7-calm', at: '' }))
+
+    async function openWith(messages: ReturnType<typeof message>[], extensions?: MissionExtensions) {
+      vi.mocked(agentApi.listAgentConversations).mockResolvedValue([conversation('c1')] as never)
+      vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: conversation('c1'), messages } as never)
+      renderPanel(extensions)
+      await waitFor(() => expect(chat).not.toBeNull())
+      await act(async () => { chat!.open() })
+      await act(async () => { await chat!.selectConversation('c1') })
+    }
+
+    it('an extension run shows in the same strip, with its controls and its panel', async () => {
+      const RUNS: MissionExtensions = {
+        useLiveRuns: () => [{
+          key: 'flow:f1', label: 'Flow', tone: 'decision', headline: 'Flow → Spec ready to launch',
+          controls: <button type="button">Copy branch</button>,
+          primary: { label: 'Launch' },
+          panel: <button type="button" data-run-primary>Play</button>,
+        }],
+      }
+      await openWith([message('m1', 'user', 'hi')], RUNS)
+      const strip = await screen.findByTestId('mission-run-strip')
+      expect(strip).toHaveAttribute('data-run-key', 'flow:f1')
+      expect(within(strip).getByRole('button', { name: 'Copy branch' })).toBeInTheDocument()
+      expect(within(strip).getByTestId('mission-run-strip-primary')).toHaveTextContent('Launch')
+      await act(async () => { fireEvent.click(within(strip).getByTestId('mission-run-strip-toggle')) })
+      expect(within(screen.getByTestId('mission-run-strip-panel')).getByRole('button', { name: 'Play' })).toBeInTheDocument()
+    })
+
+    it('boundaries are event lines; the agent turns between them carry a Flow mark next to their time', async () => {
+      await openWith([
+        message('m1', 'assistant', 'before Flow'),
+        boundary('b1', 'entered', 'started'),
+        message('m2', 'assistant', 'inside Flow'),
+        boundary('b2', 'left', 'handed_off'),
+        message('m3', 'assistant', 'after Flow'),
+        boundary('b3', 'entered', 'returned'),
+        message('m4', 'assistant', 'back in Flow'),
+      ])
+      const lines = await screen.findAllByTestId('agent-flow-boundary')
+      // The return is told by the Back to Flow line: its boundary only marks the turns.
+      expect(lines).toHaveLength(2)
+      expect(lines[0]).toHaveTextContent('Entered Flow')
+      expect(lines[0]).toHaveTextContent('feat/7-calm')
+      expect(lines[1]).toHaveTextContent('Left Flow')
+      expect(lines[1]).toHaveTextContent('handed off to a rail')
+      const marks = screen.getAllByTestId('agent-message-mode-mark')
+      expect(marks).toHaveLength(2)
+      const markedTexts = marks.map((mark) => mark.closest('.group')?.textContent ?? '')
+      expect(markedTexts.some((text) => text.includes('inside Flow'))).toBe(true)
+      expect(markedTexts.some((text) => text.includes('back in Flow'))).toBe(true)
+      expect(markedTexts.some((text) => text.includes('before Flow') || text.includes('after Flow'))).toBe(false)
+    })
   })
 
   describe('option chips', () => {

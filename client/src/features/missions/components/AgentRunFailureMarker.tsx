@@ -4,46 +4,41 @@ import { AlertTriangle, ChevronDown, ChevronRight, MessageSquareWarning, Sparkle
 import { cn } from '../../../lib/utils'
 import { focusPrCard, type RunFailureRow } from './agent-run-failure'
 import { AgentContextInlineTokens } from './AgentMessage'
-import type { AgentContextReference } from '../lib/agent-api'
+import { AgentRunEventLine } from './AgentRunEventLine'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
+import type { AgentContextReference, AgentPrDecisionEnvelope } from '../lib/agent-api'
 
 /**
- * Compact destructive marker for a `run-failure` system row (mission-rail-cards):
- * "Rail N failed: <code>" + a one-line detail + "Open card", which focuses the
- * matching run/PR card in the pinned dock (or history) through the focus bus.
- * Deliberately NOT a second card — the card already carries the recovery
- * actions; this is the chronological trace of the moment it happened.
+ * The moment a run failed (`run-failure` system row, mission-rail-cards), as
+ * ONE history event line in plain words — "Rail 1 failed while writing the
+ * spec" — that opens the run (its strip panel while live, its card once
+ * settled). The run itself carries the recovery actions; this is only the
+ * trace of when it happened.
  */
-export function AgentRunFailureMarker({ row, conversationId = null }: { row: RunFailureRow; conversationId?: string | null }) {
+export function AgentRunFailureMarker({ row, conversationId = null, envelope = null }: {
+  row: RunFailureRow
+  conversationId?: string | null
+  /** The run's delivery, when the conversation has it (names the loop). */
+  envelope?: Pick<AgentPrDecisionEnvelope, 'loopId' | 'railName'> | null
+}) {
   const { t } = useTranslation('agent')
+  const { describeRun } = useMissionExtensions()
   // Flow → Spec still needs changes: a review outcome, not a crash.
   const changes = row.code === 'review_changes_requested'
+  const rail = envelope?.railName || t('prCard.rail', { index: row.railIndex + 1 })
+  const described = changes ? null : describeRun?.(t, { loopId: envelope?.loopId ?? null, stepId: row.stepId, codes: [row.code] })?.failure ?? null
+  const reason = described ?? (t(`runStrip.failed.${row.code}`, { defaultValue: '' }) || t('runStrip.failed.generic'))
   return (
-    <div
-      data-testid="agent-run-failure-marker"
-      data-code={row.code}
-      className={cn('flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] text-foreground/70 backdrop-blur-sm',
-        changes ? 'border-accent-warning/30 bg-accent-warning/[0.06]' : 'border-destructive/30 bg-destructive/[0.06]')}
+    <AgentRunEventLine
+      icon={changes ? MessageSquareWarning : AlertTriangle}
+      tone={changes ? 'warning' : 'failed'}
+      testId="agent-run-failure-marker"
+      attributes={{ 'data-code': row.code }}
+      actionLabel={t('runStrip.event.openRun')}
+      onActivate={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId], conversationId })}
     >
-      {changes
-        ? <MessageSquareWarning className="h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
-        : <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />}
-      <span className="min-w-0 flex-1 truncate">
-        <span className={cn('font-medium', changes ? 'text-accent-warning' : 'text-destructive')}>
-          {changes ? t('runFailure.reviewChanges', { rail: row.railIndex + 1 }) : t('runFailure.marker', { rail: row.railIndex + 1, code: row.code })}
-        </span>
-        {row.detail && <span className="text-foreground/55"> · {row.detail}</span>}
-      </span>
-      <button
-        type="button"
-        data-agent-interactive
-        data-testid="agent-run-failure-open"
-        onClick={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId], conversationId })}
-        className={cn('shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors',
-          changes ? 'border-accent-warning/35 text-accent-warning hover:bg-accent-warning/10' : 'border-destructive/35 text-destructive hover:bg-destructive/10')}
-      >
-        {t('runFailure.openCard')}
-      </button>
-    </div>
+      {changes ? t('runStrip.event.changes', { run: rail }) : t('runStrip.event.failed', { run: rail, reason })}
+    </AgentRunEventLine>
   )
 }
 

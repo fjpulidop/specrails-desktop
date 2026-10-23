@@ -7,10 +7,11 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, FileQuestion, Undo2 } from 'lucide-react'
+import { FileQuestion, Undo2 } from 'lucide-react'
 import type { PrDeliveryFlowReview } from '../../../types'
 import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { AgentFlowReviewBlock } from './AgentFlowReviewBlock'
+import { AgentRunEventLine } from './AgentRunEventLine'
 
 export interface FlowReturnBriefingRow {
   kind: 'flow-return-briefing'
@@ -60,32 +61,27 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
   const { t } = useTranslation('agent')
   const { RunFailureOutcome } = useMissionExtensions()
   const title = row.failure ? t('flowReturn.titleFailure') : t('flowReturn.title')
-  const [open, setOpen] = useState(true)
+  // A history event line ("Back to Flow"): what the reviewer asked for opens on demand.
+  const [open, setOpen] = useState(false)
   const [allFiles, setAllFiles] = useState(false)
   const derivation = row.derivation
   const gap = derivation && derivation.explained < derivation.files
   const files = derivation ? (allFiles ? derivation.unexplainedFiles : derivation.unexplainedFiles.slice(0, VISIBLE_FILES)) : []
   const hiddenFiles = derivation ? derivation.unexplainedFiles.length - files.length + derivation.unexplainedOmitted : 0
   return (
-    <section
-      data-testid="agent-flow-return-card"
-      aria-label={title}
-      className="rounded-xl border border-accent-info/30 bg-accent-info/[0.05] px-3 py-2 text-xs backdrop-blur-sm"
-    >
-      <button
-        type="button"
-        data-agent-interactive
-        data-testid="agent-flow-return-toggle"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 rounded"
+    <section data-testid="agent-flow-return-card" aria-label={title} className="text-xs">
+      <AgentRunEventLine
+        icon={Undo2}
+        tone="flow"
+        testId="agent-flow-return-toggle"
+        expanded={open}
+        onActivate={() => setOpen((value) => !value)}
+        detail={title}
       >
-        <Undo2 className="h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground/85">{title}</span>
-        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />}
-      </button>
+        {t('runStrip.event.backToFlow')}
+      </AgentRunEventLine>
       {open && (
-        <div data-testid="agent-flow-return-body">
+        <div data-testid="agent-flow-return-body" className="ml-[22px] mt-1 border-l border-border/50 pl-3">
           {row.review
             ? <AgentFlowReviewBlock review={row.review} hideNext />
             : row.failure && RunFailureOutcome

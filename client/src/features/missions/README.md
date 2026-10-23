@@ -14,11 +14,13 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/AgentMessage.tsx](components/AgentMessage.tsx)
 - [components/AgentModeSurface.tsx](components/AgentModeSurface.tsx)
 - [components/AgentModelSelector.tsx](components/AgentModelSelector.tsx)
-- [components/AgentPrPinnedDock.tsx](components/AgentPrPinnedDock.tsx)
+- [components/AgentPrDecisionPill.tsx](components/AgentPrDecisionPill.tsx)
 - [components/AgentRailLaunchCard.tsx](components/AgentRailLaunchCard.tsx)
+- [components/AgentRunStrip.tsx](components/AgentRunStrip.tsx)
 - [components/AgentToolbarSelector.tsx](components/AgentToolbarSelector.tsx)
 - [components/AgentWorkspaceSidebar.tsx](components/AgentWorkspaceSidebar.tsx)
 - [components/MissionConversationMenu.tsx](components/MissionConversationMenu.tsx)
+- [components/MissionModeBadge.tsx](components/MissionModeBadge.tsx)
 - [components/MissionWindowAction.tsx](components/MissionWindowAction.tsx)
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)
@@ -57,6 +59,34 @@ load every UI component. Changes to this surface require updating the boundary m
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
+
+## Runs in a mission: one strip, a history of events
+
+A mission shows its live runs in ONE place: the run strip above the composer
+([`AgentRunStrip`](components/AgentRunStrip.tsx), model in
+[`mission-run-strip.ts`](components/mission-run-strip.ts)). It shows one run at
+a time — the most urgent (waiting for you › failed › running › paused) unless
+the person picked another in its switcher — as a status mark (a shape per
+state, never color alone), the current step in plain words, progress (several
+runs), elapsed time and billed cost (`—` until billed, `*` when partial). A
+primary action appears only when the run needs the person; it performs the
+`[data-run-primary]` control of the run's full card, so the card's rules and
+confirmations apply unchanged. Clicking the strip opens that card as a panel
+anchored above the strip (not a modal: Esc or a click in the conversation
+closes it, focus returns to the strip). The cards stay mounted while hidden and
+report the run's step and vitals to the strip. Extensions add their runs
+through `useLiveRuns` (Flow) and name steps through `describeRun`.
+
+The history never repeats what is live: each milestone is one event line
+([`AgentRunEventLine`](components/AgentRunEventLine.tsx)) in its chronological
+slot — "Launched on Rail 1", "Rail 1 failed: …", "Back to Flow", "Entered /
+Left Flow" — that opens the run. A settled Implement run keeps its card in the
+history; a settled Flow → Spec run is an outcome line that expands its card
+(the Flow's closing summary is the full card of that story). Extension modes
+(Flow) are named on the composer (chip, accent line, placeholder), next to the
+mission title and on the mission list ([`MissionModeBadge`](components/MissionModeBadge.tsx)),
+where a dot with words also marks missions waiting for a decision
+(`attentionConversationIds`).
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/missions`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

@@ -1,64 +1,8 @@
-/* ─── Flow mode surface (data-flow="active") ───────────────────────────────────
- * Applied by missions to the conversation surface while its Flow is active
- * (MissionExtensions → useConversationMode). Built from the theme tokens so
- * every theme restyles it: a hairline accent ring, a soft inner glow and a
- * slow "breathing" edge that stops under prefers-reduced-motion. Light themes
- * get a lighter glow so text contrast is untouched. */
-
-[data-flow="active"] {
-  --flow-accent: var(--color-accent-info);
-  --flow-accent-2: var(--color-accent-primary);
-  --flow-ring: color-mix(in oklab, var(--flow-accent) 42%, transparent);
-  --flow-glow: color-mix(in oklab, var(--flow-accent) 16%, transparent);
-  position: relative;
-  box-shadow: inset 0 0 0 1px var(--flow-ring), inset 0 18px 48px -36px var(--flow-glow);
-  transition: box-shadow 260ms ease;
-}
-
-[data-theme="aurora-light"] [data-flow="active"] {
-  --flow-ring: color-mix(in oklab, var(--flow-accent) 34%, transparent);
-  --flow-glow: color-mix(in oklab, var(--flow-accent) 10%, transparent);
-}
-
-/* Top edge: a thin gradient line that says "you are building". */
-[data-flow="active"]::before {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2px;
-  z-index: 1;
-  background: linear-gradient(90deg, transparent, var(--flow-accent) 30%, var(--flow-accent-2) 70%, transparent);
-  opacity: 0.75;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-flow="active"]::before {
-    animation: flow-edge-breathe 5.5s ease-in-out infinite;
-  }
-}
-
-@keyframes flow-edge-breathe {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.9; }
-}
-
-/* The live dot in the Flow bar. */
-.flow-live-dot {
-  background: var(--color-accent-info);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent-info) 22%, transparent);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .flow-live-dot[data-busy="true"] {
-    animation: flow-dot-pulse 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes flow-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-accent-info) 28%, transparent); }
-  50% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--color-accent-info) 8%, transparent); }
-}
+/* ─── Flow mode ────────────────────────────────────────────────────────────────
+ * The composer is where Flow mode shows (its chip, a thin accent line and its
+ * own placeholder — missions renders them from the conversation mode); the
+ * surface keeps `data-flow="active"` only as a hook. No screen tint, no
+ * breathing edge: the mode is named, not painted. */
 
 /* The running-app dot of the Flow bar's Preview control. */
 .flow-app-dot {

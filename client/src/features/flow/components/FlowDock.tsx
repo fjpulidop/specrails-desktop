@@ -1,21 +1,14 @@
 // ─── Flow dock (missions ConversationDock slot) ───────────────────────────────
-// What sits above the composer for a conversation's Flow:
-//   active                → FlowBar (animates out on "This is it")
-//   paused / needs-review → compact FlowBar variants (Resume Flow, explanation)
-//   wrapping up           → FlowHandOffCard (launch on a rail)
-//   just handed off       → the hand-off card's launched stub (this session)
-// A polite live region announces state changes (active, paused, needs review,
-// handed off, back in Flow) for assistive technology.
+// The Flow's runs live in the mission's run strip (FlowLiveRuns). What stays
+// in the dock is a polite live region announcing the Flow's state changes
+// (active, paused, needs review, handed off, back in Flow, delivered,
+// discarded) for assistive technology.
 
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { MissionConversationSlotProps } from '../../missions/context/MissionExtensionsContext'
-import { cn } from '../../../lib/utils'
 import { useConversationFlow, useFlowContext } from '../context/FlowContext'
-import { isOpenFlow, type Flow } from '../lib/flow-api'
-import { FlowBar } from './FlowBar'
-import { FlowHandOffCard } from './FlowHandOffCard'
+import type { Flow } from '../lib/flow-api'
 
 /** The announcement for a Flow state change (null when nothing worth saying changed). */
 export function flowStateAnnouncement(previous: Flow['state'] | null, next: Flow['state']): string | null {
@@ -41,41 +34,9 @@ function FlowStateAnnouncer({ flow }: { flow: Flow | null }) {
   return <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="flow-state-announcer">{message}</div>
 }
 
-export function FlowDock({ conversationId, projectId, inline }: MissionConversationSlotProps) {
+/** The missions ConversationDock slot: the Flow's polite state announcer (runs live in the strip). */
+export function FlowDock({ conversationId, projectId }: MissionConversationSlotProps) {
   const ctx = useFlowContext()
   const { flow } = useConversationFlow(conversationId, projectId)
-  return (
-    <>
-      <FlowStateAnnouncer flow={ctx && projectId ? flow : null} />
-      <FlowDockSurface conversationId={conversationId} projectId={projectId} inline={inline} flow={flow} />
-    </>
-  )
-}
-
-function FlowDockSurface({ conversationId, projectId, inline, flow }: MissionConversationSlotProps & { flow: Flow | null }) {
-  const ctx = useFlowContext()
-  const reduced = useReducedMotion()
-  if (!ctx || !flow || !projectId) return null
-  const wrappingUp = ctx.wrappingUp.has(flow.id) && isOpenFlow(flow)
-  const showBar = !wrappingUp && (isOpenFlow(flow) || flow.state === 'needs-review')
-  // Once the Flow is handed off, its run card (pinned above the composer) is
-  // the one place that shows the launch: no second receipt in the dock.
-  const showHandOff = wrappingUp
-  return (
-    <AnimatePresence initial={false} mode="wait">
-      {showBar && <FlowBar key={`bar:${flow.id}`} projectId={projectId} flow={flow} inline={inline} />}
-      {showHandOff && (
-        <motion.div
-          key={`hand-off:${flow.id}`}
-          initial={reduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className={cn('shrink-0 px-3 pb-2', inline && 'mx-auto w-full max-w-[960px] px-4')}
-        >
-          <FlowHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={null} />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
+  return <FlowStateAnnouncer flow={ctx && projectId ? flow : null} />
 }

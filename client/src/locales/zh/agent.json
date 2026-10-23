@@ -317,7 +317,8 @@
       "returned_to_flow": "已回到 Flow",
       "flowSpecChanges": "Flow → Spec — 审查者要求修改",
       "flowSpecDelivered": "Flow → Spec 已交付",
-      "flowSpecFailed": "Flow → Spec 已停止"
+      "flowSpecFailed": "Flow → Spec 已停止",
+      "flowSpecBuilding": "Flow → Spec 正在把你的工作变成经过审查的 PR"
     },
     "buildingHint": "完成后会询问你是否创建 PR。",
     "buildingExistingPrHint": "Specrails 正在现有 PR 的分支上工作，并会把 review 更改推送回同一个 PR。",
@@ -415,15 +416,6 @@
     "runCostAria": "已花费 {{cost}}",
     "focusRegion": "实现卡片 · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "已固定",
-      "marker": "实现卡片 — 已固定在上方",
-      "goTo": "前往已固定的卡片",
-      "collapse": "最小化固定卡片",
-      "expand": "展开固定卡片",
-      "expandCard": "展开此卡片",
-      "collapseCard": "最小化此卡片",
-      "collapsed_one": "实现卡片",
-      "collapsed_other": "{{count}} 张实现卡片",
       "state": {
         "completed": "已完成",
         "no_changes": "无更改",
@@ -608,7 +600,6 @@
     "pending": "正在准备启动提案…",
     "unreadable_one": "无法读取代理的启动提案。",
     "unreadable_other": "无法读取 {{count}} 个启动提案。",
-    "pinnedMarker": "启动提案已固定在输入框上方",
     "effortDefault": "默认推理强度",
     "profileNone": "无配置文件",
     "status": {
@@ -771,12 +762,9 @@
     }
   },
   "runFailure": {
-    "marker": "Rail {{rail}} 失败：{{code}}",
-    "openCard": "打开卡片",
     "briefing": {
       "title": "自动故障简报"
-    },
-    "reviewChanges": "轨道 {{rail}}：审阅者要求修改"
+    }
   },
   "split": {
     "open": "拆分视图",
@@ -983,7 +971,6 @@
       "waitForReply": "智能体完成这条回复后即可选择。"
     },
     "bar": {
-      "label": "Flow 控制",
       "controls": "Flow 操作",
       "viewChanges": "查看更改",
       "resume": "恢复 Flow",
@@ -1012,7 +999,6 @@
         "busy": "请等待当前操作完成",
         "noSpec": "Flow 的 spec 尚未就绪"
       },
-      "working": "智能体正在工作",
       "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}"
     },
     "preview": {
@@ -1106,6 +1092,25 @@
       "delivered": "Flow 已交付。",
       "discarded": "Flow 已放弃。",
       "returned": "已回到 Flow：工作已连同 Flow → Spec 的发现一起返回。"
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Flow → Spec 可以启动",
+      "launching": "正在启动 Flow → Spec…",
+      "launchingOn": "正在 {{rail}} 上启动 Flow → Spec…",
+      "step": {
+        "derive": "正在根据你的更改编写 spec",
+        "verify": "正在验证你的更改",
+        "review": "正在审查更改",
+        "fix": "正在应用审查修复",
+        "archive": "正在归档 OpenSpec 变更",
+        "settle": "正在交还结果"
+      }
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow 模式：代理在 Flow 的隔离 worktree 中写入",
+      "placeholder": "告诉代理要在 worktree 中修改什么…"
     }
   },
   "flowReturn": {
@@ -1134,5 +1139,79 @@
     "changeArchived": "OpenSpec 变更 {{change}} 已归档",
     "jira": "Jira 问题 {{key}}",
     "jiraPending": "正在创建 Jira 问题"
+  },
+  "runStrip": {
+    "launching": "正在 {{rail}} 上启动…",
+    "running": "工作中",
+    "paused": "已暂停 — 等待你处理",
+    "pausedReason": "已暂停：{{reason}}",
+    "decision": {
+      "approval": "等待你的批准",
+      "changes": "审查者要求修改",
+      "on_review": "可以审查了",
+      "pr_draft": "草稿 PR 可以发布",
+      "no_changes": "已完成，没有更改",
+      "pr_closed": "PR 未合并即被关闭",
+      "generic": "等待你的决定"
+    },
+    "failed": {
+      "generic": "因错误而停止",
+      "implementation_failed": "实现失败",
+      "stalled": "运行停滞",
+      "stuck": "运行卡住了",
+      "provider_limit": "提供商的用量上限使其停止",
+      "launch_failed": "运行无法启动",
+      "delivery_failed": "无法交付结果",
+      "push_failed": "无法推送分支",
+      "pr_failed": "无法创建 PR"
+    },
+    "progressAria": "已完成 {{done}}/{{total}} 个运行",
+    "costTitle": "到目前为止提供商实际计费的成本",
+    "costPartial": "部分运行尚无计费成本，未计入",
+    "costNone": "暂无计费成本",
+    "state": {
+      "launching": "启动中：",
+      "running": "运行中：",
+      "decision": "等待你：",
+      "failed": "失败：",
+      "paused": "已暂停："
+    },
+    "proposal": "提议为 {{tickets}} 启动",
+    "proposalNoTickets": "已提议启动",
+    "proposalLabel": "提议",
+    "review": "查看",
+    "panelLabel": "{{run}} 详情",
+    "showDetails": "显示详情",
+    "hideDetails": "隐藏详情",
+    "switcher": "进行中的运行",
+    "more": "更多运行（{{count}}）",
+    "announce": {
+      "settled": "{{run}} 已结束"
+    },
+    "attention": "等待你的决定",
+    "event": {
+      "launched": "已在 {{run}} 上启动",
+      "failed": "{{run}} 失败：{{reason}}",
+      "openRun": "查看运行",
+      "proposed": "已提议启动 — 等待你",
+      "backToFlow": "回到 Flow",
+      "flowReturned": "{{run}} 上的 Flow → Spec 已回到 Flow",
+      "delivered": "已交付：PR {{pr}}",
+      "deliveredNoPr": "已在 {{run}} 上交付",
+      "superseded": "{{run}} 已被更新的运行取代",
+      "discarded": "{{run}} 已被丢弃",
+      "changes": "{{run}}：审查者要求修改"
+    }
+  },
+  "flowBoundary": {
+    "entered": "进入 Flow",
+    "left": "离开 Flow",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "已开始",
+      "returned": "从轨道返回",
+      "handed_off": "已交给轨道",
+      "discarded": "已丢弃"
+    }
   }
 }

@@ -153,7 +153,7 @@ describe('Flow → Spec requested changes on the mission card', () => {
 
   it('the failure marker reads as a review outcome', () => {
     render(<AgentRunFailureMarker row={{ kind: 'run-failure', runId: 'run-1', railIndex: 0, projectId: 'p1', code: 'review_changes_requested', detail: 'score 58', stepId: null, at: null }} />)
-    expect(screen.getByText('Rail 1: the reviewer requested changes')).toBeInTheDocument()
+    expect(screen.getByTestId('agent-run-failure-marker')).toHaveTextContent('Rail 1: the reviewer requested changes')
     expect(screen.getByTestId('agent-run-failure-marker').getAttribute('data-code')).toBe('review_changes_requested')
   })
 })
@@ -236,6 +236,7 @@ describe('Flow → Spec failed outright (Flow-authored failure)', () => {
     expect(row.failure).toMatchObject({ stepId: 'archive' })
     render(withFailure(<AgentFlowReturnCard row={row} conversationId="conv-1" />))
     expect(screen.getByText('Why Flow → Spec stopped')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('agent-flow-return-toggle'))
     expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t archive the OpenSpec change')
     expect(screen.getByTestId('flow-run-failure-cause').textContent).toContain('OpenSpec aborted: missing Purpose')
     expect(screen.queryByTestId('flow-review-back-to-flow')).toBeNull()

@@ -49,11 +49,13 @@ const agentChatState: {
   active: AgentConversation | null
   streamingIds: Set<string>
   unreadIds: Set<string>
+  attentionIds: Set<string>
   favoriteIds: Set<string>
 } = {
   active: null,
   streamingIds: new Set(),
   unreadIds: new Set(),
+  attentionIds: new Set(),
   favoriteIds: new Set(),
 }
 
@@ -64,6 +66,7 @@ vi.mock('../../features/missions/context/AgentChatContext', () => ({
     isStreaming: agentChatState.active ? agentChatState.streamingIds.has(agentChatState.active.id) : false,
     streamingConversationIds: agentChatState.streamingIds,
     unreadConversationIds: agentChatState.unreadIds,
+    attentionConversationIds: agentChatState.attentionIds,
     favoriteConversationIds: agentChatState.favoriteIds,
     selectConversation: mockSelectConversation,
     deleteConversation: mockDeleteConversation,
@@ -92,6 +95,7 @@ beforeEach(() => {
   agentChatState.active = null
   agentChatState.streamingIds = new Set()
   agentChatState.unreadIds = new Set()
+  agentChatState.attentionIds = new Set()
   agentChatState.favoriteIds = new Set()
 })
 
@@ -224,6 +228,26 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(overlay).toBeInTheDocument()
     expect(overlay?.textContent).toBe('Fix the build')
     expect(overlay?.className).toContain('opacity-100')
+  })
+
+  it('marks a mission waiting for the person’s decision with a dot AND words (not color alone)', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    renderExpanded()
+    const row = screen.getAllByText('Fix the build')[0].closest('[role="button"]') as HTMLElement
+    const mark = row.querySelector('[data-testid="mission-attention-mark"]') as HTMLElement
+    expect(mark).toBeInTheDocument()
+    expect(mark).toHaveAttribute('title', 'Waiting for your decision')
+    expect(mark).toHaveTextContent('Waiting for your decision')
+    expect(document.querySelectorAll('[data-testid="mission-attention-mark"]')).toHaveLength(1)
+  })
+
+  it('marks a mission in Flow with the extension’s icon and "In Flow"', async () => {
+    const { MissionExtensionsProvider } = await import('../../features/missions/context/MissionExtensionsContext')
+    const marks = new Map([['c-1', { label: 'In Flow', description: 'Flow mode' }]])
+    render(<MissionExtensionsProvider value={{ useConversationMarks: () => marks }}><ArcSidebar {...defaultProps} /></MissionExtensionsProvider>)
+    fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
+    const row = screen.getAllByText('Fix the build')[0].closest('[role="button"]') as HTMLElement
+    expect(row.querySelector('[data-testid="mission-mode-row-mark"]')).toHaveTextContent('In Flow')
   })
 
   it('renders unread background conversation icons with the alert glow', () => {

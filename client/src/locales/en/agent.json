@@ -307,7 +307,8 @@
       "returned_to_flow": "Back in Flow",
       "flowSpecChanges": "Flow → Spec — the reviewer requested changes",
       "flowSpecDelivered": "Flow → Spec delivered",
-      "flowSpecFailed": "Flow → Spec stopped"
+      "flowSpecFailed": "Flow → Spec stopped",
+      "flowSpecBuilding": "Flow → Spec is turning your work into a reviewed PR"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -395,15 +396,6 @@
     "runCostAria": "{{cost}} spent",
     "focusRegion": "Implementation card · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "Pinned",
-      "marker": "Implementation card — pinned above",
-      "goTo": "Go to the pinned card",
-      "collapse": "Minimize pinned card",
-      "expand": "Expand pinned card",
-      "expandCard": "Expand this card",
-      "collapseCard": "Minimize this card",
-      "collapsed_one": "Implementation card",
-      "collapsed_other": "{{count}} implementation cards",
       "state": {
         "building": "Building",
         "on_review": "Review",
@@ -608,7 +600,6 @@
     "pending": "Preparing a launch proposal…",
     "unreadable_one": "The agent's launch proposal could not be read.",
     "unreadable_other": "{{count}} launch proposals could not be read.",
-    "pinnedMarker": "Launch proposal pinned above the composer",
     "effortDefault": "Default effort",
     "profileNone": "No profile",
     "status": {
@@ -771,12 +762,9 @@
     }
   },
   "runFailure": {
-    "marker": "Rail {{rail}} failed: {{code}}",
-    "openCard": "Open card",
     "briefing": {
       "title": "Automatic failure briefing"
-    },
-    "reviewChanges": "Rail {{rail}}: the reviewer requested changes"
+    }
   },
   "split": {
     "open": "Split view",
@@ -983,7 +971,6 @@
       "waitForReply": "You can choose once the agent finishes this reply."
     },
     "bar": {
-      "label": "Flow controls",
       "controls": "Flow actions",
       "viewChanges": "View changes",
       "resume": "Resume Flow",
@@ -1012,7 +999,6 @@
         "busy": "Wait for the current action to finish",
         "noSpec": "The Flow’s spec isn’t ready yet"
       },
-      "working": "The agent is working",
       "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}"
     },
     "preview": {
@@ -1106,6 +1092,25 @@
       "delivered": "Flow delivered.",
       "discarded": "Flow discarded.",
       "returned": "Back in Flow: the work returned with what Flow → Spec found."
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Flow → Spec ready to launch",
+      "launching": "Launching Flow → Spec…",
+      "launchingOn": "Launching Flow → Spec on {{rail}}…",
+      "step": {
+        "derive": "Writing the spec from your changes",
+        "verify": "Verifying your changes",
+        "review": "Reviewing the change",
+        "fix": "Applying the review's fixes",
+        "archive": "Archiving the OpenSpec change",
+        "settle": "Handing the result back"
+      }
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow mode: the agent writes in the Flow's isolated worktree",
+      "placeholder": "Tell the agent what to change in the worktree…"
     }
   },
   "flowReturn": {
@@ -1134,5 +1139,79 @@
     "changeArchived": "OpenSpec change {{change}} archived",
     "jira": "Jira issue {{key}}",
     "jiraPending": "Jira issue being created"
+  },
+  "runStrip": {
+    "launching": "Launching on {{rail}}…",
+    "running": "Working",
+    "paused": "Paused — waiting for you",
+    "pausedReason": "Paused: {{reason}}",
+    "decision": {
+      "approval": "Waiting for your approval",
+      "changes": "The reviewer requested changes",
+      "on_review": "Ready for your review",
+      "pr_draft": "Draft PR ready to publish",
+      "no_changes": "Finished without changes",
+      "pr_closed": "PR closed without merging",
+      "generic": "Waiting for your decision"
+    },
+    "failed": {
+      "generic": "Stopped with an error",
+      "implementation_failed": "The implementation failed",
+      "stalled": "The run stalled",
+      "stuck": "The run got stuck",
+      "provider_limit": "The provider's usage limit stopped it",
+      "launch_failed": "The run could not start",
+      "delivery_failed": "The result could not be delivered",
+      "push_failed": "The branch could not be pushed",
+      "pr_failed": "The PR could not be created"
+    },
+    "progressAria": "{{done}} of {{total}} runs finished",
+    "costTitle": "Real cost billed by the provider so far",
+    "costPartial": "Some runs have no billed cost yet and are not included",
+    "costNone": "No billed cost yet",
+    "state": {
+      "launching": "Launching:",
+      "running": "Running:",
+      "decision": "Waiting for you:",
+      "failed": "Failed:",
+      "paused": "Paused:"
+    },
+    "proposal": "Launch proposed for {{tickets}}",
+    "proposalNoTickets": "Launch proposed",
+    "proposalLabel": "Proposal",
+    "review": "Review",
+    "panelLabel": "{{run}} details",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "switcher": "Live runs",
+    "more": "More runs ({{count}})",
+    "announce": {
+      "settled": "{{run}} finished"
+    },
+    "attention": "Waiting for your decision",
+    "event": {
+      "launched": "Launched on {{run}}",
+      "failed": "{{run}} failed: {{reason}}",
+      "openRun": "Show the run",
+      "proposed": "Launch proposed — waiting for you",
+      "backToFlow": "Back to Flow",
+      "flowReturned": "Flow → Spec on {{run}} went back to Flow",
+      "delivered": "Delivered: PR {{pr}}",
+      "deliveredNoPr": "Delivered on {{run}}",
+      "superseded": "{{run}} was superseded by a newer run",
+      "discarded": "{{run}} was discarded",
+      "changes": "{{run}}: the reviewer requested changes"
+    }
+  },
+  "flowBoundary": {
+    "entered": "Entered Flow",
+    "left": "Left Flow",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "started",
+      "returned": "back from a rail",
+      "handed_off": "handed off to a rail",
+      "discarded": "discarded"
+    }
   }
 }

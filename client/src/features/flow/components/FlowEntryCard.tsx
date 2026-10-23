@@ -36,12 +36,13 @@ interface Props {
 
 type RepositoryLoad = { projectId: string; repositories: FlowRepositoryOption[] | null }
 
-/** Bring an open Flow's bar into view and focus it (it lives above the composer). */
+/** Bring an open Flow's strip into view and focus its first control (it lives above the composer). */
 export function focusFlowBar(flowId: string): boolean {
-  const bar = document.querySelector<HTMLElement>(`[data-testid="flow-bar"][data-flow-id="${CSS.escape(flowId)}"]`)
-  if (!bar) return false
-  bar.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-  bar.focus({ preventScroll: true })
+  const strip = document.querySelector<HTMLElement>(`[data-testid="mission-run-strip"][data-flow-id="${CSS.escape(flowId)}"]`)
+  if (!strip) return false
+  strip.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  const target = strip.querySelector<HTMLElement>('[data-testid="mission-run-strip-bar"] button:not(:disabled)')
+  target?.focus({ preventScroll: true })
   return true
 }
 

@@ -118,6 +118,7 @@ function Harness() {
       <span data-testid="conversation-ids">{agentChat.conversations.map(c => c.id).join(',')}</span>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-ids">{[...agentChat.attentionConversationIds].sort().join(',')}</span>
       <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
         const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
@@ -544,6 +545,31 @@ describe('AgentChatContext unread conversations', () => {
     await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
 
     expect(screen.getByTestId('unread-ids').textContent).toBe('')
+  })
+})
+
+describe('AgentChatContext attention (waiting for the person)', () => {
+  it('marks a background conversation whose delivery waits for a decision, and clears it once decided', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    const ws = (decision: string) => ({ type: 'agent_pr_decision', conversationId: 'c2', kind: 'pr_decision', prDeliveryId: 'd9', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision, prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] })
+    await act(async () => { wsHandler!(ws('building')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+    await act(async () => { wsHandler!(ws('on_review')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('c2')
+    await act(async () => { wsHandler!(ws('discarded')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+  })
+
+  it('the open conversation’s own rows decide its mark', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [{ id: 's1', conversation_id: 'c1', role: 'system', created_at: '', content: JSON.stringify({ kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision: 'implementation_failed', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] }) }],
+    } as never)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('attention-ids').textContent).toBe('c1'))
   })
 })
 

@@ -116,9 +116,16 @@ function InlineHarness() {
   )
 }
 
-const dock = () => screen.queryByTestId('agent-pr-pinned-dock')
-const markers = () => screen.queryAllByTestId('agent-pr-pinned-marker')
+const strip = () => screen.queryByTestId('mission-run-strip')
+const launchedLines = () => screen.queryAllByTestId('agent-run-launched-line')
 const fullCards = () => screen.queryAllByTestId('agent-pr-decision-card')
+/** Cards shown in the history (not inside the strip's panel). */
+const historyCards = () => fullCards().filter((card) => !card.closest('[data-testid="mission-run-strip"]'))
+const panel = () => screen.getByTestId('mission-run-strip-panel')
+async function openPanel() {
+  await act(async () => { fireEvent.click(screen.getByTestId('mission-run-strip-toggle')) })
+  await waitFor(() => expect(panel()).toHaveAttribute('data-open', 'true'))
+}
 
 beforeEach(() => {
   wsHandler = null
@@ -302,41 +309,56 @@ describe('derivePrCards / pin-state matrix', () => {
   })
 })
 
-// ── Pinned slot in the floating panel ─────────────────────────────────────────
-describe('pinned dock (floating panel)', () => {
-  it.each(['building', 'on_review', 'pr_draft', 'no_changes', 'pr_closed', 'implementation_failed', 'pr_failed'] as const)(
-    'a %s card is PINNED above the composer with a history marker in its slot',
-    async (decision) => {
-      await renderPanelWithMessages([sysRow('s1', { decision })])
-      const d = await screen.findByTestId('agent-pr-pinned-dock')
-      // The FULL card renders in the dock (reused verbatim)…
-      expect(within(d).getByTestId('agent-pr-decision-card')).toBeInTheDocument()
-      expect(fullCards()).toHaveLength(1) // …and ONLY there (no double render).
-      // …while the chronological slot holds the slim reference marker.
-      expect(markers()).toHaveLength(1)
-      expect(screen.getByText('Implementation card — pinned above')).toBeInTheDocument()
+// ── The run strip in the floating panel ───────────────────────────────────────
+describe('run strip (floating panel)', () => {
+  it.each([
+    ['building', 'running', 'Working'],
+    ['on_review', 'decision', 'Ready for your review'],
+    ['pr_draft', 'decision', 'Draft PR ready to publish'],
+    ['no_changes', 'decision', 'Finished without changes'],
+    ['pr_closed', 'decision', 'PR closed without merging'],
+    ['implementation_failed', 'failed', 'The implementation failed'],
+    ['pr_failed', 'failed', 'The PR could not be created'],
+  ] as const)(
+    'a %s delivery is LIVE: one strip (%s · "%s") and a one-line "launched" event in its history slot',
+    async (decision, tone, headline) => {
+      await renderPanelWithMessages([sysRow('s1', { decision, ...(decision === 'implementation_failed' ? { implementationOutcome: 'failed' as const } : {}) })])
+      const s = await screen.findByTestId('mission-run-strip')
+      expect(s).toHaveAttribute('data-tone', tone)
+      expect(within(s).getByTestId('mission-run-strip-headline')).toHaveTextContent(headline)
+      // The full card is mounted ONCE, inside the strip's (closed) panel…
+      expect(within(s).getByTestId('agent-pr-decision-card')).toBeInTheDocument()
+      expect(fullCards()).toHaveLength(1)
+      expect(historyCards()).toHaveLength(0)
+      // …the history slot only says what happened.
+      expect(launchedLines()).toHaveLength(1)
+      expect(launchedLines()[0]).toHaveTextContent('Launched on Rail 1')
+      expect(launchedLines()[0]).toHaveTextContent('#4 #7')
+      // No "pinned" chrome survives.
+      expect(screen.queryByText(/pinned above/i)).toBeNull()
+      expect(screen.queryByText('Pinned')).toBeNull()
     },
   )
 
   it.each(['pr_ready', 'completed', 'superseded', 'merged', 'discarded'] as const)(
-    'a %s card is UNPINNED: full card in history, no dock, no marker',
+    'a %s delivery is SETTLED: no strip, the full card in its history slot',
     async (decision) => {
       await renderPanelWithMessages([
         sysRow('s1', { decision, prUrl: decision === 'discarded' || decision === 'completed' || decision === 'superseded' ? null : 'https://github.com/o/r/pull/7', prState: decision === 'discarded' || decision === 'completed' || decision === 'superseded' ? 'none' : 'pr-created' }),
       ])
-      await waitFor(() => expect(fullCards()).toHaveLength(1))
-      expect(dock()).toBeNull()
-      expect(markers()).toHaveLength(0)
+      await waitFor(() => expect(historyCards()).toHaveLength(1))
+      expect(strip()).toBeNull()
+      expect(launchedLines()).toHaveLength(0)
     },
   )
 
-  it('a conversation without PR cards renders no dock and no markers', async () => {
+  it('a conversation without runs renders no strip and no event lines', async () => {
     await renderPanelWithMessages([
       { id: 'a1', conversation_id: 'c1', role: 'assistant', content: 'hello', created_at: '' },
     ])
     expect(await screen.findByText('hello')).toBeInTheDocument()
-    expect(dock()).toBeNull()
-    expect(markers()).toHaveLength(0)
+    expect(strip()).toBeNull()
+    expect(launchedLines()).toHaveLength(0)
     expect(fullCards()).toHaveLength(0)
   })
 
@@ -355,8 +377,7 @@ describe('pinned dock (floating panel)', () => {
     ])
 
     await waitFor(() => expect(fullCards()).toHaveLength(1))
-    expect(dock()).toBeNull()
-    expect(markers()).toHaveLength(0)
+    expect(strip()).toBeNull()
     expect(screen.getAllByRole('button', { name: 'Checkout' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Verify PR' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
@@ -376,8 +397,9 @@ describe('pinned dock (floating panel)', () => {
       }),
     ])
 
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
+    const s = await screen.findByTestId('mission-run-strip')
+    await openPanel()
+    expect(within(s).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Retry push' })).toBeNull()
     expect(screen.getAllByRole('button', { name: 'Discard' })).toHaveLength(1)
     expect(screen.getByText('A newer implementation run replaced this card.')).toBeInTheDocument()
@@ -395,128 +417,170 @@ describe('pinned dock (floating panel)', () => {
       }),
     ])
 
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
+    const s = await screen.findByTestId('mission-run-strip')
+    await openPanel()
+    expect(within(s).getAllByRole('button', { name: 'Create PR' })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(screen.getByText('A newer implementation run replaced this card.')).toBeInTheDocument()
   })
 
-  it('unpins on the publish WS transition: dock away, full card back in its chronological slot', async () => {
+  it('retires on the publish WS transition: strip away, the full card back in its chronological slot', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'pr_draft', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created' })])
-    await screen.findByTestId('agent-pr-pinned-dock')
-    expect(markers()).toHaveLength(1)
+    await screen.findByTestId('mission-run-strip')
+    expect(launchedLines()).toHaveLength(1)
 
-    // The user publishes elsewhere → the same envelope moves to pr_ready.
     await act(async () => {
       wsHandler!(wsEnvelope({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/7', prState: 'pr-created' }))
     })
-    await waitFor(() => expect(dock()).toBeNull())
-    expect(markers()).toHaveLength(0)
-    // The full card returned to history in its pr_ready state.
-    expect(fullCards()).toHaveLength(1)
+    await waitFor(() => expect(strip()).toBeNull())
+    expect(launchedLines()).toHaveLength(0)
+    expect(historyCards()).toHaveLength(1)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()
+    // The retirement is announced politely.
+    expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Rail 1 finished')
   })
 
-  it('a live building arrival pins immediately (WS append, no reload)', async () => {
+  it('a live building arrival shows in the strip at once (WS append, no reload); launched = skeleton', async () => {
     await renderPanelWithMessages([])
-    await act(async () => { wsHandler!(wsEnvelope({ decision: 'building' })) })
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).getByText('Implementing in an isolated worktree…')).toBeInTheDocument()
-    expect(markers()).toHaveLength(1)
+    await act(async () => { wsHandler!(wsEnvelope({ decision: 'building', phase: 'launched' })) })
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(s).toHaveAttribute('data-tone', 'launching')
+    expect(within(s).getByTestId('mission-run-strip-headline')).toHaveTextContent('Launching on Rail 1…')
+    expect(within(s).getByTestId('mission-run-strip-skeleton')).toBeInTheDocument()
+    expect(within(s).queryByTestId('mission-run-strip-primary')).toBeNull()
+    expect(launchedLines()).toHaveLength(1)
+  })
+
+  it('a running run shows "—" for time and cost until measured, and no primary action', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'building', phase: 'running' })])
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(within(s).getByTestId('mission-run-strip-elapsed')).toHaveTextContent('—')
+    expect(within(s).getByTestId('mission-run-strip-cost')).toHaveTextContent('—')
+    expect(within(s).queryByTestId('mission-run-strip-primary')).toBeNull()
   })
 })
 
-// ── Multi-card stacking ───────────────────────────────────────────────────────
-describe('multi-card stacking', () => {
-  const twoPinned = [
-    sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'on_review', ticketIds: [4] }),
-    sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'pr_draft', ticketIds: [7], prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created' }),
+// ── Panel: open, Esc, primary action ──────────────────────────────────────────
+describe('strip panel', () => {
+  it('opens above the strip, moves focus into it, and Esc closes it back to the strip', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'on_review' })])
+    await screen.findByTestId('mission-run-strip')
+    const toggle = screen.getByTestId('mission-run-strip-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(within(panel()).queryByRole('button', { name: 'Create PR' })).toBeNull() // hidden while closed
+    expect(screen.getByTestId('mission-run-strip-primary')).toHaveTextContent('Create PR')
+    await openPanel()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveAttribute('aria-controls', panel().id)
+    expect(within(panel()).getByRole('button', { name: 'Create PR' })).toBeInTheDocument()
+    // The card shows the action now: the strip does not repeat it.
+    expect(screen.queryByTestId('mission-run-strip-primary')).toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(panel()))
+    fireEvent.keyDown(panel(), { key: 'Escape' })
+    expect(panel()).toHaveAttribute('data-open', 'false')
+    expect(document.activeElement).toBe(toggle)
+  })
+
+  it('a click in the conversation closes the panel', async () => {
+    await renderPanelWithMessages([
+      { id: 'a1', conversation_id: 'c1', role: 'assistant', content: 'hello there', created_at: '' },
+      sysRow('s1', { decision: 'on_review' }),
+    ])
+    await screen.findByTestId('mission-run-strip')
+    await openPanel()
+    fireEvent.pointerDown(screen.getByText('hello there'))
+    expect(panel()).toHaveAttribute('data-open', 'false')
+  })
+
+  it('the primary action names what the run needs and performs the card’s own control', async () => {
+    vi.mocked(agentApi.postRailPrDecision ?? (() => undefined))
+    await renderPanelWithMessages([sysRow('s1', { decision: 'on_review' })])
+    const s = await screen.findByTestId('mission-run-strip')
+    const primary = await within(s).findByTestId('mission-run-strip-primary')
+    expect(primary).toHaveTextContent('Create PR')
+    const create = within(s).getByTestId('agent-pr-decision-card').querySelector<HTMLButtonElement>('[data-run-primary]')!
+    const clicked = vi.fn()
+    create.addEventListener('click', clicked)
+    await act(async () => { fireEvent.click(primary) })
+    expect(panel()).toHaveAttribute('data-open', 'true')
+    expect(clicked).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed run offers its recovery as the primary action; waiting is said with an icon and words', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'implementation_failed', implementationOutcome: 'failed', runIds: ['r1'] })])
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(s).toHaveAttribute('data-tone', 'failed')
+    expect(within(s).getByTestId('mission-run-strip-toggle')).toHaveTextContent('Failed:')
+    expect(within(s).getByTestId('mission-run-strip-headline').className).toContain('text-destructive')
+    expect(await within(s).findByTestId('mission-run-strip-primary')).toHaveTextContent('Relaunch')
+  })
+})
+
+// ── Several live runs: ONE strip + switcher ───────────────────────────────────
+describe('several live runs', () => {
+  const two = [
+    sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running', ticketIds: [4] }),
+    sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'on_review', ticketIds: [7] }),
   ]
 
-  it('EVERY pinned delivery renders as its own full card, stacked oldest→newest', async () => {
-    await renderPanelWithMessages(twoPinned)
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    // Both full cards render in the dock…
-    expect(within(d).getByText('Implementation ready for review')).toBeInTheDocument()
-    expect(within(d).getByText('Draft PR created')).toBeInTheDocument()
-    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(2)
-    expect(fullCards()).toHaveLength(2)
-    // …with per-card headers in message order (oldest first, newest by the composer).
-    const headers = within(d).getAllByTestId('agent-pr-dock-card-toggle')
-    expect(headers).toHaveLength(2)
-    expect(headers[0].textContent).toContain('Rail 1')
-    expect(headers[0].textContent).toContain('#4')
-    expect(headers[1].textContent).toContain('Rail 2')
-    expect(headers[1].textContent).toContain('#7')
-    // Both history slots are markers.
-    expect(markers()).toHaveLength(2)
+  it('shows the most urgent run (waiting for you over running) with a switcher, never stacked cards', async () => {
+    await renderPanelWithMessages(two)
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(screen.getAllByTestId('mission-run-strip')).toHaveLength(1)
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d2')
+    const switches = within(s).getAllByTestId('mission-run-strip-switch')
+    expect(switches.map((b) => b.textContent)).toEqual(['Rail 2', 'Rail 1'])
+    expect(switches[0]).toHaveAttribute('aria-pressed', 'true')
+    // Both cards stay mounted (they measure their runs); both history slots are event lines.
+    expect(within(s).getAllByTestId('agent-pr-decision-card')).toHaveLength(2)
+    expect(launchedLines()).toHaveLength(2)
   })
 
-  it('per-card collapse is independent; state survives remount via sessionStorage', async () => {
-    await renderPanelWithMessages(twoPinned)
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    // Collapse only the OLDER card (d1) to its header row.
-    fireEvent.click(within(d).getAllByTestId('agent-pr-dock-card-toggle')[0])
-    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(1)
-    expect(within(d).getByText('Draft PR created')).toBeInTheDocument()
-    expect(within(d).queryByText('Implementation ready for review')).toBeNull()
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBe(
-      JSON.stringify(['d1']),
-    )
-    // Expand it back.
-    fireEvent.click(within(d).getAllByTestId('agent-pr-dock-card-toggle')[0])
-    expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(2)
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBeNull()
+  it('the person’s pick holds (session-only) until another run newly needs them', async () => {
+    await renderPanelWithMessages(two)
+    const s = await screen.findByTestId('mission-run-strip')
+    fireEvent.click(within(s).getAllByTestId('mission-run-strip-switch')[1])
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d1')
+    expect(sessionStorage.getItem('specrails-desktop:run-strip-pick:c1')).toBe('delivery:d1')
+    // d1 fails → it is now the most urgent anyway; then a third run starts waiting.
+    await act(async () => {
+      wsHandler!(wsEnvelope({ prDeliveryId: 'd3', railIndex: 2, decision: 'pr_closed', ticketIds: [9] }))
+    })
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d3'))
   })
 
-  it('when one card unpins, the remaining pinned card keeps its own slot', async () => {
-    await renderPanelWithMessages(twoPinned)
-    await screen.findByTestId('agent-pr-pinned-dock')
-    // d2 publishes → unpins; d1 keeps its full card in the dock.
+  it('more than three runs: the shown one, the two most urgent and "+N"', async () => {
+    await renderPanelWithMessages([
+      sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running' }),
+      sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'building', phase: 'running' }),
+      sysRow('s3', { prDeliveryId: 'd3', railIndex: 2, decision: 'pr_failed' }),
+      sysRow('s4', { prDeliveryId: 'd4', railIndex: 3, decision: 'on_review' }),
+    ])
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d4')
+    expect(within(s).getAllByTestId('mission-run-strip-switch').map((b) => b.textContent)).toEqual(['Rail 4', 'Rail 3', 'Rail 1'])
+    const more = within(s).getByTestId('mission-run-strip-more')
+    expect(more).toHaveTextContent('+1')
+    fireEvent.click(more)
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem'))
+    expect(s).toHaveAttribute('data-run-key', 'delivery:d2')
+  })
+
+  it('a run leaving the strip keeps the others; the settled card returns to history', async () => {
+    await renderPanelWithMessages(two)
+    await screen.findByTestId('mission-run-strip')
     await act(async () => {
       wsHandler!(wsEnvelope({ prDeliveryId: 'd2', railIndex: 1, decision: 'pr_ready', ticketIds: [7], prUrl: 'https://github.com/o/r/pull/9', prState: 'pr-created' }))
     })
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    await waitFor(() => expect(within(d).getAllByTestId('agent-pr-decision-card')).toHaveLength(1))
-    expect(within(d).getByText('Implementation ready for review')).toBeInTheDocument()
-    // History: one marker (d1 still pinned) + the unpinned d2 full card.
-    expect(markers()).toHaveLength(1)
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d1'))
+    expect(screen.queryByTestId('mission-run-strip-switcher')?.textContent).toBe('Rail 1')
+    expect(launchedLines()).toHaveLength(1)
     expect(screen.getByText('PR ready for merge')).toBeInTheDocument()
   })
 })
 
-// ── Collapse-to-chip control ──────────────────────────────────────────────────
-describe('collapse control', () => {
-  it('collapses to a slim bar and expands back; state survives remount via sessionStorage', async () => {
-    await renderPanelWithMessages([sysRow('s1', { decision: 'on_review' })])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    fireEvent.click(within(d).getByTestId('agent-pr-dock-collapse'))
-    // Slim bar: no full card in the dock, marker still in history.
-    expect(within(d).queryByTestId('agent-pr-decision-card')).toBeNull()
-    const bar = within(d).getByTestId('agent-pr-dock-expand')
-    expect(bar.textContent).toContain('Implementation card')
-    expect(markers()).toHaveLength(1)
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBe('1')
-
-    // Expand back.
-    fireEvent.click(bar)
-    expect(within(d).getByTestId('agent-pr-decision-card')).toBeInTheDocument()
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBeNull()
-  })
-
-  it('the collapsed bar shows the pinned count when multiple cards are active', async () => {
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
-    await renderPanelWithMessages([
-      sysRow('s1', { prDeliveryId: 'd1', decision: 'on_review' }),
-      sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'pr_failed' }),
-    ])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).getByTestId('agent-pr-dock-expand').textContent).toContain('2 implementation cards')
-  })
-})
-
-// ── "Open card" focus (run-failure marker / pinned reference row) ─────────────
-describe('Open card focuses the pinned card', () => {
+// ── History lines open the run ────────────────────────────────────────────────
+describe('history lines focus the run', () => {
   const failureRow = (over: Record<string, unknown> = {}): ApiAgentMessage => ({
     id: 'f1', conversation_id: 'c1', role: 'system', created_at: '',
     content: JSON.stringify({ kind: 'run-failure', runId: 'r1', railIndex: 0, projectId: 'p1', code: 'implementation_failed', detail: 'boom', stepId: null, at: null, prDeliveryId: 'd1', ...over }),
@@ -524,81 +588,68 @@ describe('Open card focuses the pinned card', () => {
   const failedCard = () => sysRow('s1', { prDeliveryId: 'd1', decision: 'implementation_failed', implementationOutcome: 'failed', runIds: ['r1'], ticketIds: [8] })
   const scrollSpy = () => vi.mocked(HTMLElement.prototype.scrollIntoView)
 
-  it('expands a collapsed dock AND a collapsed card, scrolls the card into view and focuses it', async () => {
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-card-collapsed:c1', JSON.stringify(['d1']))
+  it('the failure line opens the run’s panel, scrolls its card into view and focuses it (once)', async () => {
     await renderPanelWithMessages([failedCard(), failureRow()])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).queryByTestId('agent-pr-decision-card')).toBeNull()
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(screen.getByTestId('agent-run-failure-marker')).toHaveTextContent('Rail 1 failed: The implementation failed')
     scrollSpy().mockClear()
-
-    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
-
-    const card = await within(d).findByTestId('agent-pr-decision-card')
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBeNull()
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-card-collapsed:c1')).toBeNull()
-    expect(scrollSpy()).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }))
-    expect(document.activeElement).toBe(card)
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-marker')) })
+    const card = within(s).getByTestId('agent-pr-decision-card')
+    await waitFor(() => expect(document.activeElement).toBe(card))
+    expect(panel()).toHaveAttribute('data-open', 'true')
     expect(card).toHaveAttribute('role', 'region')
     expect(card.getAttribute('aria-label')).toContain('Rail 1')
     expect(card.getAttribute('aria-label')).toContain('#8')
     expect(card.className).toContain('ring-2')
-    // Exactly once: the dock re-dispatches, the card does not double-handle.
     expect(scrollSpy()).toHaveBeenCalledTimes(1)
   })
 
-  it('already expanded: the mounted card scrolls and takes focus directly', async () => {
-    await renderPanelWithMessages([failedCard(), failureRow()])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    const card = within(d).getByTestId('agent-pr-decision-card')
-    scrollSpy().mockClear()
-    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
-    expect(scrollSpy()).toHaveBeenCalledTimes(1)
-    expect(document.activeElement).toBe(card)
-  })
-
-  it('the pinned reference row in the history focuses the same card', async () => {
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+  it('the "launched" line opens the same run', async () => {
     await renderPanelWithMessages([failedCard()])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    await act(async () => { fireEvent.click(markers()[0]!) })
-    const card = await within(d).findByTestId('agent-pr-decision-card')
-    expect(document.activeElement).toBe(card)
+    const s = await screen.findByTestId('mission-run-strip')
+    await act(async () => { fireEvent.click(launchedLines()[0]!) })
+    await waitFor(() => expect(document.activeElement).toBe(within(s).getByTestId('agent-pr-decision-card')))
   })
 
-  it('a card that is not there is a graceful no-op (dock stays as it was)', async () => {
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
+  it('a run that is not there is a graceful no-op', async () => {
     await renderPanelWithMessages([failedCard(), failureRow({ runId: 'other', prDeliveryId: 'gone' })])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    await screen.findByTestId('mission-run-strip')
     scrollSpy().mockClear()
-    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-open')) })
-    expect(within(d).getByTestId('agent-pr-dock-expand')).toBeInTheDocument()
-    expect(sessionStorage.getItem('specrails-desktop:agent-pr-dock-collapsed:c1')).toBe('1')
+    await act(async () => { fireEvent.click(screen.getByTestId('agent-run-failure-marker')) })
+    expect(panel()).toHaveAttribute('data-open', 'false')
     expect(scrollSpy()).not.toHaveBeenCalled()
   })
 
   it('a request scoped to another conversation (split panes) is ignored', async () => {
-    sessionStorage.setItem('specrails-desktop:agent-pr-dock-collapsed:c1', '1')
     await renderPanelWithMessages([failedCard()])
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
+    await screen.findByTestId('mission-run-strip')
     const { focusPrCard } = await import('../agent-run-failure')
     await act(async () => { focusPrCard({ prDeliveryId: 'd1', runIds: ['r1'], conversationId: 'c2' }) })
-    expect(within(d).getByTestId('agent-pr-dock-expand')).toBeInTheDocument()
+    expect(panel()).toHaveAttribute('data-open', 'false')
+  })
+
+  it('a settled Flow → Spec run is one outcome line that expands its card in place', async () => {
+    await renderPanelWithMessages([sysRow('s1', { decision: 'pr_ready', loopId: 'factory:flow-spec', loopName: 'Flow → Spec', prNumber: 812, prUrl: 'https://github.com/o/r/pull/812', prState: 'pr-created' })])
+    const line = await screen.findByTestId('agent-settled-run-line')
+    expect(line).toHaveTextContent('Delivered: PR #812')
+    expect(fullCards()).toHaveLength(0)
+    fireEvent.click(line)
+    expect(historyCards()).toHaveLength(1)
   })
 })
 
-// ── Both surfaces mount the pinned slot ───────────────────────────────────────
+// ── Both surfaces mount the strip ─────────────────────────────────────────────
 describe('surfaces', () => {
-  it('the Agent-Mode INLINE conversation view renders the same pinned dock', async () => {
+  it('the Agent-Mode INLINE conversation view renders the same strip', async () => {
     vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
       conversation: conv,
       messages: [sysRow('s1', { decision: 'on_review' })],
     })
     render(<AgentChatProvider><InlineHarness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('select')) })
-    const d = await screen.findByTestId('agent-pr-pinned-dock')
-    expect(within(d).getByTestId('agent-pr-decision-card')).toBeInTheDocument()
-    expect(markers()).toHaveLength(1)
+    const s = await screen.findByTestId('mission-run-strip')
+    expect(within(s).getByTestId('agent-pr-decision-card')).toBeInTheDocument()
+    expect(launchedLines()).toHaveLength(1)
   })
 })
 

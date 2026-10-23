@@ -1,9 +1,10 @@
 // ─── Flow state on the client ─────────────────────────────────────────────────
 // One provider above the mission chat. It caches the Flow of each
 // (project, conversation) a view asked for, the per-project availability, and
-// two session-local UI facts: which Flows are "wrapping up" (the user pressed
-// "This is it" and the hand-off card is showing) and which were just handed
-// off (the dock keeps the launched stub until the next reload).
+// three session-local UI facts: which Flows are "wrapping up" (the user pressed
+// "This is it" and the hand-off panel is showing), which hand-offs are in
+// flight, and which were just handed off (the run strip keeps a launching
+// skeleton until the run itself shows).
 //
 // WebSocket: `flow.state { projectId, conversationId, flow }`. Missions can be
 // pinned to any project, so the filter is the set of projects a mounted view
@@ -12,6 +13,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { flowApi, type Flow, type FlowAvailability, type FlowHandOffResult } from '../lib/flow-api'
+
+/** Conversations in Flow mode, per project (the mission list's mark). */
+export type FlowOpenConversations = ReadonlyMap<string, ReadonlyMap<string, Flow['state']>>
+
+const IN_FLOW_STATES: ReadonlySet<Flow['state']> = new Set(['active', 'paused', 'needs-review'])
 
 export interface FlowHandOffReceipt {
   railIndex: number
@@ -28,8 +34,14 @@ export interface FlowContextValue {
   entries: ReadonlyMap<string, FlowEntry>
   availability: ReadonlyMap<string, FlowAvailability>
   wrappingUp: ReadonlySet<string>
+  /** Flows whose hand-off request is in flight (the strip's launching skeleton). */
+  launching: ReadonlySet<string>
   handedOff: ReadonlyMap<string, FlowHandOffReceipt>
   watch: (projectId: string, conversationId: string) => () => void
+  /** Conversations in Flow per watched project (watchOpen). */
+  openConversations: FlowOpenConversations
+  /** Keep a project's in-Flow conversations current (fetch + flow.state events). */
+  watchOpen: (projectId: string) => () => void
   loadAvailability: (projectId: string, force?: boolean) => void
   start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null) => Promise<Flow>
   pause: (projectId: string, flow: Flow) => Promise<Flow>
@@ -60,10 +72,45 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   const [availability, setAvailability] = useState<ReadonlyMap<string, FlowAvailability>>(new Map())
   const [wrappingUp, setWrappingUpState] = useState<ReadonlySet<string>>(new Set())
   const [handedOff, setHandedOff] = useState<ReadonlyMap<string, FlowHandOffReceipt>>(new Map())
+  const [launching, setLaunching] = useState<ReadonlySet<string>>(new Set())
   // Watch counts per key / per project: the WS filter and refetch targets.
   const watchedKeys = useRef(new Map<string, { projectId: string; conversationId: string; count: number }>())
   const watchedProjects = useRef(new Map<string, number>())
   const availabilityRequested = useRef(new Set<string>())
+  const [openConversations, setOpenConversations] = useState<FlowOpenConversations>(new Map())
+  const openWatched = useRef(new Map<string, number>())
+
+  const setOpenState = useCallback((projectId: string, conversationId: string, state: Flow['state'] | null) => {
+    setOpenConversations((current) => {
+      const before = current.get(projectId)
+      const inFlow = state !== null && IN_FLOW_STATES.has(state)
+      if ((before?.get(conversationId) ?? null) === (inFlow ? state : null)) return current
+      const project = new Map(before ?? [])
+      if (inFlow) project.set(conversationId, state)
+      else project.delete(conversationId)
+      return new Map(current).set(projectId, project)
+    })
+  }, [])
+
+  const fetchOpen = useCallback((projectId: string) => {
+    flowApi.open(projectId)
+      .then((flows) => {
+        if (!openWatched.current.has(projectId)) return
+        setOpenConversations((current) => new Map(current).set(projectId, new Map(flows.filter((flow) => IN_FLOW_STATES.has(flow.state)).map((flow) => [flow.conversationId, flow.state]))))
+      })
+      .catch(() => { /* older server or Flow unavailable: no marks */ })
+  }, [])
+
+  const watchOpen = useCallback((projectId: string) => {
+    const count = openWatched.current.get(projectId) ?? 0
+    openWatched.current.set(projectId, count + 1)
+    if (count === 0) fetchOpen(projectId)
+    return () => {
+      const left = (openWatched.current.get(projectId) ?? 1) - 1
+      if (left <= 0) openWatched.current.delete(projectId)
+      else openWatched.current.set(projectId, left)
+    }
+  }, [fetchOpen])
 
   const upsert = useCallback((projectId: string, conversationId: string, flow: Flow | null) => {
     setEntries((current) => {
@@ -117,20 +164,22 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     registerHandler('flow-mode', (raw: unknown) => {
       const message = raw as FlowStateMessage
       if (message?.type !== 'flow.state' || !message.projectId || !message.conversationId || !message.flow) return
+      if (openWatched.current.has(message.projectId)) setOpenState(message.projectId, message.conversationId, message.flow.state)
       if (!watchedProjects.current.has(message.projectId)) return
       upsert(message.projectId, message.conversationId, message.flow)
     })
     return () => unregisterHandler('flow-mode')
-  }, [registerHandler, unregisterHandler, upsert])
+  }, [registerHandler, unregisterHandler, upsert, setOpenState])
 
   // A reconnect may have missed events: refetch every watched conversation.
   const previousStatus = useRef(connectionStatus)
   useEffect(() => {
     if (previousStatus.current !== 'connected' && connectionStatus === 'connected') {
       for (const { projectId, conversationId } of watchedKeys.current.values()) fetchFlow(projectId, conversationId)
+      for (const projectId of openWatched.current.keys()) fetchOpen(projectId)
     }
     previousStatus.current = connectionStatus
-  }, [connectionStatus, fetchFlow])
+  }, [connectionStatus, fetchFlow, fetchOpen])
 
   const setWrappingUp = useCallback((flowId: string, on: boolean) => {
     setWrappingUpState((current) => {
@@ -143,6 +192,7 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   const apply = useCallback((projectId: string, flow: Flow) => {
     upsert(projectId, flow.conversationId, flow)
+    if (openWatched.current.has(projectId)) setOpenState(projectId, flow.conversationId, flow.state)
     return flow
   }, [upsert])
 
@@ -159,7 +209,18 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     return next
   }, [apply, setWrappingUp])
   const handOff = useCallback(async (projectId: string, flow: Flow, input: Parameters<FlowContextValue['handOff']>[2]) => {
-    const result = await flowApi.handOff(projectId, flow.id, input)
+    setLaunching((current) => new Set(current).add(flow.id))
+    let result: FlowHandOffResult
+    try {
+      result = await flowApi.handOff(projectId, flow.id, input)
+    } finally {
+      setLaunching((current) => {
+        if (!current.has(flow.id)) return current
+        const next = new Set(current)
+        next.delete(flow.id)
+        return next
+      })
+    }
     setHandedOff((current) => new Map(current).set(flow.id, { railIndex: input.railIndex, runIds: result.loopRunIds, deliveryId: result.deliveryId }))
     apply(projectId, result.flow)
     setWrappingUp(flow.id, false)
@@ -190,9 +251,17 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     return result
   }, [apply])
 
+  // A watched conversation's Flow is the freshest source for its mark too.
+  useEffect(() => {
+    for (const [key, entry] of entries) {
+      const [projectId, conversationId] = key.split('\u0000')
+      if (openWatched.current.has(projectId)) setOpenState(projectId, conversationId, entry.flow?.state ?? null)
+    }
+  }, [entries, setOpenState])
+
   const value = useMemo<FlowContextValue>(() => ({
-    entries, availability, wrappingUp, handedOff, watch, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp,
-  }), [entries, availability, wrappingUp, handedOff, watch, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp])
+    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp,
+  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp])
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>
 }

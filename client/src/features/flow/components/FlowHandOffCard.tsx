@@ -23,7 +23,7 @@ import { flowHandOffEngine } from '../lib/flow-engine'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { flowCostDisplay } from '../lib/flow-offer'
-import { useFlowLiveStats } from './FlowBar'
+import { useFlowLiveStats } from './FlowStripControls'
 
 /** The message whose flow-offer decision started this Flow (null if none). */
 export function findFlowAnchor(

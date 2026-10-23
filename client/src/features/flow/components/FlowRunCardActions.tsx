@@ -57,6 +57,7 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
       <button
         type="button"
         data-agent-interactive
+        data-run-primary
         data-testid="flow-review-back-to-flow"
         disabled={disabled}
         title={t(review ? 'flow.review.backToFlowHint' : 'flow.review.backToFlowFailureHint')}

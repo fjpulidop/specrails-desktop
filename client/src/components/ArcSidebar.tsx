@@ -16,6 +16,8 @@ import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
+import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
@@ -78,6 +80,10 @@ function ConversationRow({
   const { t } = useTranslation('agent')
   const label = conversation.title?.trim() || t('untitled')
   const [confirming, setConfirming] = useState(false)
+  // Marks next to the title: a delivery waits for the person; the mission is in Flow.
+  const attention = useAgentChat().attentionConversationIds?.has(conversation.id) ?? false
+  const markRefs = useMemo(() => [{ id: conversation.id, pinned_project_id: conversation.pinned_project_id ?? null }], [conversation.id, conversation.pinned_project_id])
+  const modeMark = useMissionConversationMarks(markRefs).get(conversation.id) ?? null
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep the shimmer overlay mounted briefly after the turn ends so its
@@ -170,6 +176,8 @@ function ConversationRow({
               </span>
             )}
           </span>
+          {modeMark && <MissionModeRowMark badge={modeMark} />}
+          {attention && <MissionAttentionMark />}
           {/* Compact "time since last interaction" (Cursor style) — swaps out
               for the delete action on hover so the row never shows both. */}
           <span

@@ -925,6 +925,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           <button
             type="button"
             data-agent-interactive
+            data-run-primary
             data-testid="rail-card-play"
             disabled={!!busy || loading || !!blockReason}
             onClick={() => void play()}

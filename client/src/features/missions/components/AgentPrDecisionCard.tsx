@@ -44,6 +44,7 @@ import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessa
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
+import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -324,7 +325,7 @@ function prNumberFromUrl(prUrl: string): string | null {
  * opens the run's JobDetailModal scoped to the CARD's project.
  */
 function RunLogChip({
-  projectId, runId, ticketLabel, live, onOpen, onVitals,
+  projectId, runId, ticketLabel, live, onOpen, onVitals, onSnapshot,
 }: {
   projectId: string
   runId: string
@@ -333,6 +334,8 @@ function RunLogChip({
   live: boolean
   onOpen: (runId: string) => void
   onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => void
+  /** The run strip's totals (elapsed · billed cost · progress) — ticks while live. */
+  onSnapshot?: (runId: string, snapshot: MissionRunVitalsSnapshot) => void
 }) {
   const { t } = useTranslation('agent')
   const vitals = useRunVitals(projectId, runId, { live })
@@ -346,6 +349,9 @@ function RunLogChip({
   useEffect(() => {
     onVitals?.(runId, { paused: vitals.paused, pausedReason, budgetPaused })
   }, [onVitals, runId, vitals.paused, pausedReason, budgetPaused])
+  useEffect(() => {
+    onSnapshot?.(runId, { running: vitals.running, loaded: vitals.loaded, status: vitals.status, elapsedMs: vitals.elapsedMs, costUsd: vitals.costUsd })
+  }, [onSnapshot, runId, vitals.running, vitals.loaded, vitals.status, vitals.elapsedMs, vitals.costUsd])
   return (
     <button
       type="button"
@@ -394,7 +400,21 @@ function RunLogChip({
   )
 }
 
-export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: { envelope: AgentPrDecisionEnvelope; conversationId?: string | null }) {
+export interface AgentPrDecisionCardProps {
+  envelope: AgentPrDecisionEnvelope
+  conversationId?: string | null
+  /** Inside the run strip's panel: no card chrome of its own (the panel is the surface). */
+  embedded?: boolean
+  /** What the card knows about its live run (the strip's state) — on change only. */
+  onSummary?: (summary: MissionRunCardSummary) => void
+  /** Each run's vitals as its log chip measures them (the strip's totals). */
+  onRunVitals?: (runId: string, snapshot: MissionRunVitalsSnapshot) => void
+}
+
+/** Chrome removed when the card is the content of the run strip's panel. */
+const EMBEDDED_CARD = 'rounded-none border-0 bg-transparent px-0 py-0 shadow-none backdrop-blur-none'
+
+export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, embedded = false, onSummary, onRunVitals }: AgentPrDecisionCardProps) {
   const { t } = useTranslation('agent')
   // The card is deliberately Router-OPTIONAL (it is unit-rendered bare in dozens
   // of tests and mounted inside the app Router in production). useNavigate would
@@ -460,6 +480,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       if (!focusMatchesCard(detail, { prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds })) return
       if (conversationId && !focusInConversation(detail, conversationId)) return
       const card = cardRef.current
+      // Hidden in the run strip's closed panel: the strip opens it and re-dispatches.
+      if (card?.closest('[hidden]')) return
       card?.scrollIntoView?.({ behavior: focusScrollBehavior(), block: 'nearest' })
       // Keyboard focus follows the request (the region is labelled for screen readers).
       try { card?.focus({ preventScroll: true }) } catch { card?.focus() }
@@ -544,7 +566,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     setConfirmingRecoverAndRetry(false)
   }, [decision, prUrl, envelope.prDeliveryId])
 
-  const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => {
+  const onChipVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => {
     setPausedRuns((prev) => {
       const current = prev[runId]
       if (current?.paused === vitals.paused && current?.pausedReason === vitals.pausedReason && current?.budgetPaused === vitals.budgetPaused) return prev
@@ -816,7 +838,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           ticketLabel={runTicketLabel(i)}
           live={decision === 'building'}
           onOpen={setLogRunId}
-          onVitals={onRunVitals}
+          onVitals={onChipVitals}
+          onSnapshot={onRunVitals}
         />
       ))}
     </div>
@@ -835,12 +858,20 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // Every button disables while ANY action is in flight and re-enables from
   // the next runtime poll / envelope broadcast — no optimistic state.
   const runStatus = deriveMissionRunStatus(envelope, liveRun, pausedRunId !== null)
+  // The run strip shows what this card knows; reported on change only.
+  const summaryStep = liveRun?.nextStep ?? envelope.runtime?.currentStep ?? null
+  const summaryPausedReason = pausedReason
+  const summaryStalled = liveRun?.status === 'stalled'
+  const summaryApproval = Boolean(liveRun?.pendingApproval)
+  useEffect(() => {
+    onSummary?.({ step: summaryStep, paused: pausedRunId !== null, pausedReason: summaryPausedReason, stalled: summaryStalled, pendingApproval: summaryApproval })
+  }, [onSummary, summaryStep, pausedRunId, summaryPausedReason, summaryStalled, summaryApproval])
   const runActionBtn = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50'
   const runtimeBusy = runtime.busy !== null || relaunching
   const runtimeActions = FEATURE_MISSION_RAIL_CARDS && actionableRun && (
     <>
       {actionableRun.canResume && (
-        <button type="button" data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
+        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'resume')}
           className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
           {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
@@ -848,7 +879,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         </button>
       )}
       {actionableRun.pendingApproval && (
-        <button type="button" data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
+        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'approve')}
           className={cn(runActionBtn, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}>
           <ShieldCheck className="h-3 w-3" />
@@ -856,7 +887,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         </button>
       )}
       {actionableRun.recoverableSteps.length > 0 && (
-        <button type="button" data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
+        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'recover')}
           className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
           <Wrench className="h-3 w-3" />
@@ -876,7 +907,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   ) : null
   const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
-      <button type="button" data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
+      <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
         className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
@@ -911,7 +942,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl transition-shadow', flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           {buildingPaused
@@ -924,7 +955,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
               ? t('prCard.title.paused')
               : existingPrContinuation
                 ? t('prCard.title.buildingExistingPr')
-                : runOnly ? t('prCard.title.buildingInPlace') : t('prCard.title.building')}
+                : runOnly ? t('prCard.title.buildingInPlace')
+                  : envelope.loopId === FLOW_SPEC_LOOP_ID ? t('prCard.title.flowSpecBuilding') : t('prCard.title.building')}
           </span>
           {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
           {FEATURE_MISSION_RAIL_CARDS && (
@@ -981,6 +1013,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             <button
               type="button"
               data-agent-interactive
+              data-run-primary
               data-testid="pr-run-paused-resume"
               disabled={runtimeBusy}
               title={pausedResumeStep ? t('prCard.resumeFromStepHint', { step: pausedResumeStep }) : undefined}
@@ -1011,9 +1044,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           </div>
         )}
         {runChips && <div className="pl-[22px]">{runChips}</div>}
-        <p className="mt-1 pl-[22px] text-[11px] leading-4 text-foreground/40">
-          {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
-        </p>
+        {/* Flow → Spec says what it does in its title; the generic PR hint is noise there. */}
+        {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
+          <p className="mt-1 pl-[22px] text-[11px] leading-4 text-foreground/40">
+            {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
+          </p>
+        )}
         {runtimeError}
         {logModal}
       </div>
@@ -1034,7 +1070,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       {...focusRegion}
         data-testid="agent-pr-decision-card"
         data-run-only="true"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50', runStatus === 'running' && 'animate-spin text-accent-primary/70')} />
@@ -1137,7 +1173,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
   const primaryAction = (action: AgentPrDecisionAction, label: string) => !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
+    <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive data-run-primary className={primaryBtn}>
       {busy === action && spinner}
       {label}
     </button>
@@ -1189,6 +1225,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       disabled={anyBusy}
       data-testid={recoveryIsRecheck ? 'agent-pr-recheck-recovery' : 'agent-pr-recover-and-retry'}
       data-agent-interactive
+      data-run-primary={recoveryIsRecheck ? undefined : ''}
       className={recoveryIsRecheck
         ? 'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50'
         : primaryBtn}
@@ -1236,7 +1273,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   )
 
   const acknowledgeNoChangesAction = !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
+    <button type="button" onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive data-run-primary className={primaryBtn}>
       {busy === 'acknowledge-no-changes' && spinner}
       {t('prCard.markDone')}
     </button>
@@ -1284,6 +1321,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         decision === 'merged' && 'border-accent-success/30',
         decision === 'completed' && 'border-accent-success/30',
         decision === 'discarded' && 'opacity-70',
+        embedded && EMBEDDED_CARD,
         flashClass,
       )}
     >

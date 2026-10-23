@@ -89,6 +89,7 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
 
 /** The Flow's strip controls: branch, files ±, cost, Discard apart, Preview, Pause/Resume, "This is it". */
 export function FlowStripControls({ projectId, flow, inline, working }: { projectId: string; flow: Flow; inline: boolean; working: boolean }) {
+  console.count("CONTROLS")
   const { t } = useTranslation('agent')
   const ctx = useFlowContext()
   const { diff, cost } = useFlowLiveStats(projectId, flow, working)

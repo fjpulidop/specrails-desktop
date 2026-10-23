@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Eye, Loader2, Pause, Play, X as XIcon, Layers, ArrowRight, Ban, Flag, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { formatElapsed } from '../../../../lib/format-duration'
-import { PrDecisionPill } from '../../../missions/components/AgentPrPinnedDock'
+import { PrDecisionPill } from '../../../missions/components/AgentPrDecisionPill'
 import type { AgentPrDecisionValue } from '../../../missions/lib/agent-api'
 import {
   chainAtCheckpoint,

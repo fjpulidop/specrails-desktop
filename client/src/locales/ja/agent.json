@@ -317,7 +317,8 @@
       "returned_to_flow": "Flow に戻りました",
       "flowSpecChanges": "Flow → Spec — レビュアーが変更を求めました",
       "flowSpecDelivered": "Flow → Spec 納品済み",
-      "flowSpecFailed": "Flow → Spec が停止しました"
+      "flowSpecFailed": "Flow → Spec が停止しました",
+      "flowSpecBuilding": "Flow → Spec があなたの作業をレビュー済みの PR にしています"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -415,15 +416,6 @@
     "runCostAria": "消費コスト {{cost}}",
     "focusRegion": "実装カード · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "ピン留め",
-      "marker": "実装カード — 上部にピン留め中",
-      "goTo": "ピン留めされたカードへ移動",
-      "collapse": "ピン留めカードを最小化",
-      "expand": "ピン留めカードを展開",
-      "expandCard": "このカードを展開",
-      "collapseCard": "このカードを最小化",
-      "collapsed_one": "実装カード",
-      "collapsed_other": "{{count}} 件の実装カード",
       "state": {
         "completed": "完了",
         "no_changes": "変更なし",
@@ -608,7 +600,6 @@
     "pending": "起動の提案を準備しています…",
     "unreadable_one": "エージェントの起動提案を読み取れませんでした。",
     "unreadable_other": "{{count}} 件の起動提案を読み取れませんでした。",
-    "pinnedMarker": "起動提案は入力欄の上に固定されています",
     "effortDefault": "デフォルトの推論強度",
     "profileNone": "プロファイルなし",
     "status": {
@@ -771,12 +762,9 @@
     }
   },
   "runFailure": {
-    "marker": "レール {{rail}} が失敗しました: {{code}}",
-    "openCard": "カードを開く",
     "briefing": {
       "title": "自動障害ブリーフィング"
-    },
-    "reviewChanges": "レール {{rail}}：レビュアーが変更を依頼しました"
+    }
   },
   "split": {
     "open": "分割表示",
@@ -983,7 +971,6 @@
       "waitForReply": "エージェントがこの返信を終えると選べます。"
     },
     "bar": {
-      "label": "Flow の操作",
       "controls": "Flow のアクション",
       "viewChanges": "変更を表示",
       "resume": "Flow を再開",
@@ -1012,7 +999,6 @@
         "busy": "実行中の操作が終わるまでお待ちください",
         "noSpec": "Flow の spec はまだ準備できていません"
       },
-      "working": "エージェントが作業中です",
       "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}"
     },
     "preview": {
@@ -1106,6 +1092,25 @@
       "delivered": "Flow を納品しました。",
       "discarded": "Flow を破棄しました。",
       "returned": "Flow に戻りました: Flow → Spec の結果とともに作業が戻りました。"
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Flow → Spec を起動できます",
+      "launching": "Flow → Spec を起動中…",
+      "launchingOn": "{{rail}} で Flow → Spec を起動中…",
+      "step": {
+        "derive": "変更から spec を作成中",
+        "verify": "変更を検証中",
+        "review": "変更をレビュー中",
+        "fix": "レビューの修正を適用中",
+        "archive": "OpenSpec の変更をアーカイブ中",
+        "settle": "結果を引き渡し中"
+      }
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow モード: エージェントは Flow の隔離された worktree に書き込みます",
+      "placeholder": "worktree で何を変えるかエージェントに伝えてください…"
     }
   },
   "flowReturn": {
@@ -1134,5 +1139,79 @@
     "changeArchived": "OpenSpec の変更 {{change}} をアーカイブしました",
     "jira": "Jira 課題 {{key}}",
     "jiraPending": "Jira 課題を作成中"
+  },
+  "runStrip": {
+    "launching": "{{rail}} で起動中…",
+    "running": "作業中",
+    "paused": "一時停止中 — あなたを待っています",
+    "pausedReason": "一時停止中: {{reason}}",
+    "decision": {
+      "approval": "あなたの承認待ち",
+      "changes": "レビュアーが変更を求めています",
+      "on_review": "レビューの準備ができました",
+      "pr_draft": "ドラフト PR を公開できます",
+      "no_changes": "変更なしで完了しました",
+      "pr_closed": "PR はマージされずに閉じられました",
+      "generic": "あなたの判断待ち"
+    },
+    "failed": {
+      "generic": "エラーで停止しました",
+      "implementation_failed": "実装に失敗しました",
+      "stalled": "実行が停滞しました",
+      "stuck": "実行が止まったままです",
+      "provider_limit": "プロバイダーの利用上限で停止しました",
+      "launch_failed": "実行を開始できませんでした",
+      "delivery_failed": "結果を届けられませんでした",
+      "push_failed": "ブランチをプッシュできませんでした",
+      "pr_failed": "PR を作成できませんでした"
+    },
+    "progressAria": "{{total}} 件中 {{done}} 件の実行が完了",
+    "costTitle": "これまでにプロバイダーが請求した実コスト",
+    "costPartial": "一部の実行はまだ請求コストがなく、含まれていません",
+    "costNone": "まだ請求コストはありません",
+    "state": {
+      "launching": "起動中:",
+      "running": "実行中:",
+      "decision": "あなた待ち:",
+      "failed": "失敗:",
+      "paused": "一時停止中:"
+    },
+    "proposal": "{{tickets}} の起動が提案されました",
+    "proposalNoTickets": "起動が提案されました",
+    "proposalLabel": "提案",
+    "review": "確認する",
+    "panelLabel": "{{run}} の詳細",
+    "showDetails": "詳細を表示",
+    "hideDetails": "詳細を隠す",
+    "switcher": "実行中のラン",
+    "more": "ほかの実行 ({{count}})",
+    "announce": {
+      "settled": "{{run}} が終了しました"
+    },
+    "attention": "あなたの判断待ち",
+    "event": {
+      "launched": "{{run}} で起動",
+      "failed": "{{run}} が失敗: {{reason}}",
+      "openRun": "実行を表示",
+      "proposed": "起動が提案されました — あなた待ち",
+      "backToFlow": "Flow に戻りました",
+      "flowReturned": "{{run}} の Flow → Spec は Flow に戻りました",
+      "delivered": "納品済み: PR {{pr}}",
+      "deliveredNoPr": "{{run}} で納品済み",
+      "superseded": "{{run}} は新しい実行に置き換えられました",
+      "discarded": "{{run}} は破棄されました",
+      "changes": "{{run}}: レビュアーが変更を求めています"
+    }
+  },
+  "flowBoundary": {
+    "entered": "Flow を開始",
+    "left": "Flow を終了",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "開始",
+      "returned": "レールから戻った",
+      "handed_off": "レールに引き渡し",
+      "discarded": "破棄"
+    }
   }
 }

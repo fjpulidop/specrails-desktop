@@ -30,6 +30,14 @@ export interface Flow {
   updatedAt?: string
 }
 
+/** A conversation in Flow mode (GET /flow/open). */
+export interface FlowOpenEntry {
+  id: string
+  conversationId: string
+  state: FlowState
+  branch: string | null
+}
+
 export type FlowCapability = 'sessions' | 'flowSessions' | 'deriveChange'
 
 /** A project repository as the Flow entry card shows it. */
@@ -147,6 +155,11 @@ export const flowApi = {
     return (await call<{ flow: Flow }>(flowBase(projectId), post(input))).flow
   },
   /** The project's repositories (the entry card's target picker). */
+  /** The project's conversations in Flow mode (the mission list's mark). */
+  async open(projectId: string): Promise<FlowOpenEntry[]> {
+    const body = await call<{ flows?: FlowOpenEntry[] }>(`${flowBase(projectId)}/open`)
+    return Array.isArray(body.flows) ? body.flows.filter((entry) => typeof entry?.conversationId === 'string') : []
+  },
   async repositories(projectId: string): Promise<FlowRepositoryOption[]> {
     const body = await call<{ repositories?: unknown }>(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/repositories`)
     return Array.isArray(body.repositories) ? body.repositories.filter(isRepositoryOption) : []

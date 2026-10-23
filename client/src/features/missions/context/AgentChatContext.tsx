@@ -50,6 +50,8 @@ import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
+import { derivePrCards } from '../components/agent-pr-pinning'
+import { deliveryNeedsPerson } from '../components/mission-run-strip'
 import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
@@ -355,6 +357,9 @@ export interface AgentChatContextValue {
   streamingConversationIds: ReadonlySet<string>
   /** Conversations with assistant/system output that arrived out of view. */
   unreadConversationIds: ReadonlySet<string>
+  /** Conversations with a delivery waiting for the person (a review decision,
+   *  an approval, a failure nobody acted on) — the mission list's attention mark. */
+  attentionConversationIds: ReadonlySet<string>
   /** Per-conversation live slices (stream/tools/queue) — feeds the mission
    *  selector's queued-count badges without flattening to the active thread. */
   liveByConversation: ReadonlyMap<string, AgentConvLive>
@@ -657,6 +662,26 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return copy
     })
   }, [])
+
+  // Attention: per conversation, which deliveries wait for the person. WS
+  // envelopes cover every conversation; the open one is recomputed from its rows.
+  const [attentionByConversation, setAttentionByConversation] = useState<ReadonlyMap<string, ReadonlyMap<string, boolean>>>(new Map())
+  const recordAttention = useCallback((conversationId: string, envelope: AgentPrDecisionEnvelope): void => {
+    const needs = deliveryNeedsPerson(envelope)
+    setAttentionByConversation((current) => {
+      const before = current.get(conversationId)
+      if ((before?.get(envelope.prDeliveryId) ?? false) === needs) return current
+      const deliveries = new Map(before ?? [])
+      if (needs) deliveries.set(envelope.prDeliveryId, true)
+      else deliveries.delete(envelope.prDeliveryId)
+      return new Map(current).set(conversationId, deliveries)
+    })
+  }, [])
+  const attentionConversationIds = useMemo<ReadonlySet<string>>(() => {
+    const ids = new Set<string>()
+    for (const [conversationId, deliveries] of attentionByConversation) if (deliveries.size > 0) ids.add(conversationId)
+    return ids
+  }, [attentionByConversation])
 
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -995,6 +1020,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         markUnread(convId)
         const recorded = coercePrDecisionEnvelope(raw)
         if (recorded) {
+          recordAttention(convId, recorded)
           const byDelivery = prEnvelopeEventsRef.current.get(convId) ?? new Map<string, AgentPrDecisionEnvelope>()
           byDelivery.delete(recorded.prDeliveryId)
           byDelivery.set(recorded.prDeliveryId, recorded)
@@ -1024,7 +1050,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     registerHandler(handlerId, handler)
     return () => unregisterHandler(handlerId)
-  }, [registerHandler, unregisterHandler, patchLive, markUnread, refreshConversations, handlerId, fixedConversationId])
+  }, [registerHandler, unregisterHandler, patchLive, markUnread, recordAttention, refreshConversations, handlerId, fixedConversationId])
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
@@ -1659,11 +1685,24 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
   }, [refreshMcp])
 
+  // The open conversation: its rows are authoritative for its attention mark.
+  const activeConversationId = active?.id ?? null
+  useEffect(() => {
+    if (!activeConversationId) return
+    const deliveries = new Map<string, boolean>()
+    for (const envelope of derivePrCards(messages).byDeliveryId.values()) if (deliveryNeedsPerson(envelope)) deliveries.set(envelope.prDeliveryId, true)
+    setAttentionByConversation((current) => {
+      const before = current.get(activeConversationId)
+      if (before && before.size === deliveries.size && [...deliveries.keys()].every((id) => before.has(id))) return current
+      return new Map(current).set(activeConversationId, deliveries)
+    })
+  }, [activeConversationId, messages])
+
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
-    unreadConversationIds, favoriteConversationIds,
+    unreadConversationIds, attentionConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -1676,7 +1715,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
-    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
+    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, attentionConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
@@ -1710,6 +1749,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [], turnTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
   unreadConversationIds: new Set<string>(),
+  attentionConversationIds: new Set<string>(),
   liveByConversation: new Map<string, AgentConvLive>(),
   favoriteConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,

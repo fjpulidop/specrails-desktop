@@ -24,7 +24,7 @@ vi.mock('../../background/context/BackgroundProcessesContext', () => ({
 
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { FlowMissionsBridge } from '../components/FlowMissionsBridge'
-import { FlowDock } from '../components/FlowDock'
+import { AgentRunStrip } from '../../missions/components/AgentRunStrip'
 import { resetLocalIntents } from '../../rails/lib/rail-launch-intents'
 import { flowHandOffEngine } from '../lib/flow-engine'
 import type { Flow } from '../lib/flow-api'
@@ -69,7 +69,7 @@ function Providers({ children }: { children: ReactNode }) {
 }
 
 async function openHandOff() {
-  render(<Providers><FlowDock conversationId="c1" projectId="p1" inline /></Providers>)
+  render(<Providers><AgentRunStrip conversationId="c1" projectId="p1" inline /></Providers>)
   fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
   return screen.findByTestId('flow-hand-off-card')
 }

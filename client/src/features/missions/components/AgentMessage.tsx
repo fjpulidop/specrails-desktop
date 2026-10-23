@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
+import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, Waves, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
@@ -423,6 +423,8 @@ interface Props {
   /** ISO creation time — rendered as a subtle per-bubble timestamp. Absent on
    *  the live streaming buffer (the time appears once the turn settles). */
   createdAt?: string
+  /** A discreet mode mark next to the timestamp (an agent turn produced in Flow). */
+  modeMark?: string | null
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
   /** True only for the newest message while no turn is streaming — gates chips. */
@@ -462,7 +464,7 @@ interface Props {
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
   const extensionTags = extensionFenceTags(extensions).join(',')
@@ -656,6 +658,12 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
         <div className="flex items-center gap-2">
           {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
+          {modeMark && (
+            <span className="inline-flex shrink-0 select-none items-center gap-1 text-[10px] leading-none text-foreground/40" data-testid="agent-message-mode-mark">
+              <Waves className="h-2.5 w-2.5 text-accent-info/80" aria-hidden />
+              {modeMark}
+            </span>
+          )}
         </div>
       )}
     </div>

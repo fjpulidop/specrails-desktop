@@ -25,25 +25,38 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 ## Mission extension slots
 
 `FlowMissionsBridge` fills the missions seam: the `flow-offer` fence card, the
-conversation mode, the dock above the composer (`FlowDock`), the run card's
-Back to Flow / Relaunch (`FlowRunCardActions`) and `RunFailureOutcome`
-(`FlowRunFailure`): a Flow → Spec run that failed outright is explained in the
-person's words — a localized headline per failing step
+conversation mode (`useFlowConversationMode`: while a Flow is open the
+composer's **Flow** chip, accent line and placeholder, "In Flow" by the
+mission title, no git strip; only an active Flow interrupts sends), the
+Flow's runs in the mission's run strip (`useLiveRuns` → [`FlowLiveRuns`](components/FlowLiveRuns.tsx)),
+the words for the steps of Flow → Spec (`describeRun` → `describeFlowRun`),
+the mission list's "In Flow" mark (`useConversationMarks` →
+[`FlowConversationMarks`](components/FlowConversationMarks.tsx), fed by
+`GET /flow/open` and `flow.state`), the polite state announcer
+(`ConversationDock` → `FlowDock`), the run card's Back to Flow / Relaunch
+(`FlowRunCardActions`, Back to Flow is the run's `[data-run-primary]`) and
+`RunFailureOutcome` (`FlowRunFailure`): a Flow → Spec run that failed outright
+is explained in the person's words — a localized headline per failing step
 ([`lib/flow-failure.ts`](lib/flow-failure.ts) maps the recipe's step ids), the
 runtime's error as the cause, what happens next, the actions or "Returned to
-Flow", and the codes only under **Technical details**. The same block renders
-inside the Flow's return card. Flow API refusals read by code
-(`flowErrorMessage`); the server detail is never the headline.
+Flow", and the codes only under **Technical details**. Flow API refusals read
+by code (`flowErrorMessage`); the server detail is never the headline.
 
-## Flow bar and hand-off
+## Flow in the run strip and the hand-off
 
-`FlowBar` shows the copyable branch (the mission's git strip steps aside via
-`hideGitStrip`), a files ± stat that opens `FlowChangesDialog`, and a toolbar
+The Flow is one entry of the mission's run strip, keyed `flow:<id>` so the
+strip morphs in place. Active, paused or needing review it shows
+[`FlowStripControls`](components/FlowStripControls.tsx): the copyable branch,
+a files ± stat that opens `FlowChangesDialog`, the billed cost, and a toolbar
 with **Discard** apart from the primary **This is it**; disabled controls say
-why. `FlowDiscardDialog` lists what is lost. `FlowDock` announces state
-changes in a polite live region. `FlowHandOffCard` adds a one-line recap
-(files ±, cost so far, the safety net) above the launch card, and the offer
-stub's **View run** focuses the run card (missions' card focus bus).
+why. `FlowDiscardDialog` lists what is lost. **This is it** turns the entry
+into "Flow → Spec ready to launch" and opens `FlowHandOffCard` as the strip's
+panel (recap: files ±, cost so far, the safety net; then the rail launch card
+in hand-off mode). **Launch** is the strip's primary (the card's Play); while
+the request runs (`FlowContext.launching`) and until the run's own entry
+shows (the hand-off receipt, `yieldsTo` its delivery) the strip is a launching
+skeleton. The offer stub's **View run** opens the run through missions' focus
+bus.
 
 ## Repository target
 

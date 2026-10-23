@@ -317,7 +317,8 @@
       "returned_to_flow": "Tornato in Flow",
       "flowSpecChanges": "Flow → Spec — il revisore ha richiesto modifiche",
       "flowSpecDelivered": "Flow → Spec consegnato",
-      "flowSpecFailed": "Flow → Spec si è fermato"
+      "flowSpecFailed": "Flow → Spec si è fermato",
+      "flowSpecBuilding": "Flow → Spec sta trasformando il tuo lavoro in una PR revisionata"
     },
     "buildingHint": "Al termine ti verrà chiesto se creare la PR.",
     "buildingExistingPrHint": "Specrails sta lavorando sul branch della PR esistente e invierà le modifiche di review a quella stessa PR.",
@@ -415,15 +416,6 @@
     "runCostAria": "{{cost}} spesi",
     "focusRegion": "Scheda di implementazione · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "Fissata",
-      "marker": "Scheda di implementazione — fissata sopra",
-      "goTo": "Vai alla scheda fissata",
-      "collapse": "Riduci la scheda fissata",
-      "expand": "Espandi la scheda fissata",
-      "expandCard": "Espandi questa scheda",
-      "collapseCard": "Riduci questa scheda",
-      "collapsed_one": "Scheda di implementazione",
-      "collapsed_other": "{{count}} schede di implementazione",
       "state": {
         "completed": "Completata",
         "no_changes": "Nessuna modifica",
@@ -608,7 +600,6 @@
     "pending": "Preparazione di una proposta di lancio…",
     "unreadable_one": "Impossibile leggere la proposta di lancio dell’agente.",
     "unreadable_other": "Impossibile leggere {{count}} proposte di lancio.",
-    "pinnedMarker": "Proposta di lancio fissata sopra il compositore",
     "effortDefault": "Sforzo predefinito",
     "profileNone": "Nessun profilo",
     "status": {
@@ -771,12 +762,9 @@
     }
   },
   "runFailure": {
-    "marker": "Il Rail {{rail}} è fallito: {{code}}",
-    "openCard": "Apri scheda",
     "briefing": {
       "title": "Resoconto automatico dell’errore"
-    },
-    "reviewChanges": "Rail {{rail}}: il revisore ha richiesto modifiche"
+    }
   },
   "split": {
     "open": "Vista divisa",
@@ -983,7 +971,6 @@
       "waitForReply": "Potrai scegliere quando l’agente avrà finito questa risposta."
     },
     "bar": {
-      "label": "Controlli del Flow",
       "controls": "Azioni del Flow",
       "viewChanges": "Vedi modifiche",
       "resume": "Riprendi Flow",
@@ -1012,7 +999,6 @@
         "busy": "Attendi che l’azione in corso finisca",
         "noSpec": "La spec del Flow non è ancora pronta"
       },
-      "working": "L’agente sta lavorando",
       "viewChangesStats": "Vedi modifiche · {{files}}, +{{additions}} −{{deletions}}"
     },
     "preview": {
@@ -1106,6 +1092,25 @@
       "delivered": "Flow consegnato.",
       "discarded": "Flow scartato.",
       "returned": "Di nuovo in Flow: il lavoro è tornato con ciò che Flow → Spec ha trovato."
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Flow → Spec pronto da avviare",
+      "launching": "Avvio di Flow → Spec…",
+      "launchingOn": "Avvio di Flow → Spec su {{rail}}…",
+      "step": {
+        "derive": "Scrittura della spec dalle tue modifiche",
+        "verify": "Verifica delle tue modifiche",
+        "review": "Revisione della modifica",
+        "fix": "Applicazione delle correzioni della revisione",
+        "archive": "Archiviazione della modifica OpenSpec",
+        "settle": "Restituzione del risultato"
+      }
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Modalità Flow: l'agente scrive nel worktree isolato del Flow",
+      "placeholder": "Di' all'agente cosa cambiare nel worktree…"
     }
   },
   "flowReturn": {
@@ -1134,5 +1139,79 @@
     "changeArchived": "Modifica OpenSpec {{change}} archiviata",
     "jira": "Issue Jira {{key}}",
     "jiraPending": "Issue Jira in creazione"
+  },
+  "runStrip": {
+    "launching": "Avvio su {{rail}}…",
+    "running": "Al lavoro",
+    "paused": "In pausa — ti aspetta",
+    "pausedReason": "In pausa: {{reason}}",
+    "decision": {
+      "approval": "In attesa della tua approvazione",
+      "changes": "Il revisore ha chiesto modifiche",
+      "on_review": "Pronto per la tua revisione",
+      "pr_draft": "PR in bozza pronta da pubblicare",
+      "no_changes": "Terminato senza modifiche",
+      "pr_closed": "PR chiusa senza merge",
+      "generic": "In attesa della tua decisione"
+    },
+    "failed": {
+      "generic": "Fermato da un errore",
+      "implementation_failed": "L'implementazione non è riuscita",
+      "stalled": "L'esecuzione si è bloccata",
+      "stuck": "L'esecuzione è rimasta bloccata",
+      "provider_limit": "Il limite d'uso del provider l'ha fermata",
+      "launch_failed": "L'esecuzione non è partita",
+      "delivery_failed": "Non è stato possibile consegnare il risultato",
+      "push_failed": "Non è stato possibile fare il push del branch",
+      "pr_failed": "Non è stato possibile creare la PR"
+    },
+    "progressAria": "{{done}} di {{total}} esecuzioni terminate",
+    "costTitle": "Costo reale fatturato dal provider finora",
+    "costPartial": "Alcune esecuzioni non hanno ancora un costo fatturato e non sono incluse",
+    "costNone": "Ancora nessun costo fatturato",
+    "state": {
+      "launching": "Avvio:",
+      "running": "In corso:",
+      "decision": "Ti aspetta:",
+      "failed": "Non riuscito:",
+      "paused": "In pausa:"
+    },
+    "proposal": "Avvio proposto per {{tickets}}",
+    "proposalNoTickets": "Avvio proposto",
+    "proposalLabel": "Proposta",
+    "review": "Rivedi",
+    "panelLabel": "Dettagli di {{run}}",
+    "showDetails": "Mostra dettagli",
+    "hideDetails": "Nascondi dettagli",
+    "switcher": "Esecuzioni in corso",
+    "more": "Altre esecuzioni ({{count}})",
+    "announce": {
+      "settled": "{{run}} è terminato"
+    },
+    "attention": "In attesa della tua decisione",
+    "event": {
+      "launched": "Avviato su {{run}}",
+      "failed": "{{run}} non riuscito: {{reason}}",
+      "openRun": "Mostra l'esecuzione",
+      "proposed": "Avvio proposto — ti aspetta",
+      "backToFlow": "Di nuovo in Flow",
+      "flowReturned": "Flow → Spec su {{run}} è tornato a Flow",
+      "delivered": "Consegnato: PR {{pr}}",
+      "deliveredNoPr": "Consegnato su {{run}}",
+      "superseded": "{{run}} è stato sostituito da un'esecuzione più recente",
+      "discarded": "{{run}} è stato scartato",
+      "changes": "{{run}}: il revisore ha chiesto modifiche"
+    }
+  },
+  "flowBoundary": {
+    "entered": "Entrato in Flow",
+    "left": "Uscito da Flow",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "avviato",
+      "returned": "di ritorno da un rail",
+      "handed_off": "affidato a un rail",
+      "discarded": "scartato"
+    }
   }
 }

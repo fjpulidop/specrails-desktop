@@ -5,8 +5,8 @@ import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '..
 import { ExternalLink } from 'lucide-react'
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, AnimatePresence } from 'motion/react'
-import { Bot, ShieldAlert, PackageOpen, Pin } from 'lucide-react'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { Bot, ShieldAlert, PackageOpen, Rocket } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { useSmoothStream } from '../../specs/components/explore-spec/useSmoothStream'
@@ -19,12 +19,17 @@ import { AgentMessage } from './AgentMessage'
 import { AgentQueuedMessage } from './AgentQueuedMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
-import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
+import { AgentRunStrip } from './AgentRunStrip'
+import { AgentRunEventLine } from './AgentRunEventLine'
+import { AgentRunLaunchedLine, AgentSettledRunLine } from './AgentRunHistoryLines'
+import { proposalRunKey } from './mission-run-strip'
+import { FLOW_SPEC_LOOP_ID } from '../../delivery/components/LoopChip'
 import { AgentConversationHeader } from './AgentConversationHeader'
 import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
-import { focusPrCard, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { openRunStrip, parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
 import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from './AgentFlowReturnCard'
 import { AgentFlowDeliveredCard, parseFlowDeliveredRow } from './AgentFlowDeliveredCard'
+import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { FEATURE_MISSION_RAIL_CARDS } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -97,6 +102,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
 
 function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' }) {
   const composerLayoutId = useMissionPaneLayoutId()
+  const reduced = useReducedMotion()
   const { t } = useTranslation('agent')
   const {
     active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
@@ -158,10 +164,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const emptyTitle = useActiveTheme().id === 'code-rain' ? t('emptyTitleCodeRain') : t('emptyTitle')
 
   // PR-decision envelopes parsed ONCE per message-state change (`messages`
-  // identity is stable across streaming frames — no per-frame reparse). Pinned
-  // cards (attention-demanding decisions) surface in the dock above the
-  // composer; their history slot renders a slim reference marker instead.
+  // identity is stable across streaming frames — no per-frame reparse). Live
+  // deliveries show in the run strip above the composer; their history slot
+  // renders a one-line "launched" event instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
+  // Agent turns produced while the conversation was in Flow (between boundaries).
+  const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
   // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
   const railProposals = useRailLaunchProposals(messages)
   // Core sessions: sub-agents anchor under the message of the turn that launched
@@ -284,7 +292,10 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // (the run card itself carries the recovery actions).
               if (FEATURE_MISSION_RAIL_CARDS) {
                 const failure = parseRunFailureRow(m.content)
-                if (failure) return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} />
+                if (failure) {
+                  const failedEnvelope = failure.prDeliveryId ? prCards.byDeliveryId.get(failure.prDeliveryId) ?? null : null
+                  return <AgentRunFailureMarker key={m.id} row={failure} conversationId={m.conversation_id} envelope={failedEnvelope} />
+                }
               }
               // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
@@ -292,6 +303,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Flow delivered: the closing summary (server-authored, once per Flow).
               const flowDelivered = parseFlowDeliveredRow(m.content)
               if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} />
+              // Entered / left Flow: one event line at the boundary.
+              const flowBoundary = parseFlowBoundaryRow(m.content)
+              if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null
@@ -301,26 +315,15 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 }
                 return null
               }
-              // While the card demands attention it lives PINNED above the
-              // composer — its chronological slot keeps a slim reference marker
-              // (no double render). Unpinning returns the full card here.
+              // While the run is live, the strip above the composer shows it:
+              // its history slot only says it was launched (and opens it).
               if (isPrEnvelopePinned(envelope)) {
-                return (
-                  <button
-                    type="button"
-                    key={m.id}
-                    data-agent-interactive
-                    data-testid="agent-pr-pinned-marker"
-                    title={t('prCard.pinned.goTo')}
-                    aria-label={t('prCard.pinned.goTo')}
-                    onClick={() => focusPrCard({ prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds ?? [], conversationId: m.conversation_id })}
-                    className="flex w-full items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-left text-[11px] text-foreground/45 backdrop-blur-sm transition-colors hover:border-accent-primary/40 hover:text-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                  >
-                    <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
-                    <span className="min-w-0 flex-1 truncate">{t('prCard.pinned.marker')}</span>
-                    <PrDecisionPill decision={envelope.decision} />
-                  </button>
-                )
+                return <AgentRunLaunchedLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
+              }
+              // A settled Flow → Spec run: its outcome line (the Flow's closing
+              // summary is the full card of that story); expands in place.
+              if (envelope.loopId === FLOW_SPEC_LOOP_ID) {
+                return <AgentSettledRunLine key={m.id} envelope={envelope} conversationId={m.conversation_id} />
               }
               return <AgentPrDecisionCard key={m.id} envelope={envelope} conversationId={m.conversation_id} />
             }
@@ -343,6 +346,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 railProposalsPinned={railPinned}
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
+                modeMark={flowTurns.has(m.id) ? t('flowBoundary.turnMark') : null}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere, except in a mode
                 // that interrupts while busy (Flow): there a pick cuts the turn.
@@ -360,17 +364,19 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />
-              {railPinned && (
-                // The proposal card is pinned above the composer while it awaits
-                // Play / Dismiss — its chronological slot keeps a slim marker.
-                <div
-                  data-testid="agent-rail-launch-pinned-marker"
-                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
+              {railPinned && railProposals.pinned.filter((p) => p.messageId === m.id).map((p) => (
+                // The proposal waits in the run strip for Play / Dismiss — its
+                // chronological slot says it was proposed (and opens it).
+                <AgentRunEventLine
+                  key={`proposal:${p.proposalIndex}`}
+                  icon={Rocket}
+                  testId="agent-rail-launch-proposed-line"
+                  actionLabel={t('runStrip.event.openRun')}
+                  onActivate={() => openRunStrip({ conversationId: m.conversation_id, key: proposalRunKey(p.messageId, p.proposalIndex) })}
                 >
-                  <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
-                  <span className="min-w-0 flex-1 truncate">{t('railCard.pinnedMarker')}</span>
-                </div>
-              )}
+                  {t('runStrip.event.proposed')}
+                </AgentRunEventLine>
+              ))}
               {subagentCard(turnSubagents, `subagents:${m.id}`)}
               {(placement.afterMessage.get(m.id) ?? []).map((group, index) => subagentCard(group, `subagents:${m.id}:${index}`))}
               </div>
@@ -407,22 +413,31 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           )}
         </motion.div>
 
-        {/* Pinned implementation-card slot — always visible above the composer
-            while any delivery demands attention; animates away on unpin. */}
+        {/* The run strip: the ONE live view of this mission's runs (launch
+            proposals, deliveries, the extension's Flow). Its panel opens the
+            run's full card above it, over the conversation. */}
         <AnimatePresence initial={false}>
-          {active && (prCards.pinned.length > 0 || railProposals.pinned.length > 0) && (
-            <AgentPrPinnedDock
-              key="agent-pr-pinned-dock"
-              pinned={prCards.pinned}
-              proposals={railProposals.pinned}
-              projectId={refsProjectId}
-              conversationId={active.id}
-              inline={inline}
-            />
+          {active && (
+            <motion.div
+              key="mission-run-strip"
+              initial={reduced ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: 6 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="shrink-0"
+            >
+              <AgentRunStrip
+                conversationId={active.id}
+                projectId={refsProjectId}
+                inline={inline}
+                deliveries={prCards.pinned}
+                proposals={railProposals.pinned}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Extension dock (Flow bar / hand-off card): above the composer. */}
+        {/* Extension dock (Flow: its polite state announcer): above the composer. */}
         {active && ConversationDock && (
           <ConversationDock conversationId={active.id} projectId={refsProjectId} inline={inline} />
         )}
