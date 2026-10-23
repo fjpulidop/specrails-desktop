@@ -169,9 +169,8 @@ describe('missions extension seam (Flow mode)', () => {
       expect(chip).toHaveTextContent('Flow')
       expect(chip).toHaveAttribute('title', 'Flow mode: the agent writes in the worktree')
       expect(within(chip).getByTestId('mode-icon')).toBeInTheDocument()
-      expect(screen.getByTestId('agent-composer-mode-line')).toHaveAttribute('data-active', 'true')
-      // The mode's own color (not the running/info accent) on the line and the chip.
-      expect(screen.getByTestId('agent-composer-mode-line')).toHaveStyle({ background: 'var(--color-accent-flow)' })
+      // The chip names the mode; no unlabeled accent line along the composer.
+      expect(screen.queryByTestId('agent-composer-mode-line')).toBeNull()
       expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-flow)')
       expect(screen.getByTestId('agent-composer-box')).toHaveAttribute('data-composer-mode', 'extension')
       expect(screen.getByRole('textbox')).toHaveAttribute('data-placeholder', 'Tell the agent what to change in the worktree…')
@@ -183,7 +182,7 @@ describe('missions extension seam (Flow mode)', () => {
       await act(async () => { chat!.open() })
       await screen.findByRole('textbox')
       expect(screen.queryByTestId('agent-composer-mode-chip')).toBeNull()
-      expect(screen.getByTestId('agent-composer-mode-line')).toHaveAttribute('data-active', 'false')
+      expect(screen.queryByTestId('agent-composer-mode-line')).toBeNull()
     })
   })
 

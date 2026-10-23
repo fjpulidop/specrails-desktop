@@ -102,6 +102,26 @@ describe('placeholder spec binding', () => {
 })
 
 describe('worktree reservation binding (real git)', () => {
+  it('adopts the one open spec change an earlier run left under another name, and refuses several', async () => {
+    const ctx = context()
+    const tickets = createFlowTickets(ctx)
+    const ticketId = tickets.createPlaceholder({ flowId: 'flow-oc', conversationId: 'conv-oc', title: 'Retire v1', description: 'x', startedAt: 't' })
+    const worktrees = createFlowWorktrees(ctx, { providerFor: () => 'claude' })
+    const reserved = await worktrees.reserve({ flowId: 'flow-oc', conversationId: 'conv-oc', ticketId })
+    const change = (name: string) => {
+      fs.mkdirSync(path.join(reserved.worktreePath, 'openspec', 'changes', name), { recursive: true })
+      fs.writeFileSync(path.join(reserved.worktreePath, 'openspec', 'changes', name, 'proposal.md'), `# ${name}\n`)
+    }
+    change('retire-v1-2')
+    const frozen = await worktrees.freeze({ flowId: 'flow-oc', conversationId: 'conv-oc', ticketId, worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, allowedChanges: ['retire-v1'] })
+    expect(frozen.adoptedChange).toBe('retire-v1-2')
+    change('unrelated-a')
+    change('unrelated-b')
+    await expect(worktrees.freeze({ flowId: 'flow-oc', conversationId: 'conv-oc', ticketId, worktreePath: reserved.worktreePath, baseSha: reserved.baseSha, allowedChanges: ['retire-v1-2'] }))
+      .rejects.toThrow(/open spec changes/)
+    await worktrees.release({ flowId: 'flow-oc', ticketId, worktreePath: reserved.worktreePath, branch: reserved.branch })
+  })
+
   it('reserves a Flow-owned worktree, summarizes the diff, freezes HEAD and releases it', async () => {
     const ctx = context()
     const tickets = createFlowTickets(ctx)
@@ -733,14 +753,18 @@ describe('Flow freeze after Back to Flow keeps the Flow\'s own derived change (r
     fs.writeFileSync(path.join(reserved.worktreePath, 'openspec', 'changes', 'rogue-change', 'proposal.md'), '# rogue\n')
     const error = await service.handOffFlow({ flowId: 'flow-1', railIndex: 0 }).catch((caught: unknown) => caught as FlowConflictError)
     expect(error).toBeInstanceOf(FlowConflictError)
-    expect((error as FlowConflictError).message).toContain('openspec/changes/rogue-change')
-    expect((error as FlowConflictError).message).not.toContain(LEGACY)
+    // Two open changes are ambiguous: the agent must keep one.
+    expect((error as FlowConflictError).message).toContain('rogue-change')
+    expect((error as FlowConflictError).message).toMatch(/keep one/)
     expect(repository.get('flow-1')).toMatchObject({ state: 'paused', step: null })
   })
 
-  it('without recorded evidence the leftover change still blocks, and the first derivation is named after the spec', async () => {
-    const { reserved, service } = await returnedFlow({ evidenceChange: null })
-    await expect(service.handOffFlow({ flowId: 'flow-1', railIndex: 0 })).rejects.toThrow(new RegExp(`openspec/changes/${LEGACY}`))
+  it('without recorded evidence the one leftover change is adopted as the Flow\'s, and a first derivation is named after the spec', async () => {
+    const { repository, reserved, service } = await returnedFlow({ evidenceChange: null })
+    await service.handOffFlow({ flowId: 'flow-1', railIndex: 0 }).catch((caught: unknown) => {
+      expect(String((caught as Error)?.message)).not.toMatch(/open spec change|new active changes/)
+    })
+    expect(repository.get('flow-1')?.derivedChanges).toContain(LEGACY)
     expect(flowDerivationChangeId(reserved.worktreePath, { baseSha: reserved.baseSha, changeId: null }, 'Arkanoid power-ups')).toBe('arkanoid-power-ups')
   })
 })

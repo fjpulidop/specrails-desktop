@@ -88,7 +88,7 @@ export interface WorktreeReservation {
   /** Commit the worktree's deliverable changes (overlay excluded) and return HEAD. */
   /** `allowedChanges`: active OpenSpec changes this Flow's own Flow → Spec runs
    * derived; the delivery hygiene still blocks every other new active change. */
-  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null }): Promise<{ headSha: string }>
+  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null }): Promise<{ headSha: string; adoptedChange?: string }>
   exists(worktreePath: string): boolean
   diff(input: { worktreePath: string; baseSha: string | null; branch: string | null; repositoryId?: string | null }): Promise<FlowDiffSummary>
 }

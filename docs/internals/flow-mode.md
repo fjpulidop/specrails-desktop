@@ -519,7 +519,7 @@ Missions never import it: the composition root mounts `FlowMissionsBridge`
 around the mission chat and fills the missions extension seam
 ([MissionExtensionsContext](../../client/src/features/missions/context/MissionExtensionsContext.tsx)):
 a `flow-offer` fence card, a conversation mode (while a Flow is open: the
-composer's **Flow** chip, accent line and placeholder, "In Flow" next to the
+composer's **Flow** chip and placeholder, "In Flow" next to the
 mission title, `hideGitStrip` — the run strip shows and copies the worktree
 branch; only an active Flow adds `data-flow="active"` and interrupting sends),
 its runs in the mission's run strip (`useLiveRuns`) with the words for the

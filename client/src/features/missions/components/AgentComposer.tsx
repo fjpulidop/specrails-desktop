@@ -51,7 +51,7 @@ import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
-import { modeAccent, useMissionConversationMode } from '../context/MissionExtensionsContext'
+import { useMissionConversationMode } from '../context/MissionExtensionsContext'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
@@ -764,15 +764,6 @@ export function AgentComposer({
         }}
       >
         <AgentThinkingHalo active={isStreaming} radius="1.5rem" inset={-1} />
-        {/* The extension's mode (Flow): a thin accent line along the top edge.
-            It fades in/out with the mode (instant under reduced motion). */}
-        <span
-          aria-hidden
-          data-testid="agent-composer-mode-line"
-          data-active={composerMode ? 'true' : 'false'}
-          style={{ background: modeAccent(composerMode?.badge) }}
-          className={`pointer-events-none absolute inset-x-8 top-0 h-px transition-opacity duration-200 motion-reduce:transition-none ${composerMode ? 'opacity-90' : 'opacity-0'}`}
-        />
         {paletteOpen && (
           <AgentContextPalette
             items={visiblePaletteItems}

@@ -287,6 +287,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     try {
       await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
       const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [], ...repositoryOf(session) })
+      // A change the Flow's own earlier run left under another name is the
+      // Flow's: the next run re-derives it instead of being blocked by it.
+      if (frozen.adoptedChange) session = commit({ ...session, derivedChanges: withDerivedChange(session, frozen.adoptedChange) })
       session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
       const launched = await ports.rails.launch({
         flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},

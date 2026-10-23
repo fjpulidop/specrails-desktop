@@ -43,7 +43,7 @@ import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../.
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, firstErrorLine, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
   type DerivedChangeText, type FlowRunFailure, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
@@ -317,13 +317,26 @@ export function createFlowWorktrees(
         const title = ctx.getTicketSpec(input.ticketId)?.title ?? `Flow ${input.flowId}`
         // The Flow's own derived change (a returned Flow → Spec run left it
         // active) is intended; any other new active change still blocks.
-        const commit = await commitWorktreeAndVerify(git, input.worktreePath, `Flow #${input.ticketId}: ${title}`, excludes, input.baseSha ?? undefined, { allowedActiveChanges: input.allowedChanges })
+        // Everything in a Flow worktree is the Flow's own work. A single active
+        // change the Flow does not know yet (an earlier Flow -> Spec run named
+        // it differently) is adopted as its derived change; several are
+        // ambiguous and still block, with a message the agent can act on.
+        const unknown = await unknownActiveChanges(git, input.worktreePath, input.baseSha, input.allowedChanges)
+        if (unknown.length > 1) {
+          throw new FlowConflictError('flow_freeze_failed', `This Flow has ${unknown.length} open spec changes (${unknown.join(', ')}); keep one and archive or remove the others, then hand off again`, input.flowId)
+        }
+        const adoptedChange = unknown.length === 1 && !input.allowedChanges.some((name) => fs.existsSync(path.join(input.worktreePath, 'openspec', 'changes', name))) ? unknown[0] : undefined
+        if (unknown.length === 1 && !adoptedChange) {
+          throw new FlowConflictError('flow_freeze_failed', `This Flow has two open spec changes (${[...input.allowedChanges.filter((name) => fs.existsSync(path.join(input.worktreePath, 'openspec', 'changes', name))), unknown[0]].join(', ')}); keep one and archive or remove the other, then hand off again`, input.flowId)
+        }
+        const allowed = adoptedChange ? [...input.allowedChanges, adoptedChange] : input.allowedChanges
+        const commit = await commitWorktreeAndVerify(git, input.worktreePath, `Flow #${input.ticketId}: ${title}`, excludes, input.baseSha ?? undefined, { allowedActiveChanges: allowed })
         if (!commit.clean) {
           throw new FlowConflictError('flow_freeze_failed', `The Flow worktree could not be committed: ${commit.error ?? commit.dirty.slice(0, 5).join(', ')}`, input.flowId)
         }
         const headSha = await readHeadSha(git, input.worktreePath)
         if (!headSha) throw new FlowConflictError('flow_freeze_failed', 'The Flow worktree HEAD could not be verified', input.flowId)
-        return { headSha }
+        return adoptedChange ? { headSha, adoptedChange } : { headSha }
       })
     },
     exists(worktreePath) {
@@ -822,4 +835,21 @@ export function startFlowSettlementScheduler(service: Pick<FlowService, 'runDueS
   }, intervalMs)
   timer.unref?.()
   return { stop: () => clearInterval(timer) }
+}
+
+/** Active OpenSpec changes in the worktree that are neither in the base commit nor already the Flow's. */
+async function unknownActiveChanges(git: GitRunner, worktreePath: string, baseSha: string | null, known: string[]): Promise<string[]> {
+  let names: string[]
+  try {
+    names = fs.readdirSync(path.join(worktreePath, 'openspec', 'changes'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name !== 'archive' && isOpenSpecChangeId(entry.name))
+      .map((entry) => entry.name)
+  } catch { return [] }
+  if (!names.length) return []
+  const baseline = new Set<string>()
+  if (baseSha) {
+    const listed = await git.run(['ls-tree', '-d', '--name-only', `${baseSha}:openspec/changes`], worktreePath).catch(() => null)
+    if (listed?.code === 0) for (const name of listed.stdout.split('\n')) if (name.trim()) baseline.add(name.trim())
+  }
+  return names.filter((name) => !baseline.has(name) && !known.includes(name))
 }
