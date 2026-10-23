@@ -121,24 +121,24 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-flow/[0.07] px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
-        <span id="flow-entry-title" className="text-[10px] font-semibold uppercase tracking-widest text-accent-flow">{t('flow.entry.heading')}</span>
+        <span id="flow-entry-title" className="text-[13px] font-semibold text-foreground">{t('flow.entry.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         <p className="flex items-start gap-2 text-xs leading-5 text-foreground/80">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
           <span>{t('flow.entry.body')}</span>
         </p>
-        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 border-l-2 border-accent-flow/50 bg-surface/40 px-3 py-2 text-xs italic text-foreground/75">
+        <blockquote data-testid="flow-entry-idea" className="line-clamp-4 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs italic text-foreground/80">
           {title ? <span className="mb-0.5 block not-italic font-medium text-foreground/90">{title}</span> : null}
           {idea}
         </blockquote>
-        <p className="flex items-center gap-1.5 text-[11px] text-foreground/55">
+        <p className="flex items-center gap-1.5 text-xs text-foreground/70">
           <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
           {provider ? t('flow.entry.provider', { provider: providerLabel(provider) }) : t('flow.entry.providerUnknown')}
         </p>
         {choice?.show && choice.candidates.length > 0 && (
           <div data-testid="flow-entry-repository" className="space-y-1.5">
-            <p id="flow-entry-repository-label" className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-foreground/55">
+            <p id="flow-entry-repository-label" className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
               <FolderGit2 className="h-3 w-3 shrink-0" aria-hidden />
               {t('flow.entry.repository.label')}
             </p>
@@ -167,16 +167,16 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
                       <span className="flex items-center gap-1.5">
                         <span className={cn('truncate text-xs font-medium', checked ? 'text-foreground' : 'text-foreground/80')}>{candidate.name}</span>
                         {candidate.id === suggested && (
-                          <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent-flow">{t('flow.entry.repository.suggested')}</span>
+                          <span className="shrink-0 rounded-full bg-accent-flow/15 px-1.5 py-px text-xs font-medium text-accent-flow">{t('flow.entry.repository.suggested')}</span>
                         )}
                       </span>
-                      <span className="block truncate font-mono text-[10px] text-foreground/45" title={candidate.path}>{candidate.path}</span>
+                      <span className="block truncate font-mono text-xs text-foreground/70" title={candidate.path}>{candidate.path}</span>
                     </span>
                   </button>
                 )
               })}
             </div>
-            <p id="flow-entry-repository-hint" className="text-[11px] text-foreground/50">
+            <p id="flow-entry-repository-hint" className="text-xs text-foreground/70">
               {selectedRepositoryId ? t('flow.entry.repository.hint') : t('flow.entry.repository.choose')}
             </p>
           </div>
@@ -186,7 +186,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
             <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
-                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-[11px] font-medium text-foreground/75 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
+                className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-xs font-medium text-foreground/80 underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50">
                 {t('flow.entry.blocked.goToFlow')}
               </button>
             )}
@@ -203,7 +203,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
           <InitialCommitButton projectId={projectId} onCreated={() => void startFlow()} />
         )}
         <div className="flex items-center justify-end gap-2">
-          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-foreground/65 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
+          <button type="button" data-agent-interactive onClick={onCancel} disabled={busy} className="rounded-md px-2.5 py-1 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground disabled:opacity-50">
             {t('flow.entry.cancel')}
           </button>
           <button

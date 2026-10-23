@@ -104,13 +104,13 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-surface/40 px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
-        <span id={labelId} className="text-[10px] font-semibold uppercase tracking-widest text-foreground/70">{t('flow.offer.heading')}</span>
+        <span id={labelId} className="text-[13px] font-semibold text-foreground">{t('flow.offer.heading')}</span>
       </div>
       <div className="space-y-3 px-3.5 py-3">
         <p className="text-sm text-foreground/90">{offer.idea}</p>
         {offer.reason && (
           <div data-testid="flow-offer-reason" className="text-xs leading-5">
-            <p className="font-medium text-foreground/60">{t('flow.offer.why')}</p>
+            <p className="font-medium text-foreground/75">{t('flow.offer.why')}</p>
             <p className="text-foreground/70">{offer.reason}</p>
           </div>
         )}
@@ -137,16 +137,16 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
                   <Icon className={cn('h-3.5 w-3.5', mode === 'flow' ? 'text-accent-flow' : 'text-accent-primary')} aria-hidden />
                   {t(`flow.offer.mode.${mode}.title`)}
                 </span>
-                <span className="text-[11px] leading-4 text-foreground/60">{t(`flow.offer.mode.${mode}.hint`)}</span>
+                <span className="text-xs leading-4 text-foreground/70">{t(`flow.offer.mode.${mode}.hint`)}</span>
               </button>
             )
           })}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p id={hintId} className="min-w-0 text-[11px] text-foreground/50" data-testid="flow-offer-streaming-hint">
+          <p id={hintId} className="min-w-0 text-xs text-foreground/70" data-testid="flow-offer-streaming-hint">
             {isStreaming ? t('flow.offer.waitForReply') : null}
           </p>
-          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-[11px] text-foreground/50 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50">
+          <button type="button" data-agent-interactive data-testid="flow-offer-dismiss" disabled={disabled} onClick={() => void dismiss()} className="shrink-0 rounded-md px-2 py-0.5 text-xs text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50 disabled:opacity-50">
             {t('flow.offer.notNow')}
           </button>
         </div>
@@ -176,7 +176,7 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
       data-testid={`flow-offer-stub-${dismissed ? 'dismissed' : chosen ?? 'accepted'}`}
       className={cn(
         'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs backdrop-blur',
-        dismissed ? 'border-border/50 bg-surface/40 text-foreground/50' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground/80' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground/80',
+        dismissed ? 'border-border/50 bg-surface/40 text-foreground/70' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground/80' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground/80',
       )}
     >
       <Icon className={cn('h-3.5 w-3.5 shrink-0', chosen === 'flow' && !dismissed ? 'text-accent-flow' : dismissed ? '' : 'text-accent-primary')} aria-hidden />
@@ -189,7 +189,7 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
           data-agent-interactive
           data-testid="flow-offer-stub-view-run"
           onClick={() => focusPrCard({ prDeliveryId: runTarget.prDeliveryId, runIds: runTarget.runIds, conversationId })}
-          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] font-medium text-accent-flow hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-xs font-medium text-accent-flow hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-flow/50"
         >
           {t('flow.offer.stub.viewRun')}
           <ArrowUpRight className="h-3 w-3" aria-hidden />

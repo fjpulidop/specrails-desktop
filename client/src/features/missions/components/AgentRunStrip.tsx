@@ -654,7 +654,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
         {selected.headline}
       </span>
       {selected.meta && (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-foreground/70" data-testid="mission-run-strip-meta">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] tabular-nums text-foreground/75" data-testid="mission-run-strip-meta">
           {selected.meta}
         </span>
       )}

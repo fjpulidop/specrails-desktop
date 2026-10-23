@@ -830,7 +830,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               maxLength={60}
               placeholder={createsRail ? t('railCard.fields.newRailName') : t('railCard.fields.railName')}
               onChange={(e) => patch({ railName: e.target.value })}
-              className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/35 focus:border-accent-primary/50"
+              className="h-7 min-w-[120px] flex-1 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
             />
           )}
         </div>
@@ -966,7 +966,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               placeholder={t('railCard.fields.targetPr')}
               disabled={!!busy}
               onChange={(e) => patch({ targetPrNumber: e.target.value ? Math.max(1, Math.floor(Number(e.target.value))) : null })}
-              className="h-7 w-28 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/35 focus:border-accent-primary/50"
+              className="h-7 w-28 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
             />
           </label>
           <label className="inline-flex items-center gap-1 text-foreground/60">
@@ -980,7 +980,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
               placeholder={t('railCard.fields.baseBranch')}
               disabled={!!busy}
               onChange={(e) => patch({ baseBranch: e.target.value })}
-              className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/35 focus:border-accent-primary/50"
+              className="h-7 w-40 rounded-md border border-border/60 bg-surface/50 px-2 text-xs text-foreground outline-none placeholder:text-foreground/60 focus:border-accent-primary/50"
             />
           </label>
         </div>
