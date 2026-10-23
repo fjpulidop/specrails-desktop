@@ -19,7 +19,7 @@ Kann dein Specrails Core Flow noch nicht ausführen, ist der Button deaktiviert 
 
 ## Während des Flows
 
-Die Unterhaltung ändert ihr Aussehen (eine feine Akzentlinie am Rand), und über dem Eingabefeld erscheint eine Leiste:
+Der Flow-Modus steht dort, wo du hinschaust: Das Eingabefeld zeigt einen **Flow**-Chip neben dem Autonomie-Chip, eine feine Akzentlinie oben und den Hinweis *Sag dem Agenten, was er im Worktree ändern soll…*; neben dem Missionstitel steht **Im Flow**, ebenso in ihrer Zeile der Missionsliste. Die Unterhaltung markiert, wo du Flow betreten und verlassen hast, und im Flow geschriebene Antworten des Agenten tragen neben ihrer Uhrzeit eine kleine **Flow**-Marke. Die Leiste direkt über dem Eingabefeld zeigt den Flow:
 
 - der **Branch** des Worktrees, die **geänderten Dateien** mit hinzugefügten und entfernten Zeilen und die **echten Kosten** des Flows bisher, wie vom Anbieter abgerechnet. Bis ein Turn gemeldete Kosten hat, steht dort `—` – nie eine Schätzung;
 - ein Klick auf die **geänderten Dateien** listet jede Datei mit Status und +/−, ein Klick auf den **Branch** kopiert seinen Namen;
@@ -37,11 +37,11 @@ Sobald die App lauscht, nennt dir der Agent ihre Adressen als Links und die Flow
 
 ## Fertig
 
-Bist du mit dem Ergebnis zufrieden, drücke **Fertig**. Flow-Leiste und visuelle Hervorhebung verschwinden, und die gewohnte Rail-Startkarte erscheint – mit vorausgewähltem Loop **Flow → Spec** und einer freien Rail. Passe Engine, Modell oder Aufwand an, wenn du willst, und drücke **Starten**. Ist das Review-Limit oder ein Budget erreicht, sagt die Karte das und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
+Bist du mit dem Ergebnis zufrieden, drücke **Fertig**. Dieselbe Leiste wird zu **Flow → Spec startbereit** und öffnet ihre Einstellungen direkt darüber: die **Flow → Spec**-Schleife, eine für dich gewählte freie Rail sowie Engine, Modell und Aufwand deiner Unterhaltung. Passe an, was du möchtest, und drücke **Starten** (im Panel oder in der Leiste). Während des Starts zeigt die Leiste das an – ohne Lücke – und folgt dann dem Lauf Schritt für Schritt. Ist das Review-Limit oder ein Budget erreicht, sagt das Panel es und startet nicht. **Noch nicht** bringt dich zurück in den Flow.
 
 Die Rail leitet aus dem Gebauten die Specrails-Spec und die OpenSpec-Änderung ab, verifiziert und prüft sie, und die Auslieferungskarte erscheint in der Mission wie bei jedem Lauf.
 
-Über der Startkarte zeigt eine einzeilige Zusammenfassung, was an die Rail geht (Dateien und Zeilen), und die bisherigen Kosten des Flows. Scheitert der Lauf aus technischen Gründen, kehrt die Arbeit von selbst und unversehrt in diesen Flow zurück: Die Karte sagt in einfachen Worten, was fehlgeschlagen ist (die Codes stehen unter **Technische Details**), und der Agent erhält den Fehler und erklärt ihn. Verlangt die Prüfung Änderungen, bietet die Karte **Zurück zu Flow** oder **Neu starten** an. Ist die Auslieferung abgeschlossen, schließt die Mission den Flow mit einer Zusammenfassung ab: der Pull-Request, die aus dem Gebauten neu geschriebene Spec, die archivierte OpenSpec-Änderung und – falls vorhanden – der Jira-Vorgang.
+In diesem Panel zeigt eine einzeilige Zusammenfassung, was an die Rail geht (Dateien und Zeilen), und die bisherigen Kosten des Flows. Scheitert der Lauf aus technischen Gründen, kehrt die Arbeit von selbst und unversehrt in diesen Flow zurück: Die Karte sagt in einfachen Worten, was fehlgeschlagen ist (die Codes stehen unter **Technische Details**), und der Agent erhält den Fehler und erklärt ihn. Verlangt die Prüfung Änderungen, bietet die Karte **Zurück zu Flow** oder **Neu starten** an. Ist die Auslieferung abgeschlossen, schließt die Mission den Flow mit einer Zusammenfassung ab: der Pull-Request, die aus dem Gebauten neu geschriebene Spec, die archivierte OpenSpec-Änderung und – falls vorhanden – der Jira-Vorgang.
 
 ## Gut zu wissen
 

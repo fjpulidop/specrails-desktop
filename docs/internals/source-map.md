@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1149 source/build files. Nearby tests are linked where names
+Includes 1157 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -327,16 +327,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/flow/components
 
 - [FlowAppPreview.tsx](../../client/src/features/flow/components/FlowAppPreview.tsx)
-- [FlowBar.tsx](../../client/src/features/flow/components/FlowBar.tsx)
 - [FlowChangesDialog.tsx](../../client/src/features/flow/components/FlowChangesDialog.tsx)
+- [FlowConversationMarks.tsx](../../client/src/features/flow/components/FlowConversationMarks.tsx)
 - [FlowDiscardDialog.tsx](../../client/src/features/flow/components/FlowDiscardDialog.tsx)
 - [FlowDock.tsx](../../client/src/features/flow/components/FlowDock.tsx)
 - [FlowEntryCard.tsx](../../client/src/features/flow/components/FlowEntryCard.tsx)
 - [FlowHandOffCard.tsx](../../client/src/features/flow/components/FlowHandOffCard.tsx)
+- [FlowLiveRuns.tsx](../../client/src/features/flow/components/FlowLiveRuns.tsx)
 - [FlowMissionsBridge.tsx](../../client/src/features/flow/components/FlowMissionsBridge.tsx)
 - [FlowOfferCard.tsx](../../client/src/features/flow/components/FlowOfferCard.tsx)
 - [FlowRunCardActions.tsx](../../client/src/features/flow/components/FlowRunCardActions.tsx)
 - [FlowRunFailure.tsx](../../client/src/features/flow/components/FlowRunFailure.tsx)
+- [FlowStripControls.tsx](../../client/src/features/flow/components/FlowStripControls.tsx)
 
 ## client/src/features/flow/context
 
@@ -481,6 +483,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentConversationHeader.tsx](../../client/src/features/missions/components/AgentConversationHeader.tsx)
 - [AgentConversationView.tsx](../../client/src/features/missions/components/AgentConversationView.tsx)
 - [AgentDeliveryReceipt.tsx](../../client/src/features/missions/components/AgentDeliveryReceipt.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentDeliveryReceipt.test.tsx)
+- [AgentFlowBoundaryLine.tsx](../../client/src/features/missions/components/AgentFlowBoundaryLine.tsx)
 - [AgentFlowDeliveredCard.tsx](../../client/src/features/missions/components/AgentFlowDeliveredCard.tsx)
 - [AgentFlowReturnCard.tsx](../../client/src/features/missions/components/AgentFlowReturnCard.tsx)
 - [AgentFlowReviewBlock.tsx](../../client/src/features/missions/components/AgentFlowReviewBlock.tsx)
@@ -493,13 +496,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentModeSurface.tsx](../../client/src/features/missions/components/AgentModeSurface.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeSurface.test.tsx)
 - [AgentModelSelector.tsx](../../client/src/features/missions/components/AgentModelSelector.tsx)
 - [AgentPrDecisionCard.tsx](../../client/src/features/missions/components/AgentPrDecisionCard.tsx)
-- [AgentPrPinnedDock.tsx](../../client/src/features/missions/components/AgentPrPinnedDock.tsx)
+- [AgentPrDecisionPill.tsx](../../client/src/features/missions/components/AgentPrDecisionPill.tsx)
 - [AgentProblemFrameCard.tsx](../../client/src/features/missions/components/AgentProblemFrameCard.tsx)
 - [AgentProjectSelector.tsx](../../client/src/features/missions/components/AgentProjectSelector.tsx)
 - [AgentQueuedMessage.tsx](../../client/src/features/missions/components/AgentQueuedMessage.tsx)
 - [AgentRailLaunchCard.tsx](../../client/src/features/missions/components/AgentRailLaunchCard.tsx)
 - [AgentRefChip.tsx](../../client/src/features/missions/components/AgentRefChip.tsx)
+- [AgentRunEventLine.tsx](../../client/src/features/missions/components/AgentRunEventLine.tsx)
 - [AgentRunFailureMarker.tsx](../../client/src/features/missions/components/AgentRunFailureMarker.tsx)
+- [AgentRunHistoryLines.tsx](../../client/src/features/missions/components/AgentRunHistoryLines.tsx)
+- [AgentRunStrip.tsx](../../client/src/features/missions/components/AgentRunStrip.tsx)
 - [AgentRuntimeSelector.tsx](../../client/src/features/missions/components/AgentRuntimeSelector.tsx)
 - [AgentSessionIndicators.tsx](../../client/src/features/missions/components/AgentSessionIndicators.tsx)
 - [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
@@ -509,6 +515,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
 - [AgentWorkspaceSidebar.tsx](../../client/src/features/missions/components/AgentWorkspaceSidebar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx)
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
+- [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
 - [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
 - [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)
@@ -520,6 +527,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-problem-frame.ts](../../client/src/features/missions/components/agent-problem-frame.ts)
 - [agent-run-failure.ts](../../client/src/features/missions/components/agent-run-failure.ts) · [test](../../client/src/features/missions/components/__tests__/agent-run-failure.test.ts)
 - [agent-spec-draft.ts](../../client/src/features/missions/components/agent-spec-draft.ts)
+- [mission-run-strip.ts](../../client/src/features/missions/components/mission-run-strip.ts) · [test](../../client/src/features/missions/components/__tests__/mission-run-strip.test.ts)
 - [useAgentProviderCatalog.ts](../../client/src/features/missions/components/useAgentProviderCatalog.ts)
 - [useRailLaunchProposals.ts](../../client/src/features/missions/components/useRailLaunchProposals.ts)
 

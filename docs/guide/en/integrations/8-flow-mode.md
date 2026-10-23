@@ -19,7 +19,7 @@ If your Specrails Core cannot run Flow yet, Start is disabled and the card lists
 
 ## While you are in Flow
 
-The conversation changes look (a thin accent along the edge) and a bar appears above the composer:
+Flow mode is named where you look: the composer shows a **Flow** chip next to the autonomy chip, a thin accent line along its top and the hint *Tell the agent what to change in the worktree…*; the mission title reads **In Flow**, and so does its row in the mission list. The conversation marks where you entered and left Flow, and the agent's replies written in Flow carry a small **Flow** mark next to their time. The bar just above the composer shows the Flow:
 
 - the worktree **branch**, the **files changed** with lines added and removed, and the **real cost** of the Flow so far as billed by the provider. It shows `—` until a turn has a reported cost, and never an estimate;
 - click the **files changed** to list every changed file with its status and +/−, and the **branch** to copy its name;
@@ -37,11 +37,11 @@ Once the app is listening, the agent gives you its addresses as links and the Fl
 
 ## This is it
 
-When you are happy with the result, press **This is it**. The Flow bar and the visual treatment go away and the usual rail launch card appears with the **Flow → Spec** loop preselected and a free rail chosen for you. Adjust the engine, model or effort if you like and press **Launch**. If the review limit or a budget is reached, the card says so and does not launch. **Not yet** takes you back to the Flow.
+When you are happy with the result, press **This is it**. The same bar turns into **Flow → Spec ready to launch** and opens its settings just above it: the **Flow → Spec** loop, a free rail chosen for you and your conversation's engine, model and effort. Adjust anything if you like and press **Launch** (in the panel or on the bar). While it starts, the bar shows it launching — no gap — and then follows the run step by step. If the review limit or a budget is reached, the panel says so and does not launch. **Not yet** takes you back to the Flow.
 
 The rail derives the Specrails spec and the OpenSpec change from what you built, verifies and reviews it, and the delivery card appears in the mission as with any run.
 
-Above the launch card, a one-line recap shows what goes to the rail (files and lines) and the Flow's cost so far. If the run fails for a technical reason, the work comes back to this Flow on its own, intact: the card says in plain words what failed (the codes stay under **Technical details**) and the agent receives the error and explains it. If the review asks for changes, the card offers **Back to Flow** or **Relaunch**. When the delivery settles, the mission closes the Flow with a summary: the pull request, the spec rewritten from what you built, the archived OpenSpec change and the Jira issue when there is one.
+In that panel, a one-line recap shows what goes to the rail (files and lines) and the Flow's cost so far. If the run fails for a technical reason, the work comes back to this Flow on its own, intact: the card says in plain words what failed (the codes stay under **Technical details**) and the agent receives the error and explains it. If the review asks for changes, the card offers **Back to Flow** or **Relaunch**. When the delivery settles, the mission closes the Flow with a summary: the pull request, the spec rewritten from what you built, the archived OpenSpec change and the Jira issue when there is one.
 
 ## Good to know
 

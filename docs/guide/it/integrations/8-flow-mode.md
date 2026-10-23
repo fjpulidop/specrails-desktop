@@ -19,7 +19,7 @@ Se il tuo Specrails Core non può ancora eseguire Flow, il pulsante è disattiva
 
 ## Durante il Flow
 
-La conversazione cambia aspetto (una sottile linea d’accento sul bordo) e sopra il compositore compare una barra:
+La modalità Flow è indicata dove guardi: il compositore mostra un chip **Flow** accanto a quello dell'autonomia, una sottile linea d'accento in alto e il suggerimento *Di' all'agente cosa cambiare nel worktree…*; il titolo della missione indica **In Flow**, come la sua riga nell'elenco delle missioni. La conversazione segna dove sei entrato e uscito da Flow, e le risposte dell'agente scritte in Flow hanno un piccolo segno **Flow** accanto all'ora. La barra appena sopra il compositore mostra il Flow:
 
 - il **branch** del worktree, i **file modificati** con le righe aggiunte e rimosse e il **costo reale** del Flow finora, come fatturato dal provider. Mostra `—` finché un turno non ha un costo comunicato, mai una stima;
 - fai clic sui **file modificati** per vedere ogni file con stato e +/−, e sul **branch** per copiarne il nome;
@@ -37,11 +37,11 @@ Quando l’app è in ascolto, l’agente ti dà i suoi indirizzi come link e la 
 
 ## Ecco fatto
 
-Quando il risultato ti convince, premi **Ecco fatto**. La barra di Flow e l’effetto visivo spariscono e compare la solita scheda di lancio del rail, con il loop **Flow → Spec** preselezionato e un rail libero già scelto. Regola motore, modello o sforzo se vuoi e premi **Lancia**. Se è stato raggiunto il limite di revisione o un budget, la scheda lo dice e non lancia. **Non ancora** ti riporta al Flow.
+Quando il risultato ti convince, premi **Ecco fatto**. La stessa barra diventa **Flow → Spec pronto da avviare** e apre le sue impostazioni appena sopra: il loop **Flow → Spec**, un rail libero scelto per te e il motore, il modello e l'impegno della tua conversazione. Regola ciò che vuoi e premi **Lancia** (nel pannello o sulla barra). Durante l'avvio la barra lo mostra — senza vuoti — e poi segue l'esecuzione passo dopo passo. Se si raggiunge il limite di revisione o un budget, il pannello lo dice e non avvia. **Non ancora** ti riporta al Flow.
 
 Il rail deriva la spec di Specrails e il change OpenSpec da ciò che hai costruito, li verifica e li revisiona, e la scheda di consegna compare nella missione come per qualsiasi esecuzione.
 
-Sopra la scheda di avvio, un riepilogo di una riga mostra cosa va al rail (file e righe) e il costo del Flow finora. Se l’esecuzione fallisce per un motivo tecnico, il lavoro torna da solo a questo Flow, intatto: la scheda spiega in parole semplici cosa è fallito (i codici restano in **Dettagli tecnici**) e l’agente riceve l’errore e lo spiega. Se la revisione chiede modifiche, la scheda offre **Torna in Flow** o **Rilancia**. Quando la consegna si conclude, la missione chiude il Flow con un riepilogo: la pull request, la spec riscritta da ciò che hai costruito, la modifica OpenSpec archiviata e l’issue Jira se c’è.
+In quel pannello, un riepilogo di una riga mostra cosa va al rail (file e righe) e il costo del Flow finora. Se l’esecuzione fallisce per un motivo tecnico, il lavoro torna da solo a questo Flow, intatto: la scheda spiega in parole semplici cosa è fallito (i codici restano in **Dettagli tecnici**) e l’agente riceve l’errore e lo spiega. Se la revisione chiede modifiche, la scheda offre **Torna in Flow** o **Rilancia**. Quando la consegna si conclude, la missione chiude il Flow con un riepilogo: la pull request, la spec riscritta da ciò che hai costruito, la modifica OpenSpec archiviata e l’issue Jira se c’è.
 
 ## Buono a sapersi
 
