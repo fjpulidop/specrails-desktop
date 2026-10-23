@@ -27,8 +27,10 @@ import { isProviderEnabled } from '../../../provider-selection'
 import { supportsContractRefine } from '../../../providers/runtime'
 import { captureProcessAdmission } from '../../../process-admission'
 import { resolveDefaultSpecModel } from '../../../project-router-helpers'
+import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { readSettleEvidence } from '../../delivery/runtime/delivery-evidence'
-import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord } from '../../delivery/runtime/rail-pr-store'
+import { FLOW_SPEC_DELIVERY_LOOP_ID } from '../../delivery/runtime/flow-review-outcome'
+import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord, type PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
 import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from '../../delivery/runtime/flow-worktree-return'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
 import type { SpecProvider } from '../../specs/runtime/spec-models'
@@ -41,8 +43,8 @@ import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../.
 import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
-  type DerivedChangeText, type FlowSession,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, firstErrorLine, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
+  type DerivedChangeText, type FlowRunFailure, type FlowSession,
 } from '../domain'
 import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
 import type { FlowService } from '../application'
@@ -59,6 +61,35 @@ export interface FlowAgentHost {
 
 /** The automatic turn after Back to Flow (the briefing itself rides the Flow turn). */
 export const FLOW_RETURN_TURN_TEXT = 'Back to Flow: the Flow → Spec run came back with the findings above. In at most 2 short lines say what you will fix, then start fixing it in this worktree. If a finding leaves a genuine decision to me (for example removing behaviour nobody asked for versus recording it as a requirement), offer it as an `options` block before editing and wait for my answer.'
+
+/** The automatic turn after a Flow → Spec run failed outright and came back on its own. */
+export const FLOW_FAILURE_RETURN_TURN_TEXT = 'Back to Flow: the Flow → Spec run failed with the error above and the worktree came back to this Flow intact. In at most 2 short lines tell me what failed in plain words and what you will do. If the cause is in this worktree, fix it here; if it is outside it (a tool version, the environment, credentials), tell me exactly what to change instead of working around it.'
+
+/** Status codes of a Flow → Spec run that stopped for review reasons (never a crash). */
+const FLOW_REVIEW_STATUS_CODES = new Set(['review_changes_requested', 'returned_to_flow'])
+
+/** The delivery codes of a Flow → Spec run that failed outright (null for a review outcome). */
+export function deliveryFailureOf(snap: Pick<PrDeliverySnapshot, 'statusCode' | 'statusDetail' | 'units' | 'flowReview'>): FlowRunFailure | null {
+  if (snap.flowReview) return null
+  // After the return, the delivery's own codes say `returned_to_flow`: the crash codes are gone.
+  const returned = snap.statusCode === 'returned_to_flow'
+  return {
+    stepId: null,
+    cause: null,
+    statusCode: returned ? null : snap.statusCode ?? null,
+    failureCode: snap.units.find((unit) => unit.failureCode)?.failureCode ?? null,
+    statusDetail: returned ? null : snap.statusDetail ?? null,
+  }
+}
+
+/** Whether a Flow → Spec delivery failed outright and is idle (the automatic return may take its worktree). */
+export function isCrashedFlowDelivery(snap: Pick<PrDeliverySnapshot, 'loopId' | 'decision' | 'statusCode' | 'flowReview' | 'operation'>): boolean {
+  return snap.loopId === FLOW_SPEC_DELIVERY_LOOP_ID
+    && snap.decision === 'implementation_failed'
+    && !snap.flowReview
+    && !FLOW_REVIEW_STATUS_CODES.has(snap.statusCode ?? '')
+    && !snap.operation
+}
 
 export const systemClock: Clock = { now: () => new Date().toISOString() }
 
@@ -456,9 +487,28 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
         const row = getPrDelivery(ctx.db, deliveryId)
         if (!row) return null
         const derivation = readSettleEvidence(row.settle_evidence)?.units[0]?.runtime?.derivation ?? null
+        const snap = toPrDeliverySnapshot(row)
         return {
-          railIndex: row.rail_index, options: launchOptionsOf(row.launch_config_json), findings: toPrDeliverySnapshot(row).flowReview ?? null,
+          railIndex: row.rail_index, options: launchOptionsOf(row.launch_config_json), findings: snap.flowReview ?? null,
           derivation: derivation ? { change: derivation.change, files: derivation.files, explained: derivation.explained, unexplainedFiles: derivation.unexplainedFiles.slice(0, FLOW_UNEXPLAINED_FILES_CAP), unexplainedOmitted: derivation.unexplainedOmitted + Math.max(0, derivation.unexplainedFiles.length - FLOW_UNEXPLAINED_FILES_CAP) } : null,
+          failure: deliveryFailureOf(snap),
+        }
+      },
+      async runFailure(deliveryId) {
+        try {
+          const row = getPrDelivery(ctx.db, deliveryId)
+          const runId = row ? toPrDeliverySnapshot(row).runIds[0] : undefined
+          if (!runId) return null
+          // The runtime's own record: the step it stopped at and its error
+          // (the same source the mission run card shows).
+          const summary = await runtimeRunSummary(ctx, runId)
+          if (!summary) return null
+          return {
+            stepId: summary.pendingApproval?.stepId ?? summary.nextStep ?? null,
+            cause: summary.status === 'failed' ? firstErrorLine(summary.error) : null,
+          }
+        } catch {
+          return null
         }
       },
       returnWorktree({ deliveryId, worktreePath, detail, commit }) {
@@ -472,16 +522,19 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
       },
     },
     conversation: {
-      postReturnCard({ conversationId, flowId, deliveryId, findings, derivation }) {
+      postReturnCard({ conversationId, flowId, deliveryId, findings, derivation, failure }) {
         deps.agentHost()?.postSystemRow?.(conversationId, {
           kind: 'flow-return-briefing', flowId, deliveryId,
           reason: findings?.reason ?? null, score: findings?.score ?? null, summary: findings?.summary ?? null,
           issues: findings?.issues ?? [], issuesOmitted: findings?.issuesOmitted ?? 0, failingChecks: findings?.failingChecks ?? [],
-          derivation, at: clock.now(),
+          derivation,
+          // A run that failed outright: the client localizes the step and keeps the codes as technical details.
+          ...(!findings && failure ? { failure } : {}),
+          at: clock.now(),
         }, `flow-return-briefing:${deliveryId}`)
       },
-      async startReturnTurn({ conversationId, deliveryId }) {
-        await deps.agentHost()?.startAutomaticTurn?.(conversationId, FLOW_RETURN_TURN_TEXT, { turnKey: `flow-return:${deliveryId}`, label: 'Back to Flow' })
+      async startReturnTurn({ conversationId, deliveryId, failure }) {
+        await deps.agentHost()?.startAutomaticTurn?.(conversationId, failure ? FLOW_FAILURE_RETURN_TURN_TEXT : FLOW_RETURN_TURN_TEXT, { turnKey: `flow-return:${deliveryId}`, label: 'Back to Flow' })
       },
     },
     processes: deps.processes ?? { stop: async () => {} },
@@ -677,7 +730,8 @@ export function createFlowPublication(
     deliveryState(deliveryId) {
       const row = getPrDelivery(ctx.db, deliveryId)
       if (!row) return null
-      return { delivered: DELIVERED_DECISIONS.has(row.decision) && row.implementation_outcome === 'succeeded' }
+      const delivered = DELIVERED_DECISIONS.has(row.decision) && row.implementation_outcome === 'succeeded'
+      return { delivered, crashed: !delivered && isCrashedFlowDelivery(toPrDeliverySnapshot(row)) }
     },
     async derivedChange(input) {
       const row = input.deliveryId ? getPrDelivery(ctx.db, input.deliveryId) : undefined

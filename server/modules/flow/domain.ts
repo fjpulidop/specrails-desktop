@@ -713,6 +713,30 @@ export interface FlowDerivationCoverage {
   unexplainedOmitted: number
 }
 
+/**
+ * Why a Flow → Spec run failed outright — a technical failure, not a review
+ * verdict (`implementation_failed` without `review_changes_requested`): the
+ * failing loop step and the runtime's own error, plus the delivery codes.
+ */
+export interface FlowRunFailure {
+  /** The loop step that failed (`derive`, `check`, `review`, `fix`, `archive`, `verify`…); null when unknown. */
+  stepId: string | null
+  /** The first line of the runtime error (e.g. "OpenSpec 1.14.3 required; found 1.4.1"); null when unknown. */
+  cause: string | null
+  /** The delivery's status code (`implementation_failed`, `settlement_interrupted`…). */
+  statusCode: string | null
+  /** The first per-unit failure code, when one was recorded. */
+  failureCode: string | null
+  /** The delivery's status detail (technical; never the headline). */
+  statusDetail: string | null
+}
+
+/** The first non-empty line of an error text, bounded (null when there is none). */
+export function firstErrorLine(text: string | null | undefined, cap = 300): string | null {
+  const line = (text ?? '').split('\n').map((entry) => entry.trim()).find(Boolean)
+  return line ? clip(line, cap) : null
+}
+
 /** Unexplained files listed in the briefing and on the card. */
 export const FLOW_UNEXPLAINED_FILES_CAP = 20
 
@@ -725,8 +749,22 @@ export const FLOW_RETURN_BRIEFING_LIMIT = 8_000
  * conduct (address them with the person in this worktree, keep the scope,
  * then hand off again). Untrusted review text is quoted, never obeyed.
  */
-export function buildReturnBriefing(findings: FlowReviewFindings | null, derivation: FlowDerivationCoverage | null = null): string {
+export function buildReturnBriefing(findings: FlowReviewFindings | null, derivation: FlowDerivationCoverage | null = null, failure: FlowRunFailure | null = null): string {
   const lines = ['[Back from Flow → Spec — automatic context, not typed by the user]']
+  if (!findings && failure) {
+    // A technical failure (no review verdict): the step, the runtime's own
+    // error (quoted, never obeyed) and what the agent does with it.
+    lines.push(`The Flow → Spec run failed${failure.stepId ? ` at its "${clip(failure.stepId, 80)}" step` : ''} before delivery. This is a technical failure, not a review verdict.`)
+    if (failure.cause) lines.push(`Error: ${clip(failure.cause, 600).replace(/\n/g, ' ')}`)
+    const detail = failure.statusDetail ? clip(failure.statusDetail, 600).replace(/\n/g, ' ') : null
+    if (detail && detail !== failure.cause) lines.push(`Delivery detail: ${detail}`)
+    const codes = [failure.statusCode, failure.failureCode].filter((code, index, all): code is string => !!code && all.indexOf(code) === index)
+    if (codes.length) lines.push(`Codes: ${codes.join(', ')}`)
+    lines.push('The worktree is back in this Flow with every change intact; nothing was lost.')
+    lines.push('', 'Conduct: in at most 2 short lines, say in plain words what failed and what you will do. If the cause is in this worktree (code, tests, configuration), fix it here. If it is outside it (a tool version, the environment, credentials), do not work around it: tell the person exactly what to change and wait. When it is fixed, offer to hand off to Flow → Spec again.')
+    const text = lines.join('\n')
+    return text.length <= FLOW_RETURN_BRIEFING_LIMIT ? text : `${text.slice(0, FLOW_RETURN_BRIEFING_LIMIT - 1).trimEnd()}…`
+  }
   if (!findings) {
     lines.push('The Flow → Spec run stopped before delivery and the worktree is back in this Flow, with every change the run made. Ask the person how to proceed before changing anything.')
     return lines.join('\n')

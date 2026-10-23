@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1146 source/build files. Nearby tests are linked where names
+Includes 1148 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -336,6 +336,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [FlowMissionsBridge.tsx](../../client/src/features/flow/components/FlowMissionsBridge.tsx)
 - [FlowOfferCard.tsx](../../client/src/features/flow/components/FlowOfferCard.tsx)
 - [FlowRunCardActions.tsx](../../client/src/features/flow/components/FlowRunCardActions.tsx)
+- [FlowRunFailure.tsx](../../client/src/features/flow/components/FlowRunFailure.tsx)
 
 ## client/src/features/flow/context
 
@@ -345,6 +346,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [flow-api.ts](../../client/src/features/flow/lib/flow-api.ts)
 - [flow-engine.ts](../../client/src/features/flow/lib/flow-engine.ts)
+- [flow-failure.ts](../../client/src/features/flow/lib/flow-failure.ts)
 - [flow-offer.ts](../../client/src/features/flow/lib/flow-offer.ts)
 
 ## client/src/features/integrations/components/jira

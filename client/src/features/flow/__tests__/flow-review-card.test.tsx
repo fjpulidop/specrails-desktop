@@ -29,6 +29,9 @@ import { AgentPrDecisionCard, deriveMissionRunStatus, flowCardOutcome } from '..
 import { AgentRunFailureMarker } from '../../missions/components/AgentRunFailureMarker'
 import { MissionExtensionsProvider } from '../../missions/context/MissionExtensionsContext'
 import { FlowRunCardActions } from '../components/FlowRunCardActions'
+import { FlowRunFailure } from '../components/FlowRunFailure'
+import { AgentFlowReturnCard, parseFlowReturnBriefingRow } from '../../missions/components/AgentFlowReturnCard'
+import { flowFailureStep } from '../lib/flow-failure'
 import { FlowApiError } from '../lib/flow-api'
 import type { AgentPrDecisionEnvelope } from '../../missions/lib/agent-api'
 
@@ -128,7 +131,8 @@ describe('Flow → Spec requested changes on the mission card', () => {
     render(withFlow(<AgentPrDecisionCard envelope={env()} conversationId="conv-1" />))
     fireEvent.click(screen.getByTestId('flow-review-back-to-flow'))
     await act(async () => {})
-    expect(screen.getByTestId('flow-review-error').textContent).toBe('Could not go back to Flow: The delivery is busy')
+    // Localized by code; the server's English detail never reaches the card.
+    expect(screen.getByTestId('flow-review-error').textContent).toBe('Could not go back to Flow: The run is busy with another action. Try again in a moment.')
   })
 
   it('without Flow wired, still explains the review (no actions)', () => {
@@ -151,5 +155,96 @@ describe('Flow → Spec requested changes on the mission card', () => {
     render(<AgentRunFailureMarker row={{ kind: 'run-failure', runId: 'run-1', railIndex: 0, projectId: 'p1', code: 'review_changes_requested', detail: 'score 58', stepId: null, at: null }} />)
     expect(screen.getByText('Rail 1: the reviewer requested changes')).toBeInTheDocument()
     expect(screen.getByTestId('agent-run-failure-marker').getAttribute('data-code')).toBe('review_changes_requested')
+  })
+})
+
+describe('Flow → Spec failed outright (Flow-authored failure)', () => {
+  const crashRuntime = { status: 'failed', currentStep: 'derive', canResume: false, recoverableSteps: [], pendingApproval: false, at: '',
+    failure: { code: 'implementation_failed', detail: 'OpenSpec 1.14.3 required; found 1.4.1\n    at checkVersion (core.js:12)', stepId: 'derive' } }
+  const crashed = (over: Partial<AgentPrDecisionEnvelope> = {}) => env({
+    loopId: 'factory:flow-spec', statusCode: 'implementation_failed', flowReview: undefined,
+    statusDetail: 'Programmatic workflow stopped before delivery; partial changes stay in its original worktree.',
+    units: [{ ticketId: 8, branch: 'feat/8-effects', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', failureCode: 'settlement_interrupted' }] as never,
+    runtime: crashRuntime as never,
+    ...over,
+  })
+  const withFailure = (node: React.ReactNode) => (
+    <MissionExtensionsProvider value={{ RunCardActions: FlowRunCardActions, RunFailureOutcome: FlowRunFailure }}>{node}</MissionExtensionsProvider>
+  )
+
+  it('classifies a crash apart from requested changes, and maps every recipe step', () => {
+    expect(flowCardOutcome(crashed())).toBe('crashed')
+    expect(flowCardOutcome(env({ loopId: 'factory:flow-spec' }))).toBe('changes')
+    expect(flowCardOutcome(env({ loopId: 'factory:implement', statusCode: 'implementation_failed' }))).toBeNull()
+    expect(deriveMissionRunStatus(crashed(), null, false)).toBe('failed')
+    expect(['init', 'derive', 'repair-guard', 'check', 'verify', 'review-policy', 'fix-progress', 'archive'].map((step) => flowFailureStep(step)))
+      .toEqual(['derive', 'derive', 'derive', 'verify', 'verify', 'review', 'fix', 'archive'])
+    expect(flowFailureStep(null, ['branch_verification_failed'])).toBe('settle')
+    expect(flowFailureStep(null, ['implementation_failed'])).toBe('unknown')
+  })
+
+  it('says what failed in plain words, the cause, what happens next, and keeps the codes as technical details', () => {
+    render(withFailure(<AgentPrDecisionCard envelope={crashed()} conversationId="conv-1" />))
+    expect(screen.getByText('Flow → Spec stopped')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t write the spec from your changes')
+    expect(screen.getByTestId('flow-run-failure-cause').textContent).toBe('Cause: OpenSpec 1.14.3 required; found 1.4.1')
+    expect(screen.getByTestId('flow-run-failure-next').textContent).toBe('Your work is intact. Back in Flow, the agent gets the error.')
+    // No generic failure block, note, status label or red unit chip.
+    expect(screen.queryByTestId('mission-run-failure')).toBeNull()
+    expect(screen.queryByText(/The implementation failed/)).toBeNull()
+    expect(screen.queryByTestId('agent-pr-status-code')).toBeNull()
+    expect(screen.queryByTestId('agent-pr-unit-evidence')).toBeNull()
+    // The English detail and the codes live only under Technical details.
+    const technical = screen.getByTestId('flow-run-failure-technical')
+    expect(technical.tagName).toBe('DETAILS')
+    expect(technical.hasAttribute('open')).toBe(false)
+    expect(technical.textContent).toContain('implementation_failed')
+    expect(technical.textContent).toContain('settlement_interrupted')
+    expect(technical.textContent).toContain('Programmatic workflow stopped before delivery')
+    // Back to Flow first, Relaunch second; the plain rail relaunch never shows.
+    const actions = screen.getAllByRole('button').map((button) => button.getAttribute('data-testid')).filter((id) => id?.startsWith('flow-review-'))
+    expect(actions).toEqual(['flow-review-back-to-flow', 'flow-review-relaunch'])
+    expect(screen.getByTestId('flow-review-back-to-flow').getAttribute('title')).toBe('Reopen this Flow on the same worktree; the agent receives the error on its next turn')
+    expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
+  })
+
+  it('once returned on its own, shows "Returned to Flow" instead of the actions', () => {
+    render(withFailure(<AgentPrDecisionCard envelope={crashed({ decision: 'discarded', statusCode: 'returned_to_flow', statusDetail: 'Returned to Flow: the run failed' })} conversationId="conv-1" />))
+    expect(screen.getByTestId('flow-run-failure').getAttribute('data-returned')).toBe('true')
+    expect(screen.getByTestId('flow-run-failure-returned').textContent).toBe('Returned to Flow')
+    expect(screen.getByTestId('flow-run-failure-next').textContent).toBe('Your work is intact. Back in Flow, the agent has the error.')
+    expect(screen.queryByTestId('flow-review-back-to-flow')).toBeNull()
+    expect(screen.queryByTestId('mission-flow-returned')).toBeNull()
+  })
+
+  it('Back to Flow on a crash confirms the error went along', async () => {
+    render(withFailure(<AgentPrDecisionCard envelope={crashed()} conversationId="conv-1" />))
+    fireEvent.click(screen.getByTestId('flow-review-back-to-flow'))
+    await act(async () => {})
+    expect(flowContext.value!.returnToFlow).toHaveBeenCalledWith('p1', 'delivery-1')
+    expect(toast.success).toHaveBeenCalledWith('Back in Flow — the agent has the error')
+  })
+
+  it('names the repository of a multi-repository run in the technical details', () => {
+    render(withFailure(<AgentPrDecisionCard envelope={crashed({ repositoryDeliveries: [{ repositoryId: 'api', name: 'api-server', path: '/a', deliveryId: 'd', baseBranch: 'main', branch: null, deliverySha: null, decision: 'implementation_failed', implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: null, statusDetail: null, prUrl: null, prNumber: null }] as never })} conversationId="conv-1" />))
+    expect(screen.getByTestId('flow-run-failure-technical').textContent).toContain('api-server')
+  })
+
+  it('the Flow return card explains the failure (no actions there)', () => {
+    const row = parseFlowReturnBriefingRow(JSON.stringify({ kind: 'flow-return-briefing', flowId: 'flow-1', deliveryId: 'delivery-1', reason: null, issues: [],
+      failure: { stepId: 'archive', cause: 'OpenSpec aborted: missing Purpose', statusCode: 'implementation_failed', failureCode: null, statusDetail: null } }))!
+    expect(row.failure).toMatchObject({ stepId: 'archive' })
+    render(withFailure(<AgentFlowReturnCard row={row} conversationId="conv-1" />))
+    expect(screen.getByText('Why Flow → Spec stopped')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-run-failure-headline').textContent).toBe('Couldn’t archive the OpenSpec change')
+    expect(screen.getByTestId('flow-run-failure-cause').textContent).toContain('OpenSpec aborted: missing Purpose')
+    expect(screen.queryByTestId('flow-review-back-to-flow')).toBeNull()
+    expect(screen.queryByTestId('flow-run-failure-returned')).toBeNull()
+  })
+
+  it('without the Flow extension, a crash keeps the generic presentation', () => {
+    render(withFlow(<AgentPrDecisionCard envelope={crashed()} conversationId="conv-1" />))
+    expect(screen.queryByTestId('flow-run-failure')).toBeNull()
+    expect(screen.getByTestId('mission-run-failure')).toBeInTheDocument()
   })
 })

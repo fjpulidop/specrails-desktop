@@ -384,6 +384,53 @@ two actions.
   the stopped launch's engine choices. The new run re-derives the existing
   change in place.
 
+### A run that failed outright: automatic return
+
+A Flow → Spec run can also fail for a technical reason — no review verdict:
+the derivation, a check, the archive or the tooling broke (for example an
+OpenSpec version mismatch). The delivery settles `implementation_failed`
+without `review_changes_requested`. Then the work goes back to its Flow on its
+own (user decision "Volver a Flow solo"):
+
+- **Detection** — the `rail.pr_state` observer (`observeDelivery`) asks the
+  publication port for `deliveryState(deliveryId).crashed`: a Flow → Spec
+  delivery, `implementation_failed`, no `flowReview`, not
+  `review_changes_requested`/`returned_to_flow`, no operation in flight. Only
+  a Flow still `handed_off` to THAT delivery reacts, so a returned,
+  relaunched, delivered or discarded Flow never does and repeated broadcasts
+  are no-ops. Startup replay (`replaySettlement`) returns a Flow whose run
+  failed while the app was down.
+- **Return** — exactly Back to Flow (`returnToFlow`: delivery's one
+  transaction, idempotent by delivery, the session reopens). Before the
+  delivery closes, the Flow reads the failure (`FlowRunFailure`): the
+  delivery codes (`stoppedDelivery.failure`: status code, first unit failure
+  code, status detail) and the runtime's own record (`rails.runFailure`: the
+  step it stopped at and the first line of its error, from the run's runtime
+  summary). The return briefing names the step, quotes the error, lists the
+  codes and sets the conduct: say what failed in two lines; fix it in the
+  worktree, or — when the cause is outside (a tool version, the environment,
+  credentials) — tell the person exactly what to change instead of working
+  around it.
+- **Announcement** — the `flow-return-briefing` row carries `failure` (no
+  review fields) and the automatic Flow turn uses the failure text
+  (`FLOW_FAILURE_RETURN_TURN_TEXT`, same durable key `flow-return:<deliveryId>`).
+  The mission's own run-failure trace row and briefing turn are skipped for
+  such runs (`notifyMissionRunFailure({ cardOnly: true })`): the Flow owns the
+  explanation. The card update re-reads the delivery after its runtime
+  summary, so it never regresses a returned card to the failure.
+- **Failure of the return** — a refusal (worktree gone, delivery busy) only
+  logs; the card still offers Back to Flow and Relaunch by hand.
+- **Card** — the mission card renders the Flow extension's
+  `RunFailureOutcome` (`FlowRunFailure`): one localized headline per failing
+  step group (derive, verify, review, fix, archive, settle, unknown), the
+  runtime's error as the cause, "Your work is intact. Back in Flow, the agent
+  has the error.", Back to Flow (first) and Relaunch — or "Returned to Flow"
+  once returned — and the codes and English detail only under a collapsed
+  **Technical details** (with the repository of a multi-repository run). The
+  generic failure block, note, status label and failed unit chip are hidden.
+  A returned card keeps the `runtime` failure snapshot it stopped with
+  (`updatePrDecisionCard` carries it over for `returned_to_flow`).
+
 ## Settlement
 
 When the Flow's delivery reaches review, the Flow settles. Triggers:

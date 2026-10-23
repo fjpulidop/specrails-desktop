@@ -22,6 +22,7 @@ import {
   withDerivedChange,
   type FlowCommand,
   type FlowEffect,
+  type FlowRunFailure,
   type FlowSession,
 } from './domain'
 import type { FlowDiffSummary, FlowLaunchOptions, FlowPorts } from './ports'
@@ -314,8 +315,28 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     }
   }
 
+  /**
+   * Why a stopped delivery failed when it has no review findings: the delivery
+   * codes plus the failing step and the runtime's own error. Null for a review
+   * outcome (requested changes). Never throws.
+   */
+  async function failureOf(deliveryId: string, stopped: ReturnType<FlowPorts['rails']['stoppedDelivery']>): Promise<FlowRunFailure | null> {
+    if (stopped?.findings) return null
+    let runtime: Awaited<ReturnType<NonNullable<FlowPorts['rails']['runFailure']>>> = null
+    try { runtime = await ports.rails.runFailure?.(deliveryId) ?? null } catch { runtime = null }
+    const base = stopped?.failure ?? null
+    if (!base && !runtime) return stopped ? { stepId: null, cause: null, statusCode: null, failureCode: null, statusDetail: null } : null
+    return {
+      stepId: runtime?.stepId ?? base?.stepId ?? null,
+      cause: runtime?.cause ?? base?.cause ?? null,
+      statusCode: base?.statusCode ?? null,
+      failureCode: base?.failureCode ?? null,
+      statusDetail: base?.statusDetail ?? null,
+    }
+  }
+
   /** Give the stopped delivery's worktree back to its Flow (caller holds the Flow's serialization). */
-  async function returnWorktree(session: FlowSession, deliveryId: string): Promise<{ session: FlowSession; railIndex: number | null; options: FlowLaunchOptions }> {
+  async function returnWorktree(session: FlowSession, deliveryId: string): Promise<{ session: FlowSession; railIndex: number | null; options: FlowLaunchOptions; failure?: FlowRunFailure | null }> {
     if (isOpenFlow(session) && session.deliveryId === deliveryId && session.step === null) return { session, railIndex: null, options: {} }
     if (session.state !== 'handed_off' || session.deliveryId !== deliveryId) {
       throw new FlowConflictError('flow_not_handed_off', 'This Flow is not waiting on that delivery', session.id)
@@ -324,18 +345,22 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       throw new FlowConflictError('flow_worktree_missing', 'The Flow worktree no longer exists; it cannot go back to the Flow', session.id)
     }
     const stopped = ports.rails.stoppedDelivery(deliveryId)
-    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null, stopped?.derivation ?? null), derivedChange: stopped?.derivation?.change ?? null, now: ports.clock.now() })
+    // Read before the return closes the delivery (its codes are replaced by `returned_to_flow`).
+    const failure = await failureOf(deliveryId, stopped)
+    const result = transition(session, { type: 'returned', deliveryId, briefing: buildReturnBriefing(stopped?.findings ?? null, stopped?.derivation ?? null, failure), derivedChange: stopped?.derivation?.change ?? null, now: ports.clock.now() })
     // Delivery owns the transaction: its ledger row disappears and this Flow
     // becomes the owner again, or neither happens.
     ports.rails.returnWorktree({
       deliveryId,
       worktreePath: session.worktreePath,
-      detail: 'Returned to Flow: the worktree is back in its Flow for the requested changes.',
+      detail: failure
+        ? 'Returned to Flow: the run failed; the worktree is back in its Flow with the error.'
+        : 'Returned to Flow: the worktree is back in its Flow for the requested changes.',
       commit: () => ports.repository.save(result.session),
     })
     ports.notifier.changed(result.session)
     await settle(result.session, result.effects)
-    return { session: result.session, railIndex: stopped?.railIndex ?? null, options: stopped?.options ?? {} }
+    return { session: result.session, railIndex: stopped?.railIndex ?? null, options: stopped?.options ?? {}, failure }
   }
 
   function flowOfDelivery(deliveryId: string): FlowSession {
@@ -354,8 +379,10 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
    */
   async function returnToFlow(input: { deliveryId: string }): Promise<FlowSession> {
     const session = flowOfDelivery(input.deliveryId)
+    let failure: FlowRunFailure | null | undefined
     const result = await serialized(`flow:${session.id}`, async () => {
       const returned = await returnWorktree(load(session.id), input.deliveryId)
+      failure = returned.failure
       if (returned.session.state !== 'paused') return returned.session
       try {
         return await resumeSession(session.id)
@@ -364,27 +391,51 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         return load(session.id)
       }
     })
-    await announceReturn(result, input.deliveryId)
+    await announceReturn(result, input.deliveryId, failure)
     return result
   }
 
   /**
-   * Back to Flow, visibly: the card with what the reviewer asked for, then ONE
-   * automatic Flow turn that starts on it (only while the Flow is active —
-   * a paused Flow keeps the briefing for the person's next turn). Both are
-   * idempotent by delivery; a failure never undoes the return.
+   * Back to Flow, visibly: the card with what the reviewer asked for (or why
+   * the run failed), then ONE automatic Flow turn that starts on it (only
+   * while the Flow is active — a paused Flow keeps the briefing for the
+   * person's next turn). Both are idempotent by delivery; a failure never
+   * undoes the return. `failure` undefined ⇒ read again (a repeated return).
    */
-  async function announceReturn(session: FlowSession, deliveryId: string): Promise<void> {
+  async function announceReturn(session: FlowSession, deliveryId: string, failure?: FlowRunFailure | null): Promise<void> {
     const conversation = ports.conversation
     if (!conversation || session.deliveryId !== deliveryId) return
     try {
       const stopped = ports.rails.stoppedDelivery(deliveryId)
-      conversation.postReturnCard({ conversationId: session.conversationId, flowId: session.id, deliveryId, findings: stopped?.findings ?? null, derivation: stopped?.derivation ?? null })
+      const known = failure === undefined ? await failureOf(deliveryId, stopped) : failure
+      conversation.postReturnCard({ conversationId: session.conversationId, flowId: session.id, deliveryId, findings: stopped?.findings ?? null, derivation: stopped?.derivation ?? null, ...(known ? { failure: known } : {}) })
       if (session.state === 'active' && session.returnBriefing) {
-        await conversation.startReturnTurn({ conversationId: session.conversationId, flowId: session.id, deliveryId })
+        await conversation.startReturnTurn({ conversationId: session.conversationId, flowId: session.id, deliveryId, ...(known ? { failure: known } : {}) })
       }
     } catch (error) {
       log.warn(`[flow] ${session.id} return briefing not announced: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /** Deliveries whose automatic return is in flight (observer bursts, startup replay). */
+  const autoReturning = new Set<string>()
+
+  /**
+   * A Flow → Spec run that failed outright (no review verdict) goes back to
+   * its Flow on its own — the same Back to Flow, idempotent by delivery — and
+   * the Flow agent receives the failure. A refusal (worktree gone, delivery
+   * busy) only logs: the card still offers Back to Flow by hand.
+   */
+  async function autoReturn(deliveryId: string): Promise<FlowSession | null> {
+    if (autoReturning.has(deliveryId)) return null
+    autoReturning.add(deliveryId)
+    try {
+      return await returnToFlow({ deliveryId })
+    } catch (error) {
+      log.warn(`[flow] automatic return of delivery ${deliveryId} failed: ${error instanceof Error ? error.message : String(error)}`)
+      return null
+    } finally {
+      autoReturning.delete(deliveryId)
     }
   }
 
@@ -458,12 +509,17 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     return delivered
   }
 
-  /** A `rail.pr_state` change: settle the Flow whose delivery reached review. */
+  /** A `rail.pr_state` change: settle the Flow whose delivery reached review,
+   * or take back the worktree of a run that failed outright. Only a Flow still
+   * handed off to THIS delivery reacts (a returned, relaunched, delivered or
+   * discarded Flow never does), so repeated broadcasts are no-ops. */
   async function observeDelivery(deliveryId: string): Promise<FlowSession | null> {
     const session = ports.repository.findByDelivery(deliveryId)
-    if (!session || session.state !== 'handed_off') return null
-    if (!ports.publication.deliveryState(deliveryId)?.delivered) return null
-    return onFlowDelivered({ flowId: session.id, deliveryId })
+    if (!session || session.state !== 'handed_off' || session.deliveryId !== deliveryId) return null
+    const state = ports.publication.deliveryState(deliveryId)
+    if (state?.delivered) return onFlowDelivered({ flowId: session.id, deliveryId })
+    if (state?.crashed) return autoReturn(deliveryId)
+    return null
   }
 
   /** A Flow rail completed without a PR delivery row (PR delivery off): the
@@ -536,14 +592,20 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
   }
 
   /** Startup replay: settle Flows whose delivery reached review while the app
-   * was down, then resume every pending effect. Never throws. */
+   * was down, return the ones whose run failed outright, then resume every
+   * pending effect. Never throws. */
   async function replaySettlement(): Promise<number> {
     let resumed = 0
     for (const session of ports.repository.listHandedOff()) {
       try {
-        if (session.deliveryId && ports.publication.deliveryState(session.deliveryId)?.delivered) {
+        const state = session.deliveryId ? ports.publication.deliveryState(session.deliveryId) : null
+        if (session.deliveryId && state?.delivered) {
           await onFlowDelivered({ flowId: session.id, deliveryId: session.deliveryId })
           resumed++
+        } else if (session.deliveryId && state?.crashed) {
+          // A run that failed while the app was down (or before its automatic
+          // return completed) goes back to its Flow now.
+          if (await autoReturn(session.deliveryId)) resumed++
         }
       } catch (error) {
         log.warn(`[flow] settlement replay failed for ${session.id}: ${error instanceof Error ? error.message : String(error)}`)

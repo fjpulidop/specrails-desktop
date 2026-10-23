@@ -316,7 +316,8 @@
       "review_changes_requested": "レビュアーが変更を依頼しました",
       "returned_to_flow": "Flow に戻りました",
       "flowSpecChanges": "Flow → Spec — レビュアーが変更を求めました",
-      "flowSpecDelivered": "Flow → Spec 納品済み"
+      "flowSpecDelivered": "Flow → Spec 納品済み",
+      "flowSpecFailed": "Flow → Spec が停止しました"
     },
     "buildingHint": "完了すると PR を作成するか確認します。",
     "buildingExistingPrHint": "Specrails は既存 PR のブランチで作業しており、レビュー変更を同じ PR に push します。",
@@ -913,7 +914,17 @@
       "flow_freeze_failed": "引き渡しのために Flow の worktree を保存できませんでした。",
       "flow_head_mismatch": "引き渡し中に worktree が変わりました。もう一度お試しください。",
       "flow_handoff_not_adopted": "レールが Flow の worktree を引き継がずに開始しました。",
-      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。"
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails が分離された worktree を作成できるよう、最初のコミットを作成してください。",
+      "flow_not_found": "この Flow はもう存在しません。",
+      "flow_failed": "Flow で予期しないエラーが発生しました。もう一度お試しください。",
+      "conversation_not_found": "このミッションはもう存在しません。",
+      "conversation_not_pinned": "Flow を開始する前に、このミッションをプロジェクトに固定してください。",
+      "flow_not_handed_off": "この Flow はもうその実行を待っていません。",
+      "flow_rail_unknown": "その実行のレールが不明です。Flow バーからもう一度引き渡してください。",
+      "flow_return_busy": "実行は別の操作で使用中です。少し待ってからもう一度お試しください。",
+      "flow_return_not_allowed": "Flow に戻せるのは、納品前に停止した Flow → Spec の実行だけです。",
+      "flow_return_not_found": "その実行は Flow → Spec の実行ではありません。",
+      "flow_return_worktree_mismatch": "その実行はこの Flow の worktree を引き継いでいません。"
     },
     "entry": {
       "heading": "Flow を開始",
@@ -1044,7 +1055,32 @@
       "returned": "Flow に戻りました — エージェントはレビューを受け取っています",
       "relaunched": "レール {{index}} で Flow → Spec を再実行しました",
       "returnFailed": "Flow に戻れませんでした：{{detail}}",
-      "relaunchFailed": "Flow → Spec を再実行できませんでした：{{detail}}"
+      "relaunchFailed": "Flow → Spec を再実行できませんでした：{{detail}}",
+      "backToFlowFailureHint": "同じ worktree でこの Flow を再開します。エージェントは次のターンでエラーを受け取ります",
+      "returnedFailure": "Flow に戻りました — エージェントはエラーを把握しています"
+    },
+    "failure": {
+      "step": {
+        "derive": "変更内容から spec を作成できませんでした",
+        "verify": "変更内容を検証できませんでした",
+        "review": "レビューを完了できませんでした",
+        "fix": "自動修正を完了できませんでした",
+        "archive": "OpenSpec の変更をアーカイブできませんでした",
+        "settle": "結果を引き渡せませんでした",
+        "unknown": "Flow → Spec は完了前に停止しました"
+      },
+      "cause": "原因:",
+      "next": "作業内容はそのままです。Flow に戻ると、エージェントがエラーを受け取ります。",
+      "nextReturned": "作業内容はそのままです。Flow に戻り、エージェントはエラーを把握しています。",
+      "returned": "Flow に戻りました",
+      "technical": {
+        "title": "技術的な詳細",
+        "repository": "リポジトリ",
+        "step": "ステップ",
+        "status": "ステータス",
+        "failure": "失敗",
+        "detail": "詳細"
+      }
     }
   },
   "flowReturn": {
@@ -1055,6 +1091,7 @@
     "moreFiles_one": "ほか {{count}} ファイル",
     "moreFiles_other": "ほか {{count}} ファイル",
     "next": "Flow エージェントがこれから着手します。いつでも指示や停止ができます。",
-    "automaticTurn": "自動ターン · Flow に戻る"
+    "automaticTurn": "自動ターン · Flow に戻る",
+    "titleFailure": "Flow → Spec が停止した理由"
   }
 }

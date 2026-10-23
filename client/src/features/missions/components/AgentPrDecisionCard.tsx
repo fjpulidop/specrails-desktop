@@ -91,9 +91,11 @@ const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
   discarded: 'text-foreground/40',
 }
 
-function OutcomeEvidence({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
+function OutcomeEvidence({ envelope, hideFailedUnits = false }: { envelope: AgentPrDecisionEnvelope; hideFailedUnits?: boolean }) {
   const { t } = useTranslation('agent')
   const presentation = derivePrDeliveryPresentation(envelope)
+  // A Flow-owned outcome already says what failed: no duplicate red unit chip.
+  if (hideFailedUnits && !presentation.partial) return null
   if (presentation.units.length === 0 && !presentation.partial) return null
   return (
     <div className="mt-2 space-y-1.5" data-testid="agent-pr-unit-evidence">
@@ -206,10 +208,16 @@ export function deriveMissionRunStatus(
   return 'unknown'
 }
 
-/** Flow → Spec outcome a card presents instead of a generic failure (null for every other run). */
-export function flowCardOutcome(envelope: Partial<Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode'>>): 'changes' | 'returned' | null {
+/**
+ * Flow → Spec outcome a card presents instead of a generic failure (null for
+ * every other run): `changes` — the review still requests changes; `crashed`
+ * — the run failed outright (a technical failure, not a review verdict);
+ * `returned` — the work went back to its Flow.
+ */
+export function flowCardOutcome(envelope: Partial<Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode' | 'loopId'>>): 'changes' | 'crashed' | 'returned' | null {
   if (envelope.decision === 'implementation_failed' && envelope.statusCode === 'review_changes_requested') return 'changes'
   if (envelope.decision === 'discarded' && envelope.statusCode === 'returned_to_flow') return 'returned'
+  if (envelope.decision === 'implementation_failed' && envelope.loopId === FLOW_SPEC_LOOP_ID) return 'crashed'
   return null
 }
 
@@ -478,8 +486,31 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   }
   const hasRepositoryDeliveries = Boolean(envelope.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(envelope)
-  const flowOutcome = flowCardOutcome(envelope)
-  const RunCardActions = useMissionExtensions().RunCardActions
+  const { RunCardActions, RunFailureOutcome } = useMissionExtensions()
+  const rawFlowOutcome = flowCardOutcome(envelope)
+  // A failed Flow → Spec run is explained by Flow itself; without the
+  // extension the card keeps its generic failure presentation.
+  const flowOutcome = rawFlowOutcome === 'crashed' && !RunFailureOutcome ? null : rawFlowOutcome
+  const flowFailure = envelope.runtime?.failure ?? null
+  // Returned after a failure (not a review): the card keeps explaining why.
+  const returnedAfterFailure = flowOutcome === 'returned' && !envelope.flowReview && !!flowFailure && !!RunFailureOutcome
+  const flowFailureView = (flowOutcome === 'crashed' || returnedAfterFailure) && RunFailureOutcome ? (
+    <RunFailureOutcome
+      projectId={envelope.projectId}
+      prDeliveryId={envelope.prDeliveryId}
+      conversationId={conversationId ?? null}
+      stepId={flowFailure?.stepId ?? null}
+      // The runtime's own error, never the delivery's generic detail (that one is technical).
+      cause={flowFailure?.stepId && flowFailure.detail && flowFailure.detail !== envelope.statusDetail ? flowFailure.detail : null}
+      statusCode={flowOutcome === 'crashed' ? envelope.statusCode ?? null : flowFailure?.code ?? null}
+      failureCode={(envelope.units ?? []).find((unit) => unit.failureCode)?.failureCode ?? null}
+      statusDetail={flowOutcome === 'crashed' ? envelope.statusDetail ?? null : null}
+      repositoryName={envelope.repositoryDeliveries?.length ? envelope.repositoryDeliveries.map((repository) => repository.name).join(', ') : null}
+      returned={flowOutcome === 'returned'}
+      surface="card"
+      busy={busy !== null || envelope.operation != null}
+    />
+  ) : null
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(envelope.statusCode, envelope.statusDetail)
   const recoveredInterruptedOperation = envelope.operation == null && interruptedOperationDetail
   const projectName = projects.find((p) => p.id === envelope.projectId)?.name ?? envelope.projectId
@@ -839,7 +870,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // engine): the plain rail relaunch refuses that loop, so the card offers
   // the Flow's own actions in its place.
   const flowSpecRun = envelope.loopId === FLOW_SPEC_LOOP_ID
-  const flowRunActions = flowSpecRun && RunCardActions && decision === 'implementation_failed' && flowOutcome === null ? (
+  const flowRunActions = flowSpecRun && RunCardActions && decision === 'implementation_failed' && (flowOutcome === null || flowOutcome === 'crashed') ? (
     <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
       decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null || runtimeBusy} />
   ) : null
@@ -1067,12 +1098,14 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   }
 
   const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
-  const iconTone = flowOutcome === 'changes' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
+  const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
   // Flow → Spec names itself where the title would otherwise be generic.
   const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
   const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
   const title = flowOutcome === 'changes'
     ? t(flowSpec ? 'prCard.title.flowSpecChanges' : 'prCard.title.review_changes_requested')
+    : flowOutcome === 'crashed'
+      ? t('prCard.title.flowSpecFailed')
     : flowOutcome === 'returned'
       ? t('prCard.title.returned_to_flow')
       : presentation.superseded
@@ -1333,9 +1366,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         </p>
       )}
 
-      <OutcomeEvidence envelope={envelope} />
+      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null} />
 
       {failureBlockShown && <RunFailureBlock envelope={envelope} />}
+      {flowFailureView}
       {flowOutcome === 'changes' && (
         <AgentFlowReviewBlock review={envelope.flowReview ?? { reason: 'review', summary: envelope.statusDetail ?? null, issues: [], issuesOmitted: 0, score: null, failingChecks: [] }}>
           {RunCardActions && (
@@ -1344,7 +1378,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           )}
         </AgentFlowReviewBlock>
       )}
-      {flowOutcome === 'returned' && <AgentFlowReturnedNote />}
+      {flowOutcome === 'returned' && !returnedAfterFailure && <AgentFlowReturnedNote />}
       {runtimeError}
 
       {statusLabel && flowOutcome === null && (

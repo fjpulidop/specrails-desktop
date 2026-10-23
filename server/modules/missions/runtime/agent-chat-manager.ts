@@ -1546,6 +1546,15 @@ export class AgentChatManager {
         this.postPrDecisionCard(conversationId, envelope)
         return
       }
+      // A Flow → Spec run that went back to its Flow keeps the failure it
+      // stopped with (the settle-time `runtime` snapshot): the delivery's own
+      // codes now say `returned_to_flow`, and the card still explains why.
+      if (envelope.statusCode === 'returned_to_flow' && !envelope.runtime) {
+        try {
+          const previous = JSON.parse(existing[existing.length - 1].content) as PrDecisionCardEnvelope
+          if (previous.runtime?.failure) envelope = { ...envelope, runtime: previous.runtime }
+        } catch { /* a malformed stored card is simply replaced */ }
+      }
       const serialized = JSON.stringify(envelope)
       // Keep the newest history anchor: client cold-load dedupe uses the same
       // newest-row rule, so a crash between hydration and this repair cannot

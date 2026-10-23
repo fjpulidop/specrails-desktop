@@ -1,13 +1,15 @@
-// ─── Back to Flow: "What the reviewer asked for" ─────────────────────────────
+// ─── Back to Flow: "What the reviewer asked for" / "Why Flow → Spec stopped" ──
 // A server-authored system row posted once when a Flow → Spec delivery goes
 // back to its Flow: the reviewer's verdict (issues, score, failing checks) and
-// the spec coverage of the change (files no requirement explains). The Flow
-// agent starts on it in the automatic turn that follows.
+// the spec coverage of the change (files no requirement explains) — or, when
+// the run failed outright, the failure (rendered by the extension that owns
+// it). The Flow agent starts on it in the automatic turn that follows.
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, FileQuestion, Undo2 } from 'lucide-react'
 import type { PrDeliveryFlowReview } from '../../../types'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { AgentFlowReviewBlock } from './AgentFlowReviewBlock'
 
 export interface FlowReturnBriefingRow {
@@ -16,6 +18,8 @@ export interface FlowReturnBriefingRow {
   deliveryId: string
   review: PrDeliveryFlowReview | null
   derivation: { change: string | null; files: number; explained: number; unexplainedFiles: string[]; unexplainedOmitted: number } | null
+  /** The run failed outright (no review): the step, the runtime's error and the codes. */
+  failure: { stepId: string | null; cause: string | null; statusCode: string | null; failureCode: string | null; statusDetail: string | null } | null
 }
 
 const VISIBLE_FILES = 5
@@ -35,6 +39,7 @@ export function parseFlowReturnBriefingRow(content: string): FlowReturnBriefingR
     return c && str(c.command) ? [{ command: c.command as string, exitCode: typeof c.exitCode === 'number' ? c.exitCode : null }] : []
   }).slice(0, 10) : []
   const d = o.derivation as Record<string, unknown> | null | undefined
+  const f = o.failure as Record<string, unknown> | null | undefined
   return {
     kind: 'flow-return-briefing',
     flowId: o.flowId as string,
@@ -45,11 +50,16 @@ export function parseFlowReturnBriefingRow(content: string): FlowReturnBriefingR
       unexplainedFiles: Array.isArray(d.unexplainedFiles) ? d.unexplainedFiles.filter((file): file is string => typeof file === 'string').slice(0, 50) : [],
       unexplainedOmitted: count(d.unexplainedOmitted),
     } : null,
+    failure: !reason && f && typeof f === 'object' && !Array.isArray(f) ? {
+      stepId: str(f.stepId), cause: str(f.cause), statusCode: str(f.statusCode), failureCode: str(f.failureCode), statusDetail: str(f.statusDetail),
+    } : null,
   }
 }
 
-export function AgentFlowReturnCard({ row }: { row: FlowReturnBriefingRow }) {
+export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowReturnBriefingRow; conversationId?: string | null }) {
   const { t } = useTranslation('agent')
+  const { RunFailureOutcome } = useMissionExtensions()
+  const title = row.failure ? t('flowReturn.titleFailure') : t('flowReturn.title')
   const [open, setOpen] = useState(true)
   const [allFiles, setAllFiles] = useState(false)
   const derivation = row.derivation
@@ -59,7 +69,7 @@ export function AgentFlowReturnCard({ row }: { row: FlowReturnBriefingRow }) {
   return (
     <section
       data-testid="agent-flow-return-card"
-      aria-label={t('flowReturn.title')}
+      aria-label={title}
       className="rounded-xl border border-accent-info/30 bg-accent-info/[0.05] px-3 py-2 text-xs backdrop-blur-sm"
     >
       <button
@@ -71,14 +81,22 @@ export function AgentFlowReturnCard({ row }: { row: FlowReturnBriefingRow }) {
         className="flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 rounded"
       >
         <Undo2 className="h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground/85">{t('flowReturn.title')}</span>
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground/85">{title}</span>
         {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />}
       </button>
       {open && (
         <div data-testid="agent-flow-return-body">
           {row.review
             ? <AgentFlowReviewBlock review={row.review} hideNext />
-            : <p className="mt-1.5 leading-4 text-foreground/65">{t('flowReturn.noFindings')}</p>}
+            : row.failure && RunFailureOutcome
+              ? (
+                <div className="mt-1.5">
+                  <RunFailureOutcome projectId={null} prDeliveryId={row.deliveryId} conversationId={conversationId}
+                    stepId={row.failure.stepId} cause={row.failure.cause} statusCode={row.failure.statusCode} failureCode={row.failure.failureCode}
+                    statusDetail={row.failure.statusDetail} repositoryName={null} returned surface="return" busy={false} />
+                </div>
+              )
+              : <p className="mt-1.5 leading-4 text-foreground/65">{t('flowReturn.noFindings')}</p>}
           {derivation && gap && (
             <div className="mt-2 rounded-md border border-border/50 bg-surface/40 px-2.5 py-2 text-[11px]" data-testid="agent-flow-return-coverage">
               <p className="flex items-center gap-1.5 font-medium text-foreground/80">

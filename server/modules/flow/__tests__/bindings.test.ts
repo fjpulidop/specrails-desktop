@@ -18,7 +18,7 @@ import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, type FlowSession } from '..'
 import { createFlowService } from '../application'
 import { registerFlowHttp } from '../adapters/http'
-import { changeNameFromArchive, createFlowHandOffAuthority, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
+import { FLOW_FAILURE_RETURN_TURN_TEXT, FLOW_RETURN_TURN_TEXT, changeNameFromArchive, createFlowHandOffAuthority, deliveryFailureOf, isCrashedFlowDelivery, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
 import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
@@ -580,6 +580,70 @@ describe('Back to Flow binding (real SQLite ownership transfer)', () => {
     expect(briefingDelivered).toHaveBeenCalledWith('flow-1')
     const without = createFlowTurnContext({ conversationProject: () => 'proj-1', flowServiceFor: () => ({ getByConversation: () => ({ ...session, returnBriefing: null }) }) })
     expect(without.forConversation('conv-1')).not.toHaveProperty('briefing')
+  })
+})
+
+describe('automatic return of a failed Flow → Spec run (real SQLite)', () => {
+  it('classifies a crash (never a review outcome, a busy or another loop\'s delivery)', () => {
+    const base = { loopId: 'factory:flow-spec', decision: 'implementation_failed', statusCode: 'settlement_interrupted', flowReview: undefined, operation: null } as const
+    expect(isCrashedFlowDelivery(base as never)).toBe(true)
+    expect(isCrashedFlowDelivery({ ...base, statusCode: 'review_changes_requested' } as never)).toBe(false)
+    expect(isCrashedFlowDelivery({ ...base, flowReview: { reason: 'check' } } as never)).toBe(false)
+    expect(isCrashedFlowDelivery({ ...base, operation: 'relaunch' } as never)).toBe(false)
+    expect(isCrashedFlowDelivery({ ...base, loopId: 'factory:implement' } as never)).toBe(false)
+    expect(isCrashedFlowDelivery({ ...base, decision: 'discarded', statusCode: 'returned_to_flow' } as never)).toBe(false)
+    expect(deliveryFailureOf({ statusCode: 'implementation_failed', statusDetail: 'boom', units: [{ failureCode: 'settlement_interrupted' }], flowReview: undefined } as never))
+      .toEqual({ stepId: null, cause: null, statusCode: 'implementation_failed', failureCode: 'settlement_interrupted', statusDetail: 'boom' })
+    // After the return the delivery's own codes are gone: never reported as the crash.
+    expect(deliveryFailureOf({ statusCode: 'returned_to_flow', statusDetail: 'Returned to Flow', units: [], flowReview: undefined } as never))
+      .toMatchObject({ statusCode: null, statusDetail: null })
+  })
+
+  it('takes the worktree back on its own, posts the failure card and starts ONE Flow turn about it', async () => {
+    const ctx = context()
+    const conv = createAgentConversation(ctx.desktopDb, { provider: 'claude', pinnedProjectId: 'proj-1' })
+    const worktreePath = path.join(tmp, 'worktrees', 'flow-1', 'ticket-9')
+    git(['worktree', 'add', '-q', '-b', 'feat/9-board', worktreePath])
+    const tickets = createFlowTickets(ctx)
+    const ticketId = tickets.createPlaceholder({ flowId: 'flow-1', conversationId: conv.id, title: 'Board', description: 'board', startedAt: 't' })
+    const repository = createSqliteFlowRepository(ctx.db)
+    repository.insert({ id: 'flow-1', conversationId: conv.id, ticketId, state: 'handed_off', branch: 'feat/9-board', worktreePath, baseSha: 'b'.repeat(40), headSha: 'a'.repeat(40), coreSessionId: null, railIndex: 0, deliveryId: 'delivery-1', step: null, createdAt: 't', updatedAt: 't' })
+    const { createPrDelivery, getPrDelivery, transitionDecision } = await import('../../delivery/runtime/rail-pr-store')
+    const { createRailWorktree } = await import('../../delivery/runtime/rail-worktrees-store')
+    createPrDelivery(ctx.db, { id: 'delivery-1', railIndex: 0, loopId: 'factory:flow-spec', railKey: '0-factory:flow-spec', ticketIds: [ticketId], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat', originConversationId: conv.id, launchConfig: { mode: 'loop', loopId: 'factory:flow-spec' } })
+    ctx.db.prepare('UPDATE rail_pr_deliveries SET run_ids = ? WHERE id = ?').run(JSON.stringify(['run-1']), 'delivery-1')
+    createRailWorktree(ctx.db, { id: 'ledger-1', railIndex: 0, ticketId, runId: 'run-1', branch: 'feat/9-board', worktreePath, mergeState: 'needs-review' })
+    transitionDecision(ctx.db, 'delivery-1', 'building', 'implementation_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'implementation_failed', statusDetail: 'Programmatic workflow stopped before delivery', worktreeIds: ['ledger-1'],
+      branches: [{ ticketId, branch: 'feat/9-board', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'a', failureCode: 'settlement_interrupted', branchOwnership: 'adopted', worktreePath }],
+    })
+    const host = { assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}), postSystemRow: vi.fn(() => 'row-1'), startAutomaticTurn: vi.fn(async () => 'started' as const) }
+    const bound = createFlowPorts({
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call: vi.fn() } as never,
+      agentHost: () => host,
+      availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+      clock: { now: () => '2026-10-23T10:00:00.000Z' },
+    })
+    expect(bound.publication.deliveryState('delivery-1')).toEqual({ delivered: false, crashed: true })
+    // No runtime record for this run here: only the delivery codes are known.
+    await expect(bound.rails.runFailure!('delivery-1')).resolves.toBeNull()
+    const service = createFlowService(bound, { warn: vi.fn() })
+
+    const returned = await service.observeDelivery('delivery-1')
+    expect(returned).toMatchObject({ id: 'flow-1', state: 'active', deliveryId: 'delivery-1' })
+    expect(returned!.returnBriefing).toContain('Delivery detail: Programmatic workflow stopped before delivery')
+    expect(getPrDelivery(ctx.db, 'delivery-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
+    expect(bound.publication.deliveryState('delivery-1')).toEqual({ delivered: false, crashed: false })
+    expect(host.postSystemRow).toHaveBeenCalledWith(conv.id, expect.objectContaining({
+      kind: 'flow-return-briefing', reason: null,
+      failure: { stepId: null, cause: null, statusCode: 'implementation_failed', failureCode: 'settlement_interrupted', statusDetail: 'Programmatic workflow stopped before delivery' },
+    }), 'flow-return-briefing:delivery-1')
+    expect(host.startAutomaticTurn).toHaveBeenCalledTimes(1)
+    expect(host.startAutomaticTurn).toHaveBeenCalledWith(conv.id, FLOW_FAILURE_RETURN_TURN_TEXT, { turnKey: 'flow-return:delivery-1', label: 'Back to Flow' })
+    expect(FLOW_FAILURE_RETURN_TURN_TEXT).not.toBe(FLOW_RETURN_TURN_TEXT)
+    // A repeated observation (the return's own broadcast) changes nothing.
+    await expect(service.observeDelivery('delivery-1')).resolves.toBeNull()
+    expect(host.startAutomaticTurn).toHaveBeenCalledTimes(1)
   })
 })
 

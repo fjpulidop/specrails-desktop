@@ -3,8 +3,9 @@
 // chat. It owns the Flow state (FlowProvider) and plugs Flow into the missions
 // extension seam: the ```flow-offer card, the conversation mode (data-flow
 // surface, worktree branch, interrupting sends) and the dock above the
-// composer, and the Back to Flow / Relaunch actions on a Flow → Spec run card
-// that stopped with requested changes. Missions never import this feature.
+// composer, the Back to Flow / Relaunch actions on a Flow → Spec run card that
+// stopped with requested changes, and the Flow-authored explanation of a run
+// that failed outright. Missions never import this feature.
 
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,7 @@ import { FLOW_OFFER_TAG } from '../lib/flow-offer'
 import { FlowDock } from './FlowDock'
 import { FlowOfferCard } from './FlowOfferCard'
 import { FlowRunCardActions } from './FlowRunCardActions'
+import { FlowRunFailure } from './FlowRunFailure'
 
 /** The missions mode of a conversation while its Flow is active. */
 export function useFlowConversationMode(conversationId: string | null, projectId: string | null): MissionConversationMode | null {
@@ -34,6 +36,7 @@ export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
   useConversationMode: useFlowConversationMode,
   ConversationDock: FlowDock,
   RunCardActions: FlowRunCardActions,
+  RunFailureOutcome: FlowRunFailure,
 })
 
 export function FlowMissionsBridge({ children }: { children: ReactNode }) {

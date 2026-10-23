@@ -780,3 +780,93 @@ describe('Back to Flow and Relaunch (Flow → Spec requested changes)', () => {
     expect(other.repository.get(second.id)?.derivedChanges).toBeUndefined()
   })
 })
+
+describe('automatic return after a Flow → Spec run fails outright', () => {
+  const crash = {
+    railIndex: 2, options: {}, findings: null, derivation: null,
+    failure: { stepId: null, cause: null, statusCode: 'implementation_failed', failureCode: 'settlement_interrupted', statusDetail: 'Programmatic workflow stopped before delivery' },
+  }
+
+  async function crashed(overrides: Partial<FlowPorts> = {}) {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}) }
+    const ctx = setup({ conversation, ...overrides })
+    const flow = await ctx.service.startFlow(startInput)
+    await ctx.service.handOffFlow({ flowId: flow.id, railIndex: 2 })
+    ctx.rails.stoppedDelivery.mockReturnValue(crash)
+    const runFailure = vi.fn(async () => ({ stepId: 'derive', cause: 'OpenSpec 1.14.3 required; found 1.4.1' }))
+    ;(ctx.rails as FlowPorts['rails']).runFailure = runFailure
+    ctx.publication.deliveryState.mockReturnValue({ delivered: false, crashed: true } as { delivered: boolean })
+    return { ...ctx, flow, conversation, runFailure }
+  }
+
+  it('returns the worktree, reopens the session and briefs the Flow agent with the step and the cause', async () => {
+    const ctx = await crashed()
+    const returned = await ctx.service.observeDelivery('delivery-1')
+    expect(returned).toMatchObject({ id: ctx.flow.id, state: 'active', deliveryId: 'delivery-1' })
+    expect(ctx.rails.returnWorktree).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: 'delivery-1', detail: expect.stringContaining('the run failed') }))
+    expect(returned!.returnBriefing).toContain('failed at its "derive" step')
+    expect(returned!.returnBriefing).toContain('Error: OpenSpec 1.14.3 required; found 1.4.1')
+    expect(returned!.returnBriefing).toContain('Codes: implementation_failed, settlement_interrupted')
+    expect(returned!.returnBriefing).toContain('tell the person exactly what to change')
+    const failure = { stepId: 'derive', cause: 'OpenSpec 1.14.3 required; found 1.4.1', statusCode: 'implementation_failed', failureCode: 'settlement_interrupted', statusDetail: 'Programmatic workflow stopped before delivery' }
+    expect(ctx.conversation.postReturnCard).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: 'delivery-1', findings: null, failure }))
+    expect(ctx.conversation.startReturnTurn).toHaveBeenCalledWith({ conversationId: 'conv-1', flowId: ctx.flow.id, deliveryId: 'delivery-1', failure })
+  })
+
+  it('is idempotent across repeated observations and restarts', async () => {
+    const ctx = await crashed()
+    await Promise.all([ctx.service.observeDelivery('delivery-1'), ctx.service.observeDelivery('delivery-1')])
+    await ctx.service.observeDelivery('delivery-1')
+    await ctx.service.replaySettlement()
+    expect(ctx.rails.returnWorktree).toHaveBeenCalledTimes(1)
+    expect(ctx.repository.get(ctx.flow.id)?.state).toBe('active')
+  })
+
+  it('a restart returns a Flow whose run failed while the app was down', async () => {
+    const ctx = await crashed()
+    await expect(ctx.service.replaySettlement()).resolves.toBe(1)
+    expect(ctx.repository.get(ctx.flow.id)).toMatchObject({ state: 'active', deliveryId: 'delivery-1' })
+  })
+
+  it('never fires for requested changes, a delivered run, or a Flow no longer on that delivery', async () => {
+    const review = await crashed()
+    review.publication.deliveryState.mockReturnValue({ delivered: false, crashed: false } as { delivered: boolean })
+    await expect(review.service.observeDelivery('delivery-1')).resolves.toBeNull()
+    expect(review.rails.returnWorktree).not.toHaveBeenCalled()
+
+    // Relaunched: the Flow moved on to a new delivery; the old one is ignored.
+    const relaunched = await crashed()
+    relaunched.rails.launch.mockImplementationOnce(async ({ flowId, railIndex }: { flowId: string; railIndex: number }) => {
+      const current = relaunched.repository.get(flowId)!
+      relaunched.repository.save(transition(current, { type: 'handed-off', railIndex, deliveryId: 'delivery-2', headSha: current.headSha!, now: 't' }).session)
+      return { loopRunIds: ['run-2'], deliveryId: 'delivery-2' }
+    })
+    await relaunched.service.relaunchFlow({ deliveryId: 'delivery-1' })
+    relaunched.rails.returnWorktree.mockClear()
+    await expect(relaunched.service.observeDelivery('delivery-1')).resolves.toBeNull()
+    expect(relaunched.rails.returnWorktree).not.toHaveBeenCalled()
+
+    // Discarded before the hand-off ever happened: nothing to return.
+    const discarded = setup()
+    const flow = await discarded.service.startFlow(startInput)
+    await discarded.service.discardFlow(flow.id)
+    discarded.publication.deliveryState.mockReturnValue({ delivered: false, crashed: true } as { delivered: boolean })
+    await expect(discarded.service.observeDelivery('delivery-1')).resolves.toBeNull()
+  })
+
+  it('a refused automatic return only logs; the card keeps the manual Back to Flow', async () => {
+    const ctx = await crashed()
+    ctx.worktrees.exists.mockReturnValue(false)
+    await expect(ctx.service.observeDelivery('delivery-1')).resolves.toBeNull()
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('automatic return of delivery delivery-1 failed'))
+    expect(ctx.repository.get(ctx.flow.id)?.state).toBe('handed_off')
+  })
+
+  it('briefs with the delivery codes when the runtime cannot tell the step', async () => {
+    const ctx = await crashed()
+    ctx.runFailure.mockRejectedValueOnce(new Error('runtime gone'))
+    const returned = await ctx.service.observeDelivery('delivery-1')
+    expect(returned!.returnBriefing).toContain('The Flow → Spec run failed before delivery')
+    expect(returned!.returnBriefing).toContain('Delivery detail: Programmatic workflow stopped before delivery')
+  })
+})

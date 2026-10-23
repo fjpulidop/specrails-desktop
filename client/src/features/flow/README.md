@@ -22,6 +22,19 @@ Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 
+## Mission extension slots
+
+`FlowMissionsBridge` fills the missions seam: the `flow-offer` fence card, the
+conversation mode, the dock above the composer (`FlowDock`), the run card's
+Back to Flow / Relaunch (`FlowRunCardActions`) and `RunFailureOutcome`
+(`FlowRunFailure`): a Flow → Spec run that failed outright is explained in the
+person's words — a localized headline per failing step
+([`lib/flow-failure.ts`](lib/flow-failure.ts) maps the recipe's step ids), the
+runtime's error as the cause, what happens next, the actions or "Returned to
+Flow", and the codes only under **Technical details**. The same block renders
+inside the Flow's return card. Flow API refusals read by code
+(`flowErrorMessage`); the server detail is never the headline.
+
 ## Repository target
 
 In a workspace (folder primary) or a project with several Git repositories,

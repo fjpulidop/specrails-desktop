@@ -40,7 +40,7 @@ import {
 } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
-import { flowReviewOutcome, flowReviewStatusDetail } from './flow-review-outcome'
+import { FLOW_SPEC_DELIVERY_LOOP_ID, flowReviewOutcome, flowReviewStatusDetail } from './flow-review-outcome'
 import { coreAnnouncesReviewBrief, harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { phase3HarvestOptions } from './phase3-harvest'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
@@ -918,16 +918,25 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     const row = getPrDelivery(ctx.db, deliveryId)
     if (!row?.origin_conversation_id) return
     const snapshot = toPrDeliverySnapshot(row)
-    const envelope = toPrDecisionCardEnvelope(ctx.project.id, snapshot)
     const primaryRunId = runId ?? snapshot.runIds[0] ?? deliveryId
+    // A Flow → Spec run that failed outright goes back to its Flow on its own
+    // (flow module, `rail.pr_state` observer); the Flow's return card and
+    // automatic turn carry the failure, so the mission gets only the card
+    // update — no second trace row, no second briefing turn.
+    const flowCrash = row.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID && failure.code === 'implementation_failed'
     void (async () => {
       const summary = runId ? await runtimeRunSummary(ctx, runId).catch(() => null) : null
+      // Re-read after the await: the delivery may have moved on meanwhile
+      // (Back to Flow closes it) and the card must never regress to the old decision.
+      const current = getPrDelivery(ctx.db, deliveryId) ?? row
+      const envelope = toPrDecisionCardEnvelope(ctx.project.id, toPrDeliverySnapshot(current))
       await notifyMissionRunFailure({
         originConversationId: row.origin_conversation_id,
         projectId: ctx.project.id, runId: primaryRunId, railIndex, ticketIds: [...ticketIds],
         railName: getRailName(ctx, railIndex),
         failure, envelope, summary, hasDelivery: true, prDeliveryId: deliveryId,
         tickets: ticketIds.map((id) => ({ id, title: ctx.getTicketSpec(id)?.title ?? null })),
+        ...(flowCrash ? { cardOnly: true } : {}),
       })
     })().catch((err) => console.error('[rail-isolated] mission failure notify failed:', err))
   }

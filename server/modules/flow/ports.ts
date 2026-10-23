@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowRunFailure, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -133,7 +133,11 @@ export interface FlowRailLauncher {
   launch(input: { flowId: string; conversationId: string; ticketId: number; railIndex: number; options: FlowLaunchOptions; repositoryId?: string | null }): Promise<{ loopRunIds: string[]; deliveryId: string | null }>
   /** A Flow → Spec delivery that stopped before delivery: its rail, its launch
    * choices (for Relaunch) and the review findings. Null when unknown. */
-  stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null; derivation?: FlowDerivationCoverage | null } | null
+  stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null; derivation?: FlowDerivationCoverage | null; failure?: FlowRunFailure | null } | null
+  /** A run that failed outright (no review findings): the failing step and the
+   * first line of the runtime's own error, read from the run's runtime. Null
+   * when unknown; never throws. Absent ⇒ only the delivery codes are known. */
+  runFailure?(deliveryId: string): Promise<Pick<FlowRunFailure, 'stepId' | 'cause'> | null>
   /** Back to Flow: delivery removes its ledger row for the adopted worktree and
    * closes the delivery in ONE transaction; `commit` (the Flow's own state
    * change) runs inside it, so ownership moves atomically. Throws (409) when
@@ -163,7 +167,13 @@ export interface FlowNotifier {
 export interface FlowPublication {
   /** Whether the rail delivery reached review (on_review or later with a
    * succeeded implementation). Null when the delivery row is unknown. */
-  deliveryState(deliveryId: string): { delivered: boolean } | null
+  deliveryState(deliveryId: string): {
+    delivered: boolean
+    /** A Flow → Spec run that failed outright — a technical failure, not
+     * requested changes — and whose delivery is idle: the worktree goes back
+     * to its Flow automatically. */
+    crashed?: boolean
+  } | null
   /** The derived OpenSpec change on the delivered branch (proposal, design,
    * diffstat). Throws when Git cannot be read (the effect retries). */
   derivedChange(input: { flowId: string; deliveryId: string | null; ticketId: number; branch: string | null; baseSha: string | null; repositoryId?: string | null }): Promise<DerivedChangeText>
@@ -187,14 +197,16 @@ export interface Clock {
 
 /**
  * The mission conversation a Flow belongs to: Back to Flow tells the person
- * what the reviewer asked for and lets the Flow agent start on it. Both are
+ * what the reviewer asked for (or why the run failed) and lets the Flow agent
+ * start on it. Both are
  * idempotent by delivery and never throw.
  */
 export interface FlowConversation {
   /** Post the visible "What the reviewer asked for" card (once per delivery). */
-  postReturnCard(input: { conversationId: string; flowId: string; deliveryId: string; findings: FlowReviewFindings | null; derivation: FlowDerivationCoverage | null }): void
-  /** Start ONE automatic Flow turn that works on the return briefing (once per delivery). */
-  startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string }): Promise<void>
+  postReturnCard(input: { conversationId: string; flowId: string; deliveryId: string; findings: FlowReviewFindings | null; derivation: FlowDerivationCoverage | null; failure?: FlowRunFailure }): void
+  /** Start ONE automatic Flow turn that works on the return briefing (once per
+   * delivery); `failure` ⇒ the run failed outright (no review findings). */
+  startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string; failure?: FlowRunFailure }): Promise<void>
 }
 
 /** The project's repositories (target triage of a new Flow). */

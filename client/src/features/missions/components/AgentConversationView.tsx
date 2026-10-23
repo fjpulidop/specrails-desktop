@@ -287,7 +287,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               }
               // Back to Flow: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
-              if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} />
+              if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null

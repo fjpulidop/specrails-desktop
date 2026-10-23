@@ -316,7 +316,8 @@
       "review_changes_requested": "Der Reviewer hat Änderungen angefordert",
       "returned_to_flow": "Zurück in Flow",
       "flowSpecChanges": "Flow → Spec — der Reviewer hat Änderungen angefordert",
-      "flowSpecDelivered": "Flow → Spec ausgeliefert"
+      "flowSpecDelivered": "Flow → Spec ausgeliefert",
+      "flowSpecFailed": "Flow → Spec wurde angehalten"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -913,7 +914,17 @@
       "flow_freeze_failed": "Der Flow-Worktree konnte für die Übergabe nicht gesichert werden.",
       "flow_head_mismatch": "Der Worktree hat sich während der Übergabe geändert. Versuche es erneut.",
       "flow_handoff_not_adopted": "Die Rail ist gestartet, ohne den Flow-Worktree zu übernehmen.",
-      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails einen isolierten Worktree anlegen kann."
+      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails einen isolierten Worktree anlegen kann.",
+      "flow_not_found": "Dieser Flow existiert nicht mehr.",
+      "flow_failed": "Flow ist auf einen unerwarteten Fehler gestoßen. Versuche es erneut.",
+      "conversation_not_found": "Diese Mission existiert nicht mehr.",
+      "conversation_not_pinned": "Hefte diese Mission an das Projekt, bevor du einen Flow startest.",
+      "flow_not_handed_off": "Dieser Flow wartet nicht mehr auf diesen Lauf.",
+      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib erneut über die Flow-Leiste.",
+      "flow_return_busy": "Der Lauf ist mit einer anderen Aktion beschäftigt. Versuche es gleich noch einmal.",
+      "flow_return_not_allowed": "Nur ein Flow → Spec-Lauf, der vor der Auslieferung angehalten wurde, kann zu seinem Flow zurück.",
+      "flow_return_not_found": "Dieser Lauf ist kein Flow → Spec-Lauf.",
+      "flow_return_worktree_mismatch": "Dieser Lauf hat den Worktree dieses Flows nicht übernommen."
     },
     "entry": {
       "heading": "Flow starten",
@@ -1044,7 +1055,32 @@
       "returned": "Zurück in Flow – der Agent hat das Review",
       "relaunched": "Flow → Spec auf Rail {{index}} neu gestartet",
       "returnFailed": "Zurück zu Flow nicht möglich: {{detail}}",
-      "relaunchFailed": "Flow → Spec konnte nicht neu gestartet werden: {{detail}}"
+      "relaunchFailed": "Flow → Spec konnte nicht neu gestartet werden: {{detail}}",
+      "backToFlowFailureHint": "Öffnet diesen Flow im selben Worktree erneut; der Agent erhält den Fehler in seinem nächsten Zug",
+      "returnedFailure": "Zurück im Flow – der Agent hat den Fehler"
+    },
+    "failure": {
+      "step": {
+        "derive": "Die Spec konnte nicht aus deinen Änderungen geschrieben werden",
+        "verify": "Deine Änderungen konnten nicht geprüft werden",
+        "review": "Die Prüfung konnte nicht abgeschlossen werden",
+        "fix": "Die automatischen Korrekturen konnten nicht abgeschlossen werden",
+        "archive": "Die OpenSpec-Änderung konnte nicht archiviert werden",
+        "settle": "Das Ergebnis konnte nicht übergeben werden",
+        "unknown": "Flow → Spec wurde vor dem Abschluss angehalten"
+      },
+      "cause": "Ursache:",
+      "next": "Deine Arbeit ist unversehrt. Zurück im Flow erhält der Agent den Fehler.",
+      "nextReturned": "Deine Arbeit ist unversehrt. Zurück im Flow hat der Agent den Fehler.",
+      "returned": "Zurück im Flow",
+      "technical": {
+        "title": "Technische Details",
+        "repository": "Repository",
+        "step": "Schritt",
+        "status": "Status",
+        "failure": "Fehler",
+        "detail": "Detail"
+      }
     }
   },
   "flowReturn": {
@@ -1055,6 +1091,7 @@
     "moreFiles_one": "+{{count}} weitere Datei",
     "moreFiles_other": "+{{count}} weitere Dateien",
     "next": "Der Flow-Agent beginnt jetzt damit; du kannst ihn jederzeit lenken oder stoppen.",
-    "automaticTurn": "Automatischer Zug · Zurück zu Flow"
+    "automaticTurn": "Automatischer Zug · Zurück zu Flow",
+    "titleFailure": "Warum Flow → Spec angehalten wurde"
   }
 }

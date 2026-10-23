@@ -306,7 +306,8 @@
       "review_changes_requested": "El revisor solicitó cambios",
       "returned_to_flow": "De vuelta en Flow",
       "flowSpecChanges": "Flow → Spec — el revisor pidió cambios",
-      "flowSpecDelivered": "Flow → Spec entregado"
+      "flowSpecDelivered": "Flow → Spec entregado",
+      "flowSpecFailed": "Flow → Spec se detuvo"
     },
     "buildingHint": "Cuando termine, se te preguntará si crear la PR.",
     "buildingExistingPrHint": "Specrails está trabajando sobre la rama de la PR existente y subirá los cambios de revisión a esa misma PR.",
@@ -913,7 +914,17 @@
       "flow_freeze_failed": "No se pudo guardar el worktree del Flow para el traspaso.",
       "flow_head_mismatch": "El worktree cambió durante el traspaso. Inténtalo de nuevo.",
       "flow_handoff_not_adopted": "El rail arrancó sin hacerse cargo del worktree del Flow.",
-      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear un worktree aislado."
+      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear un worktree aislado.",
+      "flow_not_found": "Este Flow ya no existe.",
+      "flow_failed": "Flow encontró un error inesperado. Inténtalo de nuevo.",
+      "conversation_not_found": "Esta misión ya no existe.",
+      "conversation_not_pinned": "Fija esta misión al proyecto antes de iniciar un Flow.",
+      "flow_not_handed_off": "Este Flow ya no espera esa ejecución.",
+      "flow_rail_unknown": "Se desconoce el rail de esa ejecución. Vuelve a entregarlo desde la barra de Flow.",
+      "flow_return_busy": "La ejecución está ocupada con otra acción. Inténtalo en un momento.",
+      "flow_return_not_allowed": "Solo una ejecución de Flow → Spec detenida antes de la entrega puede volver a su Flow.",
+      "flow_return_not_found": "Esa ejecución no es de Flow → Spec.",
+      "flow_return_worktree_mismatch": "Esa ejecución no tomó el worktree de este Flow."
     },
     "entry": {
       "heading": "Empezar un Flow",
@@ -1044,7 +1055,32 @@
       "returned": "De vuelta en Flow: el agente tiene la revisión",
       "relaunched": "Flow → Spec relanzado en el rail {{index}}",
       "returnFailed": "No se pudo volver a Flow: {{detail}}",
-      "relaunchFailed": "No se pudo relanzar Flow → Spec: {{detail}}"
+      "relaunchFailed": "No se pudo relanzar Flow → Spec: {{detail}}",
+      "backToFlowFailureHint": "Reabre este Flow en el mismo worktree; el agente recibe el error en su siguiente turno",
+      "returnedFailure": "De vuelta en Flow: el agente tiene el error"
+    },
+    "failure": {
+      "step": {
+        "derive": "No se pudo escribir la spec a partir de tus cambios",
+        "verify": "No se pudieron verificar tus cambios",
+        "review": "La revisión no pudo terminar",
+        "fix": "Las correcciones automáticas no pudieron terminar",
+        "archive": "No se pudo archivar el cambio de OpenSpec",
+        "settle": "No se pudo entregar el resultado",
+        "unknown": "Flow → Spec se detuvo antes de terminar"
+      },
+      "cause": "Causa:",
+      "next": "Tu trabajo está intacto. De vuelta en Flow, el agente recibe el error.",
+      "nextReturned": "Tu trabajo está intacto. De vuelta en Flow, el agente tiene el error.",
+      "returned": "De vuelta en Flow",
+      "technical": {
+        "title": "Detalles técnicos",
+        "repository": "Repositorio",
+        "step": "Paso",
+        "status": "Estado",
+        "failure": "Fallo",
+        "detail": "Detalle"
+      }
     }
   },
   "flowReturn": {
@@ -1055,6 +1091,7 @@
     "moreFiles_one": "+{{count}} archivo más",
     "moreFiles_other": "+{{count}} archivos más",
     "next": "El agente del Flow empieza ahora con esto; puedes guiarlo o detenerlo en cualquier momento.",
-    "automaticTurn": "Turno automático · Volver a Flow"
+    "automaticTurn": "Turno automático · Volver a Flow",
+    "titleFailure": "Por qué se detuvo Flow → Spec"
   }
 }

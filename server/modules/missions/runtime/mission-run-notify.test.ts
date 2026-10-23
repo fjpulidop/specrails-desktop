@@ -137,6 +137,15 @@ describe('notifyMissionRunFailure', () => {
     expect(m.startSystemTurn).not.toHaveBeenCalled()
   })
 
+  it('cardOnly updates the card and leaves the trace and the briefing to their owner (Flow)', async () => {
+    const m = fakeManager()
+    const r = await notifyMissionRunFailure({ ...id, originConversationId: 'conv-1', failure: { code: 'implementation_failed', detail: 'boom', stepId: null }, cardOnly: true })
+    expect(r).toEqual({ card: true, row: null, turn: 'skipped' })
+    expect(m.updatePrDecisionCard).toHaveBeenCalledTimes(1)
+    expect(m.postRunFailureRow).not.toHaveBeenCalled()
+    expect(m.startSystemTurn).not.toHaveBeenCalled()
+  })
+
   it('is a no-op without an origin, without a manager, or with the feature off', async () => {
     const m = fakeManager()
     expect(await notifyMissionRunFailure({ ...id, originConversationId: null, failure: { code: 'x', detail: null, stepId: null } })).toEqual({ card: false, row: null, turn: 'skipped' })

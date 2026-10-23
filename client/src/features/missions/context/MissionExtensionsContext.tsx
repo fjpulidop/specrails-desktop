@@ -14,6 +14,10 @@
 //   - RunCardActions: extra actions on a run/PR card whose outcome the
 //     extension owns (Flow: "Back to Flow" and "Relaunch" when Flow → Spec
 //     stopped with requested changes). Returns null when it has nothing.
+//   - RunFailureOutcome: the whole explanation of a run that failed outright
+//     when the extension owns its outcome (Flow → Spec: what failed in plain
+//     words, what happens next, its actions and the technical details). It
+//     replaces the generic failure block; without it the card stays generic.
 //
 // The value must be STABLE for the app's lifetime (useConversationMode is
 // called as a hook). Without a provider every slot is inert and missions
@@ -69,11 +73,34 @@ export interface MissionRunCardActionsProps {
   busy: boolean
 }
 
+export interface MissionRunFailureOutcomeProps {
+  /** The run's project (null on the Flow return card when unknown). */
+  projectId: string | null
+  prDeliveryId: string
+  conversationId: string | null
+  /** The failing step and the runtime's own error (its first line), when known. */
+  stepId: string | null
+  cause: string | null
+  /** Technical codes, shown only under "Technical details". */
+  statusCode: string | null
+  failureCode: string | null
+  statusDetail: string | null
+  /** The repository of a multi-repository run (null otherwise). */
+  repositoryName: string | null
+  /** The work already went back to its Flow: a state instead of actions. */
+  returned: boolean
+  /** `card`: on the run card (with actions); `return`: inside the Flow's return card. */
+  surface: 'card' | 'return'
+  /** Disables the extension's buttons while the card runs another action. */
+  busy: boolean
+}
+
 export interface MissionExtensions {
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
   useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
   ConversationDock?: ComponentType<MissionConversationSlotProps>
   RunCardActions?: ComponentType<MissionRunCardActionsProps>
+  RunFailureOutcome?: ComponentType<MissionRunFailureOutcomeProps>
 }
 
 const NONE: MissionExtensions = Object.freeze({})

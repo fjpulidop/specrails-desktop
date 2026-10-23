@@ -24,7 +24,10 @@ ports-and-adapters slice.
 
 `start` → `active` ⇄ `paused` → `handed_off` → `delivered`; `discard` from
 `active`/`paused` → `discarded`; `returned` (Back to Flow) from `handed_off`
-→ `paused` when the Flow → Spec run stopped with requested changes; startup
+→ `paused` when the Flow → Spec run stopped with requested changes (by hand)
+or failed outright (automatically: `observeDelivery`/`replaySettlement` see
+`deliveryState().crashed` and run the same idempotent `returnToFlow`; the
+briefing carries the `FlowRunFailure` — step, runtime error, codes); startup
 reconciliation may set `needs-review` when a worktree disappeared. `step` records an unfinished
 saga (`start:ticket`, `start:worktree`, `start:session`, `handoff:freeze`,
 `handoff:launch`).
@@ -106,10 +109,10 @@ npm run typecheck
 
 - [Domain tests](__tests__/domain.test.ts): transition table, invariants, reconciliation.
 - [Settlement tests](__tests__/settlement.test.ts): summary bounds, message window (SQLite vs ISO times), reply first lines, effect order, backoff, rewrite text.
-- [Application tests](__tests__/application.test.ts): fakes; compensation at each saga step; idempotency; Back to Flow and Relaunch.
+- [Application tests](__tests__/application.test.ts): fakes; compensation at each saga step; idempotency; Back to Flow and Relaunch; automatic return of a failed run (idempotent, never for requested changes or a relaunched Flow).
 - [SQLite tests](__tests__/sqlite.test.ts): isolation, unique index, adoption transaction rollback.
 - [HTTP tests](__tests__/http.test.ts): routes and error mapping.
-- [Binding tests](__tests__/bindings.test.ts): placeholder spec, real-git worktree, launch authority, usage, turn context, real-shaped conversation summary, Back to Flow over real SQLite.
+- [Binding tests](__tests__/bindings.test.ts): placeholder spec, real-git worktree, launch authority, usage, turn context, real-shaped conversation summary, Back to Flow and the automatic return of a failed run over real SQLite.
 
 ## Reviewed public entry points
 
