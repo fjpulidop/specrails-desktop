@@ -151,6 +151,15 @@ export type RailHandOffOutcome =
  * owner's, and "Not yet" returns control to the owner instead of recording a
  * final dismissal.
  */
+/** The choices a hand-off keeps across closing and reopening (rail, engine, model, effort). */
+export interface RailHandOffDraft {
+  railIndex: number | null
+  newRail: boolean
+  aiEngine: string | null
+  model: string | null
+  reasoningEffort: string | null
+}
+
 export interface RailLaunchHandOff {
   /** The only loop (fixed: no selector is shown). */
   loop: { id: string; label: string }
@@ -172,6 +181,10 @@ export interface RailLaunchHandOff {
   onDismiss: () => void
   /** Extra intent fields recorded with the launch (e.g. flowId). */
   config?: Record<string, unknown>
+  /** The person's earlier choices, restored over the proposal when the hand-off reopens. */
+  draft?: RailHandOffDraft | null
+  /** Called when the person changes the rail, engine, model or effort (never for the seed). */
+  onDraftChange?: (draft: RailHandOffDraft) => void
 }
 
 interface Props {
@@ -262,8 +275,20 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     targetPrNumber: proposal.targetPrNumber,
     baseBranch: proposal.baseBranch ?? '',
     followUp: proposal.followUp ?? null,
+    // A reopened hand-off restores what the person chose before.
+    ...(handOff?.draft ?? {}),
   }))
   const patch = useCallback((p: Partial<RailLaunchConfig>) => setConfig((c) => ({ ...c, ...p })), [])
+  // Report the hand-off choices once the person changes them (the seed is not a choice).
+  const onDraftChange = handOff?.onDraftChange
+  const draftNow: RailHandOffDraft = { railIndex: config.railIndex, newRail: config.newRail, aiEngine: config.aiEngine, model: config.model, reasoningEffort: config.reasoningEffort }
+  const draftKey = JSON.stringify(draftNow)
+  const reportedDraft = useRef(draftKey)
+  useEffect(() => {
+    if (reportedDraft.current === draftKey) return
+    reportedDraft.current = draftKey
+    onDraftChange?.(JSON.parse(draftKey) as RailHandOffDraft)
+  }, [draftKey, onDraftChange])
 
   const detectedProviders = detection.detected
   const providerReady = !detection.loading

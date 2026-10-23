@@ -11,16 +11,18 @@
 // the Flow offer message that started this Flow (`flow-hand-off`); without
 // one, the Flow's own state is the record. The engine/model/effort default to
 // the Flow conversation's current selection (the rail default only when that
-// provider cannot run the loop here, with a note saying so).
+// provider cannot run the loop here, with a note saying so). The person's own
+// choices (rail, engine, model, effort) are kept in FlowContext per Flow and
+// restored when the hand-off reopens after "Not yet" or a remount.
 
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
 import { AgentRailLaunchCard, type RailLaunchHandOff } from '../../missions/components/AgentRailLaunchCard'
 import type { AgentMessage, AgentMessageIntent } from '../../missions/lib/agent-api'
 import type { RailLaunchProposal } from '../../rails/lib/rail-launch-draft'
 import { useLocalIntents } from '../../rails/lib/rail-launch-intents'
-import { useFlowContext, type FlowHandOffReceipt } from '../context/FlowContext'
+import { useFlowContext, type FlowHandOffDraft, type FlowHandOffReceipt } from '../context/FlowContext'
 import { FlowApiError, type Flow } from '../lib/flow-api'
 import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
 import { flowHandOffEngine } from '../lib/flow-engine'
@@ -78,6 +80,14 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
     followUp: null,
   }), [flow.ticketId, t, engine.aiEngine, engine.model, engine.reasoningEffort])
 
+  // The choices the person made earlier, read when the card (re)mounts.
+  const cardKey = `${engine.aiEngine ?? 'default'}:${engine.model ?? ''}:${engine.reasoningEffort ?? ''}`
+  const drafts = ctx?.handOffDrafts
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- read once per card mount (cardKey)
+  const draft = useMemo(() => drafts?.get(flow.id) ?? null, [cardKey, flow.id])
+  const setHandOffDraft = ctx?.setHandOffDraft
+  const onDraftChange = useCallback((next: FlowHandOffDraft) => setHandOffDraft?.(flow.id, next), [setHandOffDraft, flow.id])
+
   const handOff: RailLaunchHandOff = useMemo(() => ({
     loop: { id: FLOW_SPEC_LOOP_ID, label: t('flow.handOff.loop') },
     heading: t('flow.handOff.heading'),
@@ -98,6 +108,8 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
     intentKind: 'flow-hand-off',
     persist: anchor !== null,
     config: { flowId: flow.id },
+    draft,
+    onDraftChange,
     onDismiss: () => ctx?.setWrappingUp(flow.id, false),
     launch: async (input) => {
       if (!ctx) return { ok: false, error: 'network' }
@@ -109,7 +121,7 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
         return { ok: false, error: error instanceof Error ? error.message : 'network' }
       }
     },
-  }), [anchor, ctx, flow, projectId, t, fileCount, totals, costView.usd, costView.partial, engine.fallbackFrom])
+  }), [anchor, ctx, flow, projectId, t, fileCount, totals, costView.usd, costView.partial, engine.fallbackFrom, draft, onDraftChange])
 
   const intent: AgentMessageIntent | null = receipt
     ? { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: '', railIndex: receipt.railIndex, runIds: receipt.runIds, prDeliveryId: receipt.deliveryId }
@@ -118,7 +130,7 @@ export function FlowHandOffCard({ projectId, conversationId, flow, receipt }: { 
   return (
     <div data-testid="flow-hand-off-card">
       <AgentRailLaunchCard
-        key={`${engine.aiEngine ?? 'default'}:${engine.model ?? ''}:${engine.reasoningEffort ?? ''}`}
+        key={cardKey}
         proposal={proposal}
         proposalIndex={0}
         messageId={anchor ?? `flow:${flow.id}`}

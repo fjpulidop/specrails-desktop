@@ -1,10 +1,11 @@
 // ─── Flow state on the client ─────────────────────────────────────────────────
 // One provider above the mission chat. It caches the Flow of each
 // (project, conversation) a view asked for, the per-project availability, and
-// three session-local UI facts: which Flows are "wrapping up" (the user pressed
-// "Hand off" and the hand-off panel is showing), which hand-offs are in
-// flight, and which were just handed off (the run strip keeps a launching
-// skeleton until the run itself shows).
+// session-local UI facts: which Flows are "wrapping up" (the user pressed
+// "Hand off" and the hand-off panel is showing), the hand-off choices the
+// person made (rail, engine, model, effort — restored when it reopens), which
+// hand-offs are in flight, and which were just handed off (the run strip keeps
+// a launching skeleton until the run itself shows).
 //
 // WebSocket: `flow.state { projectId, conversationId, flow }`. Missions can be
 // pinned to any project, so the filter is the set of projects a mounted view
@@ -18,6 +19,15 @@ import { flowApi, type Flow, type FlowAvailability, type FlowHandOffResult } fro
 export type FlowOpenConversations = ReadonlyMap<string, ReadonlyMap<string, Flow['state']>>
 
 const IN_FLOW_STATES: ReadonlySet<Flow['state']> = new Set(['active', 'paused', 'needs-review'])
+
+/** The hand-off choices kept per Flow while the app runs (rail, engine, model, effort). */
+export interface FlowHandOffDraft {
+  railIndex: number | null
+  newRail: boolean
+  aiEngine: string | null
+  model: string | null
+  reasoningEffort: string | null
+}
 
 export interface FlowHandOffReceipt {
   railIndex: number
@@ -37,7 +47,12 @@ export interface FlowContextValue {
   /** Flows whose hand-off request is in flight (the strip's launching skeleton). */
   launching: ReadonlySet<string>
   handedOff: ReadonlyMap<string, FlowHandOffReceipt>
+  /** The person's hand-off choices per Flow id (kept across "Not yet" and reopening). */
+  handOffDrafts: ReadonlyMap<string, FlowHandOffDraft>
+  setHandOffDraft: (flowId: string, draft: FlowHandOffDraft | null) => void
   watch: (projectId: string, conversationId: string) => () => void
+  /** Re-read a conversation's Flow from the server (nothing is dropped meanwhile). */
+  refreshFlow: (projectId: string, conversationId: string) => void
   /** Conversations in Flow per watched project (watchOpen). */
   openConversations: FlowOpenConversations
   /** Keep a project's in-Flow conversations current (fetch + flow.state events). */
@@ -77,6 +92,15 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   const [wrappingUp, setWrappingUpState] = useState<ReadonlySet<string>>(new Set())
   const [handedOff, setHandedOff] = useState<ReadonlyMap<string, FlowHandOffReceipt>>(new Map())
   const [launching, setLaunching] = useState<ReadonlySet<string>>(new Set())
+  const [handOffDrafts, setHandOffDrafts] = useState<ReadonlyMap<string, FlowHandOffDraft>>(new Map())
+  const setHandOffDraft = useCallback((flowId: string, draft: FlowHandOffDraft | null) => {
+    setHandOffDrafts((current) => {
+      if (!draft && !current.has(flowId)) return current
+      const next = new Map(current)
+      if (draft) next.set(flowId, draft); else next.delete(flowId)
+      return next
+    })
+  }, [])
   // Watch counts per key / per project: the WS filter and refetch targets.
   const watchedKeys = useRef(new Map<string, { projectId: string; conversationId: string; count: number }>())
   const watchedProjects = useRef(new Map<string, number>())
@@ -233,8 +257,10 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     setHandedOff((current) => new Map(current).set(flow.id, { railIndex: input.railIndex, runIds: result.loopRunIds, deliveryId: result.deliveryId }))
     apply(projectId, result.flow)
     setWrappingUp(flow.id, false)
+    // Launched: the next hand-off (after Back to Flow) starts from the defaults again.
+    setHandOffDraft(flow.id, null)
     return result
-  }, [apply, setWrappingUp])
+  }, [apply, setWrappingUp, setHandOffDraft])
 
   const forgetHandOff = useCallback((flowId: string) => {
     setHandedOff((current) => {
@@ -269,8 +295,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   }, [entries, setOpenState])
 
   const value = useMemo<FlowContextValue>(() => ({
-    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff,
-  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff])
+    entries, availability, wrappingUp, launching, handedOff, handOffDrafts, setHandOffDraft, watch, refreshFlow: fetchFlow, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff,
+  }), [entries, availability, wrappingUp, launching, handedOff, handOffDrafts, setHandOffDraft, watch, fetchFlow, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff])
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>
 }

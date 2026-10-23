@@ -572,7 +572,7 @@ describe('Flow mode in the conversation', () => {
     expect(calls.some((c) => c.url.includes('/intent'))).toBe(false)
   })
 
-  it('closing the hand-off panel (Esc or a click in the conversation) counts as "Not yet": nothing launches', async () => {
+  it('Esc dismisses the hand-off ("Not yet"); a click in the conversation only folds it and keeps Launch on the strip', async () => {
     render(<Providers><div data-mission-surface><p>conversation</p><FlowStrip /></div></Providers>)
     fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
@@ -580,15 +580,26 @@ describe('Flow mode in the conversation', () => {
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
     expect(screen.getByTestId('flow-bar-hand-off')).toBeInTheDocument()
     expect(screen.queryByTestId('mission-run-strip-primary')).toBeNull()
-    // Again, closed by a click in the conversation.
+    // A click in the conversation is incidental: the panel folds, the hand-off stays.
     fireEvent.click(screen.getByTestId('flow-bar-hand-off'))
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     fireEvent.pointerDown(screen.getByText('conversation'))
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'false'))
+    const strip = screen.getByTestId('mission-run-strip')
+    expect(strip).toHaveAttribute('data-flow-state', 'wrapping-up')
+    expect(strip).toHaveAttribute('data-tone', 'info')
+    expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Ready to turn into a PR')
+    // Launch is declared outward: the strip opens the card focused on it, never launches.
+    const primary = await screen.findByTestId('mission-run-strip-primary')
+    expect(primary).toHaveTextContent('Launch')
+    fireEvent.click(primary)
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-panel')).toHaveAttribute('data-open', 'true'))
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toHaveFocus())
     expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(false)
   })
 
-  it('a handed-off run that never shows stops spinning: "Still handing off…" with Refresh, then the Flow state rules', async () => {
+  it('a handed-off run that never shows stops spinning: "Still handing off…" with Refresh (a re-read that keeps the entry), then the Flow state rules', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       render(<Providers><FlowStrip /></Providers>)
@@ -601,9 +612,15 @@ describe('Flow mode in the conversation', () => {
       await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Still handing off to Rail 2…'))
       expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'info')
       expect(screen.queryByTestId('mission-run-strip-skeleton')).toBeNull()
+      const reads = (): number => calls.filter((c) => c.url.includes('/flow/by-conversation/')).length
+      const before = reads()
       await act(async () => { fireEvent.click(screen.getByTestId('flow-strip-refresh')) })
-      // The receipt is dropped: a handed-off Flow without its run leaves the strip to the run itself.
-      await waitFor(() => expect(screen.queryByTestId('mission-run-strip')).toBeNull())
+      // Refresh only re-reads: the Flow is fetched again and the entry stays while it is still handed off.
+      await waitFor(() => expect(reads()).toBe(before + 1))
+      expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Still handing off to Rail 2…')
+      // Once the Flow state moves on (here: back in Flow), the state rules.
+      await act(async () => { wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flow: flow({ state: 'paused' }) }) })
+      await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'paused'))
     } finally {
       vi.useRealTimers()
     }

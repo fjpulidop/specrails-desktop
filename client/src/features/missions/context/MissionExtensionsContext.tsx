@@ -141,6 +141,9 @@ export type MissionLiveRunTone = 'launching' | 'running' | 'decision' | 'failed'
  * chrome (status mark, expand toggle, switcher, panel, announcements); the
  * extension supplies the content.
  */
+/** How a run's panel was closed (see MissionLiveRun.onPanelClose). */
+export type MissionPanelCloseReason = 'escape' | 'collapse'
+
 export interface MissionLiveRun {
   /** Stable within the conversation (keep it across states so the strip morphs in place). */
   key: string
@@ -162,11 +165,15 @@ export interface MissionLiveRun {
   /** The panel opens on its own each time this token changes (e.g. the hand-off). */
   autoOpenToken?: string | null
   /**
-   * The person closed this run's panel (Esc, a click in the conversation, the
-   * toggle, or switching to another run). Flow: closing the hand-off panel
-   * counts as "Not yet".
+   * The person closed this run's panel: `escape` (Esc, a deliberate dismissal)
+   * or `collapse` (a click in the conversation, the toggle, switching to
+   * another run: the panel only folds away). Flow: only Esc counts as the
+   * hand-off's "Not yet"; a collapse keeps "Ready to turn into a PR".
    */
-  onPanelClose?: (() => void) | null
+  onPanelClose?: ((reason: MissionPanelCloseReason) => void) | null
+  /** Offer the card's declared primary on the strip even in a calm tone
+   *  (Flow's "Ready to turn into a PR" keeps Launch one click away). */
+  wantsPrimary?: boolean
   /** Hidden as soon as missions shows this delivery (the launch skeleton yields to its run). */
   yieldsTo?: { prDeliveryId?: string | null; runIds?: readonly string[] } | null
   /** Polite announcement of the run's state (announced when it changes). */

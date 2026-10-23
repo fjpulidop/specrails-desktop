@@ -36,7 +36,7 @@ import { keyboardLabel } from '../../../lib/keyboard-label'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
 import { useAgentChat } from '../context/AgentChatContext'
-import { modeAccent, useMissionExtensions, useMissionLiveRuns, type MissionLiveRun, type MissionModeBadge } from '../context/MissionExtensionsContext'
+import { modeAccent, useMissionExtensions, useMissionLiveRuns, type MissionLiveRun, type MissionModeBadge, type MissionPanelCloseReason } from '../context/MissionExtensionsContext'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentRailLaunchCard } from './AgentRailLaunchCard'
 import type { PinnedPrCard } from './agent-pr-pinning'
@@ -79,7 +79,7 @@ interface StripEntry {
   panel: ReactNode | null
   autoOpenToken: string | null
   /** The person closed this run's panel (extension runs). */
-  onPanelClose: (() => void) | null
+  onPanelClose: ((reason: MissionPanelCloseReason) => void) | null
   attributes: Readonly<Record<string, string>>
   announcement: string | null
   match: { prDeliveryId: string; runIds: readonly string[] } | null
@@ -480,14 +480,18 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the tokens
   }, [tokenSignature])
 
-  // The person closed a run's panel (any way: Esc, a click outside, the toggle,
-  // another run): its owner hears it once (Flow: the hand-off's "Not yet").
+  // The person closed a run's panel: its owner hears it once, with HOW — Esc
+  // dismisses (Flow: the hand-off's "Not yet"); a click outside, the toggle or
+  // another run only collapses it.
   const previousOpenKey = useRef<string | null>(null)
+  const closeReason = useRef<MissionPanelCloseReason>('collapse')
   useEffect(() => {
     const previous = previousOpenKey.current
     previousOpenKey.current = openKey
+    const reason = closeReason.current
+    closeReason.current = 'collapse'
     if (!previous || previous === openKey) return
-    entriesRef.current.find((entry) => entry.key === previous)?.onPanelClose?.()
+    entriesRef.current.find((entry) => entry.key === previous)?.onPanelClose?.(reason)
   }, [openKey])
 
   // A click in the conversation closes the panel (it is not a modal). Portaled
@@ -690,7 +694,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     const inPanel = !!panelRef.current?.contains(target)
     if (event.key === 'Escape') {
       if (overflowOpen) { closeMenu(true); event.stopPropagation(); return }
-      if (panelOpen) { event.stopPropagation(); closePanel(true); return }
+      if (panelOpen) { event.stopPropagation(); closeReason.current = 'escape'; closePanel(true); return }
       // Nothing open: back to where ⌥R came from.
       const back = returnFocus.current
       returnFocus.current = null
@@ -961,7 +965,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     headlineText: typeof run.headline === 'string' ? run.headline : run.label,
     meta: run.tone === 'launching' && !run.meta ? <MetaSkeleton /> : run.meta ?? null,
     controls: run.controls ?? null,
-    wantsPrimary: run.tone !== 'running' && run.tone !== 'launching' && run.tone !== 'info',
+    wantsPrimary: run.wantsPrimary ?? (run.tone !== 'running' && run.tone !== 'launching' && run.tone !== 'info'),
     panel: run.panel ?? null,
     autoOpenToken: run.autoOpenToken ?? null,
     onPanelClose: run.onPanelClose ?? null,

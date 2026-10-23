@@ -68,8 +68,12 @@ strip's panel: ONE line ("Rail 2 will turn your 7 changed files into a
 reviewed PR. If it fails, your work is safe.") with **Launch** and **Not
 yet**, and the engine fallback note right under it when relevant; rail,
 engine, model and effort are prefilled under **Change how** (with the files ±
-and cost so far). Closing that panel any way (Esc, a click outside, the
-toggle, another run) is **Not yet** (the entry's `onPanelClose` seam).
+and cost so far). Only **Not yet** and Esc dismiss it (the entry's
+`onPanelClose` seam hears `escape`); a click outside, the toggle or another run
+only fold the panel (`collapse`): the strip keeps "Ready to turn into a PR" and
+offers Launch as its primary (`wantsPrimary`). The choices (rail, engine,
+model, effort) are kept per Flow in `FlowContext.handOffDrafts` and restored
+when the hand-off reopens; a launch clears them.
 **Launch** is declared as an outward primary; while the request runs
 (`FlowContext.launching`) and until the run's own entry shows (the hand-off
 receipt, `yieldsTo` its delivery) the strip is a launching skeleton. After

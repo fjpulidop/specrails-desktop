@@ -16,6 +16,15 @@ vi.mock('../../missions/context/AgentChatContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../missions/context/AgentChatContext')>()
   return { ...actual, useAgentChat: () => ({ ...actual.useAgentChat(), messages: [], isStreaming: false, conversations: [chat.conversation], active: chat.conversation }) }
 })
+// A native select stands in for the Radix toolbar selector (jsdom cannot drive its portal).
+vi.mock('../../missions/components/AgentToolbarSelector', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  AgentToolbarSelector: ({ label, value, options, onSelect, testId, disabled }: { label: string; value: string; options: { value: string; label: string }[]; onSelect: (v: string) => void; testId?: string; disabled?: boolean }) => (
+    <select aria-label={label} data-testid={testId} value={value} disabled={disabled} onChange={(event) => onSelect(event.target.value)}>
+      {options.map((option) => <option key={option.value} value={option.value}>{option.value}</option>)}
+    </select>
+  ),
+}))
 vi.mock('../../loops/lib/loops-api', () => ({ loopsApi: { list: vi.fn(async () => []) } }))
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn() }) }))
 vi.mock('../../background/context/BackgroundProcessesContext', () => ({
@@ -99,6 +108,26 @@ describe('Flow → Spec hand-off engine default', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))
     expect(calls.find((c) => c.url.endsWith('/flow/f1/hand-off'))!.body).not.toMatchObject({ aiEngine: 'codex' })
+  })
+})
+
+describe('Flow → Spec hand-off draft', () => {
+  it('keeps the person\'s choices across "Not yet": reopening restores them and Launch sends them', async () => {
+    await openHandOff()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    fireEvent.click(screen.getByTestId('rail-card-hand-off-how'))
+    fireEvent.change(screen.getByTestId('rail-card-engine'), { target: { value: 'claude' } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-engine')).toHaveValue('claude'))
+    fireEvent.click(screen.getByTestId('rail-card-dismiss'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-flow-state', 'active'))
+    fireEvent.click(screen.getByTestId('flow-bar-hand-off'))
+    await screen.findByTestId('flow-hand-off-card')
+    fireEvent.click(screen.getByTestId('rail-card-hand-off-how'))
+    await waitFor(() => expect(screen.getByTestId('rail-card-engine')).toHaveValue('claude'))
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))
+    expect(calls.find((c) => c.url.endsWith('/flow/f1/hand-off'))!.body).toMatchObject({ aiEngine: 'claude' })
   })
 })
 

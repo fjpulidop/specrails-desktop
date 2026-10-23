@@ -11,15 +11,20 @@
 //                                    (no bell, no attention dot): the
 //                                    hand-off line opens as the strip's panel,
 //                                    with Launch declared as an outward
-//                                    primary; closing the panel any way
-//                                    counts as "Not yet"
+//                                    primary (also on the strip while the
+//                                    panel is folded). Only "Not yet" and Esc
+//                                    dismiss it; a click outside just folds
+//                                    the panel. The choices (rail, engine,
+//                                    model, effort) survive in FlowContext
 //   launching                      → a skeleton in the strip itself, kept
 //                                    after the request until the run shows
 //                                    (the entry yields to its delivery). After
 //                                    HAND_OFF_SHOW_TIMEOUT_MS without the run
 //                                    it stops spinning: "Still handing off…"
-//                                    with Refresh (re-reads the run cards and
-//                                    lets the Flow state rule)
+//                                    with Refresh: it only re-reads (the run
+//                                    cards and the Flow); the entry stays
+//                                    until the delivery shows or the Flow
+//                                    state moves on
 // The diff and cost are measured ONCE here (useFlowLiveStats) and shared by
 // the row and the panel. Also `describeRun`: the person's words for the steps
 // of the hand-off loop (Flow → Spec).
@@ -107,13 +112,14 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
         headline: launching ? t('flow.strip.launching') : t('flow.strip.ready'),
         panel: <FlowHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={null} />,
         autoOpenToken: wrappingUp ? handOffToken : null,
-        // Closing the hand-off (Esc, a click outside) is "Not yet"; never while it launches.
-        onPanelClose: launching ? null : () => ctx.setWrappingUp(flowId, false),
+        // Launch stays one click away on the strip while the panel is folded.
+        wantsPrimary: !launching,
+        // Esc is "Not yet"; a click outside only folds the panel. Never while it launches.
+        onPanelClose: launching ? null : (reason) => { if (reason === 'escape') ctx.setWrappingUp(flowId, false) },
       }]
     }
     if (flow.state === 'handed_off' && receipt) {
       const rail = t('prCard.rail', { index: receipt.railIndex + 1 })
-      const flowId = flow.id
       // The request returned; the run's own entry replaces this as soon as it shows.
       return [{
         key, label, attributes, mode,
@@ -124,7 +130,7 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
             type="button"
             data-agent-interactive
             data-testid="flow-strip-refresh"
-            onClick={() => { resyncRunCards?.(); ctx.forgetHandOff(flowId) }}
+            onClick={() => { resyncRunCards?.(); ctx.refreshFlow(projectId, conversationId) }}
             className={FLOW_QUIET_BUTTON}
           >
             <RefreshCw className="h-3 w-3" aria-hidden />

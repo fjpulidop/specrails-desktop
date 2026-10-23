@@ -87,8 +87,10 @@ ONE polite live region (the extension's `ConversationDock` speaks through its
 button); switcher entries carry their full name and state as accessible name
 and tooltip; a partial cost's `*` is also said in words. Extensions add their runs
 through `useLiveRuns` (Flow) and name steps through `describeRun`; a live run
-can hear its panel close (`onPanelClose`: Esc, a click outside, the toggle or
-another run — Flow's hand-off treats it as "Not yet"), and a run with a `mode`
+can hear its panel close (`onPanelClose(reason)`: `escape` for Esc,
+`collapse` for a click outside, the toggle or another run — Flow's hand-off
+treats only `escape` as "Not yet"), can keep its card's primary on the strip in
+a calm tone (`wantsPrimary`), and a run with a `mode`
 keeps the mode's icon as its mark in every state, badged with the state's
 shape. The switcher marks each run with the same per-state shape (never color
 alone), and a strip with one run still shows its name. An extension run in a
