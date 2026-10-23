@@ -17,4 +17,8 @@ UI collaborations are acyclic. Domain/validation code should depend on contracts
 HTTP, storage and native-shell effects belong in hooks or adapters.
 
 Generate reviewed changes with `node scripts/audit-client-features.mjs --write`;
-validate with `--check`. Run client coverage after changes spanning capabilities.
+validate with `--check`. `--write` rewrites only the block between the
+`audit-client-features:begin` / `:end` markers of each feature README (public
+subpaths and feature dependencies, [scripts/client-feature-readme.mjs](../../../scripts/client-feature-readme.mjs));
+hand-written sections outside it are kept. `--check` also fails when a block is
+stale. Run client coverage after changes spanning capabilities.

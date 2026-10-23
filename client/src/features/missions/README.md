@@ -3,6 +3,7 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+<!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -25,6 +26,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/MissionWindowBindings.tsx](components/MissionWindowBindings.tsx)
 - [components/MissionWindowSurface.tsx](components/MissionWindowSurface.tsx)
 - [components/agent-run-failure.ts](components/agent-run-failure.ts)
+- [components/run-primary.tsx](components/run-primary.tsx)
 - [context/AgentChatContext.tsx](context/AgentChatContext.tsx)
 - [context/AgentWorkspaceContext.tsx](context/AgentWorkspaceContext.tsx)
 - [context/MinimizedChatsContext.tsx](context/MinimizedChatsContext.tsx)
@@ -59,6 +61,7 @@ load every UI component. Changes to this surface require updating the boundary m
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
+<!-- audit-client-features:end -->
 
 ## Runs in a mission: one strip, a history of events
 

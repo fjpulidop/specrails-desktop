@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1162 source/build files. Nearby tests are linked where names
+Includes 1163 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -915,6 +915,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [check-core-compat.ts](../../scripts/check-core-compat.ts)
 - [check-core-sync.mjs](../../scripts/check-core-sync.mjs) · [test](../../scripts/check-core-sync.test.mjs)
 - [check-package.mjs](../../scripts/check-package.mjs) · [test](../../scripts/check-package.test.mjs)
+- [client-feature-readme.mjs](../../scripts/client-feature-readme.mjs)
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
 - [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
