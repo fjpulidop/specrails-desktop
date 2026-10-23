@@ -835,7 +835,15 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     </>
   )
   const relaunchBlocked = Boolean(liveRun?.active) || runStatus === 'running' || runStatus === 'paused'
-  const relaunchAction = FEATURE_MISSION_RAIL_CARDS && (
+  // A Flow → Spec run relaunches from its Flow (same worktree, rail and
+  // engine): the plain rail relaunch refuses that loop, so the card offers
+  // the Flow's own actions in its place.
+  const flowSpecRun = envelope.loopId === FLOW_SPEC_LOOP_ID
+  const flowRunActions = flowSpecRun && RunCardActions && decision === 'implementation_failed' && flowOutcome === null ? (
+    <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
+      decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null || runtimeBusy} />
+  ) : null
+  const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
       <button type="button" data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}

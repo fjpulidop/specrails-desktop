@@ -112,6 +112,17 @@ describe('Flow → Spec requested changes on the mission card', () => {
     expect(toast.success).toHaveBeenCalledWith('Flow → Spec relaunched on rail 1')
   })
 
+  it('a Flow → Spec run that failed outright relaunches through its Flow, never the plain rail relaunch', async () => {
+    const failed = env({ loopId: 'factory:flow-spec', statusCode: 'settlement_interrupted', statusDetail: 'OpenSpec 1.14.3 required; found 1.4.1', flowReview: null,
+      runtime: { status: 'failed', currentStep: null, canResume: false, recoverableSteps: [], pendingApproval: false, failure: { code: 'piece_failed', detail: 'OpenSpec 1.14.3 required; found 1.4.1', stepId: 'derive' }, at: '' } } as never)
+    render(withFlow(<AgentPrDecisionCard envelope={failed} conversationId="conv-1" />))
+    expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
+    fireEvent.click(screen.getByTestId('flow-review-relaunch'))
+    await act(async () => {})
+    expect(flowContext.value!.relaunch).toHaveBeenCalledWith('p1', 'delivery-1')
+    expect(screen.getByTestId('flow-review-back-to-flow')).toBeInTheDocument()
+  })
+
   it('shows a refused action inline', async () => {
     flowContext.value!.returnToFlow.mockRejectedValueOnce(new FlowApiError('flow_return_busy', 409, 'The delivery is busy'))
     render(withFlow(<AgentPrDecisionCard envelope={env()} conversationId="conv-1" />))
