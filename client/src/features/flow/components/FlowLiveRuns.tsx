@@ -65,7 +65,6 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
         key, label, attributes,
         tone: launching ? 'launching' : 'decision',
         headline: launching ? t('flow.strip.launching') : t('flow.strip.ready'),
-        primary: launching ? null : { label: t('flow.handOff.launch') },
         panel: <FlowHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={null} />,
         autoOpenToken: wrappingUp ? handOffToken : null,
       }]

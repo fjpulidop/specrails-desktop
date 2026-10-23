@@ -141,8 +141,8 @@ export interface MissionLiveRun {
   meta?: ReactNode
   /** Interactive controls after the toggle (the extension's own buttons). */
   controls?: ReactNode
-  /** A primary action performed by the panel's `[data-run-primary]` control. */
-  primary?: { label: string } | null
+  // The run's primary action is DECLARED by its panel's content
+  // (RunPrimaryButton / useRunPrimary from components/run-primary.tsx).
   /** Expanded content above the strip; null = the strip is not expandable. */
   panel?: ReactNode | null
   /** The panel opens on its own each time this token changes (e.g. the hand-off). */

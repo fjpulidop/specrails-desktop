@@ -492,27 +492,39 @@ describe('strip panel', () => {
     expect(panel()).toHaveAttribute('data-open', 'false')
   })
 
-  it('the primary action names what the run needs and performs the card’s own control', async () => {
-    vi.mocked(agentApi.postRailPrDecision ?? (() => undefined))
+  it('an OUTWARD primary (Create PR) is never fired from the strip: it opens the card focused on its own control', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'on_review' })])
     const s = await screen.findByTestId('mission-run-strip')
     const primary = await within(s).findByTestId('mission-run-strip-primary')
     expect(primary).toHaveTextContent('Create PR')
-    const create = within(s).getByTestId('agent-pr-decision-card').querySelector<HTMLButtonElement>('[data-run-primary]')!
+    expect(primary).toHaveAttribute('data-kind', 'outward')
+    expect(primary).toHaveAccessibleDescription('Opens the run\u2019s card so you can confirm there'.replace('\u2019', "'"))
+    const create = within(s).getByTestId('agent-pr-decision-card').querySelector<HTMLButtonElement>('[data-run-primary-id="create-pr"]')!
+    expect(create).toHaveAttribute('data-run-primary-kind', 'outward')
     const clicked = vi.fn()
     create.addEventListener('click', clicked)
     await act(async () => { fireEvent.click(primary) })
     expect(panel()).toHaveAttribute('data-open', 'true')
-    expect(clicked).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(document.activeElement).toBe(create))
+    // The person confirms on the card: nothing was performed for them.
+    expect(clicked).not.toHaveBeenCalled()
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/pr-decision'))).toBe(false)
   })
 
-  it('a failed run offers its recovery as the primary action; waiting is said with an icon and words', async () => {
+  it('a LOCAL primary (Relaunch) runs in place: one click, no panel, focus stays on the strip', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'implementation_failed', implementationOutcome: 'failed', runIds: ['r1'] })])
     const s = await screen.findByTestId('mission-run-strip')
     expect(s).toHaveAttribute('data-tone', 'failed')
     expect(within(s).getByTestId('mission-run-strip-toggle')).toHaveTextContent('Failed:')
     expect(within(s).getByTestId('mission-run-strip-headline').className).toContain('text-destructive')
-    expect(await within(s).findByTestId('mission-run-strip-primary')).toHaveTextContent('Relaunch')
+    const primary = await within(s).findByTestId('mission-run-strip-primary')
+    expect(primary).toHaveTextContent('Relaunch')
+    expect(primary).toHaveAttribute('data-kind', 'local')
+    primary.focus()
+    await act(async () => { fireEvent.click(primary) })
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith('/rails/0/relaunch') && init?.method === 'POST')).toBe(true))
+    expect(panel()).toHaveAttribute('data-open', 'false')
+    expect(document.activeElement).toBe(primary)
   })
 })
 
@@ -536,17 +548,49 @@ describe('several live runs', () => {
     expect(launchedLines()).toHaveLength(2)
   })
 
-  it('the person’s pick holds (session-only) until another run newly needs them', async () => {
+  it('the person’s pick holds (session-only): a run that newly needs them is marked and announced, never swapped in', async () => {
     await renderPanelWithMessages(two)
     const s = await screen.findByTestId('mission-run-strip')
     fireEvent.click(within(s).getAllByTestId('mission-run-strip-switch')[1])
     expect(s).toHaveAttribute('data-run-key', 'delivery:d1')
     expect(sessionStorage.getItem('specrails-desktop:run-strip-pick:c1')).toBe('delivery:d1')
-    // d1 fails → it is now the most urgent anyway; then a third run starts waiting.
     await act(async () => {
-      wsHandler!(wsEnvelope({ prDeliveryId: 'd3', railIndex: 2, decision: 'pr_closed', ticketIds: [9] }))
+      wsHandler!(wsEnvelope({ prDeliveryId: 'd3', railIndex: 2, decision: 'on_review', ticketIds: [9] }))
     })
-    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d3'))
+    const marked = await waitFor(() => {
+      const button = within(screen.getByTestId('mission-run-strip')).getAllByTestId('mission-run-strip-switch').find((b) => b.getAttribute('data-run-key') === 'delivery:d3')
+      expect(button).toBeDefined()
+      return button!
+    })
+    expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d1')
+    expect(within(marked).getByTestId('mission-run-strip-needs-you')).toHaveTextContent('needs you')
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Rail 3 needs you'))
+    // Showing it clears the mark.
+    fireEvent.click(marked)
+    expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d3')
+    expect(screen.queryByTestId('mission-run-strip-needs-you')).toBeNull()
+  })
+
+  it('an open panel is never swapped: the new urgent run waits in the switcher', async () => {
+    await renderPanelWithMessages([sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running', ticketIds: [4] })])
+    await screen.findByTestId('mission-run-strip')
+    await openPanel()
+    await act(async () => {
+      wsHandler!(wsEnvelope({ prDeliveryId: 'd2', railIndex: 1, decision: 'on_review', ticketIds: [7] }))
+    })
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-needs-you')).toBeInTheDocument())
+    expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d1')
+    expect(panel()).toHaveAttribute('data-open', 'true')
+  })
+
+  it('an idle strip (nothing picked, closed, focus elsewhere) follows the most urgent run on its own', async () => {
+    await renderPanelWithMessages([sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running', ticketIds: [4] })])
+    await screen.findByTestId('mission-run-strip')
+    await act(async () => {
+      wsHandler!(wsEnvelope({ prDeliveryId: 'd2', railIndex: 1, decision: 'on_review', ticketIds: [7] }))
+    })
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-run-key', 'delivery:d2'))
+    expect(screen.queryByTestId('mission-run-strip-needs-you')).toBeNull()
   })
 
   it('more than three runs: the shown one, the two most urgent and "+N"', async () => {

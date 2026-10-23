@@ -77,6 +77,7 @@ import { UiModeProvider } from '../../../../context/UiModeContext'
 import { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
 import { inputEditor } from './editor-harness'
 import { MissionExtensionsProvider, type MissionExtensions } from '../../context/MissionExtensionsContext'
+import { RunPrimaryButton } from '../run-primary'
 
 let chat: ReturnType<typeof useAgentChat> | null = null
 function Probe() { chat = useAgentChat(); return null }
@@ -201,17 +202,19 @@ describe('missions extension seam (Flow mode)', () => {
         useLiveRuns: () => [{
           key: 'flow:f1', label: 'Flow', tone: 'decision', headline: 'Flow → Spec ready to launch',
           controls: <button type="button">Copy branch</button>,
-          primary: { label: 'Launch' },
-          panel: <button type="button" data-run-primary>Play</button>,
+          panel: <RunPrimaryButton primary={{ id: 'launch', label: 'Launch', kind: 'outward' }} onClick={() => undefined}>Play</RunPrimaryButton>,
         }],
       }
       await openWith([message('m1', 'user', 'hi')], RUNS)
       const strip = await screen.findByTestId('mission-run-strip')
       expect(strip).toHaveAttribute('data-run-key', 'flow:f1')
       expect(within(strip).getByRole('button', { name: 'Copy branch' })).toBeInTheDocument()
-      expect(within(strip).getByTestId('mission-run-strip-primary')).toHaveTextContent('Launch')
-      await act(async () => { fireEvent.click(within(strip).getByTestId('mission-run-strip-toggle')) })
-      expect(within(screen.getByTestId('mission-run-strip-panel')).getByRole('button', { name: 'Play' })).toBeInTheDocument()
+      // The panel's content DECLARES the primary (label, kind): an outward one opens the panel on it.
+      const primary = await within(strip).findByTestId('mission-run-strip-primary')
+      expect(primary).toHaveTextContent('Launch')
+      await act(async () => { fireEvent.click(primary) })
+      const play = within(screen.getByTestId('mission-run-strip-panel')).getByRole('button', { name: 'Play' })
+      await waitFor(() => expect(document.activeElement).toBe(play))
     })
 
     it('boundaries are event lines; the agent turns between them carry a Flow mark next to their time', async () => {

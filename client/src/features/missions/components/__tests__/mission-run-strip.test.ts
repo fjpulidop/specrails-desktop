@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  deliveryNeedsPerson, deliveryRunTone, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
+  deliveryNeedsPerson, deliveryRunTone, heldStripKey, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
   type MissionRunCardSummary,
 } from '../mission-run-strip'
 import type { AgentPrDecisionEnvelope } from '../../lib/agent-api'
@@ -83,5 +83,21 @@ describe('humanizeStepId', () => {
   it('reads a step id as words', () => {
     expect(humanizeStepId('implement-fix')).toBe('Implement fix')
     expect(humanizeStepId('factory:review_policy')).toBe('Review policy')
+  })
+})
+
+describe('heldStripKey', () => {
+  const live = ['a', 'b', 'c']
+  it('is idle (null) when nothing is picked, open or focused', () => {
+    expect(heldStripKey(live, { pick: null, open: null, focus: null })).toBeNull()
+  })
+  it('holds the pick first, then the open panel, then focus', () => {
+    expect(heldStripKey(live, { pick: 'b', open: 'c', focus: 'a' })).toBe('b')
+    expect(heldStripKey(live, { pick: null, open: 'c', focus: 'a' })).toBe('c')
+    expect(heldStripKey(live, { pick: null, open: null, focus: 'a' })).toBe('a')
+  })
+  it('a hold on a run that left the strip no longer holds', () => {
+    expect(heldStripKey(live, { pick: 'gone', open: null, focus: null })).toBeNull()
+    expect(heldStripKey(live, { pick: 'gone', open: 'c', focus: null })).toBe('c')
   })
 })

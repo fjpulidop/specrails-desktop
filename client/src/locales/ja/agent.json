@@ -1179,14 +1179,14 @@
     "proposal": "{{tickets}} の起動が提案されました",
     "proposalNoTickets": "起動が提案されました",
     "proposalLabel": "提案",
-    "review": "確認する",
     "panelLabel": "{{run}} の詳細",
     "showDetails": "詳細を表示",
     "hideDetails": "詳細を隠す",
     "switcher": "実行中のラン",
     "more": "ほかの実行 ({{count}})",
     "announce": {
-      "settled": "{{run}} が終了しました"
+      "settled": "{{run}} が終了しました",
+      "needsYou": "{{run}} があなたの対応を待っています"
     },
     "attention": "あなたの判断待ち",
     "event": {
@@ -1201,6 +1201,13 @@
       "superseded": "{{run}} は新しい実行に置き換えられました",
       "discarded": "{{run}} は破棄されました",
       "changes": "{{run}}: レビュアーが変更を求めています"
+    },
+    "needsYou": "対応待ち",
+    "opensCard": "実行のカードを開き、そこで確認できます",
+    "open": {
+      "decision": "判断を開く",
+      "failed": "失敗内容を見る",
+      "paused": "一時停止の理由を見る"
     }
   },
   "flowBoundary": {

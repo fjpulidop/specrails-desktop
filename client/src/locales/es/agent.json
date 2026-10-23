@@ -1179,14 +1179,14 @@
     "proposal": "Lanzamiento propuesto para {{tickets}}",
     "proposalNoTickets": "Lanzamiento propuesto",
     "proposalLabel": "Propuesta",
-    "review": "Revisar",
     "panelLabel": "Detalles de {{run}}",
     "showDetails": "Ver detalles",
     "hideDetails": "Ocultar detalles",
     "switcher": "Ejecuciones en curso",
     "more": "Más ejecuciones ({{count}})",
     "announce": {
-      "settled": "{{run}} terminó"
+      "settled": "{{run}} terminó",
+      "needsYou": "{{run}} te necesita"
     },
     "attention": "Esperando tu decisión",
     "event": {
@@ -1201,6 +1201,13 @@
       "superseded": "{{run}} fue sustituido por una ejecución más reciente",
       "discarded": "{{run}} se descartó",
       "changes": "{{run}}: el revisor pidió cambios"
+    },
+    "needsYou": "te necesita",
+    "opensCard": "Abre la tarjeta de la ejecución para que confirmes allí",
+    "open": {
+      "decision": "Abrir la decisión",
+      "failed": "Ver qué falló",
+      "paused": "Ver por qué se pausó"
     }
   },
   "flowBoundary": {

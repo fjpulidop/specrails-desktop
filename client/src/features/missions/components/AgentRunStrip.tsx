@@ -5,9 +5,16 @@
 // one run at a time — the most urgent (waiting for you › failed › running ›
 // paused) unless the person picked another in the switcher — as a status mark,
 // the current step in plain words, progress, elapsed time and billed cost.
-// A primary action appears only when the run needs the person; it performs the
-// matching control of the run's full card, so every rule, confirmation and
-// refusal of that card applies unchanged.
+// A primary action appears only when the run needs the person. The run's card
+// DECLARES it (run-primary.tsx: id, label, kind, handler). A `local` action
+// (Resume, Relaunch, Back to Flow) runs in one click, in place; an `outward`
+// one (Create PR, Publish, Reopen, Approve, Launch) is never fired from here:
+// the strip opens the panel with focus on the card's own control.
+//
+// The strip never swaps the run it shows while the person uses it (panel open,
+// focus inside, a run picked in the switcher). A run that starts needing the
+// person meanwhile is marked in the switcher ("needs you") and announced.
+// Only an idle strip follows urgency on its own.
 //
 // Clicking the strip opens the run's full card as a panel anchored ABOVE the
 // strip, over the conversation (not a modal: Esc or a click in the
@@ -31,10 +38,11 @@ import {
   type FocusPrCardDetail, type OpenRunStripDetail,
 } from './agent-run-failure'
 import {
-  deliveryRunKey, deliveryRunTone, formatRunCost, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
+  deliveryRunKey, deliveryRunTone, formatRunCost, heldStripKey, humanizeStepId, missionRunTotals, newlyUrgentKey, pickStripRun,
   proposalRunKey, readStripPick, urgencyOfTone, writeStripPick,
   type MissionRunCardSummary, type MissionRunTone, type MissionRunUrgency, type MissionRunVitalsSnapshot,
 } from './mission-run-strip'
+import { bestRunPrimary, RunPrimaryScope, type RunPrimaryAction, type RunPrimaryRegistry } from './run-primary'
 import type { PinnedRailProposal } from './useRailLaunchProposals'
 
 /** The strip's primary action style — extensions reuse it for their own primary. */
@@ -57,19 +65,14 @@ interface StripEntry {
   headlineText: string
   meta: ReactNode | null
   controls: ReactNode | null
-  /** `dom`: label and state come from the panel's `[data-run-primary]` control. */
-  primary: { label: string | null } | null
+  /** The run may offer a primary action (its card declares which one). */
+  wantsPrimary: boolean
   panel: ReactNode | null
   autoOpenToken: string | null
   attributes: Readonly<Record<string, string>>
   announcement: string | null
   match: { prDeliveryId: string; runIds: readonly string[] } | null
   source: 'delivery' | 'proposal' | 'extension'
-}
-
-interface PrimaryState {
-  label: string
-  disabled: boolean
 }
 
 const MARK_CLASS = 'h-3.5 w-3.5 shrink-0'
@@ -100,6 +103,17 @@ function ToneDot({ tone }: { tone: MissionRunTone }) {
         (tone === 'running' || tone === 'launching') && 'bg-accent-info',
       )}
     />
+  )
+}
+
+/** A run that started needing the person while another was shown: a dot AND words. */
+function NeedsYouMark() {
+  const { t } = useTranslation('agent')
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 font-medium text-accent-primary" data-testid="mission-run-strip-needs-you">
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary" />
+      {t('runStrip.needsYou')}
+    </span>
   )
 }
 
@@ -224,7 +238,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     return {
       key, label, tone, urgency: urgencyOfTone(tone), quiet: false,
       headline: headlineText, headlineText, meta, controls: null,
-      primary: needsPerson ? { label: null } : null,
+      wantsPrimary: needsPerson,
       panel: (
         <AgentPrDecisionCard
           envelope={envelope}
@@ -252,7 +266,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
         label: t('runStrip.proposalLabel'),
         tone: 'decision', urgency: 'decision', quiet: false,
         headline: headlineText, headlineText, meta: null, controls: null,
-        primary: { label: null },
+        wantsPrimary: true,
         panel: (
           <AgentRailLaunchCard
             proposal={p.proposal}
@@ -284,25 +298,78 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   }, [proposals, deliveries, extensionRuns, deliveryEntry, conversationId, projectId, t])
 
   // ── Which run shows ───────────────────────────────────────────────────────────
+  // The person's pick (switcher), the open panel and focus inside the strip
+  // each HOLD the shown run; with none of them the strip is idle and shows the
+  // most urgent run.
   const [pick, setPick] = useState<string | null>(() => readStripPick(conversationId))
-  useEffect(() => { setPick(readStripPick(conversationId)) }, [conversationId])
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [focusKey, setFocusKey] = useState<string | null>(null)
+  useEffect(() => { setPick(readStripPick(conversationId)); setOpenKey(null); setFocusKey(null) }, [conversationId])
   const choose = useCallback((key: string | null) => {
     writeStripPick(conversationId, key)
     setPick(key)
   }, [conversationId])
-  // A run that just started waiting for the person (or just failed) takes the strip.
+  const liveKeys = entries.map((entry) => entry.key)
+  const held = heldStripKey(liveKeys, { pick, open: openKey, focus: focusKey })
+  const selected = pickStripRun(entries, held)
+
+  // Runs that started needing the person while the strip was held on another.
+  const [needsYou, setNeedsYou] = useState<ReadonlySet<string>>(() => new Set())
+  const [needsYouNotice, setNeedsYouNotice] = useState<{ key: string; seq: number } | null>(null)
   const urgencies = useRef(new Map<string, MissionRunUrgency>())
   const urgencySignature = entries.map((entry) => `${entry.key}=${entry.urgency}`).join('|')
   useEffect(() => {
-    const takeover = newlyUrgentKey(urgencies.current, entries)
+    const newly = newlyUrgentKey(urgencies.current, entries)
     urgencies.current = new Map(entries.map((entry) => [entry.key, entry.urgency]))
-    if (takeover && takeover !== pick) choose(takeover)
+    setNeedsYou((current) => {
+      const next = new Set([...current].filter((key) => entries.some((entry) => entry.key === key && (entry.urgency === 'decision' || entry.urgency === 'failed'))))
+      if (newly && held && newly !== selected?.key) next.add(newly)
+      return next.size === current.size && [...next].every((key) => current.has(key)) ? current : next
+    })
+    if (newly && held && newly !== selected?.key) setNeedsYouNotice((n) => ({ key: newly, seq: (n?.seq ?? 0) + 1 }))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the signature
   }, [urgencySignature])
-  const selected = pickStripRun(entries, pick)
+  // Showing a marked run clears its mark.
+  const selectedKey = selected?.key ?? null
+  useEffect(() => {
+    if (!selectedKey) return
+    setNeedsYou((current) => {
+      if (!current.has(selectedKey)) return current
+      const next = new Set(current)
+      next.delete(selectedKey)
+      return next
+    })
+  }, [selectedKey])
+
+  // ── Primary actions: what each run's card declares (run-primary.tsx) ──────────
+  const declared = useRef(new Map<string, Map<symbol, RunPrimaryAction>>())
+  const registries = useRef(new Map<string, RunPrimaryRegistry>())
+  const [, setPrimaryVersion] = useState(0)
+  const registryFor = useCallback((key: string): RunPrimaryRegistry => {
+    let registry = registries.current.get(key)
+    if (!registry) {
+      const bump = (): void => setPrimaryVersion((n) => n + 1)
+      registry = {
+        set: (owner, action) => {
+          let actions = declared.current.get(key)
+          if (!actions) { actions = new Map(); declared.current.set(key, actions) }
+          const before = actions.get(owner)
+          actions.set(owner, action)
+          if (!before || before.id !== action.id || before.label !== action.label || before.kind !== action.kind
+            || before.rank !== action.rank || before.disabled !== action.disabled) bump()
+        },
+        remove: (owner) => {
+          if (declared.current.get(key)?.delete(owner)) bump()
+        },
+      }
+      registries.current.set(key, registry)
+    }
+    return registry
+  }, [])
+  const primaryOf = (key: string): RunPrimaryAction | null => bestRunPrimary(declared.current.get(key)?.values() ?? [])
 
   // ── Panel ─────────────────────────────────────────────────────────────────────
-  const [open, setOpen] = useState(false)
+  const open = openKey !== null
   const panelId = useId()
   const toggleRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -310,16 +377,15 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   const stripRef = useRef<HTMLDivElement | null>(null)
   const panelOpen = open && !!selected?.panel
   const [focusPanel, setFocusPanel] = useState(0)
-  const [pendingPrimary, setPendingPrimary] = useState<string | null>(null)
+  const [pendingOutward, setPendingOutward] = useState<string | null>(null)
   const [pendingFocus, setPendingFocus] = useState<FocusPrCardDetail | null>(null)
 
   const openPanel = useCallback((key: string, focus = true) => {
-    choose(key)
-    setOpen(true)
+    setOpenKey(key)
     if (focus) setFocusPanel((n) => n + 1)
-  }, [choose])
+  }, [])
   const closePanel = useCallback((restoreFocus: boolean) => {
-    setOpen(false)
+    setOpenKey(null)
     if (restoreFocus) toggleRef.current?.focus()
   }, [])
 
@@ -354,7 +420,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       const strip = stripRef.current
       if (!target || !strip || strip.contains(target)) return
       const surface = strip.closest('[data-mission-surface]')
-      if (surface && surface.contains(target)) setOpen(false)
+      if (surface && surface.contains(target)) setOpenKey(null)
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
@@ -381,48 +447,19 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     }
   }, [panelOpen])
 
-  // The primary action of each run, read from its card (label + disabled).
-  const [primaryStates, setPrimaryStates] = useState<ReadonlyMap<string, PrimaryState>>(new Map())
+  // An outward primary: once its panel shows, focus lands on the card's own control.
   useEffect(() => {
-    const root = panelsRef.current
-    if (!root) return
-    const read = (): void => {
-      const next = new Map<string, PrimaryState>()
-      for (const panel of root.querySelectorAll<HTMLElement>('[data-run-panel]')) {
-        const control = panel.querySelector<HTMLButtonElement>('[data-run-primary]')
-        if (!control) continue
-        const label = control.getAttribute('aria-label') || control.textContent?.trim() || ''
-        if (label) next.set(panel.dataset.runPanel ?? '', { label, disabled: control.disabled })
-      }
-      setPrimaryStates((current) => {
-        if (current.size === next.size && [...next].every(([key, value]) => {
-          const before = current.get(key)
-          return before?.label === value.label && before.disabled === value.disabled
-        })) return current
-        return next
-      })
-    }
-    read()
-    if (typeof MutationObserver === 'undefined') return
-    const observer = new MutationObserver(read)
-    observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'data-run-primary', 'aria-label'] })
-    return () => observer.disconnect()
-  }, [])
-
-  // Primary: open the run's card and perform its primary control.
-  const panelFor = (key: string): HTMLElement | null =>
-    panelsRef.current?.querySelector<HTMLElement>(`[data-run-panel="${CSS.escape(key)}"]`) ?? null
-  useEffect(() => {
-    if (!pendingPrimary) return
-    setPendingPrimary(null)
-    const control = panelFor(pendingPrimary)?.querySelector<HTMLButtonElement>('[data-run-primary]')
-    if (control && !control.disabled) {
-      try { control.focus({ preventScroll: true }) } catch { control.focus() }
-      control.click()
-    } else {
-      setFocusPanel((n) => n + 1)
-    }
-  }, [pendingPrimary])
+    if (!pendingOutward || !panelOpen) return
+    const key = pendingOutward
+    const frame = requestAnimationFrame(() => {
+      setPendingOutward(null)
+      const action = primaryOf(key)
+      if (action) action.focus()
+      else setFocusPanel((n) => n + 1)
+    })
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- primaryOf reads the live registry
+  }, [pendingOutward, panelOpen])
 
   // Focus bus: a history line asks for a run. A live run opens here; the card
   // hears the re-dispatch once visible (scroll, focus, pulse).
@@ -455,10 +492,16 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     focusPrCard({ ...pendingFocus, expanded: true })
   }, [pendingFocus])
 
-  // ── Announcements (polite): state changes, and a run leaving the strip ────────
+  // ── Announcements (polite): state changes, a run leaving the strip, needs you ──
   const [announcement, setAnnouncement] = useState('')
   const announced = useRef<Map<string, { text: string; label: string }> | null>(null)
   const announceSignature = entries.map((entry) => `${entry.key}\u0000${entry.announcement ?? ''}`).join('\u0001')
+  useEffect(() => {
+    if (!needsYouNotice) return
+    const entry = entriesRef.current.find((candidate) => candidate.key === needsYouNotice.key)
+    if (entry) setAnnouncement(t('runStrip.announce.needsYou', { run: entry.label }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per notice
+  }, [needsYouNotice])
   useEffect(() => {
     const previous = announced.current
     const next = new Map<string, { text: string; label: string }>()
@@ -468,6 +511,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       next.set(entry.key, { text: entry.announcement, label: entry.label })
       if (previous && previous.get(entry.key)?.text !== entry.announcement) message = entry.announcement
     }
+    // A run marked "needs you" is announced by its mark, not twice.
+    if (message && needsYouNotice && message === next.get(needsYouNotice.key)?.text) message = ''
     if (previous && !message) {
       for (const [key, value] of previous) {
         if (!next.has(key) && key.startsWith('delivery:')) message = t('runStrip.announce.settled', { run: value.label })
@@ -483,13 +528,19 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     return <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
   }
 
-  const primaryState = selected.primary ? primaryStates.get(selected.key) ?? null : null
-  // While the run's panel is open its card shows the action itself: no second copy.
-  const primaryLabel = selected.primary && !panelOpen ? selected.primary.label ?? primaryState?.label ?? t('runStrip.review') : null
+  // The run's declared primary; a run that needs the person but declares none
+  // gets a specific way into its card. While the panel is open its card shows
+  // the action itself: no second copy.
+  const primary = selected.wantsPrimary ? primaryOf(selected.key) : null
+  const fallbackLabel = selected.wantsPrimary && !primary && selected.panel && selected.source !== 'extension'
+    ? t(`runStrip.open.${selected.tone}`, { defaultValue: t('runStrip.open.decision') })
+    : null
+  const showPrimary = !panelOpen && (primary !== null || fallbackLabel !== null)
   const runPrimary = (): void => {
+    if (primary?.kind === 'local') { primary.run(); return }
     if (!selected.panel) return
-    openPanel(selected.key, false)
-    setPendingPrimary(selected.key)
+    if (primary) { openPanel(selected.key, false); setPendingOutward(selected.key); return }
+    openPanel(selected.key)
   }
   const onKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key !== 'Escape') return
@@ -501,8 +552,10 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   const others = entries.filter((entry) => entry.key !== selected.key)
   const inlineOthers = entries.length <= 3 ? others : [...others].sort((a, b) => urgencyOrder(a) - urgencyOrder(b)).slice(0, 2)
   const overflow = others.filter((entry) => !inlineOthers.includes(entry))
+  const overflowNeedsYou = overflow.some((entry) => needsYou.has(entry.key))
   const switchTo = (key: string): void => {
     choose(key)
+    if (openKey) setOpenKey(key)
     setOverflowOpen(false)
   }
 
@@ -528,6 +581,11 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     <div
       ref={stripRef}
       onKeyDown={onKeyDown}
+      onFocus={() => { if (!focusKey) setFocusKey(selected.key) }}
+      onBlur={(event) => {
+        const next = event.relatedTarget as Node | null
+        if (!next || !stripRef.current?.contains(next)) setFocusKey(null)
+      }}
       data-testid="mission-run-strip"
       data-run-key={selected.key}
       data-tone={selected.tone}
@@ -556,7 +614,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           <div ref={panelsRef}>
             {entries.map((entry) => entry.panel && (
               <div key={entry.key} data-run-panel={entry.key} hidden={!(panelOpen && entry.key === selected.key)}>
-                {entry.panel}
+                <RunPrimaryScope registry={registryFor(entry.key)}>{entry.panel}</RunPrimaryScope>
               </div>
             ))}
           </div>
@@ -597,18 +655,23 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
           {selected.controls}
 
-          {primaryLabel && (
+          {showPrimary && (
             <button
               type="button"
               data-agent-interactive
               data-testid="mission-run-strip-primary"
-              disabled={primaryState?.disabled ?? false}
+              data-kind={primary?.kind ?? 'open'}
+              disabled={primary?.disabled ?? false}
               onClick={runPrimary}
+              aria-describedby={primary?.kind === 'local' ? undefined : `${panelId}-primary-hint`}
+              title={primary?.kind === 'local' ? undefined : t('runStrip.opensCard')}
               className={RUN_STRIP_PRIMARY}
             >
-              {primaryLabel}
+              {primary?.label ?? fallbackLabel}
+              {primary?.kind !== 'local' && <ChevronUp className="h-3 w-3 shrink-0 opacity-80" aria-hidden />}
             </button>
           )}
+          {showPrimary && primary?.kind !== 'local' && <span id={`${panelId}-primary-hint`} hidden>{t('runStrip.opensCard')}</span>}
 
           {(entries.length > 1 || selected.source !== 'extension') && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
@@ -630,6 +693,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                     >
                       <ToneDot tone={entry.tone} />
                       <span className="max-w-[7rem] truncate">{entry.label}</span>
+                      {needsYou.has(entry.key) && <NeedsYouMark />}
                     </button>
                   ))}
                   {overflow.length > 0 && (
@@ -640,11 +704,14 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                         data-testid="mission-run-strip-more"
                         aria-haspopup="menu"
                         aria-expanded={overflowOpen}
-                        aria-label={t('runStrip.more', { count: overflow.length })}
+                        aria-label={overflowNeedsYou
+                          ? `${t('runStrip.more', { count: overflow.length })}, ${t('runStrip.needsYou')}`
+                          : t('runStrip.more', { count: overflow.length })}
                         onClick={() => setOverflowOpen((value) => !value)}
                         className={QUIET_CONTROL}
                       >
                         +{overflow.length}
+                        {overflowNeedsYou && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary" data-testid="mission-run-strip-more-needs-you" />}
                       </button>
                       {overflowOpen && (
                         <div role="menu" aria-label={t('runStrip.switcher')} className="absolute bottom-full right-0 z-30 mb-2 min-w-[10rem] rounded-lg border border-border/60 bg-card p-1 shadow-[0_10px_28px_-12px_rgb(0_0_0/0.5)]">
@@ -661,6 +728,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                             >
                               <ToneDot tone={entry.tone} />
                               <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                              {needsYou.has(entry.key) && <NeedsYouMark />}
                               <span className="max-w-[9rem] truncate text-foreground/45">{entry.headlineText}</span>
                             </button>
                           ))}
@@ -694,7 +762,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     headlineText: typeof run.headline === 'string' ? run.headline : run.label,
     meta: run.tone === 'launching' && !run.meta ? <MetaSkeleton /> : run.meta ?? null,
     controls: run.controls ?? null,
-    primary: run.primary ? { label: run.primary.label } : null,
+    wantsPrimary: run.tone !== 'running' && run.tone !== 'launching',
     panel: run.panel ?? null,
     autoOpenToken: run.autoOpenToken ?? null,
     attributes: run.attributes ?? {},

@@ -169,9 +169,9 @@ export function pickStripRun<T extends RankedRun>(runs: readonly T[], picked: st
 }
 
 /**
- * Keys that just became urgent (newly waiting for the person or newly failed):
- * the strip switches to them even over a manual pick, so a decision never
- * hides behind another run.
+ * The key that just became urgent (newly waiting for the person or newly
+ * failed). The strip never swaps to it while the person is using the strip —
+ * see heldStripKey — it marks the switcher entry and announces it instead.
  */
 export function newlyUrgentKey(previous: ReadonlyMap<string, MissionRunUrgency>, runs: readonly RankedRun[]): string | null {
   let found: RankedRun | null = null
@@ -183,6 +183,28 @@ export function newlyUrgentKey(previous: ReadonlyMap<string, MissionRunUrgency>,
     if (!found || urgencyRank(run.urgency) <= urgencyRank(found.urgency)) found = run
   }
   return found?.key ?? null
+}
+
+/** What the person is doing with the strip right now. */
+export interface StripHold {
+  /** The run picked in the switcher (session-only). */
+  pick: string | null
+  /** The run whose panel is open. */
+  open: string | null
+  /** The run shown when focus entered the strip (held while focus stays inside). */
+  focus: string | null
+}
+
+/**
+ * The run the strip must keep showing, or null when the strip is IDLE (nothing
+ * picked, no panel open, focus elsewhere) — only then may it follow urgency on
+ * its own. A hold on a run that left the strip no longer holds.
+ */
+export function heldStripKey(liveKeys: readonly string[], hold: StripHold): string | null {
+  for (const key of [hold.pick, hold.open, hold.focus]) {
+    if (key && liveKeys.includes(key)) return key
+  }
+  return null
 }
 
 /** `implement-fix` → `Implement fix`: a readable fallback when no extension names the step. */

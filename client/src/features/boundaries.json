@@ -238,6 +238,7 @@
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",
       "components/agent-run-failure.ts",
+      "components/run-primary.tsx",
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",

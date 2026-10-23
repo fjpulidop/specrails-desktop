@@ -468,15 +468,18 @@ describe('Flow mode in the conversation', () => {
     expect(calls.some((c) => c.url.includes('/intent'))).toBe(false)
   })
 
-  it('the strip\'s own Launch performs the panel\'s launch, and the launch skeleton yields to the run', async () => {
+  it('the strip\'s own Launch never launches blind: it reopens the hand-off focused on Launch', async () => {
     render(<Providers><FlowStrip /></Providers>)
     fireEvent.click(await screen.findByTestId('flow-bar-this-is-it'))
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
-    // Close the panel: the strip still offers Launch (it performs the card's Play).
+    // Close the panel: the strip still offers Launch, which only points at the card's own control.
     fireEvent.keyDown(screen.getByTestId('mission-run-strip-panel'), { key: 'Escape' })
     const launch = await screen.findByTestId('mission-run-strip-primary')
     expect(launch).toHaveTextContent('Launch')
     await act(async () => { fireEvent.click(launch) })
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('rail-card-play')))
+    expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(false)
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/hand-off'))).toBe(true))
     await waitFor(() => expect(screen.getByTestId('mission-run-strip')).toHaveAttribute('data-tone', 'launching'))
   })

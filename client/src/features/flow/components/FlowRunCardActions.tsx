@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Loader2, RotateCcw, Undo2 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import type { MissionRunCardActionsProps } from '../../missions/context/MissionExtensionsContext'
+import { RunPrimaryButton } from '../../missions/components/run-primary'
 import { useFlowContext } from '../context/FlowContext'
 import { flowErrorMessage } from '../lib/flow-failure'
 
@@ -45,7 +46,10 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
       }
     } catch (cause) {
       const { message } = flowErrorMessage(t, cause)
-      setError(t(kind === 'return' ? 'flow.review.returnFailed' : 'flow.review.relaunchFailed', { detail: message }))
+      const text = t(kind === 'return' ? 'flow.review.returnFailed' : 'flow.review.relaunchFailed', { detail: message })
+      setError(text)
+      // The strip can run Back to Flow with the card hidden: say it where the person looks too.
+      toast.error(text)
     } finally {
       setPending(null)
     }
@@ -54,10 +58,9 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
   const disabled = busy || pending !== null
   return (
     <>
-      <button
-        type="button"
+      <RunPrimaryButton
+        primary={{ id: 'back-to-flow', label: t('flow.review.backToFlow'), kind: 'local', rank: 1 }}
         data-agent-interactive
-        data-run-primary
         data-testid="flow-review-back-to-flow"
         disabled={disabled}
         title={t(review ? 'flow.review.backToFlowHint' : 'flow.review.backToFlowFailureHint')}
@@ -66,7 +69,7 @@ export function FlowRunCardActions({ projectId, prDeliveryId, decision, statusCo
       >
         {pending === 'return' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
         {t('flow.review.backToFlow')}
-      </button>
+      </RunPrimaryButton>
       <button
         type="button"
         data-agent-interactive

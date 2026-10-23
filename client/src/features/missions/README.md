@@ -66,12 +66,19 @@ A mission shows its live runs in ONE place: the run strip above the composer
 ([`AgentRunStrip`](components/AgentRunStrip.tsx), model in
 [`mission-run-strip.ts`](components/mission-run-strip.ts)). It shows one run at
 a time — the most urgent (waiting for you › failed › running › paused) unless
-the person picked another in its switcher — as a status mark (a shape per
-state, never color alone), the current step in plain words, progress (several
-runs), elapsed time and billed cost (`—` until billed, `*` when partial). A
-primary action appears only when the run needs the person; it performs the
-`[data-run-primary]` control of the run's full card, so the card's rules and
-confirmations apply unchanged. Clicking the strip opens that card as a panel
+the person holds another (picked in the switcher, panel open, or focus inside
+the strip) — as a status mark (a shape per state, never color alone), the
+current step in plain words, progress (several runs), elapsed time and billed
+cost (`—` until billed, `*` when partial). A held strip is never swapped: a
+run that starts needing the person meanwhile gets a "needs you" mark in the
+switcher and a polite announcement. A primary action appears only when the
+run needs the person and is DECLARED by the run's card through
+[`run-primary.tsx`](components/run-primary.tsx) (`RunPrimaryButton` /
+`useRunPrimary`: id, label, kind, handler — no DOM reading). A `local` action
+(Resume, Relaunch, Back to Flow, Mark done) runs in one click in place; an
+`outward` one (Create PR, Publish, Reopen, Approve, Launch, retry delivery) is
+never fired from the strip: it opens the panel with focus on the card's own
+control. Clicking the strip opens that card as a panel
 anchored above the strip (not a modal: Esc or a click in the conversation
 closes it, focus returns to the strip). The cards stay mounted while hidden and
 report the run's step and vitals to the strip. Extensions add their runs

@@ -34,7 +34,7 @@ the mission list's "In Flow" mark (`useConversationMarks` →
 [`FlowConversationMarks`](components/FlowConversationMarks.tsx), fed by
 `GET /flow/open` and `flow.state`), the polite state announcer
 (`ConversationDock` → `FlowDock`), the run card's Back to Flow / Relaunch
-(`FlowRunCardActions`, Back to Flow is the run's `[data-run-primary]`) and
+(`FlowRunCardActions`, Back to Flow is the run's declared `local` primary) and
 `RunFailureOutcome` (`FlowRunFailure`): a Flow → Spec run that failed outright
 is explained in the person's words — a localized headline per failing step
 ([`lib/flow-failure.ts`](lib/flow-failure.ts) maps the recipe's step ids), the

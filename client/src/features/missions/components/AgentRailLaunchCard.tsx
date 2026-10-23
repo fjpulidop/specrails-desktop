@@ -38,6 +38,7 @@ import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
 import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSelector'
+import { RunPrimaryButton } from './run-primary'
 import type { LocalTicket } from '../../../types'
 import { openAddenda } from '../../specs/lib/spec-addenda-core'
 import { readyTriage, type SpecTriageReady } from '../../specs/lib/spec-triage'
@@ -922,10 +923,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           >
             {handOff ? handOff.dismissLabel : t('railCard.dismiss')}
           </button>
-          <button
-            type="button"
+          {/* Launching starts a delivery: outward, the strip only points at it. */}
+          <RunPrimaryButton
+            primary={{ id: 'launch', label: handOff ? handOff.playLabel : t('railCard.play'), kind: 'outward' }}
             data-agent-interactive
-            data-run-primary
             data-testid="rail-card-play"
             disabled={!!busy || loading || !!blockReason}
             onClick={() => void play()}
@@ -933,7 +934,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           >
             {busy === 'launch' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
             {busy === 'launch' ? t('railCard.launching') : handOff ? handOff.playLabel : t('railCard.play')}
-          </button>
+          </RunPrimaryButton>
         </div>
       </div>
     </motion.div>

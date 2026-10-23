@@ -1179,14 +1179,14 @@
     "proposal": "Launch proposed for {{tickets}}",
     "proposalNoTickets": "Launch proposed",
     "proposalLabel": "Proposal",
-    "review": "Review",
     "panelLabel": "{{run}} details",
     "showDetails": "Show details",
     "hideDetails": "Hide details",
     "switcher": "Live runs",
     "more": "More runs ({{count}})",
     "announce": {
-      "settled": "{{run}} finished"
+      "settled": "{{run}} finished",
+      "needsYou": "{{run}} needs you"
     },
     "attention": "Waiting for your decision",
     "event": {
@@ -1201,6 +1201,13 @@
       "superseded": "{{run}} was superseded by a newer run",
       "discarded": "{{run}} was discarded",
       "changes": "{{run}}: the reviewer requested changes"
+    },
+    "needsYou": "needs you",
+    "opensCard": "Opens the run's card so you can confirm there",
+    "open": {
+      "decision": "Open the decision",
+      "failed": "See what failed",
+      "paused": "See why it paused"
     }
   },
   "flowBoundary": {

@@ -1179,14 +1179,14 @@
     "proposal": "Start vorgeschlagen für {{tickets}}",
     "proposalNoTickets": "Start vorgeschlagen",
     "proposalLabel": "Vorschlag",
-    "review": "Prüfen",
     "panelLabel": "Details zu {{run}}",
     "showDetails": "Details anzeigen",
     "hideDetails": "Details ausblenden",
     "switcher": "Laufende Läufe",
     "more": "Weitere Läufe ({{count}})",
     "announce": {
-      "settled": "{{run}} ist abgeschlossen"
+      "settled": "{{run}} ist abgeschlossen",
+      "needsYou": "{{run}} braucht dich"
     },
     "attention": "Wartet auf deine Entscheidung",
     "event": {
@@ -1201,6 +1201,13 @@
       "superseded": "{{run}} wurde durch einen neueren Lauf ersetzt",
       "discarded": "{{run}} wurde verworfen",
       "changes": "{{run}}: Der Reviewer hat Änderungen angefordert"
+    },
+    "needsYou": "braucht dich",
+    "opensCard": "Öffnet die Karte des Laufs, damit du dort bestätigst",
+    "open": {
+      "decision": "Entscheidung öffnen",
+      "failed": "Fehler ansehen",
+      "paused": "Grund der Pause ansehen"
     }
   },
   "flowBoundary": {

@@ -45,6 +45,7 @@ import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
 import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
+import { RunPrimaryButton } from './run-primary'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -871,28 +872,28 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const runtimeActions = FEATURE_MISSION_RAIL_CARDS && actionableRun && (
     <>
       {actionableRun.canResume && (
-        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'resume', label: t('runCard.actions.resume'), kind: 'local', rank: 2 }} data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'resume')}
           className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
           {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
           {t('runCard.actions.resume')}
-        </button>
+        </RunPrimaryButton>
       )}
       {actionableRun.pendingApproval && (
-        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'approve', label: t('runCard.actions.approve'), kind: 'outward', rank: 0 }} data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'approve')}
           className={cn(runActionBtn, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}>
           <ShieldCheck className="h-3 w-3" />
           {t('runCard.actions.approve')}
-        </button>
+        </RunPrimaryButton>
       )}
       {actionableRun.recoverableSteps.length > 0 && (
-        <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'local', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'recover')}
           className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
           <Wrench className="h-3 w-3" />
           {t('runCard.actions.recover')}
-        </button>
+        </RunPrimaryButton>
       )}
     </>
   )
@@ -907,13 +908,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   ) : null
   const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
-      <button type="button" data-agent-interactive data-run-primary data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
+      <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'local', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
         className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
         {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('runCard.actions.relaunch')}
-      </button>
+      </RunPrimaryButton>
       {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
     </>
   )
@@ -1010,15 +1011,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
               {pausedRunLabel ? t('prCard.pausedForRun', { ref: pausedRunLabel }) : t('prCard.paused')}
               {pausedReason ? `: ${pausedReason}` : ''}
             </span>
-            <button
-              type="button"
+            <RunPrimaryButton
+              primary={{ id: 'resume-paused', label: pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume'), kind: 'local', rank: 1 }}
               data-agent-interactive
-              data-run-primary
               data-testid="pr-run-paused-resume"
               disabled={runtimeBusy}
               title={pausedResumeStep ? t('prCard.resumeFromStepHint', { step: pausedResumeStep }) : undefined}
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
                 if (pausedOnBudget) void resumeBudgetPausedRun(pausedRunId)
                 else if (pausedLive) void runtime.act(pausedLive, pausedLive.recoverableSteps.length ? 'recover' : 'resume')
                 else setLogRunId(pausedRunId)
@@ -1027,7 +1026,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             >
               {runtime.busy === pausedRunId || resumingBudgetRunId === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
               {pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume')}
-            </button>
+            </RunPrimaryButton>
             <button
               type="button"
               data-agent-interactive
@@ -1172,11 +1171,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
+  // Create PR / Publish / Reopen reach other people: the strip only points at them.
   const primaryAction = (action: AgentPrDecisionAction, label: string) => !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive data-run-primary className={primaryBtn}>
+    <RunPrimaryButton primary={{ id: action, label, kind: action === 'poll-merge' ? 'local' : 'outward', rank: 1 }}
+      onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === action && spinner}
       {label}
-    </button>
+    </RunPrimaryButton>
   )
 
   // Entry into the plain-language review packet (nontech-review-experience).
@@ -1218,22 +1219,32 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   )
 
   const recoveryIsRecheck = presentation.recoveryRecheck
-  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (
+  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (recoveryIsRecheck ? (
     <button
       type="button"
       onClick={() => setConfirmingRecoverAndRetry(true)}
       disabled={anyBusy}
-      data-testid={recoveryIsRecheck ? 'agent-pr-recheck-recovery' : 'agent-pr-recover-and-retry'}
+      data-testid="agent-pr-recheck-recovery"
       data-agent-interactive
-      data-run-primary={recoveryIsRecheck ? undefined : ''}
-      className={recoveryIsRecheck
-        ? 'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50'
-        : primaryBtn}
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
-      {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
+      {t('prCard.recheckRecovery')}
     </button>
-  )
+  ) : (
+    // Retrying delivers the work: outward, the strip only points at it.
+    <RunPrimaryButton
+      primary={{ id: 'recover-and-retry', label: t('prCard.recoverAndRetry'), kind: 'outward', rank: 1 }}
+      onClick={() => setConfirmingRecoverAndRetry(true)}
+      disabled={anyBusy}
+      data-testid="agent-pr-recover-and-retry"
+      data-agent-interactive
+      className={primaryBtn}
+    >
+      {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
+      {t('prCard.recoverAndRetry')}
+    </RunPrimaryButton>
+  ))
 
   // Remote-less acceptance (no PR exists yet): merge into the base locally.
   const mergeLocalAction = !hasRepositoryDeliveries && (
@@ -1273,10 +1284,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   )
 
   const acknowledgeNoChangesAction = !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive data-run-primary className={primaryBtn}>
+    <RunPrimaryButton primary={{ id: 'acknowledge-no-changes', label: t('prCard.markDone'), kind: 'local', rank: 1 }}
+      onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === 'acknowledge-no-changes' && spinner}
       {t('prCard.markDone')}
-    </button>
+    </RunPrimaryButton>
   )
 
   const refineAction = (
