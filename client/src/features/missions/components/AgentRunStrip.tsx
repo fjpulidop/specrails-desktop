@@ -159,7 +159,9 @@ export interface AgentRunStripProps {
 export function AgentRunStrip({ conversationId, projectId, inline, deliveries = [], proposals = [] }: AgentRunStripProps) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
-  const { describeRun, ConversationDock } = useMissionExtensions()
+  const { describeRun, ConversationDock, useRunAttention } = useMissionExtensions()
+  // The extension derives its runs' attention app-wide: the strip leaves it be.
+  const attentionOwnedElsewhere = !!useRunAttention
   const extensionRuns = useMissionLiveRuns({ conversationId, projectId, inline })
   const { reportRunAttention } = useAgentChat()
 
@@ -332,15 +334,20 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   // An extension's run that waits for the person (decision or failure) feeds
   // the mission list's attention dot like a delivery does; a calm state (the
   // Flow's "Ready to turn into a PR") does not. Deliveries report from their
-  // envelopes (deliveryNeedsPerson), so only extension runs are reported here.
+  // envelopes (deliveryNeedsPerson), so only extension runs are reported here,
+  // and only for an extension WITHOUT an app-wide source (`useRunAttention`,
+  // Flow's): that source stays live while the mission is closed, which a
+  // strip cannot (it reports only while mounted).
   const reported = useRef(new Map<string, string>())
-  const attentionSignature = entries.filter((entry) => entry.source === 'extension')
+  const attentionSignature = attentionOwnedElsewhere ? '' : entries.filter((entry) => entry.source === 'extension')
     .map((entry) => `${entry.key}=${entry.urgency === 'decision' || entry.urgency === 'failed' ? 1 : 0}`).join('|')
   useEffect(() => {
     if (!reportRunAttention) return
     const now = new Map<string, boolean>()
-    for (const entry of entriesRef.current) {
-      if (entry.source === 'extension') now.set(entry.key, entry.urgency === 'decision' || entry.urgency === 'failed')
+    if (!attentionOwnedElsewhere) {
+      for (const entry of entriesRef.current) {
+        if (entry.source === 'extension') now.set(entry.key, entry.urgency === 'decision' || entry.urgency === 'failed')
+      }
     }
     for (const [key, owner] of reported.current) {
       if (owner === conversationId && !now.has(key)) reportRunAttention(conversationId, key, false)
@@ -350,7 +357,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       reportRunAttention(conversationId, key, needs)
       reported.current.set(key, conversationId)
     }
-  }, [attentionSignature, conversationId, reportRunAttention])
+  }, [attentionSignature, attentionOwnedElsewhere, conversationId, reportRunAttention])
 
   // ── Which run shows ───────────────────────────────────────────────────────────
   // The person's pick (switcher), the open panel and focus inside the strip

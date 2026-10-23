@@ -52,6 +52,7 @@ import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
 import { derivePrCards } from '../components/agent-pr-pinning'
 import { deliveryNeedsPerson } from '../components/mission-run-strip'
+import { useMissionRunAttention } from './MissionExtensionsContext'
 import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
@@ -683,8 +684,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return new Map(current).set(conversationId, deliveries)
     })
   }, [])
-  // Extension runs (Flow) report theirs from the strip: kept apart so the open
-  // conversation's delivery recompute never wipes them.
+  // Extension runs without an app-wide source report theirs from the strip:
+  // kept apart so the open conversation's delivery recompute never wipes them.
   const [runAttention, setRunAttention] = useState<ReadonlyMap<string, ReadonlySet<string>>>(new Map())
   const reportRunAttention = useCallback((conversationId: string, runKey: string, needsPerson: boolean): void => {
     setRunAttention((current) => {
@@ -696,12 +697,16 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return new Map(current).set(conversationId, keys)
     })
   }, [])
+  // An extension that derives its runs' attention app-wide (Flow, from its
+  // per-project watch) feeds the dot for every listed mission, open or not.
+  const extensionAttention = useMissionRunAttention(conversations)
   const attentionConversationIds = useMemo<ReadonlySet<string>>(() => {
     const ids = new Set<string>()
     for (const [conversationId, deliveries] of attentionByConversation) if (deliveries.size > 0) ids.add(conversationId)
     for (const [conversationId, keys] of runAttention) if (keys.size > 0) ids.add(conversationId)
+    for (const [conversationId, keys] of extensionAttention) if (keys.size > 0) ids.add(conversationId)
     return ids
-  }, [attentionByConversation, runAttention])
+  }, [attentionByConversation, runAttention, extensionAttention])
 
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'

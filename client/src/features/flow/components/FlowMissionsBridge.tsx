@@ -4,7 +4,8 @@
 // extension seam: the ```flow-offer card, the conversation mode (data-flow
 // surface, worktree branch, interrupting sends), its runs in the mission's
 // run strip (the Flow, its hand-off and launch) with the words for the steps
-// of Flow → Spec, the polite state announcer, the Back to Flow / Relaunch actions on a Flow → Spec run card that
+// of Flow → Spec, the mission list's "In Flow" mark and attention dot (one
+// app-wide watch per project, live with the mission closed), the polite state announcer, the Back to Flow / Relaunch actions on a Flow → Spec run card that
 // stopped with requested changes, and the Flow-authored explanation of a run
 // that failed outright. Missions never import this feature.
 
@@ -17,7 +18,7 @@ import { FLOW_ACCENT } from '../lib/flow-accent'
 import { FlowProvider, useConversationFlow, useFlowContext } from '../context/FlowContext'
 import { FLOW_OFFER_TAG } from '../lib/flow-offer'
 import { isOpenFlow } from '../lib/flow-api'
-import { useFlowConversationMarks } from './FlowConversationMarks'
+import { useFlowConversationMarks, useFlowRunAttention } from './FlowConversationMarks'
 import { FlowDock } from './FlowDock'
 import { describeFlowRun, useFlowLiveRuns } from './FlowLiveRuns'
 import { FlowOfferCard } from './FlowOfferCard'
@@ -59,6 +60,7 @@ export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
   ConversationDock: FlowDock,
   useLiveRuns: useFlowLiveRuns,
   useConversationMarks: useFlowConversationMarks,
+  useRunAttention: useFlowRunAttention,
   describeRun: describeFlowRun,
   RunCardActions: FlowRunCardActions,
   RunFailureOutcome: FlowRunFailure,

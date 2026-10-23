@@ -32,7 +32,12 @@ Flow's runs in the mission's run strip (`useLiveRuns` → [`FlowLiveRuns`](compo
 the words for the steps of Flow → Spec (`describeRun` → `describeFlowRun`),
 the mission list's "In Flow" mark (`useConversationMarks` →
 [`FlowConversationMarks`](components/FlowConversationMarks.tsx), fed by
-`GET /flow/open` and `flow.state`), the state announcements
+`GET /flow/open` and `flow.state`) and, from the same app-wide watch, its
+attention dot for Flow runs (`useRunAttention` → `useFlowRunAttention`, live
+whether or not the mission is open; one rule with the strip's tone in
+[`lib/flow-run-tone.ts`](lib/flow-run-tone.ts): no open Flow state waits for
+the person today, paused and needs-review are calm, and a Flow → Spec run
+that fails or waits is a delivery that feeds the dot itself), the state announcements
 (`ConversationDock` → `FlowDock`, said through the run strip's one live
 region), the per-turn mark (`useTurnMark`), the run card's Back to Flow / Relaunch
 (`FlowRunCardActions`, Back to Flow is the run's declared `local` primary) and

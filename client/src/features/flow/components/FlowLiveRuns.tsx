@@ -37,6 +37,7 @@ import { isOpenFlow } from '../lib/flow-api'
 import { flowFailureStep } from '../lib/flow-failure'
 import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
 import { FLOW_ACCENT } from '../lib/flow-accent'
+import { flowOpenRunTone } from '../lib/flow-run-tone'
 import { FlowHandOffCard } from './FlowHandOffCard'
 import { FlowPanel, FlowStripControls, flowStripHeadline, useFlowLiveStats } from './FlowStripControls'
 
@@ -134,8 +135,9 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
       }]
     }
     if (!isOpenFlow(flow) && flow.state !== 'needs-review') return []
-    // needs-review has nothing to decide on the row: it is informational.
-    const tone = flow.state === 'paused' ? 'paused' : flow.state === 'needs-review' ? 'info' : 'running'
+    // needs-review has nothing to decide on the row: it is informational
+    // (one rule with the mission list's attention dot: flow-run-tone.ts).
+    const tone = flowOpenRunTone(flow.state) ?? 'running'
     return [{
       key, label, attributes, tone, mode,
       working,

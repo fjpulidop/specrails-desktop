@@ -93,7 +93,10 @@ keeps the mode's icon as its mark in every state, badged with the state's
 shape. The switcher marks each run with the same per-state shape (never color
 alone), and a strip with one run still shows its name. An extension run in a
 `decision` or `failed` tone feeds the mission list's attention dot like a
-delivery (`reportRunAttention`); calm states never do. Every run primary (the
+delivery; calm states never do. An extension that provides `useRunAttention`
+(Flow) derives that attention app-wide for every listed mission, so the dot is
+live and clears with the mission closed, and the strip leaves those runs to
+it; otherwise the strip reports them while mounted (`reportRunAttention`). Every run primary (the
 strip's, the hand-off Launch, the card primary, Flow's Start) shares ONE
 recipe, `PRIMARY_ACTION_SHAPE` / `PRIMARY_ACTION` in `run-primary.tsx`.
 

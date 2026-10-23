@@ -17,6 +17,10 @@
 //     open Flow, its hand-off and the launch in flight). Missions renders
 //     them in the ONE run strip above the composer, next to its own runs.
 //   - useConversationMarks: marks for the mission list rows (Flow: "In Flow").
+//   - useRunAttention: which conversations have an extension run waiting for
+//     the person (the mission list's attention dot), derived from the
+//     extension's own app-wide state so it is live without the mission open.
+//     When provided, the run strip no longer reports the extension's runs.
 //   - describeRun: the person's words for a run's current step and for the
 //     step it failed at, when the extension owns the run's loop (Flow → Spec).
 //   - RunCardActions: extra actions on a run/PR card whose outcome the
@@ -202,6 +206,13 @@ export interface MissionExtensions {
   useLiveRuns?: (props: MissionConversationSlotProps) => readonly MissionLiveRun[]
   /** Marks for the mission list rows (Flow: the missions that are in Flow). */
   useConversationMarks?: (conversations: readonly MissionConversationRef[]) => ReadonlyMap<string, MissionModeBadge>
+  /**
+   * The extension's runs that wait for the person (a `decision` or `failed`
+   * tone, the strip's own rule), per conversation id, for EVERY listed
+   * conversation (open or not). Feeds the sidebar attention dot; the strip
+   * then leaves those runs to it.
+   */
+  useRunAttention?: (conversations: readonly MissionConversationRef[]) => ReadonlyMap<string, ReadonlySet<string>>
   describeRun?: (t: TFunction, input: MissionRunDescriptionInput) => MissionRunDescription | null
   /** The discreet mark on agent turns written inside the extension's mode (Flow): icon, color, words. */
   useTurnMark?: () => MissionModeBadge | null
@@ -237,6 +248,17 @@ function useNoMarks(): ReadonlyMap<string, MissionModeBadge> {
 export function useMissionConversationMarks(conversations: readonly MissionConversationRef[]): ReadonlyMap<string, MissionModeBadge> {
   const useMarks = useMissionExtensions().useConversationMarks ?? useNoMarks
   return useMarks(conversations)
+}
+
+const NO_ATTENTION: ReadonlyMap<string, ReadonlySet<string>> = new Map()
+function useNoRunAttention(): ReadonlyMap<string, ReadonlySet<string>> {
+  return NO_ATTENTION
+}
+
+/** Extension runs waiting for the person, keyed by conversation id (none without an extension). */
+export function useMissionRunAttention(conversations: readonly MissionConversationRef[]): ReadonlyMap<string, ReadonlySet<string>> {
+  const useAttention = useMissionExtensions().useRunAttention ?? useNoRunAttention
+  return useAttention(conversations)
 }
 
 const NO_RUNS: readonly MissionLiveRun[] = Object.freeze([])

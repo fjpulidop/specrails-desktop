@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { useSyncExternalStore } from 'react'
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 
 // Flow mode through the missions extension seam: the conversation surface gets
@@ -190,8 +191,8 @@ describe('missions extension seam (Flow mode)', () => {
     const message = (id: string, role: 'user' | 'assistant' | 'system', content: string) => ({ id, conversation_id: 'c1', role, content, created_at: '2026-10-22T10:00:00.000Z' })
     const boundary = (id: string, event: 'entered' | 'left', reason: string) => message(id, 'system', JSON.stringify({ kind: 'flow-boundary', flowId: 'f1', event, reason, branch: 'feat/7-calm', at: '' }))
 
-    async function openWith(messages: ReturnType<typeof message>[], extensions?: MissionExtensions) {
-      vi.mocked(agentApi.listAgentConversations).mockResolvedValue([conversation('c1')] as never)
+    async function openWith(messages: ReturnType<typeof message>[], extensions?: MissionExtensions, listed: string[] = ['c1']) {
+      vi.mocked(agentApi.listAgentConversations).mockResolvedValue(listed.map(conversation) as never)
       vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: conversation('c1'), messages } as never)
       renderPanel(extensions)
       await waitFor(() => expect(chat).not.toBeNull())
@@ -231,6 +232,34 @@ describe('missions extension seam (Flow mode)', () => {
       // Re-render with the new tone (the slot is read on render).
       await act(async () => { await chat!.selectConversation('c1') })
       await waitFor(() => expect(chat!.attentionConversationIds.has('c1')).toBe(true))
+    })
+
+    it('an extension with an app-wide attention source feeds the dot for missions that are not open, live, and the strip leaves its runs to it', async () => {
+      // A tiny external store standing in for the extension's own app-wide watch (Flow: GET /flow/open + flow.state).
+      let attention: ReadonlyMap<string, ReadonlySet<string>> = new Map()
+      const listeners = new Set<() => void>()
+      const setAttention = (next: ReadonlyMap<string, ReadonlySet<string>>) => { attention = next; for (const l of listeners) l() }
+      const seen: string[][] = []
+      const RUNS: MissionExtensions = {
+        // The open mission's run waits for the person, but the extension owns its attention.
+        useLiveRuns: () => [{ key: 'flow:f1', label: 'Flow', tone: 'decision', headline: 'Waiting' }],
+        useRunAttention: (conversations) => {
+          seen.push(conversations.map((c) => c.id))
+          return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l) }, () => attention)
+        },
+      }
+      await openWith([message('m1', 'user', 'hi')], RUNS, ['c1', 'c2'])
+      await screen.findByTestId('mission-run-strip')
+      // The strip does not report the extension's runs: no dot from the open mission's strip.
+      expect(chat!.attentionConversationIds.has('c1')).toBe(false)
+      // The hook sees every listed mission, open or not.
+      await waitFor(() => expect(seen.at(-1)).toEqual(['c1', 'c2']))
+      // A mission that is NOT open gets the dot live, and loses it when the run stops waiting.
+      act(() => setAttention(new Map([['c2', new Set(['flow'])]])))
+      await waitFor(() => expect(chat!.attentionConversationIds.has('c2')).toBe(true))
+      expect(chat!.attentionConversationIds.has('c1')).toBe(false)
+      act(() => setAttention(new Map()))
+      await waitFor(() => expect(chat!.attentionConversationIds.has('c2')).toBe(false))
     })
 
     it('the turn mark comes from the extension seam (its icon and color), never hard-coded', async () => {
