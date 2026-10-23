@@ -66,6 +66,7 @@
   /* Brand-mirror semantic tokens (used when shadcn token is too generic) */
   --color-accent-primary:    hsl(265 89% 78%);  /* purple */
   --color-accent-info:       hsl(191 97% 77%);  /* cyan */
+  --color-accent-flow:       hsl(170 70% 62%);  /* teal — Flow mode, distinct from info (running) cyan */
   --color-accent-success:    hsl(135 94% 65%);  /* green */
   --color-accent-secondary:  hsl(326 100% 74%); /* pink */
   --color-accent-warning:    hsl(31 100% 71%);  /* orange */
@@ -106,6 +107,7 @@
 
   --color-accent-primary:    hsl(255 70% 50%);  /* indigo — slightly deeper for text contrast */
   --color-accent-info:       hsl(205 58% 40%);  /* muted steel-blue — not neon, readable on light bg */
+  --color-accent-flow:       hsl(172 72% 26%);  /* deep teal — readable on light bg */
   --color-accent-success:    hsl(150 65% 33%);  /* emerald */
   --color-accent-secondary:  hsl(330 72% 45%);  /* magenta-pink, deeper for readability on light */
   --color-accent-warning:    hsl(32 90% 40%);   /* amber — darker so text reads on light bg */
@@ -145,6 +147,7 @@
 
   --color-accent-primary:    hsl(144 100% 50%);   /* phosphor green */
   --color-accent-info:       hsl(174 56% 56%);    /* teal */
+  --color-accent-flow:       hsl(200 85% 66%);  /* sky blue — the one non-green mode accent */
   --color-accent-success:    hsl(145 100% 70%);   /* light mint-green */
   --color-accent-secondary:  hsl(153 100% 33%);   /* deep terminal green */
   --color-accent-warning:    hsl(35 100% 64%);    /* amber */
@@ -201,6 +204,7 @@
 
   --color-accent-primary:    hsl(265 80% 72%);  /* purple */
   --color-accent-info:       hsl(192 90% 62%);  /* electric cyan */
+  --color-accent-flow:       hsl(168 66% 55%);  /* teal */
   --color-accent-success:    hsl(150 70% 55%);  /* emerald */
   --color-accent-secondary:  hsl(330 80% 68%);  /* magenta */
   --color-accent-warning:    hsl(35 95% 62%);   /* amber */
@@ -245,6 +249,7 @@
 
   --color-accent-primary:    hsl(187 100% 44%);  /* cyan */
   --color-accent-info:       hsl(191 97% 55%);   /* electric cyan */
+  --color-accent-flow:       hsl(170 78% 50%);  /* teal, between success and the cyan primary */
   --color-accent-success:    hsl(152 78% 48%);   /* emerald */
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
   --color-accent-warning:    hsl(42 92% 58%);    /* amber */
@@ -287,6 +292,7 @@
 
   --color-accent-primary:    hsl(212 100% 62%);  /* light-side blue */
   --color-accent-info:       hsl(212 100% 62%);  /* same hue as primary — ticket-directed */
+  --color-accent-flow:       hsl(266 85% 74%);  /* violet — teal would collide with SpecRails hues */
   --color-accent-success:    hsl(140 65% 50%);   /* core green */
   --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */
   --color-accent-warning:    hsl(28 95% 56%);    /* pulse orange */

@@ -29,7 +29,7 @@ import { AlertTriangle, BellRing, ChevronUp, Info, Loader2, Pause } from 'lucide
 import { cn } from '../../../lib/utils'
 import { formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import type { AgentPrDecisionEnvelope } from '../lib/agent-api'
-import { useMissionExtensions, useMissionLiveRuns, type MissionLiveRun } from '../context/MissionExtensionsContext'
+import { modeAccent, useMissionExtensions, useMissionLiveRuns, type MissionLiveRun, type MissionModeBadge } from '../context/MissionExtensionsContext'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentRailLaunchCard } from './AgentRailLaunchCard'
 import type { PinnedPrCard } from './agent-pr-pinning'
@@ -60,6 +60,8 @@ interface StripEntry {
   urgency: MissionRunUrgency
   /** Running without current activity: no pulse. */
   quiet: boolean
+  /** The run's mode (extension runs, Flow): its mark while running. */
+  mode: MissionModeBadge | null
   headline: ReactNode
   /** The headline as text (announcements, switcher titles). */
   headlineText: string
@@ -77,8 +79,17 @@ interface StripEntry {
 
 const MARK_CLASS = 'h-3.5 w-3.5 shrink-0'
 
-/** The status mark: a shape per state, never color alone. */
-function StatusMark({ tone, quiet }: { tone: MissionRunTone; quiet: boolean }) {
+/** The status mark: a shape per state, never color alone. A running run of an
+ *  extension's mode (Flow) shows the mode's icon in the mode's color. */
+function StatusMark({ tone, quiet, mode }: { tone: MissionRunTone; quiet: boolean; mode: MissionModeBadge | null }) {
+  if (tone === 'running' && mode?.icon) {
+    const Icon = mode.icon
+    return (
+      <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" style={{ color: modeAccent(mode) }} data-testid="mission-run-strip-mode-mark" aria-hidden>
+        <Icon className={cn('h-3.5 w-3.5', !quiet && 'motion-safe:animate-pulse')} aria-hidden />
+      </span>
+    )
+  }
   if (tone === 'launching') return <Loader2 className={cn(MARK_CLASS, 'text-foreground/45 motion-safe:animate-spin')} aria-hidden />
   if (tone === 'decision') return <BellRing className={cn(MARK_CLASS, 'text-accent-primary')} aria-hidden />
   if (tone === 'failed') return <AlertTriangle className={cn(MARK_CLASS, 'text-destructive')} aria-hidden />
@@ -198,6 +209,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       headlineText = described ?? (summary?.step ? humanizeStepId(summary.step) : t('runStrip.running'))
     } else if (tone === 'paused') {
       headlineText = summary?.pausedReason ? t('runStrip.pausedReason', { reason: summary.pausedReason }) : t('runStrip.paused')
+    } else if (tone === 'info') {
+      headlineText = t(`runStrip.decision.${envelope.decision}`, { defaultValue: t('runStrip.decision.generic') })
     } else if (tone === 'decision') {
       headlineText = summary?.pendingApproval || envelope.runtime?.pendingApproval
         ? t('runStrip.decision.approval')
@@ -238,7 +251,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     )
     const needsPerson = tone === 'decision' || tone === 'failed' || tone === 'paused'
     return {
-      key, label, tone, urgency: urgencyOfTone(tone), quiet: false,
+      key, label, tone, urgency: urgencyOfTone(tone), quiet: false, mode: null,
       headline: headlineText, headlineText, meta, controls: null,
       wantsPrimary: needsPerson,
       panel: (
@@ -266,7 +279,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
       list.push({
         key: proposalRunKey(p.messageId, p.proposalIndex),
         label: t('runStrip.proposalLabel'),
-        tone: 'decision', urgency: 'decision', quiet: false,
+        tone: 'decision', urgency: 'decision', quiet: false, mode: null,
         headline: headlineText, headlineText, meta: null, controls: null,
         wantsPrimary: true,
         panel: (
@@ -563,7 +576,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   const toggleContent = (
     <>
-      <StatusMark tone={selected.tone} quiet={selected.quiet} />
+      <StatusMark tone={selected.tone} quiet={selected.quiet} mode={selected.mode} />
       <span className="sr-only">{t(`runStrip.state.${selected.tone}`)} </span>
       <span
         data-testid="mission-run-strip-headline"
@@ -760,6 +773,7 @@ function extensionEntry(run: MissionLiveRun): StripEntry {
     tone: run.tone,
     urgency: urgencyOfTone(run.tone),
     quiet: run.working === false,
+    mode: run.mode ?? null,
     headline: run.headline,
     headlineText: typeof run.headline === 'string' ? run.headline : run.label,
     meta: run.tone === 'launching' && !run.meta ? <MetaSkeleton /> : run.meta ?? null,

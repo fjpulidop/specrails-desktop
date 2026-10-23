@@ -18,6 +18,7 @@
 // of the hand-off loop (Flow → Spec).
 
 import { useMemo, useRef } from 'react'
+import { Waves } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useAgentChat } from '../../missions/context/AgentChatContext'
@@ -28,6 +29,7 @@ import { useConversationFlow, useFlowContext } from '../context/FlowContext'
 import { isOpenFlow } from '../lib/flow-api'
 import { flowFailureStep } from '../lib/flow-failure'
 import { FLOW_SPEC_LOOP_ID } from '../lib/flow-offer'
+import { FLOW_ACCENT } from '../lib/flow-accent'
 import { FlowHandOffCard } from './FlowHandOffCard'
 import { FlowPanel, FlowStripControls, flowStripHeadline, useFlowLiveStats } from './FlowStripControls'
 
@@ -68,6 +70,7 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
     if (!ctx || !flow || !projectId) return []
     const key = `flow:${flow.id}`
     const label = t('flow.strip.label')
+    const mode = { label, icon: Waves, accent: FLOW_ACCENT }
     const attributes = { 'data-flow-id': flow.id, 'data-flow-state': wrappingUp ? 'wrapping-up' : flow.state } as const
     if (wrappingUp || launching) {
       return [{
@@ -91,7 +94,7 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
     // needs-review has nothing to decide on the row: it is informational.
     const tone = flow.state === 'paused' ? 'paused' : flow.state === 'needs-review' ? 'info' : 'running'
     return [{
-      key, label, attributes, tone,
+      key, label, attributes, tone, mode,
       working,
       headline: flowStripHeadline(t, flow, stats.diff),
       controls: <FlowStripControls projectId={projectId} flow={flow} inline={inline} />,

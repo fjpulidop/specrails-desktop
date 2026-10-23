@@ -129,7 +129,10 @@ export function deliveryRunTone(
   if (card?.pendingApproval || envelope.runtime?.pendingApproval) return 'decision'
   if (reviewChangesRequested(envelope)) return 'decision'
   if (decision === 'implementation_failed' || decision === 'pr_failed') return 'failed'
-  if (decision === 'on_review' || decision === 'pr_draft' || decision === 'no_changes' || decision === 'pr_closed') return 'decision'
+  if (decision === 'on_review' || decision === 'pr_draft') return 'decision'
+  // Finished without changes / PR closed: settled information, not a decision
+  // the person owes (no bell, no attention dot). Their cards keep the actions.
+  if (decision === 'no_changes' || decision === 'pr_closed') return 'info'
   if (runtimeFailed(envelope.runtime)) return 'failed'
   if (envelope.phase === 'launched') return card?.step ? 'running' : 'launching'
   if (envelope.phase === 'running' || envelope.runtime?.status === 'running') return card?.paused ? 'paused' : 'running'

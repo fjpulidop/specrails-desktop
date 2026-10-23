@@ -39,7 +39,7 @@ import { useMissionSession, useMissionSessions } from '../context/MissionSession
 import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
 import type { AgentSubagent } from '../lib/agent-api'
-import { useMissionConversationMode, useMissionExtensions } from '../context/MissionExtensionsContext'
+import { useMissionConversationMode, useMissionExtensions, useMissionTurnMark, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -170,6 +170,8 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const prCards = useMemo(() => derivePrCards(messages), [messages])
   // Agent turns produced while the conversation was in Flow (between boundaries).
   const flowTurns = useMemo(() => flowTurnMessageIds(messages), [messages])
+  const extensionTurnMark = useMissionTurnMark()
+  const turnMark = useMemo<MissionModeBadge>(() => extensionTurnMark ?? { label: t('flowBoundary.turnMark') }, [extensionTurnMark, t])
   // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
   const railProposals = useRailLaunchProposals(messages)
   // Core sessions: sub-agents anchor under the message of the turn that launched
@@ -346,7 +348,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 railProposalsPinned={railPinned}
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
-                modeMark={flowTurns.has(m.id) ? t('flowBoundary.turnMark') : null}
+                modeMark={flowTurns.has(m.id) ? turnMark : null}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere, except in a mode
                 // that interrupts while busy (Flow): there a pick cuts the turn.

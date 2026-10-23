@@ -8,11 +8,12 @@
 // stopped with requested changes, and the Flow-authored explanation of a run
 // that failed outright. Missions never import this feature.
 
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Waves } from 'lucide-react'
 import '../flow.css'
-import { MissionExtensionsProvider, type MissionConversationMode, type MissionExtensions } from '../../missions/context/MissionExtensionsContext'
+import { MissionExtensionsProvider, type MissionConversationMode, type MissionExtensions, type MissionModeBadge } from '../../missions/context/MissionExtensionsContext'
+import { FLOW_ACCENT } from '../lib/flow-accent'
 import { FlowProvider, useConversationFlow, useFlowContext } from '../context/FlowContext'
 import { FLOW_OFFER_TAG } from '../lib/flow-offer'
 import { isOpenFlow } from '../lib/flow-api'
@@ -40,12 +41,19 @@ export function useFlowConversationMode(conversationId: string | null, projectId
   return {
     ...(live ? { attributes: { 'data-flow': 'active' }, interruptWhileBusy: true } : {}),
     hideGitStrip: true,
-    composer: { badge: { label: t('agent:flow.mode.chip'), description, icon: Waves }, placeholder: t('agent:flow.mode.placeholder') },
-    headerBadge: { label: t('specs:badges.inFlow'), description, icon: Waves },
+    composer: { badge: { label: t('agent:flow.mode.chip'), description, icon: Waves, accent: FLOW_ACCENT }, placeholder: t('agent:flow.mode.placeholder') },
+    headerBadge: { label: t('specs:badges.inFlow'), description, icon: Waves, accent: FLOW_ACCENT },
   }
 }
 
+/** The mark on agent turns written in Flow: the Flow icon, its color and "Flow". */
+export function useFlowTurnMark(): MissionModeBadge {
+  const { t } = useTranslation('agent')
+  return useMemo(() => ({ label: t('flowBoundary.turnMark'), description: t('flow.mode.description'), icon: Waves, accent: FLOW_ACCENT }), [t])
+}
+
 export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
+  useTurnMark: useFlowTurnMark,
   fenceCards: Object.freeze({ [FLOW_OFFER_TAG]: FlowOfferCard }),
   useConversationMode: useFlowConversationMode,
   ConversationDock: FlowDock,

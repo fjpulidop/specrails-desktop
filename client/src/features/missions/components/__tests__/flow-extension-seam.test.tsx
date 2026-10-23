@@ -155,7 +155,7 @@ describe('missions extension seam (Flow mode)', () => {
     const COMPOSER_MODE: MissionExtensions = {
       useConversationMode: () => ({
         hideGitStrip: true,
-        composer: { badge: { label: 'Flow', description: 'Flow mode: the agent writes in the worktree', icon: Icon }, placeholder: 'Tell the agent what to change in the worktree…' },
+        composer: { badge: { label: 'Flow', description: 'Flow mode: the agent writes in the worktree', icon: Icon, accent: 'var(--color-accent-flow)' }, placeholder: 'Tell the agent what to change in the worktree…' },
         headerBadge: { label: 'In Flow', icon: Icon },
       }),
     }
@@ -170,6 +170,9 @@ describe('missions extension seam (Flow mode)', () => {
       expect(chip).toHaveAttribute('title', 'Flow mode: the agent writes in the worktree')
       expect(within(chip).getByTestId('mode-icon')).toBeInTheDocument()
       expect(screen.getByTestId('agent-composer-mode-line')).toHaveAttribute('data-active', 'true')
+      // The mode's own color (not the running/info accent) on the line and the chip.
+      expect(screen.getByTestId('agent-composer-mode-line')).toHaveStyle({ background: 'var(--color-accent-flow)' })
+      expect(chip.style.getPropertyValue('--mode-accent')).toBe('var(--color-accent-flow)')
       expect(screen.getByTestId('agent-composer-box')).toHaveAttribute('data-composer-mode', 'extension')
       expect(screen.getByRole('textbox')).toHaveAttribute('data-placeholder', 'Tell the agent what to change in the worktree…')
     })
@@ -215,6 +218,18 @@ describe('missions extension seam (Flow mode)', () => {
       await act(async () => { fireEvent.click(primary) })
       const play = within(screen.getByTestId('mission-run-strip-panel')).getByRole('button', { name: 'Play' })
       await waitFor(() => expect(document.activeElement).toBe(play))
+    })
+
+    it('the turn mark comes from the extension seam (its icon and color), never hard-coded', async () => {
+      const TurnIcon = (props: { className?: string }) => <svg data-testid="turn-mode-icon" {...props} />
+      await openWith([
+        boundary('b1', 'entered', 'started'),
+        message('m2', 'assistant', 'inside Flow'),
+      ], { useTurnMark: () => ({ label: 'Flow', icon: TurnIcon, accent: 'var(--color-accent-flow)' }) })
+      const mark = await screen.findByTestId('agent-message-mode-mark')
+      expect(mark).toHaveTextContent('Flow')
+      expect(within(mark).getByTestId('turn-mode-icon')).toBeInTheDocument()
+      expect(mark.style.getPropertyValue('--turn-mode-accent')).toBe('var(--color-accent-flow)')
     })
 
     it('boundaries are event lines; the agent turns between them carry a Flow mark next to their time', async () => {

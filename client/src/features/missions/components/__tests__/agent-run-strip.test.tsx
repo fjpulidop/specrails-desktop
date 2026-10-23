@@ -315,8 +315,8 @@ describe('run strip (floating panel)', () => {
     ['building', 'running', 'Working'],
     ['on_review', 'decision', 'Ready for your review'],
     ['pr_draft', 'decision', 'Draft PR ready to publish'],
-    ['no_changes', 'decision', 'Finished without changes'],
-    ['pr_closed', 'decision', 'PR closed without merging'],
+    ['no_changes', 'info', 'Finished without changes'],
+    ['pr_closed', 'info', 'PR closed without merging'],
     ['implementation_failed', 'failed', 'The implementation failed'],
     ['pr_failed', 'failed', 'The PR could not be created'],
   ] as const)(

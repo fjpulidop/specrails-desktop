@@ -21,6 +21,8 @@
 //   - RunCardActions: extra actions on a run/PR card whose outcome the
 //     extension owns (Flow: "Back to Flow" and "Relaunch" when Flow → Spec
 //     stopped with requested changes). Returns null when it has nothing.
+//   - useTurnMark: the mark (icon, color, words) on agent turns written in
+//     the extension's mode; missions never hard-codes the mode's icon.
 //   - RunFailureOutcome: the whole explanation of a run that failed outright
 //     when the extension owns its outcome (Flow → Spec: what failed in plain
 //     words, what happens next, its actions and the technical details). It
@@ -62,6 +64,8 @@ export interface MissionModeBadge {
   /** What the mode means (tooltip / accessible description). */
   description?: string
   icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+  /** The mode's own color (a CSS color, e.g. `var(--color-accent-flow)`); defaults to the info accent. */
+  accent?: string
 }
 
 export interface MissionConversationMode {
@@ -151,6 +155,8 @@ export interface MissionLiveRun {
   yieldsTo?: { prDeliveryId?: string | null; runIds?: readonly string[] } | null
   /** Polite announcement of the run's state (announced when it changes). */
   announcement?: string | null
+  /** The run's mode (Flow): while it runs, the strip mark is the mode's icon in the mode's color. */
+  mode?: MissionModeBadge | null
   /** Extra attributes for the strip root while this run shows (tests, themes). */
   attributes?: Readonly<Record<`data-${string}`, string>>
 }
@@ -185,6 +191,8 @@ export interface MissionExtensions {
   /** Marks for the mission list rows (Flow: the missions that are in Flow). */
   useConversationMarks?: (conversations: readonly MissionConversationRef[]) => ReadonlyMap<string, MissionModeBadge>
   describeRun?: (t: TFunction, input: MissionRunDescriptionInput) => MissionRunDescription | null
+  /** The discreet mark on agent turns written inside the extension's mode (Flow): icon, color, words. */
+  useTurnMark?: () => MissionModeBadge | null
 }
 
 const NONE: MissionExtensions = Object.freeze({})
@@ -228,6 +236,21 @@ function useNoLiveRuns(): readonly MissionLiveRun[] {
 export function useMissionLiveRuns(props: MissionConversationSlotProps): readonly MissionLiveRun[] {
   const useRuns = useMissionExtensions().useLiveRuns ?? useNoLiveRuns
   return useRuns(props)
+}
+
+function useNoTurnMark(): MissionModeBadge | null {
+  return null
+}
+
+/** The extension's mark for agent turns written in its mode (null without an extension). */
+export function useMissionTurnMark(): MissionModeBadge | null {
+  const useMark = useMissionExtensions().useTurnMark ?? useNoTurnMark
+  return useMark()
+}
+
+/** The CSS color of a mode badge (the mode's own accent, else the info accent). */
+export function modeAccent(badge: Pick<MissionModeBadge, 'accent'> | null | undefined): string {
+  return badge?.accent ?? 'var(--color-accent-info)'
 }
 
 /** Registered extension fence tags, stable order. */

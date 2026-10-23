@@ -51,7 +51,7 @@ import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentRuntimeSelector } from './AgentRuntimeSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
-import { useMissionConversationMode } from '../context/MissionExtensionsContext'
+import { modeAccent, useMissionConversationMode } from '../context/MissionExtensionsContext'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
 import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../../background/components/BackgroundProcessChip'
@@ -753,7 +753,7 @@ export function AgentComposer({
         data-mission-composer
         data-composer-mode={composerMode ? 'extension' : undefined}
         className={`relative flex flex-col gap-2 rounded-3xl border bg-card px-3 py-3 ${
-          inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-accent-info/40' : 'border-border/30'
+          inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-dashed border-foreground/35' : 'border-border/30'
         }`}
         onDragOver={(e) => { if (canAttach) { e.preventDefault() } }}
         onDrop={(e) => {
@@ -770,7 +770,8 @@ export function AgentComposer({
           aria-hidden
           data-testid="agent-composer-mode-line"
           data-active={composerMode ? 'true' : 'false'}
-          className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-accent-info/70 transition-opacity duration-200 motion-reduce:transition-none ${composerMode ? 'opacity-100' : 'opacity-0'}`}
+          style={{ background: modeAccent(composerMode?.badge) }}
+          className={`pointer-events-none absolute inset-x-8 top-0 h-px transition-opacity duration-200 motion-reduce:transition-none ${composerMode ? 'opacity-90' : 'opacity-0'}`}
         />
         {paletteOpen && (
           <AgentContextPalette

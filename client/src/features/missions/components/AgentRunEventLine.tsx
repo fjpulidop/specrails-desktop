@@ -12,11 +12,11 @@ import { cn } from '../../../lib/utils'
 export type RunEventTone = 'neutral' | 'failed' | 'warning' | 'success' | 'flow'
 
 const ICON_TONE: Readonly<Record<RunEventTone, string>> = Object.freeze({
-  neutral: 'text-foreground/45',
+  neutral: 'text-foreground/60',
   failed: 'text-destructive',
   warning: 'text-accent-warning',
   success: 'text-accent-success',
-  flow: 'text-accent-info',
+  flow: 'text-accent-flow',
 })
 
 export interface AgentRunEventLineProps {

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, Waves, type LucideIcon } from 'lucide-react'
+import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
@@ -25,7 +25,7 @@ import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextRefere
 import { AgentRefChip } from './AgentRefChip'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 import { extractExtensionFences } from './agent-extension-fences'
-import { extensionFenceTags, useMissionExtensions } from '../context/MissionExtensionsContext'
+import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -423,8 +423,10 @@ interface Props {
   /** ISO creation time — rendered as a subtle per-bubble timestamp. Absent on
    *  the live streaming buffer (the time appears once the turn settles). */
   createdAt?: string
-  /** A discreet mode mark next to the timestamp (an agent turn produced in Flow). */
-  modeMark?: string | null
+  /** A discreet mode mark next to the timestamp (an agent turn produced in an
+   *  extension's mode, e.g. Flow): its icon, color and words come from the
+   *  extension (useMissionTurnMark), never hard-coded here. */
+  modeMark?: MissionModeBadge | null
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
   /** True only for the newest message while no turn is streaming — gates chips. */
@@ -659,9 +661,9 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
           {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
           {modeMark && (
-            <span className="inline-flex shrink-0 select-none items-center gap-1 text-[10px] leading-none text-foreground/40" data-testid="agent-message-mode-mark">
-              <Waves className="h-2.5 w-2.5 text-accent-info/80" aria-hidden />
-              {modeMark}
+            <span className="inline-flex shrink-0 select-none items-center gap-1 text-[11px] leading-none text-foreground/70" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
+              {modeMark.icon && <modeMark.icon className="h-3 w-3 shrink-0 text-[color:var(--turn-mode-accent)]" aria-hidden />}
+              {modeMark.label}
             </span>
           )}
         </div>

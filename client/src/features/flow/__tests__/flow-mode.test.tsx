@@ -267,6 +267,7 @@ describe('Flow mode in the conversation', () => {
     // The run strip carries the (copyable) branch: the git strip steps aside.
     await waitFor(() => expect(result.current).toMatchObject({
       attributes: { 'data-flow': 'active' }, hideGitStrip: true, interruptWhileBusy: true,
+      headerBadge: { accent: 'var(--color-accent-flow)' },
       composer: { badge: { label: 'Flow' }, placeholder: 'Tell the agent what to change in this Flow…' },
       headerBadge: { label: 'In Flow' },
     }))
@@ -285,6 +286,8 @@ describe('Flow mode in the conversation', () => {
     expect(bar).toHaveAttribute('data-flow-state', 'active')
     expect(bar).toHaveAttribute('data-tone', 'running')
     await waitFor(() => expect(screen.getByTestId('mission-run-strip-headline')).toHaveTextContent('Flow · 3 files'))
+    // Flow's own color marks the running Flow (running runs keep the info accent).
+    expect(screen.getByTestId('mission-run-strip-mode-mark')).toHaveStyle({ color: 'var(--color-accent-flow)' })
     const row = within(screen.getByTestId('mission-run-strip-bar'))
     const toolbar = row.getByRole('toolbar', { name: 'Flow actions' })
     expect([...toolbar.querySelectorAll('[data-testid^="flow-bar-"]')].map((node) => node.getAttribute('data-testid'))).toEqual(['flow-bar-pause', 'flow-bar-hand-off'])

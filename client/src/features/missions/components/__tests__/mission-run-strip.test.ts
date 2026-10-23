@@ -23,7 +23,9 @@ describe('deliveryRunTone', () => {
   })
 
   it('settled decisions: what needs the person, what failed', () => {
-    for (const decision of ['on_review', 'pr_draft', 'no_changes', 'pr_closed'] as const) expect(deliveryRunTone(env({ decision }), null)).toBe('decision')
+    for (const decision of ['on_review', 'pr_draft'] as const) expect(deliveryRunTone(env({ decision }), null)).toBe('decision')
+    // Finished without changes / PR closed: settled information, not a decision.
+    for (const decision of ['no_changes', 'pr_closed'] as const) expect(deliveryRunTone(env({ decision }), null)).toBe('info')
     expect(deliveryRunTone(env({ decision: 'implementation_failed' }), null)).toBe('failed')
     expect(deliveryRunTone(env({ decision: 'pr_failed' }), null)).toBe('failed')
     // Flow → Spec still needs changes: a decision, not a crash.
@@ -38,6 +40,8 @@ describe('deliveryNeedsPerson (attention mark)', () => {
     expect(deliveryNeedsPerson(env({ decision: 'implementation_failed' }))).toBe(true)
     expect(deliveryNeedsPerson(env({ decision: 'building', phase: 'running' }))).toBe(false)
     expect(deliveryNeedsPerson(env({ decision: 'pr_ready' }))).toBe(false)
+    expect(deliveryNeedsPerson(env({ decision: 'no_changes' }))).toBe(false)
+    expect(deliveryNeedsPerson(env({ decision: 'pr_closed' }))).toBe(false)
     expect(deliveryNeedsPerson(env({ decision: 'discarded', runtime: failure }))).toBe(false)
   })
 })

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Waves } from 'lucide-react'
 import type { MissionConversationRef, MissionModeBadge } from '../../missions/context/MissionExtensionsContext'
 import { useFlowContext } from '../context/FlowContext'
+import { FLOW_ACCENT } from '../lib/flow-accent'
 
 export function useFlowConversationMarks(conversations: readonly MissionConversationRef[]): ReadonlyMap<string, MissionModeBadge> {
   const { t } = useTranslation(['agent', 'specs'])
@@ -24,7 +25,7 @@ export function useFlowConversationMarks(conversations: readonly MissionConversa
   return useMemo(() => {
     const marks = new Map<string, MissionModeBadge>()
     if (!open) return marks
-    const badge: MissionModeBadge = { label: t('specs:badges.inFlow'), description: t('agent:flow.mode.description'), icon: Waves }
+    const badge: MissionModeBadge = { label: t('specs:badges.inFlow'), description: t('agent:flow.mode.description'), icon: Waves, accent: FLOW_ACCENT }
     for (const conversation of conversations) {
       if (conversation.pinned_project_id && open.get(conversation.pinned_project_id)?.has(conversation.id)) marks.set(conversation.id, badge)
     }

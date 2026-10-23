@@ -90,7 +90,9 @@ slot — "Launched on Rail 1", "Rail 1 failed: …", "Back to Flow", "Entered /
 Left Flow" — that opens the run. A settled Implement run keeps its card in the
 history; a settled Flow → Spec run is an outcome line that expands its card
 (the Flow's closing summary is the full card of that story). Extension modes
-(Flow) are named on the composer (chip, accent line, placeholder), next to the
+(Flow) are named on the composer (chip, accent line, placeholder) in the
+mode's own color (`MissionModeBadge.accent`; Flow: `--color-accent-flow`),
+on its agent turns (`useTurnMark`) and on the strip mark (`MissionLiveRun.mode`), next to the
 mission title and on the mission list ([`MissionModeBadge`](components/MissionModeBadge.tsx)),
 where a dot with words also marks missions waiting for a decision
 (`attentionConversationIds`).
