@@ -31,7 +31,7 @@ export interface FlowContextValue {
   handedOff: ReadonlyMap<string, FlowHandOffReceipt>
   watch: (projectId: string, conversationId: string) => () => void
   loadAvailability: (projectId: string, force?: boolean) => void
-  start: (projectId: string, conversationId: string, idea: string, title?: string | null) => Promise<Flow>
+  start: (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null) => Promise<Flow>
   pause: (projectId: string, flow: Flow) => Promise<Flow>
   resume: (projectId: string, flow: Flow) => Promise<Flow>
   discard: (projectId: string, flow: Flow) => Promise<Flow>
@@ -146,8 +146,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     return flow
   }, [upsert])
 
-  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null) =>
-    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}) })), [apply])
+  const start = useCallback(async (projectId: string, conversationId: string, idea: string, title?: string | null, repositoryId?: string | null) =>
+    apply(projectId, await flowApi.start(projectId, { conversationId, idea, ...(title ? { title } : {}), ...(repositoryId ? { repositoryId } : {}) })), [apply])
   const pause = useCallback(async (projectId: string, flow: Flow) => apply(projectId, await flowApi.pause(projectId, flow.id)), [apply])
   const resume = useCallback(async (projectId: string, flow: Flow) => {
     setWrappingUp(flow.id, false)

@@ -24,11 +24,41 @@ export interface Flow {
   step: FlowStep | null
   /** Back to Flow: the review the agent receives on its next turn (absent once delivered). */
   returnBriefing?: string | null
+  /** The non-primary repository the Flow runs in (absent ⇒ the primary). */
+  repositoryId?: string | null
   createdAt?: string
   updatedAt?: string
 }
 
 export type FlowCapability = 'sessions' | 'flowSessions' | 'deriveChange'
+
+/** A project repository as the Flow entry card shows it. */
+export interface FlowRepositoryOption {
+  id: string
+  name: string
+  path: string
+  isPrimary: boolean
+  kind: 'git' | 'folder'
+  available?: boolean
+}
+
+function isRepositoryOption(value: unknown): value is FlowRepositoryOption {
+  const o = value as Record<string, unknown> | null
+  return !!o && typeof o.id === 'string' && typeof o.name === 'string' && typeof o.path === 'string' && typeof o.isPrimary === 'boolean' && (o.kind === 'git' || o.kind === 'folder')
+}
+
+/**
+ * The Git repositories a Flow can run in, and whether the person must see the
+ * choice: only a project with several Git repositories, or a folder primary
+ * (a workspace), shows it. A single-repository project never does.
+ */
+export function flowRepositoryChoice(repositories: readonly FlowRepositoryOption[]): { show: boolean; candidates: FlowRepositoryOption[]; fallback: string | null } {
+  const candidates = repositories.filter((repository) => repository.kind === 'git' && repository.available !== false)
+  const primary = repositories.find((repository) => repository.isPrimary) ?? null
+  const show = repositories.length > 1 && (candidates.length > 1 || primary?.kind !== 'git')
+  const fallback = primary && primary.kind === 'git' && primary.available !== false ? primary.id : candidates.length === 1 ? candidates[0]!.id : null
+  return { show, candidates, fallback }
+}
 
 export interface FlowAvailability {
   available: boolean
@@ -113,8 +143,13 @@ export const flowApi = {
   async byConversation(projectId: string, conversationId: string): Promise<Flow | null> {
     return (await call<{ flow: Flow | null }>(`${flowBase(projectId)}/by-conversation/${encodeURIComponent(conversationId)}`)).flow
   },
-  async start(projectId: string, input: { conversationId: string; idea: string; title?: string }): Promise<Flow> {
+  async start(projectId: string, input: { conversationId: string; idea: string; title?: string; repositoryId?: string }): Promise<Flow> {
     return (await call<{ flow: Flow }>(flowBase(projectId), post(input))).flow
+  },
+  /** The project's repositories (the entry card's target picker). */
+  async repositories(projectId: string): Promise<FlowRepositoryOption[]> {
+    const body = await call<{ repositories?: unknown }>(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/repositories`)
+    return Array.isArray(body.repositories) ? body.repositories.filter(isRepositoryOption) : []
   },
   async pause(projectId: string, flowId: string): Promise<Flow> {
     return (await call<{ flow: Flow }>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/pause`, post())).flow

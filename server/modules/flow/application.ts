@@ -17,6 +17,7 @@ import {
   isOpenFlow,
   nextFlowCoreSessionId,
   placeholderTitle,
+  resolveFlowRepository,
   transition,
   withDerivedChange,
   type FlowCommand,
@@ -44,6 +45,10 @@ export interface StartFlowInput {
   conversationId: string
   idea: string
   title?: string | null
+  /** The project repository the Flow runs in (the mission agent's triage or
+   * the person's pick). Omitted ⇒ the primary when it is Git, else the only
+   * Git member; several candidates are refused (`flow_repository_required`). */
+  repositoryId?: string | null
 }
 
 export interface HandOffFlowInput {
@@ -109,7 +114,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         await ports.agent.close({ flowId: session.id, conversationId: session.conversationId, coreSessionId: effect.coreSessionId })
         return
       case 'releaseWorktree':
-        await ports.worktrees.release({ flowId: session.id, ticketId: effect.ticketId, worktreePath: effect.worktreePath, branch: effect.branch })
+        await ports.worktrees.release({ flowId: session.id, ticketId: effect.ticketId, worktreePath: effect.worktreePath, branch: effect.branch, ...repositoryOf(session) })
         return
       case 'deletePlaceholderTicket':
         ports.tickets.deletePlaceholder(effect.ticketId)
@@ -124,6 +129,11 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         // Forward saga effects are driven explicitly by their use case.
         throw new FlowTransitionError('invalid_command', `Effect ${effect.kind} is not a settlement effect`)
     }
+  }
+
+  /** The repository argument of a worktree/launch call (nothing for the primary). */
+  function repositoryOf(session: FlowSession): { repositoryId?: string } {
+    return session.repositoryId ? { repositoryId: session.repositoryId } : {}
   }
 
   async function assertAvailable(): Promise<void> {
@@ -150,19 +160,22 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       }
       const open = ports.repository.findOpenByConversation(conversationId)
       if (open) throw new FlowConflictError('flow_already_open', 'This conversation already has a Flow; resume or discard it first', open.id)
+      // Target triage before any effect: an unusable choice leaves nothing behind.
+      const repositoryId = resolveFlowRepository(ports.repositories?.list() ?? [], input.repositoryId)
       await assertAvailable()
       await ports.agent.assertReady({ conversationId })
 
       const flowId = input.flowId ?? ports.ids()
-      let session = transition(null, { type: 'start', flowId, conversationId, now: ports.clock.now() }).session
+      let session = transition(null, { type: 'start', flowId, conversationId, repositoryId, now: ports.clock.now() }).session
       ports.repository.insert(session)
       ports.notifier.changed(session)
       try {
         const ticketId = ports.tickets.createPlaceholder({
           flowId, conversationId, title: placeholderTitle(idea, input.title), description: idea, startedAt: session.createdAt,
+          ...(repositoryId ? { repositoryIds: [repositoryId] } : {}),
         })
         session = apply(session, { type: 'ticket-created', ticketId, now: ports.clock.now() })
-        const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId })
+        const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId, ...repositoryOf(session) })
         session = apply(session, { type: 'worktree-reserved', ...reserved, now: ports.clock.now() })
         const opened = await ports.agent.open({ flowId, conversationId, worktreePath: reserved.worktreePath })
         return apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
@@ -259,10 +272,11 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     session = commit(derivedChanges.length ? { ...begun.session, derivedChanges } : begun.session)
     try {
       await settle(session, begun.effects.filter((effect) => effect.kind === 'stopProcesses' || effect.kind === 'closeAgentSession'))
-      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [] })
+      const frozen = await ports.worktrees.freeze({ flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, worktreePath: session.worktreePath!, baseSha: session.baseSha, allowedChanges: session.derivedChanges ?? [], ...repositoryOf(session) })
       session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
       const launched = await ports.rails.launch({
         flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},
+        ...repositoryOf(session),
       })
       const after = load(session.id)
       if (after.state !== 'handed_off') {
@@ -468,7 +482,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       case 'rewrite-spec': {
         let derived
         try {
-          derived = await ports.publication.derivedChange({ flowId: session.id, deliveryId: session.deliveryId, ticketId, branch: session.branch, baseSha: session.baseSha })
+          derived = await ports.publication.derivedChange({ flowId: session.id, deliveryId: session.deliveryId, ticketId, branch: session.branch, baseSha: session.baseSha, ...repositoryOf(session) })
         } catch (error) {
           // Label and change name never wait for Git: the delivery is real.
           ports.tickets.markDelivered(ticketId, { openspecChangeName: null })
@@ -597,7 +611,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     if (!session.worktreePath || !(isOpenFlow(session) || session.state === 'handed_off') || !ports.worktrees.exists(session.worktreePath)) {
       return { branch: session.branch, baseSha: session.baseSha, headSha: session.headSha, files: [], totals: { files: 0, additions: 0, deletions: 0 } }
     }
-    return ports.worktrees.diff({ worktreePath: session.worktreePath, baseSha: session.baseSha, branch: session.branch })
+    return ports.worktrees.diff({ worktreePath: session.worktreePath, baseSha: session.baseSha, branch: session.branch, ...repositoryOf(session) })
   }
 
   function costSoFar(flowId: string): FlowCost {

@@ -19,6 +19,8 @@ import { OVERLAY_MANIFEST, applyWorktreeOverlay } from '../../../worktree-overla
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
 import type { WsMessage } from '../../../types'
 import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
+import { getProjectRepositories } from '../../../project-repositories'
+import { resolveProjectExecution } from '../../../workspace-resolution'
 import { getLinkByLocalId } from '../../../jira/jira-db'
 import { getAdapter } from '../../../providers'
 import { isProviderEnabled } from '../../../provider-selection'
@@ -30,7 +32,7 @@ import { getPrDelivery, toPrDeliverySnapshot, type DeliverBranchRecord } from '.
 import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree } from '../../delivery/runtime/flow-worktree-return'
 import { generateSpecFromText, resolveSpecGenerationToolPolicy } from '../../specs/runtime/spec-generation'
 import type { SpecProvider } from '../../specs/runtime/spec-models'
-import { RepositoryHasNoCommitsError, isolatedWorktreesRoot, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
+import { RepositoryHasNoCommitsError, isolatedRepositoryTarget, prepareIsolatedWorktree, readHeadSha, resolveOverlaySources } from '../../delivery/runtime/isolated-worktree'
 import { FlowHandOffNotReadyError, type FlowHandOffAuthority } from '../../delivery/runtime/flow-worktree-handoff'
 import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
@@ -96,6 +98,9 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
           metadata: {
             flow: { conversationId: input.conversationId, flowId: input.flowId, worktreeId: input.flowId, startedAt: input.startedAt, state: 'active', chosenMode: 'flow' },
           },
+          // A Flow in a non-primary repository: the spec targets exactly it, so
+          // the hand-off and every later launch run in that repository.
+          ...(input.repositoryIds?.length ? { repositoryIds: [...input.repositoryIds] } : {}),
           comments: [],
           origin_conversation_id: null,
           is_epic: false,
@@ -216,11 +221,20 @@ export function createFlowWorktrees(
   deps: { git?: GitRunner; providerFor: (conversationId: string) => string; prepare?: typeof prepareIsolatedWorktree } = { providerFor: () => 'claude' },
 ): WorktreeReservation {
   const git = deps.git ?? defaultGitRunner
-  const repo = ctx.project.path
-  const flowRoot = (flowId: string) => path.join(isolatedWorktreesRoot(ctx.project.slug), flowId)
+  // The Flow's repository: the project root for the primary (unchanged), or a
+  // non-primary Git member's own checkout and per-repository mount root.
+  const repositoryTarget = (repositoryId: string | null | undefined) => {
+    try {
+      return isolatedRepositoryTarget(ctx.project as ProjectContext['project'], repositoryId)
+    } catch (error) {
+      throw new FlowConflictError('flow_repository_missing', `The Flow's repository is no longer usable: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  const flowRoot = (flowId: string, repositoryId: string | null | undefined) => path.join(repositoryTarget(repositoryId).worktreesRoot, flowId)
   return {
     async reserve(input) {
       let prepared: Awaited<ReturnType<typeof prepareIsolatedWorktree>>
+      repositoryTarget(input.repositoryId)
       try {
         prepared = await (deps.prepare ?? prepareIsolatedWorktree)({
           ctx: ctx as ProjectContext,
@@ -228,6 +242,7 @@ export function createFlowWorktrees(
           provider: deps.providerFor(input.conversationId),
           // The Flow id is the mount id: the worktree path is provably Flow-owned.
           runId: input.flowId,
+          ...(input.repositoryId ? { repositoryId: input.repositoryId } : {}),
         }, { git })
       } catch (error) {
         if (error instanceof RepositoryHasNoCommitsError) throw new FlowConflictError(error.code, error.message)
@@ -238,7 +253,8 @@ export function createFlowWorktrees(
       return { branch: prepared.branch, worktreePath: prepared.worktreePath, baseSha: prepared.baseSha ?? prepared.initialSha, headSha: prepared.initialSha }
     },
     async release(input) {
-      const root = flowRoot(input.flowId)
+      const repo = repositoryTarget(input.repositoryId).path
+      const root = flowRoot(input.flowId, input.repositoryId)
       const target = input.worktreePath ?? ticketWorktreePath(root, input.ticketId)
       // Never remove anything outside the Flow's own mount root.
       if (!isInside(target, root)) throw new Error(`Refusing to remove ${target}: it is not a Flow-owned worktree`)
@@ -259,9 +275,11 @@ export function createFlowWorktrees(
       })
     },
     async freeze(input) {
+      const { path: repo, primary } = repositoryTarget(input.repositoryId)
       return withRepoLock(repo, async () => {
         // Same never-commit set the rail uses: overlay links and warm node_modules.
-        const sources = resolveOverlaySources({ slug: ctx.project.slug, baseRepo: repo, provider: deps.providerFor(input.conversationId) })
+        const sources = resolveOverlaySources({ slug: ctx.project.slug, baseRepo: repo, provider: deps.providerFor(input.conversationId) },
+          primary ? undefined : () => resolveProjectExecution(ctx.project))
         const overlay = applyWorktreeOverlay({ worktreePath: input.worktreePath, ...sources })
         const warm = linkNodeModulesIntoWorktree(repo, input.worktreePath)
         const excludes = [...new Set([...overlay.createdPaths, ...(warm.authenticated ?? warm.linked ?? [])])]
@@ -284,7 +302,7 @@ export function createFlowWorktrees(
       const overlay = readOverlayManifest(input.worktreePath)
       // Legacy sessions without a recorded base: the fork point from the
       // project's checked-out branch, never HEAD (frozen commits would vanish).
-      const base = input.baseSha ?? await forkPoint(git, input.worktreePath, repo) ?? 'HEAD'
+      const base = input.baseSha ?? await forkPoint(git, input.worktreePath, repositoryTarget(input.repositoryId).path) ?? 'HEAD'
       const files = new Map<string, FlowDiffFile>()
       const nameStatus = await git.run(['-c', 'core.quotepath=false', 'diff', '--no-renames', '--name-status', base, '--'], input.worktreePath)
       if (nameStatus.code === 0) {
@@ -356,6 +374,13 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
   }
   return {
     repository,
+    // Target triage: a workspace or multi-repository project names the Git
+    // member a Flow runs in; a single repository is never triaged.
+    repositories: {
+      list: () => getProjectRepositories(ctx.project).map((member) => ({
+        id: member.id, name: member.name, isPrimary: member.isPrimary, kind: member.kind, ...(member.available === false ? { available: false } : {}),
+      })),
+    },
     tickets: createFlowTickets(ctx, clock),
     worktrees: createFlowWorktrees(ctx, { git: deps.git, providerFor }),
     agent: {
@@ -392,7 +417,7 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
       },
     },
     rails: {
-      async launch({ flowId, conversationId, ticketId, railIndex, options }) {
+      async launch({ flowId, conversationId, ticketId, railIndex, options, repositoryId }) {
         const rail = getRail(ctx.db, railIndex)
         if (rail.ticketIds.length > 0 && !(rail.ticketIds.length === 1 && rail.ticketIds[0] === ticketId)) {
           throw new FlowConflictError('rail_not_empty', `Rail ${railIndex} already carries other specs; pick a free rail`, flowId)
@@ -411,6 +436,8 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
           originConversationId: conversationId,
           // Never fall back to the rail's default loop: Flow hands off to Flow -> Spec unless told otherwise.
           loopId: options.loopId ?? FLOW_SPEC_LOOP_ID,
+          // A Flow in a non-primary repository launches exactly that repository.
+          ...(repositoryId ? { repositoryIds: [repositoryId] } : {}),
           ...(options.aiEngine ? { aiEngine: options.aiEngine } : {}),
           ...(options.model ? { model: options.model } : {}),
           ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -493,6 +520,7 @@ export function createFlowHandOffAuthority(
         flowId,
         ticketId: session.ticketId,
         conversationId: session.conversationId,
+        ...(session.repositoryId ? { repositoryId: session.repositoryId } : {}),
         branch: session.branch,
         worktreePath: session.worktreePath,
         headSha: session.headSha,
@@ -660,7 +688,10 @@ export function createFlowPublication(
       if (!ref) throw new Error('The delivered branch of this Flow is unknown')
       const metadata = readTicket(input.ticketId)?.metadata
       const changeName = typeof metadata?.openspecChangeName === 'string' ? metadata.openspecChangeName : null
-      return readDerivedChange(git, ctx.project.path, { ref, baseSha: input.baseSha, changeName })
+      // The delivered branch lives in the Flow's repository (the project root for the primary).
+      const repo = input.repositoryId ? getProjectRepositories(ctx.project).find((member) => member.id === input.repositoryId)?.path : ctx.project.path
+      if (!repo) throw new Error(`The Flow's repository ${input.repositoryId} is no longer registered`)
+      return readDerivedChange(git, repo, { ref, baseSha: input.baseSha, changeName })
     },
     conversationSummary(input) {
       return flowConversationSummary(ctx.desktopDb, { conversationId: input.conversationId, idea: readTicket(input.ticketId)?.description ?? null, from: input.from, to: input.to })

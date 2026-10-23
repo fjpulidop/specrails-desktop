@@ -904,6 +904,10 @@
       "flow_already_open": "This mission already has a Flow. Resume or discard it first.",
       "illegal_transition": "The Flow changed state meanwhile. Refresh and try again.",
       "flow_worktree_missing": "The Flow worktree no longer exists. Review it before continuing.",
+      "flow_repository_required": "Choose the repository this Flow runs in.",
+      "flow_repository_not_git": "Flow needs a Git repository; a folder cannot hold its worktree. Choose a Git repository.",
+      "flow_repository_unknown": "That repository is no longer part of this project. Choose another one.",
+      "flow_repository_missing": "The Flow’s repository is no longer available in this project.",
       "rail_not_empty": "That rail already has specs. Pick a free, empty rail.",
       "flow_already_handed_off": "This Flow was already handed to a rail.",
       "flow_freeze_failed": "The Flow worktree could not be saved for the hand-off.",
@@ -916,6 +920,15 @@
       "body": "Specrails will create an isolated worktree where the agent can write code. Your main branch is not touched.",
       "provider": "The agent works with {{provider}} and writes only inside the worktree.",
       "providerUnknown": "The agent writes only inside the worktree.",
+      "repository": {
+        "label": "Repository",
+        "hint": "The Flow works in an isolated worktree of this repository.",
+        "choose": "Choose the repository this Flow runs in",
+        "loading": "Loading repositories…",
+        "loadFailed": "The project repositories could not be loaded. Try again.",
+        "suggested": "Suggested by the agent",
+        "noGit": "This project has no Git repository. Flow needs one to create its worktree."
+      },
       "blocked": {
         "noProject": "Pin this mission to a project to use Flow.",
         "open": "This mission already has a Flow.",

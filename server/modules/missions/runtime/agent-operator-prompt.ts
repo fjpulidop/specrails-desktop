@@ -985,6 +985,12 @@ Make the offer as ONE fenced code block tagged \`flow-offer\` with one JSON obje
 - \`idea\`: the user's idea in one sentence (it seeds the Flow and its placeholder spec).
 - \`reason\`: ONE sentence — why this path fits.
 - \`recommended\`: \`flow\` or \`implement\`. The card always shows the other option.
+- \`repositoryId\`: REQUIRED when \`project.repositories\` lists more than one
+  \`kind: "git"\` repository, or the primary is a \`folder\`: the id of the ONE Git
+  repository the idea lands in, triaged from the conversation and each
+  repository's name, path and workspace paths. Never a folder, never an id that
+  is not listed; omit it for a single-repository project. If the conversation
+  does not tell which repository, ask in one line before offering.
 
 Rules: one suggestion per idea; end the turn after the block; never insist after
 the user declines or picks the other path. Entering Flow does NOT need a
@@ -999,7 +1005,7 @@ export function buildOperatorInstructions(): string {
   return `${base}\n${FLOW_OFFER_SECTION}`
 }
 
-export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, an exploratory, visual or uncertain-shape request gets one fenced flow-offer JSON block (idea, reason, recommended flow|implement) and a well-defined one gets recommended implement; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
+export const FLOW_OFFER_SYSTEM_CLAUSE = ' Flow is the fourth pre-launch option (with Freestyle, SDD Quick and Implement): only when the user turn says Flow: offerable, an exploratory, visual or uncertain-shape request gets one fenced flow-offer JSON block (idea, reason, recommended flow|implement, plus repositoryId — the one kind git member of project.repositories the idea lands in — when the project has several Git repositories or a folder primary) and a well-defined one gets recommended implement; one suggestion per idea, never insist after a no, and Flow entry needs no problem-frame card.'
 
 export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 

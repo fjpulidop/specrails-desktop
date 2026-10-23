@@ -66,6 +66,8 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
       idea: typeof body.idea === 'string' ? body.idea : '',
       ...(body.title !== undefined ? { title: optionalString(body.title, 'title') ?? null } : {}),
       ...(body.flowId !== undefined ? { flowId: String(body.flowId) } : {}),
+      // The repository the Flow runs in (workspace / multi-repository projects).
+      ...(body.repositoryId !== undefined && body.repositoryId !== null ? { repositoryId: optionalString(body.repositoryId, 'repositoryId') ?? null } : {}),
     })
     res.status(201).json({ flow })
   }))

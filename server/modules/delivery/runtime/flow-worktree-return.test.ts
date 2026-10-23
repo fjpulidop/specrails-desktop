@@ -6,6 +6,7 @@ import { FlowReturnRejectedError, announceReturnedDelivery, returnFlowWorktree }
 import { createPrDelivery, getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, transitionDecision } from './rail-pr-store'
 import { createRailWorktree, getRailWorktree } from './rail-worktrees-store'
 import type { DeliverySettleEvidence } from './delivery-evidence'
+import { refreshRepositoryDeliveryGroup } from './multi-repo-execution'
 
 const dbs: DbInstance[] = []
 afterEach(() => { for (const db of dbs.splice(0)) db.close() })
@@ -127,3 +128,62 @@ describe('returnFlowWorktree (Back to Flow ownership transfer)', () => {
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.pr_state', prDeliveryId: 'delivery-1', decision: 'discarded', statusCode: 'returned_to_flow' }))
   })
 })
+
+/** A Flow → Spec run of a Flow in a non-primary repository: a one-repository
+ * group (parent + child) whose child stopped with requested changes. */
+function stoppedFlowGroup() {
+  const db = initDb(':memory:')
+  dbs.push(db)
+  const base = { railIndex: 0, loopId: FLOW_SPEC_LOOP_ID, railKey: `0-${FLOW_SPEC_LOOP_ID}`, ticketIds: [8], baseBranch: 'main', loopName: 'Flow → Spec', originSurface: 'agent-chat' as const, originConversationId: 'conv-1' }
+  createPrDelivery(db, { ...base, id: 'group-1' })
+  createPrDelivery(db, { ...base, id: 'child-1', parentDeliveryId: 'group-1', repositoryId: 'api', repositoryPath: '/ws/api', originConversationId: null })
+  createRailWorktree(db, { id: 'ledger-1', railIndex: 0, ticketId: 8, runId: 'run-1', repositoryId: 'api', repositoryPath: '/ws/api', branch: 'feat/8-effects', worktreePath: WORKTREE, mergeState: 'needs-review' })
+  transitionDecision(db, 'group-1', 'building', 'building', {
+    runIds: ['run-1'],
+    executionManifest: { version: 1, groupId: 'group-1', projectId: 'proj-1', primaryRepositoryId: 'ws', artifactRepositoryId: 'api', selectedRepositoryIds: ['api'], repositories: [] },
+  })
+  transitionDecision(db, 'child-1', 'building', 'implementation_failed', {
+    runIds: ['run-1'], implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'review_changes_requested', statusDetail: 'The reviewer requested changes',
+    worktreeIds: ['ledger-1'],
+    branches: [{ ticketId: 8, branch: 'feat/8-effects', succeeded: false, runId: 'run-1', implementationOutcome: 'failed', deliveryOutcome: 'blocked', initialSha: 'a', finalSha: 'a', failureCode: 'review_changes_requested', branchOwnership: 'adopted', worktreePath: WORKTREE }],
+    settleEvidence: evidence({ approved: false, issues: ['Tag the tests'], score: 58 }),
+  })
+  refreshRepositoryDeliveryGroup(db, 'group-1')
+  return db
+}
+
+describe('a Flow in a non-primary repository (one-repository group)', () => {
+  it('the group carries the child\'s "changes requested" outcome, so the card and the Flow read its findings', () => {
+    const db = stoppedFlowGroup()
+    const parent = getPrDelivery(db, 'group-1')!
+    expect(parent).toMatchObject({ decision: 'implementation_failed', status_code: 'review_changes_requested', implementation_outcome: 'failed' })
+    const snap = toPrDeliverySnapshot(parent)
+    expect(snap.flowReview).toMatchObject({ reason: 'review', issues: ['Tag the tests'], score: 58 })
+    expect(snap.branches).toEqual([expect.objectContaining({ worktreePath: WORKTREE, repositoryId: 'api' })])
+  })
+
+  it('Back to Flow on the group closes parent and child together and releases the adopted ledger row', () => {
+    const db = stoppedFlowGroup()
+    const commit = vi.fn()
+    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect(getRailWorktree(db, 'ledger-1')).toBeUndefined()
+    expect(getPrDelivery(db, 'group-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
+    expect(getPrDelivery(db, 'child-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
+    // A later projection never re-settles the returned group.
+    refreshRepositoryDeliveryGroup(db, 'group-1')
+    expect(getPrDelivery(db, 'group-1')).toMatchObject({ decision: 'discarded', status_code: 'returned_to_flow' })
+    // Idempotent.
+    returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'Returned to Flow' }, commit)
+    expect(commit).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failing Flow commit rolls back both rows and the ledger', () => {
+    const db = stoppedFlowGroup()
+    expect(() => returnFlowWorktree(db, { deliveryId: 'group-1', worktreePath: WORKTREE, detail: 'x' }, () => { throw new Error('flow write failed') })).toThrow('flow write failed')
+    expect(getRailWorktree(db, 'ledger-1')).toBeDefined()
+    expect(getPrDelivery(db, 'group-1')?.decision).toBe('implementation_failed')
+    expect(getPrDelivery(db, 'child-1')?.decision).toBe('implementation_failed')
+  })
+})
+

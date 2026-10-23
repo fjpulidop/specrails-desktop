@@ -5,6 +5,7 @@ import { apiCall, projectPath, originConversationDefaults, requireProject, requi
 import { startBackgroundProcess, getBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
 import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
 import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
+import { getProjectRepositories } from '../../project-repositories'
 
 const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give the user each as a clickable markdown link: local opens on this computer; network opens from a phone or another device on the same Wi-Fi/VPN. No network URL means the server only listens on this computer (it was started without its host/LAN flag).'
 
@@ -15,12 +16,13 @@ const FLOW_APP_HINT = 'Started in the Flow worktree. Read background_logs now fo
  * the project's Flow use cases (bound at composition). A paused or settling
  * Flow, a missing Flow service or a failing lookup all mean "no Flow".
  */
-export function activeFlowWorkspace(projectCtx: Pick<ProjectContext, 'flow'>, conversationId: string | null | undefined): { flowId: string; worktreePath: string } | null {
+export function activeFlowWorkspace(projectCtx: Pick<ProjectContext, 'flow'>, conversationId: string | null | undefined): { flowId: string; worktreePath: string; repositoryId?: string } | null {
   if (!conversationId) return null
   try {
     const flow = projectCtx.flow?.getByConversation(conversationId)
     if (!flow || flow.state !== 'active' || flow.step !== null || !flow.worktreePath) return null
-    return { flowId: flow.id, worktreePath: flow.worktreePath }
+    // `repositoryId`: the non-primary repository the Flow runs in (absent ⇒ primary).
+    return { flowId: flow.id, worktreePath: flow.worktreePath, ...(flow.repositoryId ? { repositoryId: flow.repositoryId } : {}) }
   } catch {
     return null
   }
@@ -500,8 +502,9 @@ export function jobsTools(): McpToolSpec[] {
             const flow = activeFlowWorkspace(projectCtx, chatId)
             if (flow) {
               const cwd = resolveBackgroundCwd(flow.worktreePath, args.cwd as string | undefined, 'the Flow worktree')
+              const repository = flow.repositoryId ? getProjectRepositories(projectCtx.project).find((member) => member.id === flow.repositoryId) : undefined
               const process = startBackgroundProcess(command.trim(), cwd, chatId.trim(), projectCtx.project.id,
-                backgroundProcessHooks(ctx.broadcast), { flowId: flow.flowId })
+                backgroundProcessHooks(ctx.broadcast), { flowId: flow.flowId, ...(repository ? { repositoryId: repository.id, repositoryName: repository.name } : {}) })
               return { ok: true, flowId: flow.flowId, cwd, process, hint: FLOW_APP_HINT }
             }
             // The Flow exception admitted this call, but the Flow ended meanwhile.

@@ -1177,8 +1177,13 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
-        if (flowWorktree && (!useIsolation || requiresRepositoryIsolation)) {
-          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree of the primary repository.' }); return
+        // A Flow runs in exactly its own repository: the primary (no group), or
+        // the one non-primary member its worktree belongs to.
+        const flowRepositoryScope = !flowWorktree ? true : flowWorktree.repositoryId
+          ? repositoryIds.length === 1 && repositoryIds[0] === flowWorktree.repositoryId
+          : !requiresRepositoryIsolation
+        if (flowWorktree && (!useIsolation || !flowRepositoryScope)) {
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree, in the repository it belongs to.' }); return
         }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',

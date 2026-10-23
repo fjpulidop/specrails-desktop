@@ -1,7 +1,9 @@
 // ─── flow-offer protocol + display helpers (pure) ─────────────────────────────
 // The operator emits ONE fenced ```flow-offer block (see
 // server/modules/missions/runtime/agent-operator-prompt.ts FLOW_OFFER_SECTION):
-// { idea, reason, recommended: 'flow' | 'implement', title? }.
+// { idea, reason, recommended: 'flow' | 'implement', title?, repositoryId? }.
+// `repositoryId`: the Git repository the agent triaged the idea into (workspace
+// and multi-repository projects); the entry card preselects it.
 
 import type { FlowCapability, FlowCost } from './flow-api'
 
@@ -12,6 +14,8 @@ export interface FlowOffer {
   reason: string | null
   recommended: FlowMode
   title: string | null
+  /** The agent's triage of the target repository (null ⇒ none named). */
+  repositoryId: string | null
 }
 
 export const FLOW_OFFER_TAG = 'flow-offer'
@@ -28,7 +32,8 @@ export function parseFlowOffer(payload: unknown): FlowOffer | null {
   if (o.recommended !== 'flow' && o.recommended !== 'implement') return null
   const reason = typeof o.reason === 'string' && o.reason.trim() ? o.reason.trim() : null
   const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim().slice(0, 200) : null
-  return { idea, reason, recommended: o.recommended, title }
+  const repositoryId = typeof o.repositoryId === 'string' && o.repositoryId.trim() && o.repositoryId.length <= 200 ? o.repositoryId.trim() : null
+  return { idea, reason, recommended: o.recommended, title, repositoryId }
 }
 
 export function otherMode(mode: FlowMode): FlowMode {

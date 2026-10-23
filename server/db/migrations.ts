@@ -1856,6 +1856,14 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('derived_changes')) db.exec('ALTER TABLE flow_sessions ADD COLUMN derived_changes TEXT')
   },
 
+  // Migration 80: the project repository a Flow runs in (workspace projects
+  // and multi-repository projects). NULL ⇒ the primary repository at the
+  // project root, exactly as every Flow before it.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('repository_id')) db.exec('ALTER TABLE flow_sessions ADD COLUMN repository_id TEXT')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

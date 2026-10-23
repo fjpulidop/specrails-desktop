@@ -70,6 +70,16 @@ removed or handed to a rail. Best effort, like closing the session.
   `metadata.flow`; Jira never receives it while `active`/`paused`.
 - Cost is the sum of provider-billed Flow turns (`surface = 'flow'`), never
   estimates.
+- A Flow runs in ONE Git repository. `resolveFlowRepository` (domain) picks it
+  before any effect from the `repositories` port: never triaged for a
+  single-repository project; otherwise the explicit Git member, else the Git
+  primary, else the only Git member (`flow_repository_required` /
+  `flow_repository_not_git` / `flow_repository_unknown`). A non-primary choice
+  is `repositoryId` on the session (migration 80) and is passed to every
+  worktree, launch and settlement port call; the primary is NULL, so those
+  calls stay byte-identical to the single-repository behaviour. The hand-off
+  launches exactly that repository and the Flow adopts the group's parent
+  delivery ([flow mode](../../../docs/internals/flow-mode.md#workspaces-and-multi-repository-projects)).
 
 Domain/application must not import Express, SQLite, Git, process APIs, Core
 or other capabilities ([architecture tests](../architecture.test.ts)).

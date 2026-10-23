@@ -21,6 +21,10 @@ export interface FlowAdoption {
 
 export interface RequiredFlowWorktree {
   flowId: string
+  /** The project repository the Flow worktree belongs to: a non-primary Git
+   * member launches as that ONE repository (a single-repository group whose
+   * parent delivery the Flow adopts). Absent ⇒ the primary repository. */
+  repositoryId?: string | null
   branch: string
   worktreePath: string
   /** HEAD the Flow froze before the hand-off; the mount must expose exactly it. */

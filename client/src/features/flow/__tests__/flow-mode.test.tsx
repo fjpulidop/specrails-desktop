@@ -165,6 +165,79 @@ describe('FlowEntryCard', () => {
   })
 })
 
+describe('FlowEntryCard in a workspace (repository target)', () => {
+  const member = (id: string, kind: 'git' | 'folder', isPrimary = false) => ({ id, projectId: 'p1', name: id === 'ws' ? 'Workspace' : id.toUpperCase(), path: `/ws/${id}`, isPrimary, kind, integrationBranch: null, addedAt: '' })
+  function withRepositories(repositories: unknown[]) {
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/repositories')) return respond(200, { repositories })
+      return base(input, init)
+    })
+  }
+
+  it('preselects the repository the agent triaged, lets the person change it and starts the Flow there', async () => {
+    current = null
+    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')])
+    const onStarted = vi.fn()
+    render(<Providers><FlowEntryCard idea="Rate-limit the API" repositoryId="api" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    const group = await screen.findByTestId('flow-entry-repository')
+    expect(group).toHaveTextContent('Repository')
+    // Only Git members are offered; the folder primary never is.
+    expect(screen.queryByTestId('flow-entry-repository-ws')).not.toBeInTheDocument()
+    expect(screen.getByTestId('flow-entry-repository-api')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('flow-entry-repository-api')).toHaveTextContent('Suggested by the agent')
+    expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(screen.getByTestId('flow-entry-repository-web'))
+    expect(screen.getByTestId('flow-entry-repository-web')).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await waitFor(() => expect(onStarted).toHaveBeenCalled())
+    expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'Rate-limit the API', repositoryId: 'web' })
+  })
+
+  it('without a triage, waits for the person to choose among several Git repositories', async () => {
+    current = null
+    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')])
+    render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
+    await screen.findByTestId('flow-entry-repository')
+    expect(screen.getByText('Choose the repository this Flow runs in')).toBeInTheDocument()
+    expect(screen.getByTestId('flow-entry-start')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('flow-entry-repository-api'))
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+  })
+
+  it('blocks a workspace without any Git repository and explains a refused target in plain words', async () => {
+    current = null
+    withRepositories([member('ws', 'folder', true), member('notes', 'folder')])
+    const { unmount } = render(<Providers><FlowEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
+    expect(await screen.findByTestId('flow-entry-blocked')).toHaveTextContent('This project has no Git repository')
+    expect(screen.getByTestId('flow-entry-start')).toBeDisabled()
+    unmount()
+
+    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')])
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/flow') && init?.method === 'POST') return respond(400, { error: 'flow_repository_not_git', detail: 'raw' })
+      return base(input, init)
+    })
+    render(<Providers><FlowEntryCard idea="x" repositoryId="api" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    expect(await screen.findByTestId('flow-entry-error')).toHaveTextContent('Flow needs a Git repository; a folder cannot hold its worktree.')
+  })
+
+  it('a single-repository project shows no choice and never sends a repository', async () => {
+    current = null
+    const onStarted = vi.fn()
+    render(<Providers><FlowEntryCard idea="x" repositoryId="primary" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    expect(screen.queryByTestId('flow-entry-repository')).not.toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await waitFor(() => expect(onStarted).toHaveBeenCalled())
+    expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'x' })
+  })
+})
+
 describe('Flow mode in the conversation', () => {
   it('turns the conversation into Flow mode only while the Flow is active', async () => {
     const { result } = renderHook(() => useFlowConversationMode('c1', 'p1'), { wrapper: Providers })

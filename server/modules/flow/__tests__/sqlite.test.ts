@@ -37,6 +37,14 @@ describe('SQLite Flow repository (migration 74)', () => {
     expect(() => projectB.save(flow())).toThrow(/does not exist/)
   })
 
+  it('round-trips the Flow repository (migration 80); the primary stays absent', () => {
+    const repository = createSqliteFlowRepository(db())
+    repository.insert(flow({ repositoryId: 'api' }))
+    expect(repository.get('flow-1')).toEqual(flow({ repositoryId: 'api' }))
+    repository.save(flow({ id: 'flow-1', repositoryId: null, state: 'paused' }))
+    expect(repository.get('flow-1')).not.toHaveProperty('repositoryId')
+  })
+
   it('allows a single active or paused Flow per conversation (partial unique index)', () => {
     const repository = createSqliteFlowRepository(db())
     repository.insert(flow({ ticketId: null, step: 'start:ticket' }))

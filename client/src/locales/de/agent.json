@@ -904,6 +904,10 @@
       "flow_already_open": "Diese Mission hat bereits einen Flow. Setze ihn fort oder verwirf ihn zuerst.",
       "illegal_transition": "Der Flow hat zwischenzeitlich den Zustand gewechselt. Aktualisiere und versuche es erneut.",
       "flow_worktree_missing": "Der Flow-Worktree existiert nicht mehr. Prüfe ihn, bevor du fortfährst.",
+      "flow_repository_required": "Wähle das Repository, in dem dieser Flow läuft.",
+      "flow_repository_not_git": "Flow braucht ein Git-Repository; ein Ordner kann keinen Worktree aufnehmen. Wähle ein Git-Repository.",
+      "flow_repository_unknown": "Dieses Repository gehört nicht mehr zu diesem Projekt. Wähle ein anderes.",
+      "flow_repository_missing": "Das Repository des Flows ist in diesem Projekt nicht mehr verfügbar.",
       "rail_not_empty": "Diese Rail hat bereits Specs. Wähle eine freie, leere Rail.",
       "flow_already_handed_off": "Dieser Flow wurde bereits an eine Rail übergeben.",
       "flow_freeze_failed": "Der Flow-Worktree konnte für die Übergabe nicht gesichert werden.",
@@ -916,6 +920,15 @@
       "body": "Specrails erstellt einen isolierten Worktree, in dem der Agent Code schreiben kann. Dein Hauptbranch bleibt unberührt.",
       "provider": "Der Agent arbeitet mit {{provider}} und schreibt nur im Worktree.",
       "providerUnknown": "Der Agent schreibt nur im Worktree.",
+      "repository": {
+        "label": "Repository",
+        "hint": "Der Flow arbeitet in einem isolierten Worktree dieses Repositorys.",
+        "choose": "Wähle das Repository, in dem dieser Flow läuft",
+        "loading": "Repositorys werden geladen…",
+        "loadFailed": "Die Repositorys des Projekts konnten nicht geladen werden. Versuche es erneut.",
+        "suggested": "Vom Agenten vorgeschlagen",
+        "noGit": "Dieses Projekt hat kein Git-Repository. Flow braucht eines, um seinen Worktree anzulegen."
+      },
       "blocked": {
         "noProject": "Hefte diese Mission an ein Projekt, um Flow zu nutzen.",
         "open": "Diese Mission hat bereits einen Flow.",

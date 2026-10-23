@@ -904,6 +904,10 @@
       "flow_already_open": "Cette mission a déjà un Flow. Reprenez-le ou abandonnez-le d’abord.",
       "illegal_transition": "Le Flow a changé d’état entre-temps. Actualisez et réessayez.",
       "flow_worktree_missing": "Le worktree du Flow n’existe plus. Vérifiez-le avant de continuer.",
+      "flow_repository_required": "Choisissez le dépôt dans lequel ce Flow s’exécute.",
+      "flow_repository_not_git": "Flow a besoin d’un dépôt Git ; un dossier ne peut pas accueillir son worktree. Choisissez un dépôt Git.",
+      "flow_repository_unknown": "Ce dépôt ne fait plus partie de ce projet. Choisissez-en un autre.",
+      "flow_repository_missing": "Le dépôt du Flow n’est plus disponible dans ce projet.",
       "rail_not_empty": "Ce rail a déjà des specs. Choisissez un rail libre et vide.",
       "flow_already_handed_off": "Ce Flow a déjà été confié à un rail.",
       "flow_freeze_failed": "Le worktree du Flow n’a pas pu être enregistré pour la passation.",
@@ -916,6 +920,15 @@
       "body": "Specrails va créer un worktree isolé où l’agent pourra écrire du code. Votre branche principale n’est pas modifiée.",
       "provider": "L’agent travaille avec {{provider}} et n’écrit que dans le worktree.",
       "providerUnknown": "L’agent n’écrit que dans le worktree.",
+      "repository": {
+        "label": "Dépôt",
+        "hint": "Le Flow travaille dans un worktree isolé de ce dépôt.",
+        "choose": "Choisissez le dépôt dans lequel ce Flow s’exécute",
+        "loading": "Chargement des dépôts…",
+        "loadFailed": "Impossible de charger les dépôts du projet. Réessayez.",
+        "suggested": "Suggéré par l’agent",
+        "noGit": "Ce projet n’a aucun dépôt Git. Flow en a besoin pour créer son worktree."
+      },
       "blocked": {
         "noProject": "Épinglez cette mission à un projet pour utiliser Flow.",
         "open": "Cette mission a déjà un Flow.",

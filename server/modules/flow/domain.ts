@@ -50,12 +50,16 @@ export interface FlowSession {
    * last). A returned worktree still holds that active change: the next freeze
    * allows it and the next run re-derives it in place. */
   derivedChanges?: string[]
+  /** The project repository the Flow runs in (a non-primary Git member of a
+   * multi-repository or workspace project). Absent/null ⇒ the primary
+   * repository at the project root, as every Flow before workspaces. */
+  repositoryId?: string | null
   createdAt: string
   updatedAt: string
 }
 
 export type FlowCommand =
-  | { type: 'start'; flowId: string; conversationId: string; now: string }
+  | { type: 'start'; flowId: string; conversationId: string; repositoryId?: string | null; now: string }
   | { type: 'ticket-created'; ticketId: number; now: string }
   | { type: 'worktree-reserved'; branch: string; worktreePath: string; baseSha: string | null; headSha: string | null; now: string }
   | { type: 'session-opened'; coreSessionId: string; now: string }
@@ -223,6 +227,7 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
         railIndex: null,
         deliveryId: null,
         step: 'start:ticket',
+        ...(command.repositoryId ? { repositoryId: command.repositoryId } : {}),
         createdAt: now,
         updatedAt: now,
       },
@@ -396,6 +401,43 @@ export class FlowValidationError extends Error {
     super(message)
     this.name = 'FlowValidationError'
   }
+}
+
+/** A project repository as Flow sees it (the target triage input). */
+export interface FlowRepositoryMember {
+  id: string
+  name: string
+  isPrimary: boolean
+  kind: 'git' | 'folder'
+  available?: boolean
+}
+
+/**
+ * The repository a new Flow runs in. An explicit choice must be a Git member;
+ * otherwise the primary when it is Git, else the only Git member. Several Git
+ * candidates without a choice, or none at all, are refused (the mission agent
+ * triages the target; the entry card lets the person pick). Returns null for
+ * the primary repository: such a Flow behaves exactly as before workspaces
+ * (a single-repository project is never triaged).
+ */
+export function resolveFlowRepository(members: readonly FlowRepositoryMember[], requested: string | null | undefined): string | null {
+  const wanted = typeof requested === 'string' && requested.trim() ? requested.trim() : null
+  // A single-repository project keeps its pre-workspace behaviour exactly.
+  if (members.length <= 1 && !wanted) return null
+  if (members.length === 0) throw new FlowValidationError('flow_repository_unknown', 'This project has no repository with that id')
+  const primary = members.find((member) => member.isPrimary) ?? members[0]!
+  const usable = (member: FlowRepositoryMember) => member.kind === 'git' && member.available !== false
+  if (wanted) {
+    const member = members.find((candidate) => candidate.id === wanted)
+    if (!member) throw new FlowValidationError('flow_repository_unknown', 'This project has no repository with that id')
+    if (!usable(member)) throw new FlowValidationError('flow_repository_not_git', `${member.name} is not an available Git repository; Flow needs one to create its worktree`)
+    return member.id === primary.id ? null : member.id
+  }
+  if (usable(primary)) return null
+  const candidates = members.filter(usable)
+  if (candidates.length === 1) return candidates[0]!.id
+  if (candidates.length === 0) throw new FlowValidationError('flow_repository_not_git', 'This project has no available Git repository; Flow needs one to create its worktree')
+  throw new FlowValidationError('flow_repository_required', 'This project has several Git repositories; choose the one this Flow runs in')
 }
 
 /** The rail launch authority refused the hand-off (its status and code are kept). */

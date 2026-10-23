@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowDerivationCoverage, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowSession, FlowSettlementEffect, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -38,7 +38,8 @@ export interface FlowEffectsStore {
 
 /** The placeholder spec ("In Flow"). Created through the non-promoting path. */
 export interface FlowTickets {
-  createPlaceholder(input: { flowId: string; conversationId: string; title: string; description: string; startedAt: string }): number
+  /** `repositoryIds`: the Flow's non-primary target repository (absent ⇒ primary). */
+  createPlaceholder(input: { flowId: string; conversationId: string; title: string; description: string; startedAt: string; repositoryIds?: string[] }): number
   setFlowState(ticketId: number, state: FlowTicketState): void
   /** Idempotent: a missing ticket is not an error. */
   deletePlaceholder(ticketId: number): void
@@ -76,18 +77,20 @@ export interface FlowDiffSummary {
   totals: { files: number; additions: number; deletions: number }
 }
 
-/** The single worktree machinery (delivery) seen from Flow. */
+/** The single worktree machinery (delivery) seen from Flow. Every call names
+ * the Flow's repository: absent/null ⇒ the primary repository at the project
+ * root; otherwise that Git member's checkout and its own mount root. */
 export interface WorktreeReservation {
   /** Fresh worktree + branch for the placeholder ticket, owned by this Flow. */
-  reserve(input: { flowId: string; conversationId: string; ticketId: number }): Promise<ReservedWorktree>
+  reserve(input: { flowId: string; conversationId: string; ticketId: number; repositoryId?: string | null }): Promise<ReservedWorktree>
   /** Remove only what Flow created. A null path derives the Flow-owned mount. */
-  release(input: { flowId: string; ticketId: number; worktreePath: string | null; branch: string | null }): Promise<void>
+  release(input: { flowId: string; ticketId: number; worktreePath: string | null; branch: string | null; repositoryId?: string | null }): Promise<void>
   /** Commit the worktree's deliverable changes (overlay excluded) and return HEAD. */
   /** `allowedChanges`: active OpenSpec changes this Flow's own Flow → Spec runs
    * derived; the delivery hygiene still blocks every other new active change. */
-  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[] }): Promise<{ headSha: string }>
+  freeze(input: { flowId: string; conversationId: string; ticketId: number; worktreePath: string; baseSha: string | null; allowedChanges: string[]; repositoryId?: string | null }): Promise<{ headSha: string }>
   exists(worktreePath: string): boolean
-  diff(input: { worktreePath: string; baseSha: string | null; branch: string | null }): Promise<FlowDiffSummary>
+  diff(input: { worktreePath: string; baseSha: string | null; branch: string | null; repositoryId?: string | null }): Promise<FlowDiffSummary>
 }
 
 /** Core agent session of a Flow (`flow:<flowId>`). Turns open it lazily with
@@ -125,7 +128,9 @@ export interface FlowLaunchOptions {
 /** Launch the Flow ticket on a rail through the single launch authority. The
  * ownership transfer happens inside that launch, atomically. */
 export interface FlowRailLauncher {
-  launch(input: { flowId: string; conversationId: string; ticketId: number; railIndex: number; options: FlowLaunchOptions }): Promise<{ loopRunIds: string[]; deliveryId: string | null }>
+  /** `repositoryId`: the Flow's non-primary repository, launched as that one
+   * repository (absent ⇒ the primary repository, as before workspaces). */
+  launch(input: { flowId: string; conversationId: string; ticketId: number; railIndex: number; options: FlowLaunchOptions; repositoryId?: string | null }): Promise<{ loopRunIds: string[]; deliveryId: string | null }>
   /** A Flow → Spec delivery that stopped before delivery: its rail, its launch
    * choices (for Relaunch) and the review findings. Null when unknown. */
   stoppedDelivery(deliveryId: string): { railIndex: number; options: FlowLaunchOptions; findings: FlowReviewFindings | null; derivation?: FlowDerivationCoverage | null } | null
@@ -161,7 +166,7 @@ export interface FlowPublication {
   deliveryState(deliveryId: string): { delivered: boolean } | null
   /** The derived OpenSpec change on the delivered branch (proposal, design,
    * diffstat). Throws when Git cannot be read (the effect retries). */
-  derivedChange(input: { flowId: string; deliveryId: string | null; ticketId: number; branch: string | null; baseSha: string | null }): Promise<DerivedChangeText>
+  derivedChange(input: { flowId: string; deliveryId: string | null; ticketId: number; branch: string | null; baseSha: string | null; repositoryId?: string | null }): Promise<DerivedChangeText>
   /** Bounded conversation summary (user messages + decisions). */
   conversationSummary(input: { conversationId: string; ticketId: number; from: string; to: string | null }): string
   /** Rewrite the spec in place (current format) and run the Contract Layer. */
@@ -192,8 +197,15 @@ export interface FlowConversation {
   startReturnTurn(input: { conversationId: string; flowId: string; deliveryId: string }): Promise<void>
 }
 
+/** The project's repositories (target triage of a new Flow). */
+export interface FlowRepositoryCatalog {
+  list(): FlowRepositoryMember[]
+}
+
 export interface FlowPorts {
   repository: FlowRepository
+  /** Absent ⇒ a single-repository project (every Flow runs in the primary). */
+  repositories?: FlowRepositoryCatalog
   tickets: FlowTickets
   worktrees: WorktreeReservation
   agent: FlowAgentSession

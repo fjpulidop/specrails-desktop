@@ -72,6 +72,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
       <FlowEntryCard
         idea={offer.idea}
         title={offer.title}
+        repositoryId={offer.repositoryId}
         projectId={projectId}
         conversationId={conversationId}
         provider={active?.id === conversationId ? active?.provider : null}

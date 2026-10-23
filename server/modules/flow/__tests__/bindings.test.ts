@@ -190,6 +190,112 @@ describe('Flow start on a repository with no commits (real git)', () => {
   })
 })
 
+describe('Flow in a workspace project (real git: a plain folder holding two repositories)', () => {
+  function workspace() {
+    const root = path.join(tmp, 'workspace')
+    fs.mkdirSync(root)
+    const member = (name: string) => {
+      const dir = path.join(root, name)
+      fs.mkdirSync(dir)
+      git(['init', '-q', '-b', 'main'], dir)
+      git(['config', 'user.name', 't'], dir)
+      git(['config', 'user.email', 't@t'], dir)
+      fs.writeFileSync(path.join(dir, 'README.md'), `${name}\n`)
+      git(['add', '.'], dir)
+      git(['commit', '-q', '-m', 'init'], dir)
+      return dir
+    }
+    const web = member('web')
+    const api = member('api')
+    const base = context()
+    const repositories = [
+      { id: 'ws', projectId: 'proj-1', name: 'workspace', path: root, isPrimary: true, kind: 'folder', integrationBranch: null, addedAt: 't' },
+      { id: 'web', projectId: 'proj-1', name: 'web', path: web, isPrimary: false, kind: 'git', integrationBranch: null, addedAt: 't' },
+      { id: 'api', projectId: 'proj-1', name: 'api', path: api, isPrimary: false, kind: 'git', integrationBranch: null, addedAt: 't' },
+    ]
+    const project = { ...base.project, slug: 'wsproj', path: root, primaryRepositoryId: 'ws', repositories }
+    const ctx = { ...base, project, getTicketSpec: (id: number) => {
+      const ticket = readStore(ticketStorePathForProject(project)).tickets[String(id)]
+      return ticket ? { title: ticket.title, description: ticket.description, labels: ticket.labels } : undefined
+    } } as unknown as ProjectContext
+    const repository = createSqliteFlowRepository(ctx.db)
+    const call = vi.fn(async (..._args: unknown[]) => ({ ok: true, status: 202, body: { loopRunIds: ['run-1'], prDeliveryId: 'group-1' } }))
+    const ports = createFlowPorts({
+      ctx, repository, effects: createSqliteFlowEffectsStore(ctx.db), internalApi: { call } as never,
+      agentHost: () => ({ assertFlowSupport: vi.fn(async () => {}), closeFlowSession: vi.fn(async () => {}) }) as never,
+      availability: async () => ({ available: true, reason: 'ok', missing: [] }),
+      clock: { now: () => '2026-10-23T10:00:00.000Z' },
+    })
+    const service = createFlowService(ports, { warn: vi.fn() })
+    const server = express()
+    server.use(express.json())
+    registerFlowHttp(server as unknown as express.Router, () => service)
+    const conversation = createAgentConversation(ctx.desktopDb, { provider: 'claude', pinnedProjectId: 'proj-1' })
+    return { root, web, api, ctx, ports, service, server, repository, conversation, call }
+  }
+
+  it('starts the Flow in the chosen repository: its worktree, branch, spec scope and per-repository mount root', async () => {
+    const { web, api, ctx, ports, server, repository, conversation } = workspace()
+    const response = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Rate-limit the public API', flowId: 'flow-api', repositoryId: 'api' })
+    expect(response.status).toBe(201)
+    const flow = response.body.flow as FlowSession
+    expect(flow).toMatchObject({ state: 'active', repositoryId: 'api' })
+    expect(repository.get('flow-api')?.repositoryId).toBe('api')
+    expect(flow.worktreePath!.startsWith(path.join(isolatedWorktreesRoot('wsproj', 'api'), 'flow-api'))).toBe(true)
+    expect(git(['rev-parse', '--show-toplevel'], flow.worktreePath!)).toBe(fs.realpathSync(flow.worktreePath!))
+    expect(git(['branch', '--list', flow.branch!], api)).toContain(flow.branch!)
+    expect(git(['branch', '--list', flow.branch!], web)).toBe('')
+    expect(flow.baseSha).toBe(git(['rev-parse', 'HEAD'], api))
+    const ticket = readStore(ticketStorePathForProject(ctx.project)).tickets[String(flow.ticketId)]
+    expect(ticket.repositoryIds).toEqual(['api'])
+
+    // Work, diff and freeze happen in that repository.
+    fs.writeFileSync(path.join(flow.worktreePath!, 'limit.ts'), 'export const limit = 10\n')
+    const diff = await ports.worktrees.diff({ worktreePath: flow.worktreePath!, baseSha: flow.baseSha, branch: flow.branch, repositoryId: 'api' })
+    expect(diff.files.map((file) => file.path)).toEqual(['limit.ts'])
+    const frozen = await ports.worktrees.freeze({ flowId: 'flow-api', conversationId: conversation.id, ticketId: flow.ticketId!, worktreePath: flow.worktreePath!, baseSha: flow.baseSha, allowedChanges: [], repositoryId: 'api' })
+    expect(git(['rev-parse', flow.branch!], api)).toBe(frozen.headSha)
+
+    // Discard releases the worktree and the branch from the same repository.
+    await request(server).post('/proj-1/flow/flow-api/discard').send({})
+    expect(fs.existsSync(flow.worktreePath!)).toBe(false)
+    expect(git(['branch', '--list', flow.branch!], api)).toBe('')
+  })
+
+  it('refuses an untriaged Flow with several Git repositories, and a folder target, before any effect', async () => {
+    const { ctx, server, repository, conversation } = workspace()
+    const required = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Something' })
+    expect(required.status).toBe(400)
+    expect(required.body.error).toBe('flow_repository_required')
+    const folder = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Something', repositoryId: 'ws' })
+    expect(folder.status).toBe(400)
+    expect(folder.body.error).toBe('flow_repository_not_git')
+    expect(repository.findOpenByConversation(conversation.id)).toBeNull()
+    expect(Object.keys(readStore(ticketStorePathForProject(ctx.project)).tickets)).toEqual([])
+  })
+
+  it('hands off as that one repository and resolves the hand-off contract with it', async () => {
+    const { ports, call } = workspace()
+    await ports.rails.launch({ flowId: 'flow-api', conversationId: 'c', ticketId: 1, railIndex: 0, options: {}, repositoryId: 'api' })
+    expect(call).toHaveBeenLastCalledWith('POST', '/projects/proj-1/rails/0/launch', expect.objectContaining({ flowId: 'flow-api', repositoryIds: ['api'] }))
+    await ports.rails.launch({ flowId: 'flow-main', conversationId: 'c', ticketId: 1, railIndex: 1, options: {} })
+    expect(call.mock.calls.at(-1)![2]).not.toHaveProperty('repositoryIds')
+  })
+
+  it('reads the derived change from the Flow repository', async () => {
+    const { api, ctx } = workspace()
+    fs.mkdirSync(path.join(api, 'openspec/changes/rate-limit'), { recursive: true })
+    fs.writeFileSync(path.join(api, 'openspec/changes/rate-limit/proposal.md'), '## Why\nLimit\n')
+    const base = git(['rev-parse', 'HEAD'], api)
+    git(['add', '.'], api)
+    git(['commit', '-q', '-m', 'derive'], api)
+    const publication = createFlowPublication(ctx)
+    const derived = await publication.derivedChange({ flowId: 'f', deliveryId: null, ticketId: 1, branch: 'main', baseSha: base, repositoryId: 'api' })
+    expect(derived).toMatchObject({ changeName: 'rate-limit', proposal: '## Why\nLimit\n' })
+    await expect(publication.derivedChange({ flowId: 'f', deliveryId: null, ticketId: 1, branch: 'main', baseSha: base, repositoryId: 'gone' })).rejects.toThrow(/no longer registered/)
+  })
+})
+
 describe('Flow port composition', () => {
   function ports(overrides: { agentHost?: ReturnType<typeof vi.fn> | null; internal?: ReturnType<typeof vi.fn> } = {}) {
     const ctx = context()

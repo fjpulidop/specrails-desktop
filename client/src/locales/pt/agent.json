@@ -904,6 +904,10 @@
       "flow_already_open": "Esta missão já tem um Flow. Retome-o ou descarte-o primeiro.",
       "illegal_transition": "O Flow mudou de estado entretanto. Atualize e tente novamente.",
       "flow_worktree_missing": "O worktree do Flow já não existe. Reveja-o antes de continuar.",
+      "flow_repository_required": "Escolha o repositório em que este Flow corre.",
+      "flow_repository_not_git": "O Flow precisa de um repositório Git; uma pasta não pode alojar o seu worktree. Escolha um repositório Git.",
+      "flow_repository_unknown": "Esse repositório já não faz parte deste projeto. Escolha outro.",
+      "flow_repository_missing": "O repositório do Flow já não está disponível neste projeto.",
       "rail_not_empty": "Esse rail já tem specs. Escolha um rail livre e vazio.",
       "flow_already_handed_off": "Este Flow já foi entregue a um rail.",
       "flow_freeze_failed": "Não foi possível guardar o worktree do Flow para a passagem.",
@@ -916,6 +920,15 @@
       "body": "O Specrails vai criar um worktree isolado onde o agente pode escrever código. O seu ramo principal não é tocado.",
       "provider": "O agente trabalha com {{provider}} e só escreve dentro do worktree.",
       "providerUnknown": "O agente só escreve dentro do worktree.",
+      "repository": {
+        "label": "Repositório",
+        "hint": "O Flow trabalha num worktree isolado deste repositório.",
+        "choose": "Escolha o repositório em que este Flow corre",
+        "loading": "A carregar repositórios…",
+        "loadFailed": "Não foi possível carregar os repositórios do projeto. Tente novamente.",
+        "suggested": "Sugerido pelo agente",
+        "noGit": "Este projeto não tem nenhum repositório Git. O Flow precisa de um para criar o seu worktree."
+      },
       "blocked": {
         "noProject": "Fixe esta missão num projeto para usar o Flow.",
         "open": "Esta missão já tem um Flow.",

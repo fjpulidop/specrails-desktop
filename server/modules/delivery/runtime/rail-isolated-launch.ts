@@ -1124,9 +1124,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // It never combines with continuation, revision or retry contracts. Checked
   // before the delivery row exists, so a rejection leaves nothing behind.
   const flowWorktree = input.requiredFlowWorktree ?? null
+  // A Flow in a non-primary repository runs as the ONE child of a
+  // single-repository group: only that repository's leg may adopt it.
+  const flowRepositoryLeg = !input.repositoryExecution
+    ? !flowWorktree?.repositoryId
+    : Boolean(flowWorktree?.repositoryId) && input.repositoryExecution.repositoryId === flowWorktree?.repositoryId
   if (flowWorktree && (
     units.length !== 1 || launchContinuation || input.requiredPrContinuation || input.revision ||
-    input.retryOfDelivery || input.repositoryExecution || input.explicitPrTarget
+    input.retryOfDelivery || !flowRepositoryLeg || input.explicitPrTarget
   )) {
     throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly its own spec on a fresh delivery')
   }
@@ -1305,7 +1310,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           if (!adoptedHead) throw new FlowWorktreeMismatchError('The Flow worktree HEAD could not be verified')
           ctx.db.transaction(() => {
             createRailWorktree(ctx.db, ledgerRow)
-            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: prDeliveryId, headSha: adoptedHead })
+            // A repository leg reports the GROUP delivery: the Flow settles on
+            // the parent's `rail.pr_state`, which is the only one broadcast.
+            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: input.repositoryExecution?.parentDeliveryId ?? prDeliveryId, headSha: adoptedHead })
           })()
         } else {
           createRailWorktree(ctx.db, ledgerRow)

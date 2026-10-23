@@ -325,9 +325,35 @@ export async function materializeIsolatedWorktree(
   }
 }
 
+/**
+ * The checkout a repository-scoped worktree is cut from. Absent/null or the
+ * primary id ⇒ the project root with the project's integration setting and
+ * the shared mount root (unchanged single-repository behaviour); a non-primary
+ * Git member ⇒ its own checkout, its own integration branch and the
+ * per-repository mount root (`isolatedWorktreesRoot(slug, repositoryId)`), as
+ * the multi-repository rail children use.
+ */
+export function isolatedRepositoryTarget(
+  project: ProjectContext['project'],
+  repositoryId?: string | null,
+): { repositoryId: string | null; path: string; primary: boolean; integrationBranch: string | null; worktreesRoot: string } {
+  const members = getProjectRepositories(project)
+  const primary = members.find((repo) => repo.isPrimary)
+  if (!repositoryId || repositoryId === primary?.id) {
+    return { repositoryId: null, path: project.path, primary: true, integrationBranch: primary?.integrationBranch ?? null, worktreesRoot: isolatedWorktreesRoot(project.slug) }
+  }
+  const member = members.find((repo) => repo.id === repositoryId)
+  if (!member) throw new Error(`Unknown project repository: ${repositoryId}`)
+  if (member.kind !== 'git') throw new Error(`Repository ${member.name} is context-only; isolated worktrees need a Git repository`)
+  return { repositoryId: member.id, path: member.path, primary: false, integrationBranch: member.integrationBranch, worktreesRoot: isolatedWorktreesRoot(project.slug, member.id) }
+}
+
 export interface PrepareIsolatedWorktreeInput {
   ctx: ProjectContext
   ticketId: number
+  /** Project repository to cut the worktree from (see isolatedRepositoryTarget).
+   *  Omitted ⇒ the primary repository at the project root. */
+  repositoryId?: string | null
   /** Explicit base branch/ref. Omitted → the project's integration branch,
    *  preferring the freshly fetched `origin/<branch>`. */
   baseRef?: string | null
@@ -365,20 +391,23 @@ export async function prepareIsolatedWorktree(
 ): Promise<PreparedIsolatedWorktree> {
   const { ctx, ticketId } = input
   const git = io.git ?? defaultGitRunner
-  const baseRepo = ctx.project.path
+  const target = isolatedRepositoryTarget(ctx.project, input.repositoryId)
+  const baseRepo = target.path
   const slug = ctx.project.slug
   const runId = input.runId ?? newId()
   const onDegraded = input.onDegraded ?? ((warnings: string[]) => {
     console.error(`[isolated-worktree] worktree preparation degraded (ticket ${ticketId}): ${warnings.join('; ')}`)
   })
-  const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, io.resolveExecution)
+  // A non-primary member overlays the PROJECT's framework surface (the
+  // workspace when relocated), exactly like a multi-repository rail child.
+  const resolveExecution = io.resolveExecution ?? (target.primary ? undefined : () => resolveProjectExecution(ctx.project))
+  const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, resolveExecution)
   return withRepoLock(baseRepo, async () => {
     const fetchResult = await fetchOrigin(git, baseRepo)
-    const primary = getProjectRepositories(ctx.project).find((repo) => repo.isPrimary)
     const integration = await resolveIntegrationBranch(git, {
       repoDir: baseRepo,
       explicit: input.baseRef ?? undefined,
-      projectSetting: primary?.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch,
+      projectSetting: target.primary ? target.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch : target.integrationBranch ?? undefined,
     })
     const worktreeBaseRef = await resolveWorktreeBaseRef(git, { repoDir: baseRepo, integration, fetchOk: fetchResult.ok })
     // Unborn HEAD: refuse before any branch, worktree or overlay exists.
@@ -398,7 +427,7 @@ export async function prepareIsolatedWorktree(
     }
     const prepared = await materializeIsolatedWorktree({
       repoDir: baseRepo,
-      worktreesRoot: path.join(isolatedWorktreesRoot(slug), runId),
+      worktreesRoot: path.join(target.worktreesRoot, runId),
       slug,
       ticketId,
       baseRef: worktreeBaseRef.baseRef,

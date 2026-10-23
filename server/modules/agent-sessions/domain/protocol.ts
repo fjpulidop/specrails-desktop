@@ -132,7 +132,7 @@ export interface SessionPolicyInput {
   tools?: { mode: 'default' | 'read-only' | 'none'; allow?: string[]; deny?: string[] }
   permissions?: 'bypass' | 'workspace-write' | 'read-only'
   mcp?: { servers?: McpServerSpec[]; inheritUserScope?: boolean }
-  limits?: Partial<Record<'idleMs' | 'stallMs' | 'backgroundMaxMs' | 'turnInactivityMs' | 'maxSettleHandoffs' | 'settleDebounceMs', number>>
+  limits?: Partial<Record<'idleMs' | 'stallMs' | 'backgroundMaxMs' | 'turnInactivityMs' | 'toolInactivityMs' | 'maxSettleHandoffs' | 'settleDebounceMs', number>>
   /** Who launches sub-agents: the provider (native) or Core (delegated child sessions). */
   subagentRuntime?: SubagentRuntimeInput
 }

@@ -12,7 +12,9 @@ import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { FLOW_SPEC_DELIVERY_LOOP_ID } from './flow-review-outcome'
-import { getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage, transitionDecision, type PrDeliverySnapshot } from './rail-pr-store'
+import { getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage, transitionDecision, type PrDeliverySnapshot, type RailPrDeliveryRow } from './rail-pr-store'
+
+const TERMINAL_DECISIONS = new Set(['merged', 'completed', 'discarded', 'superseded'])
 
 /** The delivery cannot give its worktree back now (HTTP 409). */
 export class FlowReturnRejectedError extends Error {
@@ -54,11 +56,25 @@ export function returnFlowWorktree(db: DbInstance, input: FlowWorktreeReturnInpu
       .filter((entry) => entry.run_id === null || runIds.has(entry.run_id))
     for (const entry of ledger) db.prepare('DELETE FROM rail_worktrees WHERE id = ?').run(entry.id)
     const released = new Set(ledger.map((entry) => entry.id))
+    // A Flow in a non-primary repository ran as a one-repository group: its
+    // child row closes with the parent (both before Flow commits), so no
+    // later group projection can reopen or re-settle the returned delivery.
+    const children = db.prepare('SELECT * FROM rail_pr_deliveries WHERE parent_delivery_id = ? ORDER BY rowid').all(row.id) as RailPrDeliveryRow[]
+    if (children.length > 1) throw new FlowReturnRejectedError('flow_return_not_allowed', 'This delivery spans several repositories; a Flow worktree belongs to one')
+    if (children.some((child) => child.operation_token || child.operation)) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery is busy; try again when its current action finishes')
     if (!transitionDecision(db, row.id, 'implementation_failed', 'discarded', {
       statusCode: 'returned_to_flow',
       statusDetail: input.detail,
       worktreeIds: snap.worktreeIds.filter((id) => !released.has(id)),
     })) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
+    for (const child of children) {
+      if (TERMINAL_DECISIONS.has(child.decision)) continue
+      if (!transitionDecision(db, child.id, child.decision, 'discarded', {
+        statusCode: 'returned_to_flow',
+        statusDetail: input.detail,
+        worktreeIds: toPrDeliverySnapshot(child).worktreeIds.filter((id) => !released.has(id)),
+      })) throw new FlowReturnRejectedError('flow_return_busy', 'The delivery changed while returning its worktree')
+    }
     commit()
     return toPrDeliverySnapshot(getPrDelivery(db, row.id)!)
   })()

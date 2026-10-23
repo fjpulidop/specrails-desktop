@@ -904,6 +904,10 @@
       "flow_already_open": "此任务已有一个 Flow。请先恢复或丢弃它。",
       "illegal_transition": "Flow 的状态已发生变化。请刷新后重试。",
       "flow_worktree_missing": "Flow 的 worktree 已不存在。继续之前请先检查。",
+      "flow_repository_required": "选择此 Flow 运行所在的仓库。",
+      "flow_repository_not_git": "Flow 需要 Git 仓库；文件夹无法承载其 worktree。请选择一个 Git 仓库。",
+      "flow_repository_unknown": "该仓库已不属于此项目。请选择其他仓库。",
+      "flow_repository_missing": "此 Flow 的仓库在该项目中已不可用。",
       "rail_not_empty": "该轨道已有 spec。请选择一个空闲且为空的轨道。",
       "flow_already_handed_off": "此 Flow 已交给某个轨道。",
       "flow_freeze_failed": "无法为交接保存 Flow 的 worktree。",
@@ -916,6 +920,15 @@
       "body": "Specrails 会创建一个隔离的 worktree，智能体可以在其中编写代码。你的主分支不会被改动。",
       "provider": "智能体使用 {{provider}} 工作，只在 worktree 内写入。",
       "providerUnknown": "智能体只在 worktree 内写入。",
+      "repository": {
+        "label": "仓库",
+        "hint": "Flow 在此仓库的隔离 worktree 中工作。",
+        "choose": "选择此 Flow 运行所在的仓库",
+        "loading": "正在加载仓库…",
+        "loadFailed": "无法加载项目的仓库。请重试。",
+        "suggested": "由智能体建议",
+        "noGit": "此项目没有 Git 仓库。Flow 需要一个 Git 仓库来创建其 worktree。"
+      },
       "blocked": {
         "noProject": "将此任务固定到某个项目后才能使用 Flow。",
         "open": "此任务已有一个 Flow。",

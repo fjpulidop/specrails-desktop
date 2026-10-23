@@ -73,6 +73,35 @@ A failure compensates in reverse order (release the worktree, delete the
 spec) and marks the Flow `discarded`; when compensation itself fails the row
 stays `needs-review`.
 
+### Workspaces and multi-repository projects
+
+A project can be a workspace (a plain folder primary holding several Git
+repositories) or list several Git repositories. Flow then runs in ONE Git
+member, chosen before any effect (`resolveFlowRepository`, pure domain):
+
+| Request | Result |
+| --- | --- |
+| Single-repository project | Never triaged; the Flow runs at the project root exactly as before. |
+| Explicit `repositoryId` | Must be a listed, available `kind: 'git'` member, else `400 flow_repository_not_git` / `flow_repository_unknown`. Choosing the primary keeps the pre-workspace behaviour. |
+| No `repositoryId` | The primary when it is Git, else the only Git member; several candidates ⇒ `400 flow_repository_required`, none ⇒ `flow_repository_not_git`. |
+
+The mission agent triages it: the `flow-offer` block carries `repositoryId`
+(required when `project.repositories` lists more than one Git repository or the
+primary is a folder; never a folder, never invented). `FlowEntryCard` shows the
+target with a picker of the Git members (`GET /repositories`), preselected from
+the offer, only for such projects.
+
+A non-primary choice is persisted on `flow_sessions.repository_id`
+(migration 80; NULL ⇒ primary) and on the placeholder spec
+(`repositoryIds: [id]`). Reserve, freeze, diff and release use that member's
+checkout, its own integration branch and the per-repository mount root
+`~/.specrails/projects/<slug>/worktrees/<repositoryId>/<flowId>/…`
+(`isolatedRepositoryTarget`, shared with `prepareIsolatedWorktree`); the
+overlay comes from the project's framework surface, as for a multi-repository
+rail child. A dev server started inside such a Flow (MCP `background_start`, or
+`POST /background-processes` without `repositoryId`) runs in the Flow worktree,
+tagged with the Flow and its repository.
+
 ### Turns
 
 While the Flow is `active`, `FlowTurnContext.forConversation` returns
@@ -209,6 +238,20 @@ placeholder spec. Discard after a hand-off is illegal.
    rollback). The `rail_worktrees` row and `flow_sessions.state = handed_off`
    commit in one transaction; a rollback after adoption returns ownership.
 5. Any failure before that commit reverts the Flow to `paused`.
+
+A Flow in a non-primary repository launches with `repositoryIds: [id]`
+(`RequiredFlowWorktree.repositoryId`). The rails route accepts it only when the
+scope is exactly that repository; `launchIsolatedRail` diverts to the
+multi-repository launcher, which accepts the Flow contract only for that single
+selected repository (`FlowWorktreeMismatchError` otherwise) and seeds the
+manifest base with the Flow reservation commit. The repository leg adopts the
+worktree and reports the **parent** (group) delivery to the Flow, because only
+the parent's `rail.pr_state` is broadcast and settles the Flow. A
+one-repository Flow → Spec group copies its child's `review_changes_requested`
+status and settle evidence onto the parent, so the card offers Back to Flow /
+Relaunch and `stoppedDelivery` reads the findings; Back to Flow closes parent
+and child in the same transaction. The settlement reads the derived change
+from the Flow repository.
 
 See [Flow → Spec loop](#flow--spec-loop) and [Settlement](#settlement) for
 what happens after the hand-off, and [Back to Flow](#back-to-flow-and-relaunch)
@@ -418,8 +461,8 @@ branch in the git strip, interrupting sends) and a dock above the composer.
 
 | Piece | Behaviour |
 | --- | --- |
-| Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Flow. The user turn carries `Flow: offerable` only when `FlowTurnContext.offerable` says so (Flow available, conversation pinned, no open Flow), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, recommended}) renders `FlowOfferCard`; fence promotion re-tags it from generic JSON on both sides. |
-| Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
+| Offer | The operator classifies pre-launch work as Freestyle / SDD Quick / Implement / Flow. The user turn carries `Flow: offerable` only when `FlowTurnContext.offerable` says so (Flow available, conversation pinned, no open Flow), so the static prompts stay byte-stable. The `flow-offer` block ({idea, reason, recommended, repositoryId?}) renders `FlowOfferCard`; fence promotion re-tags it from generic JSON on both sides. |
+| Entry | `FlowEntryCard` explains the isolated worktree and starts `POST /flow`. In a workspace or a project with several Git repositories it shows the target repository (radio list of Git members, the agent's triage marked "Suggested by the agent") and sends `repositoryId`; `flow_repository_*` refusals read in plain words. Unavailable ⇒ disabled with the missing capabilities in plain words. A `409 repository_has_no_commits` shows a localized message and **Create initial commit** (`POST /git/initial-commit`, an empty commit); on success Start is retried. |
 | Decision record | `agent_messages.intent` kinds `flow-offer` (`accepted`/`dismissed`, `recommendedMode`, `chosenMode`, `config.flowId`) and `flow-hand-off`; unique per (kind, proposalIndex). Flow kinds are accepted even with mission rail cards off. |
 | Active | Surface treatment (`flow.css`, theme tokens, reduced motion), `FlowBar` (branch, files ±, provider-billed cost or `—`, View changes, Pause, Discard with confirmation, This is it). Busy sends use `deliveryMode: 'interrupt'`; a 409 `interrupt_requires_flow` is resent normally. Option chips on the newest settled reply stay clickable while the agent is busy; a pick then interrupts (idle picks send normally). |
 | Preview | While an app the agent started for this Flow (a background process tagged `flowId`, from the mission's `BackgroundProcessesContext`) announces `appUrls`, `FlowAppPreview` shows **Preview** with a live dot: it opens the local address in the system browser, like the mission's app chips (Desktop has no embedded preview for mission apps). Its menu has the network address (or says the app only listens on this computer) and **Stop app**. Hidden when nothing runs and on a paused Flow. |

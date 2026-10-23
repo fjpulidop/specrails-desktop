@@ -213,6 +213,70 @@ describe('startFlow', () => {
   })
 })
 
+describe('startFlow in a workspace / multi-repository project', () => {
+  const members = (...list: Array<{ id: string; kind: 'git' | 'folder'; isPrimary?: boolean; available?: boolean }>) => ({
+    list: () => list.map((member) => ({ name: member.id, isPrimary: false, ...member })),
+  })
+
+  it('a single-repository project is never triaged (no repository on the Flow, the spec or the worktree)', async () => {
+    const { service, tickets, worktrees } = setup({ repositories: members({ id: 'primary', kind: 'git', isPrimary: true }) })
+    const flow = await service.startFlow(startInput)
+    expect(flow.repositoryId).toBeUndefined()
+    expect(tickets.createPlaceholder.mock.calls[0]![0]).not.toHaveProperty('repositoryIds')
+    expect(worktrees.reserve).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7 })
+  })
+
+  it('runs in the chosen Git member: persisted on the Flow, the placeholder spec, the worktree, the freeze and the hand-off', async () => {
+    const { service, tickets, worktrees, rails, repository } = setup({
+      repositories: members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }, { id: 'api', kind: 'git' }),
+    })
+    const flow = await service.startFlow({ ...startInput, repositoryId: 'api' })
+    expect(flow.repositoryId).toBe('api')
+    expect(repository.get(flow.id)?.repositoryId).toBe('api')
+    expect(tickets.createPlaceholder).toHaveBeenCalledWith(expect.objectContaining({ repositoryIds: ['api'] }))
+    expect(worktrees.reserve).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7, repositoryId: 'api' })
+    await service.handOffFlow({ flowId: flow.id, railIndex: 1 })
+    expect(worktrees.freeze).toHaveBeenCalledWith(expect.objectContaining({ repositoryId: 'api' }))
+    expect(rails.launch).toHaveBeenCalledWith(expect.objectContaining({ repositoryId: 'api' }))
+    await service.diffSummary(flow.id)
+    expect(worktrees.diff).toHaveBeenCalledWith(expect.objectContaining({ repositoryId: 'api' }))
+  })
+
+  it('defaults to the only Git member of a workspace and releases there on discard', async () => {
+    const { service, worktrees } = setup({ repositories: members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'app', kind: 'git' }) })
+    const flow = await service.startFlow(startInput)
+    expect(flow.repositoryId).toBe('app')
+    await service.discardFlow(flow.id)
+    expect(worktrees.release).toHaveBeenCalledWith(expect.objectContaining({ repositoryId: 'app' }))
+  })
+
+  it('choosing the primary keeps the pre-workspace behaviour', async () => {
+    const { service, worktrees } = setup({ repositories: members({ id: 'core', kind: 'git', isPrimary: true }, { id: 'docs', kind: 'git' }) })
+    const flow = await service.startFlow({ ...startInput, repositoryId: 'core' })
+    expect(flow.repositoryId).toBeUndefined()
+    expect(worktrees.reserve).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7 })
+  })
+
+  it('refuses before any effect: several Git members without a choice, a folder, an unknown id, no Git at all', async () => {
+    const cases: Array<[ReturnType<typeof members>, string | undefined, string]> = [
+      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }, { id: 'api', kind: 'git' }), undefined, 'flow_repository_required'],
+      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }), 'workspace', 'flow_repository_not_git'],
+      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }), 'nope', 'flow_repository_unknown'],
+      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'notes', kind: 'folder' }), undefined, 'flow_repository_not_git'],
+      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git', available: false }), 'web', 'flow_repository_not_git'],
+    ]
+    for (const [repositories, repositoryId, code] of cases) {
+      const { service, tickets, worktrees, repository } = setup({ repositories })
+      const error = await service.startFlow({ ...startInput, ...(repositoryId ? { repositoryId } : {}) }).catch((caught) => caught)
+      expect(error).toBeInstanceOf(FlowValidationError)
+      expect(error).toMatchObject({ code })
+      expect(tickets.createPlaceholder).not.toHaveBeenCalled()
+      expect(worktrees.reserve).not.toHaveBeenCalled()
+      expect(repository.rows.size).toBe(0)
+    }
+  })
+})
+
 describe('pause, resume and discard', () => {
   it('pauses (closing the session) and resumes (reopening it), idempotently', async () => {
     const { service, agent, tickets } = setup()

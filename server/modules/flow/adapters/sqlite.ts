@@ -2,7 +2,7 @@ import type { DbInstance } from '../../../db/types'
 import { FlowConflictError, isOpenSpecChangeId, type FlowEffectStatus, type FlowSession, type FlowSettlementEffect, type FlowSettlementKind, type FlowState, type FlowStep } from '../domain'
 import type { FlowEffectsStore, FlowRepository } from '../ports'
 
-/** `flow_sessions` row (migration 74; `return_briefing` migration 78; project database). */
+/** `flow_sessions` row (migration 74; `return_briefing` migration 78; `repository_id` migration 80; project database). */
 interface FlowSessionRow {
   id: string
   conversation_id: string
@@ -18,6 +18,7 @@ interface FlowSessionRow {
   step: string | null
   return_briefing?: string | null
   derived_changes?: string | null
+  repository_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +39,7 @@ function toSession(row: FlowSessionRow): FlowSession {
     step: row.step as FlowStep | null,
     ...(row.return_briefing ? { returnBriefing: row.return_briefing } : {}),
     ...(parseDerivedChanges(row.derived_changes).length ? { derivedChanges: parseDerivedChanges(row.derived_changes) } : {}),
+    ...(row.repository_id ? { repositoryId: row.repository_id } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -58,7 +60,7 @@ function params(session: FlowSession): unknown[] {
   return [
     session.conversationId, session.ticketId, session.state, session.branch, session.worktreePath,
     session.baseSha, session.headSha, session.coreSessionId, session.railIndex, session.deliveryId,
-    session.step, session.returnBriefing ?? null, session.derivedChanges?.length ? JSON.stringify(session.derivedChanges) : null, session.createdAt, session.updatedAt, session.id,
+    session.step, session.returnBriefing ?? null, session.derivedChanges?.length ? JSON.stringify(session.derivedChanges) : null, session.repositoryId ?? null, session.createdAt, session.updatedAt, session.id,
   ]
 }
 
@@ -77,7 +79,7 @@ export function createSqliteFlowRepository(db: DbInstance): FlowRepository {
     insert(session) {
       try {
         db.prepare(`INSERT INTO flow_sessions (conversation_id, ticket_id, state, branch, worktree_path, base_sha, head_sha,
-          core_session_id, rail_index, delivery_id, step, return_briefing, derived_changes, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...params(session))
+          core_session_id, rail_index, delivery_id, step, return_briefing, derived_changes, repository_id, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...params(session))
       } catch (error) {
         if (!isUniqueViolation(error)) throw error
         const open = select(`conversation_id = ? AND state IN ('active','paused')`, session.conversationId)
@@ -86,7 +88,7 @@ export function createSqliteFlowRepository(db: DbInstance): FlowRepository {
     },
     save(session) {
       const result = db.prepare(`UPDATE flow_sessions SET conversation_id = ?, ticket_id = ?, state = ?, branch = ?, worktree_path = ?,
-        base_sha = ?, head_sha = ?, core_session_id = ?, rail_index = ?, delivery_id = ?, step = ?, return_briefing = ?, derived_changes = ?, created_at = ?, updated_at = ?
+        base_sha = ?, head_sha = ?, core_session_id = ?, rail_index = ?, delivery_id = ?, step = ?, return_briefing = ?, derived_changes = ?, repository_id = ?, created_at = ?, updated_at = ?
         WHERE id = ?`).run(...params(session))
       if (result.changes === 0) throw new Error(`Flow ${session.id} does not exist`)
     },
