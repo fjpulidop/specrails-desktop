@@ -116,6 +116,10 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
     res.json({ flow: await service.discardFlow(flowId(req)) })
   }))
 
+  router.post('/:projectId/flow/:flowId/close', withService(async (service, req, res) => {
+    res.json({ flow: await service.closeFlow(flowId(req)) })
+  }))
+
   router.post('/:projectId/flow/:flowId/hand-off', withService(async (service, req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     if (typeof body.railIndex !== 'number' || !Number.isSafeInteger(body.railIndex) || body.railIndex < 0) {

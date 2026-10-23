@@ -1,6 +1,7 @@
 // ─── Flow mode boundaries in the history ──────────────────────────────────────
 // A server-authored `flow-boundary` row marks where the conversation entered
-// Flow (started) or left it (handed off to a rail, discarded). Each renders as
+// Flow (started) or left it (handed off to a rail, discarded, closed keeping
+// its branch). Each renders as
 // ONE event line in its chronological slot; the agent turns between an
 // "entered" and the next "left" carry a discreet Flow mark. The way back from
 // a rail ("returned") is told by the Back to Flow line, so its boundary only
@@ -15,12 +16,12 @@ export interface FlowBoundaryRow {
   kind: 'flow-boundary'
   flowId: string
   event: 'entered' | 'left'
-  reason: 'started' | 'returned' | 'handed_off' | 'discarded'
+  reason: 'started' | 'returned' | 'handed_off' | 'discarded' | 'closed'
   branch: string | null
 }
 
 const EVENTS = new Set(['entered', 'left'])
-const REASONS = new Set(['started', 'returned', 'handed_off', 'discarded'])
+const REASONS = new Set(['started', 'returned', 'handed_off', 'discarded', 'closed'])
 
 /** Parse a system row; null when it is not a Flow boundary. */
 export function parseFlowBoundaryRow(content: string): FlowBoundaryRow | null {

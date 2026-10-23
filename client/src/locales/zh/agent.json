@@ -1007,7 +1007,9 @@
         "noSpec": "Flow 的 spec 尚未就绪"
       },
       "viewChangesStats": "查看更改 · {{files}}，+{{additions}} −{{deletions}}",
-      "handOff": "交给 Rail"
+      "handOff": "交给 Rail",
+      "close": "关闭此 Flow",
+      "closed": "Flow 已关闭，分支已保留。"
     },
     "preview": {
       "open": "预览",
@@ -1129,6 +1131,14 @@
       "changes": "更改",
       "cost": "目前成本",
       "actions": "更多 Flow 操作"
+    },
+    "close": {
+      "title": "关闭此 Flow？",
+      "body": "对话将退出 Flow。不会删除任何内容：",
+      "keptBranch": "保留分支：",
+      "keptSpec": "规格保留在看板上，但不再显示“Flow 中”标签",
+      "cancel": "暂不",
+      "confirm": "关闭 Flow，保留分支"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "已开始",
       "returned": "从 Rail 返回",
       "handed_off": "已交给 Rail",
-      "discarded": "已丢弃"
+      "discarded": "已丢弃",
+      "closed": "已关闭，分支已保留"
     }
   }
 }

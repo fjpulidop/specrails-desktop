@@ -222,7 +222,7 @@ export interface FlowBoundary {
   conversationId: string
   flowId: string
   event: 'entered' | 'left'
-  reason: 'started' | 'returned' | 'handed_off' | 'discarded'
+  reason: 'started' | 'returned' | 'handed_off' | 'discarded' | 'closed'
   branch: string | null
 }
 

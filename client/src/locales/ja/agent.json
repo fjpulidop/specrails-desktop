@@ -1007,7 +1007,9 @@
         "noSpec": "Flow の spec はまだ準備できていません"
       },
       "viewChangesStats": "変更を表示 · {{files}}、+{{additions}} −{{deletions}}",
-      "handOff": "引き渡す"
+      "handOff": "引き渡す",
+      "close": "この Flow を閉じる",
+      "closed": "Flow を閉じました。ブランチは残っています。"
     },
     "preview": {
       "open": "プレビュー",
@@ -1129,6 +1131,14 @@
       "changes": "変更",
       "cost": "これまでのコスト",
       "actions": "その他の Flow 操作"
+    },
+    "close": {
+      "title": "この Flow を閉じますか？",
+      "body": "会話は Flow を終了します。何も削除されません：",
+      "keptBranch": "残すブランチ：",
+      "keptSpec": "スペックはボードに残り、「Flow 中」ラベルは外れます",
+      "cancel": "今はしない",
+      "confirm": "Flow を閉じてブランチを残す"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "開始",
       "returned": "レールから戻った",
       "handed_off": "レールに引き渡し",
-      "discarded": "破棄"
+      "discarded": "破棄",
+      "closed": "閉じました（ブランチは保持）"
     }
   }
 }

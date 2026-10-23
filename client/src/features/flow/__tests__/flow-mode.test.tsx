@@ -487,6 +487,39 @@ describe('Flow mode in the conversation', () => {
     await openFlowPanel()
     expect(await screen.findByTestId('flow-bar-note')).toHaveTextContent('Nothing was deleted')
     expect(screen.queryByTestId('flow-bar-discard')).toBeNull()
+    // The branch and the cost stay readable; the changes show only when the worktree still holds some.
+    expect(screen.getByTestId('flow-bar-branch')).toHaveTextContent('feat/7-calm-dashboard')
+    await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.42'))
+    await waitFor(() => expect(screen.getByTestId('flow-bar-changes')).toHaveTextContent('3 files'))
+  })
+
+  it('closes a needs-review Flow keeping its branch, after a confirmation worded for what is kept', async () => {
+    current = flow({ state: 'needs-review' })
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/flow/f1/close')) {
+        calls.push({ url: String(input), method: init?.method ?? 'GET', body: null })
+        current = flow({ state: 'discarded' })
+        return respond(200, { flow: current })
+      }
+      if (String(input).endsWith('/flow/f1/diff')) return respond(200, { branch: 'feat/7-calm-dashboard', baseSha: 'a', headSha: 'b', files: [], totals: { files: 0, additions: 0, deletions: 0 } })
+      return base(input, init)
+    })
+    render(<Providers><FlowStrip /></Providers>)
+    await openFlowPanel()
+    // A missing worktree measures nothing: no misleading "0 files" row.
+    await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.42'))
+    expect(screen.queryByTestId('flow-bar-changes')).toBeNull()
+    fireEvent.click(screen.getByTestId('flow-bar-close'))
+    const dialog = await screen.findByTestId('flow-close-dialog')
+    expect(dialog).toHaveTextContent('Nothing is deleted')
+    expect(screen.getByTestId('flow-close-kept')).toHaveTextContent('Branch kept:feat/7-calm-dashboard')
+    expect(screen.queryByTestId('flow-discard-dialog')).toBeNull()
+    expect(calls.some((c) => c.url.endsWith('/close'))).toBe(false)
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-close-confirm')) })
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/flow/f1/close') && c.method === 'POST')).toBe(true))
+    expect(calls.some((c) => c.url.endsWith('/discard'))).toBe(false)
+    await waitFor(() => expect(screen.queryByTestId('mission-run-strip')).toBeNull())
   })
 
   it('"Hand off" morphs the strip into "Ready to turn into a PR" and opens the hand-off as its panel; Launch goes through the hand-off route', async () => {

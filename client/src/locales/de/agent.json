@@ -1007,7 +1007,9 @@
         "noSpec": "Die Spec des Flows ist noch nicht bereit"
       },
       "viewChangesStats": "Änderungen ansehen · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Übergeben"
+      "handOff": "Übergeben",
+      "close": "Diesen Flow schließen",
+      "closed": "Flow geschlossen. Der Branch bleibt erhalten."
     },
     "preview": {
       "open": "Vorschau",
@@ -1129,6 +1131,14 @@
       "changes": "Änderungen",
       "cost": "Kosten bisher",
       "actions": "Weitere Flow-Aktionen"
+    },
+    "close": {
+      "title": "Diesen Flow schließen?",
+      "body": "Die Unterhaltung verlässt Flow. Nichts wird gelöscht:",
+      "keptBranch": "Branch bleibt erhalten:",
+      "keptSpec": "Die Spec bleibt auf dem Board, ohne das Label „Im Flow“",
+      "cancel": "Nicht jetzt",
+      "confirm": "Flow schließen, Branch behalten"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "gestartet",
       "returned": "von einem Rail zurück",
       "handed_off": "an einen Rail übergeben",
-      "discarded": "verworfen"
+      "discarded": "verworfen",
+      "closed": "geschlossen, Branch behalten"
     }
   }
 }

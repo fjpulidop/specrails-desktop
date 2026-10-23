@@ -259,6 +259,20 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     })
   }
 
+  /** Close a needs-review Flow, keeping its branch (and any worktree left
+   * behind): the conversation leaves Flow and the spec loses its label. */
+  function closeFlow(flowId: string): Promise<FlowSession> {
+    return serialized(`flow:${flowId}`, async () => {
+      const session = load(flowId)
+      const result = transition(session, { type: 'close', now: ports.clock.now() })
+      if (result.session === session) return session
+      await settle(session, result.effects)
+      const closed = commit(result.session)
+      boundary(closed, 'left', 'closed')
+      return closed
+    })
+  }
+
   /**
    * Freeze HEAD, close the agent session and launch the rail with the Flow
    * worktree. The rail launch adopts the worktree and marks this Flow
@@ -713,7 +727,8 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     // Measured against the Flow's base (the reservation SHA): committed (frozen
     // at hand-off) and uncommitted work alike. A handed-off Flow still owns the
     // same changes, so the bar never flashes "0 files" around Back to Flow.
-    if (!session.worktreePath || !(isOpenFlow(session) || session.state === 'handed_off') || !ports.worktrees.exists(session.worktreePath)) {
+    // A needs-review Flow whose worktree survived still shows what it holds.
+    if (!session.worktreePath || !(isOpenFlow(session) || session.state === 'handed_off' || session.state === 'needs-review') || !ports.worktrees.exists(session.worktreePath)) {
       return { branch: session.branch, baseSha: session.baseSha, headSha: session.headSha, files: [], totals: { files: 0, additions: 0, deletions: 0 } }
     }
     return ports.worktrees.diff({ worktreePath: session.worktreePath, baseSha: session.baseSha, branch: session.branch, ...repositoryOf(session) })
@@ -730,6 +745,7 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     pauseFlow,
     resumeFlow,
     discardFlow,
+    closeFlow,
     handOffFlow,
     returnToFlow,
     relaunchFlow,

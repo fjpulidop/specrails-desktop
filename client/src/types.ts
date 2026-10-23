@@ -463,11 +463,12 @@ export interface LocalTicket {
     /** Escaped-defect link: id of the delivery that introduced this bug. */
     regressionOf?: string
     /** Flow mode: the placeholder spec of a Flow. `active`/`paused` show the
-     *  board's "In Flow" label; `delivered` hides it. */
+     *  board's "In Flow" label; `delivered` and `closed` (a needs-review Flow
+     *  closed with its branch kept) hide it. */
     flow?: {
       conversationId?: string
       flowId?: string
-      state?: 'active' | 'paused' | 'delivered'
+      state?: 'active' | 'paused' | 'delivered' | 'closed'
       startedAt?: string
       chosenMode?: 'flow' | 'implement'
     }

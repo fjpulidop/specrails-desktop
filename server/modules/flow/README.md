@@ -23,7 +23,8 @@ ports-and-adapters slice.
 ## Lifecycle
 
 `start` → `active` ⇄ `paused` → `handed_off` → `delivered`; `discard` from
-`active`/`paused` → `discarded`; `returned` (Back to Flow) from `handed_off`
+`active`/`paused` → `discarded`; `close` from `needs-review` → `discarded`
+without releasing anything (branch kept, spec label `closed`); `returned` (Back to Flow) from `handed_off`
 → `paused` when the Flow → Spec run stopped with requested changes (by hand)
 or failed outright (automatically: `observeDelivery`/`replaySettlement` see
 `deliveryState().crashed` and run the same idempotent `returnToFlow`; the
@@ -46,7 +47,9 @@ removed or handed to a rail. Best effort, like closing the session.
   SQLite transaction owned by delivery (`requiredFlowWorktree.adopt`); a
   launch rolled back after adoption calls `release`, returning ownership.
 - `handed_off` only with the HEAD the hand-off froze (`flow_head_mismatch`).
-- `discard` is illegal after `handed_off`: the rail's delivery decides.
+- `discard` is illegal after `handed_off`: the rail's delivery decides, and
+  from `needs-review` (nothing there is provably Flow's to delete): `close`
+  ends it keeping the branch.
 - Back to Flow is the inverse of the adoption: delivery's ONE transaction
   (`returnFlowWorktree`) deletes the `rail_worktrees` row, closes the delivery
   (`returned_to_flow`) and runs the Flow's `returned` save; the worktree is

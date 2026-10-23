@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, Copy, FileDiff, GitBranch, Loader2, Pause, Play, Trash2, type LucideIcon } from 'lucide-react'
+import { Check, Copy, FileDiff, GitBranch, Loader2, LogOut, Pause, Play, Trash2, type LucideIcon } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { RUN_STRIP_PRIMARY } from '../../missions/components/AgentRunStrip'
 import { useFlowContext } from '../context/FlowContext'
@@ -23,6 +23,7 @@ import { flowErrorMessage } from '../lib/flow-failure'
 import { flowCostDisplay } from '../lib/flow-offer'
 import { FlowAppPreview } from './FlowAppPreview'
 import { FlowChangesDialog } from './FlowChangesDialog'
+import { FlowCloseDialog } from './FlowCloseDialog'
 import { FlowDiscardDialog } from './FlowDiscardDialog'
 
 export interface FlowBarControl {
@@ -119,7 +120,7 @@ function ControlButton({ control, compact, flowId }: { control: FlowBarControl; 
   )
 }
 
-type Busy = 'pause' | 'resume' | 'discard' | null
+type Busy = 'pause' | 'resume' | 'discard' | 'close' | null
 
 function useFlowAction(projectId: string, flow: Flow) {
   const { t } = useTranslation('agent')
@@ -131,6 +132,7 @@ function useFlowAction(projectId: string, flow: Flow) {
     try {
       await ctx[kind](projectId, flow)
       if (kind === 'discard') toast.success(t('flow.bar.discarded'))
+      if (kind === 'close') toast.success(t('flow.bar.closed'))
       return true
     } catch (error) {
       // Localized by code; the server's own detail is only the secondary line.
@@ -173,12 +175,15 @@ export function flowStripHeadline(t: (key: string, options?: Record<string, unkn
   return diff ? t('flow.strip.headline', { state, files: t('flow.bar.files', { count: diff.totals.files }) }) : state
 }
 
-/** The Flow's panel: branch, files ±, cost, Preview, Discard and the state note. */
+/** The Flow's panel: branch, files ±, cost, Preview, Discard and the state note.
+ *  needs-review keeps the branch and the stats and offers only the
+ *  non-destructive **Close this Flow** (the branch is kept). */
 export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow: Flow; stats: FlowLiveStats }) {
   const { t } = useTranslation('agent')
   const { busy, run } = useFlowAction(projectId, flow)
   const [changesOpen, setChangesOpen] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
   const settling = flow.step !== null
   const paused = flow.state === 'paused'
   const needsReview = flow.state === 'needs-review'
@@ -194,6 +199,11 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
   const discard: FlowBarControl = {
     id: 'discard', label: t('flow.bar.discard'), icon: Trash2, onSelect: () => setDiscardOpen(true), tone: 'danger', disabled: settling || !!busy, disabledReason: waitReason,
   }
+  const close: FlowBarControl = {
+    id: 'close', label: t('flow.bar.close'), icon: LogOut, onSelect: () => setCloseOpen(true), disabled: settling || !!busy, disabledReason: waitReason,
+  }
+  // A missing worktree measures nothing: needs-review shows its changes only when some survived.
+  const showChanges = !needsReview || (totals?.files ?? 0) > 0
   const row = 'flex min-w-0 items-center gap-2 text-[12px]'
   const label = 'w-20 shrink-0 text-foreground/70'
   return (
@@ -208,7 +218,7 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
           </button>
         </div>
       )}
-      {!needsReview && (
+      {showChanges && (
         <div className={row} data-testid="flow-bar-stats">
           <span className={label}>{t('flow.panel.changes')}</span>
           <button
@@ -235,32 +245,37 @@ export function FlowPanel({ projectId, flow, stats }: { projectId: string; flow:
           <span id={`flow-bar-${flow.id}-files-hint`} hidden>{t('flow.bar.filesTitle')}</span>
         </div>
       )}
-      {!needsReview && (
-        <div className={cn(row, 'flex-wrap')}>
-          <span className={label}>{t('flow.panel.cost')}</span>
-          <span data-testid="flow-bar-cost" className="tabular-nums text-foreground/85" title={t('flow.bar.costTitle')}>
-            {costView.usd ?? '—'}{costView.partial && costView.usd ? '*' : ''}
-            {/* The tooltip's words for screen readers too. */}
-            <span className="sr-only"> ({t('flow.bar.costTitle')})</span>
+      <div className={cn(row, 'flex-wrap')}>
+        <span className={label}>{t('flow.panel.cost')}</span>
+        <span data-testid="flow-bar-cost" className="tabular-nums text-foreground/85" title={t('flow.bar.costTitle')}>
+          {costView.usd ?? '—'}{costView.partial && costView.usd ? '*' : ''}
+          {/* The tooltip's words for screen readers too. */}
+          <span className="sr-only"> ({t('flow.bar.costTitle')})</span>
+        </span>
+        {costView.partial && costView.usd && (
+          <span data-testid="flow-bar-cost-partial" className="min-w-0 text-foreground/70">
+            * {t('flow.bar.costPartial', { count: cost?.unpricedTurns ?? 0 })}
           </span>
-          {costView.partial && costView.usd && (
-            <span data-testid="flow-bar-cost-partial" className="min-w-0 text-foreground/70">
-              * {t('flow.bar.costPartial', { count: cost?.unpricedTurns ?? 0 })}
-            </span>
-          )}
-        </div>
-      )}
+        )}
+      </div>
       {(paused || needsReview) && (
         <p className="text-[12px] leading-4 text-foreground/75" data-testid="flow-bar-note">
           {needsReview ? t('flow.bar.needsReview') : t('flow.bar.pausedNote')}
         </p>
       )}
-      {/* needs-review keeps nothing destructive: the person checks the branch first. */}
-      {!needsReview && <div className="flex items-center gap-1 pt-0.5" role="toolbar" aria-label={t('flow.panel.actions')}>
+      {/* needs-review keeps nothing destructive: closing it keeps the branch. */}
+      <div className="flex items-center gap-1 pt-0.5" role="toolbar" aria-label={t('flow.panel.actions')}>
         {flow.state === 'active' && <FlowAppPreview flow={flow} compact={false} />}
         <span className="flex-1" aria-hidden />
-        <ControlButton control={discard} compact={false} flowId={flow.id} />
-      </div>}
+        <ControlButton control={needsReview ? close : discard} compact={false} flowId={flow.id} />
+      </div>
+      <FlowCloseDialog
+        open={closeOpen}
+        busy={busy === 'close'}
+        branch={flow.branch}
+        onOpenChange={setCloseOpen}
+        onConfirm={() => { void run('close').then((ok) => { if (ok) setCloseOpen(false) }) }}
+      />
       {changesOpen && <FlowChangesDialog projectId={projectId} flow={flow} initial={diff} onClose={() => setChangesOpen(false)} />}
       <FlowDiscardDialog
         open={discardOpen}

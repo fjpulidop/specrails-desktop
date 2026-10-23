@@ -1007,7 +1007,9 @@
         "noSpec": "The Flow’s spec isn’t ready yet"
       },
       "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Hand off"
+      "handOff": "Hand off",
+      "close": "Close this Flow",
+      "closed": "Flow closed. The branch is kept."
     },
     "preview": {
       "open": "Preview",
@@ -1129,6 +1131,14 @@
       "changes": "Changes",
       "cost": "Cost so far",
       "actions": "More Flow actions"
+    },
+    "close": {
+      "title": "Close this Flow?",
+      "body": "The conversation leaves Flow. Nothing is deleted:",
+      "keptBranch": "Branch kept:",
+      "keptSpec": "The spec stays on the board, without the In Flow label",
+      "cancel": "Not now",
+      "confirm": "Close Flow, keep branch"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "started",
       "returned": "back from a rail",
       "handed_off": "handed off to a rail",
-      "discarded": "discarded"
+      "discarded": "discarded",
+      "closed": "closed, branch kept"
     }
   }
 }

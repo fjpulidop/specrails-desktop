@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1161 source/build files. Nearby tests are linked where names
+Includes 1162 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -328,6 +328,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [FlowAppPreview.tsx](../../client/src/features/flow/components/FlowAppPreview.tsx)
 - [FlowChangesDialog.tsx](../../client/src/features/flow/components/FlowChangesDialog.tsx)
+- [FlowCloseDialog.tsx](../../client/src/features/flow/components/FlowCloseDialog.tsx)
 - [FlowConversationMarks.tsx](../../client/src/features/flow/components/FlowConversationMarks.tsx)
 - [FlowDiscardDialog.tsx](../../client/src/features/flow/components/FlowDiscardDialog.tsx)
 - [FlowDock.tsx](../../client/src/features/flow/components/FlowDock.tsx)

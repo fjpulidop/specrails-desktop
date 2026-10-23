@@ -173,6 +173,10 @@ export const flowApi = {
   async discard(projectId: string, flowId: string): Promise<Flow> {
     return (await call<{ flow: Flow }>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/discard`, post())).flow
   },
+  /** Close a needs-review Flow keeping its branch (nothing is deleted). */
+  async close(projectId: string, flowId: string): Promise<Flow> {
+    return (await call<{ flow: Flow }>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/close`, post())).flow
+  },
   async handOff(projectId: string, flowId: string, input: { railIndex: number; loopId?: string; aiEngine?: string; model?: string; reasoningEffort?: string }): Promise<FlowHandOffResult> {
     return call<FlowHandOffResult>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/hand-off`, post(input))
   },

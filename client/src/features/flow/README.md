@@ -60,7 +60,8 @@ that opens `FlowChangesDialog`, the billed cost (with a visible note when
 partial), Preview and **Discard** set apart (`FlowDiscardDialog` lists what is
 lost). `useFlowLiveStats` measures diff and cost once per Flow and polls only
 while the agent works and the page is visible. A needs-review Flow is
-informational (`info` tone). **Hand off** turns the entry
+informational (`info` tone): its panel keeps the branch and stats and offers
+only **Close this Flow** (`FlowCloseDialog`, branch kept; `POST …/close`). **Hand off** turns the entry
 into "Ready to turn into a PR" — a calm `info` tone (no bell, no attention
 dot: the person just asked for it) — and opens `FlowHandOffCard` as the
 strip's panel: ONE line ("Rail 2 will turn your 7 changed files into a

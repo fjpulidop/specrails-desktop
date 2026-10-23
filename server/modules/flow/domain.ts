@@ -11,7 +11,8 @@
  *                  discarded                            paused  review requested changes)
  *
  * `needs-review` is reached only by startup reconciliation, when the worktree a
- * Flow owns has disappeared. Sagas (start, hand-off) record their progress in
+ * Flow owns has disappeared (or a compensation could not remove it). Closing it
+ * (`close`) ends the Flow as `discarded` without deleting the branch. Sagas (start, hand-off) record their progress in
  * `step` so a restart can complete or compensate them.
  */
 
@@ -24,7 +25,7 @@ export const OPEN_FLOW_STATES: readonly FlowState[] = Object.freeze(['active', '
 export type FlowStep = 'start:ticket' | 'start:worktree' | 'start:session' | 'handoff:freeze' | 'handoff:launch'
 
 /** Ticket metadata state shown as the "In Flow" label (`delivered` hides it). */
-export type FlowTicketState = 'active' | 'paused' | 'delivered'
+export type FlowTicketState = 'active' | 'paused' | 'delivered' | 'closed'
 
 export interface FlowSession {
   id: string
@@ -67,6 +68,9 @@ export type FlowCommand =
   | { type: 'pause'; now: string }
   | { type: 'resume'; now: string }
   | { type: 'discard'; now: string }
+  /** Close a needs-review Flow without deleting anything: the branch, any
+   * worktree left behind and the spec stay; the conversation leaves Flow. */
+  | { type: 'close'; now: string }
   | { type: 'begin-hand-off'; railIndex: number; now: string }
   | { type: 'frozen'; headSha: string; now: string }
   | { type: 'handed-off'; railIndex: number; deliveryId: string | null; headSha: string; now: string }
@@ -284,6 +288,15 @@ export function transition(session: FlowSession | null, command: FlowCommand): F
         effects.push({ kind: 'releaseWorktree', ticketId: session.ticketId, worktreePath: session.worktreePath, branch: session.branch })
         effects.push({ kind: 'deletePlaceholderTicket', ticketId: session.ticketId })
       }
+      return { session: next(session, { state: 'discarded', coreSessionId: null }, now), effects }
+    }
+    case 'close': {
+      // Only a Flow reconciliation could not settle: nothing is released (the
+      // person keeps the branch). The terminal state is `discarded`; the
+      // history boundary records `closed`, and the spec loses its Flow label.
+      if (session.state === 'discarded') return { session, effects: [] }
+      if (session.state !== 'needs-review' || session.step !== null) illegal(session, command)
+      const effects: FlowEffect[] = session.ticketId !== null ? [{ kind: 'setTicketFlowState', ticketId: session.ticketId, state: 'closed' }] : []
       return { session: next(session, { state: 'discarded', coreSessionId: null }, now), effects }
     }
     case 'begin-hand-off': {

@@ -1007,7 +1007,9 @@
         "noSpec": "La spec del Flow non è ancora pronta"
       },
       "viewChangesStats": "Vedi modifiche · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Affida"
+      "handOff": "Affida",
+      "close": "Chiudi questo Flow",
+      "closed": "Flow chiuso. Il branch viene conservato."
     },
     "preview": {
       "open": "Anteprima",
@@ -1129,6 +1131,14 @@
       "changes": "Modifiche",
       "cost": "Costo finora",
       "actions": "Altre azioni del Flow"
+    },
+    "close": {
+      "title": "Chiudere questo Flow?",
+      "body": "La conversazione esce da Flow. Non viene eliminato nulla:",
+      "keptBranch": "Branch conservato:",
+      "keptSpec": "La spec resta sulla bacheca, senza l’etichetta In Flow",
+      "cancel": "Non ora",
+      "confirm": "Chiudi Flow, mantieni il branch"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "avviato",
       "returned": "di ritorno da un rail",
       "handed_off": "affidato a un rail",
-      "discarded": "scartato"
+      "discarded": "scartato",
+      "closed": "chiuso, branch conservato"
     }
   }
 }

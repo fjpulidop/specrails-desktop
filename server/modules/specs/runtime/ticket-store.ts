@@ -133,7 +133,8 @@ export interface FlowTicketMetadata {
   /** The Flow-owned worktree reservation (the Flow id). */
   worktreeId: string
   startedAt: string
-  state: 'active' | 'paused' | 'delivered'
+  /** `closed`: a needs-review Flow the person closed (branch kept). */
+  state: 'active' | 'paused' | 'delivered' | 'closed'
   recommendedMode?: 'flow' | 'implement'
   chosenMode?: 'flow' | 'implement'
 }

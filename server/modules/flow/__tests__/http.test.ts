@@ -22,6 +22,7 @@ function service(overrides: Partial<Record<keyof FlowService, unknown>> = {}): F
     pauseFlow: vi.fn(async () => ({ ...FLOW, state: 'paused' })),
     resumeFlow: vi.fn(async () => FLOW),
     discardFlow: vi.fn(async () => ({ ...FLOW, state: 'discarded' })),
+    closeFlow: vi.fn(async () => ({ ...FLOW, state: 'discarded' })),
     handOffFlow: vi.fn(async () => ({ flow: { ...FLOW, state: 'handed_off' }, loopRunIds: ['run-1'], deliveryId: 'd-1' })),
     onFlowDelivered: vi.fn(),
     reconcile: vi.fn(),
@@ -59,6 +60,7 @@ describe('Flow HTTP routes', () => {
     expect((await request(server).post('/p1/flow/flow-1/pause')).body.flow.state).toBe('paused')
     expect((await request(server).post('/p1/flow/flow-1/resume')).body.flow.state).toBe('active')
     expect((await request(server).post('/p1/flow/flow-1/discard')).body.flow.state).toBe('discarded')
+    expect((await request(server).post('/p1/flow/flow-1/close')).body.flow.state).toBe('discarded')
     const handOff = await request(server).post('/p1/flow/flow-1/hand-off').send({ railIndex: 2, loopId: 'factory:flow-spec', reasoning_effort: 'high' })
     expect(handOff.status).toBe(202)
     expect(handOff.body).toMatchObject({ loopRunIds: ['run-1'], deliveryId: 'd-1' })

@@ -47,6 +47,8 @@ export interface FlowContextValue {
   pause: (projectId: string, flow: Flow) => Promise<Flow>
   resume: (projectId: string, flow: Flow) => Promise<Flow>
   discard: (projectId: string, flow: Flow) => Promise<Flow>
+  /** End a needs-review Flow keeping its branch (and whatever worktree is left). */
+  close: (projectId: string, flow: Flow) => Promise<Flow>
   handOff: (projectId: string, flow: Flow, input: { railIndex: number; loopId?: string; aiEngine?: string; model?: string; reasoningEffort?: string }) => Promise<FlowHandOffResult>
   /** Back to Flow from a Flow → Spec delivery that stopped with requested changes. */
   returnToFlow: (projectId: string, deliveryId: string) => Promise<Flow>
@@ -210,6 +212,11 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     setWrappingUp(flow.id, false)
     return next
   }, [apply, setWrappingUp])
+  const close = useCallback(async (projectId: string, flow: Flow) => {
+    const next = apply(projectId, await flowApi.close(projectId, flow.id))
+    setWrappingUp(flow.id, false)
+    return next
+  }, [apply, setWrappingUp])
   const handOff = useCallback(async (projectId: string, flow: Flow, input: Parameters<FlowContextValue['handOff']>[2]) => {
     setLaunching((current) => new Set(current).add(flow.id))
     let result: FlowHandOffResult
@@ -262,8 +269,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   }, [entries, setOpenState])
 
   const value = useMemo<FlowContextValue>(() => ({
-    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff,
-  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff])
+    entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff,
+  }), [entries, availability, wrappingUp, launching, handedOff, watch, openConversations, watchOpen, loadAvailability, start, pause, resume, discard, close, handOff, returnToFlow, relaunch, setWrappingUp, forgetHandOff])
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>
 }

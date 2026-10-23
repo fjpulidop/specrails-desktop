@@ -1007,7 +1007,9 @@
         "noSpec": "La spec du Flow n’est pas encore prête"
       },
       "viewChangesStats": "Voir les modifications · {{files}}, +{{additions}} −{{deletions}}",
-      "handOff": "Remettre"
+      "handOff": "Remettre",
+      "close": "Fermer ce Flow",
+      "closed": "Flow fermé. La branche est conservée."
     },
     "preview": {
       "open": "Aperçu",
@@ -1129,6 +1131,14 @@
       "changes": "Modifications",
       "cost": "Coût jusqu’ici",
       "actions": "Autres actions du Flow"
+    },
+    "close": {
+      "title": "Fermer ce Flow ?",
+      "body": "La conversation quitte Flow. Rien n’est supprimé :",
+      "keptBranch": "Branche conservée :",
+      "keptSpec": "La spec reste sur le tableau, sans le libellé En Flow",
+      "cancel": "Pas maintenant",
+      "confirm": "Fermer le Flow, garder la branche"
     }
   },
   "flowReturn": {
@@ -1239,7 +1249,8 @@
       "started": "démarré",
       "returned": "de retour d’un rail",
       "handed_off": "remis à un rail",
-      "discarded": "abandonné"
+      "discarded": "abandonné",
+      "closed": "fermé, branche conservée"
     }
   }
 }

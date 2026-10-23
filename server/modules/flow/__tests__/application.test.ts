@@ -211,6 +211,33 @@ describe('startFlow', () => {
     expect(repository.get('flow-1')?.state).toBe('needs-review')
     expect(warn).toHaveBeenCalled()
   })
+
+  it('closes a needs-review Flow keeping its branch: nothing is released, the history says it left', async () => {
+    const conversation = { postReturnCard: vi.fn(), startReturnTurn: vi.fn(async () => {}), postBoundary: vi.fn() }
+    const { service, worktrees, agent, repository, tickets } = setup({ conversation })
+    agent.open.mockRejectedValueOnce(new Error('boom'))
+    worktrees.release.mockRejectedValueOnce(new Error('worktree busy'))
+    await expect(service.startFlow(startInput)).rejects.toThrow('boom')
+    worktrees.release.mockClear()
+    // The worktree survived: the panel still reads what it holds.
+    await expect(service.diffSummary('flow-1')).resolves.toMatchObject({ totals: { files: 1 } })
+    const closed = await service.closeFlow('flow-1')
+    expect(closed).toMatchObject({ state: 'discarded', branch: 'feat/7-idea' })
+    expect(repository.get('flow-1')?.state).toBe('discarded')
+    expect(worktrees.release).not.toHaveBeenCalled()
+    expect(tickets.deletePlaceholder).not.toHaveBeenCalled()
+    expect(tickets.setFlowState).toHaveBeenLastCalledWith(7, 'closed')
+    expect(conversation.postBoundary).toHaveBeenLastCalledWith({ conversationId: 'conv-1', flowId: 'flow-1', event: 'left', reason: 'closed', branch: 'feat/7-idea' })
+    // Idempotent: a second close changes nothing and posts nothing.
+    await service.closeFlow('flow-1')
+    expect(conversation.postBoundary).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses to close an open Flow (that is a discard)', async () => {
+    const { service } = setup()
+    await service.startFlow(startInput)
+    await expect(service.closeFlow('flow-1')).rejects.toBeInstanceOf(FlowTransitionError)
+  })
 })
 
 describe('startFlow in a workspace / multi-repository project', () => {

@@ -412,8 +412,11 @@ describe('SpecCard spec addenda badge', () => {
       expect(screen.getByTestId('flow-badge-42')).toHaveTextContent('Flow paused')
     })
 
-    it('hides the label once delivered, without metadata, or on a rail (handed off)', () => {
+    it('hides the label once delivered or closed, without metadata, or on a rail (handed off)', () => {
       const { rerender } = render(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'delivered', conversationId: 'c1' } } })} onClick={onClickMock} />)
+      expect(screen.queryByTestId('flow-badge-42')).toBeNull()
+      // A needs-review Flow closed with its branch kept releases the spec too.
+      rerender(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'closed', conversationId: 'c1' } } })} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
       rerender(<SpecCard ticket={makeTicket()} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()

@@ -318,10 +318,13 @@ describe('missions extension seam (Flow mode)', () => {
         message('m3', 'assistant', 'after Flow'),
         boundary('b3', 'entered', 'returned'),
         message('m4', 'assistant', 'back in Flow'),
+        boundary('b4', 'left', 'closed'),
       ])
       const lines = await screen.findAllByTestId('agent-flow-boundary')
       // The return is told by the Back to Flow line: its boundary only marks the turns.
-      expect(lines).toHaveLength(2)
+      expect(lines).toHaveLength(3)
+      // A needs-review Flow closed with its branch kept says so.
+      expect(lines[2]).toHaveTextContent('closed, branch kept')
       expect(lines[0]).toHaveTextContent('Entered Flow')
       expect(lines[0]).toHaveTextContent('feat/7-calm')
       expect(lines[1]).toHaveTextContent('Left Flow')
