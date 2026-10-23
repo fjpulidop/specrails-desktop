@@ -51,7 +51,7 @@ export const RUN_STRIP_PRIMARY =
 
 /** A quiet control inside the strip (switcher, overflow). */
 const QUIET_CONTROL =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] text-foreground/60 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 
 interface StripEntry {
   key: string
@@ -157,7 +157,7 @@ export interface AgentRunStripProps {
 export function AgentRunStrip({ conversationId, projectId, inline, deliveries = [], proposals = [] }: AgentRunStripProps) {
   const { t } = useTranslation('agent')
   const reduced = useReducedMotion()
-  const { describeRun } = useMissionExtensions()
+  const { describeRun, ConversationDock } = useMissionExtensions()
   const extensionRuns = useMissionLiveRuns({ conversationId, projectId, inline })
 
   // What the hidden cards measured: their live summary and each run's vitals.
@@ -246,6 +246,8 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           aria-label={totals.costUsd !== null ? t('prCard.runCostAria', { cost: formatRunCost(totals.costUsd) }) : t('runStrip.costNone')}
         >
           {totals.costUsd !== null ? `${formatRunCost(totals.costUsd)}${totals.costPartial ? '*' : ''}` : '—'}
+          {/* The `*` is said in words too, not only in a tooltip. */}
+          {totals.costPartial && <span className="sr-only" data-testid="mission-run-strip-cost-partial"> ({t('runStrip.costPartial')})</span>}
         </span>
       </>
     )
@@ -509,6 +511,9 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
 
   // ── Announcements (polite): state changes, a run leaving the strip, needs you ──
   const [announcement, setAnnouncement] = useState('')
+  // The extension's dock (Flow) speaks through this same region: one voice.
+  const announce = useCallback((message: string) => { if (message) setAnnouncement(message) }, [])
+  const dock = ConversationDock ? <ConversationDock conversationId={conversationId} projectId={projectId} inline={inline} announce={announce} /> : null
   const announced = useRef<Map<string, { text: string; label: string }> | null>(null)
   const announceSignature = entries.map((entry) => `${entry.key}\u0000${entry.announcement ?? ''}`).join('\u0001')
   useEffect(() => {
@@ -538,9 +543,30 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the announcements
   }, [announceSignature])
 
+  // The "+N" menu: roving focus (arrows, Home/End), Esc back to its button.
   const [overflowOpen, setOverflowOpen] = useState(false)
+  const [menuIndex, setMenuIndex] = useState(0)
+  const moreRef = useRef<HTMLButtonElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!overflowOpen) return
+    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    const item = items?.[Math.min(menuIndex, (items?.length ?? 1) - 1)]
+    if (item) { try { item.focus({ preventScroll: true }) } catch { item.focus() } }
+  }, [overflowOpen, menuIndex])
+  const closeMenu = useCallback((restoreFocus: boolean) => {
+    setOverflowOpen(false)
+    if (restoreFocus) moreRef.current?.focus()
+  }, [])
   if (!selected) {
-    return <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+    // Same positions as the full strip below: the dock keeps its state.
+    return (
+      <>
+        {null}
+        {dock}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+      </>
+    )
   }
 
   // The run's declared primary; a run that needs the person but declares none
@@ -559,7 +585,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   }
   const onKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key !== 'Escape') return
-    if (overflowOpen) { setOverflowOpen(false); event.stopPropagation(); return }
+    if (overflowOpen) { closeMenu(true); event.stopPropagation(); return }
     if (panelOpen) { event.stopPropagation(); closePanel(true) }
   }
 
@@ -568,6 +594,23 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   const inlineOthers = entries.length <= 3 ? others : [...others].sort((a, b) => urgencyOrder(a) - urgencyOrder(b)).slice(0, 2)
   const overflow = others.filter((entry) => !inlineOthers.includes(entry))
   const overflowNeedsYou = overflow.some((entry) => needsYou.has(entry.key))
+  const openMenu = (index: number): void => {
+    setMenuIndex(index < 0 ? overflow.length - 1 : index)
+    setOverflowOpen(true)
+  }
+  const onMoreKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMenu(0) }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); openMenu(-1) }
+  }
+  const onMenuKeyDown = (event: React.KeyboardEvent): void => {
+    const last = overflow.length - 1
+    if (event.key === 'ArrowDown') { event.preventDefault(); setMenuIndex((i) => (i >= last ? 0 : i + 1)) }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); setMenuIndex((i) => (i <= 0 ? last : i - 1)) }
+    else if (event.key === 'Home') { event.preventDefault(); setMenuIndex(0) }
+    else if (event.key === 'End') { event.preventDefault(); setMenuIndex(last) }
+    else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeMenu(true) }
+    else if (event.key === 'Tab') { setOverflowOpen(false) }
+  }
   const switchTo = (key: string): void => {
     choose(key)
     if (openKey) setOpenKey(key)
@@ -585,7 +628,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
         {selected.headline}
       </span>
       {selected.meta && (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-foreground/55" data-testid="mission-run-strip-meta">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-foreground/70" data-testid="mission-run-strip-meta">
           {selected.meta}
         </span>
       )}
@@ -593,6 +636,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
   )
 
   return (
+    <>
     <div
       ref={stripRef}
       onKeyDown={onKeyDown}
@@ -691,7 +735,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           {(entries.length > 1 || selected.source !== 'extension') && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
               {entries.length === 1 ? (
-                <span className="px-1 text-[11px] text-foreground/50" data-testid="mission-run-strip-label">{selected.label}</span>
+                <span className="max-w-[11rem] truncate px-1 text-[11px] text-foreground/70" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
               ) : (
                 <>
                   {[selected, ...inlineOthers].map((entry) => (
@@ -702,49 +746,56 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
                       data-testid="mission-run-strip-switch"
                       data-run-key={entry.key}
                       aria-pressed={entry.key === selected.key}
+                      aria-label={`${entry.label}: ${entry.headlineText}${needsYou.has(entry.key) ? `, ${t('runStrip.needsYou')}` : ''}`}
                       title={`${entry.label} · ${entry.headlineText}`}
                       onClick={() => switchTo(entry.key)}
                       className={cn(QUIET_CONTROL, entry.key === selected.key && 'bg-surface text-foreground')}
                     >
                       <ToneDot tone={entry.tone} />
-                      <span className="max-w-[7rem] truncate">{entry.label}</span>
+                      <span className="max-w-[11rem] truncate">{entry.label}</span>
                       {needsYou.has(entry.key) && <NeedsYouMark />}
                     </button>
                   ))}
                   {overflow.length > 0 && (
                     <>
                       <button
+                        ref={moreRef}
                         type="button"
                         data-agent-interactive
                         data-testid="mission-run-strip-more"
                         aria-haspopup="menu"
                         aria-expanded={overflowOpen}
+                        aria-controls={`${panelId}-more-menu`}
+                        onKeyDown={onMoreKeyDown}
                         aria-label={overflowNeedsYou
                           ? `${t('runStrip.more', { count: overflow.length })}, ${t('runStrip.needsYou')}`
                           : t('runStrip.more', { count: overflow.length })}
-                        onClick={() => setOverflowOpen((value) => !value)}
+                        onClick={() => (overflowOpen ? closeMenu(false) : openMenu(0))}
                         className={QUIET_CONTROL}
                       >
                         +{overflow.length}
                         {overflowNeedsYou && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-primary" data-testid="mission-run-strip-more-needs-you" />}
                       </button>
                       {overflowOpen && (
-                        <div role="menu" aria-label={t('runStrip.switcher')} className="absolute bottom-full right-0 z-30 mb-2 min-w-[10rem] rounded-lg border border-border/60 bg-card p-1 shadow-[0_10px_28px_-12px_rgb(0_0_0/0.5)]">
-                          {overflow.map((entry) => (
+                        <div ref={menuRef} id={`${panelId}-more-menu`} role="menu" aria-label={t('runStrip.switcher')} onKeyDown={onMenuKeyDown} className="absolute bottom-full right-0 z-30 mb-2 min-w-[10rem] rounded-lg border border-border/60 bg-card p-1 shadow-[0_10px_28px_-12px_rgb(0_0_0/0.5)]">
+                          {overflow.map((entry, index) => (
                             <button
                               key={entry.key}
                               type="button"
                               role="menuitem"
+                              tabIndex={index === menuIndex ? 0 : -1}
+                              aria-label={`${entry.label}: ${entry.headlineText}${needsYou.has(entry.key) ? `, ${t('runStrip.needsYou')}` : ''}`}
                               data-agent-interactive
                               data-testid="mission-run-strip-switch"
                               data-run-key={entry.key}
                               onClick={() => switchTo(entry.key)}
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] text-foreground/75 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                              title={`${entry.label} · ${entry.headlineText}`}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] text-foreground/85 hover:bg-surface focus:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
                               <ToneDot tone={entry.tone} />
                               <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                               {needsYou.has(entry.key) && <NeedsYouMark />}
-                              <span className="max-w-[9rem] truncate text-foreground/45">{entry.headlineText}</span>
+                              <span className="max-w-[12rem] truncate text-foreground/70">{entry.headlineText}</span>
                             </button>
                           ))}
                         </div>
@@ -757,8 +808,10 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           )}
         </motion.div>
       </div>
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
     </div>
+    {dock}
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="mission-run-strip-announcer">{announcement}</div>
+    </>
   )
 }
 

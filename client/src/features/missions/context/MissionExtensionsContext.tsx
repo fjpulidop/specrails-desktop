@@ -9,9 +9,10 @@
 //   - useConversationMode: a hook returning the visual/behavioural mode of a
 //     conversation (surface data-attributes, the branch the git strip shows or
 //     whether it hides, whether a busy send interrupts the running turn).
-//   - ConversationDock: a component rendered above the composer for what the
-//     extension needs mounted there that is NOT a run (Flow: its polite
-//     state announcer). Runs go through useLiveRuns.
+//   - ConversationDock: a component the run strip mounts for what the
+//     extension needs mounted there that is NOT a run (Flow: its state
+//     announcements, said through the strip's ONE polite live region via
+//     `announce`). Runs go through useLiveRuns.
 //   - useLiveRuns: the extension's live runs for a conversation (Flow: the
 //     open Flow, its hand-off and the launch in flight). Missions renders
 //     them in the ONE run strip above the composer, next to its own runs.
@@ -88,6 +89,11 @@ export interface MissionConversationSlotProps {
   conversationId: string
   projectId: string | null
   inline: boolean
+}
+
+export interface MissionConversationDockProps extends MissionConversationSlotProps {
+  /** Says something politely through the run strip's ONE live region. */
+  announce: (message: string) => void
 }
 
 export interface MissionRunCardActionsProps {
@@ -184,7 +190,7 @@ export interface MissionRunDescription {
 export interface MissionExtensions {
   fenceCards?: Readonly<Record<string, ComponentType<MissionFenceCardProps>>>
   useConversationMode?: (conversationId: string | null, projectId: string | null) => MissionConversationMode | null
-  ConversationDock?: ComponentType<MissionConversationSlotProps>
+  ConversationDock?: ComponentType<MissionConversationDockProps>
   RunCardActions?: ComponentType<MissionRunCardActionsProps>
   RunFailureOutcome?: ComponentType<MissionRunFailureOutcomeProps>
   useLiveRuns?: (props: MissionConversationSlotProps) => readonly MissionLiveRun[]

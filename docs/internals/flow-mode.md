@@ -524,7 +524,7 @@ mission title, `hideGitStrip` — the run strip shows and copies the worktree
 branch; only an active Flow adds `data-flow="active"` and interrupting sends),
 its runs in the mission's run strip (`useLiveRuns`) with the words for the
 steps of Flow → Spec (`describeRun`), the mission list's "In Flow" mark
-(`useConversationMarks`), a polite state announcer (`ConversationDock`), the
+(`useConversationMarks`), its state announcements (`ConversationDock`, mounted by the run strip and speaking through the strip's ONE polite live region via `announce`), the
 run card's Back to Flow / Relaunch and the `RunFailureOutcome` of a failed
 Flow → Spec run.
 

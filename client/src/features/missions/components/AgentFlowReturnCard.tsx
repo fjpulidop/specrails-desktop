@@ -101,21 +101,21 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
               </p>
               {files.length > 0 && (
                 <>
-                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-foreground/50">{t('flowReturn.unexplained')}</p>
+                  <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-foreground/70">{t('flowReturn.unexplained')}</p>
                   <ul className="mt-0.5 space-y-0.5" data-testid="agent-flow-return-unexplained">
-                    {files.map((file) => <li key={file} className="truncate font-mono text-[10px] text-foreground/70" title={file}>{file}</li>)}
+                    {files.map((file) => <li key={file} className="truncate font-mono text-[11px] text-foreground/70" title={file}>{file}</li>)}
                   </ul>
                   {(hiddenFiles > 0 || allFiles) && derivation.unexplainedFiles.length > VISIBLE_FILES && (
-                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 text-[10px] font-medium text-accent-info hover:underline">
+                    <button type="button" data-agent-interactive onClick={() => setAllFiles((value) => !value)} className="mt-1 text-[11px] font-medium text-accent-info hover:underline">
                       {allFiles ? t('runCard.review.showLess') : t('runCard.review.showAll', { count: derivation.unexplainedFiles.length })}
                     </button>
                   )}
-                  {derivation.unexplainedOmitted > 0 && <p className="mt-0.5 text-[10px] text-foreground/45">{t('flowReturn.moreFiles', { count: derivation.unexplainedOmitted })}</p>}
+                  {derivation.unexplainedOmitted > 0 && <p className="mt-0.5 text-[11px] text-foreground/70">{t('flowReturn.moreFiles', { count: derivation.unexplainedOmitted })}</p>}
                 </>
               )}
             </div>
           )}
-          <p className="mt-1.5 leading-4 text-foreground/55">{t('flowReturn.next')}</p>
+          <p className="mt-1.5 leading-4 text-foreground/70">{t('flowReturn.next')}</p>
         </div>
       )}
     </section>

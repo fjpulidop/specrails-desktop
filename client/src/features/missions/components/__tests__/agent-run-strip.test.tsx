@@ -610,6 +610,37 @@ describe('several live runs', () => {
     expect(s).toHaveAttribute('data-run-key', 'delivery:d2')
   })
 
+  it('the "+N" menu works from the keyboard: arrows, Home/End, roving focus, Esc back to its button', async () => {
+    await renderPanelWithMessages([
+      sysRow('s1', { prDeliveryId: 'd1', railIndex: 0, decision: 'building', phase: 'running' }),
+      sysRow('s2', { prDeliveryId: 'd2', railIndex: 1, decision: 'building', phase: 'running' }),
+      sysRow('s3', { prDeliveryId: 'd3', railIndex: 2, decision: 'building', phase: 'running' }),
+      sysRow('s4', { prDeliveryId: 'd4', railIndex: 3, decision: 'pr_failed' }),
+      sysRow('s5', { prDeliveryId: 'd5', railIndex: 4, decision: 'on_review' }),
+    ])
+    const s = await screen.findByTestId('mission-run-strip')
+    const more = within(s).getByTestId('mission-run-strip-more')
+    expect(more).toHaveTextContent('+2')
+    more.focus()
+    fireEvent.keyDown(more, { key: 'ArrowDown' })
+    const menu = screen.getByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    await waitFor(() => expect(document.activeElement).toBe(items[0]))
+    expect(items[0]).toHaveAttribute('tabindex', '0')
+    expect(items[1]).toHaveAttribute('tabindex', '-1')
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    await waitFor(() => expect(document.activeElement).toBe(items[1]))
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    await waitFor(() => expect(document.activeElement).toBe(items[0]))
+    fireEvent.keyDown(menu, { key: 'End' })
+    await waitFor(() => expect(document.activeElement).toBe(items[1]))
+    fireEvent.keyDown(menu, { key: 'Home' })
+    await waitFor(() => expect(document.activeElement).toBe(items[0]))
+    fireEvent.keyDown(menu, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(more)
+  })
+
   it('a run leaving the strip keeps the others; the settled card returns to history', async () => {
     await renderPanelWithMessages(two)
     await screen.findByTestId('mission-run-strip')

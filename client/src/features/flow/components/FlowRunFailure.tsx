@@ -41,7 +41,7 @@ export function FlowRunFailure({
       </p>
       {causeLine && (
         <p className="mt-1 break-words pl-5 leading-4 text-foreground/75" data-testid="flow-run-failure-cause">
-          <span className="text-foreground/50">{t('flow.failure.cause')} </span>
+          <span className="text-foreground/70">{t('flow.failure.cause')} </span>
           {causeLine}
         </p>
       )}
@@ -62,7 +62,7 @@ export function FlowRunFailure({
         )
       )}
       {technical.length > 0 && (
-        <details className="group mt-1.5 pl-5 text-[10px] leading-4 text-foreground/55" data-testid="flow-run-failure-technical">
+        <details className="group mt-1.5 pl-5 text-[11px] leading-4 text-foreground/70" data-testid="flow-run-failure-technical">
           <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded font-medium text-foreground/60 hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             {t('flow.failure.technical.title')}
@@ -70,8 +70,8 @@ export function FlowRunFailure({
           <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
             {technical.map(([label, value]) => (
               <div key={label} className="contents">
-                <dt className="text-foreground/45">{label}</dt>
-                <dd className="min-w-0 break-words font-mono text-foreground/65">{value}</dd>
+                <dt className="text-foreground/70">{label}</dt>
+                <dd className="min-w-0 break-words font-mono text-foreground/80">{value}</dd>
               </div>
             ))}
           </dl>

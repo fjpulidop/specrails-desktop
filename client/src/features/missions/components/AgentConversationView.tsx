@@ -39,7 +39,7 @@ import { useMissionSession, useMissionSessions } from '../context/MissionSession
 import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
 import { writeComposerDraft } from '../lib/agent-composer-drafts'
 import type { AgentSubagent } from '../lib/agent-api'
-import { useMissionConversationMode, useMissionExtensions, useMissionTurnMark, type MissionModeBadge } from '../context/MissionExtensionsContext'
+import { useMissionConversationMode, useMissionTurnMark, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -227,7 +227,6 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   }
 
   // Mission extensions (Flow mode): surface attributes + a dock above the composer.
-  const { ConversationDock } = useMissionExtensions()
   const conversationMode = useMissionConversationMode(active?.id ?? null, refsProjectId)
 
   const inline = variant === 'inline'
@@ -438,11 +437,6 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Extension dock (Flow: its polite state announcer): above the composer. */}
-        {active && ConversationDock && (
-          <ConversationDock conversationId={active.id} projectId={refsProjectId} inline={inline} />
-        )}
 
         {inline ? (
           // Docked composer card — same visual language as the EMPTY hero card

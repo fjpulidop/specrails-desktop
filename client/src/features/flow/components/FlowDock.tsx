@@ -1,12 +1,12 @@
 // ─── Flow dock (missions ConversationDock slot) ───────────────────────────────
 // The Flow's runs live in the mission's run strip (FlowLiveRuns). What stays
-// in the dock is a polite live region announcing the Flow's state changes
-// (active, paused, needs review, handed off, back in Flow, delivered,
-// discarded) for assistive technology.
+// in the dock are the Flow's state announcements (active, paused, needs
+// review, handed off, back in Flow, delivered, discarded), said through the
+// strip's ONE polite live region (`announce`) so nothing is announced twice.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { MissionConversationSlotProps } from '../../missions/context/MissionExtensionsContext'
+import type { MissionConversationDockProps } from '../../missions/context/MissionExtensionsContext'
 import { useConversationFlow, useFlowContext } from '../context/FlowContext'
 import type { Flow } from '../lib/flow-api'
 
@@ -19,24 +19,23 @@ export function flowStateAnnouncement(previous: Flow['state'] | null, next: Flow
   return null
 }
 
-/** Polite, visually hidden announcement of the Flow's state changes. */
-function FlowStateAnnouncer({ flow }: { flow: Flow | null }) {
+/** Says the Flow's state changes through the run strip's one polite live region. */
+function FlowStateAnnouncer({ flow, announce }: { flow: Flow | null; announce: (message: string) => void }) {
   const { t } = useTranslation('agent')
   const previous = useRef<{ id: string; state: Flow['state'] } | null>(null)
-  const [message, setMessage] = useState('')
   useEffect(() => {
     if (!flow) return
     const before = previous.current && previous.current.id === flow.id ? previous.current.state : null
     previous.current = { id: flow.id, state: flow.state }
     const key = flowStateAnnouncement(before, flow.state)
-    if (key) setMessage(t(`flow.announce.${key}`))
-  }, [flow, t])
-  return <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="flow-state-announcer">{message}</div>
+    if (key) announce(t(`flow.announce.${key}`))
+  }, [flow, t, announce])
+  return null
 }
 
-/** The missions ConversationDock slot: the Flow's polite state announcer (runs live in the strip). */
-export function FlowDock({ conversationId, projectId }: MissionConversationSlotProps) {
+/** The missions ConversationDock slot: the Flow's state announcements (runs live in the strip). */
+export function FlowDock({ conversationId, projectId, announce }: MissionConversationDockProps) {
   const ctx = useFlowContext()
   const { flow } = useConversationFlow(conversationId, projectId)
-  return <FlowStateAnnouncer flow={ctx && projectId ? flow : null} />
+  return <FlowStateAnnouncer flow={ctx && projectId ? flow : null} announce={announce} />
 }

@@ -23,7 +23,6 @@ import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 import { FlowProvider, useConversationFlow } from '../context/FlowContext'
 import { FlowMissionsBridge, useFlowConversationMode } from '../components/FlowMissionsBridge'
 import { FlowEntryCard } from '../components/FlowEntryCard'
-import { FlowDock } from '../components/FlowDock'
 import { AgentRunStrip } from '../../missions/components/AgentRunStrip'
 import { FlowOfferCard } from '../components/FlowOfferCard'
 import { describeFlowRun } from '../components/FlowLiveRuns'
@@ -87,14 +86,9 @@ async function openFlowPanel() {
   return screen.findByTestId('flow-panel')
 }
 
-/** What missions mounts above the composer: the run strip and the extension dock. */
+/** What missions mounts above the composer: the run strip (it mounts the extension dock). */
 function FlowStrip() {
-  return (
-    <>
-      <AgentRunStrip conversationId="c1" projectId="p1" inline />
-      <FlowDock conversationId="c1" projectId="p1" inline />
-    </>
-  )
+  return <AgentRunStrip conversationId="c1" projectId="p1" inline />
 }
 
 function Providers({ children }: { children: ReactNode }) {
@@ -327,13 +321,15 @@ describe('Flow mode in the conversation', () => {
   it('announces state changes politely, including the way back from a rail', async () => {
     const { rerender } = render(<Providers><FlowStrip /></Providers>)
     await screen.findByTestId('mission-run-strip')
-    const announcer = screen.getByTestId('flow-state-announcer')
+    // ONE polite live region: the strip's (the Flow dock speaks through it).
+    expect(screen.getAllByRole('status').filter((node) => node.getAttribute('aria-live') === 'polite')).toHaveLength(1)
+    const announcer = screen.getByTestId('mission-run-strip-announcer')
     expect(announcer).toHaveAttribute('aria-live', 'polite')
     expect(announcer).toHaveTextContent('')
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'handed_off' }) }))
-    await waitFor(() => expect(screen.getByTestId('flow-state-announcer')).toHaveTextContent('Flow handed off to a rail.'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Flow handed off to a rail.'))
     act(() => wsHandlers.get('flow-mode')!({ type: 'flow.state', projectId: 'p1', conversationId: 'c1', flowId: 'f1', flow: flow({ state: 'active' }) }))
-    await waitFor(() => expect(screen.getByTestId('flow-state-announcer')).toHaveTextContent('Back in Flow'))
+    await waitFor(() => expect(screen.getByTestId('mission-run-strip-announcer')).toHaveTextContent('Back in Flow'))
     rerender(<Providers><FlowStrip /></Providers>)
   })
 
@@ -413,6 +409,17 @@ describe('Flow mode in the conversation', () => {
     render(<Providers><FlowStrip /></Providers>)
     await openFlowPanel()
     await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('—'))
+  })
+
+  it('a partial cost explains its "*" with a visible note in the panel', async () => {
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input, init) => String(input).endsWith('/cost')
+      ? respond(200, { flowId: 'f1', costUsd: 0.5, turns: 3, unpricedTurns: 1 })
+      : base(input, init))
+    render(<Providers><FlowStrip /></Providers>)
+    await openFlowPanel()
+    await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.500*'))
+    expect(screen.getByTestId('flow-bar-cost-partial')).toHaveTextContent('1 turn has no provider-reported cost and is not included')
   })
 
   it('pauses, then offers Resume Flow and resumes', async () => {

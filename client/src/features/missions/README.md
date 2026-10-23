@@ -81,7 +81,11 @@ never fired from the strip: it opens the panel with focus on the card's own
 control. Clicking the strip opens that card as a panel
 anchored above the strip (not a modal: Esc or a click in the conversation
 closes it, focus returns to the strip). The cards stay mounted while hidden and
-report the run's step and vitals to the strip. Extensions add their runs
+report the run's step and vitals to the strip. The strip owns the mission's
+ONE polite live region (the extension's `ConversationDock` speaks through its
+`announce`). Its "+N" menu has roving focus (arrows, Home/End, Esc back to the
+button); switcher entries carry their full name and state as accessible name
+and tooltip; a partial cost's `*` is also said in words. Extensions add their runs
 through `useLiveRuns` (Flow) and name steps through `describeRun`.
 
 The history never repeats what is live: each milestone is one event line

@@ -32,8 +32,9 @@ Flow's runs in the mission's run strip (`useLiveRuns` → [`FlowLiveRuns`](compo
 the words for the steps of Flow → Spec (`describeRun` → `describeFlowRun`),
 the mission list's "In Flow" mark (`useConversationMarks` →
 [`FlowConversationMarks`](components/FlowConversationMarks.tsx), fed by
-`GET /flow/open` and `flow.state`), the polite state announcer
-(`ConversationDock` → `FlowDock`), the run card's Back to Flow / Relaunch
+`GET /flow/open` and `flow.state`), the state announcements
+(`ConversationDock` → `FlowDock`, said through the run strip's one live
+region), the per-turn mark (`useTurnMark`), the run card's Back to Flow / Relaunch
 (`FlowRunCardActions`, Back to Flow is the run's declared `local` primary) and
 `RunFailureOutcome` (`FlowRunFailure`): a Flow → Spec run that failed outright
 is explained in the person's words — a localized headline per failing step
