@@ -664,6 +664,22 @@ describe('fresh launch and delivery artifact isolation with real Git', () => {
     })
   })
 
+  it('audits committed symlinks among the changed paths only (large trees never overflow the git buffer)', async () => {
+    await repository(async (dir, git) => {
+      const baseline = git(['rev-parse', 'HEAD']).trim()
+      fs.writeFileSync(path.join(dir, 'app.ts'), 'changed\n')
+      fs.symlinkSync('/etc/hosts', path.join(dir, 'external-link'))
+      git(['add', '.']); git(['commit', '-q', '-m', 'agent commit'])
+      const calls: string[][] = []
+      const spy = { run: (args: string[], cwd: string) => { calls.push(args); return defaultGitRunner.run(args, cwd) } }
+      const result = await commitWorktreeAndVerify(spy, dir, 'delivery', [], baseline)
+      expect(result.error).toContain('External absolute symlink already committed on the delivery branch: "external-link"')
+      const lsTree = calls.filter((args) => args[0] === 'ls-tree' && args.includes('HEAD'))
+      expect(lsTree.length).toBeGreaterThan(0)
+      for (const args of lsTree) expect(args).not.toContain('-r')
+    })
+  })
+
   it('blocks unknown external links and commits only code when overlay exclusions prove ownership', async () => {
     await repository(async (dir, git) => {
       fs.mkdirSync(path.join(dir, '.codex/skills'), { recursive: true })

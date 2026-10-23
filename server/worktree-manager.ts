@@ -399,10 +399,17 @@ async function deliveryHygieneError(git: GitRunner, worktreePath: string, baseRe
   const changed = parseNulTerminatedPaths(await gitRun(git, ['diff', '--name-only', '--no-renames', '-z', baseRef, 'HEAD', '--'], worktreePath), 'Committed delivery audit')
   if (changed.error) return changed.error
   if (changed.paths.length) {
-    const tree = parseNulTerminatedPaths(await gitRun(git, ['ls-tree', '-r', '-z', 'HEAD'], worktreePath), 'Committed symlink audit')
-    if (tree.error) return tree.error
+    // Only the changed paths: listing the whole tree overflows the git output
+    // buffer on large monorepos. Chunked to stay under argv limits.
+    const treeEntries: string[] = []
+    for (let start = 0; start < changed.paths.length; start += 500) {
+      const chunk = changed.paths.slice(start, start + 500)
+      const tree = parseNulTerminatedPaths(await gitRun(git, ['ls-tree', '-z', 'HEAD', '--', ...chunk], worktreePath), 'Committed symlink audit')
+      if (tree.error) return tree.error
+      treeEntries.push(...tree.paths)
+    }
     const paths = new Set(changed.paths)
-    for (const entry of tree.paths) {
+    for (const entry of treeEntries) {
       const tab = entry.indexOf('\t'), metadata = entry.slice(0, tab).split(' '), rel = entry.slice(tab + 1)
       if (metadata[0] !== '120000' || !paths.has(rel)) continue
       if (tab < 0 || metadata[1] !== 'blob' || !/^[a-f0-9]{40,64}$/i.test(metadata[2])) return 'Committed symlink audit returned malformed tree evidence'
