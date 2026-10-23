@@ -511,7 +511,7 @@ describe('strip panel', () => {
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/pr-decision'))).toBe(false)
   })
 
-  it('a LOCAL primary (Relaunch) runs in place: one click, no panel, focus stays on the strip', async () => {
+  it('Relaunch spends money on a new run: OUTWARD, the strip opens the card focused on it and never relaunches itself', async () => {
     await renderPanelWithMessages([sysRow('s1', { decision: 'implementation_failed', implementationOutcome: 'failed', runIds: ['r1'] })])
     const s = await screen.findByTestId('mission-run-strip')
     expect(s).toHaveAttribute('data-tone', 'failed')
@@ -519,12 +519,12 @@ describe('strip panel', () => {
     expect(within(s).getByTestId('mission-run-strip-headline').className).toContain('text-destructive')
     const primary = await within(s).findByTestId('mission-run-strip-primary')
     expect(primary).toHaveTextContent('Relaunch')
-    expect(primary).toHaveAttribute('data-kind', 'local')
-    primary.focus()
+    expect(primary).toHaveAttribute('data-kind', 'outward')
+    const relaunch = within(s).getByTestId('agent-pr-decision-card').querySelector<HTMLButtonElement>('[data-run-primary-id="relaunch"]')!
     await act(async () => { fireEvent.click(primary) })
-    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith('/rails/0/relaunch') && init?.method === 'POST')).toBe(true))
-    expect(panel()).toHaveAttribute('data-open', 'false')
-    expect(document.activeElement).toBe(primary)
+    expect(panel()).toHaveAttribute('data-open', 'true')
+    await waitFor(() => expect(document.activeElement).toBe(relaunch))
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/rails/0/relaunch'))).toBe(false)
   })
 })
 

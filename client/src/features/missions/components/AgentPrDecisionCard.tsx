@@ -888,7 +888,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         </RunPrimaryButton>
       )}
       {actionableRun.recoverableSteps.length > 0 && (
-        <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'local', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'outward', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'recover')}
           className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
           <Wrench className="h-3 w-3" />
@@ -908,7 +908,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   ) : null
   const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
-      <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'local', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
+      <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'outward', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
         className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>

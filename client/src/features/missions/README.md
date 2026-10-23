@@ -75,10 +75,10 @@ switcher and a polite announcement. A primary action appears only when the
 run needs the person and is DECLARED by the run's card through
 [`run-primary.tsx`](components/run-primary.tsx) (`RunPrimaryButton` /
 `useRunPrimary`: id, label, kind, handler — no DOM reading). A `local` action
-(Resume, Relaunch, Back to Flow, Mark done) runs in one click in place; an
-`outward` one (Create PR, Publish, Reopen, Approve, Launch, retry delivery) is
-never fired from the strip: it opens the panel with focus on the card's own
-control. Clicking the strip opens that card as a panel
+(Resume, Back to Flow, Mark done) runs in one click in place; an `outward` one
+(Create PR, Publish, Reopen, Approve, Launch, retry delivery, and Relaunch and
+Recover because they spend money on a new run) is never fired from the strip:
+it opens the panel with focus on the card's own control. Clicking the strip opens that card as a panel
 anchored above the strip (not a modal: Esc or a click in the conversation
 closes it, focus returns to the strip). The cards stay mounted while hidden and
 report the run's step and vitals to the strip. The strip owns the mission's

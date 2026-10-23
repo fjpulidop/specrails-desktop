@@ -3,10 +3,12 @@
 // card (mounted, hidden, inside the strip's panel) DECLARES that action here —
 // id, label, kind and handler — instead of the strip reading the DOM.
 //
-//   kind 'local'    — reversible, inward actions (Resume, Relaunch, Back to
-//                     Flow, Mark done): the strip performs them in one click.
-//   kind 'outward'  — actions other people see or that start a delivery
-//                     (Create PR, Publish, Reopen, Approve, Launch, merge):
+//   kind 'local'    — reversible, inward actions that spend nothing new
+//                     (Resume, Back to Flow, Mark done): the strip performs
+//                     them in one click.
+//   kind 'outward'  — actions other people see, that start a delivery or
+//                     that spend money on a new run (Create PR, Publish,
+//                     Reopen, Approve, Launch, merge, Relaunch, Recover):
 //                     the strip NEVER fires them. Its button opens the panel
 //                     with focus on the card's own control, so the card's
 //                     confirmation and refusals stay in charge.
