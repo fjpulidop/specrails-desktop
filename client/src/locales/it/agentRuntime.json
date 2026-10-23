@@ -627,5 +627,16 @@
     "body": "Lo sviluppatore e il revisore usano attualmente lo stesso provider. È solo un suggerimento: non cambia nulla finché non lo applichi.",
     "apply": "Applica",
     "dismiss": "Ignora"
+  },
+  "triageEngine": {
+    "title": "Motore del triage delle spec",
+    "hint": "Il triage legge ogni spec nuova o modificata e consiglia il loop con cui avviarla. È una chiamata breve e strutturata per spec. Per impostazione predefinita usa il provider principale del progetto con il suo modello più economico.",
+    "provider": "Provider del triage",
+    "inherit": "Provider principale",
+    "model": "Modello",
+    "cheapestModel": "Modello più economico (predefinito)",
+    "loading": "Caricamento del motore di triage…",
+    "loadFailed": "Impossibile leggere il motore di triage. Il triage continua a usare il provider principale; riapri queste impostazioni per riprovare.",
+    "saveFailed": "Il motore di triage non è stato salvato. Resta la scelta precedente."
   }
 }

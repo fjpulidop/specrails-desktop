@@ -627,5 +627,16 @@
     "body": "Le développeur et le relecteur utilisent actuellement le même fournisseur. Ce n'est qu'une suggestion : rien ne change tant que vous ne l'appliquez pas.",
     "apply": "Appliquer",
     "dismiss": "Ignorer"
+  },
+  "triageEngine": {
+    "title": "Moteur du triage des specs",
+    "hint": "Le triage lit chaque spec nouvelle ou modifiée et recommande la boucle avec laquelle la lancer. C’est un appel court et structuré par spec. Par défaut, il utilise le fournisseur principal du projet avec son modèle le moins cher.",
+    "provider": "Fournisseur du triage",
+    "inherit": "Fournisseur principal",
+    "model": "Modèle",
+    "cheapestModel": "Modèle le moins cher (par défaut)",
+    "loading": "Chargement du moteur de triage…",
+    "loadFailed": "Impossible de lire le moteur de triage. Le triage continue d’utiliser le fournisseur principal ; rouvrez ces réglages pour réessayer.",
+    "saveFailed": "Le moteur de triage n’a pas été enregistré. Le choix précédent est conservé."
   }
 }

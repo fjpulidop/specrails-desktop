@@ -627,5 +627,16 @@
     "body": "Entwickler und Reviewer laufen derzeit auf demselben Anbieter. Dies ist nur ein Vorschlag: Nichts ändert sich, solange du ihn nicht anwendest.",
     "apply": "Anwenden",
     "dismiss": "Verwerfen"
+  },
+  "triageEngine": {
+    "title": "Engine für die Spec-Triage",
+    "hint": "Die Triage liest jede neue oder bearbeitete Spec und empfiehlt den Loop, mit dem sie gestartet wird. Pro Spec ist es ein kurzer, strukturierter Aufruf. Standardmäßig läuft sie auf dem primären Provider des Projekts mit dessen günstigstem Modell.",
+    "provider": "Provider der Triage",
+    "inherit": "Primärer Provider",
+    "model": "Modell",
+    "cheapestModel": "Günstigstes Modell (Standard)",
+    "loading": "Triage-Engine wird geladen…",
+    "loadFailed": "Die Triage-Engine konnte nicht gelesen werden. Die Triage nutzt weiter den primären Provider; öffne diese Einstellungen erneut, um es noch einmal zu versuchen.",
+    "saveFailed": "Die Triage-Engine wurde nicht gespeichert. Die vorherige Auswahl bleibt."
   }
 }

@@ -627,5 +627,16 @@
     "body": "O desenvolvedor e o revisor usam atualmente o mesmo provedor. É apenas uma sugestão: nada muda a menos que você a aplique.",
     "apply": "Aplicar",
     "dismiss": "Dispensar"
+  },
+  "triageEngine": {
+    "title": "Motor da triagem de specs",
+    "hint": "A triagem lê cada spec nova ou editada e recomenda o loop com que lançá-la. É uma chamada curta e estruturada por spec. Por padrão, usa o provedor principal do projeto com o seu modelo mais barato.",
+    "provider": "Provedor da triagem",
+    "inherit": "Provedor principal",
+    "model": "Modelo",
+    "cheapestModel": "Modelo mais barato (padrão)",
+    "loading": "Carregando o motor da triagem…",
+    "loadFailed": "Não foi possível ler o motor da triagem. A triagem continua usando o provedor principal; reabra estas configurações para tentar de novo.",
+    "saveFailed": "O motor da triagem não foi salvo. A escolha anterior é mantida."
   }
 }

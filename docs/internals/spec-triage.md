@@ -74,7 +74,10 @@ spec whose stored `inputsHash` matches. Recalculate always runs.
 ## Engine and cost
 
 The `triage` role engine in `loop-role-engines.json` wins when it names a
-detected provider. Otherwise the triage uses the project's primary provider
+detected provider. People choose it in project settings ▸ Agent runtime ▸
+**Spec triage engine** (`TriageEngineSection`: provider tabs with "Primary
+provider", and a model whose default is the cheapest one; saved on change,
+reverted with a toast when the server refuses, other stored roles kept). Otherwise the triage uses the project's primary provider
 and its cheapest priced catalog model, weighted by input price. See
 [configuration](configuration.md#spec-triage-and-role-engines). Each run is one
 pure-output turn with no tools and a 90-second timeout. It is recorded in

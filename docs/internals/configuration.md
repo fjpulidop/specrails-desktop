@@ -381,7 +381,7 @@ role falls back as described:
 |------|---------|---------------------|
 | `verifier` | Loop ai-steps under a `roles` rail launch | The rail's primary engine |
 | `decider` | The Loop Decider under a `roles` rail launch | The rail's primary engine |
-| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
+| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec; edited in project settings ▸ Agent runtime ▸ **Spec triage engine** | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
 
 A role whose provider is no longer detected falls back to its default. A stale
 model falls back to the provider's default model. The triage role must name a

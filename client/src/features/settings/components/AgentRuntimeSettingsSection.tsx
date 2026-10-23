@@ -6,6 +6,7 @@ import { formatVerificationCommand, parseVerificationCommand, isAgentRuntimeSett
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Input } from '../../../components/ui/input'
 import { Button } from '../../../components/ui/button'
+import { TriageEngineSection } from './TriageEngineSection'
 
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 interface VerificationRow { label?: string; original?: RuntimeVerificationCommand; repositoryId: string; line: string; reason?: string }
@@ -65,10 +66,10 @@ export function AgentRuntimeSettingsSection() {
   const { activeProjectId, projects } = useDesktop()
   const cache = useRef(new Map<string, AgentRuntimeSettingsResponse>())
   const project = projects.find(item => item.id === activeProjectId)
-  return activeProjectId ? <RuntimeSettings key={activeProjectId} projectId={activeProjectId} cache={cache.current} repositories={projectRepositories(project).map(({ id, name }) => ({ id, name }))} /> : null
+  return activeProjectId ? <RuntimeSettings key={activeProjectId} projectId={activeProjectId} cache={cache.current} repositories={projectRepositories(project).map(({ id, name }) => ({ id, name }))} providers={project ? (project.providers?.length ? project.providers : project.provider ? [project.provider] : []) : []} /> : null
 }
 
-function RuntimeSettings({ projectId, cache, repositories }: { projectId: string; cache: Map<string, AgentRuntimeSettingsResponse>; repositories: Array<{ id: string; name: string }> }) {
+function RuntimeSettings({ projectId, cache, repositories, providers }: { projectId: string; cache: Map<string, AgentRuntimeSettingsResponse>; repositories: Array<{ id: string; name: string }>; providers: readonly string[] }) {
   const { t } = useTranslation('agentRuntime')
   const cached = cache.get(projectId)
   const [config, setConfig] = useState<AgentRuntimeConfig | null>(cached?.config ?? null)
@@ -189,6 +190,8 @@ function RuntimeSettings({ projectId, cache, repositories }: { projectId: string
           <Button disabled={busy} onClick={() => void save()}>{busy ? t('saving') : t('save')}</Button>
         </div>
       </fieldset>}
+      {/* Saved on change (its own endpoint), independent of the verification draft above. */}
+      {config && <TriageEngineSection projectId={projectId} providers={providers} />}
     </CardContent>
   </Card>
 }

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1163 source/build files. Nearby tests are linked where names
+Includes 1164 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -670,6 +670,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
 - [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
+- [TriageEngineSection.tsx](../../client/src/features/settings/components/TriageEngineSection.tsx) · [test](../../client/src/features/settings/components/__tests__/TriageEngineSection.test.tsx)
 - [UpdateChannelSection.tsx](../../client/src/features/settings/components/UpdateChannelSection.tsx) · [test](../../client/src/features/settings/components/__tests__/UpdateChannelSection.test.tsx)
 
 ## client/src/features/settings/components/pickers

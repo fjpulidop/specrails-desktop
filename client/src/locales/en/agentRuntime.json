@@ -627,5 +627,16 @@
     "body": "The developer and the reviewer currently run on the same provider. This is only a suggestion: nothing changes unless you apply it.",
     "apply": "Apply",
     "dismiss": "Dismiss"
+  },
+  "triageEngine": {
+    "title": "Spec triage engine",
+    "hint": "Triage reads each new or edited spec and recommends the loop to launch it with. It is one short structured call per spec. By default it runs on the project's primary provider with its cheapest model.",
+    "provider": "Triage provider",
+    "inherit": "Primary provider",
+    "model": "Model",
+    "cheapestModel": "Cheapest model (default)",
+    "loading": "Loading the triage engine…",
+    "loadFailed": "The triage engine could not be read. Triage keeps using the primary provider; reopen these settings to retry.",
+    "saveFailed": "The triage engine was not saved. The previous choice is kept."
   }
 }
