@@ -56,10 +56,11 @@ function FlowDockSurface({ conversationId, projectId, inline, flow }: MissionCon
   const ctx = useFlowContext()
   const reduced = useReducedMotion()
   if (!ctx || !flow || !projectId) return null
-  const receipt = ctx.handedOff.get(flow.id) ?? null
   const wrappingUp = ctx.wrappingUp.has(flow.id) && isOpenFlow(flow)
   const showBar = !wrappingUp && (isOpenFlow(flow) || flow.state === 'needs-review')
-  const showHandOff = wrappingUp || (!!receipt && flow.state === 'handed_off')
+  // Once the Flow is handed off, its run card (pinned above the composer) is
+  // the one place that shows the launch: no second receipt in the dock.
+  const showHandOff = wrappingUp
   return (
     <AnimatePresence initial={false} mode="wait">
       {showBar && <FlowBar key={`bar:${flow.id}`} projectId={projectId} flow={flow} inline={inline} />}
@@ -72,7 +73,7 @@ function FlowDockSurface({ conversationId, projectId, inline, flow }: MissionCon
           transition={{ duration: 0.22, ease: 'easeOut' }}
           className={cn('shrink-0 px-3 pb-2', inline && 'mx-auto w-full max-w-[960px] px-4')}
         >
-          <FlowHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={receipt} />
+          <FlowHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={null} />
         </motion.div>
       )}
     </AnimatePresence>

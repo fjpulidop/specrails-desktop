@@ -601,6 +601,13 @@ export function createFlowHandOffAuthority(
           const current = repository.get(flowId)
           if (!current) throw new FlowHandOffNotReadyError('The Flow disappeared during the hand-off')
           repository.save(transition(current, { type: 'handed-off', railIndex: adoption.railIndex, deliveryId: adoption.deliveryId, headSha: adoption.headSha, now: clock.now() }).session)
+          // Announce the hand-off as soon as the delivery's transaction commits,
+          // so the hand-off card gives way to the run card that appears with it
+          // instead of waiting for the rest of the launch.
+          setImmediate(() => {
+            const adopted = repository.get(flowId)
+            if (adopted?.state === 'handed_off' && adopted.deliveryId === adoption.deliveryId) onChanged?.(adopted)
+          })
         },
         release() {
           const current = repository.get(flowId)
