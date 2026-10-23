@@ -72,7 +72,7 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
           disabled={stopping}
           title={t('flow.preview.openTitle', { url: primary })}
           aria-label={t('flow.preview.openTitle', { url: primary })}
-          className="inline-flex h-full items-center gap-1.5 rounded-l-md pl-2 pr-1.5 text-[11px] font-medium text-foreground/85 transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-full items-center gap-1.5 rounded-l-md pl-2 pr-1.5 text-[12px] font-medium text-foreground/85 transition-colors hover:bg-accent-success/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-success disabled:cursor-not-allowed disabled:opacity-60"
         >
           {stopping
             ? <Loader2 className="h-3 w-3 animate-spin text-foreground/60" aria-hidden />
@@ -108,7 +108,7 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
             <button type="button" role="menuitem" data-testid="flow-preview-local" onClick={() => { setOpen(false); void openExternalUrl(local) }}
               className="flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
               <Monitor className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="min-w-0"><span className="block text-foreground">{t('flow.preview.local')}</span><span className="block truncate font-mono text-[10px] text-muted-foreground">{local}</span></span>
+              <span className="min-w-0"><span className="block text-foreground">{t('flow.preview.local')}</span><span className="block truncate font-mono text-[12px] text-muted-foreground">{local}</span></span>
             </button>
           )}
           {network
@@ -116,10 +116,10 @@ export function FlowAppPreview({ flow, compact }: { flow: Flow; compact: boolean
               <button type="button" role="menuitem" data-testid="flow-preview-network" onClick={() => { setOpen(false); void openExternalUrl(network) }}
                 className="flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
                 <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="min-w-0"><span className="block text-foreground">{t('flow.preview.network')}</span><span className="block truncate font-mono text-[10px] text-muted-foreground">{network}</span></span>
+                <span className="min-w-0"><span className="block text-foreground">{t('flow.preview.network')}</span><span className="block truncate font-mono text-[12px] text-muted-foreground">{network}</span></span>
               </button>
             )
-            : <p className="px-2.5 py-1.5 text-[11px] leading-4 text-muted-foreground" data-testid="flow-preview-local-only">{t('flow.preview.localOnly')}</p>}
+            : <p className="px-2.5 py-1.5 text-[12px] leading-4 text-muted-foreground" data-testid="flow-preview-local-only">{t('flow.preview.localOnly')}</p>}
           <div className="my-1 h-px bg-border/70" role="separator" />
           <button type="button" role="menuitem" data-testid="flow-preview-stop" onClick={stop} disabled={stopping}
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-destructive transition-colors hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none disabled:opacity-50">

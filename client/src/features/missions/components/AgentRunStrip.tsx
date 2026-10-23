@@ -56,9 +56,10 @@ import type { PinnedRailProposal } from './useRailLaunchProposals'
 /** The strip's primary action style (the shared primary recipe) — extensions reuse it. */
 export const RUN_STRIP_PRIMARY = PRIMARY_ACTION
 
-/** A quiet control inside the strip (switcher, overflow). */
+/** A quiet control inside the strip (switcher, overflow). Type rule: strip
+ *  text and controls are 12px; only compact chips/pills may stay 11px (≥/70). */
 const QUIET_CONTROL =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
+  'inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] text-foreground/75 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50'
 
 interface StripEntry {
   key: string
@@ -869,7 +870,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           {entries.length > 0 && (
             <div role="group" aria-label={t('runStrip.switcher')} className="relative flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5" data-testid="mission-run-strip-switcher">
               {entries.length === 1 ? (
-                <span className="max-w-[11rem] truncate px-1 text-[11px] text-foreground/70" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
+                <span className="max-w-[11rem] truncate px-1 text-[12px] text-foreground/75" title={selected.label} data-testid="mission-run-strip-label">{selected.label}</span>
               ) : (
                 <>
                   {[selected, ...inlineOthers].map((entry) => (

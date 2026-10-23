@@ -42,7 +42,7 @@ export function AgentRunEventLine({
     <>
       <Icon className={cn('h-3.5 w-3.5 shrink-0', ICON_TONE[tone])} aria-hidden />
       <span className="min-w-0 truncate text-foreground/80">{children}</span>
-      {detail && <span className="min-w-0 truncate text-foreground/65">{detail}</span>}
+      {detail && <span className="min-w-0 truncate text-foreground/75">{detail}</span>}
       {onActivate && expanded !== undefined && (
         <ChevronRight
           aria-hidden
@@ -51,7 +51,7 @@ export function AgentRunEventLine({
       )}
     </>
   )
-  const base = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] leading-4'
+  const base = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] leading-4'
   if (!onActivate) {
     return <div data-testid={testId} {...attributes} className={base}>{body}</div>
   }

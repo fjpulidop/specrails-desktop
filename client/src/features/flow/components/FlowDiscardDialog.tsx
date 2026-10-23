@@ -38,8 +38,8 @@ export function FlowDiscardDialog({ open, busy, branch = null, totals = null, on
           </li>
           {branch && (
             <li className="flex min-w-0 items-center gap-1.5">
-              <GitBranch className="h-3 w-3 shrink-0 text-foreground/50" aria-hidden />
-              <span className="truncate font-mono text-[11px]" title={branch}>{branch}</span>
+              <GitBranch className="h-3 w-3 shrink-0 text-foreground/70" aria-hidden />
+              <span className="truncate font-mono" title={branch}>{branch}</span>
             </li>
           )}
           <li>{t('flow.discard.lossSpec')}</li>

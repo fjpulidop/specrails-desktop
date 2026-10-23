@@ -24,6 +24,7 @@ export function MissionModeBadge({ badge, variant, testId }: { badge: Badge; var
       style={{ '--mode-accent': modeAccent(badge), borderColor: `color-mix(in oklab, ${modeAccent(badge)} 40%, transparent)` } as CSSProperties}
       className={cn(
         'inline-flex shrink-0 select-none items-center gap-1.5 rounded-md border font-medium text-foreground/85',
+        // A compact pill may stay 11px (strong contrast); text elsewhere is 12px.
         variant === 'composer' ? 'h-8 px-2 text-xs' : 'h-5 px-1.5 text-[11px]',
       )}
     >
