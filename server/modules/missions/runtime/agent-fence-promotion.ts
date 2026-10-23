@@ -26,6 +26,8 @@ export function detectProtocolShape(value: unknown): Shape | null {
   if (isRecord(value.restated) && isRecord(value.alternative) && typeof value.discriminator === 'string') return 'problem-frame'
   // flow-mode: the Flow-or-Implement offer = an idea plus its neutral reason
   // (older offers carried a `recommended` mode instead; still recognized).
+  // An offer for an existing spec carries its numeric `ticketId` (the reason may be omitted).
+  if (typeof value.idea === 'string' && typeof value.ticketId === 'number' && !('description' in value)) return 'flow-offer'
   if (typeof value.idea === 'string' && (value.recommended === 'flow' || value.recommended === 'implement'
     || (typeof value.reason === 'string' && !('title' in value) && !('description' in value)))) return 'flow-offer'
   if (typeof value.title === 'string' && typeof value.description === 'string'

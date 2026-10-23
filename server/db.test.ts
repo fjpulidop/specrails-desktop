@@ -462,6 +462,26 @@ describe('db', () => {
       }
     })
 
+    it('migration 82 adds the nullable spec_origin of a Flow (existing spec) and is restart-safe', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-origin-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('old', 'c1', 'paused', 't', 't')").run()
+        db.exec('ALTER TABLE flow_sessions DROP COLUMN spec_origin')
+        db.prepare('DELETE FROM schema_migrations WHERE version = 82').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare("SELECT spec_origin FROM flow_sessions WHERE id = 'old'").get()).toEqual({ spec_origin: null })
+        db.prepare("INSERT INTO flow_sessions (id, conversation_id, state, spec_origin, created_at, updated_at) VALUES ('new', 'c2', 'active', 'existing', 't', 't')").run()
+        expect(() => db.prepare("UPDATE flow_sessions SET spec_origin = 'other' WHERE id = 'new'").run()).toThrow(/CHECK/)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 82').run()
+        db.close(); db = initDb(dbPath)
+        expect(db.prepare("SELECT spec_origin FROM flow_sessions WHERE id = 'new'").get()).toEqual({ spec_origin: 'existing' })
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 71 adds nullable relaunch options without changing historical rows and is restart-safe', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-relaunch-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

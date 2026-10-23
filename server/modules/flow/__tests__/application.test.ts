@@ -58,9 +58,14 @@ function setup(overrides: Partial<FlowPorts> = {}) {
   const repository = memoryRepository()
   let clock = 0
   let ids = 0
+  const existingSpec = { id: 12, title: 'Calmer onboarding', description: '## Acceptance criteria\n- [ ] Progress rail\n\n---\n\n## Contract Layer\n\nInputs: none', status: 'todo', nonGoals: ['No analytics'], repositoryIds: [] as string[], addenda: '' }
   const tickets = {
     createPlaceholder: vi.fn(() => 7), setFlowState: vi.fn(), deletePlaceholder: vi.fn(), markDelivered: vi.fn(), reopen: vi.fn(),
-    read: vi.fn(() => ({ title: 'Try a kanban board', description: 'Try a kanban board', status: 'on_review' })),
+    read: vi.fn((_ticketId: number) => ({ title: 'Try a kanban board', description: 'Try a kanban board', status: 'on_review' })),
+    inspectExisting: vi.fn((_ticketId: number): ReturnType<FlowPorts['tickets']['inspectExisting']> => ({ spec: existingSpec, blocker: null })),
+    adoptExisting: vi.fn((_input: { ticketId: number; flowId: string; conversationId: string; startedAt: string }) => existingSpec),
+    restoreExisting: vi.fn(),
+    preserveOriginal: vi.fn(),
   }
   const effects = memoryEffects()
   const jira = {
@@ -68,6 +73,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     enqueueCreate: vi.fn((): 'enqueued' | 'already_linked' | 'inactive' | 'failed' => 'enqueued'),
     linked: vi.fn(() => true),
     enqueueReview: vi.fn(),
+    enqueueUpdate: vi.fn((): 'enqueued' | 'not_linked' | 'inactive' | 'failed' => 'enqueued'),
   }
   const publication = {
     deliveryState: vi.fn(() => ({ delivered: true }) as { delivered: boolean } | null),
@@ -947,5 +953,117 @@ describe('Flow mode boundaries (history lines)', () => {
 
     const throwing = setup({ conversation: { ...conversationPort(), postBoundary: vi.fn(() => { throw new Error('db locked') }) } })
     await expect(throwing.service.startFlow(startInput)).resolves.toMatchObject({ state: 'active' })
+  })
+})
+
+describe('Flow from an existing spec', () => {
+  const fromSpec = { conversationId: 'conv-1', ticketId: 12 }
+
+  it('labels the existing spec instead of creating a placeholder, and seeds the first turn with it', async () => {
+    const { service, tickets, worktrees, repository } = setup()
+    const flow = await service.startFlow(fromSpec)
+    expect(tickets.createPlaceholder).not.toHaveBeenCalled()
+    expect(tickets.adoptExisting).toHaveBeenCalledWith({ ticketId: 12, flowId: 'flow-1', conversationId: 'conv-1', startedAt: expect.any(String) })
+    expect(worktrees.reserve).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 12 })
+    expect(flow).toMatchObject({ state: 'active', ticketId: 12, specOrigin: 'existing' })
+    // The spec (with its acceptance criteria / Contract Layer and non-goals) rides the next Flow turn once.
+    expect(flow.returnBriefing).toContain('[Flow started from spec #12')
+    expect(flow.returnBriefing).toContain('## Spec #12: Calmer onboarding')
+    expect(flow.returnBriefing).toContain('## Contract Layer')
+    expect(flow.returnBriefing).toContain('- No analytics')
+    await service.briefingDelivered('flow-1')
+    expect(repository.get('flow-1')?.returnBriefing ?? null).toBeNull()
+  })
+
+  it('refuses a spec that is not free to work on before writing anything', async () => {
+    const { service, tickets, repository } = setup()
+    tickets.inspectExisting.mockReturnValueOnce({ spec: null, blocker: { code: 'spec_running', message: 'Spec #12 is running on Rail 2' } })
+    await expect(service.startFlow(fromSpec)).rejects.toMatchObject({ code: 'spec_running' })
+    tickets.inspectExisting.mockReturnValueOnce({ spec: null, blocker: { code: 'spec_not_found', message: 'gone' } })
+    await expect(service.startFlow(fromSpec)).rejects.toBeInstanceOf(FlowValidationError)
+    await expect(service.startFlow({ conversationId: 'conv-1', ticketId: -3 })).rejects.toMatchObject({ code: 'invalid_ticket_id' })
+    expect(repository.rows.size).toBe(0)
+    expect(tickets.adoptExisting).not.toHaveBeenCalled()
+  })
+
+  it('runs in the one repository the spec targets', async () => {
+    const repositories = { list: () => [{ id: 'web', name: 'web', isPrimary: true, kind: 'git' as const }, { id: 'api', name: 'api', isPrimary: false, kind: 'git' as const }] }
+    const ctx = setup({ repositories })
+    ctx.tickets.inspectExisting.mockReturnValueOnce({ spec: { id: 12, title: 'T', description: 'D', status: 'todo', nonGoals: [], repositoryIds: ['api'], addenda: '' }, blocker: null })
+    const flow = await ctx.service.startFlow(fromSpec)
+    expect(flow.repositoryId).toBe('api')
+  })
+
+  it('discard restores the spec (never deletes it) and a failed start compensates the same way', async () => {
+    const { service, tickets, worktrees, agent } = setup()
+    await service.startFlow(fromSpec)
+    await service.discardFlow('flow-1')
+    expect(tickets.deletePlaceholder).not.toHaveBeenCalled()
+    expect(tickets.restoreExisting).toHaveBeenCalledWith(12, 'flow-1')
+    expect(worktrees.release).toHaveBeenCalled()
+
+    const failing = setup()
+    failing.agent.open.mockRejectedValueOnce(new Error('boom'))
+    await expect(failing.service.startFlow(fromSpec)).rejects.toThrow('boom')
+    expect(failing.tickets.restoreExisting).toHaveBeenCalledWith(12, 'flow-1')
+    expect(failing.tickets.deletePlaceholder).not.toHaveBeenCalled()
+    expect(failing.repository.get('flow-1')?.state).toBe('discarded')
+    void agent
+  })
+
+  it('settlement keeps the original as a comment, then rewrites the spec entirely from what was built', async () => {
+    const ctx = setup()
+    const order: string[] = []
+    ctx.tickets.read.mockReturnValue({ title: 'Calmer onboarding', description: 'ORIGINAL BODY', status: 'on_review' })
+    ctx.tickets.preserveOriginal.mockImplementation(() => { order.push('preserve') })
+    ctx.publication.rewriteSpec.mockImplementation(async () => { order.push('rewrite'); return { ok: true } })
+    await ctx.service.startFlow(fromSpec)
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    ctx.jira.linked.mockReturnValue(false)
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(order).toEqual(['preserve', 'rewrite'])
+    expect(ctx.tickets.preserveOriginal).toHaveBeenCalledWith(12, 'flow-1')
+    const text = ctx.publication.rewriteSpec.mock.calls[0]![0].text
+    expect(text).toContain('Rewrite the spec ENTIRELY from what was built')
+    expect(text).toContain('ORIGINAL BODY')
+    // Unlinked spec: today's create-at-settlement.
+    expect(ctx.jira.enqueueCreate).toHaveBeenCalledWith(12, 'flow:flow-1:create')
+    expect(ctx.jira.enqueueUpdate).not.toHaveBeenCalled()
+  })
+
+  it('a spec already linked to Jira updates THAT issue (idempotent key), never creates a duplicate, then moves it to review', async () => {
+    const ctx = setup()
+    await ctx.service.startFlow(fromSpec)
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    ctx.jira.linked.mockReturnValue(true)
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(ctx.jira.enqueueUpdate).toHaveBeenCalledWith(12, 'flow:flow-1:update')
+    expect(ctx.jira.enqueueCreate).not.toHaveBeenCalled()
+    expect(ctx.jira.enqueueReview).toHaveBeenCalledWith(12, 'delivery-1')
+    const create = ctx.effects.list('flow-1').find((effect) => effect.kind === 'jira-create')!
+    expect(create).toMatchObject({ status: 'done', note: 'updated' })
+    // Replays never enqueue another update.
+    await ctx.service.replaySettlement()
+    expect(ctx.jira.enqueueUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a Jira update that could not be enqueued, and falls back to create when the link went away', async () => {
+    const ctx = setup()
+    await ctx.service.startFlow(fromSpec)
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    ctx.jira.enqueueUpdate.mockReturnValueOnce('failed')
+    await ctx.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await ctx.service.runSettlement('flow-1')
+    expect(ctx.effects.list('flow-1').find((effect) => effect.kind === 'jira-create')).toMatchObject({ status: 'pending', note: 'enqueue_failed' })
+
+    const gone = setup()
+    await gone.service.startFlow(fromSpec)
+    await gone.service.handOffFlow({ flowId: 'flow-1', railIndex: 2 })
+    gone.jira.enqueueUpdate.mockReturnValueOnce('not_linked')
+    await gone.service.onFlowDelivered({ flowId: 'flow-1', deliveryId: 'delivery-1' })
+    await gone.service.runSettlement('flow-1')
+    expect(gone.jira.enqueueCreate).toHaveBeenCalledWith(12, 'flow:flow-1:create')
   })
 })

@@ -13,12 +13,12 @@ import { createAgentConversation } from '../../agents/runtime/agent-store'
 import { isolatedWorktreesRoot } from '../../delivery/runtime/isolated-worktree'
 import { setRailTickets } from '../../delivery/runtime/rails-store'
 import { FLOW_SYSTEM_PROMPT } from '../../missions/runtime/agent-flow-prompt'
-import { isFlowHeldTicket, readStore } from '../../specs/runtime/ticket-store'
+import { isFlowHeldTicket, mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import { FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, type FlowSession } from '..'
 import { createFlowService } from '../application'
 import { registerFlowHttp } from '../adapters/http'
-import { FLOW_FAILURE_RETURN_TURN_TEXT, FLOW_RETURN_TURN_TEXT, changeNameFromArchive, createFlowHandOffAuthority, deliveryFailureOf, isCrashedFlowDelivery, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
+import { FLOW_FAILURE_RETURN_TURN_TEXT, FLOW_RETURN_TURN_TEXT, changeNameFromArchive, railOfTicket, createFlowHandOffAuthority, deliveryFailureOf, isCrashedFlowDelivery, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
 import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
@@ -98,6 +98,80 @@ describe('placeholder spec binding', () => {
     expect(readStore(ticketStorePathForProject(ctx.project)).tickets[String(id)]).toBeUndefined()
     expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_deleted', ticketId: id }))
     tickets.deletePlaceholder(id)
+  })
+})
+
+function seedSpec(ctx: ProjectContext, patch: Partial<Ticket> = {}): number {
+  let id = 0
+  mutateStore(ticketStorePathForProject(ctx.project), (s) => {
+    id = s.next_id++
+    s.tickets[String(id)] = {
+      id, title: 'Calmer onboarding', description: '## Acceptance criteria\n- [ ] Progress rail', status: 'todo', priority: 'high', labels: ['ux'],
+      assignee: null, prerequisites: [], metadata: {}, comments: [{ id: 1, body: 'note', created_at: 't0', created_by: 'me' }], origin_conversation_id: null,
+      is_epic: false, parent_epic_id: null, execution_order: null, short_summary: null, nonGoals: ['No analytics'],
+      created_at: 't0', updated_at: 't0', created_by: 'me', source: 'manual', ...patch,
+    } as Ticket
+  })
+  return id
+}
+
+describe('existing spec binding (Flow from an existing spec)', () => {
+  const at = { now: () => '2026-10-24T10:00:00.000Z' }
+  const read = (ctx: ProjectContext, id: number) => readStore(ticketStorePathForProject(ctx.project)).tickets[String(id)]!
+
+  it('labels the spec In Flow (no placeholder), restores it on discard and never deletes it', () => {
+    const ctx = context()
+    const id = seedSpec(ctx)
+    const tickets = createFlowTickets(ctx, at, railOfTicket(ctx.db))
+    expect(tickets.inspectExisting(id)).toMatchObject({ blocker: null, spec: { id, title: 'Calmer onboarding', nonGoals: ['No analytics'] } })
+    const spec = tickets.adoptExisting({ ticketId: id, flowId: 'flow-1', conversationId: 'conv-1', startedAt: 't1' })
+    expect(spec).toMatchObject({ id, description: '## Acceptance criteria\n- [ ] Progress rail' })
+    expect(read(ctx, id)).toMatchObject({ status: 'in_progress', source: 'manual', metadata: { flow: { flowId: 'flow-1', state: 'active', origin: 'existing', previousStatus: 'todo' } } })
+    expect(isFlowHeldTicket(read(ctx, id))).toBe(true)
+    // Idempotent for the same Flow; another Flow is refused.
+    expect(() => tickets.adoptExisting({ ticketId: id, flowId: 'flow-1', conversationId: 'conv-1', startedAt: 't1' })).not.toThrow()
+    expect(() => tickets.adoptExisting({ ticketId: id, flowId: 'flow-2', conversationId: 'conv-2', startedAt: 't1' })).toThrow(FlowConflictError)
+    expect(tickets.inspectExisting(id).blocker).toMatchObject({ code: 'spec_in_flow' })
+    // Discard: deletePlaceholder never touches the person's spec; restore brings back its status.
+    tickets.deletePlaceholder(id)
+    expect(read(ctx, id)).toBeDefined()
+    tickets.restoreExisting(id, 'flow-2')
+    expect(read(ctx, id).metadata.flow?.flowId).toBe('flow-1')
+    tickets.restoreExisting(id, 'flow-1')
+    expect(read(ctx, id)).toMatchObject({ status: 'todo', title: 'Calmer onboarding', description: '## Acceptance criteria\n- [ ] Progress rail' })
+    expect(read(ctx, id).metadata.flow).toBeUndefined()
+    tickets.restoreExisting(id, 'flow-1')
+  })
+
+  it('refuses closed specs and specs on a rail (running or not)', () => {
+    const ctx = context()
+    const tickets = createFlowTickets(ctx, at, railOfTicket(ctx.db))
+    expect(tickets.inspectExisting(seedSpec(ctx, { status: 'done' })).blocker).toMatchObject({ code: 'spec_closed' })
+    expect(tickets.inspectExisting(999).blocker).toMatchObject({ code: 'spec_not_found' })
+    const onRail = seedSpec(ctx)
+    setRailTickets(ctx.db, 1, [onRail])
+    expect(tickets.inspectExisting(onRail).blocker).toMatchObject({ code: 'spec_on_rail', message: expect.stringContaining('Rail 2') })
+    expect(() => tickets.adoptExisting({ ticketId: onRail, flowId: 'f', conversationId: 'c', startedAt: 't' })).toThrow(FlowConflictError)
+    expect(() => tickets.adoptExisting({ ticketId: 999, flowId: 'f', conversationId: 'c', startedAt: 't' })).toThrow(FlowValidationError)
+  })
+
+  it('keeps the original content as ONE comment before the rewrite (idempotent), alongside existing comments', () => {
+    const ctx = context()
+    const id = seedSpec(ctx)
+    const tickets = createFlowTickets(ctx, at, railOfTicket(ctx.db))
+    tickets.adoptExisting({ ticketId: id, flowId: 'flow-1', conversationId: 'conv-1', startedAt: 't1' })
+    tickets.preserveOriginal(id, 'flow-1')
+    tickets.preserveOriginal(id, 'flow-1')
+    const ticket = read(ctx, id)
+    expect(ticket.comments).toHaveLength(2)
+    expect(ticket.comments![1]).toMatchObject({ id: 2, created_by: 'flow' })
+    expect(ticket.comments![1]!.body).toContain('## Original spec before Flow')
+    expect(ticket.comments![1]!.body).toContain('- [ ] Progress rail')
+    expect(ticket.comments![1]!.body).toContain('- No analytics')
+    expect(ticket.metadata.flow?.originalCommentId).toBe(2)
+    // Another Flow's request is ignored.
+    tickets.preserveOriginal(id, 'flow-9')
+    expect(read(ctx, id).comments).toHaveLength(2)
   })
 })
 

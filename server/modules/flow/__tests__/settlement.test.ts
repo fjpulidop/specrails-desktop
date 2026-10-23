@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   FLOW_SUMMARY_LIMIT_BYTES, buildFlowSummary, buildSpecRewriteText, extractFlowDecisions, flowEffectKey, flowJiraCreateKey, nextDueEffect, summarizeSettlement,
 } from '..'
-import { failedAttempt, finishedEffect, inFlowWindow, plannedSettlementEffects, replyFirstLine, settlementRetryAt, timestampMs } from '../domain'
+import { FLOW_SPEC_SEED_LIMIT, ORIGINAL_SPEC_COMMENT_HEADING, buildOriginalSpecComment, buildSpecSeedBriefing, failedAttempt, finishedEffect, flowJiraUpdateKey, inFlowWindow, plannedSettlementEffects, replyFirstLine, settlementRetryAt, timestampMs } from '../domain'
 
 const NOW = '2026-10-21T10:00:00.000Z'
 const bytes = (text: string) => Buffer.byteLength(text, 'utf8')
@@ -132,5 +132,36 @@ describe('spec rewrite input', () => {
     expect(text).not.toContain('Derived design')
     expect(text).toContain('## Diffstat')
     expect(text).toContain('untrusted user input')
+  })
+})
+
+describe('Flow from an existing spec: texts', () => {
+  const spec = { id: 12, title: 'Calmer onboarding', description: '## Acceptance criteria\n- [ ] Progress rail\n\n## Contract Layer\n\nInputs: none', status: 'todo', nonGoals: ['No analytics'], repositoryIds: [], addenda: '## Open addenda\n\n1. [clarification] Use the brand colors' }
+
+  it('seeds the first Flow turn with the whole spec, marked as automatic context', () => {
+    const seed = buildSpecSeedBriefing(spec)
+    expect(seed.startsWith('[Flow started from spec #12 — automatic context, not typed by the user]')).toBe(true)
+    expect(seed).toContain('## Spec #12: Calmer onboarding')
+    expect(seed).toContain('## Contract Layer')
+    expect(seed).toContain('## Out of scope\n\n- No analytics')
+    expect(seed).toContain('Use the brand colors')
+    expect(seed).toContain('Conduct:')
+    expect(buildSpecSeedBriefing({ ...spec, description: 'x'.repeat(60_000), addenda: 'y'.repeat(60_000) }).length).toBeLessThanOrEqual(FLOW_SPEC_SEED_LIMIT)
+  })
+
+  it('keeps the original spec untruncated in its comment', () => {
+    const long = 'z'.repeat(50_000)
+    const comment = buildOriginalSpecComment({ title: 'Calmer onboarding', description: long, nonGoals: ['No analytics'], flowId: 'flow-1' })
+    expect(comment.startsWith(`## ${ORIGINAL_SPEC_COMMENT_HEADING}`)).toBe(true)
+    expect(comment).toContain(long)
+    expect(comment).toContain('### Out of scope\n\n- No analytics')
+    expect(flowJiraUpdateKey('flow-1')).toBe('flow:flow-1:update')
+  })
+
+  it('asks the rewrite to start over from what was built, quoting the original as context only', () => {
+    const text = buildSpecRewriteText({ title: 'Calmer onboarding', derived: { changeName: 'calmer', proposal: '## Why', design: null, diffstat: null }, summary: '', original: { title: 'Calmer onboarding', description: 'ORIGINAL' } })
+    expect(text).toContain('Rewrite the spec ENTIRELY from what was built')
+    expect(text).toContain('## Original spec before Flow (context only; the delivered code wins): Calmer onboarding\n\nORIGINAL')
+    expect(buildSpecRewriteText({ title: 'X', derived: { changeName: null, proposal: 'p', design: null, diffstat: null }, summary: '' })).not.toContain('Original spec before Flow')
   })
 })

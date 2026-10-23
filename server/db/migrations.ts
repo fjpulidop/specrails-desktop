@@ -1911,6 +1911,15 @@ const MIGRATIONS: Migration[] = [
     `)
   },
 
+  // Migration 82: where a Flow's spec came from. 'existing' ⇒ the person's own
+  // spec started in Flow (restored on discard, never deleted; its original
+  // content is kept as a comment before the settlement rewrites it). NULL ⇒
+  // the Flow's placeholder spec, exactly as every Flow before it.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(flow_sessions)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('spec_origin')) db.exec("ALTER TABLE flow_sessions ADD COLUMN spec_origin TEXT CHECK (spec_origin IS NULL OR spec_origin IN ('placeholder','existing'))")
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

@@ -1,4 +1,4 @@
-import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowRunFailure, FlowSession, FlowSettlementEffect, FlowSettlementSummary, FlowTicketState } from './domain'
+import type { DerivedChangeText, FlowDerivationCoverage, FlowRepositoryMember, FlowReviewFindings, FlowRunFailure, FlowSession, FlowSettlementEffect, FlowSettlementSummary, FlowSpecSnapshot, FlowTicketState } from './domain'
 
 /**
  * Outbound contracts owned by the Flow use cases. Production implementations
@@ -36,7 +36,15 @@ export interface FlowEffectsStore {
   pendingFlowIds(): string[]
 }
 
-/** The placeholder spec ("In Flow"). Created through the non-promoting path. */
+/** Why an existing spec cannot start a Flow now (null ⇒ it can). */
+export interface FlowSpecBlocker {
+  /** `spec_not_found`, `spec_closed` (done/cancelled), `spec_in_flow`, `spec_on_rail`, `spec_running`. */
+  code: string
+  message: string
+}
+
+/** The Flow's spec ("In Flow"): the placeholder it creates through the
+ * non-promoting path, or the existing spec it started from. */
 export interface FlowTickets {
   /** `repositoryIds`: the Flow's non-primary target repository (absent ⇒ primary). */
   createPlaceholder(input: { flowId: string; conversationId: string; title: string; description: string; startedAt: string; repositoryIds?: string[] }): number
@@ -50,8 +58,23 @@ export interface FlowTickets {
   /** Back to Flow: the spec is worked on again (in progress, "In Flow"); a
    * ticket that moved on (done, cancelled) is left alone. */
   reopen(ticketId: number): void
-  /** Current title, idea (description) and status; null when the ticket is gone. */
-  read(ticketId: number): { title: string; description: string; status: string } | null
+  /** Current title, idea (description), status and target repositories; null when the ticket is gone. */
+  read(ticketId: number): { title: string; description: string; status: string; repositoryIds?: string[]; nonGoals?: string[] } | null
+  /** Read-only: whether an existing spec can start a Flow now, and its content. */
+  inspectExisting(ticketId: number): { spec: FlowSpecSnapshot | null; blocker: FlowSpecBlocker | null }
+  /** Flow from an existing spec: label it "In Flow" for `flowId` (metadata.flow
+   * with origin `existing` and the status it had), status in progress.
+   * Re-checks eligibility atomically (throws FlowConflictError); idempotent for
+   * the same Flow. Returns the spec the first Flow turn receives. */
+  adoptExisting(input: { ticketId: number; flowId: string; conversationId: string; startedAt: string }): FlowSpecSnapshot
+  /** Undo `adoptExisting` (discard, failed start): the label goes and the
+   * status it had comes back unless the spec moved on. Never deletes; a spec
+   * this Flow does not hold is left alone. Idempotent. */
+  restoreExisting(ticketId: number, flowId: string): void
+  /** Settlement of a Flow from an existing spec, BEFORE the rewrite: keep the
+   * spec's current content as a comment ("Original spec before Flow").
+   * Idempotent by Flow. */
+  preserveOriginal(ticketId: number, flowId: string): void
 }
 
 export interface ReservedWorktree {
@@ -188,6 +211,10 @@ export interface FlowPublication {
     linked(ticketId: number): boolean
     /** Transition to the status mapped for `on_review` (idempotent by refId). */
     enqueueReview(ticketId: number, refId: string): void
+    /** A spec already linked to an issue (a Flow from an existing spec): push
+     * its rewritten summary and description to THAT issue through a durable
+     * outbox `update` (never a second issue). Idempotent by key. Never throws. */
+    enqueueUpdate(ticketId: number, idempotencyKey: string): 'enqueued' | 'not_linked' | 'inactive' | 'failed'
   }
 }
 

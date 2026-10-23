@@ -53,6 +53,12 @@ describe('Flow HTTP routes', () => {
     const started = await request(server).post('/p1/flow').send({ conversationId: 'conv-1', idea: 'Try it', title: ' T ', flowId: 'client-id' })
     expect(started.status).toBe(201)
     expect(flows.startFlow).toHaveBeenCalledWith({ conversationId: 'conv-1', idea: 'Try it', title: 'T', flowId: 'client-id' })
+    // From an existing spec: the ticket id rides along, the idea may be empty.
+    expect((await request(server).post('/p1/flow').send({ conversationId: 'conv-1', ticketId: 12 })).status).toBe(201)
+    expect(flows.startFlow).toHaveBeenLastCalledWith({ conversationId: 'conv-1', idea: '', ticketId: 12 })
+    const invalid = await request(server).post('/p1/flow').send({ conversationId: 'conv-1', ticketId: '12' })
+    expect(invalid.status).toBe(400)
+    expect(invalid.body.error).toBe('invalid_ticket_id')
     expect((await request(server).get('/p1/flow/by-conversation/conv-1')).body).toEqual({ flow: FLOW })
     // The mission list's mark: conversations in Flow, without worktree paths.
     expect((await request(server).get('/p1/flow/open')).body).toEqual({ flows: [{ id: 'flow-1', conversationId: 'conv-1', state: 'active', branch: 'feat/7-idea' }] })

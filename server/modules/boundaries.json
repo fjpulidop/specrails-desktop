@@ -1661,6 +1661,7 @@
         "../../missions/runtime/agent-flow-prompt",
         "../../missions/runtime/flow-turn-context",
         "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/spec-addenda-core",
         "../../specs/runtime/spec-generation",
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",

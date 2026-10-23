@@ -520,6 +520,16 @@ describe('Flow or Implement offer (flow-mode)', () => {
     expect(FLOW_OFFER_SECTION).toContain('Never start a Flow yourself')
   })
 
+  it('offers both modes neutrally for an EXISTING spec with its ticketId (prompt text changed consciously)', async () => {
+    expect(FLOW_OFFER_SECTION).toContain('**An existing spec.**')
+    expect(FLOW_OFFER_SECTION).toContain('`ticketId` is that spec\'s\nnumeric id')
+    expect(FLOW_OFFER_SECTION).toContain('Flow then works on THAT spec (no new spec is created)')
+    expect(FLOW_OFFER_SYSTEM_CLAUSE).toContain('ticketId = the id of that spec')
+    const { detectProtocolShape } = await import('./agent-fence-promotion')
+    const example = FLOW_OFFER_SECTION.split('`{ "idea": "Calmer onboarding"')[1]!.split('`')[0]
+    expect(detectProtocolShape(JSON.parse(`{ "idea": "Calmer onboarding"${example}`))).toBe('flow-offer')
+  })
+
   it('the offer block parses with the fence-promotion shape (example is valid JSON)', async () => {
     const { detectProtocolShape } = await import('./agent-fence-promotion')
     const example = FLOW_OFFER_SECTION.split('```flow-offer\n')[1].split('\n```')[0]

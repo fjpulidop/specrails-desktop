@@ -29,6 +29,9 @@ describe('promoteAgentProtocolFences', () => {
     expect(detectProtocolShape({ idea: 'x', recommended: 'implement', reason: 'well defined' })).toBe('flow-offer')
     // Today's neutral offer: an idea and its reason, no recommendation.
     expect(detectProtocolShape({ idea: 'x', reason: 'The look is still open' })).toBe('flow-offer')
+    // An offer for an existing spec carries its ticketId (reason optional), never a rail-launch.
+    expect(detectProtocolShape({ idea: 'Calmer onboarding', ticketId: 12 })).toBe('flow-offer')
+    expect(detectProtocolShape({ idea: 'Calmer onboarding', reason: 'It exists', ticketId: 12 })).toBe('flow-offer')
     expect(detectProtocolShape({ idea: 'x', reason: 'r', title: 't', description: 'd', priority: 'high' })).toBe('spec-draft')
   })
   it('leaves ambiguous json, invalid json, protocol-tagged and quoted fences alone', () => {

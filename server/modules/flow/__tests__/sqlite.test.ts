@@ -66,6 +66,10 @@ describe('SQLite Flow repository (migration 74)', () => {
     // A closed Flow (migration 81) is terminal: stored, read back, never reconciled.
     repository.insert(flow({ id: 'e', conversationId: 'c5', state: 'closed' }))
     expect(repository.get('e')?.state).toBe('closed')
+    // A Flow from an existing spec keeps its origin (migration 82); a placeholder Flow has none.
+    repository.insert(flow({ id: 'g', conversationId: 'c6', state: 'delivered', specOrigin: 'existing' }))
+    expect(repository.get('g')?.specOrigin).toBe('existing')
+    expect(repository.get('a')?.specOrigin).toBeUndefined()
     expect(repository.listUnsettled().map((session) => session.id).sort()).toEqual(['a', 'c'])
   })
 

@@ -137,6 +137,13 @@ export interface FlowTicketMetadata {
   state: 'active' | 'paused' | 'delivered' | 'closed'
   recommendedMode?: 'flow' | 'implement'
   chosenMode?: 'flow' | 'implement'
+  /** `existing`: the person's own spec, started in Flow (never deleted by
+   * Flow; restored on discard). Absent ⇒ the Flow's placeholder spec. */
+  origin?: 'existing'
+  /** The status an existing spec had when its Flow started (restored on discard). */
+  previousStatus?: TicketStatus
+  /** The comment that keeps the spec's content from before its Flow rewrote it. */
+  originalCommentId?: number
 }
 
 /** True while a spec belongs to a live Flow: no Jira write may create or

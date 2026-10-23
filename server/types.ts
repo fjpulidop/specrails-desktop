@@ -797,6 +797,8 @@ export interface FlowSessionWire {
   conversationId: string
   ticketId: number | null
   state: 'active' | 'paused' | 'handed_off' | 'delivered' | 'discarded' | 'closed' | 'needs-review'
+  /** `existing`: started from the person's own spec (absent ⇒ placeholder). */
+  specOrigin?: 'placeholder' | 'existing'
   branch: string | null
   worktreePath: string | null
   baseSha: string | null

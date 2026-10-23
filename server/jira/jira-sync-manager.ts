@@ -908,14 +908,7 @@ export class JiraSyncManager {
     const conn = getConnection(this.db, this.projectId)
     if (!conn) return
 
-    const fields: Record<string, unknown> = {}
-    if (typeof changes.title === 'string' && changes.title.trim()) fields.summary = changes.title.trim().slice(0, 250)
-    if (typeof changes.description === 'string') fields.description = bodyForDeployment(changes.description, conn.deployment)
-    if (changes.labels !== undefined) fields.labels = (changes.labels ?? []).filter((l) => typeof l === 'string')
-    if (changes.priority) {
-      const name = PRIORITY_TO_JIRA[changes.priority]
-      if (name) fields.priority = { name }
-    }
+    const fields = this.specUpdateFields(changes, conn.deployment)
     if (Object.keys(fields).length === 0) return
 
     // A random component makes two saves of the same ticket inside one wall-clock
@@ -933,6 +926,54 @@ export class JiraSyncManager {
     ])
     this.broadcastOutboxState()
     void this.drainOnce().catch(() => undefined)
+  }
+
+  /** The editable Jira fields of a spec edit (summary, description, labels, priority). */
+  private specUpdateFields(
+    changes: { title?: string; description?: string; priority?: string | null; labels?: string[] },
+    deployment: Parameters<typeof bodyForDeployment>[1],
+  ): Record<string, unknown> {
+    const fields: Record<string, unknown> = {}
+    if (typeof changes.title === 'string' && changes.title.trim()) fields.summary = changes.title.trim().slice(0, 250)
+    if (typeof changes.description === 'string') fields.description = bodyForDeployment(changes.description, deployment)
+    if (changes.labels !== undefined) fields.labels = (changes.labels ?? []).filter((l) => typeof l === 'string')
+    if (changes.priority) {
+      const name = PRIORITY_TO_JIRA[changes.priority]
+      if (name) fields.priority = { name }
+    }
+    return fields
+  }
+
+  /**
+   * Durable, IDEMPOTENT push of a linked spec's current summary, description,
+   * labels and priority to its existing issue (Flow settlement of a spec that
+   * already had an issue: the rewritten spec updates THAT issue, never a new
+   * one). The same `idempotencyKey` never enqueues twice; the pending op
+   * freezes the id so the inbound poll cannot revert the rewrite. Never throws.
+   */
+  enqueueSpecUpdate(localTicketId: number, idempotencyKey: string): 'enqueued' | 'not_linked' | 'inactive' | 'failed' {
+    try {
+      if (!this.isActive()) return 'inactive'
+      const link = getLinkByLocalId(this.db, localTicketId)
+      if (!link || link.tombstoned) return 'not_linked'
+      const conn = getConnection(this.db, this.projectId)
+      if (!conn) return 'inactive'
+      const ticket = readStore(resolveTicketStoragePath(this._artifactRoot())).tickets[String(localTicketId)]
+      if (!ticket) return 'failed'
+      const fields = this.specUpdateFields({ title: ticket.title, description: ticket.description ?? '', labels: ticket.labels ?? [], priority: ticket.priority }, conn.deployment)
+      enqueueMany(this.db, [{
+        jiraIssueId: link.jiraIssueId,
+        opType: 'update',
+        idempotencyKey,
+        payload: { jiraIssueId: link.jiraIssueId, fields },
+      }])
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return 'enqueued'
+    } catch (err) {
+      console.error('[jira-sync] enqueueSpecUpdate failed:', err)
+      return 'failed'
+    }
   }
 
   /**

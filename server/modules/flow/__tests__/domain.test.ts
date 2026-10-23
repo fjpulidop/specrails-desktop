@@ -306,3 +306,29 @@ describe('Flow Core session generations', () => {
   })
 })
 
+
+describe('Flow state machine — Flow from an existing spec', () => {
+  const startFrom = (ticketId: number) => transition(null, { type: 'start', flowId: 'flow-1', conversationId: 'conv-1', ticketId, now: NOW })
+
+  it('starts holding the spec and labels it instead of creating a placeholder', () => {
+    const started = startFrom(12)
+    expect(started.session).toMatchObject({ ticketId: 12, specOrigin: 'existing', step: 'start:ticket', state: 'active' })
+    expect(started.effects).toEqual([{ kind: 'adoptTicket', ticketId: 12 }])
+    const labelled = transition(started.session, { type: 'ticket-created', ticketId: 12, briefing: '  [Flow started from spec #12] …  ', now: LATER })
+    expect(labelled.session).toMatchObject({ step: 'start:worktree', returnBriefing: '[Flow started from spec #12] …' })
+    expect(labelled.effects).toEqual([{ kind: 'reserveWorktree', ticketId: 12 }])
+    expect(() => transition(started.session, { type: 'ticket-created', ticketId: 13, now: LATER })).toThrow(/belongs to spec #12/)
+    expect(() => startFrom(0)).toThrow(/positive integer/)
+  })
+
+  it('restores (never deletes) the spec on discard, failed start and restart compensation', () => {
+    const open = flow({ ticketId: 12, specOrigin: 'existing' })
+    expect(transition(open, commands.discard).effects).toContainEqual({ kind: 'restoreTicket', ticketId: 12 })
+    expect(transition(open, commands.discard).effects.some((effect) => effect.kind === 'deletePlaceholderTicket')).toBe(false)
+    const midStart = flow({ ticketId: 12, specOrigin: 'existing', step: 'start:ticket', worktreePath: null, coreSessionId: null })
+    expect(transition(midStart, commands.startFailed).effects).toEqual([{ kind: 'restoreTicket', ticketId: 12 }])
+    expect(transition(midStart, { type: 'restart', worktreePresent: false, now: LATER }).effects).toEqual([{ kind: 'restoreTicket', ticketId: 12 }])
+    // A placeholder Flow keeps deleting its own spec.
+    expect(transition(flow(), commands.discard).effects).toContainEqual({ kind: 'deletePlaceholderTicket', ticketId: 7 })
+  })
+})

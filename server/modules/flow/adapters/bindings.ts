@@ -40,13 +40,16 @@ import { getRail } from '../../delivery/runtime/rails-store'
 import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
 import { FAILURE_BRIEFING_REF_KIND } from '../../missions/runtime/agent-failure-briefing'
 import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
-import { mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
+import { isFlowHeldTicket, mutateStore, readStore, type Ticket, type TicketStatus } from '../../specs/runtime/ticket-store'
 import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { openAddenda } from '../../specs/runtime/spec-addenda-core'
+import { getRails } from '../../delivery/runtime/rails-store'
+import { getActivePrDeliveryByRail } from '../../delivery/runtime/rail-pr-store'
 import {
-  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
-  type DerivedChangeText, type FlowRunFailure, type FlowSession,
+  FLOW_SPEC_LOOP_ID, FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, buildFlowSummary, buildOriginalSpecComment, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
+  type DerivedChangeText, type FlowRunFailure, type FlowSession, type FlowSpecSnapshot,
 } from '../domain'
-import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowTickets, WorktreeReservation } from '../ports'
+import type { Clock, FlowDiffFile, FlowLaunchOptions, FlowEffectsStore, FlowPorts, FlowProcesses, FlowPublication, FlowRepository, FlowSpecBlocker, FlowTickets, WorktreeReservation } from '../ports'
 import type { FlowService } from '../application'
 
 /** What Flow needs from the mission agent host (implemented by AgentChatManager). */
@@ -102,9 +105,54 @@ function isInside(child: string, parent: string): boolean {
   return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
 }
 
-// ─── Placeholder spec ─────────────────────────────────────────────────────────
+// ─── The Flow's spec (placeholder or existing) ────────────────────────────────
 
-export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadcast' | 'ticketWatcher'>, clock: Clock = systemClock): FlowTickets {
+/** Where a spec sits on the project's rails (null ⇒ on none). */
+export type FlowRailOf = (ticketId: number) => { railIndex: number; running: boolean } | null
+
+/** The rail of a spec from the project's rails and their live deliveries. */
+export function railOfTicket(db: ProjectContext['db']): FlowRailOf {
+  return (ticketId) => {
+    const rail = getRails(db).find((candidate) => candidate.ticketIds.includes(ticketId))
+    if (!rail) return null
+    return { railIndex: rail.railIndex, running: Boolean(getActivePrDeliveryByRail(db, rail.railIndex)) }
+  }
+}
+
+const CLOSED_SPEC_STATUSES: ReadonlySet<string> = new Set(['done', 'cancelled'])
+
+/** The open addenda of a spec, as the first Flow turn lists them. */
+function renderOpenAddenda(ticket: Ticket): string {
+  const open = openAddenda(ticket.addenda)
+  if (!open.length) return ''
+  return ['## Open addenda (iterations requested on this spec)', '', ...open.slice(0, 20).map((addendum, index) =>
+    `${index + 1}. [${addendum.kind}] ${addendum.title}${addendum.body.trim() ? `\n   ${addendum.body.trim().slice(0, 600).replace(/\n/g, '\n   ')}` : ''}`)].join('\n')
+}
+
+function snapshotOf(ticket: Ticket): FlowSpecSnapshot {
+  return {
+    id: ticket.id,
+    title: ticket.title,
+    description: ticket.description ?? '',
+    status: ticket.status,
+    nonGoals: Array.isArray(ticket.nonGoals) ? ticket.nonGoals.filter((goal): goal is string => typeof goal === 'string') : [],
+    repositoryIds: Array.isArray(ticket.repositoryIds) ? ticket.repositoryIds.filter((id): id is string => typeof id === 'string') : [],
+    addenda: renderOpenAddenda(ticket),
+  }
+}
+
+/** Why this spec cannot start a Flow now (null ⇒ it can). `flowId`: the Flow re-checking its own adoption. */
+function existingSpecBlocker(ticket: Ticket | undefined, railOf: FlowRailOf | undefined, flowId?: string): FlowSpecBlocker | null {
+  if (!ticket) return { code: 'spec_not_found', message: 'This spec no longer exists' }
+  if (CLOSED_SPEC_STATUSES.has(ticket.status)) return { code: 'spec_closed', message: `Spec #${ticket.id} is ${ticket.status === 'done' ? 'done' : 'cancelled'}; reopen it to work on it in Flow` }
+  if (isFlowHeldTicket(ticket) && ticket.metadata?.flow?.flowId !== flowId) return { code: 'spec_in_flow', message: `Spec #${ticket.id} is already in Flow` }
+  const rail = railOf?.(ticket.id) ?? null
+  if (rail?.running) return { code: 'spec_running', message: `Spec #${ticket.id} is running on Rail ${rail.railIndex + 1}` }
+  if (rail) return { code: 'spec_on_rail', message: `Spec #${ticket.id} is on Rail ${rail.railIndex + 1}; take it off the rail to start it in Flow` }
+  return null
+}
+
+export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadcast' | 'ticketWatcher'>, clock: Clock = systemClock, railOf?: FlowRailOf): FlowTickets {
   const file = () => ticketStorePathForProject(ctx.project)
   const announce = (revision: number, message: WsMessage) => {
     try { ctx.ticketWatcher.notifyDesktopWrite(revision) } catch { /* watcher is advisory */ }
@@ -163,8 +211,8 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
       let deleted = false
       const store = mutateStore(file(), (s) => {
         const ticket = s.tickets[String(ticketId)]
-        // Only a Flow placeholder is ever deleted by Flow.
-        if (!ticket?.metadata?.flow) return
+        // Only a Flow placeholder is ever deleted by Flow: never the person's own spec.
+        if (!ticket?.metadata?.flow || ticket.metadata.flow.origin === 'existing') return
         delete s.tickets[String(ticketId)]
         deleted = true
       })
@@ -189,7 +237,83 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
     },
     read(ticketId) {
       const ticket = readStore(file()).tickets[String(ticketId)]
-      return ticket ? { title: ticket.title, description: ticket.description, status: ticket.status } : null
+      if (!ticket) return null
+      const spec = snapshotOf(ticket)
+      return { title: spec.title, description: spec.description, status: spec.status, repositoryIds: [...spec.repositoryIds], nonGoals: [...spec.nonGoals] }
+    },
+    inspectExisting(ticketId) {
+      const ticket = readStore(file()).tickets[String(ticketId)]
+      return { spec: ticket ? snapshotOf(ticket) : null, blocker: existingSpecBlocker(ticket, railOf) }
+    },
+    adoptExisting(input) {
+      let adopted: Ticket | undefined
+      let blocker: FlowSpecBlocker | null = null
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(input.ticketId)]
+        blocker = existingSpecBlocker(ticket, railOf, input.flowId)
+        if (blocker || !ticket) return
+        const current = ticket.metadata?.flow
+        // Idempotent: this Flow already holds the spec.
+        if (current?.flowId === input.flowId && current.origin === 'existing') { adopted = ticket; return }
+        const previousStatus: TicketStatus = ticket.status
+        ticket.metadata = {
+          ...ticket.metadata,
+          flow: {
+            conversationId: input.conversationId, flowId: input.flowId, worktreeId: input.flowId, startedAt: input.startedAt,
+            state: 'active', chosenMode: 'flow', origin: 'existing', previousStatus,
+          },
+        }
+        // The same "in progress, In Flow" a placeholder spec shows.
+        ticket.status = 'in_progress'
+        ticket.updated_at = clock.now()
+        adopted = ticket
+      })
+      if (blocker) {
+        const reason = blocker as FlowSpecBlocker
+        if (reason.code === 'spec_not_found') throw new FlowValidationError(reason.code, reason.message)
+        throw new FlowConflictError(reason.code, reason.message)
+      }
+      announce(store.revision, { type: 'ticket_updated', ticket: adopted as never, projectId: ctx.project.id, timestamp: clock.now() })
+      return snapshotOf(adopted!)
+    },
+    restoreExisting(ticketId, flowId) {
+      let updated: Ticket | undefined
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(ticketId)]
+        const flow = ticket?.metadata?.flow
+        // Only the spec THIS Flow holds; an existing spec is never deleted.
+        if (!ticket || !flow || flow.flowId !== flowId || flow.origin !== 'existing') return
+        const { flow: _held, ...metadata } = ticket.metadata ?? {}
+        ticket.metadata = metadata
+        // Its own status comes back unless it moved on meanwhile (done, cancelled…).
+        if (ticket.status === 'in_progress' && flow.previousStatus) ticket.status = flow.previousStatus
+        ticket.updated_at = clock.now()
+        updated = ticket
+      })
+      if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
+    },
+    preserveOriginal(ticketId, flowId) {
+      let updated: Ticket | undefined
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(ticketId)]
+        const flow = ticket?.metadata?.flow
+        if (!ticket || !flow || flow.flowId !== flowId) return
+        const comments = Array.isArray(ticket.comments) ? ticket.comments : []
+        // Idempotent: the original was already kept for this Flow.
+        if (typeof flow.originalCommentId === 'number' && comments.some((comment) => comment.id === flow.originalCommentId)) return
+        const id = comments.reduce((max, comment) => Math.max(max, typeof comment.id === 'number' ? comment.id : 0), 0) + 1
+        const now = clock.now()
+        ticket.comments = [...comments, {
+          id,
+          body: buildOriginalSpecComment({ title: ticket.title, description: ticket.description ?? '', nonGoals: Array.isArray(ticket.nonGoals) ? ticket.nonGoals : [], flowId }),
+          created_at: now,
+          created_by: 'flow',
+        }]
+        ticket.metadata = { ...ticket.metadata, flow: { ...flow, originalCommentId: id } }
+        ticket.updated_at = now
+        updated = ticket
+      })
+      if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
     },
     reopen(ticketId) {
       let updated: Ticket | undefined
@@ -425,7 +549,7 @@ export function createFlowPorts(deps: FlowBindingDeps): FlowPorts {
         id: member.id, name: member.name, isPrimary: member.isPrimary, kind: member.kind, ...(member.available === false ? { available: false } : {}),
       })),
     },
-    tickets: createFlowTickets(ctx, clock),
+    tickets: createFlowTickets(ctx, clock, railOfTicket(ctx.db)),
     worktrees: createFlowWorktrees(ctx, { git: deps.git, providerFor }),
     agent: {
       async assertReady({ conversationId }) {
@@ -822,6 +946,7 @@ export function createFlowPublication(
     jira: {
       connected: () => { try { return ctx.jiraSyncManager.isActive() } catch { return false } },
       enqueueCreate: (ticketId, key) => ctx.jiraSyncManager.enqueuePromote(ticketId, key),
+      enqueueUpdate: (ticketId, key) => ctx.jiraSyncManager.enqueueSpecUpdate(ticketId, key),
       linked: (ticketId) => { try { const link = getLinkByLocalId(ctx.db, ticketId); return Boolean(link && !link.tombstoned) } catch { return false } },
       enqueueReview: (ticketId, refId) => ctx.jiraSyncManager.onRailReview([ticketId], refId),
     },

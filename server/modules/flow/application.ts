@@ -1,6 +1,9 @@
 import {
   buildReturnBriefing,
   buildSpecRewriteText,
+  buildSpecSeedBriefing,
+  flowJiraUpdateKey,
+  isExistingSpecFlow,
   failedAttempt,
   finishedEffect,
   flowJiraCreateKey,
@@ -39,12 +42,16 @@ const MAX_IDEA_LENGTH = 20_000
 const FLOW_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 
 /** Effects whose failure must not mask the user's decision (logged, never thrown). */
-const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['stopProcesses', 'closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket', 'reopenTicket'])
+const BEST_EFFORT: ReadonlySet<FlowEffect['kind']> = new Set(['stopProcesses', 'closeAgentSession', 'setTicketFlowState', 'deletePlaceholderTicket', 'restoreTicket', 'reopenTicket'])
 
 export interface StartFlowInput {
   flowId?: string
   conversationId: string
-  idea: string
+  /** The free idea of a new Flow (required unless `ticketId` names a spec). */
+  idea?: string
+  /** Start from this EXISTING spec: no placeholder; the spec is labelled
+   * "In Flow" and seeds the first turn. */
+  ticketId?: number
   title?: string | null
   /** The project repository the Flow runs in (the mission agent's triage or
    * the person's pick). Omitted ⇒ the primary when it is Git, else the only
@@ -129,6 +136,9 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       case 'deletePlaceholderTicket':
         ports.tickets.deletePlaceholder(effect.ticketId)
         return
+      case 'restoreTicket':
+        ports.tickets.restoreExisting(effect.ticketId, session.id)
+        return
       case 'setTicketFlowState':
         ports.tickets.setFlowState(effect.ticketId, effect.state)
         return
@@ -155,7 +165,11 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
     const conversationId = typeof input.conversationId === 'string' ? input.conversationId.trim() : ''
     if (!conversationId) throw new FlowValidationError('conversation_required', 'conversationId is required')
     const idea = typeof input.idea === 'string' ? input.idea.trim() : ''
-    if (!idea) throw new FlowValidationError('idea_required', 'Describe the idea to explore')
+    const fromSpec = input.ticketId !== undefined && input.ticketId !== null
+    if (fromSpec && (typeof input.ticketId !== 'number' || !Number.isSafeInteger(input.ticketId) || input.ticketId <= 0)) {
+      throw new FlowValidationError('invalid_ticket_id', 'ticketId must be a positive integer')
+    }
+    if (!idea && !fromSpec) throw new FlowValidationError('idea_required', 'Describe the idea to explore')
     if (idea.length > MAX_IDEA_LENGTH) throw new FlowValidationError('idea_too_long', `The idea must be at most ${MAX_IDEA_LENGTH} characters`)
     if (input.flowId !== undefined && !FLOW_ID_RE.test(input.flowId)) throw new FlowValidationError('invalid_flow_id', 'flowId must be 1-64 characters of [A-Za-z0-9-]')
 
@@ -170,22 +184,39 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
       }
       const open = ports.repository.findOpenByConversation(conversationId)
       if (open) throw new FlowConflictError('flow_already_open', 'This conversation already has a Flow; resume or discard it first', open.id)
-      // Target triage before any effect: an unusable choice leaves nothing behind.
-      const repositoryId = resolveFlowRepository(ports.repositories?.list() ?? [], input.repositoryId)
+      // An existing spec must be free to work on (not done, not in another
+      // Flow, not on a rail) BEFORE anything is written.
+      const existingTicketId = fromSpec ? input.ticketId as number : null
+      const inspected = existingTicketId !== null ? ports.tickets.inspectExisting(existingTicketId) : null
+      if (inspected?.blocker) {
+        if (inspected.blocker.code === 'spec_not_found') throw new FlowValidationError(inspected.blocker.code, inspected.blocker.message)
+        throw new FlowConflictError(inspected.blocker.code, inspected.blocker.message)
+      }
+      // Target triage before any effect: an unusable choice leaves nothing
+      // behind. A spec that targets exactly one repository runs there.
+      const specRepositories = inspected?.spec?.repositoryIds ?? []
+      const requestedRepository = input.repositoryId ?? (specRepositories.length === 1 ? specRepositories[0] : null)
+      const repositoryId = resolveFlowRepository(ports.repositories?.list() ?? [], requestedRepository)
       await assertAvailable()
       await ports.agent.assertReady({ conversationId })
 
       const flowId = input.flowId ?? ports.ids()
-      let session = transition(null, { type: 'start', flowId, conversationId, repositoryId, now: ports.clock.now() }).session
+      let session = transition(null, { type: 'start', flowId, conversationId, repositoryId, ticketId: existingTicketId, now: ports.clock.now() }).session
       ports.repository.insert(session)
       ports.notifier.changed(session)
       try {
-        const ticketId = ports.tickets.createPlaceholder({
-          flowId, conversationId, title: placeholderTitle(idea, input.title), description: idea, startedAt: session.createdAt,
-          ...(repositoryId ? { repositoryIds: [repositoryId] } : {}),
-        })
-        session = apply(session, { type: 'ticket-created', ticketId, now: ports.clock.now() })
-        const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId, ...repositoryOf(session) })
+        if (existingTicketId !== null) {
+          // The existing spec is labelled "In Flow" and seeds the first turn.
+          const spec = ports.tickets.adoptExisting({ ticketId: existingTicketId, flowId, conversationId, startedAt: session.createdAt })
+          session = apply(session, { type: 'ticket-created', ticketId: existingTicketId, briefing: buildSpecSeedBriefing(spec), now: ports.clock.now() })
+        } else {
+          const ticketId = ports.tickets.createPlaceholder({
+            flowId, conversationId, title: placeholderTitle(idea, input.title), description: idea, startedAt: session.createdAt,
+            ...(repositoryId ? { repositoryIds: [repositoryId] } : {}),
+          })
+          session = apply(session, { type: 'ticket-created', ticketId, now: ports.clock.now() })
+        }
+        const reserved = await ports.worktrees.reserve({ flowId, conversationId, ticketId: session.ticketId!, ...repositoryOf(session) })
         session = apply(session, { type: 'worktree-reserved', ...reserved, now: ports.clock.now() })
         const opened = await ports.agent.open({ flowId, conversationId, worktreePath: reserved.worktreePath })
         const started = apply(session, { type: 'session-opened', coreSessionId: opened.coreSessionId, now: ports.clock.now() })
@@ -580,12 +611,28 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
         if (!derived.proposal?.trim() && !derived.design?.trim()) return failedAttempt(effect, 'The derived OpenSpec change was not found on the delivered branch', now, 'derived_change_missing')
         const ticket = ports.tickets.read(ticketId)
         if (!ticket) return finishedEffect(effect, 'skipped', now, 'ticket_missing')
+        // A Flow from an existing spec rewrites it ENTIRELY from what was built,
+        // but first keeps its current content as a comment: nothing is lost.
+        const existingSpec = isExistingSpecFlow(session)
+        if (existingSpec) ports.tickets.preserveOriginal(ticketId, session.id)
         const summary = ports.publication.conversationSummary({ conversationId: session.conversationId, ticketId, from: session.createdAt, to: null })
-        const result = await ports.publication.rewriteSpec({ ticketId, text: buildSpecRewriteText({ title: ticket.title, derived, summary }) })
+        const result = await ports.publication.rewriteSpec({
+          ticketId,
+          text: buildSpecRewriteText({ title: ticket.title, derived, summary, ...(existingSpec ? { original: { title: ticket.title, description: ticket.description } } : {}) }),
+        })
         return result.ok ? finishedEffect(effect, 'done', now) : failedAttempt(effect, result.error, now, 'rewrite_failed')
       }
       case 'jira-create': {
         if (!ports.publication.jira.connected()) return finishedEffect(effect, 'skipped', now, 'jira_not_connected')
+        // A spec that already had its Jira issue before the Flow: update THAT
+        // issue (rewritten summary and description), never create a second one.
+        if (isExistingSpecFlow(session) && ports.publication.jira.linked(ticketId)) {
+          const updated = ports.publication.jira.enqueueUpdate(ticketId, flowJiraUpdateKey(session.id))
+          if (updated === 'enqueued') return finishedEffect(effect, 'done', now, 'updated')
+          if (updated === 'inactive') return finishedEffect(effect, 'skipped', now, 'jira_not_connected')
+          if (updated === 'failed') return failedAttempt(effect, 'The Jira update could not be enqueued', now, 'enqueue_failed')
+          // not_linked: the link went away meanwhile — create as for any unlinked spec.
+        }
         const outcome = ports.publication.jira.enqueueCreate(ticketId, flowJiraCreateKey(session.id))
         if (outcome === 'enqueued' || outcome === 'already_linked') return finishedEffect(effect, 'done', now, outcome)
         if (outcome === 'inactive') return finishedEffect(effect, 'skipped', now, 'jira_not_connected')

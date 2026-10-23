@@ -61,9 +61,14 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
 
   router.post('/:projectId/flow', withService(async (service, req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>
+    // `ticketId`: start from that existing spec (the idea is then optional).
+    if (body.ticketId !== undefined && body.ticketId !== null && (typeof body.ticketId !== 'number' || !Number.isSafeInteger(body.ticketId) || body.ticketId <= 0)) {
+      throw new FlowValidationError('invalid_ticket_id', 'ticketId must be a positive integer')
+    }
     const flow = await service.startFlow({
       conversationId: typeof body.conversationId === 'string' ? body.conversationId : '',
       idea: typeof body.idea === 'string' ? body.idea : '',
+      ...(typeof body.ticketId === 'number' ? { ticketId: body.ticketId } : {}),
       ...(body.title !== undefined ? { title: optionalString(body.title, 'title') ?? null } : {}),
       ...(body.flowId !== undefined ? { flowId: String(body.flowId) } : {}),
       // The repository the Flow runs in (workspace / multi-repository projects).
