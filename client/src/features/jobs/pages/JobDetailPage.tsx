@@ -25,6 +25,7 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { humaniseCommand, ticketTitlesOf } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
 
 export default function JobDetailPage() {
@@ -402,6 +403,9 @@ export default function JobDetailPage() {
   const isInteractive = !!job.interactive
   const isInteractiveRunning = isInteractive && isRunning
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
+  // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
+  const rawCommand = formatCommandForProvider(job.command, activeProvider)
+  const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
   // Loop runs get the step-grouped explorer; every other job keeps the legacy
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
@@ -433,14 +437,24 @@ export default function JobDetailPage() {
         {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
           <h1 className="contents">
-            <code
-              className={cn(
-                'font-mono text-foreground truncate',
-                hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
-              )}
-            >
-              {formatCommandForProvider(job.command, activeProvider)}
-            </code>
+            {friendlyCommand ? (
+              <span
+                title={rawCommand}
+                data-testid="job-detail-command"
+                className={cn('truncate font-medium', hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm text-foreground')}
+              >
+                {friendlyCommand}
+              </span>
+            ) : (
+              <code
+                className={cn(
+                  'font-mono text-foreground truncate',
+                  hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
+                )}
+              >
+                {rawCommand}
+              </code>
+            )}
           </h1>
           <span>
             {job.started_at

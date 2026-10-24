@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/
 import { JobComparisonModal } from './JobComparisonModal'
 import type { JobSummary, JobStatus, JobPriority } from '../../../types'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { humaniseCommand } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
@@ -99,22 +100,6 @@ export function isWithinLocalDayRange(startedAt: string | null, from: string, to
   if (from && t < localDayStartMs(from)) return false
   if (to && t > localDayEndMs(to)) return false
   return true
-}
-
-/**
- * "/specrails:implement #15" -> "Implement · #15 Title" once the spec title is
- * known. Falls back to the verbatim command, which stays in the row tooltip.
- */
-function humaniseCommand(command: string, titles: Record<number, string> | undefined): string | null {
-  if (!titles) return null
-  // Slash/skill commands ("/specrails:implement #15") and loop launches ("loop: Implement #15").
-  const verb = /^\s*[/$](?:specrails:|sr:)?([a-z][\w-]*)/i.exec(command)?.[1]
-    ?? /^\s*loop\s*:\s*(.+?)\s*(?:#\d+.*)?$/i.exec(command)?.[1]
-  const id = /#(\d+)/.exec(command)?.[1]
-  const title = id ? titles[Number(id)] : undefined
-  if (!verb || !id || !title) return null
-  const label = verb.replace(/-/g, ' ')
-  return `${label.charAt(0).toUpperCase()}${label.slice(1)} · #${id} ${title}`
 }
 
 interface RecentJobsProps {

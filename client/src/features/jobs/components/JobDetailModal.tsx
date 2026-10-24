@@ -28,6 +28,7 @@ import { JobRunHeader } from './job-run/JobRunHeader'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplorer'
 import { NarratedProgress } from '../../loops/components/loop-log/NarratedProgress'
+import { humaniseCommand, ticketTitlesOf } from '../lib/humanise-command'
 import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
@@ -335,7 +336,12 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
               <DialogTitle className="truncate">{title}</DialogTitle>
               {job ? (
                 <DialogDescription className="flex min-w-0 items-baseline gap-2">
-                  <code className="min-w-0 truncate font-mono text-xs text-foreground/80">{job.command}</code>
+                  {(() => {
+                    const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
+                    return friendly
+                      ? <span className="min-w-0 truncate text-xs text-foreground/80" title={job.command}>{friendly}</span>
+                      : <code className="min-w-0 truncate font-mono text-xs text-foreground/80">{job.command}</code>
+                  })()}
                   <span className="shrink-0 text-xs">
                     {activityTime
                       ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })

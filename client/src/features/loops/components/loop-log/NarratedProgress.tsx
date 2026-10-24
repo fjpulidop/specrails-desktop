@@ -42,8 +42,8 @@ const STEP_ID = /^[a-z][a-z-]*$/
 /** Unknown engine step ids are reported once per session (dev only) so new steps get copy. */
 const reportedUnknownSteps = new Set<string>()
 
-/** A settled step that took under 2 s counts as bookkeeping. */
-const QUICK_SECONDS = 2
+/** A settled step that took under 5 s counts as bookkeeping. */
+const QUICK_SECONDS = 5
 
 function isStation(m: NarrationMilestone): boolean {
   return m.kind === 'step-start' || m.kind === 'step-end' || m.kind === 'step-interrupted' || m.values.phaseBoundary === 1
@@ -208,6 +208,23 @@ export function NarratedProgress({
           }
           const row = entry.row
           const { milestone, station, duration, live } = row
+          // Runtime phases are section headers for the steps below them: a
+          // label, no dot, with room above — steps keep the rail's stops.
+          if (milestone.kind === 'activity' && milestone.values.phaseBoundary === 1) {
+            return (
+              <li
+                key={`${milestone.seq}-${milestone.code}-${index}`}
+                data-testid="narration-phase"
+                data-station="true"
+                className={cn('flex items-start gap-2 text-label font-semibold text-muted-foreground', index > 0 && 'pt-3')}
+              >
+                {track(null)}
+                <span className="min-w-0 flex-1 break-words">{t(milestone.code, { ...milestone.values, defaultValue: milestone.code })}</span>
+              </li>
+            )
+          }
+          // Inside a "Fix round N of M" group the round is already named.
+          const stepCode = milestone.code === 'step.startRetry' ? 'step.start' : milestone.code
           // A folded "N files" line already states its count in the text; the
           // ×N badge is only for the same thing happening repeatedly.
           const repeats = Number(milestone.values.files ?? 0) > 1 || programmatic
@@ -246,12 +263,12 @@ export function NarratedProgress({
                 {/* A step the engine named by role reads as its role; anything
                     else keeps the real title rather than a guessed label. */}
                 {milestone.kind === 'step-start' && typeof milestone.values.roleCode === 'string'
-                  ? t(milestone.code, {
+                  ? t(stepCode, {
                       ...milestone.values,
                       title: t(milestone.values.roleCode as string),
-                      defaultValue: milestone.code,
+                      defaultValue: stepCode,
                     })
-                  : t(milestone.code, { ...milestone.values, title: humanTitle(milestone.values.title), defaultValue: milestone.code })}
+                  : t(stepCode, { ...milestone.values, title: humanTitle(milestone.values.title), defaultValue: stepCode })}
                 {repeats > 1 ? (
                   <span className="ml-1.5 text-caption opacity-70">{t('repeats', { count: repeats })}</span>
                 ) : null}
