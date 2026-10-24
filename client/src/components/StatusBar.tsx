@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '../lib/utils'
+import { LiveDot } from './ui/live-dot'
 import { getApiBase } from '../lib/api'
 import { formatUsd } from '../lib/format-usd'
 
@@ -37,30 +38,26 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
   const { t: tAnalytics } = useTranslation('analytics')
   const [stats, setStats] = useState<Stats | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
-  const prevStatusRef = useRef<'connecting' | 'connected' | 'disconnected'>('connecting')
-  const isFirstMount = useRef(true)
+  // Reconnect feedback. A plain reload goes connecting -> connected without ever
+  // having been connected, and a blip shorter than 3 s is not worth a toast:
+  // those only flash the lamp. A real outage (>= 3 s offline) gets the toast.
+  const everConnected = useRef(false)
+  const offlineSince = useRef<number | null>(null)
 
-  // Detect reconnect: was previously connected/connecting-after-disconnect, now connected again
   useEffect(() => {
-    const prev = prevStatusRef.current
-    if (connectionStatus === 'connected' && !isFirstMount.current && prev !== 'connected') {
-      toast.success(t('statusBar.connectionRestored'))
-      setIsSyncing(true)
-      const timer = setTimeout(() => setIsSyncing(false), 2000)
-      return () => clearTimeout(timer)
+    if (connectionStatus !== 'connected') {
+      if (everConnected.current && offlineSince.current === null) offlineSince.current = Date.now()
+      return
     }
-    if (isFirstMount.current && connectionStatus === 'connected') {
-      isFirstMount.current = false
-    }
-    prevStatusRef.current = connectionStatus
-  }, [connectionStatus])
-
-  // Mark first mount resolved once we hit any status change
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false
-    }
-  }, [])
+    const wasOffline = offlineSince.current
+    offlineSince.current = null
+    everConnected.current = true
+    if (wasOffline === null) return
+    if (Date.now() - wasOffline >= 3000) toast.success(t('statusBar.connectionRestored'))
+    setIsSyncing(true)
+    const timer = setTimeout(() => setIsSyncing(false), 2000)
+    return () => clearTimeout(timer)
+  }, [connectionStatus, t])
 
   useEffect(() => {
     if (minimal) return // spend figure never shown — skip the polling entirely
@@ -87,17 +84,14 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
   const showConnection = !minimal || connectionStatus !== 'connected' || isSyncing
 
   return (
-    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background text-caption text-muted-foreground">
+    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background text-caption num text-muted-foreground">
       {/* Connection status */}
       <div className={cn('flex items-center gap-1.5 transition-opacity duration-200', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
-        <span
-          className={cn(
-            'w-1.5 h-1.5 rounded-full transition-colors',
-            connectionStatus === 'connected' && !isSyncing && 'bg-accent-success',
-            connectionStatus === 'connected' && isSyncing && 'bg-accent-info animate-pulse motion-reduce:animate-none',
-            connectionStatus === 'connecting' && 'bg-accent-warning animate-[pulse_0.75s_ease-in-out_infinite] motion-reduce:animate-none',
-            connectionStatus === 'disconnected' && 'bg-destructive'
-          )}
+        <LiveDot
+          size="xs"
+          aria-hidden="true"
+          pulsing={connectionStatus === 'connecting' || (connectionStatus === 'connected' && isSyncing)}
+          tone={connectionStatus === 'disconnected' ? 'destructive' : connectionStatus === 'connecting' ? 'warning' : isSyncing ? 'info' : 'success'}
         />
         <span
           role="status"
@@ -118,7 +112,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
       </div>
 
       {/* Stats + right slot (terminal chevron) */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 [&>*+*]:border-l [&>*+*]:border-border/40 [&>*+*]:pl-2">
         {!minimal && stats && (stats.totalCostUsd > 0 || (stats.unpricedRuns ?? 0) > 0) && (() => {
           // BUG-ANALYTICS-27: never present a codex/gemini rate-card estimate as
           // a billed figure — prefix '~' + tooltip when any part is estimated.

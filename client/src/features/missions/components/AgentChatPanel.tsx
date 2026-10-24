@@ -1,7 +1,7 @@
 import { MissionWindowAction } from './MissionWindowAction'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion, MotionConfig } from 'motion/react'
+import { motion } from 'motion/react'
 import { Bot, X, Plus, Maximize2, Minimize2 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -50,7 +50,7 @@ export function AgentChatPanel() {
   const MAXIMIZED_STYLE: CSSProperties = { position: 'fixed', inset: 12, width: 'auto', height: 'auto', maxWidth: 'none', maxHeight: 'none' }
 
   return (
-    <MotionConfig reducedMotion="user">
+    <>
       <motion.div
         ref={panelRef}
         initial={{ opacity: 0, scale: 0.85, y: 8 }}
@@ -144,6 +144,6 @@ export function AgentChatPanel() {
           <ResizeGrips handles={resizeHandles} />
         </div>
       )}
-    </MotionConfig>
+    </>
   )
 }

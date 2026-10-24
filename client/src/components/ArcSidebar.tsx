@@ -21,6 +21,7 @@ import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
 import { useMissionConversationMarks } from '../features/missions/context/MissionExtensionsContext'
 import { MissionAttentionMark, MissionModeRowMark } from '../features/missions/components/MissionModeBadge'
+import { motion } from 'motion/react'
 import { useMissionSessions } from '../features/missions/context/MissionSessionsContext'
 import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
@@ -33,6 +34,19 @@ const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
 /** How long a destructive "Remove?" / "Delete?" confirmation stays armed. */
 const CONFIRM_RESET_MS = 5000
 /** Keyboard focus ring shared by every row button in the sidebar. */
+/** Selection marker: a 2 px pill on the inner edge that glides between nav items. */
+function NavRailIndicator() {
+  return (
+    <motion.span
+      layoutId="arc-nav-rail"
+      aria-hidden="true"
+      data-testid="nav-rail-indicator"
+      className="pointer-events-none absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent-primary"
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+    />
+  )
+}
+
 const ROW_FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2'
 /** Expanded-sidebar group label ("Workspace", "Projects"). 12px per the app's text floor. */
 const SECTION_LABEL = 'px-2 pt-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'
@@ -445,13 +459,14 @@ function ProjectItem({
     <div>
       <div
         className={cn(
-          'group relative flex items-center gap-1 w-full h-8 rounded-md transition-colors',
+          'group relative flex items-center gap-1 w-full h-8 rounded-md transition-colors duration-150',
           expanded ? 'pr-2' : 'justify-center',
           isActive
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
         )}
       >
+        {isActive && <NavRailIndicator />}
         <button
           type="button"
           onClick={onSelect}
@@ -833,7 +848,7 @@ export function ArcSidebar({
   }
 
   const rowClass = (activeRow: boolean) => cn(
-    'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+    'relative flex items-center gap-2 w-full h-8 rounded-md transition-colors duration-150',
     expanded ? 'px-2' : 'px-0 justify-center',
     activeRow
       ? 'bg-muted text-foreground'
@@ -1003,6 +1018,7 @@ export function ArcSidebar({
               aria-current={onLoopsRoute ? 'page' : undefined}
               title={!expanded ? t('arcSidebar.loops') : undefined}
             >
+              {onLoopsRoute && <NavRailIndicator />}
               <Workflow className={cn('w-4 h-4 flex-shrink-0', onLoopsRoute && 'text-accent-primary')} />
               {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.loops')}</span>}
             </button>
@@ -1014,6 +1030,7 @@ export function ArcSidebar({
               aria-current={onPluginsRoute ? 'page' : undefined}
               title={!expanded ? t('arcSidebar.plugins') : undefined}
             >
+              {onPluginsRoute && <NavRailIndicator />}
               <Puzzle className={cn('w-4 h-4 flex-shrink-0', onPluginsRoute && 'text-accent-primary')} />
               {expanded && <span className="text-xs whitespace-nowrap">{t('arcSidebar.plugins')}</span>}
             </button>

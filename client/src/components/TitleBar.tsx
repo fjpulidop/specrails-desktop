@@ -107,12 +107,12 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
         gap: 5,
         paddingLeft: 8,
         paddingRight: 8,
-        borderRadius: 9999,
+        borderRadius: 'var(--radius-control)',
         border: '1px solid color-mix(in srgb, var(--color-border) 70%, transparent)',
         cursor: 'pointer',
         background: hovered
           ? 'color-mix(in srgb, var(--color-accent) 82%, transparent)'
-          : 'color-mix(in srgb, var(--color-surface) 72%, transparent)',
+          : 'color-mix(in srgb, var(--color-surface) 60%, transparent)',
         color: projectName ? 'var(--color-foreground)' : 'var(--color-muted-foreground)',
         fontSize: 12,
         fontWeight: 400,
@@ -139,6 +139,13 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
       >
         {projectName ?? t('titleBar.searchPlaceholder')}
       </span>
+      <kbd
+        aria-hidden="true"
+        className="text-micro"
+        style={{ flexShrink: 0, marginLeft: 4, fontFamily: 'inherit', opacity: 0.55 }}
+      >
+        {keyboardLabel('⌘K')}
+      </kbd>
     </button>
   )
 }

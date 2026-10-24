@@ -1,5 +1,6 @@
 import { isPluginWindowRoute } from './features/plugins/lib/plugin-windows'
 import { isLoopWindowRoute } from './features/loops/lib/loop-windows'
+import { MotionConfig } from 'motion/react'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
 import { MissionWindowBindings } from './features/missions/components/MissionWindowBindings'
@@ -729,7 +730,7 @@ function MainDesktopUpdateNotifier() {
   return null
 }
 
-export default function App() {
+function AppRoutes() {
   const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
@@ -824,5 +825,14 @@ export default function App() {
         </SharedWebSocketProvider>
       </div>
     </div>
+  )
+}
+
+export default function App() {
+  // One reduced-motion policy for every `motion` component in the app.
+  return (
+    <MotionConfig reducedMotion="user">
+      <AppRoutes />
+    </MotionConfig>
   )
 }

@@ -6,7 +6,7 @@ import { Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { composerDrafts, composerReferenceDrafts, writeComposerDraft, NEW_MISSION_DRAFT_KEY } from '../lib/agent-composer-drafts'
 import { useTranslation } from 'react-i18next'
-import { motion, MotionConfig } from 'motion/react'
+import { motion } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -113,7 +113,6 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
   const showAnalytics = !showJobs && !showCode && analyticsPaneOpen && !!activeProjectId && !external
 
   return (
-    <MotionConfig reducedMotion="user">
     <div data-agent-mode-surface className="relative z-0 flex h-full w-full overflow-hidden bg-background">
       {isGalaxy && <Starfield />}
       <div className="relative flex h-full min-w-[360px] flex-1 flex-col overflow-hidden">
@@ -190,6 +189,5 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
       {/* Browser capture mounts globally in AgentBrowserCaptureHost (App root)
           so the board-mode floating panel can open it too. */}
     </div>
-    </MotionConfig>
   )
 }
