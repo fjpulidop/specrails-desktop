@@ -797,7 +797,7 @@ export function AgentComposer({
             {t('composer.dropFiles')}
           </div>
         )}
-        <AgentThinkingHalo active={isStreaming} radius="1.5rem" inset={-1} />
+        <AgentThinkingHalo active={isStreaming} radius="calc(var(--radius-panel) + 1px)" inset={-1} />
         {paletteOpen && (
           <AgentContextPalette
             paletteId={paletteId}

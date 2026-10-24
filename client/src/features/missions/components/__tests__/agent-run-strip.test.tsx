@@ -762,7 +762,7 @@ describe('thinking halo on the composer dock', () => {
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Thinking' }) })
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'true')
     expect(within(dockCard).getByTestId('builder-halo')).toHaveStyle({ inset: '-1px' })
-    expect(within(dockCard).getByTestId('builder-halo').firstElementChild).toHaveStyle({ borderRadius: '1.5rem' })
+    expect(within(dockCard).getByTestId('builder-halo').firstElementChild).toHaveAttribute('style', expect.stringContaining('var(--radius-panel)'))
     await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'Thinking done' }) })
     expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
     await act(async () => { setEffectsPrefs({ agentThinkingHalo: false }) })
