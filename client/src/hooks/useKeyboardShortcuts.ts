@@ -16,8 +16,8 @@ export const SHORTCUTS: Shortcut[] = [
   // General
   { keys: '?', descriptionKey: 'shortcuts.items.showCheatsheet', category: 'general' },
   { keys: 'Esc', descriptionKey: 'shortcuts.items.closeModal', category: 'general' },
-  { keys: '⌘B', descriptionKey: 'shortcuts.items.toggleRightSidebar', category: 'general' },
-  { keys: '⌥⌘B', descriptionKey: 'shortcuts.items.toggleLeftSidebar', category: 'general' },
+  { keys: '⌘B', descriptionKey: 'shortcuts.items.toggleLeftSidebar', category: 'general' },
+  { keys: '⌥⌘B', descriptionKey: 'shortcuts.items.toggleRightSidebar', category: 'general' },
   { keys: '⌘J', descriptionKey: 'shortcuts.items.toggleTerminal', category: 'general' },
   ...(FEATURE_AGENT_CHAT
     ? [{ keys: '⌘⇧A', descriptionKey: 'shortcuts.items.toggleAgent', category: 'general' as const }]
@@ -157,17 +157,17 @@ export function useKeyboardShortcuts({
       if (isInsideXterm(e)) return
       if (isInsideDialog(e)) return
 
-      // ⌘B → toggle right sidebar  (e.code avoids Option layer chars like '∫')
+      // ⌘B → toggle LEFT sidebar, ⌥⌘B → toggle RIGHT sidebar (the VS Code /
+      // Cursor convention). e.code avoids Option-layer chars like '∫'.
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code === 'KeyB') {
         e.preventDefault()
-        onToggleRightSidebarRef.current?.()
+        onToggleLeftSidebarRef.current?.()
         return
       }
 
-      // ⌥⌘B → toggle left sidebar
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyB') {
         e.preventDefault()
-        onToggleLeftSidebarRef.current?.()
+        onToggleRightSidebarRef.current?.()
         return
       }
 

@@ -89,6 +89,20 @@ describe('useKeyboardShortcuts', () => {
     expect(onSwitchProjectPage).toHaveBeenCalledWith(5)
   })
 
+  it('⌘B toggles the LEFT sidebar and ⌥⌘B the RIGHT one (VS Code convention)', () => {
+    const onToggleLeftSidebar = vi.fn()
+    const onToggleRightSidebar = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onToggleLeftSidebar, onToggleRightSidebar }), { wrapper })
+
+    fireKey('b', { code: 'KeyB', metaKey: true })
+    expect(onToggleLeftSidebar).toHaveBeenCalledOnce()
+    expect(onToggleRightSidebar).not.toHaveBeenCalled()
+
+    fireKey('∫', { code: 'KeyB', metaKey: true, altKey: true })
+    expect(onToggleRightSidebar).toHaveBeenCalledOnce()
+    expect(onToggleLeftSidebar).toHaveBeenCalledOnce()
+  })
+
   it('does not trigger shortcuts when typing in an input', () => {
     const onOpen = vi.fn()
     renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: onOpen }), { wrapper })
