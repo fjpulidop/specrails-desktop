@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "en cours",
     "completed": "terminé",
-    "done": "fini",
     "failed": "échoué",
     "canceled": "annulé",
     "queued": "en attente",

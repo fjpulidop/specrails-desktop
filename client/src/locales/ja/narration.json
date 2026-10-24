@@ -26,7 +26,22 @@
     "stalled": "ステップ {{step}} が停止：{{idleMinutes}} 分間活動がなかったため、アプリが停止しました",
     "startResume": "ステップ {{step}}：{{title}} — 停止後に再開",
     "providerLimit": "ステップ {{step}} 停止 — プロバイダーの利用上限に達しました",
-    "recovered": "再開後にステップ {{step}} が完了"
+    "recovered": "再開後にステップ {{step}} が完了",
+    "durationSec": "{{seconds}}秒",
+    "durationMin": "{{minutes}}分"
+  },
+  "steps": {
+    "architect": "変更を設計",
+    "confidence": "信頼度を確認",
+    "validate": "計画を検証",
+    "freeze": "計画を確定",
+    "initialize-corrections": "修正を準備",
+    "developer": "実装",
+    "developer-blocker": "ブロッカーを確認",
+    "tasks": "タスクを順に実行",
+    "verify": "検証",
+    "review": "レビュー",
+    "ship": "提出"
   },
   "decision": {
     "another": "まだ未達 — もう一周",

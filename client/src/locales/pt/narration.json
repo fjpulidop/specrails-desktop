@@ -26,7 +26,22 @@
     "stalled": "O passo {{step}} travou — sem atividade durante {{idleMinutes}} min, por isso a app parou-o",
     "startResume": "Passo {{step}}: {{title}} — a retomar após travar",
     "providerLimit": "Passo {{step}} parado — o limite de utilização do fornecedor foi atingido",
-    "recovered": "Passo {{step}} concluído após retomar"
+    "recovered": "Passo {{step}} concluído após retomar",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Desenhar a mudança",
+    "confidence": "Verificar a confiança",
+    "validate": "Validar o plano",
+    "freeze": "Fixar o plano",
+    "initialize-corrections": "Preparar correções",
+    "developer": "Implementar",
+    "developer-blocker": "Procurar bloqueios",
+    "tasks": "Percorrer as tarefas",
+    "verify": "Verificar",
+    "review": "Revisar",
+    "ship": "Entregar"
   },
   "decision": {
     "another": "Ainda não está — outra volta",

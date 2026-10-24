@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "läuft",
     "completed": "abgeschlossen",
-    "done": "fertig",
     "failed": "fehlgeschlagen",
     "canceled": "abgebrochen",
     "queued": "in Warteschlange",

@@ -86,7 +86,7 @@ describe('RecentJobs', () => {
 
   it('renders job list with status badges', () => {
     render(<RecentJobs jobs={mockJobs} />)
-    expect(screen.getByText('done')).toBeInTheDocument()
+    expect(screen.getByText('completed')).toBeInTheDocument()
     expect(screen.getByText('running')).toBeInTheDocument()
     expect(screen.getByText('failed')).toBeInTheDocument()
   })

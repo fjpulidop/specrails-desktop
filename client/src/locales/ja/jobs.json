@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "実行中",
     "completed": "完了",
-    "done": "完了",
     "failed": "失敗",
     "canceled": "キャンセル",
     "queued": "待機中",

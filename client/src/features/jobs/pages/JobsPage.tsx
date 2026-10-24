@@ -67,6 +67,26 @@ export default function JobsPage() {
     return () => unregisterHandler('jobs-runtime-continuation')
   }, [activeProjectId, refreshJobs, registerHandler, unregisterHandler])
 
+  // Spec titles so a row can read "Implement · #15 Title". Best effort: any
+  // failure leaves the verbatim command in place.
+  const { data: ticketTitles } = useProjectCache<Record<number, string>>({
+    namespace: 'jobs-ticket-titles',
+    projectId: activeProjectId,
+    initialValue: {},
+    fetcher: async ({ projectId, signal }) => {
+      try {
+        const res = await fetch(`${projectApiBase(projectId)}/tickets`, { signal, cache: 'no-store' })
+        if (!res.ok) return {}
+        const data = await res.json() as { tickets?: Array<{ id: number; title?: string }> } | Array<{ id: number; title?: string }>
+        const list = Array.isArray(data) ? data : data.tickets ?? []
+        return Object.fromEntries(list.filter(x => x && typeof x.title === 'string').map(x => [x.id, x.title as string]))
+      } catch {
+        return {}
+      }
+    },
+    pollInterval: 60_000,
+  })
+
   const {
     data: proposals,
     isFirstLoad: proposalsFirstLoad,
@@ -144,7 +164,7 @@ export default function JobsPage() {
   const [confirmDeleteProposalId, setConfirmDeleteProposalId] = useState<string | null>(null)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-headline">{t('page.title')}</h1>
         <ExportDropdown
@@ -162,6 +182,7 @@ export default function JobsPage() {
       </details>}
       <RecentJobs
         jobs={jobs}
+        ticketTitles={ticketTitles}
         isLoading={jobsFirstLoad || proposalsFirstLoad || jobsRefreshing || proposalsRefreshing}
         error={jobsError ?? proposalsError}
         onRetry={() => { void Promise.all([refreshJobs(), refreshProposals()]) }}

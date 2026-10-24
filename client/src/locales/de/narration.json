@@ -26,7 +26,22 @@
     "stalled": "Schritt {{step}} hing – {{idleMinutes}} Min. ohne Aktivität, daher hat die App ihn beendet",
     "startResume": "Schritt {{step}}: {{title}} – Fortsetzung nach einem Hänger",
     "providerLimit": "Schritt {{step}} gestoppt — das Nutzungslimit des Anbieters ist erreicht",
-    "recovered": "Schritt {{step}} nach dem Fortsetzen abgeschlossen"
+    "recovered": "Schritt {{step}} nach dem Fortsetzen abgeschlossen",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} Min."
+  },
+  "steps": {
+    "architect": "Änderung entwerfen",
+    "confidence": "Vertrauen prüfen",
+    "validate": "Plan validieren",
+    "freeze": "Plan festlegen",
+    "initialize-corrections": "Korrekturen vorbereiten",
+    "developer": "Umsetzen",
+    "developer-blocker": "Blocker prüfen",
+    "tasks": "Aufgaben abarbeiten",
+    "verify": "Verifizieren",
+    "review": "Prüfen",
+    "ship": "Ausliefern"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",

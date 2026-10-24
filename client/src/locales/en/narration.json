@@ -26,7 +26,22 @@
     "stalled": "Step {{step}} stalled — no activity for {{idleMinutes}} min, so the app stopped it",
     "startResume": "Step {{step}}: {{title}} — resuming after a stall",
     "providerLimit": "Step {{step}} stopped — the provider's usage limit was reached",
-    "recovered": "Step {{step}} completed after resuming"
+    "recovered": "Step {{step}} completed after resuming",
+    "durationSec": "{{seconds}}s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Design the change",
+    "confidence": "Check confidence",
+    "validate": "Validate the plan",
+    "freeze": "Lock the plan",
+    "initialize-corrections": "Prepare fixes",
+    "developer": "Implement",
+    "developer-blocker": "Check for blockers",
+    "tasks": "Work through tasks",
+    "verify": "Verify",
+    "review": "Review",
+    "ship": "Ship"
   },
   "decision": {
     "another": "Not done yet — going round again",

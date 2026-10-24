@@ -9,8 +9,10 @@
  */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Check, CircleDot, Clock, RotateCcw } from 'lucide-react'
-import { buildNarration, type MilestoneKind, type NarrationMilestone } from './narration-model'
+import { Clock } from 'lucide-react'
+import { LiveDot } from '../../../../components/ui/live-dot'
+import { cn } from '../../../../lib/utils'
+import { buildNarration, type NarrationMilestone } from './narration-model'
 import type { EventRow } from '../../../../types'
 
 export interface DurationRange {
@@ -31,18 +33,14 @@ export interface NarratedProgressProps {
   variant?: 'page' | 'glass'
 }
 
-const ICON: Record<MilestoneKind, typeof CircleDot> = {
-  'step-start': CircleDot,
-  'step-end': Check,
-  'step-interrupted': AlertTriangle,
-  decision: RotateCcw,
-  activity: CircleDot,
-}
+/** Step-end codes that only add a duration to the step they close. */
+const QUIET_END = new Set(['step.done', 'step.doneTimed', 'step.doneTimedMin', 'step.recovered'])
 
-const TONE: Record<NarrationMilestone['tone'], string> = {
-  neutral: 'text-muted-foreground',
-  good: 'text-accent-success',
-  bad: 'text-accent-warning',
+/** Engine step ids that have plain-language copy under `steps.<id>`. */
+const STEP_ID = /^[a-z][a-z-]*$/
+
+function isStation(m: NarrationMilestone): boolean {
+  return m.kind === 'step-start' || m.kind === 'step-end' || m.kind === 'step-interrupted' || m.values.phaseBoundary === 1
 }
 
 export function NarratedProgress({
@@ -60,6 +58,28 @@ export function NarratedProgress({
     () => [...model.milestones].sort((a, b) => a.seq - b.seq),
     [model.milestones],
   )
+
+  // Rail view: step starts and runtime phases are stations on the track; a
+  // successful "Finished step N in 1s" folds into its step's row as a duration.
+  const rows = useMemo(() => {
+    const endBySeq = new Map<number, NarrationMilestone>()
+    for (const m of ordered) if (m.kind === 'step-end' && QUIET_END.has(m.code) && m.stepIndex !== null) endBySeq.set(m.stepIndex, m)
+    const visible = ordered.filter(m => !(m.kind === 'step-end' && QUIET_END.has(m.code)))
+    const lastStation = (() => {
+      for (let i = visible.length - 1; i >= 0; i--) if (isStation(visible[i])) return i
+      return -1
+    })()
+    return visible.map((milestone, i) => {
+      const station = isStation(milestone)
+      const end = milestone.kind === 'step-start' && milestone.stepIndex !== null ? endBySeq.get(milestone.stepIndex) : undefined
+      const seconds = Number(end?.values.seconds ?? 0)
+      const minutes = Number(end?.values.minutes ?? 0)
+      const duration = end && seconds > 0
+        ? (end.code === 'step.doneTimedMin' ? t('step.durationMin', { minutes }) : t('step.durationSec', { seconds }))
+        : null
+      return { milestone, station, duration, live: station && !settled && i === lastStation && !end }
+    })
+  }, [ordered, settled, t])
 
   return (
     <div className={variant === 'glass' ? 'flex h-full flex-col overflow-hidden' : 'flex flex-col'}>
@@ -84,29 +104,43 @@ export function NarratedProgress({
         <span className="ml-auto text-caption text-muted-foreground">{t('aiNote')}</span>
       </div>
 
-      <ol className={`flex-1 space-y-1 px-3 py-2 ${variant === 'glass' ? 'overflow-y-auto' : ''}`} data-testid="narration-list">
-        {ordered.length === 0 ? (
+      <ol className={`flex-1 px-3 py-2 ${variant === 'glass' ? 'overflow-y-auto' : ''}`} data-testid="narration-list">
+        {rows.length === 0 ? (
           <li className="py-6 text-center text-xs text-muted-foreground">
             {t(settled ? 'emptySettled' : 'emptyLive')}
           </li>
-        ) : ordered.map((milestone, index) => {
-          const Icon = ICON[milestone.kind]
-          const isStep = milestone.kind === 'step-start' || milestone.kind === 'step-end'
-            || milestone.kind === 'step-interrupted'
+        ) : rows.map((row, index) => {
+          const { milestone, station, duration, live } = row
           // A folded "N files" line already states its count in the text; the
           // ×N badge is only for the same thing happening repeatedly.
           const repeats = Number(milestone.values.files ?? 0) > 1 || programmatic
             ? 1
             : Number(milestone.values.repeats ?? 1)
+          const failed = milestone.tone === 'bad'
+          const humanTitle = (title: unknown): string =>
+            typeof title === 'string' && STEP_ID.test(title) ? t(`steps.${title}`, { defaultValue: title }) : String(title ?? '')
           return (
             <li
               key={`${milestone.seq}-${milestone.code}-${index}`}
-              className={`flex items-start gap-2 text-sm ${isStep || milestone.values.phaseBoundary === 1 ? 'font-medium text-foreground' : 'text-muted-foreground'} ${
-                milestone.kind === 'step-start' && index > 0 ? 'pt-2' : ''
-              }`}
+              data-station={station ? 'true' : undefined}
+              className={cn(
+                'flex items-start gap-2 text-sm',
+                station ? 'font-medium text-foreground' : 'text-muted-foreground',
+                station && index > 0 && 'pt-1.5',
+              )}
             >
-              <Icon className={`mt-0.5 size-3.5 shrink-0 ${TONE[milestone.tone]}`} aria-hidden />
-              <span className="min-w-0 break-words">
+              {/* Track column: a 1px line with a station node or a small sleeper. */}
+              <span className="relative flex w-4 shrink-0 justify-center self-stretch" aria-hidden>
+                <span className={cn('absolute left-1/2 w-px -translate-x-1/2 bg-border', index === 0 ? 'top-2.5' : 'top-0', index === rows.length - 1 ? 'h-2.5' : 'bottom-0')} />
+                {station ? (
+                  live
+                    ? <LiveDot tone="primary" size="sm" className="mt-1.5" />
+                    : <span className={cn('relative mt-1.5 size-2 rounded-full ring-2 ring-background', failed ? 'bg-destructive' : 'bg-accent-success')} />
+                ) : (
+                  <span className={cn('relative mt-2 size-1 rounded-full', failed ? 'bg-destructive' : 'bg-muted-foreground/40')} />
+                )}
+              </span>
+              <span className="min-w-0 flex-1 break-words">
                 {typeof milestone.values.repository === 'string' && milestone.values.repository && (
                   <span className="mr-2 inline-block rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground">{milestone.values.repository}</span>
                 )}
@@ -118,11 +152,12 @@ export function NarratedProgress({
                       title: t(milestone.values.roleCode as string),
                       defaultValue: milestone.code,
                     })
-                  : t(milestone.code, { ...milestone.values, defaultValue: milestone.code })}
+                  : t(milestone.code, { ...milestone.values, title: humanTitle(milestone.values.title), defaultValue: milestone.code })}
                 {repeats > 1 ? (
                   <span className="ml-1.5 text-caption opacity-70">{t('repeats', { count: repeats })}</span>
                 ) : null}
               </span>
+              {duration ? <span className="shrink-0 num text-caption text-muted-foreground">{duration}</span> : null}
             </li>
           )
         })}

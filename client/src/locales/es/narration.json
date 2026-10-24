@@ -26,7 +26,22 @@
     "stalled": "El paso {{step}} se atascó: sin actividad durante {{idleMinutes}} min, así que la app lo detuvo",
     "startResume": "Paso {{step}}: {{title}} — reanudando tras un atasco",
     "providerLimit": "Paso {{step}} detenido — se alcanzó el límite de uso del proveedor",
-    "recovered": "Paso {{step}} completado tras reanudar"
+    "recovered": "Paso {{step}} completado tras reanudar",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Diseñar el cambio",
+    "confidence": "Comprobar la confianza",
+    "validate": "Validar el plan",
+    "freeze": "Fijar el plan",
+    "initialize-corrections": "Preparar correcciones",
+    "developer": "Implementar",
+    "developer-blocker": "Buscar bloqueos",
+    "tasks": "Recorrer las tareas",
+    "verify": "Verificar",
+    "review": "Revisar",
+    "ship": "Entregar"
   },
   "decision": {
     "another": "Aún no está — otra vuelta",

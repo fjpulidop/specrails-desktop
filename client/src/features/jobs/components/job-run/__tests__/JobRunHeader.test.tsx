@@ -183,7 +183,7 @@ describe('JobRunHeader', () => {
     rerender(<JobRunHeader job={completed} events={events} phases={{}} phaseDefinitions={[]} variant="page" />)
     expect(screen.getByText('completed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('$0.42')).toBeInTheDocument()
+    expect(screen.getAllByText('$0.42')).toHaveLength(2) // outcome header + Details tile
     expect(screen.getByText('Turns').nextElementSibling).toHaveTextContent('1')
     expect(screen.getByText('Tokens').nextElementSibling).toHaveTextContent('0.2k')
   })
@@ -191,7 +191,7 @@ describe('JobRunHeader', () => {
   it('prefixes ~ for an estimated (codex) cost and includes cache tokens in the total', () => {
     renderHeader({ ...completedJob, total_cost_usd_estimated: 1, tokens_cache_read: 90_000, tokens_cache_create: 2_000 })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('~$0.02')).toBeInTheDocument()
+    expect(screen.getAllByText('~$0.02').length).toBeGreaterThan(0)
     expect(screen.getByText('100.0k')).toBeInTheDocument()
   })
 
@@ -312,5 +312,21 @@ describe('JobRunHeader', () => {
     fireEvent.click(screen.getByText('Usage and time'))
     expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
     expect(screen.getByText('Verification evidence')).toBeInTheDocument()
+  })
+})
+
+describe('JobRunHeader outcome peak', () => {
+  it('shows the final duration, cost and arrival mark only once completed', () => {
+    const done: JobSummary = { ...runningJob, started_at: '2026-07-27T10:00:00Z', finished_at: '2026-07-27T10:01:02Z', status: 'completed', total_cost_usd: 0.42 }
+    renderHeader(done, [])
+    const outcome = screen.getByTestId('job-run-outcome')
+    expect(outcome).toHaveTextContent('1m 2s')
+    expect(outcome).toHaveTextContent('$0.42')
+    expect(screen.getByTestId('rail-mark')).toHaveAttribute('data-state', 'arrive')
+  })
+
+  it('has no outcome block while running', () => {
+    renderHeader({ ...runningJob, started_at: new Date().toISOString() }, [])
+    expect(screen.queryByTestId('job-run-outcome')).toBeNull()
   })
 })

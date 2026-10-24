@@ -26,7 +26,22 @@
     "stalled": "第 {{step}} 步停滞：{{idleMinutes}} 分钟无活动，应用已将其停止",
     "startResume": "第 {{step}} 步：{{title}}——停滞后恢复",
     "providerLimit": "步骤 {{step}} 已停止 — 已达到提供商用量限额",
-    "recovered": "恢复后步骤 {{step}} 已完成"
+    "recovered": "恢复后步骤 {{step}} 已完成",
+    "durationSec": "{{seconds}} 秒",
+    "durationMin": "{{minutes}} 分钟"
+  },
+  "steps": {
+    "architect": "设计变更",
+    "confidence": "检查置信度",
+    "validate": "验证计划",
+    "freeze": "锁定计划",
+    "initialize-corrections": "准备修复",
+    "developer": "实现",
+    "developer-blocker": "检查阻塞项",
+    "tasks": "逐项完成任务",
+    "verify": "验证",
+    "review": "审查",
+    "ship": "交付"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",

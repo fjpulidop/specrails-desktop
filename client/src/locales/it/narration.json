@@ -26,7 +26,22 @@
     "stalled": "Il passo {{step}} si è bloccato — nessuna attività per {{idleMinutes}} min, quindi l'app l'ha fermato",
     "startResume": "Passo {{step}}: {{title}} — ripresa dopo un blocco",
     "providerLimit": "Passo {{step}} fermato — raggiunto il limite d'uso del provider",
-    "recovered": "Passaggio {{step}} completato dopo la ripresa"
+    "recovered": "Passaggio {{step}} completato dopo la ripresa",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Progettare la modifica",
+    "confidence": "Verificare la fiducia",
+    "validate": "Convalidare il piano",
+    "freeze": "Bloccare il piano",
+    "initialize-corrections": "Preparare le correzioni",
+    "developer": "Implementare",
+    "developer-blocker": "Cercare blocchi",
+    "tasks": "Scorrere le attività",
+    "verify": "Verificare",
+    "review": "Rivedere",
+    "ship": "Consegnare"
   },
   "decision": {
     "another": "Non ancora — un altro giro",

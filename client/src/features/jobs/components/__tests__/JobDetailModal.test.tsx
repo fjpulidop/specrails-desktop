@@ -208,7 +208,7 @@ describe('JobDetailModal', () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     await waitFor(() => {
-      expect(screen.getByText('$0.02')).toBeInTheDocument()
+      expect(screen.getAllByText('$0.02').length).toBeGreaterThan(0)
     })
   })
 

@@ -9,6 +9,8 @@ import type { PhaseMap } from '../../hooks/usePipeline'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
 import { Badge } from '../../../../components/ui/badge'
 import { Button } from '../../../../components/ui/button'
+import { LiveDot } from '../../../../components/ui/live-dot'
+import { RailMark } from '../../../../components/brand/RailMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
@@ -168,6 +170,17 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </TooltipTrigger>
           <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
         </Tooltip>
+        {job.status === 'completed' && elapsed !== '—' ? (
+          // Peak: the run arrived. Final, provider-reported numbers only —
+          // revealed at exit, never estimated while live. The mark's arrival
+          // plays once per mount (static under reduced motion).
+          <span data-testid="job-run-outcome" className="inline-flex items-center gap-2.5" title={t('statusPanel.duration')}>
+            <RailMark size={34} state="arrive" />
+            <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
+            <span className="text-display num leading-none text-foreground">{elapsed}</span>
+            {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
+          </span>
+        ) : (
         <span
           className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
@@ -175,6 +188,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info motion-safe:animate-pulse" aria-hidden />}
           {elapsed}
         </span>
+        )}
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <Loader2 className="w-3 h-3 shrink-0 text-accent-info animate-spin" aria-hidden />}

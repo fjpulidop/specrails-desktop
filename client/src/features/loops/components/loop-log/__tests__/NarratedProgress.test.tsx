@@ -36,8 +36,15 @@ describe('NarratedProgress', () => {
     />)
     expect(screen.getByText('Step 1: Implement')).toBeInTheDocument()
     expect(screen.getByText('Reading auth.ts')).toBeInTheDocument()
-    expect(screen.getByText('Finished step 1 in 2 min')).toBeInTheDocument()
+    // The "Finished step" line folds into the step row as a duration.
+    expect(screen.queryByText(/Finished step/)).toBeNull()
+    expect(screen.getByText('2 min')).toBeInTheDocument()
   })
+
+  it('humanises engine step ids and falls back to the raw id', () => {
+    render(<NarratedProgress events={[step(1, 'initialize-corrections'), step(2, 'mystery-step')]} settled={false} />)
+    expect(screen.getByText('Step 1: Prepare fixes')).toBeInTheDocument()
+    expect(screen.getByText('Step 2: mystery-step')).toBeInTheDocument()  })
 
   it('shows a repeat count instead of nine identical lines', () => {
     render(<NarratedProgress

@@ -21,7 +21,7 @@ type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'succe
 
 const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
   running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.done', tooltipKey: 'statusTooltip.completed' },
+  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
   failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
   canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
   queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queuedToRun' },
@@ -101,8 +101,24 @@ export function isWithinLocalDayRange(startedAt: string | null, from: string, to
   return true
 }
 
+/**
+ * "/specrails:implement #15" -> "Implement · #15 Title" once the spec title is
+ * known. Falls back to the verbatim command, which stays in the row tooltip.
+ */
+function humaniseCommand(command: string, titles: Record<number, string> | undefined): string | null {
+  if (!titles) return null
+  const verb = /^\s*[/$](?:specrails:|sr:)?([a-z][\w-]*)/i.exec(command)?.[1]
+  const id = /#(\d+)/.exec(command)?.[1]
+  const title = id ? titles[Number(id)] : undefined
+  if (!verb || !id || !title) return null
+  const label = verb.replace(/-/g, ' ')
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)} · #${id} ${title}`
+}
+
 interface RecentJobsProps {
   jobs: JobSummary[]
+  /** Spec titles by ticket id, used to read a command as "Implement · #15 Title". */
+  ticketTitles?: Record<number, string>
   isLoading?: boolean
   error?: string | null
   onRetry?: () => void
@@ -113,7 +129,7 @@ interface RecentJobsProps {
 
 const PAGE_SIZE = 10
 
-export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
+export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJobsCleared, onProposalClick, onProposalDelete }: RecentJobsProps) {
   const { t } = useTranslation('jobs')
   const navigate = useNavigate()
   const { activeProjectId, projects } = useDesktop()
@@ -458,14 +474,18 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <code className="text-xs text-foreground/80 truncate">
-                  {formatCommandForProvider(job.command, activeProvider)}
-                </code>
+                {(() => {
+                  const friendly = humaniseCommand(job.command, ticketTitles)
+                  const raw = formatCommandForProvider(job.command, activeProvider)
+                  return friendly
+                    ? <span className="text-xs text-foreground/80 truncate" title={raw}>{friendly}</span>
+                    : <code className="text-xs text-foreground/80 truncate">{raw}</code>
+                })()}
               </div>
 
               {/* Meta */}
               <div className="flex items-center gap-3 text-caption num text-muted-foreground shrink-0">
-                <span className="w-14 text-right" title={t('recent.colDuration')}>{duration ?? '—'}</span>
+                <span className="w-14 text-right whitespace-nowrap" title={t('recent.colDuration')}>{duration ?? '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colCost')}>
                   <CostValue
@@ -473,7 +493,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                     estimated={Boolean(job.total_cost_usd_estimated)}
                   />
                 </span>
-                <span className="w-20 text-right" title={t('recent.colStarted')}>
+                <span className="w-20 text-right whitespace-nowrap" title={t('recent.colStarted')}>
                   {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
                 </span>
                 {isProposal && proposalId && (
