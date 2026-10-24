@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import type { SpendingResponse, Surface, Period } from '../types/spending'
@@ -28,57 +27,6 @@ const SURFACES: Surface[] = [
 
 export function SpendingHero({ data, loading, period }: Props) {
   const { t } = useTranslation('analytics')
-  const [displayedTotal, setDisplayedTotal] = useState(0)
-  const lastValueRef = useRef(0)
-  // Guards the count-up animation against a stale-frame race (HIGH-9): a rAF id
-  // to cancel the scheduled frame plus a generation counter so a frame that
-  // still fires after a fresher SpendingResponse arrived abandons itself instead
-  // of overwriting the newest total with the old one's final frame.
-  const rafRef = useRef<number | null>(null)
-  const genRef = useRef(0)
-
-  useEffect(() => {
-    if (!data) return
-    const target = data.summary.totalCostUsd
-    // A new data arrival supersedes any running count-up: bump the generation
-    // and cancel the scheduled frame so the freshest total always wins.
-    const gen = ++genRef.current
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    // Count up only on first non-zero arrival, not on filter changes, and never
-    // when the viewer asked the OS for reduced motion.
-    const reduceMotion = typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (lastValueRef.current === 0 && target > 0 && !reduceMotion) {
-      const start = performance.now()
-      const duration = 300
-      const from = 0
-      const animate = (now: number) => {
-        // A newer arrival took over while this frame was queued — abandon it so
-        // the stale target never clobbers the current one.
-        if (gen !== genRef.current) return
-        const t = Math.min(1, (now - start) / duration)
-        const eased = 1 - Math.pow(1 - t, 3)
-        setDisplayedTotal(from + (target - from) * eased)
-        if (t < 1) rafRef.current = requestAnimationFrame(animate)
-        else rafRef.current = null
-      }
-      rafRef.current = requestAnimationFrame(animate)
-    } else {
-      setDisplayedTotal(target)
-    }
-    lastValueRef.current = target
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [data])
-
   if (loading && !data) {
     return <Skeleton className="h-44" />
   }
@@ -140,7 +88,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
-              <CostValue usd={displayedTotal} estimated={hasEstimatedCost} unavailable={costUnavailable} />
+              <CostValue usd={total} estimated={hasEstimatedCost} unavailable={costUnavailable} />
             </div>
             {delta !== null && (
               <span className={`inline-flex items-center gap-0.5 text-label ${

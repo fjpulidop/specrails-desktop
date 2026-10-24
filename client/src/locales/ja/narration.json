@@ -50,7 +50,9 @@
     "begin-correction": "修正ラウンドを開始",
     "fixer": "指摘された点を修正",
     "correction-blocker": "ブロッカーを確認",
-    "correction-progress": "修正の進捗を追跡"
+    "correction-progress": "修正の進捗を追跡",
+    "approval-policy": "承認の判断を適用",
+    "verify-archive": "アーカイブした変更を検証"
   },
   "decision": {
     "another": "まだ未達 — もう一周",

@@ -7,6 +7,11 @@ vi.mock('react-markdown', () => ({
   default: ({ children }: { children: string }) => <span>{children}</span>,
 }))
 vi.mock('remark-gfm', () => ({ default: () => {} }))
+const { mockDecisions } = vi.hoisted(() => ({ mockDecisions: new Map<string, { ticketIds: number[]; prDeliveryId: string }>() }))
+vi.mock('../../../delivery/context/RailPrDecisionContext', async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  useRailPrDecisions: () => ({ decisions: mockDecisions }),
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('../../../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
@@ -748,5 +753,21 @@ describe('TicketDetailModal — status primary action', () => {
   it('shows no job action for a todo spec', () => {
     render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} />)
     expect(screen.queryByTestId('modal-primary-action')).toBeNull()
+  })
+})
+
+describe('TicketDetailModal — single filled primary', () => {
+  it('renders Move to rail as outline when Open review is the primary', () => {
+    mockDecisions.set('d1', { ticketIds: [1], prDeliveryId: 'pr-1' })
+    try {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 1, status: 'on_review' }) })} rails={[]} onMoveToRail={vi.fn()} />)
+      expect(screen.getByTestId('modal-primary-action').className).toMatch(/bg-primary/)
+      expect(screen.getByTestId('modal-move-to-rail').className).not.toMatch(/bg-primary/)
+    } finally { mockDecisions.clear() }
+  })
+
+  it('keeps Move to rail filled when no other primary is shown', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} rails={[]} onMoveToRail={vi.fn()} />)
+    expect(screen.getByTestId('modal-move-to-rail').className).toMatch(/bg-primary/)
   })
 })

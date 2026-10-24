@@ -50,7 +50,9 @@
     "begin-correction": "Start a fix round",
     "fixer": "Fix what was reported",
     "correction-blocker": "Check for blockers",
-    "correction-progress": "Track fix progress"
+    "correction-progress": "Track fix progress",
+    "approval-policy": "Apply the approval decision",
+    "verify-archive": "Verify the archived change"
   },
   "decision": {
     "another": "Not done yet — going round again",

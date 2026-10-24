@@ -377,4 +377,17 @@ describe('RecentJobs', () => {
       expect(cost.textContent).toMatch(/^~\$0\.05\s*estimated$/)
     })
   })
+
+  describe('humanised commands', () => {
+    it('reads a loop launch as "Name · #id Title" with the raw command as tooltip', () => {
+      render(<RecentJobs jobs={[{ ...mockJobs[0], command: 'loop: Implement #15' }]} ticketTitles={{ 15: 'Cover art' }} />)
+      const el = screen.getByText('Implement · #15 Cover art')
+      expect(el).toHaveAttribute('title', expect.stringContaining('loop: Implement #15'))
+    })
+
+    it('reads a slash command the same way', () => {
+      render(<RecentJobs jobs={[{ ...mockJobs[0], command: '/specrails:implement #15' }]} ticketTitles={{ 15: 'Cover art' }} />)
+      expect(screen.getByText('Implement · #15 Cover art')).toBeInTheDocument()
+    })
+  })
 })

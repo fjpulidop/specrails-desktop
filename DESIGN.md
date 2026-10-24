@@ -15,7 +15,7 @@ colors:
   lamp-done: "hsl(152 78% 48%)"
   lamp-caution: "hsl(42 92% 58%)"
   lamp-failed: "hsl(12 80% 55%)"
-  lamp-review: "hsl(282 55% 70%)"
+  lamp-review: "hsl(322 55% 72%)"
   lamp-flow: "hsl(170 78% 50%)"
   rail-violet: "hsl(280 45% 62%)"
   paper: "hsl(220 25% 99%)"
@@ -142,7 +142,7 @@ A night-ink neutral base with one cyan signal, a violet rail end, and a closed s
 - **Done Emerald** (hsl(152 78% 48%)): completed, healthy.
 - **Caution Amber** (hsl(42 92% 58%)): caution and cost only. Not review, not priority.
 - **Failed Tomato** (hsl(12 80% 55%)): failures and destructive actions.
-- **Review Orchid** (hsl(282 55% 70%)): the review lamp, so amber stays unambiguous.
+- **Review Orchid** (hsl(322 55% 72%)): the review lamp, so amber stays unambiguous. Themes whose primary is violet (Dracula, Aurora Light, Obsidian Dark) use a teal lamp instead.
 - **Flow Teal** (hsl(170 78% 50%)): Flow mode identity.
 
 ### Lamp canon
@@ -158,7 +158,7 @@ One state, one token, on every surface (chips, badges, pills, cards).
 | flow | `accent-flow` |
 | primary | `primary` / `accent-primary` |
 
-`accent-review` must differ in hue from `accent-primary` in every theme.
+`accent-review` must sit at least 60° of hue from `accent-primary` (and 40° from `accent-secondary`) with 4.5:1 text contrast on the card in every theme; a test enforces it.
 
 ### Neutral
 - **Night Ink** (hsl(240 33% 4%)): app background. **Deep Ink** (hsl(240 40% 2%)) for sidebars and code.

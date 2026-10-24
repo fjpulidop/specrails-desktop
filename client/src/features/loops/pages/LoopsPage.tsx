@@ -345,7 +345,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
           </div>
         ) : (
           <div className="space-y-8">
-            {drafts.length === 0 && published.length === 0 && (
+            {loops.length === 0 && (
               <div className="rounded-lg border border-dashed border-border p-8 text-center">
                 <p className="text-sm font-medium text-foreground">{t('empty.title')}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('empty.body')}</p>

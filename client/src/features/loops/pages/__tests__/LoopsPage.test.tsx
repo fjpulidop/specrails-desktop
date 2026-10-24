@@ -61,6 +61,13 @@ beforeEach(() => {
 })
 
 describe('LoopsPage', () => {
+  it('hides the empty state when only built-in loops exist', async () => {
+    api.list.mockResolvedValue([loop({ id: 'factory:implement', builtinId: 'factory:implement', name: 'Implement', status: 'published' })])
+    renderPage()
+    await screen.findByText('Implement')
+    expect(screen.queryByText('No loops yet')).toBeNull()
+  })
+
   it('shows the empty state when there are no loops', async () => {
     renderPage()
     expect(await screen.findByText('No loops yet')).toBeInTheDocument()

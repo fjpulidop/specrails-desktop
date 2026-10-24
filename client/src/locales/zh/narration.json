@@ -50,7 +50,9 @@
     "begin-correction": "开始修复轮次",
     "fixer": "修复已报告的问题",
     "correction-blocker": "检查阻塞项",
-    "correction-progress": "跟踪修复进度"
+    "correction-progress": "跟踪修复进度",
+    "approval-policy": "应用审批决定",
+    "verify-archive": "验证已归档的更改"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",

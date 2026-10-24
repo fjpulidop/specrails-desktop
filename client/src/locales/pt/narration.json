@@ -50,7 +50,9 @@
     "begin-correction": "Iniciar uma rodada de correção",
     "fixer": "Corrigir o que foi reportado",
     "correction-blocker": "Verificar bloqueios",
-    "correction-progress": "Acompanhar o progresso das correções"
+    "correction-progress": "Acompanhar o progresso das correções",
+    "approval-policy": "Aplicar a decisão de aprovação",
+    "verify-archive": "Verificar a alteração arquivada"
   },
   "decision": {
     "another": "Ainda não está — outra volta",

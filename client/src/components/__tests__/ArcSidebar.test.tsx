@@ -154,6 +154,17 @@ describe('ArcSidebar', () => {
     expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
   })
 
+  it('Esc closes the hover overlay', () => {
+    vi.useFakeTimers()
+    startUnpinned()
+    const { container } = render(<ArcSidebar {...defaultProps} />)
+    fireEvent.mouseEnter(sidebarRoot(container))
+    act(() => { vi.advanceTimersByTime(150) })
+    expect(screen.getByText('Desktop')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('Desktop')).not.toBeInTheDocument()
+  })
+
   it('expands while keyboard focus is inside and collapses when focus leaves', () => {
     startUnpinned()
     render(

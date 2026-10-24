@@ -478,6 +478,7 @@ function ProjectItem({
           title={!expanded ? project.name : undefined}
           aria-label={!expanded ? project.name : undefined}
           aria-current={isActive ? 'page' : undefined}
+          data-project-row={project.id}
         >
           <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
             <span className={cn('flex', showChevron && 'transition-opacity group-hover:opacity-0 group-focus-within:opacity-0')}>
@@ -820,6 +821,24 @@ export function ArcSidebar({
     side: 'left', defaultWidth: 300, min: 200, max: 460, collapsedWidth: 44, expanded, docked,
   })
   useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
+  // Esc closes the hover/flyout overlay of a collapsed or unpinned sidebar and
+  // returns focus to the active project's row (focus first: the focus handler
+  // re-opens the overlay, the explicit close right after wins).
+  const closeFlyout = hover.setHovered
+  const overlayOpen = unpinned && hover.hovered
+  useEffect(() => {
+    if (!overlayOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const row = activeProjectId
+        ? document.querySelector<HTMLElement>(`[data-project-row="${CSS.escape(activeProjectId)}"]`)
+        : null
+      row?.focus()
+      closeFlyout(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [overlayOpen, activeProjectId, closeFlyout])
   const overlaying = expanded && !docked
   const lit = leftMode !== 'unpinned'
   const pinLabel = t(LEFT_PIN_LABEL_KEY[leftMode])

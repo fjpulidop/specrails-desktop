@@ -50,7 +50,9 @@
     "begin-correction": "Korrekturrunde starten",
     "fixer": "Gemeldete Punkte beheben",
     "correction-blocker": "Auf Blocker prüfen",
-    "correction-progress": "Fortschritt der Korrekturen verfolgen"
+    "correction-progress": "Fortschritt der Korrekturen verfolgen",
+    "approval-policy": "Freigabeentscheidung anwenden",
+    "verify-archive": "Archivierte Änderung prüfen"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",

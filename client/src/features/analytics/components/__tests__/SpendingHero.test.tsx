@@ -119,39 +119,17 @@ describe('SpendingHero', () => {
     expect(screen.getByText('File summaries')).toBeInTheDocument()
   })
 
-  describe('HIGH-9 · count-up race', () => {
-    afterEach(() => vi.restoreAllMocks())
-
-    it('cancels the in-flight count-up so a fresher total is never overwritten by the stale frame', () => {
-      const rafCallbacks: Array<(t: number) => void> = []
-      let nextId = 1
-      const cancelled: number[] = []
-      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-        rafCallbacks.push(cb as (t: number) => void)
-        return nextId++
-      })
-      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
-        cancelled.push(id as number)
-      })
-
-      const dataA: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 28 } }
-      const dataB: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
-
-      const { rerender } = render(<SpendingHero data={dataA} loading={false} />)
-      // First non-zero arrival scheduled a count-up frame (not yet run).
-      expect(rafCallbacks.length).toBe(1)
-
-      // Fresh data lands mid-animation.
-      rerender(<SpendingHero data={dataB} loading={false} />)
-      // The scheduled stale frame was cancelled and the headline reflects $40.
-      expect(cancelled).toContain(1)
+  describe('honest first paint', () => {
+    it('never renders a $0.00 placeholder before the real total: skeleton, then the figure', () => {
+      const { rerender, container } = render(<SpendingHero data={null} loading={true} />)
+      expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
+      expect(container.textContent).not.toMatch(/\$/)
+      const data: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 40 } }
+      rerender(<SpendingHero data={data} loading={false} />)
       expect(screen.getByText('$40.00')).toBeInTheDocument()
-
-      // Even if the stale frame still fires, the generation guard must abandon
-      // it so it cannot write $28 back over the fresh total.
-      rafCallbacks[0](1_000_000)
-      expect(screen.getByText('$40.00')).toBeInTheDocument()
-      expect(screen.queryByText('$28.00')).not.toBeInTheDocument()
+      const fresher: SpendingResponse = { ...baseData, summary: { ...baseData.summary, totalCostUsd: 41 } }
+      rerender(<SpendingHero data={fresher} loading={false} />)
+      expect(screen.getByText('$41.00')).toBeInTheDocument()
     })
   })
 

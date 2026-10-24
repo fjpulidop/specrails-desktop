@@ -107,7 +107,9 @@ export function isWithinLocalDayRange(startedAt: string | null, from: string, to
  */
 function humaniseCommand(command: string, titles: Record<number, string> | undefined): string | null {
   if (!titles) return null
+  // Slash/skill commands ("/specrails:implement #15") and loop launches ("loop: Implement #15").
   const verb = /^\s*[/$](?:specrails:|sr:)?([a-z][\w-]*)/i.exec(command)?.[1]
+    ?? /^\s*loop\s*:\s*(.+?)\s*(?:#\d+.*)?$/i.exec(command)?.[1]
   const id = /#(\d+)/.exec(command)?.[1]
   const title = id ? titles[Number(id)] : undefined
   if (!verb || !id || !title) return null

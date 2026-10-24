@@ -150,6 +150,7 @@ export function TicketDetailModal({
   // closed while project context is loading.
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
   const smashFlagOn = isSmashCapable(activeProvider)
+  const [statusPrimaryShown, setStatusPrimaryShown] = useState(false)
   const [smashAvailable, setSmashAvailable] = useState(false)
   const [smashOpenRequest, setSmashOpenRequest] = useState(0)
   const childrenList = useMemo(
@@ -560,7 +561,7 @@ export function TicketDetailModal({
           <ContinueEditingButton ticket={ticket} title={title} description={description} priority={priority} labels={labels} repositoryIds={repositoryIds} onClose={onClose} />
 
           {!isTerminal && (ticket.status === 'on_review' || ticket.status === 'in_progress') && (
-            <StatusPrimaryAction ticket={ticket} rails={rails} onClose={onClose} />
+            <StatusPrimaryAction ticket={ticket} rails={rails} onClose={onClose} onShownChange={setStatusPrimaryShown} />
           )}
 
           {rails && (onMoveToRail || onRemoveFromRail) && (
@@ -569,6 +570,7 @@ export function TicketDetailModal({
               rails={rails}
               onMoveToRail={isTerminal ? undefined : onMoveToRail}
               onRemoveFromRail={onRemoveFromRail}
+              secondary={statusPrimaryShown}
             />
           )}
 
@@ -1213,6 +1215,8 @@ interface RailAssignmentButtonProps {
   rails: RailState[]
   onMoveToRail?: (ticketId: number, railId: string) => void
   onRemoveFromRail?: (ticketId: number) => void
+  /** Another primary is shown: render as outline so exactly one stays filled. */
+  secondary?: boolean
 }
 
 /**
@@ -1221,7 +1225,7 @@ interface RailAssignmentButtonProps {
  * "← Remove from Rail" (returns the spec to the specs list), depending on
  * whether the ticket is already assigned to a rail.
  */
-function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }: RailAssignmentButtonProps) {
+function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail, secondary }: RailAssignmentButtonProps) {
   const { t } = useTranslation('tickets')
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -1250,6 +1254,7 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
       <Button
         ref={buttonRef}
         size="sm"
+        variant={secondary ? 'outline' : 'default'}
         className="shrink-0 mr-2 gap-1.5"
         data-testid="modal-move-to-rail"
         onClick={() => {
@@ -1279,12 +1284,12 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
  * `on_review` opens the review packet, `in_progress` opens the running job.
  * Renders nothing when the target cannot be resolved (no live delivery / job).
  */
-function StatusPrimaryAction(props: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void }) {
+function StatusPrimaryAction(props: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void; onShownChange?: (shown: boolean) => void }) {
   const inRouter = useInRouterContext()
   return inRouter ? <StatusPrimaryActionInner {...props} /> : null
 }
 
-function StatusPrimaryActionInner({ ticket, rails, onClose }: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void }) {
+function StatusPrimaryActionInner({ ticket, rails, onClose, onShownChange }: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void; onShownChange?: (shown: boolean) => void }) {
   const { t } = useTranslation('tickets')
   const navigate = useNavigate()
   const { decisions } = useRailPrDecisions()
@@ -1300,6 +1305,11 @@ function StatusPrimaryActionInner({ ticket, rails, onClose }: { ticket: LocalTic
     if (jobId) path = `/jobs/${encodeURIComponent(jobId)}`
     label = t('detailModal.viewJob')
   }
+  const shown = Boolean(path)
+  useEffect(() => {
+    onShownChange?.(shown)
+    return () => onShownChange?.(false)
+  }, [shown, onShownChange])
   if (!path) return null
   const target = path
   return (
@@ -1384,7 +1394,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-accent-info prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/90">
+      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1399,7 +1409,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-accent-info prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/90">
+          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>
