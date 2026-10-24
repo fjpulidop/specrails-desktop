@@ -233,7 +233,7 @@ export function MilestoneGenerateShell({
 
   if (!generationAvailable) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
         <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
           <Hammer className="h-4 w-4 text-accent-primary" />
           <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
@@ -258,7 +258,7 @@ export function MilestoneGenerateShell({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
       <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
         <Hammer className="h-4 w-4 text-accent-primary" />
         <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>

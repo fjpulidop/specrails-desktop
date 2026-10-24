@@ -27,7 +27,7 @@ const INVARIANT_TONE: Record<'kept' | 'changed' | 'at-risk', string> = {
 export function SeverityChip({ severity }: { severity: ReviewRiskSeverity }) {
   const { t } = useTranslation('packet')
   return (
-    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium ${SEVERITY_TONE[severity]}`} data-testid="brief-severity">
+    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[11px] font-medium ${SEVERITY_TONE[severity]}`} data-testid="brief-severity">
       {t(`brief.severity.${severity}`)}
     </span>
   )
@@ -38,7 +38,7 @@ function Ref({ value }: { value: string | null }) {
 }
 
 function TicketTag({ ticketId, show }: { ticketId: number; show: boolean }) {
-  return show ? <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{ticketId}</span> : null
+  return show ? <span className="shrink-0 font-mono text-[11px] text-muted-foreground">#{ticketId}</span> : null
 }
 
 function Group({ title, testId, children }: { title: string; testId: string; children: React.ReactNode }) {
@@ -65,7 +65,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
             {brief.risks.map((risk, index) => (
               <li key={`risk-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="brief-risk">
                 <SeverityChip severity={risk.severity} />
-                {risk.area ? <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
+                {risk.area ? <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
                 <span className="min-w-0 flex-1 text-foreground">{risk.whatToLookAt}</span>
                 <Ref value={risk.ref} />
                 <TicketTag ticketId={risk.ticketId} show={multiTicket} />
@@ -79,7 +79,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
               <li key={`behaviour-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="min-w-0 flex-1 text-foreground">{change.what}</span>
                 {change.userVisible ? (
-                  <span className="rounded-full border border-accent-info/40 bg-accent-info/10 px-1.5 py-px text-[10px] text-accent-info">{t('brief.userVisible')}</span>
+                  <span className="rounded-full border border-accent-info/40 bg-accent-info/10 px-1.5 py-px text-[11px] text-accent-info">{t('brief.userVisible')}</span>
                 ) : null}
                 <Ref value={change.where} />
                 <TicketTag ticketId={change.ticketId} show={multiTicket} />
@@ -91,7 +91,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
           <Group title={t('brief.sections.invariantsTouched')} testId="brief-invariants">
             {brief.invariantsTouched.map((entry, index) => (
               <li key={`invariant-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                {entry.status ? <span className={`shrink-0 text-[10px] font-medium ${INVARIANT_TONE[entry.status]}`}>{t(`brief.invariantStatus.${entry.status}`)}</span> : null}
+                {entry.status ? <span className={`shrink-0 text-[11px] font-medium ${INVARIANT_TONE[entry.status]}`}>{t(`brief.invariantStatus.${entry.status}`)}</span> : null}
                 <span className="min-w-0 flex-1 text-foreground">{entry.invariant}</span>
                 <Ref value={entry.evidence} />
                 <TicketTag ticketId={entry.ticketId} show={multiTicket} />

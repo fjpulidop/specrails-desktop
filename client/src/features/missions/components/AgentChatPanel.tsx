@@ -58,7 +58,7 @@ export function AgentChatPanel() {
         role="dialog"
         aria-label={builder ? tBuilder('mode.title') : t('title')}
         onKeyDown={onPanelKeyDown}
-        className={`fixed z-[60] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-2xl backdrop-blur-xl ${
+        className={`fixed z-[60] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl ${
           maximized ? '' : `bottom-4 right-4 h-[78vh] max-h-[94vh] max-w-[92vw] ${builder ? 'w-[860px]' : 'w-[520px]'}`
         }`}
       >

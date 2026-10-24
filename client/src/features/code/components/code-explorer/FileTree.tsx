@@ -417,7 +417,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                   <span className="flex items-center gap-1 flex-shrink-0">
                     {isFolder && folderTouchedCount > 0 && (
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground"
+                        className="text-[11px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground"
                         title={t('tree.folderTouched', { count: folderTouchedCount })}
                       >
                         {folderTouchedCount}
@@ -455,7 +455,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); openTicketDetail(createdBy) }}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
+                        className="text-[11px] px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
                         data-testid={`provenance-chip-created-${createdBy}`}
                         title={t('tree.createdBySpec', { id: createdBy })}
                       >
@@ -467,7 +467,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                         type="button"
                         key={tid}
                         onClick={(e) => { e.stopPropagation(); openTicketDetail(tid) }}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
+                        className="text-[11px] px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
                         data-testid={`provenance-chip-modified-${tid}`}
                         title={t('tree.modifiedBySpec', { id: tid })}
                       >

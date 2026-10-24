@@ -377,7 +377,7 @@ describe('CommandPalette', () => {
     await user.click(screen.getByText('Implement'))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Budget exceeded')
+      expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Budget exceeded' })
     })
   })
 

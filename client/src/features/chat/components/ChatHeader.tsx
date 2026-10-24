@@ -34,7 +34,7 @@ export function ChatHeader({
           {title ?? t('header.fallbackTitle')}
         </span>
         {projectName && (
-          <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium bg-accent-primary/15 text-accent-primary/80 leading-none">
+          <span className="shrink-0 rounded px-1 py-0.5 text-[11px] font-medium bg-accent-primary/15 text-accent-primary/80 leading-none">
             {projectName}
           </span>
         )}

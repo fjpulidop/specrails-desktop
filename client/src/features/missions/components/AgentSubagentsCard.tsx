@@ -136,12 +136,12 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
           <span className="sr-only">{phaseLabel}{reason ? ` — ${reason}` : ''}</span>
           {node.delegated ? (
-            <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-[10px] text-accent-primary/80"
+            <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-[11px] text-accent-primary/80"
               title={t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })} data-testid="agent-subagent-delegated">
               {providerLabel(node.delegated.driver)} · {node.delegated.model}
             </span>
-          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[10px] text-foreground/50 sm:inline">{node.agentType}</span>}
-          <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-foreground/45" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
+          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/50 sm:inline">{node.agentType}</span>}
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/45" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
         </button>
         {live && (
           <button type="button" onClick={() => onStop(node)} aria-label={t('subagents.stopOne', { name: node.description })} title={t('subagents.stop')}
@@ -151,7 +151,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
         )}
         {isInterruptedSubagent(node) && !shell && (
           <button type="button" onClick={() => onRelaunch(node)} title={t('subagents.relaunchHint')}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-[10.5px] text-foreground/60 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/60 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
             <RotateCcw className="h-3 w-3" aria-hidden />{t('subagents.relaunch')}
           </button>
         )}
@@ -166,7 +166,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             className="overflow-hidden border-t border-border/20 bg-background/40"
           >
             {(reason || tokens !== null) && (
-              <p className="border-b border-border/20 px-3 py-1.5 font-mono text-[10.5px] text-foreground/45" data-testid="agent-subagent-meta">
+              <p className="border-b border-border/20 px-3 py-1.5 font-mono text-[11px] text-foreground/45" data-testid="agent-subagent-meta">
                 {[
                   reason && `${phaseLabel} · ${reason}`,
                   // Usage is revealed once the sub-agent finished (no approximate live numbers).
@@ -178,7 +178,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             )}
             {node.resultSummary && (
               <section className="border-b border-border/20 px-3 py-2.5" aria-label={t('subagents.result')} data-testid="agent-subagent-result">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground/40">{t('subagents.result')}</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/40">{t('subagents.result')}</p>
                 <SubagentResultMarkdown text={node.resultSummary} />
               </section>
             )}
@@ -307,11 +307,11 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
           {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/50" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
           <span className="min-w-0 truncate text-foreground/55" aria-live="polite">{status}</span>
-          {working > 0 && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-foreground/45">{elapsed}</span>}
+          {working > 0 && <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/45">{elapsed}</span>}
           <ChevronRight className={cn('h-3 w-3 shrink-0 text-foreground/40 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
         </button>
         {working > 1 && (
-          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-full px-2 py-1 text-[10.5px] text-foreground/45 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
+          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-full px-2 py-1 text-[11px] text-foreground/45 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
             {t('subagents.stopAll')}
           </button>
         )}

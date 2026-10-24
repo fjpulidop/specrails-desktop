@@ -49,7 +49,7 @@ function AgentGitBranchOverride({ branch, label }: { branch: string; label: stri
   return (
     <div data-testid="agent-git-bar-override" className="mt-1.5 flex min-w-0 items-center gap-1.5 px-2 text-[11px] text-foreground/55">
       <GitBranch className="h-3 w-3 shrink-0 text-accent-info" aria-hidden />
-      <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-[10px] font-medium text-accent-info">{label}</span>
+      <span className="shrink-0 rounded-full border border-accent-info/35 bg-accent-info/10 px-1.5 py-px text-[11px] font-medium text-accent-info">{label}</span>
       <span className="min-w-0 truncate font-mono text-foreground/75" title={branch}>{branch}</span>
       <button type="button" onClick={copy} aria-label={t('git.copyBranch')} title={t('git.copyBranch')} className="shrink-0 rounded p-0.5 text-foreground/40 hover:bg-surface hover:text-foreground">
         <Copy className="h-3 w-3" />
@@ -264,7 +264,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
             // Anchored ABOVE the trigger — the composer hugs the bottom edge.
-            className="absolute bottom-full left-0 z-20 mb-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl"
+            className="absolute bottom-full left-0 z-20 mb-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl"
           >
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
               <Search className="h-3.5 w-3.5 text-foreground/40" />
@@ -300,7 +300,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
               ))}
               {inWorktrees.length > 0 && (
                 <>
-                  <div className="mt-1 border-t border-border/50 px-3 pb-0.5 pt-1.5 text-[10px] uppercase tracking-wide text-foreground/40">
+                  <div className="mt-1 border-t border-border/50 px-3 pb-0.5 pt-1.5 text-[11px] uppercase tracking-wide text-foreground/40">
                     {t('git.worktrees')}
                   </div>
                   {inWorktrees.map((b, i) => {
@@ -321,7 +321,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
                         <FolderGit2 className="h-3.5 w-3.5 shrink-0 text-accent-secondary/80" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-mono text-xs">{b}</span>
-                          <span className="block truncate text-[10px] text-foreground/40">{w.path}</span>
+                          <span className="block truncate text-[11px] text-foreground/40">{w.path}</span>
                         </span>
                         <Copy className="h-3 w-3 shrink-0 text-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
                       </motion.button>

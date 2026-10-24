@@ -1464,7 +1464,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         patchLive(conv.id, (p) => ({ ...p, isStreaming: false, streamingText: '', liveTools: [] }))
         setMessages((current) => current.filter((message) => message.id !== userBubble.id))
       }
-      toast.error(e instanceof Error ? e.message : 'Failed to send message.')
+      toast.error(i18n.t('agent:errors.sendFailed'), { description: e instanceof Error ? e.message : undefined })
       return { accepted: false, conversationId: conv.id }
     }
   }, [active, materializeDraftConversation, patchLive, reconcileActiveTurns])
@@ -1479,7 +1479,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       // the provider stopped while it can still spend tokens and mutate state.
       patchLive(active.id, () => null)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to stop the agent.')
+      toast.error(i18n.t('agent:errors.stopFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [active, patchLive])
 
@@ -1720,7 +1720,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       await enableMcp()
       await refreshMcp()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to enable MCP.')
+      toast.error(i18n.t('agent:errors.mcpEnableFailed'), { description: err instanceof Error ? err.message : undefined })
     } finally {
       setEnablingMcp(false)
     }

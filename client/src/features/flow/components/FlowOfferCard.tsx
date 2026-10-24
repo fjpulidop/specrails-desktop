@@ -102,7 +102,7 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
       role="group"
       aria-labelledby={labelId}
       data-testid="flow-offer-card"
-      className="my-1 overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-md backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-md"
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-surface/40 px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />
@@ -184,7 +184,7 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
     <div
       data-testid={`flow-offer-stub-${dismissed ? 'dismissed' : chosen ?? 'accepted'}`}
       className={cn(
-        'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs backdrop-blur',
+        'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
         dismissed ? 'border-border/50 bg-surface/40 text-foreground/70' : chosen === 'flow' ? 'border-accent-flow/30 bg-accent-flow/[0.06] text-foreground/80' : 'border-accent-primary/30 bg-accent-primary/[0.06] text-foreground/80',
       )}
     >

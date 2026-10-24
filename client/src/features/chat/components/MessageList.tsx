@@ -58,12 +58,12 @@ export function MessageList({
     >
       {messages.length === 0 && !isStreaming && (
         <div className="flex h-full flex-col items-center justify-center gap-3 px-3 py-8 text-center">
-          <MessageSquare className="w-5 h-5 text-muted-foreground/30" />
+          <MessageSquare className="w-5 h-5 text-muted-foreground" />
           {project ? (
             <>
               <div className="flex flex-col gap-0.5">
                 <p className="text-xs font-medium text-foreground">{project.name}</p>
-                <p className="text-[10px] text-muted-foreground/50">{t('messageList.contextLoaded')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('messageList.contextLoaded')}</p>
               </div>
               <div className="flex flex-col gap-1.5 w-full">
                 {SUGGESTION_KEYS.map((key) => {
@@ -83,7 +83,7 @@ export function MessageList({
           ) : (
             <>
               <p className="text-xs font-medium text-muted-foreground">{t('messageList.noMessages')}</p>
-              <p className="text-[11px] text-muted-foreground/60 max-w-[180px]">
+              <p className="text-[11px] text-muted-foreground max-w-[180px]">
                 {t('messageList.askAnything')}
               </p>
             </>
@@ -111,9 +111,9 @@ export function MessageList({
       {isStreaming && !streamingText && (
         <div className="flex justify-start px-3 py-1" data-testid="thinking-indicator">
           <div className="rounded-2xl rounded-bl-sm bg-surface/30 px-3 py-2 flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:0ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:300ms]" />
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1178 source/build files. Nearby tests are linked where names
+Includes 1184 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -53,6 +53,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [card.tsx](../../client/src/components/ui/card.tsx)
 - [confirm-dialog.tsx](../../client/src/components/ui/confirm-dialog.tsx)
 - [dialog.tsx](../../client/src/components/ui/dialog.tsx)
+- [dropdown-menu.tsx](../../client/src/components/ui/dropdown-menu.tsx) · [test](../../client/src/components/ui/__tests__/dropdown-menu.test.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
@@ -134,7 +135,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/analytics/lib
 
-- [format.ts](../../client/src/features/analytics/lib/format.ts) · [test](../../client/src/features/analytics/lib/__tests__/format.test.ts)
+- [format.ts](../../client/src/features/analytics/lib/format.ts)
 
 ## client/src/features/analytics/pages
 
@@ -321,6 +322,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/docs/components
 
+- [DocView.tsx](../../client/src/features/docs/components/DocView.tsx)
 - [DocsDialog.tsx](../../client/src/features/docs/components/DocsDialog.tsx) · [test](../../client/src/features/docs/components/__tests__/DocsDialog.test.tsx)
 
 ## client/src/features/docs/lib
@@ -371,6 +373,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [JiraConnectedCard.tsx](../../client/src/features/integrations/components/jira/JiraConnectedCard.tsx)
 - [JiraOutboxPanel.tsx](../../client/src/features/integrations/components/jira/JiraOutboxPanel.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraOutboxPanel.test.tsx)
 - [JiraSpecDetailsPanel.tsx](../../client/src/features/integrations/components/jira/JiraSpecDetailsPanel.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraSpecDetailsPanel.test.tsx)
+- [JiraStatusSelect.tsx](../../client/src/features/integrations/components/jira/JiraStatusSelect.tsx)
 
 ## client/src/features/integrations/context
 
@@ -678,6 +681,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeRetention.tsx](../../client/src/features/settings/components/RuntimeRetention.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRetention.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
+- [SettingsCard.tsx](../../client/src/features/settings/components/SettingsCard.tsx)
+- [SettingsSelect.tsx](../../client/src/features/settings/components/SettingsSelect.tsx)
 - [SubagentsSettingsSection.tsx](../../client/src/features/settings/components/SubagentsSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/SubagentsSettingsSection.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
 - [TriageEngineSection.tsx](../../client/src/features/settings/components/TriageEngineSection.tsx) · [test](../../client/src/features/settings/components/__tests__/TriageEngineSection.test.tsx)
@@ -874,6 +879,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
 - [format-duration.ts](../../client/src/lib/format-duration.ts) · [test](../../client/src/lib/__tests__/format-duration.test.ts)
+- [format-usd.ts](../../client/src/lib/format-usd.ts) · [test](../../client/src/lib/__tests__/format-usd.test.ts)
 - [global-route-mode-transition.ts](../../client/src/lib/global-route-mode-transition.ts) · [test](../../client/src/lib/__tests__/global-route-mode-transition.test.ts)
 - [html-highlight.ts](../../client/src/lib/html-highlight.ts) · [test](../../client/src/lib/html-highlight.test.ts)
 - [i18n.ts](../../client/src/lib/i18n.ts) · [test](../../client/src/lib/__tests__/i18n.test.ts)

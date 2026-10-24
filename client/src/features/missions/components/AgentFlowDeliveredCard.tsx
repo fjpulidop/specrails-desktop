@@ -67,7 +67,7 @@ export function AgentFlowDeliveredCard({ row }: { row: FlowDeliveredRow }) {
     <section
       data-testid="agent-flow-delivered-card"
       aria-label={t('flowDelivered.title')}
-      className="rounded-xl border border-accent-success/30 bg-accent-success/[0.05] px-3 py-2 text-xs backdrop-blur-sm"
+      className="rounded-xl border border-accent-success/30 bg-accent-success/[0.05] px-3 py-2 text-xs"
     >
       <p className="flex items-center gap-2 font-medium text-foreground/85">
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />

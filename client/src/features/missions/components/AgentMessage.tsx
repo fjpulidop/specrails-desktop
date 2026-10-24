@@ -102,7 +102,7 @@ function MessageTime({ iso }: { iso?: string }) {
     <time
       dateTime={d.toISOString()}
       title={format(d, 'PPpp', { locale })}
-      className="shrink-0 select-none font-mono text-[10px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
+      className="shrink-0 select-none font-mono text-[11px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
     >
       {format(d, 'yyyy-MM-dd HH:mm:ss')}
     </time>
@@ -317,7 +317,7 @@ export function AgentAttachmentChips({
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
               <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
-              {attachment.size > 0 && <span className="shrink-0 text-[10px] text-foreground/35">{formatBytes(attachment.size)}</span>}
+              {attachment.size > 0 && <span className="shrink-0 text-[11px] text-foreground/35">{formatBytes(attachment.size)}</span>}
             </button>
           )
         })}

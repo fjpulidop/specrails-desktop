@@ -567,8 +567,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('story')}
                     aria-pressed={historyMode === 'story'}
                     className={historyMode === 'story'
-                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-[11px] bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeStory')}
                   </button>
@@ -577,8 +577,8 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
                     onClick={() => changeHistoryMode('log')}
                     aria-pressed={historyMode === 'log'}
                     className={historyMode === 'log'
-                      ? 'rounded px-2 py-0.5 text-[10px] bg-accent-primary/20 text-accent-primary'
-                      : 'rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground'}
+                      ? 'rounded px-2 py-0.5 text-[11px] bg-accent-primary/20 text-accent-primary'
+                      : 'rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground'}
                   >
                     {t('story.modeLog')}
                   </button>
@@ -687,7 +687,7 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => toggleDiff(row, diffKey)}
-                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       {t('history.diff')}
                     </button>
@@ -696,7 +696,7 @@ function ProvenanceTimeline({
                     <button
                       type="button"
                       onClick={() => onOpenTicket(row.ticketId!)}
-                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-[10px] text-accent-primary hover:bg-accent-primary/25"
+                      className="shrink-0 rounded bg-accent-primary/15 px-1.5 py-0.5 text-[11px] text-accent-primary hover:bg-accent-primary/25"
                       title={t('history.openSpec', { ticketId: row.ticketId })}
                     >
                       {t('history.specChip', { ticketId: row.ticketId })}

@@ -22,6 +22,8 @@ import {
   Play,
   Square,
   ScrollText,
+  Check,
+  ArrowRight,
 } from 'lucide-react'
 import { tourStore } from './tour-store'
 import { formatUsd } from '../../lib/format-usd'
@@ -620,7 +622,9 @@ function TourFullscreenLogPage() {
                   fontWeight: 600,
                 }}
               >
-                {line.marker}
+                {line.marker === '✓'
+                  ? <Check size={13} strokeWidth={2.5} aria-hidden style={{ display: 'inline', verticalAlign: '-2px' }} />
+                  : <ArrowRight size={13} strokeWidth={2.5} aria-hidden style={{ display: 'inline', verticalAlign: '-2px' }} />}
               </span>
               {'  '}
               <TourLogLineText text={line.text} />
@@ -724,7 +728,7 @@ function TourSummaryCard({ done, progress }: { done: boolean; progress: number }
             color: accent,
           }}
         >
-          {done ? '✓' : '…'}
+          {done ? <Check size={11} strokeWidth={3} aria-hidden /> : '…'}
         </span>
         {title}
       </div>

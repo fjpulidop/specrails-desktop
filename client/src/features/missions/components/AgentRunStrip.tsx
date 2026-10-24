@@ -821,7 +821,7 @@ export function AgentRunStrip({ conversationId, projectId, inline, deliveries = 
           transition={{ duration: 0.18, ease: 'easeOut' }}
           data-testid="mission-run-strip-bar"
           className={cn(
-            'flex min-h-10 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border bg-card/90 px-1.5 py-1 shadow-[0_6px_18px_-12px_rgb(0_0_0/0.45)] backdrop-blur',
+            'flex min-h-10 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border bg-card px-1.5 py-1 shadow-[0_6px_18px_-12px_rgb(0_0_0/0.45)]',
             selected.tone === 'decision' ? 'border-accent-primary/35' : 'border-border/60',
           )}
         >

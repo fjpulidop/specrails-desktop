@@ -18,10 +18,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, ArrowLeft, Ban, Check, ChevronDown, ChevronRight,
-  CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, SendHorizontal, ShieldCheck, Sparkles,
+  CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, RefreshCw, SendHorizontal, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useRailPrDecisions } from '../context/RailPrDecisionContext'
@@ -130,6 +131,9 @@ interface ReviewPacketPageProps {
   /** Embedded use: "Back to the board" closes the host instead of routing. */
   onClose?: () => void
 }
+
+/** Radix Select forbids an empty item value; this sentinel means "all repositories". */
+const ALL_REPOSITORIES = '__all__'
 
 export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const params = useParams<{ prDeliveryId: string }>()
@@ -292,7 +296,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
 
   if (loading && !packet) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
+      <div role="status" className="flex h-full items-center justify-center text-muted-foreground">
         <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
         {t('common:states.loading')}
       </div>
@@ -306,13 +310,17 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <p className="text-sm text-muted-foreground">
           {t(error === 'notFound' ? 'error.notFound' : 'error.loadFailed')}
         </p>
-        <button
-          type="button"
-          onClick={goBack}
-          className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface"
-        >
-          {t('backToBoard')}
-        </button>
+        <div className="flex items-center gap-2">
+          {error !== 'notFound' && (
+            <Button type="button" onClick={() => void load()} className="gap-1.5">
+              <RefreshCw className="size-3.5" aria-hidden />
+              {t('common:actions.retry')}
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={goBack}>
+            {t('backToBoard')}
+          </Button>
+        </div>
       </div>
     )
   }
@@ -329,8 +337,10 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
     ? '—'
     : `${packet.cost.estimated ? '~' : ''}${formatUsd(packet.cost.totalUsd)}`
 
+  // Rendered inside the App shell's <main> (route) or a modal, so the page is a
+  // labelled <article> rather than a second <main> landmark.
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+    <article aria-labelledby="review-packet-headline" className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
       <button
         type="button"
         onClick={goBack}
@@ -341,17 +351,28 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       </button>
 
       {delivery?.repositoryDeliveries?.length ? <>
-        <label className="flex items-center gap-2 text-xs">{t('common:repositories.select')}
-          <select value={repositoryId ?? ''} onChange={(event) => {
-            const next = new URLSearchParams(searchParams)
-            if (event.target.value) next.set('repositoryId', event.target.value)
-            else next.delete('repositoryId')
-            setSearchParams(next, { replace: true })
-          }} className="rounded border border-border bg-background px-2 py-1">
-            <option value="">{t('common:repositories.all')}</option>
-            {delivery.repositoryDeliveries.map((repository) => <option key={repository.repositoryId} value={repository.repositoryId}>{repository.name}</option>)}
-          </select>
-        </label>
+        <div className="flex items-center gap-2 text-xs">
+          <span id="review-packet-repository-label">{t('common:repositories.select')}</span>
+          <Select
+            value={repositoryId ?? ALL_REPOSITORIES}
+            onValueChange={(value) => {
+              const next = new URLSearchParams(searchParams)
+              if (value !== ALL_REPOSITORIES) next.set('repositoryId', value)
+              else next.delete('repositoryId')
+              setSearchParams(next, { replace: true })
+            }}
+          >
+            <SelectTrigger aria-labelledby="review-packet-repository-label" className="h-7 w-auto min-w-[10rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_REPOSITORIES}>{t('common:repositories.all')}</SelectItem>
+              {delivery.repositoryDeliveries.map((repository) => (
+                <SelectItem key={repository.repositoryId} value={repository.repositoryId}>{repository.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <RepositoryDeliveries deliveryId={delivery.prDeliveryId} repositories={delivery.repositoryDeliveries} busy={operationBusy}
           onAct={async (action, id) => {
             if (operationBusy || !isCurrentScope()) return
@@ -377,12 +398,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
 
       {/* ── Above the fold: verdict, confidence, decision ──────────────────── */}
       <div className="rounded-xl border border-border/70 bg-surface/60 p-5 shadow-sm">
-        <h1 className="text-lg font-semibold text-foreground">
+        <h1 id="review-packet-headline" className="text-lg font-semibold text-foreground">
           {t(packet.headlineCode, {
             count: packet.totalCount,
             succeeded: packet.succeededCount,
             total: packet.totalCount,
-            defaultValue: packet.headlineCode,
+            defaultValue: t('headline.generic'),
           })}
         </h1>
 
@@ -607,7 +628,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     {t('versions.label', { version: version.version })}
                   </span>
                   {version.current ? (
-                    <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[10px] text-accent-primary">
+                    <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[11px] text-accent-primary">
                       {t('versions.current')}
                     </span>
                   ) : null}
@@ -677,12 +698,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               return (
                 <li key={comment.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-surface/70 px-1 font-mono text-[10px] text-muted-foreground">{comment.id}</span>
+                    <span className="rounded bg-surface/70 px-1 font-mono text-[11px] text-muted-foreground">{comment.id}</span>
                     {comment.path ? <span className="font-mono text-xs text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''}</span> : null}
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
                       {t(`followUp.verdict.${verdictKey}`)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
+                    <span className="text-[11px] text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
                   </div>
                   <PacketMarkdown muted className="mt-1">{comment.body}</PacketMarkdown>
                   {report ? (
@@ -716,9 +737,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <li key={entry.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-accent-primary">#{entry.ticketId}</span>
-                    <span className="rounded-full border border-border/50 px-1.5 py-px text-[10px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
+                    <span className="rounded-full border border-border/50 px-1.5 py-px text-[11px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
                     <span className="font-medium">{entry.title}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
                       {t(`addenda.verdict.${verdictKey}`)}
                     </span>
                   </div>
@@ -749,7 +770,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <span className="font-medium text-foreground">#{section.ticketId}</span>
                 {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
                 {(() => { const key = outcomeKey(section); return (
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
                     {t(`outcome.${key}`)}
                   </span>
                 ) })()}
@@ -789,7 +810,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <Section
           title={t('sections.whatTheAgentDid')}
           badge={(
-            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
               {t('agentActions.total', { count: packet.agentActions.total })}
             </span>
           )}
@@ -801,7 +822,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       <Section
         title={t('sections.howItWasChecked')}
         badge={packet.evidenceUnavailable ? (
-          <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[11px] text-muted-foreground">
             {t('proof.evidenceUnavailable')}
           </span>
         ) : undefined}
@@ -824,6 +845,6 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           })}
         </div>
       </Section>
-    </div>
+    </article>
   )
 }

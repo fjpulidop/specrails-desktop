@@ -91,7 +91,7 @@ export function AgentRuntimeSelector(props: Props) {
         <input type="range" aria-label={t('effort.label')} aria-valuetext={effortLabel} min={0} max={Math.max(0, props.efforts.length - 1)} step={1}
           value={Math.max(0, props.efforts.indexOf(props.effort || props.defaultEffort))} disabled={props.efforts.length < 2}
           className="mt-4 w-full accent-accent-primary" onChange={event => props.onEffort(props.efforts[Number(event.target.value)])} />
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground"><span>{t(`effort.${props.efforts[0]}`)}</span><span>{t(`effort.${props.efforts[props.efforts.length - 1]}`)}</span></div>
+        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{t(`effort.${props.efforts[0]}`)}</span><span>{t(`effort.${props.efforts[props.efforts.length - 1]}`)}</span></div>
       </div> : <>
         <div className="mb-1 flex items-center gap-2 px-2 py-1 text-sm text-muted-foreground">
           <button type="button" aria-label={t('runtimeSelector.back')} className="rounded p-1 hover:bg-muted"

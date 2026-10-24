@@ -84,7 +84,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
           <Code2 className="w-3.5 h-3.5 shrink-0 text-accent-secondary" />
           <span className="truncate font-medium">{t('domPanel.header', { title: dom.title || host })}</span>
         </button>
-        <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
           {t('domPanel.badge.elements', { count: summary.nodeCount })}{dom.css ? ' · CSS' : ''}{hasTokens ? ` · ${t('domPanel.badge.tokens')}` : ''}{hasNetwork ? ` · ${t('domPanel.badge.requests', { count: requests.length })}` : ''}{summary.truncated ? ` · ${t('domPanel.badge.truncated')}` : ''}
         </span>
         {onRemove && (
@@ -92,7 +92,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
             type="button"
             onClick={onRemove}
             aria-label={t('domPanel.removeLabel')}
-            className="shrink-0 text-muted-foreground/60 hover:text-destructive transition-colors"
+            className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -100,7 +100,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
       </div>
       {openPanel && (
         <div className="border-t border-accent-secondary/30">
-          <div className="px-3 py-1.5 text-[10px] text-muted-foreground truncate" title={dom.url}>
+          <div className="px-3 py-1.5 text-[11px] text-muted-foreground truncate" title={dom.url}>
             {dom.url}
           </div>
           <pre
@@ -150,7 +150,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                       {tokens.palette.map((c, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80"
+                          className="inline-flex items-center gap-1 rounded border border-border/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground/80"
                         >
                           {/* Swatch colour is captured data (not a layout/brand token) → inline style is intentional. */}
                           <span className="inline-block w-3 h-3 rounded-sm border border-border/40" style={{ background: c }} aria-hidden />
@@ -177,7 +177,7 @@ export function CapturedDomPanel({ dom, onRemove }: CapturedDomPanelProps) {
                   <button
                     type="button"
                     onClick={copyTokens}
-                    className="text-[10px] text-accent-info hover:underline"
+                    className="text-[11px] text-accent-info hover:underline"
                   >
                     {copied ? t('domPanel.copied') : t('domPanel.copyJson')}
                   </button>

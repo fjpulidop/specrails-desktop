@@ -171,7 +171,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                       {tJobs(`statusLabel.${job.status in STATUS_VARIANT ? job.status : 'queued'}`)}
                     </Badge>
                     {job.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-accent-primary" />}
-                    <span className="ml-auto text-[10px] text-muted-foreground">
+                    <span className="ml-auto text-[11px] text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))
                         return timestamp

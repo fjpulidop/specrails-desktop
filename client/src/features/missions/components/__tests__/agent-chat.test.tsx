@@ -718,6 +718,16 @@ describe('AgentChatProvider', () => {
     localStorage.clear()
   })
 
+  it('defaults the bubble to the bottom-right corner, anchored by its right edge', () => {
+    localStorage.removeItem('specrails-desktop:agent-bubble-pos')
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    const bubble = screen.getByLabelText('Mission Control')
+    expect(bubble.style.right).toBe('16px')
+    expect(bubble.style.left).toBe('')
+    expect(bubble.style.top).toBe(`${window.innerHeight - 56 - 40}px`)
+    expect(bubble).toHaveClass('flex-row-reverse')
+  })
+
   it('clicking an option chip in the panel sends that option as the reply', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
@@ -921,8 +931,8 @@ describe('AgentChatProvider', () => {
     expect(screen.getByTestId('streaming')).toHaveTextContent('true')
     expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(2)
     if (failure !== 'admission error') {
-      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('draft is kept'))
-      expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('<!DOCTYPE'))
+      expect(toast.error).toHaveBeenCalledWith('The message could not be sent.', { description: expect.stringContaining('draft is kept') })
+      expect(toast.error).not.toHaveBeenCalledWith(expect.anything(), { description: expect.stringContaining('<!DOCTYPE') })
     }
     const failed = vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]!
     const canonical = { id: 'retry-user', conversation_id: 'c1', role: 'user' as const, content: 'change @deckdex', created_at: '', delivery_status: 'delivered' as const, attachment_ids: ['att-1'], context_refs: failed.contextRefs }
@@ -1006,7 +1016,7 @@ describe('AgentChatProvider', () => {
     await act(async () => { fireEvent.click(screen.getByText('abort')) })
     expect(screen.getByTestId('queued')).toHaveTextContent('1')
     expect(screen.getByTestId('streaming')).toHaveTextContent('true')
-    expect(toast.error).toHaveBeenCalledWith('Could not stop provider')
+    expect(toast.error).toHaveBeenCalledWith('The agent could not be stopped.', { description: 'Could not stop provider' })
   })
 
   it('keeps a background conversation streaming and restores its text on switch-back', async () => {

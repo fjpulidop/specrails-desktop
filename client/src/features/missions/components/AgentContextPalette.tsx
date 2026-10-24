@@ -110,7 +110,7 @@ export function AgentContextPalette({
   return (
     <div
       data-testid="agent-context-palette"
-      className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-30 overflow-hidden rounded-lg border border-border/70 bg-background/95 shadow-xl shadow-black/15 backdrop-blur"
+      className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-30 overflow-hidden rounded-lg border border-border/70 bg-popover shadow-xl shadow-black/15"
     >
       <div className="flex items-center gap-2 border-b border-border/60 px-2.5 py-2">
         <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-surface text-foreground/70">
@@ -122,7 +122,7 @@ export function AgentContextPalette({
             {query ? t('palette.filtering', { query }) : t(`palette.mode.${mode}.hint`)}
           </div>
         </div>
-        <div className="hidden text-[10px] text-foreground/35 sm:block">{t('palette.keyboard')}</div>
+        <div className="hidden text-[11px] text-foreground/35 sm:block">{t('palette.keyboard')}</div>
       </div>
       {items.length === 0 ? (
         <div className="flex items-center gap-2 px-3 py-3 text-xs text-foreground/55">
@@ -139,7 +139,7 @@ export function AgentContextPalette({
             return (
               <div key={item.id}>
                 {showGroup && (
-                  <div className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-foreground/35">
+                  <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-foreground/35">
                     {item.group}
                   </div>
                 )}
@@ -163,7 +163,7 @@ export function AgentContextPalette({
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-sm font-medium">{item.title}</span>
                       {item.risk && (
-                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-[10px] uppercase text-foreground/45">
+                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-[11px] uppercase text-foreground/45">
                           {item.risk}
                         </span>
                       )}
@@ -245,7 +245,7 @@ export function AgentPlusMenu({
         <Plus className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute bottom-8 left-0 z-40 w-64 overflow-hidden rounded-lg border border-border/70 bg-background/95 py-1 shadow-xl shadow-black/15 backdrop-blur">
+        <div className="absolute bottom-8 left-0 z-40 w-64 overflow-hidden rounded-lg border border-border/70 bg-popover py-1 shadow-xl shadow-black/15">
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => onOpenMode('reference')} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface">
             <AtSign className="h-4 w-4 text-accent-primary" />
             <span className="min-w-0 flex-1">

@@ -604,7 +604,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       <div
         data-testid={launched ? 'agent-rail-launch-stub-launched' : 'agent-rail-launch-stub-dismissed'}
         className={cn(
-          'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs backdrop-blur',
+          'my-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
           launched ? 'border-accent-success/30 bg-accent-success/[0.06] text-foreground/80' : 'border-border/50 bg-surface/40 text-foreground/50',
         )}
       >
@@ -802,20 +802,20 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       transition={{ duration: 0.22, ease: 'easeOut' }}
       data-testid="agent-rail-launch-card"
       className={cn(
-        'my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg backdrop-blur',
+        'my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg',
         compact && 'my-0',
       )}
     >
       {/* Header: identity + status pill */}
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
+        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-accent-primary/90">
           <Rocket className="h-3 w-3" />
           {t('railCard.heading')}
         </span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/55">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
         </span>
-        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', statusPill.tone)}>
+        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide', statusPill.tone)}>
           {statusPill.label}
         </span>
       </div>
@@ -1030,11 +1030,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             <ul className="mt-1.5 space-y-1">
               {config.followUp.comments.map((comment) => (
                 <li key={comment.id} className="flex gap-2 text-foreground/75">
-                  <span className="shrink-0 rounded bg-surface/70 px-1 font-mono text-[10px] text-foreground/60">{comment.id}</span>
+                  <span className="shrink-0 rounded bg-surface/70 px-1 font-mono text-[11px] text-foreground/60">{comment.id}</span>
                   <span className="min-w-0">
                     {comment.path ? <span className="font-mono text-[11px] text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''} · </span> : null}
                     <span className="line-clamp-2">{comment.body}</span>
-                    <span className="ml-1 text-[10px] text-foreground/45">{t(`railCard.followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}</span>
+                    <span className="ml-1 text-[11px] text-foreground/45">{t(`railCard.followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}</span>
                   </span>
                 </li>
               ))}

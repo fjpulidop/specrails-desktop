@@ -24,7 +24,7 @@ export function AgentBackgroundTurn({ turn }: { turn: BackgroundTurnView }) {
 export function AgentTurnOriginLabel({ origin }: { origin: 'subagent' | 'system' }) {
   const { t } = useTranslation('agent')
   return (
-    <p className="flex items-center gap-1.5 px-1 text-[10.5px] uppercase tracking-wide text-foreground/40" data-testid="agent-turn-origin">
+    <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground" data-testid="agent-turn-origin">
       <Bot className="h-3 w-3" aria-hidden />
       {origin === 'system' ? t('subagents.continuationSystem') : t('subagents.continuation')}
     </p>

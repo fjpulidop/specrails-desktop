@@ -205,7 +205,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
                 expanded ? 'px-2' : 'px-0 justify-center',
                 disabled
-                  ? 'text-muted-foreground/60 cursor-not-allowed'
+                  ? 'text-muted-foreground cursor-not-allowed'
                   : active
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',

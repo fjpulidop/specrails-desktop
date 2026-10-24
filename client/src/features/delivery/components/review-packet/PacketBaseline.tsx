@@ -33,7 +33,7 @@ export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; 
             <li key={`${entry.ticketId}:${entry.change ?? ''}`} className="space-y-1" data-testid={`packet-baseline-${entry.status}`}>
               <p className={`text-sm ${blocked ? 'text-accent-warning' : 'text-foreground'}`}>
                 {t(`baseline.status.${entry.status}`, { requirements, tests: entry.tests.length })}
-                {multiTicket ? <span className="ml-1 text-[10px] text-muted-foreground">#{entry.ticketId}</span> : null}
+                {multiTicket ? <span className="ml-1 text-[11px] text-muted-foreground">#{entry.ticketId}</span> : null}
               </p>
               {module.length > 0 ? (
                 <p className="text-xs text-muted-foreground">

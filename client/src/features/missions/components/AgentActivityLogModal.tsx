@@ -71,16 +71,16 @@ export function AgentActivityLogModal({
         role="dialog"
         aria-modal="true"
         aria-label={t('activity.title')}
-        className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border/30 bg-popover shadow-xl backdrop-blur-md"
+        className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border/30 bg-popover shadow-xl"
       >
         <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
           <ScrollText className="h-4 w-4 text-accent-info" aria-hidden />
           <span className="text-sm font-semibold">{t('activity.title')}</span>
-          <span className="rounded-full bg-muted/40 px-1.5 py-px text-[10px] leading-4 text-muted-foreground">
+          <span className="rounded-full bg-muted/40 px-1.5 py-px text-[11px] leading-4 text-muted-foreground">
             {tools.length}
           </span>
           {streaming && (
-            <span className="inline-flex items-center gap-1.5 text-[10px] text-accent-info">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-accent-info">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
               {t('activity.live')}
             </span>
@@ -147,9 +147,9 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
       <div className="flex items-center gap-2">
         <TerminalSquare className="h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
         <span className="text-xs font-medium">{toolChipLabel(entry.tool)}</span>
-        <span className="truncate text-[10px] font-mono text-muted-foreground">{entry.tool}</span>
+        <span className="truncate text-[11px] font-mono text-muted-foreground">{entry.tool}</span>
         {entry.at && (
-          <span className="ml-auto shrink-0 text-[10px] font-mono text-muted-foreground">{formatTime(entry.at)}</span>
+          <span className="ml-auto shrink-0 text-[11px] font-mono text-muted-foreground">{formatTime(entry.at)}</span>
         )}
         <button
           type="button"
@@ -173,7 +173,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
       )}
       {entry.output !== undefined && (
         <div className="mt-1.5">
-          <p className={cn('mb-0.5 text-[10px] uppercase tracking-wider', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
+          <p className={cn('mb-0.5 text-[11px] uppercase tracking-wider', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
             {entry.isError ? t('activity.error') : t('activity.output')}
           </p>
           <pre

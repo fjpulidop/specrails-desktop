@@ -339,7 +339,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
+      className="fixed inset-0 z-[80] bg-background-deep/80 pointer-events-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget && !preview) onClose()
       }}
@@ -406,7 +406,7 @@ export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0
             aria-hidden
           />
           <span className="truncate">{title || currentUrl}</span>
-          <span className="ml-auto shrink-0 rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 py-px text-[10px] font-medium">
+          <span className="ml-auto shrink-0 rounded-full border border-accent-success/30 bg-accent-success/10 text-accent-success px-2 py-px text-[11px] font-medium">
             {t('native.badge')}
           </span>
         </div>

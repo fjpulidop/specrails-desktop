@@ -414,7 +414,7 @@ export interface AgentPrDecisionCardProps {
 }
 
 /** Chrome removed when the card is the content of the run strip's panel. */
-const EMBEDDED_CARD = 'rounded-none border-0 bg-transparent px-0 py-0 shadow-none backdrop-blur-none'
+const EMBEDDED_CARD = 'rounded-none border-0 bg-transparent px-0 py-0 shadow-none'
 
 export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, embedded = false, onSummary, onRunVitals }: AgentPrDecisionCardProps) {
   const { t } = useTranslation('agent')
@@ -945,7 +945,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         ref={cardRef}
       {...focusRegion}
         data-testid="agent-pr-decision-card"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/70 shadow-lg backdrop-blur-xl transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/70 shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           {buildingPaused
@@ -1071,7 +1071,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {...focusRegion}
         data-testid="agent-pr-decision-card"
         data-run-only="true"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50', runStatus === 'running' && 'animate-spin text-accent-primary/70')} />
@@ -1349,7 +1349,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {...focusRegion}
       data-testid="agent-pr-decision-card"
       className={cn(
-        'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow',
+        'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow',
         decision === 'merged' && 'border-accent-success/30',
         decision === 'completed' && 'border-accent-success/30',
         decision === 'discarded' && 'opacity-70',

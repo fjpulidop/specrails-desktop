@@ -216,7 +216,7 @@ export function ContextScopeSlider({
           </span>
           {isCustom ? (
             <span
-              className="rounded-full bg-accent-warning/15 px-2 py-0.5 text-[10px] font-semibold text-accent-warning"
+              className="rounded-full bg-accent-warning/15 px-2 py-0.5 text-[11px] font-semibold text-accent-warning"
               data-testid="scope-custom-pill"
             >
               {t('contextScope.custom')}
@@ -225,7 +225,7 @@ export function ContextScopeSlider({
         </div>
         <span className="text-[11px] font-medium text-foreground" data-testid="context-awareness-tier">{tier}</span>
       </div>
-      <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
+      <div className="flex justify-between text-[11px] font-medium text-muted-foreground">
         {visiblePresets.map((p, i) => (
           <button
             key={p.id}
@@ -276,12 +276,12 @@ export function ContextScopeSlider({
           style={{ left: `${thumbPct * 100}%` }}
         />
       </div>
-      <p className="text-[10px] text-muted-foreground" data-testid="scope-cost-line">
+      <p className="text-[11px] text-muted-foreground" data-testid="scope-cost-line">
         {costLine} · {numericLine}
       </p>
       {value.contractRefine && smashCapable && (
         <div
-          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-[10px] text-foreground/80"
+          className="flex items-start gap-1.5 rounded-md border border-accent-highlight/40 bg-accent-highlight/10 px-2 py-1.5 text-[11px] text-foreground/80"
           data-testid="scope-smash-hint"
         >
           <span aria-hidden className="text-accent-highlight">⊢→</span>

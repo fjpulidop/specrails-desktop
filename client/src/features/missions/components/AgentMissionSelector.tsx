@@ -195,7 +195,7 @@ export function AgentMissionSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
-            className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl"
+            className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl"
           >
             {showSearch && (
               <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
@@ -365,7 +365,7 @@ function MissionRow({
           data-testid={`mission-queued-${conversation.id}`}
           aria-label={t('mission.queuedBadge', { n: queuedCount })}
           title={t('mission.queuedBadge', { n: queuedCount })}
-          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-[9px] font-semibold leading-4 text-foreground/60"
+          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-[11px] font-semibold leading-4 text-foreground/60"
         >
           {queuedCount}
         </span>

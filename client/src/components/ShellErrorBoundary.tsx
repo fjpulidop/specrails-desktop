@@ -1,6 +1,7 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, X } from 'lucide-react'
+import { Button } from './ui/button'
 
 interface Props {
   children: ReactNode
@@ -26,31 +27,27 @@ function ShellErrorFallback({
 }) {
   const { t } = useTranslation('nav')
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-      <div className="text-center space-y-2">
+    <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 p-8">
+      <div className="text-center space-y-2 max-w-md">
         <h2 className="text-base font-semibold">{t('errorBoundary.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('errorBoundary.description')}</p>
         {errorMessage && (
-          <p className="text-xs text-muted-foreground/60 font-mono max-w-md break-words">{errorMessage}</p>
+          <details className="text-left text-xs text-muted-foreground">
+            <summary className="cursor-pointer text-center">{t('errorBoundary.details')}</summary>
+            <p className="mt-2 font-mono break-words">{errorMessage}</p>
+          </details>
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
+        <Button type="button" onClick={onRetry} className="gap-2">
+          <RefreshCw className="w-3.5 h-3.5" aria-hidden />
           {t('common:actions.retry')}
-        </button>
+        </Button>
         {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-border hover:bg-muted/40 transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
+          <Button type="button" variant="outline" onClick={onClose} className="gap-2">
+            <X className="w-3.5 h-3.5" aria-hidden />
             {t('common:actions.close')}
-          </button>
+          </Button>
         )}
       </div>
     </div>

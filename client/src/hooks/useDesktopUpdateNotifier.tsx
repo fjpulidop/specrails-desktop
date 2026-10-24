@@ -255,7 +255,7 @@ export function DesktopUpdateToast({
         </span>
         {pill != null && (
           <span
-            className="shrink-0 whitespace-nowrap rounded-md border border-border/40 bg-background/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+            className="shrink-0 whitespace-nowrap rounded-md border border-border/40 bg-background/60 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground"
             style={state !== 'available' ? { color: 'var(--u-accent)' } : undefined}
           >
             {pill}

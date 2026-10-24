@@ -74,7 +74,7 @@ export function AttachmentChip({ attachment, uploading, onRemove, onClick, index
       </span>
       <div className="flex flex-col min-w-0 mr-1">
         <span className="font-medium truncate max-w-[160px] text-foreground">{name}</span>
-        <span className="text-[10px] text-muted-foreground leading-tight">{subtitle}</span>
+        <span className="text-[11px] text-muted-foreground leading-tight">{subtitle}</span>
       </div>
       {onRemove && !uploading && (
         <button

@@ -39,7 +39,7 @@ function CheckRow({ id, label, hint, checked, disabled, tooltip, onChange }: Che
     >
       <label htmlFor={id} className="flex flex-col gap-0.5 text-xs">
         <span className="font-medium text-foreground">{label}</span>
-        <span className="text-[10px] text-muted-foreground">{hint}</span>
+        <span className="text-[11px] text-muted-foreground">{hint}</span>
       </label>
       <button
         id={id}
@@ -111,7 +111,7 @@ export function ContextScopeChecks({
           {effectiveLabel}
         </span>
         {!open && showSummary ? (
-          <span className="text-[10px] normal-case tracking-normal text-muted-foreground/80">
+          <span className="text-[11px] normal-case tracking-normal text-muted-foreground/80">
             {summary} · {tier}
           </span>
         ) : null}

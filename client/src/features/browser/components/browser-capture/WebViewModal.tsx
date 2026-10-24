@@ -168,7 +168,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
+      className="fixed inset-0 z-[80] bg-background-deep/80 pointer-events-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       data-testid="webview-modal"
     >

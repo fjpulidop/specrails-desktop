@@ -120,7 +120,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
       role="group"
       aria-labelledby="flow-entry-title"
       data-testid="flow-entry-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-flow/30 bg-card/85 shadow-lg backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-accent-flow/30 bg-card/85 shadow-lg"
     >
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-flow/[0.07] px-3.5 py-2">
         <Waves className="h-3.5 w-3.5 text-accent-flow" aria-hidden />

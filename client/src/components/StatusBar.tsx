@@ -87,19 +87,21 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
   const showConnection = !minimal || connectionStatus !== 'connected' || isSyncing
 
   return (
-    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background/80 backdrop-blur-sm text-[10px] text-muted-foreground">
+    <footer className="h-7 shrink-0 flex items-center justify-between px-4 border-t border-border/30 bg-background text-[11px] text-muted-foreground">
       {/* Connection status */}
-      <div className={cn('flex items-center gap-1.5 transition-opacity duration-300', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
+      <div className={cn('flex items-center gap-1.5 transition-opacity duration-200', !showConnection && 'opacity-0')} aria-hidden={!showConnection || undefined}>
         <span
           className={cn(
             'w-1.5 h-1.5 rounded-full transition-colors',
             connectionStatus === 'connected' && !isSyncing && 'bg-accent-success',
-            connectionStatus === 'connected' && isSyncing && 'bg-accent-info animate-pulse',
-            connectionStatus === 'connecting' && 'bg-accent-warning animate-[pulse_0.75s_ease-in-out_infinite]',
+            connectionStatus === 'connected' && isSyncing && 'bg-accent-info animate-pulse motion-reduce:animate-none',
+            connectionStatus === 'connecting' && 'bg-accent-warning animate-[pulse_0.75s_ease-in-out_infinite] motion-reduce:animate-none',
             connectionStatus === 'disconnected' && 'bg-destructive'
           )}
         />
         <span
+          role="status"
+          aria-live="polite"
           className={cn(
             'transition-colors',
             connectionStatus === 'connected' && !isSyncing && 'text-accent-success',

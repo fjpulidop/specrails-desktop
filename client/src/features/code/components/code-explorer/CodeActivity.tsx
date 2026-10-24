@@ -106,13 +106,13 @@ export function CodeActivity({ projectId, repositoryName, multipleRepositories, 
         const groupStart = !previous || previous.repositoryId !== entry.repositoryId || previous.jobId !== entry.jobId || previous.ticketId !== entry.ticketId
         const Icon = entry.kind === 'created' ? FilePlus2 : entry.kind === 'deleted' ? FileMinus2 : FileText
         return <li key={entry.id}>
-          {groupStart && <div className="sticky top-0 z-[1] space-y-1 border-y border-border bg-background/95 px-3 py-2 backdrop-blur">
+          {groupStart && <div className="sticky top-0 z-[1] space-y-1 border-y border-border bg-background px-3 py-2">
             <div className="flex items-center gap-2 text-[11px]"><span className="min-w-0 flex-1 truncate font-medium">{entry.repositoryName}</span>{entry.ticketId != null && <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-accent-primary">{t('story.spec', { ticketId: entry.ticketId })}</span>}</div>
-            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground"><span className="inline-flex min-w-0 items-center gap-1" title={entry.jobId ?? undefined}><GitCommitHorizontal className="h-3 w-3" />{entry.jobId?.slice(0, 10) ?? t('history.unknownJob')}</span><time dateTime={new Date(entry.at).toISOString()} title={new Date(entry.at).toLocaleString(i18n.language)}>{new Date(entry.at).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}</time></div>
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span className="inline-flex min-w-0 items-center gap-1" title={entry.jobId ?? undefined}><GitCommitHorizontal className="h-3 w-3" />{entry.jobId?.slice(0, 10) ?? t('history.unknownJob')}</span><time dateTime={new Date(entry.at).toISOString()} title={new Date(entry.at).toLocaleString(i18n.language)}>{new Date(entry.at).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}</time></div>
           </div>}
           <button type="button" onClick={() => onOpen({ repositoryId: entry.repositoryId, path: entry.path, changeJobId: entry.jobId })} className="flex w-full items-start gap-2 border-b border-border/30 px-3 py-3 text-left hover:bg-muted/50" title={entry.path}>
             <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${entry.kind === 'created' ? 'text-accent-success' : entry.kind === 'deleted' ? 'text-destructive' : 'text-accent-info'}`} />
-            <span className="min-w-0 flex-1 space-y-1"><span className="block break-all font-mono text-xs">{entry.path}</span><span className="block text-[10px] text-muted-foreground">{t(`story.kindLabel.${entry.kind}`)} · {t(entry.hasPatch ? entry.patchTruncated ? 'activity.partialPatch' : 'activity.patch' : 'activity.noPatch')}</span></span>
+            <span className="min-w-0 flex-1 space-y-1"><span className="block break-all font-mono text-xs">{entry.path}</span><span className="block text-[11px] text-muted-foreground">{t(`story.kindLabel.${entry.kind}`)} · {t(entry.hasPatch ? entry.patchTruncated ? 'activity.partialPatch' : 'activity.patch' : 'activity.noPatch')}</span></span>
           </button>
         </li>
       })}</ol>

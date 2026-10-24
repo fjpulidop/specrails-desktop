@@ -379,7 +379,7 @@ export function AgentComposer({
         conversation = await materializeDraftConversation()
         adoptNewMissionDrafts(conversation.id)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+        toast.error(t('workspace.uploadFailed'), { description: err instanceof Error ? err.message : undefined })
         setUploading(false)
         return
       }
@@ -393,7 +393,7 @@ export function AgentComposer({
         const att = await uploadAgentAttachment(conversation.id, f)
         setAttachmentDraft(conversation.id, (prev) => [...prev, att])
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('workspace.uploadFailed'))
+        toast.error(t('workspace.uploadFailed'), { description: err instanceof Error ? err.message : undefined })
       }
     }
     setUploading(false)
@@ -403,7 +403,7 @@ export function AgentComposer({
       if (active) await deleteAgentAttachment(active.id, id)
       setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove attachment.')
+      toast.error(t('errors.removeAttachmentFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }
 
@@ -568,7 +568,7 @@ export function AgentComposer({
       setComposerSubmission(targetKey, null)
     } catch (error) {
       restoreSubmittedComposerDraft(draftKey, submitted)
-      toast.error(error instanceof Error ? error.message : t('queueEdit.saveFailed'))
+      toast.error(t('queueEdit.saveFailed'), { description: error instanceof Error ? error.message : undefined })
     } finally {
       submittingRef.current = false
       setSubmitting(false)

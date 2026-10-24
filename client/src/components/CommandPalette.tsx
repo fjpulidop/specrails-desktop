@@ -198,7 +198,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       toast.success(t('toasts.queued', { name: slug }))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('errors.spawnFailed'))
+      toast.error(t('errors.spawnFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [navigate, t])
 
@@ -279,13 +279,13 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                     </span>
                   )}
                   <span
-                    className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
+                    className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
                     title={absoluteTime(conversation.updated_at)}
                   >
                     {compactRelativeTime(conversation.updated_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 min-w-0 text-[11px] text-muted-foreground/60">
+                <div className="flex items-center gap-1.5 min-w-0 text-[11px] text-muted-foreground">
                   <span className="shrink-0">{projectName ?? t('palette.missions.home')}</span>
                   {row.snippet && (
                     <>
@@ -315,7 +315,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{project.name}</span>
             {project.id === activeProjectId && (
-              <span className="text-[10px] text-accent-primary font-medium">{t('palette.activeBadge')}</span>
+              <span className="text-[11px] text-accent-primary font-medium">{t('palette.activeBadge')}</span>
             )}
           </Command.Item>
         ))}
@@ -335,7 +335,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <div className="flex-1 min-w-0">
               <span className="truncate">{cmd.name}</span>
               {cmd.description && (
-                <span className="text-[11px] text-muted-foreground/60 ml-2 truncate">{cmd.description}</span>
+                <span className="text-[11px] text-muted-foreground ml-2 truncate">{cmd.description}</span>
               )}
             </div>
           </Command.Item>
@@ -355,7 +355,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{job.command}</span>
             <span className={cn(
-              'text-[10px] font-medium',
+              'text-[11px] font-medium',
               job.status === 'completed' && 'text-accent-success',
               job.status === 'failed' && 'text-destructive',
               job.status === 'running' && 'text-accent-info',
@@ -387,7 +387,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       label={t('palette.label')}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
-        'border border-border/30 bg-popover shadow-2xl backdrop-blur-md rounded-xl overflow-hidden',
+        'border border-border/30 bg-popover shadow-2xl rounded-xl overflow-hidden',
       )}
     >
       {/* Visually hidden title for accessibility */}
@@ -400,9 +400,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           value={search}
           onValueChange={setSearch}
           placeholder={uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
-          className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+          className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground font-mono">
           esc
         </kbd>
       </div>
@@ -416,7 +416,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       </Command.List>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-[10px] text-muted-foreground/50">
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-3">
           <span><kbd className="font-mono">↑↓</kbd> {t('palette.footer.navigate')}</span>
           <span><kbd className="font-mono">↵</kbd> {t('palette.footer.select')}</span>

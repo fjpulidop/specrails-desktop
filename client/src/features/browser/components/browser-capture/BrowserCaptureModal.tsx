@@ -390,7 +390,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     // Translucent backdrop gutter — clicking it closes the capture modal and
     // returns to Add Spec. The Add Spec modal stays mounted underneath.
     <div
-      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
+      className="fixed inset-0 z-[80] bg-background-deep/80 pointer-events-auto"
       onClick={onBackdropClick}
     >
       {/* Large MODAL panel (not full-bleed): a visible rim of the app around it
@@ -624,7 +624,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           {locked ? <Lock className="w-3 h-3 shrink-0 text-accent-info" /> : null}
           {activePath.map((seg, i) => (
             <Fragment key={`${seg.selector}-${i}`}>
-              {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
+              {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
               <button
                 type="button"
                 onClick={() => onBreadcrumbClick(seg)}
@@ -635,7 +635,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
               </button>
             </Fragment>
           ))}
-          <span className="text-muted-foreground/60 shrink-0 ml-auto pl-2 hidden md:inline">{t('modal.breadcrumb.hint')}</span>
+          <span className="text-muted-foreground shrink-0 ml-auto pl-2 hidden md:inline">{t('modal.breadcrumb.hint')}</span>
         </div>
       )}
 

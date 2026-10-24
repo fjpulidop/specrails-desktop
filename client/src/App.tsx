@@ -405,7 +405,7 @@ function DesktopApp() {
     return (
       <div className="flex h-full">
         <div className="w-11 border-r border-border bg-background flex-shrink-0" />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
           <p className="text-sm text-muted-foreground">{t('states.loading')}</p>
         </div>
       </div>
@@ -414,6 +414,14 @@ function DesktopApp() {
 
   return (
     <div className="flex h-full overflow-hidden">
+      {/* Skip link — first focusable element; jumps past the sidebar chrome. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded focus:bg-popover focus:px-3 focus:py-2 focus:text-sm focus:text-foreground focus:shadow-lg"
+      >
+        {t('nav:skipToContent')}
+      </a>
+
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
         onOpenCompanion={() => { setSettingsSection('mobile'); setSettingsOpen(true) }}
@@ -436,13 +444,13 @@ function DesktopApp() {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-hidden">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden focus:outline-none">
           {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
             // to <Routes>; Loops and Plugins open modals with an optional window action.
             <AgentModeSurface />
           ) : (
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center" role="status"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
               <Routes>
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
@@ -454,7 +462,7 @@ function DesktopApp() {
                 <Route path="/plugins" element={<PluginsPage />} />
                 {/* Project routes */}
                 {projects.length === 0 ? (
-                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
+                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} onReplayTour={() => setOnboardingOpen(true)} />} />
                 ) : activeProject ? (
                   <Route element={
                     <ProjectErrorBoundary key={activeProject.id} projectName={activeProject.name}>
@@ -474,7 +482,7 @@ function DesktopApp() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 ) : (
-                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} />} />
+                  <Route path="*" element={<WelcomeScreen onAddProject={() => setAddDialogOpen(true)} onReplayTour={() => setOnboardingOpen(true)} />} />
                 )}
               </Routes>
             </Suspense>

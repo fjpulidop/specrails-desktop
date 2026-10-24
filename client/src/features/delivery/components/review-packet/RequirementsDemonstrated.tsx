@@ -23,7 +23,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
   const missing = expanded ? section.undemonstratedList : section.undemonstratedList.slice(0, COLLAPSED)
   const shown = expanded ? section.demonstratedList : section.demonstratedList.slice(0, COLLAPSED)
   const hidden = section.undemonstratedList.length - missing.length + section.demonstratedList.length - shown.length
-  const ticket = (id: number) => multiTicket ? <span className="ml-1 text-[10px] text-muted-foreground">#{id}</span> : null
+  const ticket = (id: number) => multiTicket ? <span className="ml-1 text-[11px] text-muted-foreground">#{id}</span> : null
   return (
     <section className={`rounded-lg border p-4 ${border}`} data-testid="packet-requirements" aria-labelledby="packet-requirements-title">
       <h2 id="packet-requirements-title" className="mb-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -46,7 +46,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
               <li key={`${item.ticketId}:${item.id}`} className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
                 <span className={`font-mono text-[11px] ${item.touched ? 'text-accent-warning' : 'text-foreground/80'}`}>{item.id}</span>
                 <span className="text-muted-foreground">{t(`requirements.reason.${item.reason}`)}</span>
-                {item.touched ? <span className="rounded-full border border-accent-warning/40 px-1.5 text-[10px] text-accent-warning">{t('requirements.touchedBadge')}</span> : null}
+                {item.touched ? <span className="rounded-full border border-accent-warning/40 px-1.5 text-[11px] text-accent-warning">{t('requirements.touchedBadge')}</span> : null}
                 {ticket(item.ticketId)}
               </li>
             ))}
@@ -60,7 +60,7 @@ export function RequirementsDemonstrated({ section, multiTicket }: { section: Pa
             {shown.map((item) => (
               <li key={`${item.ticketId}:${item.id}`} className="text-xs">
                 <span className="font-mono text-[11px] text-accent-success">{item.id}</span>
-                {item.tests[0] ? <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{item.tests[0].file}{item.tests[0].line !== null ? `:${item.tests[0].line}` : ''}</span> : null}
+                {item.tests[0] ? <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{item.tests[0].file}{item.tests[0].line !== null ? `:${item.tests[0].line}` : ''}</span> : null}
                 {ticket(item.ticketId)}
               </li>
             ))}

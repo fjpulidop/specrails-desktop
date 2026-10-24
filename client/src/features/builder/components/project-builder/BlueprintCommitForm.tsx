@@ -1,7 +1,7 @@
 import { isPublicProvider } from '../../../providers/lib/provider-capabilities'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { createLucideIcon, Rocket } from 'lucide-react'
+import { Bot, Circle, Code2, Moon, Sparkles, createLucideIcon, Rocket, type LucideIcon } from 'lucide-react'
 import { Button } from '../../../../components/ui/button'
 import { Input } from '../../../../components/ui/input'
 import { cn } from '../../../../lib/utils'
@@ -36,11 +36,11 @@ interface BlueprintCommitFormProps {
   errorDetail?: string | null
 }
 
-const PROVIDER_META: Record<string, { icon: string; label: string }> = {
-  claude: { icon: '🤖', label: 'Claude' },
-  codex: { icon: '⚡', label: 'Codex' },
-  gemini: { icon: '✨', label: 'Gemini' },
-  kimi: { icon: '🌙', label: 'Kimi' },
+const PROVIDER_META: Record<string, { icon: LucideIcon; label: string }> = {
+  claude: { icon: Bot, label: 'Claude' },
+  codex: { icon: Code2, label: 'Codex' },
+  gemini: { icon: Sparkles, label: 'Gemini' },
+  kimi: { icon: Moon, label: 'Kimi' },
 }
 
 export function slugifyProjectName(name: string): string {
@@ -120,14 +120,14 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
           onChange={(e) => { setLocationTouched(true); setLocation(e.target.value) }}
           data-testid="commit-location"
         />
-        <p className="text-[10px] text-muted-foreground">{t('commit.locationHint')}</p>
+        <p className="text-[11px] text-muted-foreground">{t('commit.locationHint')}</p>
       </div>
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">{t('commit.providersLabel')}</label>
         <div className="flex gap-2">
           {Object.keys(available).map((id) => {
-            const { icon, label } = PROVIDER_META[id] ?? { icon: '•', label: id }
+            const { icon: ProviderIcon, label } = PROVIDER_META[id] ?? { icon: Circle, label: id }
             const avail = available[id]
             const checked = selected.has(id) && avail
             return (
@@ -156,7 +156,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
                   !avail && 'cursor-not-allowed opacity-40',
                 )}
               >
-                <span>{icon}</span>
+                <ProviderIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span className="font-medium">{label}</span>
               </button>
             )
@@ -180,7 +180,7 @@ export function BlueprintCommitForm({ blueprint, onSubmit, onBack, submitting, e
           />
           <Github className="h-3.5 w-3.5" />
           <span>{t('commit.githubLabel')}</span>
-          {!ghReady && <span className="ml-auto text-[10px] text-muted-foreground">{t('commit.githubAuthHint')}</span>}
+          {!ghReady && <span className="ml-auto text-[11px] text-muted-foreground">{t('commit.githubAuthHint')}</span>}
         </label>
       )}
 

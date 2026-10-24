@@ -111,7 +111,7 @@ export function CodeSearch({ projectId, repositoryName, multipleRepositories, ac
         {results.matches.length === 0 && <p className="p-4 text-xs text-muted-foreground">{t(results.truncated ? 'search.noMatchesPartial' : 'search.noMatches')}</p>}
         <ul className="divide-y divide-border/40">{results.matches.map((match, index) => <li key={`${match.repositoryId}:${match.path}:${match.lineNumber ?? 0}:${index}`}>
           <button type="button" onClick={() => onOpen({ repositoryId: match.repositoryId, path: match.path, line: match.lineNumber })} className="w-full space-y-1 px-3 py-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary" title={`${match.repositoryName ?? ''} / ${match.path}`}>
-            {multipleRepositories && <span className="block text-[10px] font-medium text-accent-primary">{match.repositoryName}</span>}
+            {multipleRepositories && <span className="block text-[11px] font-medium text-accent-primary">{match.repositoryName}</span>}
             <span className="block break-all font-mono text-xs text-foreground">{match.path}{match.lineNumber ? <span className="text-accent-primary">:{match.lineNumber}</span> : null}</span>
             {match.snippet !== undefined && <span className="block overflow-hidden text-ellipsis whitespace-pre font-mono text-[11px] text-muted-foreground">{match.snippetTruncated ? '… ' : ''}{match.snippet}</span>}
           </button>

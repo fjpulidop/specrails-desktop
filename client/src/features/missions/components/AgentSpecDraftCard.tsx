@@ -45,17 +45,17 @@ export function AgentSpecDraftCard({ draft }: Props) {
   return (
     <div
       data-testid="agent-spec-draft-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg"
     >
       {/* Header: identity + priority */}
       <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-accent-primary/90">
           <Sparkles className="h-3 w-3" />
           {t('specDraft.heading')}
         </span>
         <span
           className={cn(
-            'rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+            'rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide',
             PRIORITY_PILL[draft.priority],
           )}
         >
@@ -73,7 +73,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
             {draft.labels.map((label, i) => (
               <span
                 key={`${i}-${label}`}
-                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[10px] text-foreground/70"
+                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[11px] text-foreground/70"
               >
                 {label}
               </span>
@@ -108,7 +108,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
 
         {criteria.length > 0 && (
           <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-foreground/50">
               {t('specDraft.acceptanceCriteria')} · {criteria.length}
             </div>
             <ul className="flex flex-col gap-1">

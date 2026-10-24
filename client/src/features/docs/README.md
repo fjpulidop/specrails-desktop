@@ -25,3 +25,8 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/docs`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+`components/DocView.tsx` is the shared document renderer used by both the page
+and the dialog (markdown, internal-link routing, loading/error/Retry states).
+`/api/docs` is a Desktop-level route, so fetches go through `docsUrl()`
+(`API_ORIGIN` prefix), never the project-scoped `getApiBase()`.

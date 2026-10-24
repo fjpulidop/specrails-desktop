@@ -81,12 +81,15 @@ function SearchPill({ projectName, hidden = false }: { projectName: string | nul
 
   // Agent Mode hides the pill with a fade (stays mounted so the CSS transition
   // runs BOTH ways: fade-out entering agent, fade-in returning to kanban).
+  // Accessible name = the visible text (WCAG 2.5.3 label-in-name); the
+  // shortcut is exposed via aria-keyshortcuts and the hover title.
   return (
     <button
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      aria-label={t('titleBar.searchShortcut')}
+      aria-keyshortcuts="Meta+K"
+      title={t('titleBar.searchShortcut')}
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       style={{
@@ -209,7 +212,7 @@ function MacTitleBar() {
   const showRight = useRightSidebarMounted()
 
   return (
-    <div
+    <header
       data-tauri-drag-region
       style={{
         position: 'relative',
@@ -226,7 +229,7 @@ function MacTitleBar() {
       <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
       {showRight && <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>}
-    </div>
+    </header>
   )
 }
 
@@ -270,7 +273,7 @@ function DefaultTitleBar() {
   }, [appWindow])
 
   return (
-    <div
+    <header
       data-tauri-drag-region
       style={{
         position: 'relative',
@@ -322,6 +325,6 @@ function DefaultTitleBar() {
           ariaLabel={t('titleBar.closeWindow')}
         />
       </div>
-    </div>
+    </header>
   )
 }

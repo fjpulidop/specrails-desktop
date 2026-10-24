@@ -55,11 +55,14 @@ describe('TitleBar', () => {
     Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     render(<TitleBar />)
 
-    const titlebar = screen.getByLabelText('Search (⌘K)').parentElement as HTMLElement
+    const pill = screen.getByTitle('Search (⌘K)')
+    expect(pill).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
+    const titlebar = pill.parentElement as HTMLElement
+    expect(titlebar.tagName).toBe('HEADER')
     expect(titlebar.style.background).toBe('var(--color-background-deep)')
     expect(titlebar.style.borderBottom).toBe('1px solid var(--color-border)')
     expect(titlebar.style.height).toBe('36px')
-    expect(screen.getByLabelText('Search (⌘K)')).toHaveStyle({
+    expect(pill).toHaveStyle({
       color: 'var(--color-foreground)',
     })
   })

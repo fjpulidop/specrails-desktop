@@ -65,20 +65,20 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
         <div className="flex items-start gap-3 border-b border-border/40 px-5 py-4">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t('specModal.eyebrow', { milestone: milestoneLabel, index: index + 1 })}
-            </p>
-            <DialogTitle className="mt-0.5 text-base font-semibold text-foreground">{spec.title}</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-foreground">{spec.title}</DialogTitle>
             {hasSummary && (
               <DialogDescription id={summaryId} className="mt-1 text-xs leading-5 text-muted-foreground" data-testid="blueprint-spec-summary">
                 <span className="sr-only">{t('specModal.summary')}: </span>
                 {spec.shortSummary}
               </DialogDescription>
             )}
-            <div className="mt-1.5 flex flex-wrap gap-1">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-xs text-muted-foreground" data-testid="blueprint-spec-position">
+                {t('specModal.eyebrow', { milestone: milestoneLabel, index: index + 1 })}
+              </span>
               <span
                 className={cn(
-                  'rounded-full border px-1.5 py-px text-[9px] font-medium uppercase tracking-wide',
+                  'rounded-full border px-1.5 py-px text-[11px] font-medium uppercase tracking-wide',
                   PRIORITY_PILL[spec.priority],
                 )}
                 data-testid="blueprint-spec-priority"
@@ -87,12 +87,12 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
                 {tTickets(`priority.${spec.priority}`)}
               </span>
               {spec.labels.map((label) => (
-                <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-[9px] text-accent-primary">
+                <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-[11px] text-accent-primary">
                   {label}
                 </span>
               ))}
               {spec.dependsOnIndex !== undefined && (
-                <span className="rounded bg-muted px-1.5 py-px text-[9px] text-muted-foreground">
+                <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">
                   {t('panel.dependsOn', { index: spec.dependsOnIndex + 1 })}
                 </span>
               )}
@@ -124,10 +124,10 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
           <section aria-labelledby="blueprint-spec-criteria-heading" data-testid="blueprint-spec-acceptance-criteria">
             <h3
               id="blueprint-spec-criteria-heading"
-              className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-foreground/60"
+              className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-foreground/80"
             >
               <span>{t('specModal.acceptanceCriteria')}</span>
-              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
                 {spec.acceptanceCriteria.length}
               </span>
             </h3>

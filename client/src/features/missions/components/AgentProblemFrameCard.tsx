@@ -42,18 +42,18 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
   const { t } = useTranslation('agent')
   const body = (
     <>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">{label}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground/50">{label}</div>
       <div className="text-xs leading-5 text-foreground/90">{value.reading}</div>
       {value.touches.length > 0 && (
         <div className="flex flex-col gap-1 pt-0.5">
-          <div className="text-[10px] uppercase tracking-wider text-foreground/40">
+          <div className="text-[11px] uppercase tracking-wider text-foreground/40">
             {t('problemFrame.touches')}
           </div>
           <div className="flex flex-wrap gap-1">
             {value.touches.map((path, i) => (
               <span
                 key={`${i}-${path}`}
-                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-[10px] text-foreground/65"
+                className="inline-flex max-w-full items-center gap-1 rounded border border-border/50 bg-background-deep/40 px-1.5 py-0.5 font-mono text-[11px] text-foreground/65"
               >
                 <FileCode2 className="h-2.5 w-2.5 shrink-0 text-accent-info/70" />
                 <span className="truncate">{path}</span>
@@ -96,7 +96,7 @@ function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-accent-primary/80 transition-opacity',
+          'mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-accent-primary/80 transition-opacity',
           disabled
             ? 'opacity-0'
             : 'opacity-0 group-hover/reading:opacity-100 group-focus-visible/reading:opacity-100',
@@ -113,7 +113,7 @@ function Bullets({ label, items }: { label: string; items: string[] }) {
   if (items.length === 0) return null
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45">{label}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-foreground/45">{label}</div>
       <ul className="flex flex-col gap-0.5">
         {items.map((item, i) => (
           <li key={`${i}-${item}`} className="flex items-start gap-1.5 text-[11px] leading-5 text-foreground/70">
@@ -148,9 +148,9 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
   return (
     <div
       data-testid="agent-problem-frame-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-info/25 bg-card/80 shadow-lg backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-accent-info/25 bg-card/80 shadow-lg"
     >
-      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-[10px] font-semibold uppercase tracking-widest text-accent-info/90">
+      <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent-info/[0.06] px-3.5 py-2 text-[11px] font-semibold uppercase tracking-widest text-accent-info/90">
         <Compass className="h-3 w-3" />
         {t('problemFrame.heading')}
       </div>
@@ -176,7 +176,7 @@ export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }
         <div className="flex items-start gap-2 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.07] px-2.5 py-2">
           <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary/80" />
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-accent-primary/80">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-accent-primary/80">
               {t('problemFrame.discriminator')}
             </div>
             <div className="mt-0.5 text-xs leading-5 text-foreground/90">{frame.discriminator}</div>

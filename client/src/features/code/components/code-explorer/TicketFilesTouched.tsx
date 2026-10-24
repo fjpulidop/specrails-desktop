@@ -80,7 +80,7 @@ export function TicketFilesTouched({ ticketId, onClose }: Props) {
 
   return (
     <div>
-      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
         {t('ticketFiles.title')}
       </span>
       {loading && !visible && <p className="text-xs text-muted-foreground" role="status">{t('ticketFiles.loading')}</p>}
@@ -104,13 +104,13 @@ export function TicketFilesTouched({ ticketId, onClose }: Props) {
                 navigate(`/code?${query}`)
               }} className="w-full text-left flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/40">
                 <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-[10px] text-muted-foreground truncate max-w-24" title={row.repositoryName}>{row.repositoryName}</span>
+                <span className="text-[11px] text-muted-foreground truncate max-w-24" title={row.repositoryName}>{row.repositoryName}</span>
                 <span className="font-mono truncate flex-1">{row.path}</span>
-                {row.jobId && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono shrink-0" title={t('ticketFiles.jobTitle', { jobId: row.jobId })}>
+                {row.jobId && <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono shrink-0" title={t('ticketFiles.jobTitle', { jobId: row.jobId })}>
                   <GitCommitHorizontal className="h-3 w-3" />
                   {row.jobId.length > 10 ? row.jobId.slice(0, 10) : row.jobId}
                 </span>}
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">{t(`kind.${row.kind}`)}</span>
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wider shrink-0">{t(`kind.${row.kind}`)}</span>
               </button>
             </li>
           )

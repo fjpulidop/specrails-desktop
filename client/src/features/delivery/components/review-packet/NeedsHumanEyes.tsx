@@ -21,7 +21,7 @@ export function NeedsHumanEyes({ rules }: { rules: Array<{ text: string; source:
             <span aria-hidden className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-accent-highlight" />
             <span className="min-w-0 break-words">
               {rule.text}
-              {rule.source ? <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{rule.source}</span> : null}
+              {rule.source ? <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{rule.source}</span> : null}
             </span>
           </li>
         ))}

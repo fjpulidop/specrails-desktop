@@ -22,7 +22,7 @@ import { readMilestoneAutoAdvance, saveMilestoneAutoAdvance } from '../../lib/mi
 // Shared composer card chrome — the morph target of `layoutId` (the mission's
 // "agent-composer-dock" twin) so the empty hero card lowers smoothly into the
 // docked composer on first send.
-const COMPOSER_CARD = 'w-full rounded-2xl border border-border/60 bg-card/90 p-3 shadow-2xl backdrop-blur-xl'
+const COMPOSER_CARD = 'w-full rounded-2xl border border-border/60 bg-card p-3 shadow-2xl'
 
 // The builder-mode conversation body (reskin follow-up): the MISSION format —
 // messages in a centered column with the halo'd BuilderComposer docked at the
@@ -219,18 +219,18 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
               if (!state && step === 'github') return null
               return (
                 <li key={step} className="flex items-center gap-2 text-xs">
-                  {!state && <CircleDashed className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                  {!state && <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
                   {state?.status === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-info" />}
                   {state?.status === 'done' && <Check className="h-3.5 w-3.5 text-accent-success" />}
                   {state?.status === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />}
                   {state?.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive" />}
-                  <span className={cn(!state && 'text-muted-foreground/50')}>{t(`progress.steps.${step}`)}</span>
+                  <span className={cn(!state && 'text-muted-foreground')}>{t(`progress.steps.${step}`)}</span>
                   {state?.status === 'warning' && step === 'github' ? (
-                    <span className="truncate text-[10px] text-accent-warning" title={state.detail}>
+                    <span className="truncate text-[11px] text-accent-warning" title={state.detail}>
                       {t(githubErrorKey(state.code))}
                     </span>
                   ) : (
-                    state?.detail && <span className="truncate text-[10px] text-muted-foreground" title={state.detail}>{state.detail}</span>
+                    state?.detail && <span className="truncate text-[11px] text-muted-foreground" title={state.detail}>{state.detail}</span>
                   )}
                 </li>
               )

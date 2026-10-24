@@ -112,7 +112,7 @@ export function ChatInput({
                   disabled={hasMessages}
                   ariaLabel="Model"
                   testId="chat-model-alias-input"
-                  className="w-52 border-border/20 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                  className="w-52 border-border/20 px-1.5 py-0.5 text-[11px] text-muted-foreground"
                   onCommit={onModelChange}
                 />
               ) : (
@@ -120,7 +120,7 @@ export function ChatInput({
                   value={model}
                   disabled={hasMessages}
                   className={cn(
-                    'rounded bg-transparent text-[10px] text-muted-foreground outline-none',
+                    'rounded bg-transparent text-[11px] text-muted-foreground outline-none',
                     'border border-border/20 px-1.5 py-0.5',
                     hasMessages && 'opacity-50 pointer-events-none'
                   )}
@@ -145,7 +145,7 @@ export function ChatInput({
           <Button
             size="sm"
             variant="ghost"
-            className="h-5 px-1.5 text-[10px] text-destructive hover:text-destructive"
+            className="h-5 px-1.5 text-[11px] text-destructive hover:text-destructive"
             onClick={() => onAbort(conversationId)}
           >
             {t('input.stop')}

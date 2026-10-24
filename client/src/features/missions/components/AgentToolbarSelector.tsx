@@ -5,7 +5,7 @@ export const AGENT_SELECTOR_TRIGGER_CLASS =
   'flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground outline-none transition-colors hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-50'
 
 export const AGENT_SELECTOR_POPOVER_CLASS =
-  'overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl'
+  'overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl'
 
 export const AGENT_SELECTOR_ROW_CLASS =
   'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-foreground outline-none hover:bg-surface/70 focus-visible:bg-surface/70'

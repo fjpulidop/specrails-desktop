@@ -60,7 +60,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
           </motion.span>
         </AnimatePresence>
         {generation && generation.totalTurns > 0 && (
-          <span className="rounded-full bg-muted/60 px-2 py-px font-mono text-[10px] text-muted-foreground" data-testid="builder-generation-turn">
+          <span className="rounded-full bg-muted/60 px-2 py-px font-mono text-[11px] text-muted-foreground" data-testid="builder-generation-turn">
             {t('generation.turn', { turn: generation.turn, total: generation.totalTurns })}
           </span>
         )}
@@ -72,7 +72,7 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.14 }}
-              className="rounded-full bg-accent-primary/10 px-2 py-px font-mono text-[10px] text-accent-primary"
+              className="rounded-full bg-accent-primary/10 px-2 py-px font-mono text-[11px] text-accent-primary"
               data-testid="builder-generation-count"
             >
               {t('generation.specCount', { n: specsStarted })}

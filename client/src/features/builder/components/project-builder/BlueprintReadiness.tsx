@@ -51,7 +51,7 @@ const STEP_ICON: Record<ReadinessStep['state'], typeof Check> = {
 
 const STEP_TONE: Record<ReadinessStep['state'], string> = {
   done: 'text-accent-success',
-  pending: 'text-muted-foreground/50',
+  pending: 'text-muted-foreground',
   blocked: 'text-accent-warning',
   writing: 'text-accent-info animate-spin',
 }
@@ -134,13 +134,13 @@ export function BlueprintReadiness({
                 <p className="font-medium">{t('snapshot.rejected.title')}</p>
                 <p className="text-accent-warning/90">{t(`snapshot.rejected.${snapshot.reason}`)}</p>
                 {snapshot.repairAttempted && (
-                  <p className="mt-0.5 text-[10px] text-accent-warning/80">{t('snapshot.rejected.autoRepairFailed')}</p>
+                  <p className="mt-0.5 text-[11px] text-accent-warning/80">{t('snapshot.rejected.autoRepairFailed')}</p>
                 )}
               </div>
             </div>
             {snapshot.detail && (
               <p
-                className="line-clamp-2 break-all font-mono text-[10px] leading-4 text-foreground/60"
+                className="line-clamp-2 break-all font-mono text-[11px] leading-4 text-foreground/60"
                 title={snapshot.detail}
                 data-testid="snapshot-rejected-detail"
               >
@@ -201,7 +201,7 @@ export function BlueprintReadiness({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
             data-testid="snapshot-repaired"
           >
             <Sparkles className="h-3 w-3 text-accent-success" aria-hidden />
@@ -227,9 +227,9 @@ export function BlueprintReadiness({
           {issuesOpen && (
             <ul className="max-h-40 space-y-1 overflow-y-auto border-t border-border/30 px-2.5 py-2">
               {readiness.issues.map((issue, i) => (
-                <li key={`${issue.specIndex}-${issue.field}-${issue.code}-${i}`} className="flex items-start gap-1.5 text-[10px] leading-4 text-muted-foreground">
+                <li key={`${issue.specIndex}-${issue.field}-${issue.code}-${i}`} className="flex items-start gap-1.5 text-[11px] leading-4 text-muted-foreground">
                   {issue.specIndex !== null && (
-                    <span className="shrink-0 rounded bg-accent-primary/10 px-1 font-mono text-[9px] text-accent-primary">
+                    <span className="shrink-0 rounded bg-accent-primary/10 px-1 font-mono text-[11px] text-accent-primary">
                       #{issue.specIndex + 1}
                     </span>
                   )}
@@ -270,7 +270,7 @@ export function BlueprintReadiness({
             {primaryLabel}
           </Button>
           {!readiness.ready && firstBlocker && !repairing && !rejected && !halted && (
-            <p className="mt-1.5 text-center text-[10px] text-muted-foreground" data-testid="readiness-hint">
+            <p className="mt-1.5 text-center text-[11px] text-muted-foreground" data-testid="readiness-hint">
               {t(`readiness.hints.${firstBlocker.key}.${firstBlocker.state}`, firstBlocker.params)}
             </p>
           )}

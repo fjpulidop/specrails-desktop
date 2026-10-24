@@ -30,9 +30,14 @@ function clamp(p: Pos): Pos {
   return { left: Math.min(Math.max(MARGIN, p.left), maxLeft), top: Math.min(Math.max(MARGIN, p.top), maxTop) }
 }
 
+// Default spot: bottom-right (16px from the right, 40px above the bottom —
+// clear of the status bar), so it no longer covers centred content such as
+// the job Story list or the code tree.
+const DEFAULT_RIGHT = 16
+const DEFAULT_BOTTOM = 40
+
 function defaultPos(): Pos {
-  // Bottom-center.
-  return { left: Math.round(window.innerWidth / 2 - BUBBLE / 2), top: window.innerHeight - BUBBLE - 20 }
+  return { left: window.innerWidth - BUBBLE - DEFAULT_RIGHT, top: window.innerHeight - BUBBLE - DEFAULT_BOTTOM }
 }
 
 /**
@@ -76,6 +81,14 @@ export function AgentBubble() {
     open()
   }
 
+  // On the right half the bubble grows leftwards (anchored by `right`), so the
+  // hover/activity label never spills off-screen at the default bottom-right.
+  const anchorRight = pos.left + BUBBLE / 2 > window.innerWidth / 2
+  const anchorStyle = anchorRight
+    ? { right: window.innerWidth - pos.left - BUBBLE, top: pos.top }
+    : { left: pos.left, top: pos.top }
+  const labelMargin = anchorRight ? 'marginLeft' : 'marginRight'
+
   return (
     <motion.button
       type="button"
@@ -87,7 +100,7 @@ export function AgentBubble() {
       drag
       dragMomentum={false}
       dragElastic={0}
-      style={{ position: 'fixed', left: pos.left, top: pos.top, x, y }}
+      style={{ position: 'fixed', ...anchorStyle, x, y }}
       onDragStart={() => { draggedRef.current = true }}
       onDragEnd={() => {
         const next = clamp({ left: pos.left + x.get(), top: pos.top + y.get() })
@@ -106,7 +119,7 @@ export function AgentBubble() {
       whileHover={{ scale: 1.06 }}
       whileTap={{ scale: 0.94 }}
       whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-      className="z-[60] flex h-14 items-center gap-2 rounded-full border border-border/60 bg-card/85 px-3 shadow-2xl backdrop-blur-xl cursor-grab"
+      className={`z-[60] flex h-14 items-center gap-2 rounded-full${anchorRight ? ' flex-row-reverse' : ''} border border-border/60 bg-card px-3 shadow-2xl cursor-grab`}
     >
       <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent-primary/15">
         <BuilderHalo
@@ -125,9 +138,9 @@ export function AgentBubble() {
       <AnimatePresence initial={false}>
         {(hovered || showingActivity) && (
           <motion.span
-            initial={{ opacity: 0, width: 0, marginRight: 0 }}
-            animate={{ opacity: 1, width: 'auto', marginRight: 4 }}
-            exit={{ opacity: 0, width: 0, marginRight: 0 }}
+            initial={{ opacity: 0, width: 0, [labelMargin]: 0 }}
+            animate={{ opacity: 1, width: 'auto', [labelMargin]: 4 }}
+            exit={{ opacity: 0, width: 0, [labelMargin]: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="overflow-hidden whitespace-nowrap text-sm font-medium text-foreground"
           >

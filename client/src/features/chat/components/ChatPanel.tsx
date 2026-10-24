@@ -83,7 +83,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
         <div className="relative">
           <MessageSquare className="w-4 h-4 text-accent-primary" />
           {activeStreamCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent-secondary text-[8px] font-bold text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-0.5 items-center justify-center rounded-full bg-primary text-[11px] font-bold leading-none text-primary-foreground">
               {activeStreamCount}
             </span>
           )}
@@ -117,7 +117,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
               key={conv.id}
               className={cn(
                 'group flex min-w-0 flex-1 cursor-pointer items-center gap-1 px-2.5 py-1.5',
-                'text-[10px] transition-colors',
+                'text-[11px] transition-colors',
                 i === activeTabIndex
                   ? 'border-b-2 border-accent-primary text-foreground'
                   : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
@@ -172,7 +172,7 @@ export function ChatPanel({ chat, project = undefined }: ChatPanelProps) {
           {project && (
             <div className="flex flex-col items-center gap-1 text-center">
               <p className="text-xs font-medium text-foreground">{project.name}</p>
-              <p className="text-[10px] text-muted-foreground/60 max-w-[180px] truncate">{project.path}</p>
+              <p className="text-[11px] text-muted-foreground max-w-[180px] truncate">{project.path}</p>
             </div>
           )}
           <p className="text-xs text-muted-foreground/70">

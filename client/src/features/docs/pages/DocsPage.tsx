@@ -1,37 +1,9 @@
-import { useState, useEffect, useRef, memo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 import { BookOpen, ChevronRight, FileText, Loader2 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { resolveDocHref } from '../lib/docs-links'
-import 'highlight.js/styles/atom-one-dark.css'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DocEntry {
-  title: string
-  slug: string
-}
-
-interface DocCategory {
-  name: string
-  slug: string
-  docs: DocEntry[]
-}
-
-interface DocsIndex {
-  categories: DocCategory[]
-}
-
-interface DocContent {
-  title: string
-  content: string
-  category: string
-  slug: string
-}
+import { DocView, docsUrl, type DocCategory, type DocsIndex as DocsIndexData } from '../components/DocView'
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +20,7 @@ function DocsSidebar({
   // Mirrors the Settings dialog's left nav grammar: rounded-lg rows, xs text,
   // accent-primary/15 active state, muted hover.
   return (
-    <nav className="w-56 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3 space-y-4">
+    <nav aria-label={t('docs.navLabel')} className="w-56 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3 space-y-4">
       <Link
         to="/docs"
         className={cn(
@@ -65,11 +37,11 @@ function DocsSidebar({
       {categories.map((cat) => (
         <div key={cat.slug} className="space-y-0.5">
           <div className="px-2.5 mb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-muted-foreground">
               {cat.name}
-            </span>
+            </h2>
             {cat.docs.length > 0 && (
-              <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/40 rounded px-1 py-0.5 leading-none">
+              <span className="text-[11px] font-medium tabular-nums text-muted-foreground bg-muted/40 rounded px-1 py-0.5 leading-none">
                 {cat.docs.length}
               </span>
             )}
@@ -113,7 +85,7 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
   const total = categories.reduce((sum, c) => sum + c.docs.length, 0)
   const nonEmptyCategories = categories.filter((c) => c.docs.length > 0).length
 
-  // Mirrors a Settings section pane: icon header, uppercase xs section headings
+  // Mirrors a Settings section pane: icon header, xs section headings
   // + bordered rounded-md list rows (same grammar as the Settings "Projects" list).
   return (
     <div className="max-w-2xl mx-auto py-8 px-6 space-y-5">
@@ -134,7 +106,7 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
 
       {categories.map((cat) => (
         <div key={cat.slug} className="space-y-2">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <h2 className="text-xs font-semibold text-muted-foreground">
             {cat.name}
           </h2>
           {cat.docs.length === 0 ? (
@@ -161,159 +133,31 @@ function DocsIndex({ categories }: { categories: DocCategory[] }) {
   )
 }
 
-// ─── Document view ────────────────────────────────────────────────────────────
-
-// Memoized markdown renderer — only re-renders when the content (or current
-// category, which scopes relative links) changes. Relative guide links navigate
-// via the router to /docs/<category>/<slug> instead of doing a bare-href full
-// reload (which would land off-route).
-const MemoMarkdown = memo(function MemoMarkdown({
-  content,
-  currentCategory,
-  onNavigateDoc,
-}: {
-  content: string
-  currentCategory: string
-  onNavigateDoc: (category: string, slug: string) => void
-}) {
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
-      components={{
-        a({ href, children, ...props }) {
-          const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-            if (!href) return
-            if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-              e.preventDefault()
-              window.open(href, '_blank', 'noopener,noreferrer')
-              return
-            }
-            if (href.startsWith('#')) return
-            e.preventDefault()
-            const target = resolveDocHref(href, currentCategory)
-            if (target) onNavigateDoc(target.category, target.slug)
-          }
-          return (
-            <a href={href} onClick={handleClick} {...props}>
-              {children}
-            </a>
-          )
-        },
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  )
-})
-
-function DocView({
-  category,
-  slug,
-  lang,
-  scrollContainerRef,
-}: {
-  category: string
-  slug: string
-  lang: string
-  scrollContainerRef: React.RefObject<HTMLElement | null>
-}) {
-  // Stale-while-revalidate: keep the previous doc on screen while fetching
-  // the next one so navigation between docs doesn't flicker.
-  const { t } = useTranslation('integrations')
-  const [doc, setDoc] = useState<DocContent | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const requestRef = useRef(0)
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    const requestId = ++requestRef.current
-    setError(null)
-
-    fetch(`/api/docs/${category}/${slug}?lang=${encodeURIComponent(lang)}`)
-      .then(async (res) => {
-        if (res.status === 404) {
-          navigate('/docs', { replace: true })
-          return
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((data: DocContent | undefined) => {
-        if (requestId !== requestRef.current) return // stale
-        if (data) {
-          setDoc(data)
-          // Reset scroll so the new doc starts at the top.
-          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0
-        }
-      })
-      .catch((err: unknown) => {
-        if (requestId !== requestRef.current) return
-        setError(err instanceof Error ? err.message : t('docs.loadError'))
-      })
-  }, [category, slug, lang, navigate, scrollContainerRef])
-
-  // Full-screen spinner only on the very first load (no previous content).
-  if (!doc && !error) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (error && !doc) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    )
-  }
-
-  if (!doc) return null
-
-  return (
-    <article className="max-w-2xl mx-auto py-8 px-6">
-      <div
-        className="prose prose-sm max-w-none
-          prose-headings:text-foreground prose-headings:font-bold
-          prose-p:text-foreground/90
-          prose-a:text-accent-primary prose-a:no-underline hover:prose-a:underline
-          prose-strong:text-foreground
-          prose-code:text-accent-info prose-code:bg-card prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-          prose-pre:bg-card prose-pre:border prose-pre:border-border prose-pre:rounded-md prose-pre:p-0 prose-pre:overflow-x-auto
-          prose-blockquote:border-l-accent-primary prose-blockquote:text-muted-foreground
-          prose-hr:border-border
-          prose-th:text-foreground prose-td:text-foreground/90
-          prose-li:text-foreground/90"
-      >
-        <MemoMarkdown
-          content={doc.content}
-          currentCategory={doc.category}
-          onNavigateDoc={(cat, s) => navigate(`/docs/${cat}/${s}`)}
-        />
-      </div>
-    </article>
-  )
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function DocsPage() {
   const { category, slug } = useParams<{ category?: string; slug?: string }>()
-  const { i18n } = useTranslation('integrations')
+  const { t, i18n } = useTranslation('integrations')
+  const navigate = useNavigate()
   const lang = i18n.language || 'en'
-  const [index, setIndex] = useState<DocsIndex | null>(null)
+  const [index, setIndex] = useState<DocsIndexData | null>(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const scrollRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    fetch(`/api/docs?lang=${encodeURIComponent(lang)}`)
+    fetch(docsUrl(`?lang=${encodeURIComponent(lang)}`))
       .then((res) => res.json())
-      .then((data: DocsIndex) => setIndex(data))
+      .then((data: DocsIndexData) => setIndex(data))
       .catch(() => setIndex({ categories: [] }))
       .finally(() => setIndexLoading(false))
   }, [lang])
+
+  // Stable handlers so DocView's fetch effect does not re-run on every render.
+  const handleNotFound = useCallback(() => navigate('/docs', { replace: true }), [navigate])
+  const handleNavigate = useCallback(
+    (cat: string, s: string) => navigate(`/docs/${cat}/${s}`),
+    [navigate],
+  )
 
   const isDocView = Boolean(category && slug)
 
@@ -321,8 +165,8 @@ export default function DocsPage() {
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
       {indexLoading ? (
-        <div className="w-56 flex-shrink-0 border-r border-border flex items-center justify-center">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+        <div className="w-56 flex-shrink-0 border-r border-border flex items-center justify-center" role="status" aria-label={t('docs.loading')}>
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden />
         </div>
       ) : (
         <DocsSidebar
@@ -335,7 +179,15 @@ export default function DocsPage() {
       {/* Content */}
       <section ref={scrollRef} className="flex-1 overflow-y-auto">
         {isDocView && category && slug ? (
-          <DocView category={category} slug={slug} lang={lang} scrollContainerRef={scrollRef} />
+          <DocView
+            category={category}
+            slug={slug}
+            lang={lang}
+            onNotFound={handleNotFound}
+            onNavigate={handleNavigate}
+            scrollContainerRef={scrollRef}
+            className="py-8 px-6"
+          />
         ) : (
           index && <DocsIndex categories={index.categories} />
         )}

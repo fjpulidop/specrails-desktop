@@ -271,7 +271,7 @@ function Header({
   return (
     <div
       {...headerHandleProps}
-      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${
+      className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60${
         isFloating ? ' cursor-grab active:cursor-grabbing' : ''
       }`}
     >
@@ -283,7 +283,7 @@ function Header({
       >
         <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         <div className="text-left min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 leading-none">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70 leading-none">
             {eyebrow}
           </div>
           {targetLabelMono ? (
@@ -317,7 +317,7 @@ function Header({
         {showApply && (
           <Button size="sm" onClick={onApply} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> {t('shell.apply')}
-            <span className="text-[10px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+            <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
           </Button>
         )}
       </div>
@@ -369,12 +369,12 @@ function FocusedColumn({
             className={
               'inline-flex items-center justify-center w-10 h-10 rounded-full ring-1 mx-auto ' +
               (isError
-                ? 'bg-red-500/10 aurora-light:bg-destructive/10 ring-red-500/30 aurora-light:ring-destructive/30'
+                ? 'bg-destructive/10 ring-destructive/30'
                 : 'bg-accent-primary/15 ring-accent-primary/30')
             }
           >
             {isError ? (
-              <AlertTriangle className="w-5 h-5 text-red-400 aurora-light:text-destructive" />
+              <AlertTriangle className="w-5 h-5 text-destructive" />
             ) : (
               <Sparkles className="w-5 h-5 text-accent-primary" />
             )}
@@ -586,7 +586,7 @@ function ChatColumn({
 function DefaultAppliedNotice() {
   const { t } = useTranslation('aiedit')
   return (
-    <div className="rounded-md border border-green-500/40 aurora-light:border-accent-success/40 bg-green-500/10 aurora-light:bg-accent-success/10 p-3 text-xs text-green-300 aurora-light:text-accent-success flex items-center gap-2">
+    <div className="rounded-md border border-accent-success/40 bg-accent-success/10 p-3 text-xs text-accent-success flex items-center gap-2">
       <Check className="w-3.5 h-3.5" />
       {t('shell.applied')}
     </div>
@@ -598,7 +598,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   if (turn.role === 'user') {
     return (
       <div className="flex flex-col items-end">
-        <div className="text-[10px] text-muted-foreground mb-1">{t('shell.you')}</div>
+        <div className="text-[11px] text-muted-foreground mb-1">{t('shell.you')}</div>
         <div className="max-w-[90%] rounded-2xl rounded-br-sm bg-accent-primary/15 text-foreground text-sm px-3 py-2 whitespace-pre-wrap break-words">
           {turn.content}
         </div>
@@ -619,7 +619,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   }
   return (
     <div className="flex flex-col items-start">
-      <div className="text-[10px] text-muted-foreground mb-1 inline-flex items-center gap-1">
+      <div className="text-[11px] text-muted-foreground mb-1 inline-flex items-center gap-1">
         <Sparkles className="w-3 h-3 text-accent-primary" /> {t('shell.ai')}
       </div>
       <div className="max-w-[90%] rounded-2xl rounded-bl-sm border border-border bg-muted/30 text-xs px-3 py-2 text-muted-foreground italic">
@@ -647,7 +647,7 @@ function DiffPane({
         <span className="text-xs font-mono text-muted-foreground truncate">
           {label ?? t('shell.proposedChanges')}
         </span>
-        <span className="text-[10px] text-muted-foreground">{t('shell.wordLevelDiff')}</span>
+        <span className="text-[11px] text-muted-foreground">{t('shell.wordLevelDiff')}</span>
       </div>
       {applyConflict === 'disk_changed' && (
         <ConflictBanner
@@ -682,7 +682,7 @@ function ConflictBanner({
   return (
     <div
       role="alert"
-      className="flex items-start justify-between gap-3 px-4 py-2 border-b border-yellow-500/40 aurora-light:border-accent-warning/40 bg-yellow-500/10 aurora-light:bg-accent-warning/10 text-yellow-200 aurora-light:text-accent-warning text-xs"
+      className="flex items-start justify-between gap-3 px-4 py-2 border-b border-accent-warning/40 bg-accent-warning/10 text-accent-warning text-xs"
     >
       <div className="flex items-start gap-2 min-w-0">
         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -710,7 +710,7 @@ function ConfirmDiscardDialog({
     >
       <div className="rounded-lg border border-border bg-card p-5 max-w-sm shadow-xl">
         <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-yellow-400 aurora-light:text-accent-warning" />
+          <AlertTriangle className="w-4 h-4 text-accent-warning" />
           <h2 className="text-sm font-medium">{t('shell.discardDialog.title')}</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
@@ -746,7 +746,7 @@ export function WordDiffView({ hunks }: { hunks: DiffHunk[] }) {
             <span
               key={i}
               data-hunk="add"
-              className="bg-green-500/20 aurora-light:bg-accent-success/15 text-green-200 aurora-light:text-accent-success rounded px-0.5 ring-1 ring-green-500/30 aurora-light:ring-accent-success/30"
+              className="bg-accent-success/15 text-accent-success rounded px-0.5 ring-1 ring-accent-success/30"
             >
               <span aria-hidden="true">+ </span>
               {h.text}
@@ -757,7 +757,7 @@ export function WordDiffView({ hunks }: { hunks: DiffHunk[] }) {
           <span
             key={i}
             data-hunk="del"
-            className="bg-red-500/20 aurora-light:bg-destructive/15 text-red-200 aurora-light:text-destructive line-through rounded px-0.5 ring-1 ring-red-500/30 aurora-light:ring-destructive/30"
+            className="bg-destructive/15 text-destructive line-through rounded px-0.5 ring-1 ring-destructive/30"
           >
             <span aria-hidden="true">− </span>
             {h.text}
@@ -891,7 +891,7 @@ export function PlainComposer({
           rows={3}
           disabled={disabled}
           autoFocus={autoFocus}
-          className="w-full text-sm p-3 pr-14 bg-transparent resize-none focus:outline-none disabled:opacity-50 placeholder:text-muted-foreground/60"
+          className="w-full text-sm p-3 pr-14 bg-transparent resize-none focus:outline-none disabled:opacity-50 placeholder:text-muted-foreground"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
@@ -915,9 +915,9 @@ export function PlainComposer({
       </div>
       <div className="flex items-center justify-end text-[11px] text-muted-foreground/70">
         <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
+          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[11px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
           <span className="mx-1.5">·</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
+          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[11px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
         </span>
       </div>
     </div>
