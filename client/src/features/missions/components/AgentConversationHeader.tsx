@@ -227,8 +227,8 @@ export function AgentConversationHeader() {
       <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
         {project && (
           <>
-            <span className="max-w-[42%] shrink-0 truncate font-mono text-label text-foreground/35" title={project.path}>
-              {project.path}
+            <span className="max-w-[42%] shrink-0 truncate font-mono text-label text-muted-foreground" title={project.path}>
+              {project.name || project.path}
             </span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/25" aria-hidden />
           </>
@@ -302,7 +302,7 @@ export function AgentConversationHeader() {
                     type="button"
                     data-testid="agent-conv-delete-confirm-btn"
                     onClick={() => void doDelete()}
-                    className="flex-1 rounded-lg bg-destructive/90 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-destructive"
+                    className="flex-1 rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
                   >
                     {t('header.delete')}
                   </button>

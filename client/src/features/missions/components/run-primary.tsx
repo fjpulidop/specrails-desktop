@@ -26,10 +26,10 @@ import { createContext, forwardRef, useContext, useEffect, useRef, type ButtonHT
  * (Flow: accent-flow) on the same shape.
  */
 export const PRIMARY_ACTION_SHAPE =
-  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2.5 text-xs font-semibold shadow-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'
 
 export const PRIMARY_ACTION =
-  `${PRIMARY_ACTION_SHAPE} bg-accent-primary text-white hover:bg-accent-primary/90 focus-visible:ring-accent-primary/60`
+  `${PRIMARY_ACTION_SHAPE} bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/60`
 
 export type RunPrimaryKind = 'outward' | 'local'
 

@@ -7,7 +7,7 @@ const TIERS: { level: AgentTierLevel; key: string; icon: typeof Eye; tone: strin
   { level: 0, key: 'observe', icon: Eye, tone: 'text-foreground/70', bar: 'bg-accent-info' },
   { level: 1, key: 'edit', icon: Pencil, tone: 'text-accent-info', bar: 'bg-accent-info' },
   { level: 2, key: 'operate', icon: Zap, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
-  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-destructive', bar: 'bg-destructive' },
+  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
 ]
 
 interface Props {

@@ -118,7 +118,7 @@ describe('AgentConversationHeader', () => {
 
   it('renders the breadcrumb: project path / conversation title', () => {
     render(<AgentConversationHeader />)
-    expect(screen.getByText('/Users/javi/repos/outrun')).toBeInTheDocument()
+    expect(screen.getByText('outrun')).toBeInTheDocument()
     expect(screen.getByText('Greeting And Friendly Introduction')).toBeInTheDocument()
   })
 

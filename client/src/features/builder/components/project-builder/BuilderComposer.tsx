@@ -125,7 +125,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           onClick={sendInput}
           disabled={!builderAvailable || session.busy || !session.draft.trim() || !session.conversationReady}
           aria-label={tAgent('send')}
-          className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+          className="rounded-control bg-primary p-1.5 text-primary-foreground transition-opacity disabled:opacity-40"
           data-testid="builder-send"
         >
           <SendHorizontal className="h-4 w-4" />
