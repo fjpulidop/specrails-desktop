@@ -33,7 +33,10 @@
     "railWorktreesNoCommits": "worktree 分離は利用できません：リポジトリにまだコミットがありません — 初回コミットを作成してから再実行してください。",
     "railWorktreesError": "ワークツリー分離に失敗しました — この実行は PR レビューフローなし（実装カードなし）で続行されます。下のエラー詳細を確認してください。",
     "onReviewCannotMoveToRail": "このスペックは PR レビュー待ちです — まず PR の決定を処理してください",
-    "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです — 起動する前に PR の決定を処理してください"
+    "onReviewNotLaunchable": "このレールのスペックが PR レビュー待ちです。起動する前に PR の決定を処理してください。",
+    "launchRepositoryHasNoCommits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
+    "railDeletePrPending": "{{rail}} には保留中の PR 判断があります。レールを削除する前に解決してください",
+    "railDeleteLastRail": "プロジェクトには少なくとも 1 つのレールが必要なため、このレールは削除できません"
   },
   "railPr": {
     "operation": {
@@ -106,6 +109,7 @@
     "publish": "公開",
     "publishTooltip": "ドラフト PR をチームのレビューに公開します",
     "checkout": "ブランチをチェックアウト",
+    "moreActions": "その他の操作",
     "checkoutTooltip": "プロジェクトのメインフォルダで {{branch}} をチェックアウト",
     "checkoutSuccess": "{{branch}} をチェックアウトしました",
     "checkoutFailed": "実装ブランチをチェックアウトできませんでした",
@@ -162,14 +166,30 @@
     "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
     "mergeLocalFailed": "ローカルマージに失敗しました：{{detail}}",
     "mergedLocally": "ローカルで {{base}} に統合しました",
-    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
+    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
+    "reviewChangesRequested": "変更依頼",
+    "reviewChangesRequestedHint": "Flow の引き渡しにはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。",
+    "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
+    "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。Specrails が別ブランチで復元しています。",
+    "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。"
   },
   "railsBoard": {
     "title": "レール",
-    "runningCount_one": "{{count}} 件実行中",
-    "runningCount_other": "{{count}} 件実行中",
     "launchAll": "すべて起動",
-    "launchAllTitle": "準備完了のレールをすべて並列で起動します — 各実行は専用の git worktree に隔離されます"
+    "launchAllTitle": "準備完了のレールをすべて並列で起動します — 各実行は専用の git worktree に隔離されます",
+    "addRail": "レールを追加",
+    "addRailLimit": "レール数の上限に達しました（最大 {{max}}）",
+    "launchAllNoneReady": "準備済みのレールはありません。スペックをレールにドラッグして起動します。",
+    "summary": {
+      "running_one": "{{count}} 実行中",
+      "running_other": "{{count}} 実行中",
+      "ready_one": "{{count}} 準備完了",
+      "ready_other": "{{count}} 準備完了",
+      "failed_one": "{{count}} 失敗",
+      "failed_other": "{{count}} 失敗",
+      "total_one": "{{count}} レール",
+      "total_other": "{{count}} レール"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} 件は既に実行中",
@@ -238,7 +258,13 @@
     "deleteRail": "{{label}} を削除",
     "dropHere": "ここにドロップ",
     "dropOnThisRail": "このレールにドロップ",
-    "dragSpecsHere": "ここにスペックをドラッグ"
+    "dropHint": "このレールにスペックをドロップ",
+    "dragHandle": "{{label}} を並べ替え",
+    "status": {
+      "idle": "待機中",
+      "running": "実行中",
+      "failed": "失敗"
+    }
   },
   "freestyleDialog": {
     "title": "Freestyle モードで起動",
@@ -250,7 +276,8 @@
     "autonomyBody": "{{provider}} はネイティブエージェントと動的ワークフローを使って自律的に作業します。",
     "costTitle": "コストは変動します。",
     "costBody": "支出は {{provider}} の判断に依存し、想定より高くなることがあります。",
-    "continue": "続行"
+    "continue": "続行",
+    "gloss": "Freestyle では各スペックを {{provider}} に直接渡します。スペックごとに 1 回の自律実行で、OpenSpec の計画・レビューのパイプラインは使いません。"
   },
   "useRails": {
     "fetchFailed": "レールの取得に失敗しました: {{status}}"
@@ -291,5 +318,8 @@
     "panelReached": "上限 {{limit}} に達しています。新しい作業を起動するには、いずれか(PR 作成・マージ・破棄)を決定してください。これらの納品への変更は引き続き可能です。",
     "empty": "レビュー待ちはありません。",
     "playBlocked": "レビュー上限に達しました({{pending}}/{{limit}} 件待機中)。新しい作業を起動するには納品を決定してください。"
+  },
+  "errors": {
+    "deleteFailed": "スペックを削除できませんでした"
   }
 }

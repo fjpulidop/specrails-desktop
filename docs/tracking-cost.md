@@ -158,7 +158,7 @@ Exports use the standard `fetch → Blob → URL.createObjectURL → anchor.clic
 
 Open **Settings** from the project right sidebar → the **Budget** card:
 
-- **Daily budget (USD)** — the app auto-pauses the queue when the day's spend reaches this. While it is exhausted, rail launches are refused (nothing starts) and running loops pause between steps; in-flight steps aren't killed.
+- **Daily budget (USD)** — the app auto-pauses the queue when the day's spend reaches this. While it is exhausted, rail launches are refused (nothing starts) and running loops pause at the next step boundary; in-flight steps aren't killed.
 - **Per-job cost alert (USD)** — emits an alert when a single job exceeds this amount.
 
 Leave either field blank to disable that limit.
@@ -170,7 +170,7 @@ When the daily budget is hit, a dismissible banner appears across the project pa
 Rail launches and loop runs check the same project and app-wide budgets the queue enforces:
 
 - **Launches are refused.** Play, Launch all, mission launch cards, Relaunch, the Loops page **Run**, MCP `launch`/`launch_all`, the mobile companion and milestone chains all receive `409 daily_budget_exceeded` with `scope` (`project` or `desktop`), `budgetUsd`, `spentUsd` and `resetsAt`. Nothing is spawned. The UI shows the amounts and where to raise the budget. Launch all counts these rails as "over the daily budget", not as failures. A milestone chain pauses with `launch_rejected:daily_budget_exceeded` and can be resumed.
-- **Running loops pause between AI steps.** When the budget runs out mid-run, the current step finishes and the run parks as `paused` with `restart_reason = budget_paused`. The run card and log show *Paused on the daily budget*. Raise or clear the budget, then press **Resume** (or `POST /api/projects/:id/loop-runs/:runId/resume`, or send any message to the run). If the budget is still exhausted, the resume returns the same 409 and the run stays paused. **Stop** settles the run as stopped. The pause does not use up the loop's wall-clock timeout.
+- **Running loops pause at the next step.** When the budget runs out mid-run, Desktop asks Core to pause the workflow (Core with the `pauseRuns` capability; older Core checks only before the next step): the current step finishes and the run parks as `paused` with `restart_reason = budget_paused`. The run card and log show *Paused on the daily budget*. Raise or clear the budget, then press **Resume** (or `POST /api/projects/:id/loop-runs/:runId/resume`, or send any message to the run). If the budget is still exhausted, the resume returns the same 409 and the run stays paused. **Stop** settles the run as stopped. The pause does not use up the loop's wall-clock timeout.
 - **Core workflows** schedule their steps inside one Core process, so Desktop gates them at the points it controls: at launch, at resume, and before it re-invokes Core after a question or approval. Core has no pause control yet, so a Core workflow that is already running finishes its current invocation.
 - If the budget state can't be read, the launch is allowed (fail-open, same as the queue). The app-wide spend is the queue's figure: completed jobs since UTC midnight. The project spend counts every billed invocation since local midnight.
 

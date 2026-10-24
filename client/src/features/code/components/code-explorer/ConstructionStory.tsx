@@ -2,6 +2,9 @@ import { useCallback, useId, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileMinus2, FilePlus2, FileText, Sparkles } from 'lucide-react'
+import { format } from 'date-fns'
+import { Button } from '../../../../components/ui/button'
+import { getDateFnsLocale } from '../../../../lib/i18n'
 import { RecordedDiff } from './RecordedDiff'
 import { useCodeRepository, matchesCodeRepository } from './CodeRepositoryContext'
 import { providerSupportsPureOutput } from '../../../providers/lib/provider-capabilities'
@@ -39,7 +42,7 @@ interface ConstructionStoryProps {
 const STATUS_STYLES: Record<string, string> = {
   done: 'bg-accent-success/15 text-accent-success',
   in_progress: 'bg-accent-info/15 text-accent-info',
-  on_review: 'bg-accent-warning/15 text-accent-warning',
+  on_review: 'bg-accent-review/15 text-accent-review',
   todo: 'bg-muted/60 text-muted-foreground',
   draft: 'bg-accent-secondary/15 text-accent-secondary',
 }
@@ -198,11 +201,20 @@ function ConstructionStoryInner({ relPath, height, onOpenTicket, onFilterJob, on
     >
       <div className="h-full overflow-auto">
         {story === null ? (
-          <div className="text-[11px] text-muted-foreground animate-pulse py-2">{t('story.loading')}</div>
+          <div role="status" className="text-xs text-muted-foreground motion-safe:animate-pulse py-2">{t('story.loading')}</div>
         ) : failed ? (
-          <div className="text-[11px] text-muted-foreground py-2" data-testid="story-failed" role="alert">{t('story.loadFailed')} <button className="ml-2 underline" onClick={() => { void fetchStory() }}>{t('reader.retry', { defaultValue: 'Retry' })}</button></div>
+          <p className="py-2 text-xs text-muted-foreground" data-testid="story-failed" role="alert">
+            {t('story.loadFailed')}{' '}
+            <button
+              type="button"
+              className="ml-1 rounded-sm text-accent-primary underline underline-offset-2 hover:text-foreground"
+              onClick={() => { void fetchStory() }}
+            >
+              {t('reader.retry')}
+            </button>
+          </p>
         ) : story.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground py-2" data-testid="story-empty">{t('story.empty')}</div>
+          <div className="text-caption text-muted-foreground py-2" data-testid="story-empty">{t('story.empty')}</div>
         ) : (
           <ol className="relative ml-1.5 border-l border-border/60 space-y-3 py-1">
             {story.map((entry) => (
@@ -264,7 +276,7 @@ function StoryCard({
           entry.kind === 'created' ? 'bg-accent-success' : entry.kind === 'deleted' ? 'bg-destructive' : 'bg-accent-info'
         }`}
       />
-      <article className="rounded-lg border border-border/60 bg-card/60 px-3 py-2.5 backdrop-blur-sm transition-colors hover:border-border">
+      <article className="rounded-lg border border-border/60 bg-card/60 px-3 py-2.5 transition-colors hover:border-border">
         <header className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -274,18 +286,18 @@ function StoryCard({
             <button
               type="button"
               onClick={() => onOpenTicket(entry.ticketId!)}
-              className="min-w-0 max-w-full truncate rounded bg-accent-primary/15 px-1.5 py-0.5 text-left text-[11px] font-medium text-accent-primary hover:bg-accent-primary/25"
+              className="min-w-0 max-w-full truncate rounded bg-accent-primary/15 px-1.5 py-0.5 text-left text-caption font-medium text-accent-primary hover:bg-accent-primary/25"
               title={t('story.openSpec', { ticketId: entry.ticketId })}
             >
               {specLabel}
             </button>
           )}
           {specLabel == null && (
-            <span className="text-[11px] text-muted-foreground">{t('story.unknownSpec')}</span>
+            <span className="text-caption text-muted-foreground">{t('story.unknownSpec')}</span>
           )}
           {status && (
             <span
-              className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_STYLES[status] ?? 'bg-muted/60 text-muted-foreground'}`}
+              className={`rounded px-1.5 py-0.5 text-caption ${STATUS_STYLES[status] ?? 'bg-muted/60 text-muted-foreground'}`}
               data-testid="story-status-pill"
             >
               {status}
@@ -293,27 +305,27 @@ function StoryCard({
           )}
           <span className="ml-auto inline-flex items-center gap-2">
             {entry.addedLines != null && entry.addedLines > 0 && (
-              <span className="font-mono text-[10px] text-accent-success" title={t('story.linesAdded')}>+{entry.addedLines}</span>
+              <span className="font-mono text-caption text-accent-success" title={t('story.linesAdded')}>+{entry.addedLines}</span>
             )}
             {entry.removedLines != null && entry.removedLines > 0 && (
-              <span className="font-mono text-[10px] text-destructive" title={t('story.linesRemoved')}>−{entry.removedLines}</span>
+              <span className="font-mono text-caption text-destructive" title={t('story.linesRemoved')}>−{entry.removedLines}</span>
             )}
-            <time className="text-[10px] text-muted-foreground" dateTime={new Date(entry.at).toISOString()}>
-              {new Date(entry.at).toLocaleString()}
+            <time className="text-caption text-muted-foreground" dateTime={new Date(entry.at).toISOString()}>
+              {format(new Date(entry.at), 'PPp', { locale: getDateFnsLocale() })}
             </time>
           </span>
         </header>
         <div className="mt-1.5">
           {entry.summary ? (
             <>
-              {entry.summaryStale && <span className="text-[10px] text-accent-warning">{t('summary.stale')}</span>}
+              {entry.summaryStale && <span className="text-caption text-accent-warning">{t('summary.stale')}</span>}
               <p className="text-sm leading-relaxed text-foreground/90" data-testid="story-contribution">{entry.summary}</p>
-              {entry.summaryGeneratedAt && <time className="mt-1 block text-[10px] text-muted-foreground" dateTime={entry.summaryGeneratedAt}>{new Date(entry.summaryGeneratedAt).toLocaleString()}</time>}
+              {entry.summaryGeneratedAt && <time className="mt-1 block text-caption text-muted-foreground" dateTime={entry.summaryGeneratedAt}>{format(new Date(entry.summaryGeneratedAt), 'PPp', { locale: getDateFnsLocale() })}</time>}
               {entry.summaryStale && canExplain && (state === 'budget'
-                ? <span className="mt-1 inline-flex items-center gap-2 text-[11px] text-accent-warning"><span>{t('story.budgetReached')}</span><button className="rounded border px-2 py-1" onClick={() => onExplain(true)}>{t('story.generateAnyway')}</button></span>
-                : <button disabled={state === 'busy'} className="mt-1 rounded border px-2 py-1 text-[11px]" onClick={() => onExplain(false)}>{state === 'busy' ? t('story.explaining') : t('reader.regenerateExplanation', { defaultValue: 'Refresh explanation' })}</button>)}
+                ? <span className="mt-1 inline-flex items-center gap-2 text-caption text-accent-warning"><span>{t('story.budgetReached')}</span><Button type="button" variant="outline" size="sm" onClick={() => onExplain(true)}>{t('story.generateAnyway')}</Button></span>
+                : <Button type="button" variant="outline" size="sm" disabled={state === 'busy'} className="mt-1" onClick={() => onExplain(false)}>{state === 'busy' ? t('story.explaining') : t('reader.regenerateExplanation')}</Button>)}
               {entry.summaryModel && (
-                <p className="mt-1 text-[10px] text-muted-foreground/80">{t('story.explainedBy', { model: entry.summaryModel })}</p>
+                <p className="mt-1 text-caption text-muted-foreground">{t('story.explainedBy', { model: entry.summaryModel })}</p>
               )}
             </>
           ) : (
@@ -323,18 +335,18 @@ function StoryCard({
               </p>
               {!canExplain ? (
                 <span
-                  className="text-[10px] text-muted-foreground"
+                  className="text-caption text-muted-foreground"
                   data-testid="story-explain-unavailable"
                 >
                   {!entry.hasPatch || entry.evidence?.kind === 'missing' ? t('reader.noEvidence', { defaultValue: 'No patch evidence was stored for this change.' }) : t('story.explainUnavailable')}
                 </span>
               ) : state === 'budget' ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="text-[10px] text-accent-warning">{t('story.budgetReached')}</span>
+                  <span className="text-caption text-accent-warning">{t('story.budgetReached')}</span>
                   <button
                     type="button"
                     onClick={() => onExplain(true)}
-                    className="rounded bg-accent-warning/15 px-1.5 py-0.5 text-[10px] text-accent-warning hover:bg-accent-warning/25"
+                    className="rounded bg-accent-warning/15 px-1.5 py-0.5 text-caption text-accent-warning hover:bg-accent-warning/25"
                   >
                     {t('story.generateAnyway')}
                   </button>
@@ -344,20 +356,20 @@ function StoryCard({
                   type="button"
                   onClick={() => onExplain(false)}
                   disabled={state === 'busy'}
-                  className="inline-flex items-center gap-1 rounded bg-accent-primary/10 px-1.5 py-0.5 text-[10px] text-accent-primary hover:bg-accent-primary/20 disabled:opacity-60"
+                  className="inline-flex items-center gap-1 rounded bg-accent-primary/10 px-1.5 py-0.5 text-caption text-accent-primary hover:bg-accent-primary/20 disabled:opacity-60"
                   data-testid="story-explain"
                 >
-                  <Sparkles className={state === 'busy' ? 'h-3 w-3 animate-pulse' : 'h-3 w-3'} />
+                  <Sparkles className={state === 'busy' ? 'h-3 w-3 motion-safe:animate-pulse' : 'h-3 w-3'} aria-hidden />
                   {state === 'busy' ? t('story.explaining') : t('story.explain')}
                 </button>
               )}
             </div>
           )}
         </div>
-        {entry.summary && (!entry.hasPatch || entry.evidence?.kind === 'missing') && <p className="mt-2 text-[10px] text-accent-warning">{t('reader.noEvidence', { defaultValue: 'No patch evidence was stored for this change.' })}</p>}
-        {(entry.summaryEvidence?.truncated ?? entry.evidence?.truncated) && <p className="mt-2 text-[10px] text-accent-warning">{t('reader.excerptEvidence', { defaultValue: 'This explanation uses incomplete patch evidence.' })}</p>}
+        {entry.summary && (!entry.hasPatch || entry.evidence?.kind === 'missing') && <p className="mt-2 text-caption text-accent-warning">{t('reader.noEvidence', { defaultValue: 'No patch evidence was stored for this change.' })}</p>}
+        {(entry.summaryEvidence?.truncated ?? entry.evidence?.truncated) && <p className="mt-2 text-caption text-accent-warning">{t('reader.excerptEvidence', { defaultValue: 'This explanation uses incomplete patch evidence.' })}</p>}
         {entry.jobId && <div className="mt-2">
-          <button className="rounded border px-2 py-1 text-[11px]" onClick={() => { if (onViewDiff) onViewDiff(entry.jobId!); else setDiffOpen((value) => !value) }}>{t('reader.viewPatch', { defaultValue: 'View recorded change' })}</button>
+          <Button type="button" variant="outline" size="sm" aria-expanded={onViewDiff ? undefined : diffOpen} onClick={() => { if (onViewDiff) onViewDiff(entry.jobId!); else setDiffOpen((value) => !value) }}>{t('reader.viewPatch')}</Button>
           {diffOpen && <div className="mt-2"><RecordedDiff path={path} jobId={entry.jobId} /></div>}
         </div>}
         {entry.jobId && onFilterJob && (
@@ -365,7 +377,7 @@ function StoryCard({
             <button
               type="button"
               onClick={() => onFilterJob(entry.jobId!)}
-              className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+              className="font-mono text-caption text-muted-foreground hover:text-foreground"
               title={t('history.filterByJob', { jobId: entry.jobId })}
             >
               {entry.jobId.length > 12 ? entry.jobId.slice(0, 12) : entry.jobId}

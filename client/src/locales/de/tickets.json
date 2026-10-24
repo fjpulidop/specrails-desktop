@@ -27,18 +27,18 @@
     "priority": "Priorität",
     "labels": "Labels",
     "markdownPlaceholder": "Markdown-Beschreibung…",
-    "supportsMarkdown": "Unterstützt Markdown"
+    "supportsMarkdown": "Unterstützt Markdown",
+    "removeLabel": "Label {{label}} entfernen"
   },
   "meta": {
     "createdAgo": "Erstellt {{time}}",
     "updatedAgo": "Aktualisiert {{time}}"
   },
   "untitled": "Unbenannt",
-  "deleteDialog": {
-    "title": "Ticket löschen",
-    "body": "Möchtest du <strong>#{{id}} {{title}}</strong> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
-  },
   "detailModal": {
+    "moreActions": "Weitere Aktionen",
+    "openReview": "Review öffnen",
+    "viewJob": "Job ansehen",
     "toast": {
       "updated": "Ticket aktualisiert",
       "updateFailed": "Ticket konnte nicht aktualisiert werden",
@@ -54,7 +54,8 @@
     "effort": "Aufwand",
     "assignee": "Zugewiesen an",
     "continueEditing": "Weiter bearbeiten",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Alles, was bisher für diese Spec angefallen ist: Gesamtkosten · Agenten-Turns (ein + dahinter bedeutet, dass einige Läufe keine Turns gemeldet haben) · aktive Zeit · Läufe nach Art (z. B. „1 quick, 3 loops“ = eine Quick-Spec-Erstellung und drei Loop-Läufe). Klicken, um es in Analytics zu öffnen."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -89,7 +90,8 @@
     "toast": {
       "created": "Ticket erstellt",
       "createFailed": "Ticket konnte nicht erstellt werden"
-    }
+    },
+    "description": "Füge dem Board manuell eine Spec hinzu. Sie startet im gewählten Status und kann später verfeinert oder auf eine Rail verschoben werden."
   },
   "comparePicker": {
     "title": "Vergleichen mit…",
@@ -100,8 +102,10 @@
   },
   "spendingLine": {
     "ariaLabel": "Ticket-Ausgaben in Analytics anzeigen",
-    "turns_one": "{{count}} Turn",
-    "turns_other": "{{count}} Turns",
+    "turns_one": "{{count}} Agent-Schritt",
+    "turns_other": "{{count}} Agent-Schritte",
+    "turnsAtLeast_one": "{{count}}+ Agent-Schritt",
+    "turnsAtLeast_other": "{{count}}+ Agent-Schritte",
     "active": "{{duration}} aktiv",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ.",
@@ -187,5 +191,16 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unbekannte Lieferung ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Nicht im Umfang",
+    "ariaLabel": "Nicht im Umfang, ein Eintrag pro Zeile",
+    "placeholder": "Was diese Spec bewusst nicht ändert oder liefert. Ein Eintrag pro Zeile",
+    "onePerLine": "Ein Eintrag pro Zeile",
+    "add": "Festhalten, was diese Spec ausklammert"
+  },
+  "split": {
+    "label": "Specs vergleichen",
+    "resize": "Bereiche anpassen"
   }
 }

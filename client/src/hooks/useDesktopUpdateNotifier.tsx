@@ -250,12 +250,12 @@ export function DesktopUpdateToast({
         >
           <StateIcon state={state} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight text-foreground">
+        <span className="min-w-0 flex-1 truncate text-strong leading-tight text-foreground">
           {title}
         </span>
         {pill != null && (
           <span
-            className="shrink-0 whitespace-nowrap rounded-md border border-border/40 bg-background/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+            className="shrink-0 whitespace-nowrap rounded-md border border-border/40 bg-background/60 px-1.5 py-0.5 text-caption font-medium tabular-nums text-muted-foreground"
             style={state !== 'available' ? { color: 'var(--u-accent)' } : undefined}
           >
             {pill}
@@ -263,7 +263,7 @@ export function DesktopUpdateToast({
         )}
       </div>
 
-      <p className="h-4 truncate text-[11px] leading-4 text-muted-foreground" data-testid="update-description">
+      <p className="h-4 truncate text-caption leading-4 text-muted-foreground" data-testid="update-description">
         {description}
       </p>
 
@@ -274,14 +274,14 @@ export function DesktopUpdateToast({
           <>
             <button
               type="button"
-              className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-[11px] font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25"
+              className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-caption font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25"
               onClick={handleRestart}
             >
               {t('update.actions.restart')}
             </button>
             <button
               type="button"
-              className="h-7 rounded-lg px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+              className="h-7 rounded-lg px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
               onClick={() => {
                 toast.dismiss(UPDATE_TOAST_ID)
                 onClose?.()
@@ -294,7 +294,7 @@ export function DesktopUpdateToast({
           <>
             <button
               type="button"
-              className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-[11px] font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-grid h-7 min-w-[64px] place-items-center rounded-lg border border-[color:var(--u-accent)]/45 bg-[color:var(--u-accent)]/15 px-3 text-caption font-semibold leading-none text-foreground transition-colors hover:bg-[color:var(--u-accent)]/25 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={busy}
               onClick={() => void installUpdate()}
             >
@@ -302,7 +302,7 @@ export function DesktopUpdateToast({
             </button>
             <button
               type="button"
-              className="h-7 rounded-lg px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-7 rounded-lg px-2.5 text-caption font-medium text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               disabled={busy}
               onClick={() => {
                 dismissVersion(update.version)

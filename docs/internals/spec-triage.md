@@ -27,7 +27,6 @@ the same version Flow uses. Core ignores it.
   "securitySurface": false,
   "recommendedLoop": "factory:sdd-quick-openspec",
   "recommendedLoopName": "SDD Quick (OpenSpec)",
-  "recommendedMode": "implement",
   "rationale": "Single file, no schema or API change",
   "confidence": "high",
   "inputsHash": "sha256:…",
@@ -41,8 +40,12 @@ the same version Flow uses. Core ignores it.
   the rail built-ins the primary engine can run (Implement, Freestyle when the
   provider supports it, and SDD Quick when Loops are enabled), plus published
   spec-driven custom loops.
-- Flow is not a loop. `recommendedMode: 'flow'` is a hint for exploratory work,
-  and the triage gives it only when Flow is available.
+- Flow is not a loop, and Flow and Implement never compete: the triage
+  recommends a loop and a size for Implement only and never ranks Flow against
+  Implement. Since prompt version 2 the model is not asked for a mode, a stray
+  `recommendedMode` in its answer is ignored, and Flow availability is not an
+  input. Records written by version 1 may still carry `recommendedMode`; it
+  stays readable for compatibility, and no surface shows it.
 - `costUsd` is the cost the provider reported, or the priced cost. It is `null`
   when the cost is unknown.
 - When no usable model exists, the record is
@@ -60,7 +63,7 @@ The deterministic inputs come first:
 - The repository map: packages, ecosystems, size buckets and the README excerpt.
 - Up to 30 files touched by the 5 most similar specs, taken from
   `file_provenance`. Similarity is Jaccard over title tokens and labels.
-- The offered loops and Flow availability.
+- The offered loops.
 - The resolved `provider:model` and the prompt version.
 
 The inputs are serialised as sorted-key JSON and hashed with sha256. Status,
@@ -71,7 +74,10 @@ spec whose stored `inputsHash` matches. Recalculate always runs.
 ## Engine and cost
 
 The `triage` role engine in `loop-role-engines.json` wins when it names a
-detected provider. Otherwise the triage uses the project's primary provider
+detected provider. People choose it in project settings ▸ Agent runtime ▸
+**Spec triage engine** (`TriageEngineSection`: provider tabs with "Primary
+provider", and a model whose default is the cheapest one; saved on change,
+reverted with a toast when the server refuses, other stored roles kept). Otherwise the triage uses the project's primary provider
 and its cheapest priced catalog model, weighted by input price. See
 [configuration](configuration.md#spec-triage-and-role-engines). Each run is one
 pure-output turn with no tools and a 90-second timeout. It is recorded in
@@ -109,7 +115,8 @@ Cancelled specs, epics and Flow-held specs are never triaged. The kill switch
 
 - **Spec card chip:** shows size · recommended loop · confidence. The tooltip
   shows the rationale, the impact flags, the likely files, the model and cost,
-  and **Recalculate** (`POST /tickets/:id/triage`).
+  and **Recalculate** (`POST /tickets/:id/triage`). It never shows a mode: no
+  "Flow suggested" hint, because Flow and Implement never compete.
 - **Rail header:** when the rail has no explicit loop and is on its default mode,
   it preselects the recommended loop of its first triaged spec. This happens
   only if the picker offers that loop, and the option is marked "recommended".

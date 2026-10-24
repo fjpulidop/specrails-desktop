@@ -16,7 +16,8 @@
     "cancelDownload": "Jetzt nicht",
     "loading": "Datei wird vorbereitet…",
     "loadFailed": "Anhang konnte nicht geladen werden",
-    "loadError": "Anhang konnte nicht geladen werden: {{error}}"
+    "loadError": "Anhang konnte nicht geladen werden: {{error}}",
+    "remove": "{{name}} entfernen"
   },
   "maximize": "Maximieren",
   "restore": "Wiederherstellen",
@@ -24,7 +25,7 @@
   "close": "Schließen",
   "newConversation": "Neue Mission",
   "emptyTitle": "Wie lautet die Mission?",
-  "emptyHint": "Wähle ein Projekt und frag dann. Das Board aktualisiert sich live, während der Agent arbeitet.",
+  "emptyHint": "Frag alles zu diesem Projekt – der Agent kann lesen, Specs planen und Rails starten.",
   "thinking": "Denkt nach…",
   "connecting": "Verbinden…",
   "consultingCode": "App wird abgefragt…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "In Warteschlange",
-    "send": "Nachricht senden",
+    "send": "Nachricht einreihen",
     "sendHint": "Für den nächsten Durchlauf vormerken. Mit „Steuern“ an einer wartenden Nachricht sendest du sie, ohne das Modell zu unterbrechen.",
     "placeholder": "Nachricht zur Warteschlange hinzufügen…",
     "delivered": "An Agent übergeben",
@@ -56,7 +57,8 @@
     "more": "Nachrichtenoptionen",
     "edit": "Bearbeiten",
     "actionConflict": "Diese Nachricht wird bereits übergeben oder ist nicht mehr in der Warteschlange.",
-    "actionFailed": "Die wartende Nachricht konnte nicht aktualisiert werden. Versuche es erneut."
+    "actionFailed": "Die wartende Nachricht konnte nicht aktualisiert werden. Versuche es erneut.",
+    "removed": "Eingereihte Nachricht gelöscht"
   },
   "receipt": {
     "sent": "An Agent gesendet",
@@ -75,7 +77,7 @@
   },
   "git": {
     "branch": "Branch",
-    "detached": "(detached)",
+    "detached": "(losgelöst)",
     "dirty": "Nicht committete Änderungen",
     "switched": "Zu {{branch}} gewechselt",
     "switchFailed": "Branch-Wechsel fehlgeschlagen",
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Höhere Stufe erforderlich",
     "lockedBody": "Diese Aktion erfordert die Stufe „{{level}}“. Du bist auf „{{current}}“.",
-    "raiseHint": "⇧⇥ um die Stufe zu erhöhen, oder frag anders."
+    "raiseHint": "⇧⇥ um die Stufe zu erhöhen, oder frag anders.",
+    "confirmAutonomous": "Zu Autonom wechseln",
+    "autonomousWarning": "Autonom kann löschen und Prozesse beenden.",
+    "skipAutonomousHint": "Drücke erneut ⇧⇥, um zu Beobachten zurückzukehren."
   },
   "approval": {
     "title": "Aktion bestätigen",
@@ -188,15 +193,15 @@
     "queuedBadge": "{{n}} in Warteschlange",
     "delete": "Mission \"{{title}}\" löschen",
     "deleteConfirm": "Löschen?",
-    "deleteLiveConfirm": "Der Agent arbeitet — trotzdem löschen?",
+    "deleteLiveConfirm": "Der Agent arbeitet. Trotzdem löschen?",
     "confirmDelete": "Löschen bestätigen",
     "cancelDelete": "Mission behalten",
     "deleteFailed": "Mission konnte nicht gelöscht werden"
   },
   "noProvider": {
     "title": "Kein KI-Anbieter installiert",
-    "body": "Der Agent benötigt Claude oder Codex auf deinem Rechner. Installiere einen und öffne den Agenten erneut, um zu chatten.",
-    "placeholder": "Installiere einen KI-Anbieter, um den Agenten zu nutzen…"
+    "body": "Der Agent braucht einen KI-Anbieter (Claude, Codex, Gemini oder eine lokale Engine). Installiere oder verbinde einen und öffne den Agenten erneut.",
+    "placeholder": "Verbinde einen KI-Anbieter, um den Agenten zu nutzen…"
   },
   "degraded": {
     "title": "Specrails MCP ist aus",
@@ -223,7 +228,7 @@
   "switchToAgent": "Zur Missionszentrale wechseln",
   "switchToKanban": "Zum Board wechseln",
   "search": "Suchen",
-  "home": "Start",
+  "home": "Nicht zugeordnete Missionen",
   "favoriteMissions": "Lieblingsmissionen",
   "untitled": "Ohne Titel",
   "workspace": {
@@ -252,8 +257,8 @@
   "confirmDeleteConversation": "Löschen von „{{title}}“ bestätigen",
   "addFavoriteConversation": "„{{title}}“ zu Favoriten hinzufügen",
   "removeFavoriteConversation": "„{{title}}“ aus Favoriten entfernen",
-  "confirmShort": "bestätigen?",
-  "imagesUnsupported": "Dieser Anbieter kann noch keine Bilder lesen — hänge stattdessen Textdateien an",
+  "confirmShort": "Löschen?",
+  "imagesUnsupported": "Dieser Anbieter kann noch keine Bilder lesen. Hänge stattdessen Textdateien an",
   "effort": {
     "label": "Aufwand",
     "minimal": "Minimal",
@@ -279,7 +284,7 @@
     },
     "markDone": "Als erledigt markieren",
     "refine": "Verfeinern",
-    "completedNote": "Bestätigt — Specs nach Erledigt verschoben",
+    "completedNote": "Bestätigt. Specs nach Erledigt verschoben",
     "partialSummary": "{{succeeded}} von {{total}} abgeschlossen; {{failed}} fehlgeschlagen",
     "unit": {
       "failed": "Implementierung fehlgeschlagen",
@@ -296,8 +301,8 @@
     "title": {
       "no_changes": "Keine Änderungen erforderlich",
       "partial": "Teilweise implementiert",
-      "delivery_blocked": "Implementierung abgeschlossen — Bereitstellung erfordert Aufmerksamkeit",
-      "update_failed": "Implementierung abgeschlossen — Aktualisierung fehlgeschlagen",
+      "delivery_blocked": "Implementierung abgeschlossen: Die Auslieferung braucht Aufmerksamkeit",
+      "update_failed": "Implementierung abgeschlossen: Aktualisierung fehlgeschlagen",
       "pr_closed": "PR ohne Merge geschlossen",
       "superseded": "Durch einen neueren Lauf ersetzt",
       "existing_pr_updated": "Bestehender PR aktualisiert",
@@ -312,7 +317,13 @@
       "implementation_failed": "Implementierung fehlgeschlagen",
       "pr_failed": "PR-Erstellung fehlgeschlagen",
       "merged": "PR gemergt",
-      "discarded": "Verworfen"
+      "discarded": "Verworfen",
+      "review_changes_requested": "Der Reviewer hat Änderungen angefordert",
+      "returned_to_flow": "Zurück im Flow",
+      "flowSpecChanges": "Noch nicht fertig: Der Reviewer hat Änderungen angefordert",
+      "flowSpecDelivered": "Dein Flow ist jetzt ein geprüfter PR",
+      "flowSpecFailed": "Die Übergabe wurde angehalten",
+      "flowSpecBuilding": "Dein Flow wird zu einem geprüften PR"
     },
     "buildingHint": "Nach Abschluss wirst du gefragt, ob der PR erstellt werden soll.",
     "buildingExistingPrHint": "Specrails arbeitet auf dem Branch des bestehenden PRs und pusht die Review-Änderungen zurück in denselben PR.",
@@ -354,8 +365,8 @@
     "verifyPr": "PR verifizieren",
     "discard": "Verwerfen",
     "confirmDiscard": "Verwerfen bestätigen?",
-    "mergedNote": "Gemergt — Specs nach Fertig verschoben",
-    "discardedNote": "Verworfen — Specs zurück ins Backlog",
+    "mergedNote": "Gemergt. Specs nach Erledigt verschoben",
+    "discardedNote": "Verworfen. Specs zurück ins Backlog",
     "implementationFailedNote": "Der Implementierungslauf ist fehlgeschlagen, bevor etwas Auslieferbares entstanden ist. Öffne das Run-Protokoll, um den Fehler zu prüfen, und verwirf diese Karte vor einem erneuten Start.",
     "dismiss": "Fortsetzung schließen",
     "discardLocalResult": "Lokales Ergebnis verwerfen",
@@ -397,8 +408,8 @@
       "discardLocalBody": "Die wiederherstellbare lokale Iteration wird nur entfernt, wenn dies weiterhin sicher ist; wurde sie verändert, bleibt sie mit einer Warnung erhalten. Ein vorhandener PR und sein Branch bleiben unverändert. Ein entferntes Ergebnis kann nicht wiederhergestellt werden."
     },
     "degraded": {
-      "pushed": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden — erneut versuchen, um abzuschließen.",
-      "localOnly": "Die Änderungen wurden lokal zusammengeführt, aber nicht gepusht — erneut versuchen, um die PR zu veröffentlichen."
+      "pushed": "Der Branch wurde gepusht, aber der PR konnte nicht erstellt werden. Versuche es erneut, um abzuschließen.",
+      "localOnly": "Die Änderungen wurden lokal zusammengestellt, aber nicht gepusht. Versuche es erneut, um den PR zu veröffentlichen."
     },
     "alreadyResolved": "Bereits anderweitig erledigt",
     "actionFailed": "Aktion fehlgeschlagen",
@@ -408,15 +419,8 @@
     "viewLog": "Ausführungsprotokoll für {{ref}} anzeigen",
     "runElapsedAria": "{{elapsed}} vergangen",
     "runCostAria": "{{cost}} ausgegeben",
+    "focusRegion": "Implementierungskarte · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "Angeheftet",
-      "marker": "Implementierungskarte — oben angeheftet",
-      "collapse": "Angeheftete Karte minimieren",
-      "expand": "Angeheftete Karte ausklappen",
-      "expandCard": "Diese Karte ausklappen",
-      "collapseCard": "Diese Karte minimieren",
-      "collapsed_one": "Implementierungskarte",
-      "collapsed_other": "{{count}} Implementierungskarten",
       "state": {
         "completed": "Erledigt",
         "no_changes": "Keine Änderungen",
@@ -439,7 +443,45 @@
     "mergedLocally": "Lokal in {{base}} integriert",
     "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
     "resumeFromStep": "Ab {{step}} fortsetzen",
-    "resumeFromStepHint": "Der unterbrochene Schritt {{step}} läuft erneut von vorn; die bereits gespeicherte Arbeit bleibt erhalten."
+    "resumeFromStepHint": "Der unterbrochene Schritt {{step}} läuft erneut von vorn; die bereits gespeicherte Arbeit bleibt erhalten.",
+    "retryDelivery": "Auslieferung wiederholen",
+    "retryDeliveryHint": "Wiederholt nur den letzten Schritt (Commit, Push und PR) auf dem Branch dieses Laufs. Keine KI-Arbeit wird wiederholt.",
+    "retryDeliverySent": "Auslieferung wird wiederholt…",
+    "retryDeliveryFailed": "Die Auslieferung konnte nicht wiederholt werden",
+    "mergedLocallyRestored": "Deine lokalen Änderungen wurden gesichert, {{tickets}} integriert und anschließend wiederhergestellt.",
+    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; Specrails stellt sie auf einem separaten Branch wieder her.",
+    "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist.",
+    "localStash": {
+      "title": "Deine lokalen Änderungen sind als Stash gesichert",
+      "conflictBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Stelle sie wieder her, um es auf einem separaten Branch erneut zu versuchen.",
+      "savedBody": "Sie wurden noch nicht wiederhergestellt. Stelle sie wieder her, während {{branch}} ausgecheckt ist.",
+      "files": "Dateien mit Konflikten",
+      "restore": "Meine Änderungen wiederherstellen",
+      "restoring": "Wird wiederhergestellt…",
+      "copy": "Stash-Namen kopieren",
+      "copied": "Stash-Name kopiert",
+      "restoredToast": "Deine lokalen Änderungen sind wieder auf {{branch}}.",
+      "stillConflicting": "Deine lokalen Änderungen stehen weiterhin im Konflikt mit {{branch}}; sie bleiben sicher im Stash.",
+      "released": "Dieser Stash existiert nicht mehr, es gibt nichts mehr wiederherzustellen.",
+      "blockedBranch": "Wechsle zuerst zu {{base}} (du bist auf {{current}}) und stelle dann wieder her.",
+      "blockedDirty": "Einige dieser Dateien wurden seit dem Sichern erneut geändert. Committe oder verschiebe diese Änderungen und stelle dann wieder her.",
+      "failed": "Deine lokalen Änderungen konnten nicht wiederhergestellt werden",
+      "restoringBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Specrails stellt sie auf {{restoreBranch}} in einem separaten Worktree wieder her und löst dort die Konflikte.",
+      "readyBodyClean": "Deine Änderungen sind auf {{restoreBranch}} wiederhergestellt und committet; dort ließen sie sich konfliktfrei anwenden. Prüfe sie und hole sie dann nach {{branch}} zurück.",
+      "readyBodyResolved": "Deine Änderungen sind auf {{restoreBranch}} wiederhergestellt und committet, die Konflikte wurden automatisch gelöst. Prüfe sie und hole sie dann nach {{branch}} zurück.",
+      "failedBody": "Specrails konnte die Wiederherstellung auf {{restoreBranch}} nicht abschließen. Sie sind weiterhin sicher im Stash; verwirf diesen Branch oder stelle sie erneut wieder her.",
+      "restoredFiles": "Wiederhergestellt auf {{restoreBranch}}",
+      "binary": "binär",
+      "managedNote": "Von Specrails verwaltete generierte Dateien behielten die integrierte Version: {{files}}",
+      "bringBack": "Nach {{branch}} zurückholen",
+      "bringingBack": "Wird zurückgeholt…",
+      "discardBranch": "Wiederhergestellten Branch verwerfen",
+      "discarding": "Wird verworfen…",
+      "broughtBackToast": "Deine lokalen Änderungen sind zurück auf {{branch}}.",
+      "discardedToast": "Wiederhergestellter Branch verworfen. Deine Änderungen sind weiterhin sicher im Stash.",
+      "blockedBringBack": "Die Änderungen konnten nicht sicher nach {{branch}} zurückgeholt werden.",
+      "notReady": "Der wiederhergestellte Branch ist noch nicht bereit."
+    }
   },
   "specDraft": {
     "heading": "Spec-Entwurf",
@@ -465,12 +507,12 @@
     "openPullRequest": "PR #{{id}} öffnen",
     "openJob": "Job {{id}} öffnen",
     "openLoop": "Loop {{id}} öffnen",
-    "ticketNotFound": "Spec #{{id}} nicht gefunden — möglicherweise gelöscht",
+    "ticketNotFound": "Spec #{{id}} nicht gefunden. Sie wurde möglicherweise gelöscht",
     "pullRequestUrlMissing": "PR #{{id}} wurde ohne URL erwähnt",
     "pullRequestNotFound": "PR #{{id}} wurde in diesem Projekt nicht gefunden",
-    "jobNotFound": "Job nicht gefunden — möglicherweise gelöscht",
-    "loopNotFound": "Loop nicht gefunden — er wurde möglicherweise gelöscht",
-    "lookupFailed": "Referenz konnte nicht geprüft werden — bitte erneut versuchen"
+    "jobNotFound": "Job nicht gefunden. Er wurde möglicherweise gelöscht",
+    "loopNotFound": "Loop nicht gefunden. Er wurde möglicherweise gelöscht",
+    "lookupFailed": "Referenz konnte nicht geprüft werden. Bitte erneut versuchen"
   },
   "header": {
     "untitled": "Unbenannte Mission",
@@ -508,7 +550,18 @@
     "copySuccess": "Protokoll in die Zwischenablage kopiert",
     "copyFailed": "Protokoll konnte nicht kopiert werden",
     "openLog": "Ausführungsprotokoll anzeigen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Liest",
+      "searching": "Sucht",
+      "editing": "Bearbeitet",
+      "web": "Web",
+      "agent": "Agent",
+      "agentNamed": "Agent · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP-Werkzeug"
+    }
   },
   "backgroundProcess": {
     "open": "Logs für {{command}} anzeigen",
@@ -594,14 +647,13 @@
     "heading": "Rail-Start",
     "rail": "Rail {{index}}",
     "newRail": "Neuer Rail",
-    "play": "Play",
+    "play": "Starten",
     "launching": "Wird gestartet…",
     "dismiss": "Verwerfen",
-    "playHint": "Passe alles nach Bedarf an und drücke dann Play, um den Start unter deiner eigenen Verantwortung auszulösen.",
+    "playHint": "Passe alles nach Bedarf an und drücke dann Starten, um den Start unter deiner eigenen Verantwortung auszulösen.",
     "pending": "Startvorschlag wird vorbereitet…",
     "unreadable_one": "Der Startvorschlag des Agenten konnte nicht gelesen werden.",
     "unreadable_other": "{{count}} Startvorschläge konnten nicht gelesen werden.",
-    "pinnedMarker": "Startvorschlag über dem Composer angeheftet",
     "effortDefault": "Standard-Aufwand",
     "profileNone": "Kein Profil",
     "status": {
@@ -631,12 +683,12 @@
       "baseBranch": "Basis-Branch"
     },
     "notes": {
-      "railMissing": "Rail {{index}} existiert nicht mehr — wähle einen anderen Rail oder erstelle einen.",
-      "railBusy": "Rail {{index}} ist {{state}} — ein Start dort ist blockiert.",
+      "railMissing": "Rail {{index}} existiert nicht mehr. Wähle einen anderen Rail oder erstelle einen.",
+      "railBusy": "Rail {{index}} ist {{state}}, daher ist ein Start dort blockiert.",
       "useFree": "Rail {{index}} verwenden",
       "specsDropped": "Nicht mehr in diesem Projekt: {{ids}}",
-      "engineStale": "{{engine}} wurde auf diesem Rechner nicht erkannt — {{fallback}} wird verwendet.",
-      "modelStale": "{{model}} ist nicht verfügbar — {{fallback}} wird verwendet."
+      "engineStale": "{{engine}} wurde auf diesem Rechner nicht erkannt. {{fallback}} wird verwendet.",
+      "modelStale": "{{model}} ist nicht verfügbar. {{fallback}} wird verwendet."
     },
     "block": {
       "noProject": "Diese Mission ist an kein Projekt angeheftet.",
@@ -655,14 +707,15 @@
       "scope_save_failed": "Die Repositories der Spec konnten nicht gespeichert werden.",
       "repository_scope_incomplete": "Für den Start fehlt ein von den Specs benötigtes Repository. Prüfen Sie die Zuweisungen oben.",
       "rail_not_empty": "Diese Rail hat bereits Specs",
-      "flow_freeze_failed": "Der Flow-Worktree konnte nicht gesichert werden",
-      "flow_head_mismatch": "Der Flow-Worktree hat sich während der Übergabe geändert",
+      "flow_freeze_failed": "Die Änderungen deines Flows konnten für die Übergabe nicht gesichert werden",
+      "flow_head_mismatch": "Dein Flow hat sich während der Übergabe geändert. Versuch es noch einmal",
       "flow_already_handed_off": "Dieser Flow wurde bereits übergeben",
-      "flow_handoff_not_adopted": "Die Rail hat den Flow-Worktree nicht übernommen",
+      "flow_handoff_not_adopted": "Der Rail ist gestartet, ohne die Änderungen deines Flows zu übernehmen",
       "illegal_transition": "Der Flow hat zwischenzeitlich den Zustand gewechselt",
       "feature_unavailable": "Flow ist nicht verfügbar",
-      "daily_budget_exceeded": "Tagesbudget erreicht – es wurde nichts gestartet.",
-      "review_wip_limit_reached": "Review-Limit erreicht – es wurde nichts gestartet."
+      "daily_budget_exceeded": "Tagesbudget erreicht. Es wurde nichts gestartet.",
+      "review_wip_limit_reached": "Review-Limit erreicht. Es wurde nichts gestartet.",
+      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann."
     },
     "stub": {
       "launched": "Gestartet → Rail {{rail}}",
@@ -676,7 +729,7 @@
       "title": "{{count}} Review-Kommentar(e) der PR beheben",
       "excluded": "Nicht ändern",
       "verification": "Prüfen",
-      "specUntouched": "Spec und Jira-Beschreibung werden nicht bearbeitet – der Umfang reist mit dem Lauf.",
+      "specUntouched": "Spec und Jira-Beschreibung werden nicht bearbeitet. Der Umfang reist mit dem Lauf.",
       "source": {
         "pasted": "eingefügt",
         "github": "aus GitHub"
@@ -703,7 +756,11 @@
       "retry": "Laden erneut versuchen",
       "checkScope": "Prüfen Sie die Repository-Auswahl vor dem Start."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "Ein neuer Rail",
+      "changeHow": "Vorgehen ändern"
+    }
   },
   "runCard": {
     "status": {
@@ -713,7 +770,9 @@
       "failed": "Fehlgeschlagen",
       "stalled": "Festgefahren",
       "cancelled": "Abgebrochen",
-      "unknown": "Unbekannt"
+      "unknown": "Unbekannt",
+      "changes_requested": "Änderungen angefordert",
+      "returned": "Zurück im Flow"
     },
     "title": {
       "running": "Implementierung im Projekt-Checkout…",
@@ -722,10 +781,12 @@
       "failed": "Implementierung fehlgeschlagen",
       "stalled": "Implementierung festgefahren",
       "cancelled": "Run abgebrochen",
-      "unknown": "Run-Status unbekannt"
+      "unknown": "Run-Status unbekannt",
+      "changes_requested": "Der Reviewer hat Änderungen angefordert",
+      "returned": "Zurück im Flow"
     },
-    "noDeliveryNote": "Keine PR-Phase — dieses Projekt hat kein Git-Repository und keine Commits, daher wurde die Arbeit direkt im Projektordner abgelegt.",
-    "noDeliveryHint": "Läuft direkt im Projektordner (kein Git-Repository und keine Commits — es wird kein PR vorgeschlagen).",
+    "noDeliveryNote": "Keine PR-Phase: Dieses Projekt hat kein Git-Repository und keine Commits, daher wurde die Arbeit direkt im Projektordner abgelegt.",
+    "noDeliveryHint": "Läuft direkt im Projektordner (kein Git-Repository und keine Commits, daher wird kein PR vorgeschlagen).",
     "failure": {
       "title": "Warum es gestoppt hat",
       "step": "Schritt {{step}}",
@@ -737,13 +798,28 @@
       "recover": "Wiederherstellen und erneut versuchen",
       "relaunch": "Neu starten"
     },
-    "relaunchSent": "Rail {{index}} neu gestartet — eine neue Karte folgt dem Run.",
+    "relaunchSent": "Rail {{index}} neu gestartet. Eine neue Karte folgt dem Lauf.",
     "relaunchFailed": "Der Rail konnte nicht neu gestartet werden",
-    "relaunchBlockedActive": "Der Rail hat noch einen aktiven Run"
+    "relaunchBlockedActive": "Der Rail hat noch einen aktiven Run",
+    "review": {
+      "title": {
+        "review": "Der Reviewer hat Änderungen angefordert",
+        "check": "Die Prüfungen schlagen weiterhin fehl"
+      },
+      "score": "Bewertung {{score}}",
+      "issues_one": "{{count}} Punkt",
+      "issues_other": "{{count}} Punkte",
+      "showAll": "Alle {{count}} anzeigen",
+      "showLess": "Weniger anzeigen",
+      "omitted_one": "+{{count}} weiterer in der Review des Laufs",
+      "omitted_other": "+{{count}} weitere in der Review des Laufs",
+      "failingChecks": "Fehlgeschlagen",
+      "check": "{{command}} · Exit {{code}}",
+      "next": "Die automatischen Korrekturrunden haben das nicht gelöst. Geh zurück in den Flow, um es mit dem Agenten zu klären, oder starte neu vom selben Flow-Branch.",
+      "returned": "Zurück im Flow: Deine Änderungen sind mit der Review in ihren Flow zurückgekehrt. Mach in der Flow-Leiste weiter."
+    }
   },
   "runFailure": {
-    "marker": "Rail {{rail}} fehlgeschlagen: {{code}}",
-    "openCard": "Karte öffnen",
     "briefing": {
       "title": "Automatischer Fehlerbericht"
     }
@@ -862,7 +938,6 @@
     "sendHint": "Stoppt den aktuellen Schritt und gibt dem Agenten jetzt deine Nachricht"
   },
   "flow": {
-    "gitLabel": "Flow-Worktree",
     "missing": {
       "sessions": "Core-Agentensitzungen sind deaktiviert oder nicht verfügbar",
       "flowSessions": "Dein Specrails Core kann einen laufenden Agenten noch nicht unterbrechen",
@@ -874,41 +949,77 @@
       "feature_unavailable": "Flow ist mit dem installierten Specrails Core nicht verfügbar.",
       "flow_already_open": "Diese Mission hat bereits einen Flow. Setze ihn fort oder verwirf ihn zuerst.",
       "illegal_transition": "Der Flow hat zwischenzeitlich den Zustand gewechselt. Aktualisiere und versuche es erneut.",
-      "flow_worktree_missing": "Der Flow-Worktree existiert nicht mehr. Prüfe ihn, bevor du fortfährst.",
+      "flow_worktree_missing": "Die Projektkopie dieses Flows existiert nicht mehr. Prüfe den Flow-Branch, bevor du fortfährst.",
+      "flow_repository_required": "Wähle das Repository, in dem dieser Flow läuft.",
+      "flow_repository_not_git": "Flow braucht ein Git-Repository für seinen Branch; ein einfacher Ordner reicht nicht. Wähle ein Git-Repository.",
+      "flow_repository_unknown": "Dieses Repository gehört nicht mehr zu diesem Projekt. Wähle ein anderes.",
+      "flow_repository_missing": "Das Repository des Flows ist in diesem Projekt nicht mehr verfügbar.",
       "rail_not_empty": "Diese Rail hat bereits Specs. Wähle eine freie, leere Rail.",
-      "flow_already_handed_off": "Dieser Flow wurde bereits an eine Rail übergeben.",
-      "flow_freeze_failed": "Der Flow-Worktree konnte für die Übergabe nicht gesichert werden.",
-      "flow_head_mismatch": "Der Worktree hat sich während der Übergabe geändert. Versuche es erneut.",
-      "flow_handoff_not_adopted": "Die Rail ist gestartet, ohne den Flow-Worktree zu übernehmen."
+      "flow_already_handed_off": "Dieser Flow wurde bereits an einen Rail übergeben.",
+      "flow_freeze_failed": "Die Änderungen deines Flows konnten für die Übergabe nicht gesichert werden.",
+      "flow_head_mismatch": "Dein Flow hat sich während der Übergabe geändert. Versuch es noch einmal.",
+      "flow_handoff_not_adopted": "Der Rail ist gestartet, ohne die Änderungen deines Flows zu übernehmen.",
+      "repository_has_no_commits": "Dieses Repository hat noch keine Commits. Erstelle einen ersten Commit, damit Specrails eine isolierte Kopie des Projekts anlegen kann.",
+      "flow_not_found": "Dieser Flow existiert nicht mehr.",
+      "flow_failed": "Flow ist auf einen unerwarteten Fehler gestoßen. Versuche es erneut.",
+      "conversation_not_found": "Diese Mission existiert nicht mehr.",
+      "conversation_not_pinned": "Hefte diese Mission an das Projekt, bevor du einen Flow startest.",
+      "flow_not_handed_off": "Dieser Flow wartet nicht mehr auf diesen Lauf.",
+      "flow_rail_unknown": "Der Rail dieses Laufs ist unbekannt. Übergib den Flow erneut über „Übergeben“ in der Flow-Leiste.",
+      "flow_return_busy": "Der Lauf ist mit einer anderen Aktion beschäftigt. Versuche es gleich noch einmal.",
+      "flow_return_not_allowed": "Nur eine Übergabe, die vor der Auslieferung angehalten hat, kann in ihren Flow zurück.",
+      "flow_return_not_found": "Dieser Lauf ist keine Flow-Übergabe.",
+      "flow_return_worktree_mismatch": "Dieser Lauf hat die Änderungen dieses Flows nicht übernommen.",
+      "spec_in_flow": "Diese Spec ist bereits in Flow. Öffne ihre Mission, um weiterzumachen.",
+      "spec_on_rail": "Diese Spec liegt auf einer Rail. Nimm sie von der Rail, um sie in Flow zu starten.",
+      "spec_running": "Diese Spec läuft auf einer Rail. Warte, bis der Lauf endet.",
+      "spec_closed": "Diese Spec ist erledigt oder abgebrochen. Öffne sie wieder, um in Flow daran zu arbeiten.",
+      "spec_not_found": "Diese Spec existiert nicht mehr.",
+      "invalid_ticket_id": "Diese Spec konnte nicht erkannt werden."
     },
     "entry": {
       "heading": "Flow starten",
-      "body": "Specrails erstellt einen isolierten Worktree, in dem der Agent Code schreiben kann. Dein Hauptbranch bleibt unberührt.",
-      "provider": "Der Agent arbeitet mit {{provider}} und schreibt nur im Worktree.",
-      "providerUnknown": "Der Agent schreibt nur im Worktree.",
+      "body": "Specrails legt eine separate Kopie des Projekts auf einem eigenen Flow-Branch an, in der der Agent Code schreiben kann. Dein Hauptbranch bleibt unberührt.",
+      "provider": "Der Agent arbeitet mit {{provider}} und schreibt nur in die Kopie des Flows.",
+      "providerUnknown": "Der Agent schreibt nur in die Kopie des Flows.",
+      "repository": {
+        "label": "Repository",
+        "hint": "Der Flow arbeitet in einer separaten Kopie dieses Repositorys.",
+        "choose": "Wähle das Repository, in dem dieser Flow läuft",
+        "loading": "Repositorys werden geladen…",
+        "loadFailed": "Die Repositorys des Projekts konnten nicht geladen werden. Versuche es erneut.",
+        "suggested": "Vom Agenten vorgeschlagen",
+        "noGit": "Dieses Projekt hat kein Git-Repository. Flow braucht eins für seinen Branch."
+      },
       "blocked": {
         "noProject": "Hefte diese Mission an ein Projekt, um Flow zu nutzen.",
         "open": "Diese Mission hat bereits einen Flow.",
         "missing": "Flow braucht einen neueren Specrails Core:",
-        "unavailable": "Flow ist gerade nicht verfügbar."
+        "unavailable": "Flow ist gerade nicht verfügbar.",
+        "goToFlow": "Zu diesem Flow"
       },
       "cancel": "Abbrechen",
       "start": "Flow starten",
-      "starting": "Startet…"
+      "starting": "Startet…",
+      "existingSpec": {
+        "label": "Spec #{{id}}",
+        "note": "Der Flow arbeitet an dieser Spec, und der Agent beginnt bei ihr. Bei der Lieferung wird die Spec aus dem Gebauten neu geschrieben; ihr aktueller Text bleibt als Kommentar erhalten."
+      }
     },
     "offer": {
       "heading": "Wie möchtest du es bauen?",
-      "recommended": "Empfohlen",
       "notNow": "Nicht jetzt",
       "implementReply": "Lass uns zuerst die Spec schreiben und dann Implement starten.",
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Gemeinsam in einem isolierten Worktree bauen; die Spec kommt am Ende."
+          "hint": "Gemeinsam auf einem eigenen Flow-Branch bauen; die Spec kommt am Ende.",
+          "hintExisting": "Baut diese Spec gemeinsam auf einem eigenen Flow-Branch; die Spec wird aus dem Gebauten neu geschrieben."
         },
         "implement": {
-          "title": "Spec + Implement",
-          "hint": "Zuerst eine Spec vereinbaren, dann an eine Rail delegieren."
+          "title": "Spec + umsetzen",
+          "hint": "Zuerst eine Spec vereinbaren, dann an einen Rail delegieren.",
+          "hintExisting": "Übergib diese Spec, wie sie geschrieben ist, an eine Rail."
         }
       },
       "stub": {
@@ -916,48 +1027,76 @@
         "implement": "Du hast Spec + Implement gewählt",
         "dismissed": "Angebot verworfen",
         "handedOff": "Flow an Rail {{rail}} übergeben",
-        "overrode": "empfohlen: {{mode}}",
         "state": {
           "active": "Flow läuft",
           "paused": "Flow pausiert",
-          "handed_off": "Flow an eine Rail übergeben",
+          "handed_off": "Flow an einen Rail übergeben",
           "delivered": "Flow ausgeliefert",
           "discarded": "Flow verworfen",
-          "needs-review": "Flow muss geprüft werden"
-        }
-      }
+          "needs-review": "Flow muss geprüft werden",
+          "closed": "Flow geschlossen (Branch behalten)"
+        },
+        "viewRun": "Lauf ansehen"
+      },
+      "why": "Warum der Agent fragt",
+      "waitForReply": "Du kannst wählen, sobald der Agent diese Antwort beendet hat.",
+      "implementExistingReply": "Lass uns Spec #{{id}} auf einer Rail umsetzen."
     },
     "bar": {
-      "label": "Flow-Steuerung",
       "controls": "Flow-Aktionen",
       "viewChanges": "Änderungen ansehen",
       "resume": "Flow fortsetzen",
-      "pause": "Pausieren",
+      "pause": "Flow pausieren",
       "discard": "Verwerfen",
-      "thisIsIt": "Das ist es",
       "discarded": "Flow verworfen",
       "files_one": "{{count}} Datei",
       "files_other": "{{count}} Dateien",
-      "filesTitle": "Geänderte Dateien im Flow-Worktree",
+      "filesTitle": "Geänderte Dateien im Flow-Branch",
       "costTitle": "Echte Kosten der Turns dieses Flows, wie vom Anbieter abgerechnet",
       "costPartial_one": "{{count}} Turn hat keine vom Anbieter gemeldeten Kosten und ist nicht enthalten",
       "costPartial_other": "{{count}} Turns haben keine vom Anbieter gemeldeten Kosten und sind nicht enthalten",
-      "needsReview": "Der Flow-Worktree fehlt. Es wurde nichts gelöscht; prüfe den Branch, bevor du fortfährst.",
-      "pausedNote": "Pausiert. Worktree und Spec bleiben erhalten; setze fort, wann du willst.",
+      "needsReview": "Die Projektkopie dieses Flows fehlt. Es wurde nichts gelöscht; prüfe den Flow-Branch, bevor du fortfährst.",
+      "pausedNote": "Pausiert. Deine Änderungen und die Spec bleiben erhalten; mach weiter, wann du willst.",
       "state": {
         "active": "Flow",
         "paused": "Flow pausiert",
         "needs-review": "Flow muss geprüft werden",
-        "handed_off": "Übergeben",
+        "handed_off": "An einen Rail übergeben",
         "delivered": "Ausgeliefert",
-        "discarded": "Verworfen"
-      }
+        "discarded": "Verworfen",
+        "closed": "Geschlossen"
+      },
+      "disabled": {
+        "settling": "Warte, bis der Flow seinen Zustand gespeichert hat",
+        "busy": "Warte, bis die laufende Aktion abgeschlossen ist",
+        "noSpec": "Die Spec des Flows ist noch nicht bereit"
+      },
+      "viewChangesStats": "Änderungen ansehen · {{files}}, +{{additions}} −{{deletions}}",
+      "handOff": "Übergeben",
+      "close": "Diesen Flow schließen",
+      "closed": "Flow geschlossen. Der Branch bleibt erhalten."
+    },
+    "preview": {
+      "open": "Vorschau",
+      "openTitle": "App unter {{url}} im Browser öffnen",
+      "stopping": "Wird beendet…",
+      "more": "App-Aktionen",
+      "local": "Auf diesem Computer öffnen",
+      "network": "Im lokalen Netzwerk öffnen",
+      "localOnly": "Nur von diesem Computer erreichbar. Bitte den Agenten, sie mit Freigabe im lokalen Netzwerk neu zu starten, damit du sie auf einem Smartphone öffnen kannst.",
+      "stop": "App beenden",
+      "stopFailed": "Die App konnte nicht beendet werden"
     },
     "discard": {
       "title": "Diesen Flow verwerfen?",
-      "body": "Worktree, Branch und vorläufige Spec werden gelöscht. Das lässt sich nicht rückgängig machen.",
+      "body": "Verwerfen löscht Folgendes unwiderruflich:",
       "cancel": "Flow behalten",
-      "confirm": "Flow verwerfen"
+      "confirm": "Flow verwerfen",
+      "lossFiles_one": "{{count}} geänderte Datei",
+      "lossFiles_other": "{{count}} geänderte Dateien",
+      "lossNoChanges": "Noch keine geänderten Dateien",
+      "lossUnknown": "Alle Änderungen im Flow-Branch",
+      "lossSpec": "Die vorläufige Spec auf dem Board"
     },
     "changes": {
       "title": "Flow-Änderungen",
@@ -975,11 +1114,299 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
-      "rationale": "Eine Rail übernimmt den Flow-Worktree, leitet die Spec ab und führt Verifikation und Review aus.",
-      "loop": "Flow → Spec",
+      "heading": "Mach aus diesem Flow einen geprüften PR",
+      "loop": "Flow-Übergabe",
       "launch": "Starten",
-      "notYet": "Noch nicht"
+      "notYet": "Noch nicht",
+      "engineFallback": "{{provider}} kann die Flow-Übergabe auf diesem Rechner nicht ausführen, deshalb ist die Standard-Engine des Rails gewählt.",
+      "cost": "bisher {{cost}}",
+      "costUnknown": "noch keine abgerechneten Kosten",
+      "line_one": "{{rail}} macht aus deiner geänderten Datei einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.",
+      "line_other": "{{rail}} macht aus deinen {{count}} geänderten Dateien einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.",
+      "lineNoCount": "{{rail}} macht aus deinen Änderungen einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten."
+    },
+    "review": {
+      "backToFlow": "Zurück zum Flow",
+      "backToFlowHint": "Öffne diesen Flow mit denselben Änderungen wieder; der Agent erhält die Review in seinem nächsten Zug",
+      "relaunch": "Neu starten",
+      "relaunchHint": "Erneut versuchen mit demselben Flow-Branch, Rail und derselben Engine",
+      "returned": "Zurück im Flow. Der Agent hat die Review.",
+      "relaunched": "Auf Rail {{index}} neu gestartet",
+      "returnFailed": "Rückkehr zum Flow nicht möglich: {{detail}}",
+      "relaunchFailed": "Neustart nicht möglich: {{detail}}",
+      "backToFlowFailureHint": "Öffne diesen Flow mit denselben Änderungen wieder; der Agent erhält den Fehler in seinem nächsten Zug",
+      "returnedFailure": "Zurück im Flow. Der Agent hat den Fehler."
+    },
+    "failure": {
+      "step": {
+        "derive": "Die Spec konnte nicht aus deinen Änderungen geschrieben werden",
+        "verify": "Deine Änderungen konnten nicht geprüft werden",
+        "review": "Die Review konnte nicht abgeschlossen werden",
+        "fix": "Die automatischen Korrekturen konnten nicht abgeschlossen werden",
+        "archive": "Die fertige Spec konnte nicht abgelegt werden",
+        "settle": "Das Ergebnis konnte nicht zurückgegeben werden",
+        "unknown": "Die Übergabe hat vor dem Ende angehalten"
+      },
+      "cause": "Ursache:",
+      "next": "Deine Arbeit ist unversehrt. Zurück im Flow erhält der Agent den Fehler.",
+      "nextReturned": "Deine Arbeit ist unversehrt. Zurück im Flow hat der Agent den Fehler.",
+      "returned": "Zurück im Flow",
+      "technical": {
+        "title": "Technische Details",
+        "repository": "Repository",
+        "step": "Schritt",
+        "status": "Status",
+        "failure": "Fehler",
+        "detail": "Detail"
+      }
+    },
+    "announce": {
+      "active": "Flow aktiv: Der Agent schreibt im Flow-Branch.",
+      "paused": "Flow pausiert.",
+      "needs-review": "Der Flow muss geprüft werden: Seine Projektkopie fehlt.",
+      "handed_off": "Flow an einen Rail übergeben.",
+      "delivered": "Flow ausgeliefert.",
+      "discarded": "Flow verworfen.",
+      "returned": "Zurück im Flow: Die Arbeit kam mit den Ergebnissen der Übergabe zurück.",
+      "closed": "Flow geschlossen. Sein Branch wurde behalten."
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Bereit, ein PR zu werden",
+      "launching": "Wird an einen Rail übergeben…",
+      "launchingOn": "Wird an {{rail}} übergeben…",
+      "stillHandingOff": "Wird noch an {{rail}} übergeben…",
+      "refresh": "Aktualisieren",
+      "step": {
+        "derive": "Spec wird aus deinen Änderungen geschrieben",
+        "verify": "Deine Änderungen werden geprüft",
+        "review": "Die Änderung wird reviewt",
+        "fix": "Korrekturen aus der Review werden angewendet",
+        "archive": "Fertige Spec wird abgelegt",
+        "settle": "Das Ergebnis wird zurückgegeben"
+      },
+      "headline": "{{state}} · {{files}}"
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow-Modus: Der Agent schreibt im Flow-Branch, nicht in deinem Hauptbranch",
+      "placeholder": "Sag dem Agenten, was er in diesem Flow ändern soll…"
+    },
+    "panel": {
+      "branch": "Branch",
+      "changes": "Änderungen",
+      "cost": "Kosten bisher",
+      "actions": "Weitere Flow-Aktionen"
+    },
+    "close": {
+      "title": "Diesen Flow schließen?",
+      "body": "Die Unterhaltung verlässt Flow. Nichts wird gelöscht:",
+      "keptBranch": "Branch bleibt erhalten:",
+      "keptSpec": "Die Spec bleibt auf dem Board, ohne das Label „Im Flow“",
+      "cancel": "Nicht jetzt",
+      "confirm": "Flow schließen, Branch behalten"
+    },
+    "startFromSpec": {
+      "action": "In Flow starten",
+      "hint": "Baue diese Spec mit dem Agenten auf einem eigenen Flow-Branch, in einer Mission",
+      "starting": "Flow wird gestartet…",
+      "failed": "Spec #{{id}} konnte nicht in Flow starten",
+      "repository": {
+        "title": "Wo soll dieser Flow laufen?",
+        "body": "Dieses Projekt hat mehrere Git-Repositorys. Der Flow arbeitet auf einem eigenen Branch in einer separaten Kopie des gewählten Repositorys.",
+        "fromSpec": "In der Spec genannt"
+      },
+      "blocked": {
+        "noProject": "Öffne ein Projekt, um Flow zu nutzen",
+        "unavailable": "Flow ist mit dem installierten Specrails Core nicht verfügbar",
+        "inFlow": "Bereits in Flow",
+        "closed": "Erledigte oder abgebrochene Specs können nicht in Flow starten",
+        "running": "Läuft auf einer Rail",
+        "onRail": "Auf einer Rail: nimm sie zuerst herunter",
+        "missionInFlow": "Diese Mission hat bereits einen Flow"
+      }
     }
+  },
+  "flowReturn": {
+    "title": "Was der Reviewer verlangt hat",
+    "noFindings": "Die Übergabe hat vor der Auslieferung angehalten; deine Änderungen sind unversehrt zurück in diesem Flow.",
+    "coverage": "Die Spec erklärt {{explained}} von {{files}} geänderten Dateien",
+    "unexplained": "Von keiner Anforderung erklärt",
+    "moreFiles_one": "+{{count}} weitere Datei",
+    "moreFiles_other": "+{{count}} weitere Dateien",
+    "next": "Der Flow-Agent beginnt jetzt damit; du kannst ihn jederzeit lenken oder stoppen.",
+    "automaticTurn": "Automatischer Zug · Zurück zum Flow",
+    "titleFailure": "Warum die Übergabe angehalten hat"
+  },
+  "turnErrors": {
+    "providerInactivity": "Der Anbieter hat zu lange nicht reagiert, daher wurde der Zug beendet. Sende deine Nachricht erneut, um fortzufahren.",
+    "toolInactivity": "Ein Tool lief zu lange ohne Aktivität des Anbieters, daher wurde der Zug beendet. Sende deine Nachricht erneut oder bitte den Agenten, den Schritt aufzuteilen.",
+    "generic": "Der Zug des Agenten ist fehlgeschlagen."
+  },
+  "flowDelivered": {
+    "title": "Flow ausgeliefert",
+    "pr": "Pull-Request öffnen",
+    "prNumber": "Pull-Request #{{number}}",
+    "specRewritten": "Spec aus dem Gebauten neu geschrieben",
+    "specKept": "Die Spec konnte nicht neu geschrieben werden; ihr Entwurf bleibt erhalten",
+    "change": "Spec-Änderung {{change}}",
+    "changeArchived": "Spec-Änderung {{change}} archiviert",
+    "jira": "Jira-Vorgang {{key}}",
+    "jiraPending": "Jira-Vorgang wird erstellt"
+  },
+  "runStrip": {
+    "launching": "Wird auf {{rail}} gestartet…",
+    "running": "Arbeitet",
+    "paused": "Pausiert. Wartet auf dich",
+    "pausedReason": "Pausiert: {{reason}}",
+    "decision": {
+      "approval": "Wartet auf deine Freigabe",
+      "changes": "Der Reviewer hat Änderungen angefordert",
+      "on_review": "Bereit für dein Review",
+      "pr_draft": "Entwurfs-PR bereit zum Veröffentlichen",
+      "no_changes": "Ohne Änderungen abgeschlossen",
+      "pr_closed": "PR ohne Merge geschlossen",
+      "generic": "Wartet auf deine Entscheidung"
+    },
+    "failed": {
+      "generic": "Mit einem Fehler gestoppt",
+      "implementation_failed": "Die Implementierung ist fehlgeschlagen",
+      "stalled": "Der Lauf ist ins Stocken geraten",
+      "stuck": "Der Lauf hängt fest",
+      "provider_limit": "Das Nutzungslimit des Anbieters hat ihn gestoppt",
+      "launch_failed": "Der Lauf konnte nicht starten",
+      "delivery_failed": "Das Ergebnis konnte nicht ausgeliefert werden",
+      "push_failed": "Der Branch konnte nicht gepusht werden",
+      "pr_failed": "Der PR konnte nicht erstellt werden"
+    },
+    "progressAria": "{{done}} von {{total}} Läufen abgeschlossen",
+    "costTitle": "Bisher vom Anbieter abgerechnete echte Kosten",
+    "costPartial": "Einige Läufe haben noch keine abgerechneten Kosten und sind nicht enthalten",
+    "costNone": "Noch keine abgerechneten Kosten",
+    "state": {
+      "launching": "Startet:",
+      "running": "Läuft:",
+      "decision": "Wartet auf dich:",
+      "failed": "Fehlgeschlagen:",
+      "paused": "Pausiert:",
+      "info": "Zur Info:"
+    },
+    "proposal": "Start vorgeschlagen für {{tickets}}",
+    "proposalNoTickets": "Start vorgeschlagen",
+    "proposalLabel": "Vorschlag",
+    "panelLabel": "Details zu {{run}}",
+    "showDetails": "Details anzeigen",
+    "withShortcut": "{{label}} ({{keys}})",
+    "cycleHint": "Lauf wechseln: {{keys}}",
+    "hideDetails": "Details ausblenden",
+    "switcher": "Aktive Läufe",
+    "more": "Weitere Läufe ({{count}})",
+    "announce": {
+      "settled": "{{run}} ist abgeschlossen",
+      "shown": "{{run}} wird angezeigt: {{state}}",
+      "needsYou": "{{run}} braucht dich"
+    },
+    "event": {
+      "launched": "Auf {{run}} gestartet",
+      "failed": "{{run}} fehlgeschlagen: {{reason}}",
+      "openRun": "Lauf anzeigen",
+      "proposed": "Start vorgeschlagen. Wartet auf dich",
+      "backToFlow": "Zurück zum Flow",
+      "flowReturned": "{{run}} hat die Arbeit an den Flow zurückgegeben",
+      "delivered": "Ausgeliefert: PR {{pr}}",
+      "deliveredNoPr": "Auf {{run}} ausgeliefert",
+      "superseded": "{{run}} wurde durch einen neueren Lauf ersetzt",
+      "discarded": "{{run}} wurde verworfen",
+      "changes": "{{run}}: Der Reviewer hat Änderungen angefordert"
+    },
+    "needsYou": "braucht dich",
+    "opensCard": "Öffnet die Karte des Laufs, damit du dort bestätigen kannst",
+    "open": {
+      "decision": "Entscheidung öffnen",
+      "failed": "Fehler ansehen",
+      "paused": "Grund der Pause ansehen"
+    },
+    "attention": {
+      "failed": "Braucht Aufmerksamkeit: ein Lauf ist fehlgeschlagen"
+    }
+  },
+  "flowBoundary": {
+    "entered": "Flow betreten",
+    "left": "Flow verlassen",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "gestartet",
+      "returned": "von einem Rail zurück",
+      "handed_off": "an einen Rail übergeben",
+      "discarded": "verworfen",
+      "closed": "geschlossen, Branch behalten"
+    }
+  },
+  "unread": "Ungelesen",
+  "unreadCount": "{{count}} ungelesen",
+  "live": "Agent arbeitet",
+  "deleteFailed": "Die Mission konnte nicht gelöscht werden. Bitte erneut versuchen.",
+  "modeSwitch": {
+    "label": "Oberflächenmodus",
+    "mission": "Mission",
+    "board": "Board",
+    "current": "Aktueller Modus: {{mode}}. Klicken zum Wechseln."
+  },
+  "errors": {
+    "sendFailed": "Die Nachricht konnte nicht gesendet werden.",
+    "stopFailed": "Der Agent konnte nicht gestoppt werden.",
+    "mcpEnableFailed": "MCP konnte nicht aktiviert werden.",
+    "removeAttachmentFailed": "Der Anhang konnte nicht entfernt werden.",
+    "sendFailedHint": "Dein Text steht wieder im Feld – drücke Enter, um es erneut zu versuchen.",
+    "providerSwitchFailed": "Anbieter konnte nicht gewechselt werden – der bisherige ist weiter aktiv.",
+    "modelSwitchFailed": "Modell konnte nicht gewechselt werden – das bisherige ist weiter aktiv.",
+    "effortSwitchFailed": "Aufwand konnte nicht geändert werden – der bisherige ist weiter aktiv."
+  },
+  "composer": {
+    "ariaLabel": "Nachricht an den Agenten",
+    "dropFiles": "Dateien zum Anhängen ablegen",
+    "uploading": "Wird hochgeladen…"
+  },
+  "conversation": {
+    "ariaLabel": "Missionsunterhaltung",
+    "agentWorking": "Der Agent arbeitet…",
+    "agentReplied": "Der Agent hat geantwortet",
+    "newMessages": "Neue Nachrichten"
+  },
+  "message": {
+    "you": "Du",
+    "agent": "Agent"
+  },
+  "options": {
+    "groupLabel": "Vorgeschlagene Antworten",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Kopiert",
+  "copyCode": "Code kopieren",
+  "composerReplyPlaceholder": "Antworten oder mit @ verweisen…",
+  "sendHint": "Senden (Enter) · Neue Zeile (Umschalt+Enter)",
+  "undo": "Rückgängig",
+  "imagesUnsupportedCount": "Dieser Anbieter kann noch keine Bilder lesen – {{count}} Bilder wurden nicht angehängt",
+  "starter": {
+    "reference": "Auf eine Spec verweisen",
+    "action": "Eine Aktion ausführen",
+    "plan": "Eine neue Spec planen",
+    "planSpec": "Hilf mir, eine neue Spec zu planen: "
+  },
+  "emptyLegend": "⇧⇥ ändert, was der Agent darf · ↑ holt deinen letzten Prompt zurück",
+  "delivery": {
+    "arrived": "Zur Prüfung angekommen — PR #{{number}}",
+    "arrivedNoNumber": "Zur Prüfung angekommen",
+    "openPr": "PR öffnen"
+  },
+  "missionHome": {
+    "greeting": "Was soll als Nächstes in {{project}} ausgeliefert werden?",
+    "greetingNoProject": "Was soll als Nächstes ausgeliefert werden?",
+    "statusTodo_one": "{{count}} offen",
+    "statusTodo_other": "{{count}} offen",
+    "statusReview_one": "{{count}} wartet auf Review",
+    "statusReview_other": "{{count}} warten auf Review",
+    "statusRunning_one": "{{count}} läuft",
+    "statusRunning_other": "{{count}} laufen"
   }
 }

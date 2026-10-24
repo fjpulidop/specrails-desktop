@@ -53,8 +53,8 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
       const stale = isStale(provider, now), issue = usageIssue(provider)
       return <article key={provider.providerId} className="space-y-2 border-b border-border pb-4 last:border-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">{provider.spend ? t('spend.enterprise') : provider.plan}</span>}</h3>
-          {provider.observedAt && <span className="text-[11px] text-muted-foreground" title={absolute(provider.observedAt)}>{stale ? t('stale') : t('updated', { time: relative(provider.observedAt) })}</span>}
+          <h3 className="text-sm font-semibold">{provider.providerId === 'claude' ? 'Claude' : 'Codex'} {provider.plan && <span className="rounded border border-border px-1.5 py-0.5 text-caption font-normal text-muted-foreground">{provider.spend ? t('spend.enterprise') : provider.plan}</span>}</h3>
+          {provider.observedAt && <span className="text-caption text-muted-foreground" title={absolute(provider.observedAt)}>{stale ? t('stale') : t('updated', { time: relative(provider.observedAt) })}</span>}
         </div>
         {provider.spend && <EnterpriseSpendMeter spend={provider.spend} stale={stale} now={now} />}
         {provider.windows.map(window => <div key={window.id} className="space-y-1.5">
@@ -62,11 +62,11 @@ export function SubscriptionUsagePanel({ selectedProvider, showDataDetails = fal
           {window.usedPercent !== null && <div role="progressbar" aria-label={`${provider.providerId} ${usageLabel(window, t)}`} aria-valuenow={window.usedPercent} aria-valuemin={0} aria-valuemax={100} className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div className={cn('h-full rounded-full', stale ? 'bg-muted-foreground/50' : window.usedPercent >= 90 ? 'bg-destructive' : window.usedPercent >= 80 ? 'bg-accent-warning' : 'bg-accent-primary')} style={{ width: `${window.usedPercent}%` }} />
           </div>}
-          {<p className="text-[11px] text-muted-foreground" title={window.resetsAt ? absolute(window.resetsAt) : undefined}>{window.resetsAt ? Date.parse(window.resetsAt) <= now ? t('resetPassed') : t('resets', { time: relative(window.resetsAt) }) : t('resetUnknown')}</p>}
+          {<p className="text-caption text-muted-foreground" title={window.resetsAt ? absolute(window.resetsAt) : undefined}>{window.resetsAt ? Date.parse(window.resetsAt) <= now ? t('resetPassed') : t('resets', { time: relative(window.resetsAt) }) : t('resetUnknown')}</p>}
           {window.usedPercent === 100 && !stale && <p className="text-xs text-destructive">{t('limitReached')}</p>}
         </div>)}
         {issue && <p className="text-xs text-muted-foreground">{t(`issues.${issue}`, { defaultValue: t('issues.collection-failed') })}</p>}
-        {provider.retryAt && Date.parse(provider.retryAt) > now && <p className="text-[11px] text-muted-foreground">{t('retry', { time: relative(provider.retryAt) })}</p>}
+        {provider.retryAt && Date.parse(provider.retryAt) > now && <p className="text-caption text-muted-foreground">{t('retry', { time: relative(provider.retryAt) })}</p>}
         {showDataDetails && provider.observedAt && <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">{t('dataDetails')}</summary><p className="mt-2">{t('observed', { time: absolute(provider.observedAt) })}</p>{provider.source && <p>{t('source', { source: provider.source })}</p>}</details>}
       </article>
     })}

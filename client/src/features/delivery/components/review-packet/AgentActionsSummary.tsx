@@ -67,7 +67,7 @@ export function AgentActionsSummary({ actions }: { actions: PacketAgentActions }
           )
         })}
       </ul>
-      <p className="text-[11px] text-muted-foreground">{t('agentActions.caveat')}</p>
+      <p className="text-caption text-muted-foreground">{t('agentActions.caveat')}</p>
       <ul className="space-y-1.5">
         {actions.runIds.map((runId) => (
           <li key={runId} className="flex flex-wrap items-center gap-2 text-xs">

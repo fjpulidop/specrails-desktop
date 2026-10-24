@@ -22,7 +22,7 @@ A conversa fica no seu histórico, por isso pode sempre voltar para ver como a s
 
 É este o coração do modo Explore: nunca está a olhar para um formulário em branco. Está sempre a olhar para uma spec real e em evolução.
 
-## Quanto é que a IA vê: o seletor de contexto
+## Quanto é que a IA vê: o seletor de contexto {#context-scope}
 
 Antes de a IA responder, decide quanto do seu projeto ela pode ver. Um seletor de presets de contexto permite-lhe trocar velocidade por profundidade:
 

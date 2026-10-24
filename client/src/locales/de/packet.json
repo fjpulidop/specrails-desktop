@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} von {{total}} Änderungen sind fertig",
     "noChanges": "Es musste nichts geändert werden",
     "failed": "Das konnte nicht abgeschlossen werden",
-    "failedPartial": "Nur ein Teil konnte abgeschlossen werden"
+    "failedPartial": "Nur ein Teil konnte abgeschlossen werden",
+    "generic": "Prüfe die gelieferte Änderung"
   },
   "confidence": {
     "pill": "Sicherheit des KI-Reviewers {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "Diese Arbeit kostete {{amount}}",
-    "allVersions": "Alle Versionen zusammen: {{amount}}"
+    "allVersions": "Alle Versionen zusammen: {{amount}}",
+    "baselinePart": " · davon Baseline {{amount}}"
   },
   "accept": {
     "create-pr": "Annehmen und Pull Request öffnen",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Verwerfen",
-    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
+    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
+    "confirmTitle": "Diese Lieferung verwerfen?",
+    "confirmBody": "Die Lieferung und ihre Änderungen werden verworfen. Das lässt sich nicht rückgängig machen."
   },
   "watchOut": {
     "title": "Vor dem Annehmen ansehen"
@@ -242,5 +246,49 @@
     "run": "Lauf {{id}}",
     "download": "{{format}}",
     "downloadFailed": "Die Agentenaktionen konnten nicht heruntergeladen werden"
+  },
+  "requirements": {
+    "title": "Nachgewiesene Anforderungen {{demonstrated}}/{{total}}",
+    "touched": "Von dieser Änderung berührt: {{demonstrated}}/{{total}} nachgewiesen",
+    "caveat": "Von Specrails gemessen: Eine Anforderung zählt, wenn ein mit ihrer ID markierter Test in einer erfolgreichen Verifikation lief. Nur ein Hinweis; die Prüfung ändert sich nicht.",
+    "caveatNoReceipt": "Hinter einem Teil dieser Spur steht kein Verifikationsbeleg, daher zählen diese Anforderungen noch nicht als nachgewiesen.",
+    "undemonstratedTitle_one": "{{count}} Anforderung nicht nachgewiesen",
+    "undemonstratedTitle_other": "{{count}} Anforderungen nicht nachgewiesen",
+    "demonstratedTitle_one": "{{count}} Anforderung nachgewiesen",
+    "demonstratedTitle_other": "{{count}} Anforderungen nachgewiesen",
+    "reason": {
+      "no-test": "kein markierter Test",
+      "not-executed": "markierter Test lief nicht",
+      "failed": "markierter Test schlug fehl"
+    },
+    "touchedBadge": "hier geändert",
+    "untagged_one": "{{count}} Test-Markierung passt zu keiner Anforderung ({{tags}}): Tippfehler oder umbenannte Anforderung.",
+    "untagged_other": "{{count}} Test-Markierungen passen zu keiner Anforderung ({{tags}}): Tippfehler oder umbenannte Anforderungen.",
+    "showAll_one": "{{count}} weitere anzeigen",
+    "showAll_other": "{{count}} weitere anzeigen",
+    "showLess": "Weniger anzeigen"
+  },
+  "baseline": {
+    "title": "Spec für den Code erstellt, den die Arbeit berührt hat",
+    "status": {
+      "planned": "Baseline geplant: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
+      "passed": "Baseline am unveränderten Code bestätigt: {{requirements}} Ist-Anforderungen, {{tests}} Charakterisierungstests",
+      "failed": "Baseline blockiert: Die Charakterisierungstests liefen am unveränderten Code nicht durch, daher wurde das Modul nicht bearbeitet",
+      "violated": "Baseline blockiert: Der Baseline-Schritt hat Code außer Tests geändert, daher wurde der Lauf gestoppt",
+      "not-needed": "Keine Baseline nötig: Specs decken den berührten Code bereits ab"
+    },
+    "module": "Beschriebenes Modul:",
+    "more_one": "und {{count}} weitere Datei",
+    "more_other": "und {{count}} weitere Dateien",
+    "spec": "Ist-Spec:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} nachgewiesen)",
+    "cost": "Baseline-Kosten {{amount}} in {{turns}} Turns, getrennt von der Änderung gezählt",
+    "costUnknown": "Baseline-Kosten vom Anbieter nicht gemeldet",
+    "caveat": "Charakterisierungstests beschreiben das heutige Verhalten; Core hat sie vor jeder Änderung am unveränderten Code ausgeführt."
+  },
+  "humanEyes": {
+    "title_one": "Menschliche Prüfung nötig: {{count}} Projektregel",
+    "title_other": "Menschliche Prüfung nötig: {{count}} Projektregeln",
+    "caveat": "Für dieses Projekt geschriebene Regeln, die keine automatische Prüfung durchsetzen kann. Prüfe sie selbst, bevor du annimmst."
   }
 }

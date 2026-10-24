@@ -82,7 +82,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
             type="button"
             onClick={session.surpriseMe}
             disabled={!builderAvailable || session.busy || !session.conversationReady}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-3 py-1 text-[11px] text-accent-highlight transition-colors hover:bg-accent-highlight/20 disabled:opacity-40"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-3 py-1 text-caption text-accent-highlight transition-colors hover:bg-accent-highlight/20 disabled:opacity-40"
             data-testid="surprise-me"
           >
             <Sparkles className="h-3 w-3" />
@@ -125,7 +125,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           onClick={sendInput}
           disabled={!builderAvailable || session.busy || !session.draft.trim() || !session.conversationReady}
           aria-label={tAgent('send')}
-          className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
+          className="rounded-control bg-primary p-1.5 text-primary-foreground transition-opacity disabled:opacity-40"
           data-testid="builder-send"
         >
           <SendHorizontal className="h-4 w-4" />

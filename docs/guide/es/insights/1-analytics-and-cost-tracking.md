@@ -78,3 +78,11 @@ Las exportaciones respetan los filtros de periodo y superficie que tengas aplica
 ## Siempre al día
 
 No necesitas refrescar. Cuando se registra una nueva invocación en cualquier parte del proyecto, el panel abierto se vuelve a cargar discretamente un instante después, de modo que el medidor de consumo va al ritmo del trabajo a medida que termina.
+
+## Presupuestos diarios {#daily-budget}
+
+Define un presupuesto diario para limitar lo que puede costar un día. El presupuesto de toda la app está en **Ajustes → Avanzado**; el de cada proyecto, en **Ajustes del proyecto → Presupuesto**.
+
+Cuando el gasto registrado del día alcanza un presupuesto, la cola se pausa sola, los rails y las ejecuciones de loops se niegan a lanzarse con *Presupuesto diario alcanzado*, y una ejecución de loop en curso se detiene entre pasos, en pausa por el presupuesto. Sube o quita el presupuesto, o espera al reinicio diario, y luego reanuda.
+
+El presupuesto del proyecto cuenta tu día local; el de toda la app cuenta el día UTC. La alerta de coste por trabajo es un ajuste aparte.

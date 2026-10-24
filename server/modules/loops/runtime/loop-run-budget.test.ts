@@ -179,6 +179,106 @@ describe('Core definitions: budget gate before re-invoking with a human decision
     expect(runDefinition.mock.calls[1][0]).toMatchObject({ resume: true, answer: 'Answer', interruptId: 'q1' })
   })
 
+  // Core cooperative pause (`pauseRuns`): a budget crossed by a role's spend
+  // pauses the RUNNING invocation; Core exits 2 with state.pause and no interrupt.
+  const at = '2026-10-21T12:00:00.000Z'
+  const spend = (sequence: number, costUsd: number) => ({ type: 'runtime-efficiency-event', eventId: `d1:${sequence}`, runId: 'd1', sequence, timestamp: at, kind: 'role-context', attemptId: 'attempt-a', nodePath: 'a',
+    payload: { invocationId: `physical-${sequence}`, provider: 'claude', model: 'sonnet', status: 'succeeded', startedAt: at, finishedAt: '2026-10-21T12:00:01.000Z', durationMs: 1000, usage: { inputTokens: 5, outputTokens: 2, costUsd } } })
+  const prepared = { contextPath: '/frozen/context.json', runtimeDirectory: '/frozen', configPath: '/frozen/config.json', definitionPath: '/frozen/definition.json', definitionHash: 'a'.repeat(64), definition: {}, context: {} }
+  const budgetPaused: DefinitionRuntimeResult = { text: '', runtimeStatus: 'paused', pendingInterrupts: [], pause: { requestId: 'desktop-budget-pause:d1:1', reason: 'budget', at } }
+
+  function midRunCore(opts: { pauseUnsupported?: boolean; onPause?: () => void } = {}) {
+    let releasePause!: () => void
+    const pauseRequested = new Promise<void>(resolve => { releasePause = resolve })
+    const pauseDefinition = vi.fn(async (_input: { runId: string; contextPath: string; requestId: string; reason: string }) => {
+      if (opts.pauseUnsupported) throw new Error('engine_unsupported: Retained Core does not support cooperative pause')
+      opts.onPause?.()
+      releasePause()
+      return { outcome: 'requested' }
+    })
+    const runDefinition = vi.fn(async (input: Parameters<NonNullable<LoopExecutors['runDefinition']>>[0]) => {
+      if (input.resume) return succeeded
+      input.onPrepared?.(prepared)
+      input.onRuntimeEvent(spend(1, 3))
+      if (opts.pauseUnsupported) return succeeded
+      await pauseRequested // Core finishes its current step, then honours the pause.
+      return budgetPaused
+    })
+    return { runDefinition, pauseDefinition }
+  }
+
+  it('pauses a RUNNING Core run with reason budget, parks budget_paused, and resumes Core once the budget allows it', async () => {
+    let current: LoopBudgetBreach | null = null
+    const { runDefinition, pauseDefinition } = midRunCore()
+    const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    current = breach()
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => current })
+    const running = m.run(definitionRequest())
+    await vi.waitFor(() => expect(m.budgetPause('d1')).not.toBeNull())
+    expect(pauseDefinition).toHaveBeenCalledTimes(1)
+    expect(pauseDefinition.mock.calls[0][0]).toEqual({ runId: 'd1', contextPath: '/frozen/context.json', requestId: 'desktop-budget-pause:d1:1', reason: 'budget' })
+    expect(getLoopRun(db, 'd1')).toMatchObject({ status: 'paused', restart_reason: 'budget_paused' })
+    expect(broadcasts.some(msg => msg.type === 'loop.run_paused' && (msg as { pauseKind?: string }).pauseKind === 'budget_paused')).toBe(true)
+    expect(m.resumeBudgetPause('d1')).toMatchObject({ status: 'over_budget' })
+    current = null
+    expect(m.resumeBudgetPause('d1')).toEqual({ status: 'resumed' })
+    expect((await running).outcome).toBe('success')
+    expect(runDefinition).toHaveBeenCalledTimes(2)
+    expect(runDefinition.mock.calls[1][0]).toMatchObject({ resume: true })
+    expect(runDefinition.mock.calls[1][0].answer).toBeUndefined()
+  })
+
+  it('resumes Core at once when the budget was raised before Core honoured the pause', async () => {
+    let current: LoopBudgetBreach | null = breach()
+    const { runDefinition, pauseDefinition } = midRunCore({ onPause: () => { current = null } })
+    const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => current })
+    expect((await m.run(definitionRequest())).outcome).toBe('success')
+    expect(pauseDefinition).toHaveBeenCalledTimes(1)
+    expect(runDefinition).toHaveBeenCalledTimes(2)
+    expect(broadcasts.some(msg => msg.type === 'loop.run_paused')).toBe(false)
+  })
+
+  it('settles stopped when the run is cancelled while paused mid-run on the budget', async () => {
+    const { runDefinition, pauseDefinition } = midRunCore()
+    const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => breach() })
+    const running = m.run(definitionRequest())
+    await vi.waitFor(() => expect(m.budgetPause('d1')).not.toBeNull())
+    m.cancel('d1')
+    expect((await running).outcome).toBe('stopped')
+    expect(runDefinition).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the between-invocation guard when the retained Core lacks pauseRuns', async () => {
+    const { runDefinition, pauseDefinition } = midRunCore({ pauseUnsupported: true })
+    const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => breach() })
+    expect((await m.run(definitionRequest())).outcome).toBe('success')
+    expect(pauseDefinition).toHaveBeenCalledTimes(1)
+    expect(getJobEvents(db, 'd1').some(event => event.payload.includes('cannot pause mid-run'))).toBe(true)
+  })
+
+  it('never requests a pause while the budget allows the spend', async () => {
+    const { runDefinition, pauseDefinition } = midRunCore({ pauseUnsupported: true })
+    const ex: LoopExecutors = { runDefinition, pauseDefinition, runAiStep: vi.fn(), runShell: vi.fn(), runDecider: vi.fn() }
+    const m = new LoopRunManager(db, (msg) => broadcasts.push(msg), ex, () => 1000, { dailyBudget: () => null })
+    expect((await m.run(definitionRequest())).outcome).toBe('success')
+    expect(pauseDefinition).not.toHaveBeenCalled()
+  })
+
+  it('runDefinitionLoop resumes a host budget pause without an answer, and refuses an unhandled pause', async () => {
+    const invoke = vi.fn(async (input: { resume?: boolean }) => input.resume ? succeeded : budgetPaused)
+    const ports = { invoke, isCancelled: () => false, remainingMs: () => undefined, onLine: () => {}, onRuntimeEvent: () => {}, onSpawn: () => {},
+      onInvocationEnd: () => {}, awaitHumanDecision: async () => ({ action: 'stop' as const }) }
+    const awaitHostPause = vi.fn(async () => 'continue' as const)
+    expect((await runDefinitionLoop(definitionRequest(), 'd1', { ...ports, awaitHostPause })).runtimeStatus).toBe('succeeded')
+    expect(awaitHostPause).toHaveBeenCalledWith(budgetPaused.pause)
+    expect(invoke.mock.calls[1][0]).toMatchObject({ resume: true })
+    expect((await runDefinitionLoop(definitionRequest(), 'd1', { ...ports, awaitHostPause: async () => 'stop' })).runtimeStatus).toBe('cancelled')
+    await expect(runDefinitionLoop(definitionRequest(), 'd1', ports)).rejects.toThrow('without an addressable interrupt')
+  })
+
   it('runDefinitionLoop settles cancelled when the host gate stops before the continuation', async () => {
     const invoke = vi.fn(async () => paused)
     const result = await runDefinitionLoop(definitionRequest(), 'd1', {

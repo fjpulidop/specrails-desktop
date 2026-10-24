@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interattivo",
     "backAriaLabel": "Indietro (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interattivo",
-    "editingEyebrow": "MODIFICA SPEC · #{{id}}",
     "newSpecPlaceholder": "Nuova spec…",
     "contextPill": "Contesto: {{scopes}}",
     "contextPillTitle": "Ambito di contesto attivo per questa sessione Explore",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "Criterio di accettazione {{number}}",
     "removeCriterionAriaLabel": "Rimuovi criterio {{number}}",
     "addCriterion": "Aggiungi criterio",
-    "addCriterionAriaLabel": "Aggiungi criterio di accettazione"
+    "addCriterionAriaLabel": "Aggiungi criterio di accettazione",
+    "nonGoalsLabel": "Fuori ambito",
+    "nonGoalPlaceholder": "Qualcosa che questa spec lascia fuori",
+    "nonGoalAriaLabel": "Elemento fuori ambito {{number}}",
+    "removeNonGoalAriaLabel": "Rimuovi l'elemento fuori ambito {{number}}",
+    "addNonGoalAriaLabel": "Aggiungi un elemento fuori ambito",
+    "addNonGoal": "Aggiungi elemento"
   },
   "priority": {
     "low": "bassa",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Rivedi le modifiche",
-    "eyebrow": "Rivedi le modifiche · explore-spec",
     "heading": "Conferma prima del commit",
     "titleLabel": "Titolo",
     "priorityLabel": "Priorità",

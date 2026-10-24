@@ -30,7 +30,9 @@
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from '../../specs/runtime/spec-addenda-core'
 import type { DbInstance } from '../../../db'
-import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryDerivation, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
+import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryDerivation, type DeliveryHumanRule, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
+import { buildBaselineSection, buildRequirementsDemonstrated, type DeliveryBaseline, type PacketRequirementsDemonstrated } from './run-records'
+export type { PacketRequirementsDemonstrated } from './run-records'
 import { FLOW_SPEC_LOOP_ID } from '../../loops/runtime/loop-factory'
 import {
   getPrDelivery,
@@ -189,7 +191,18 @@ export interface ReviewPacket {
   derivation: PacketDerivation | null
   /** Flow deliveries only: settlement effects (spec rewrite, Jira); null otherwise. */
   flowSettlement: PacketFlowSettlement | null
+  /** "Requirements demonstrated X/Y" (Core `specTrace: 1`); null when no unit
+   *  carries a spec trace. App-verified: Core crossed test tags with receipts. */
+  requirementsDemonstrated: PacketRequirementsDemonstrated | null
+  /** "Spec created where the work passed" (Core `baselineOnTouch: 1`): one entry
+   *  per unit whose run planned a baseline; null when none did. */
+  baseline: PacketBaseline[] | null
+  /** "Needs human eyes": the project's human-only rules frozen at settle
+   *  (Core `rulesInventory: 1`); null without an inventory. */
+  needsHumanEyes: DeliveryHumanRule[] | null
 }
+
+export type PacketBaseline = DeliveryBaseline & { ticketId: number }
 
 export interface PacketAgentActions {
   counts: AgentActionCounts
@@ -627,6 +640,9 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     agentActions: agentActionsForRuns(db, runIds),
     derivation: packetDerivation(row, evidence),
     flowSettlement,
+    requirementsDemonstrated: buildRequirementsDemonstrated(evidence?.units ?? []),
+    baseline: buildBaselineSection(evidence?.units ?? []),
+    needsHumanEyes: evidence?.humanRules?.length ? evidence.humanRules : null,
   }
 }
 

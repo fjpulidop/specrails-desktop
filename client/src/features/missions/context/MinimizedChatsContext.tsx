@@ -52,6 +52,8 @@ export interface ExploreSpecParams {
     priority: 'low' | 'medium' | 'high' | 'critical' | null
     acceptanceCriteria: string[]
     repositoryIds?: string[]
+    /** The ticket's non-goals ("Out of scope"); seeded so an in-place edit keeps them. */
+    nonGoals?: string[]
     /** Current ticket status. `'draft'` makes the shell PUBLISH on commit
      *  (flip draft → real spec) instead of PATCHing in place. Optional for
      *  backward-compat; absent ⇒ treated as a real-spec edit. */

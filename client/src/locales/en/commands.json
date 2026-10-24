@@ -10,7 +10,10 @@
       "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "recentActions": "Recent actions",
+      "recentPlaces": "Recent places"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,10 +34,75 @@
     "footer": {
       "navigate": "navigate",
       "select": "select",
-      "close": "close"
+      "close": "close",
+      "actions": "actions",
+      "back": "back"
     },
     "missions": {
       "home": "Home"
+    },
+    "dialogTitle": "Search missions, projects and jobs",
+    "dialogDescription": "Type to filter, then press Enter to open the highlighted result.",
+    "actions": {
+      "verbs": "new,create,add,launch,run,move,open,switch,change,toggle,go,hand,pause,resume,undo,show,start,restore",
+      "back": "Back",
+      "newSpec": "New spec",
+      "newSpecExplore": "New spec (Explore)",
+      "launchSpec": "Launch spec on rail",
+      "launchSpecN": "Launch #{{id}} on rail",
+      "moveSpec": "Move spec to",
+      "moveSpecN": "Move #{{id}} to",
+      "openReview": "Open review",
+      "openReviewN": "Open review for #{{id}}",
+      "handOffFlow": "Hand off Flow",
+      "pauseFlow": "Pause Flow",
+      "resumeFlow": "Resume Flow",
+      "newMission": "New mission",
+      "switchTheme": "Switch theme",
+      "switchToMission": "Switch to Mission mode",
+      "switchToBoard": "Switch to Board mode",
+      "openAppSettings": "Open app settings",
+      "openProjectSettings": "Open project settings",
+      "switchProject": "Switch project",
+      "runLoop": "Run loop",
+      "toggleLeftSidebar": "Toggle left sidebar",
+      "toggleRightSidebar": "Toggle right sidebar",
+      "goBack": "Go back",
+      "goForward": "Go forward",
+      "undoLast": "Undo: {{label}}",
+      "recentlyDeleted": "Recently deleted",
+      "pages": {
+        "railTitle": "Rail for #{{id}}",
+        "railPlaceholder": "Pick a rail...",
+        "railRunning": "running",
+        "railHasSpec": "already here",
+        "noRails": "No rails available.",
+        "statusTitle": "Move #{{id}} to",
+        "statusPlaceholder": "Pick a status...",
+        "noStatuses": "No statuses available.",
+        "current": "current",
+        "specTitle": "Pick a spec",
+        "specPlaceholder": "Search specs...",
+        "noSpecs": "No matching specs.",
+        "themeTitle": "Theme",
+        "themePlaceholder": "Pick a theme...",
+        "noThemes": "No themes available.",
+        "appSettingsTitle": "App settings",
+        "projectSettingsTitle": "Project settings",
+        "sectionPlaceholder": "Pick a section...",
+        "noSections": "No sections.",
+        "projectTitle": "Projects",
+        "projectPlaceholder": "Pick a project...",
+        "noProjects": "No other projects.",
+        "loopTitle": "Loops you can run now",
+        "loopPlaceholder": "Pick a loop...",
+        "noLoops": "No loops can run without a spec.",
+        "loading": "Loading...",
+        "loadFailed": "Could not load the options."
+      },
+      "openInbox": "Open inbox",
+      "openInboxCount": "Open inbox ({{count}} waiting)",
+      "opensOptions": "opens options"
     }
   },
   "toasts": {
@@ -73,7 +141,8 @@
     "categories": {
       "general": "General",
       "navigation": "Navigation",
-      "actions": "Actions"
+      "actions": "Actions",
+      "missions": "Missions"
     },
     "items": {
       "showCheatsheet": "Show keyboard shortcuts",
@@ -90,8 +159,23 @@
       "goAnalytics": "Go to Analytics",
       "goSettings": "Go to Settings",
       "nextItem": "Next item in list",
-      "prevItem": "Previous item in list"
-    }
+      "prevItem": "Previous item in list",
+      "runStripFocus": "Jump to the mission's run strip (press again to show or hide details)",
+      "runStripCycle": "Previous / next run in the run strip (outside text fields)",
+      "runStripBack": "Leave the run strip, back to where you were",
+      "flowPause": "Pause or resume the Flow (run strip focused)",
+      "flowHandOff": "Hand off the Flow (run strip focused)",
+      "historyBackForward": "Go back / forward to the previous place",
+      "undoLast": "Undo the last change",
+      "openInbox": "Open the Needs you inbox"
+    },
+    "searchLabel": "Search shortcuts and guides",
+    "searchPlaceholder": "Search shortcuts and guides…",
+    "noShortcuts": "No shortcut matches “{{query}}”.",
+    "guidesHeading": "From the guide",
+    "openGuide": "Open guide: {{title}}",
+    "noGuides": "No guide matches “{{query}}”.",
+    "searching": "Searching the guide…"
   },
   "update": {
     "title": {

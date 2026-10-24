@@ -61,7 +61,7 @@ export function ReviewerFamilySuggestion({ value, onChange }: { value: LoopAgent
   return <div role="note" aria-label={t('reviewerSuggestion.label')} data-testid="reviewer-family-suggestion" className="flex items-start gap-3 rounded-md border border-accent-info/30 bg-accent-info/10 p-3">
     <Shuffle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent-info" />
     <div className="min-w-0 flex-1 space-y-2">
-      <p className="text-xs font-medium text-foreground">{t('reviewerSuggestion.title', { provider: name })}</p>
+      <p className="text-label text-foreground">{t('reviewerSuggestion.title', { provider: name })}</p>
       <p className="text-xs text-muted-foreground">{t('reviewerSuggestion.body')}</p>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={apply}>{t('reviewerSuggestion.apply', { provider: name })}</Button>

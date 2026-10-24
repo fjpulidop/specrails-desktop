@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTickets, type LocalTicket } from '../useTickets'
+import { purgeProjectCache } from '../../../../hooks/useProjectCache'
 
 // ─── Mock useSharedWebSocket ───────────────────────────────────────────────────
 
@@ -63,6 +64,8 @@ function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {
 describe('useTickets', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    purgeProjectCache('proj-1')
+    purgeProjectCache('proj-2')
     wsHandler = null
     mockActiveProjectId = 'proj-1'
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -72,6 +75,25 @@ describe('useTickets', () => {
   })
 
   // ── Initial state ──────────────────────────────────────────────────────────
+
+  describe('project cache', () => {
+    it('returns cached tickets immediately on remount, then revalidates', async () => {
+      const ticket = makeTicket({ id: 7 })
+      const fetchMock = vi.mocked(global.fetch)
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ tickets: [ticket] }) } as Response)
+      const first = renderHook(() => useTickets())
+      await waitFor(() => expect(first.result.current.tickets).toEqual([ticket]))
+      first.unmount()
+
+      const updated = makeTicket({ id: 7, title: 'Fresh' })
+      fetchMock.mockClear()
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ tickets: [updated] }) } as Response)
+      const second = renderHook(() => useTickets())
+      expect(second.result.current.tickets).toEqual([ticket])
+      await waitFor(() => expect(second.result.current.tickets).toEqual([updated]))
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/tickets'), expect.objectContaining({ cache: 'no-store' }))
+    })
+  })
 
   describe('initial state', () => {
     it('reloads only the active project when its database recovers after an unavailable read', async () => {

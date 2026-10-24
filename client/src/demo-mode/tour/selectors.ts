@@ -7,7 +7,7 @@
  */
 
 export const TOUR_SELECTORS = {
-  /** The "+ Add" button inside the Specs column header that opens the Propose Spec modal. */
+  /** The "New spec" button inside the Specs toolbar that opens the Propose Spec modal. */
   addSpecButton: '[data-tour="add-spec-btn"]',
   /** Textarea inside the Propose Spec modal where the spec description is typed. */
   proposeSpecTextarea: '[data-tour="propose-spec-textarea"]',

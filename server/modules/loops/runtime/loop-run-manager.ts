@@ -77,6 +77,7 @@ import {
 } from './loop-runs-store'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from '../../../provider-limit'
+import { deriveFailureDiagnosis, isDiagnosableOutcome, serializeDiagnosis } from '../../recovery'
 import { newId } from '../../../ids'
 import { getAdapter, requireToolPolicy } from '../../../providers'
 import { parseProgrammaticUsage } from '../../agent-runtime/runtime/agent-runtime-accounting'
@@ -86,11 +87,14 @@ import { claimRailTickets, claimTicketOutcomeOwners } from '../../delivery/runti
 import { parseVerificationSentinel } from '../../execution/runtime/verification-sentinel'
 
 export interface AiStepResult {
+  /** Core's structured `failure` record (contract 5.8+), raw; validated by the recovery module. */
+  failure?: unknown
   runtimeStatus?: DefinitionRuntimeResult['runtimeStatus']
   completion?: DefinitionCompletion
   pendingInterrupts?: DefinitionInterrupt[]
   pendingQuestion?: DefinitionRuntimeResult['pendingQuestion']
   pendingApproval?: DefinitionRuntimeResult['pendingApproval']
+  pause?: DefinitionRuntimeResult['pause']
   graph?: Record<string, unknown>
   text: string
   sessionId?: string
@@ -226,6 +230,10 @@ export interface LoopExecutors {
   assertLegacyEngineSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
   cancelDefinition?(input: { runId: string; contextPath: string; requestId: string }): Promise<void>
+  /** Cooperative Core pause of a RUNNING definition run (`runtime pause`): the
+   *  current step finishes, then Core exits 2 with `state.pause`. Rejects with
+   *  `engine_unsupported` when the retained Core lacks `pauseRuns`. */
+  pauseDefinition?(input: { runId: string; contextPath: string; requestId: string; reason: string }): Promise<{ outcome: string }>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     runtimeProviderOverride?: RuntimeProviderOverride
@@ -333,8 +341,9 @@ export interface LoopRunRequest {
   addenda?: { ids: string[]; briefing: string }
   /** Flow -> Spec (Flow mode): the Flow reservation commit Core measures the
    *  change from (`repositories[].baseSha`) and the bounded conversation
-   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`. */
-  flowDerivation?: { baseSha: string | null; summary: string }
+   *  summary written to `.specrails/pipeline/<runId>/flow-summary.md`.
+   *  `changeId`: the change this Flow's earlier run derived, re-derived in place. */
+  flowDerivation?: { baseSha: string | null; summary: string; changeId?: string | null }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
@@ -959,6 +968,10 @@ export class LoopRunManager {
       dailyBudget?: () => LoopBudgetBreach | null
       /** Agent actions audit sink bound to this project (observing only). */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
+      /** Observer after each Core workflow invocation ends (paused included);
+       *  the composition reads Core's run records (architect clarifications).
+       *  Advisory: a throw never affects the run. */
+      onDefinitionInvocationEnd?: (runId: string, ticketIds: readonly number[], runtimeStatus: string) => void
     } = {},
   ) {}
 
@@ -1427,6 +1440,7 @@ export class LoopRunManager {
       idleMs?: number
     }): void => {
       if (!openStep) return
+      if (input.status === 'failed') failedStepId = openStep.nodeId
       const payload: LoopStepEndEventPayload = {
         index: openStep.index,
         nodeId: openStep.nodeId,
@@ -1524,6 +1538,10 @@ export class LoopRunManager {
     let outcome: LoopRunOutcome = 'failed'
     let stallReason: LoopStallReason | undefined
     let providerLimitHit: ProviderLimit | undefined
+    // Failure diagnosis inputs (recovery module): the last failing step, its error text, Core's own record.
+    let failedStepId: string | undefined
+    let failureText: string | undefined
+    let coreFailure: unknown
     let iteration = 0
     let totalCost = 0
     let totalTokens = 0
@@ -1892,9 +1910,39 @@ export class LoopRunManager {
 
       if (definitionEngine) {
         settled = true
+        // rail-loop-budget-guard (mid-run): Core schedules every step inside one
+        // invocation, so a budget crossed by a role's spend is enforced with
+        // Core's cooperative pause (`pauseRuns`): the current step finishes, Core
+        // records `paused` (reason `budget`) and exits 2, and the run parks on
+        // the same resumable `budget_paused` pause. One request per invocation;
+        // a Core without the capability keeps the between-invocation guard.
+        let budgetPauseRequested = false, budgetPauseUnsupported = false, budgetPauseEpisode = 0, budgetCheckedCost = totalCost
+        const requestBudgetPause = (): void => {
+          if (budgetPauseRequested || budgetPauseUnsupported || !this.executors.pauseDefinition || this._cancelled.has(runId) || this._disposed) return
+          const breach = this._dailyBudgetBreach()
+          const contextPath = breach ? readDefinitionRun(this.db, runId)?.metadata.contextPath : undefined
+          if (!breach || !contextPath) return
+          budgetPauseRequested = true
+          const requestId = `desktop-budget-pause:${runId}:${++budgetPauseEpisode}`
+          logLine(`\n■ Daily budget reached mid-run — ${breach.detail} Pausing the workflow after its current step.`, 'stderr')
+          void this.executors.pauseDefinition({ runId, contextPath, requestId, reason: 'budget' }).catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : String(error)
+            if (message.startsWith('engine_unsupported')) {
+              budgetPauseUnsupported = true
+              logLine(`\n■ This run's Core cannot pause mid-run; the daily budget applies before its next continuation.`, 'stderr')
+            } else {
+              budgetPauseRequested = false
+              console.error(`[loop-run] budget pause request failed for ${runId}: ${message}`)
+            }
+          })
+        }
         const projectEvent = createDefinitionEventProjection({ db: this.db, runId, projectId: req.projectId, ticketIds: exactTicketIds, nextSequence: takeSeq,
           broadcast: event => this._emit({ type: 'event', jobId: runId, event_type: event.eventType, source: 'stdout', payload: event.payload, seq: event.seq, timestamp: event.timestamp }),
-          onProgress: (count, usage) => { stepNum = count; totalCost = usage.cost; totalTokens = usage.tokensIn + usage.tokensOut; totalDuration = usage.duration; costUncertain = usage.costUnknown; usageTelemetryAvailable = usage.present },
+          onProgress: (count, usage) => {
+            stepNum = count; totalCost = usage.cost; totalTokens = usage.tokensIn + usage.tokensOut; totalDuration = usage.duration; costUncertain = usage.costUnknown; usageTelemetryAvailable = usage.present
+            // Only new recorded spend can cross the budget: check on a cost change.
+            if (totalCost > budgetCheckedCost) { budgetCheckedCost = totalCost; requestBudgetPause() }
+          },
         })
         let activeDurationMs = continuation ? getLoopRun(this.db,runId)?.total_duration_ms ?? 0 : 0
         const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(this.db,runId)?.metadata.contextPath,
@@ -1905,15 +1953,29 @@ export class LoopRunManager {
             this._activeChild.set(runId, child)
             if (this._cancelled.has(runId)) this.cancelResident(runId, false)
           },
-          onInvocationEnd: result => { this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
+          onInvocationEnd: result => {
+            this._activeChild.delete(runId); budgetPauseRequested = false; if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs }
+            try { this.options.onDefinitionInvocationEnd?.(runId, exactTicketIds, result.runtimeStatus) } catch { /* advisory observer */ }
+          }, awaitHumanDecision,
           // Core schedules every step inside one invocation; the only boundary
           // Desktop owns is the re-invocation after a human decision.
           beforeContinuation: async () => {
             const breach = this._dailyBudgetBreach()
             return breach ? awaitBudget(breach) : 'continue'
           },
+          // Core exited 2 on the budget pause requested above. A budget raised
+          // meanwhile resumes at once; otherwise the run waits like any budget pause.
+          awaitHostPause: async pause => {
+            if (pause.reason !== 'budget') throw new Error(`Core paused (${pause.reason}) without an addressable interrupt`)
+            const breach = this._dailyBudgetBreach()
+            if (breach) return awaitBudget(breach)
+            logLine(`\n▶ The daily budget allows the next step — resuming the workflow.`)
+            return 'continue'
+          },
         })
         definitionCompletion = result.completion
+        coreFailure = result.failure
+        if (result.errorText) failureText = result.errorText
         if (result.durationMs !== undefined) totalDuration = result.durationMs
         if (result.errorText) logLine(result.errorText, 'stderr')
         outcome = result.runtimeStatus === 'succeeded' ? 'success' : result.runtimeStatus === 'cancelled' ? 'stopped' : result.runtimeStatus === 'blocked' ? 'blocked' : 'failed'
@@ -2188,6 +2250,7 @@ export class LoopRunManager {
             if (oneShotZeroWork) {
               logLine(`✖ Zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`, 'stderr')
             } else if (stepFailed && stepErrorText) {
+              failureText = stepErrorText
               // Executors can return a structured failure without streaming any
               // text (configuration rejection, missing CLI, provider startup).
               // Persist its reason before the step closes, including early stops.
@@ -2657,6 +2720,10 @@ export class LoopRunManager {
       },
       callbackOutcome: req.deferTerminalOutcome ? 'failed' : outcome,
       outcomeFinalized: !req.deferTerminalOutcome,
+      failureDiagnosis: isDiagnosableOutcome(outcome)
+        ? serializeDiagnosis(deriveFailureDiagnosis({ outcome, stallReason: stallReason ?? null, providerLimit: providerLimitHit ?? null, errorText: failureText ?? null, stepId: failedStepId ?? null, core: coreFailure, hostBlocker: definitionCompletion?.blocker ?? null,
+          blockedReason: definitionCompletion && !definitionCompletion.ok ? definitionCompletion.reasons.join('; ') : coreCompletion && outcome === 'blocked' ? `validation ${coreCompletion.completion.validation}, implementation ${coreCompletion.completion.implementation}` : null }))
+        : null,
     })
     this._emit({
       type: 'job.finalized',

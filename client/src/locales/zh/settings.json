@@ -76,7 +76,7 @@
       "subscriptionUsage": "订阅用量"
     },
     "title": "Desktop 设置",
-    "description": "管理已注册的项目并查看 Desktop 信息。",
+    "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
     "registeredProjects": "已注册项目",
     "noProjects": "尚未注册任何项目",
     "techUrlDescription": "specrails-tech API 的基础 URL（默认：http://localhost:3000）",
@@ -97,11 +97,19 @@
     "platformTour": "平台导览",
     "platformTourDescription": "重播欢迎向导，回顾核心功能。",
     "replayTour": "重播导览",
-    "terminalPanelHeading": "终端面板",
     "infoHeading": "Desktop 信息",
     "infoPort": "端口",
     "infoProjects": "项目",
-    "infoDb": "Desktop 数据库"
+    "infoDb": "Desktop 数据库",
+    "removeProjectConfirmTitle": "移除 {{name}}？",
+    "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。",
+    "navLabel": "设置分区",
+    "navGroups": {
+      "personal": "个人",
+      "agents": "智能体",
+      "system": "系统"
+    },
+    "unsavedChanges": "未保存的更改"
   },
   "notifications": {
     "heading": "系统通知",
@@ -120,8 +128,6 @@
     "eventJobCompleted": "任务完成",
     "eventJobFailed": "任务失败",
     "eventDailyBudgetExceeded": "超出每日预算",
-    "statusOn": "开",
-    "statusOff": "关",
     "disable": "禁用",
     "enable": "启用",
     "sendTestPing": "发送测试 ping",
@@ -136,7 +142,10 @@
     "removed": "Webhook 已移除",
     "removeFailed": "移除 Webhook 失败",
     "testPingSent": "测试 ping 已发送",
-    "testPingFailed": "发送测试 ping 失败"
+    "testPingFailed": "发送测试 ping 失败",
+    "removeConfirmTitle": "移除 Webhook？",
+    "removeConfirmBody": "{{url}} 将不再接收 Desktop 事件。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "终端面板",
@@ -170,7 +179,7 @@
     "taglines": {
       "dracula": "经典原版 — 紫色调暗色主题，霓虹色点缀鲜明",
       "aurora-light": "高级浅色 — 受 Linear 启发的靛蓝配暖白底色",
-      "obsidian-dark": "高级深色 — 近黑蓝调配电光色点缀",
+      "obsidian-dark": "石墨专业版 — 中性近黑底色，仅一抹柔和紫色点缀",
       "specrails": "品牌主题 — 深海军靛蓝配饱和青色点缀",
       "code-rain": "磷光终端 — 绿黑底色上的柔和薄荷绿",
       "galaxy": "深空蓝配上发光的光刃轨迹"
@@ -198,7 +207,8 @@
     "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 SpecRails 服务器——请选择“允许在专用网络上”。",
     "pairedDevices": "已配对设备",
     "noDevices": "尚无已配对设备。",
-    "revokeDevice": "吊销 {{name}}"
+    "revokeDevice": "吊销 {{name}}",
+    "resetConfirmTitle": "重置移动端身份？"
   },
   "pairWeb": {
     "title": "配对网页伴侣",
@@ -231,10 +241,7 @@
     "affectsAll": "适用于所有项目 — 无需重启。",
     "unavailable": "此版本不支持核心更新。",
     "toastDone": "Specrails Core 已更新到 {{version}}",
-    "toastError": "核心更新失败：{{message}}",
     "toastUpToDate": "Specrails Core 已是最新",
-    "toastCheckFailed": "检查更新失败：{{message}}",
-    "loadFailed": "无法刷新 Core 状态。重试",
     "runtime": "运行时：{{version}}",
     "bundled": "Desktop 内置：{{version}}",
     "sources": {
@@ -245,7 +252,10 @@
       "global": "外部 CLI"
     },
     "repair": "完成 {{version}} 更新",
-    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。"
+    "stableFallback": "specrails-core 尚无稳定版本，因此 Core 暂时跟随最新。",
+    "updateFailed": "Core 更新失败",
+    "checkFailed": "检查更新失败",
+    "loadError": "无法刷新 Core 状态。"
   },
   "updateChannel": {
     "heading": "更新通道",
@@ -277,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — 设置",
-    "description": "项目级配置：提示词、分支、环境、预算、遥测和终端。",
+    "description": "项目级配置：提示词、分支、环境、预算、遥测、规则和终端。",
     "nav": {
       "general": "常规",
       "branch": "分支",
@@ -286,8 +296,11 @@
       "telemetry": "遥测",
       "terminal": "终端",
       "agentRuntime": "验证命令",
-      "subagents": "子代理"
-    }
+      "subagents": "子代理",
+      "rules": "规则",
+      "recentlyDeleted": "最近删除"
+    },
+    "navLabel": "项目设置分区"
   },
   "integrationBranch": {
     "title": "集成分支",
@@ -439,5 +452,65 @@
     "saved_other": "评审上限已设为 {{count}}",
     "removed": "已移除评审上限",
     "saveFailed": "无法保存评审上限"
+  },
+  "anchoring": {
+    "title": "在现有项目中落地",
+    "description": "帮助运行尊重项目既有做法的可选行为。每一项都需要支持它的 Core。",
+    "coreRequired": "已安装的 Core 尚不支持此功能。请更新 Core 以启用。",
+    "saveFailed": "无法保存设置",
+    "jiraPostClarifications": {
+      "label": "将架构师的澄清问题发布到 Jira",
+      "description": "当运行因架构师的问题而暂停，或基于假设继续时，将其作为评论发布到关联的 Jira 工单。在那里的回复会作为澄清记录到规格上。",
+      "enabled": "澄清问题将发布到 Jira",
+      "disabled": "澄清问题将保留在 Specrails 中"
+    },
+    "baselineOnTouch": {
+      "label": "触及时建立基线",
+      "description": "当变更触及没有任何规格描述的代码时，先编写特征测试（在未修改的代码上证明）和一份最小的现状规格。会增加成本，并单独显示。",
+      "enabled": "已启用触及时建立基线",
+      "disabled": "已停用触及时建立基线"
+    }
+  },
+  "rules": {
+    "title": "项目规则",
+    "description": "项目已运行的检查，以及每条书面规则，分为已强制执行、可自动化或仅限人工。仅限人工的规则会出现在每个评审包中。",
+    "rerun": "重新盘点",
+    "running": "正在盘点…",
+    "coreRequired": "已安装的 Core 不支持规则盘点。请更新 Core 后再运行。",
+    "missing": "尚无盘点结果。运行它以列出项目的关卡和规则。",
+    "invalid": "无法读取规则文件：{{message}}",
+    "inventoryDone": "规则盘点已更新",
+    "inventoryFailed": "规则盘点失败",
+    "specCreated": "已创建规格 #{{id}}",
+    "specFailed": "无法创建规格",
+    "status": {
+      "automatable": "可自动化",
+      "humanOnly": "仅限人工",
+      "enforcedBy": "已强制执行",
+      "unclassified": "未分类"
+    },
+    "generatedAt": "生成于 {{date}}",
+    "gates_other": "{{count}} 个关卡",
+    "gatesHint": "未配置验证检查时，简单的关卡命令会在 Agent Runtime 设置中优先作为验证检查提供。",
+    "enforcedBy": "由 {{check}} 强制执行",
+    "proposedCheck": "建议的检查：{{check}}",
+    "createSpec": "创建规格",
+    "dropped_other": "{{count}} 个条目不符合格式，已跳过",
+    "classification": {
+      "offline": "规则是离线盘点的，尚未分类。请在配置提供方后重新盘点。",
+      "unavailable": "未配置用于分类规则的提供方。",
+      "failed": "规则分类失败。",
+      "empty": "未找到书面规则。",
+      "unknown": "规则尚未分类。"
+    },
+    "gates_one": "{{count}} 个关卡",
+    "dropped_one": "{{count}} 个条目不符合格式，已跳过",
+    "autoRunning": "正在设置后运行清单。完成后此列表会更新。",
+    "lastRun": {
+      "setupFailed": "设置后的自动清单失败（{{date}}）。",
+      "manualFailed": "上次清单运行失败（{{date}}）。",
+      "retryHint": "修复上面显示的原因，然后重新运行清单。",
+      "setupDone": "已在设置后自动生成清单。"
+    }
   }
 }

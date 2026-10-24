@@ -323,3 +323,49 @@ describe('AgentGitBar', () => {
     expect(screen.getByText('No branches match')).toBeInTheDocument()
   })
 })
+
+describe('AgentGitBar keyboard and state cues', () => {
+  it('walks the branch list with the arrows, checks out the first match on Enter and closes on Esc', async () => {
+    mockFetchSequence([
+      () => ({ body: INFO }),
+      (url, init) => {
+        expect(url).toContain('/checkout')
+        expect(JSON.parse(String(init?.body))).toEqual({ branch: 'feature' })
+        return { body: { ...INFO, branch: 'feature' } }
+      },
+    ])
+    render(<AgentGitBar projectId="p1" />)
+    const trigger = await openDropdown()
+    expect(trigger).toHaveAttribute('aria-haspopup', 'listbox')
+    const search = screen.getByRole('textbox', { name: 'Search branches…' })
+    const options = screen.getAllByRole('option')
+    fireEvent.keyDown(search, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(options[0])
+    fireEvent.keyDown(options[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(options[1])
+    fireEvent.keyDown(options[1], { key: 'End' })
+    expect(document.activeElement).toBe(options[options.length - 1])
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' })
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(search)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(document.activeElement).toBe(trigger)
+    await waitFor(() => expect(screen.queryByRole('listbox', { name: 'Branch' })).toBeNull())
+
+    await openDropdown()
+    const again = screen.getByRole('textbox', { name: 'Search branches…' })
+    fireEvent.change(again, { target: { value: 'feat' } })
+    fireEvent.keyDown(again, { key: 'Enter' })
+    await waitFor(() => expect(trigger).toHaveTextContent('feature'))
+  })
+
+  it('marks a dirty tree with an announced dot and a visible asterisk (not colour alone)', async () => {
+    mockFetchSequence([() => ({ body: { ...INFO, dirty: true } })])
+    render(<AgentGitBar projectId="p1" />)
+    const trigger = await screen.findByRole('button', { name: 'Branch' })
+    expect(trigger).toHaveTextContent('main*')
+    expect(screen.getByRole('img', { name: 'Uncommitted changes' })).toBeInTheDocument()
+  })
+})

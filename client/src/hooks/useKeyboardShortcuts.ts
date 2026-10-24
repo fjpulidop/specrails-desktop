@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FEATURE_AGENTS_SECTION, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
+import { isMacKeyboard } from '../lib/keyboard-label'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -8,7 +9,9 @@ export interface Shortcut {
   keys: string          // Display string, e.g. "G P" or "?"
   /** i18n key in the `commands` namespace — translated at render time by the cheatsheet. */
   descriptionKey: string
-  category: 'navigation' | 'actions' | 'general'
+  category: 'navigation' | 'actions' | 'general' | 'missions'
+  /** Only listed on this keyboard family (⌘ shortcuts differ on Windows/Linux). */
+  platform?: 'mac' | 'other'
 }
 
 // All registered shortcuts for the cheatsheet
@@ -16,8 +19,8 @@ export const SHORTCUTS: Shortcut[] = [
   // General
   { keys: '?', descriptionKey: 'shortcuts.items.showCheatsheet', category: 'general' },
   { keys: 'Esc', descriptionKey: 'shortcuts.items.closeModal', category: 'general' },
-  { keys: '⌘B', descriptionKey: 'shortcuts.items.toggleRightSidebar', category: 'general' },
-  { keys: '⌥⌘B', descriptionKey: 'shortcuts.items.toggleLeftSidebar', category: 'general' },
+  { keys: '⌘B', descriptionKey: 'shortcuts.items.toggleLeftSidebar', category: 'general' },
+  { keys: '⌥⌘B', descriptionKey: 'shortcuts.items.toggleRightSidebar', category: 'general' },
   { keys: '⌘J', descriptionKey: 'shortcuts.items.toggleTerminal', category: 'general' },
   ...(FEATURE_AGENT_CHAT
     ? [{ keys: '⌘⇧A', descriptionKey: 'shortcuts.items.toggleAgent', category: 'general' as const }]
@@ -29,7 +32,13 @@ export const SHORTCUTS: Shortcut[] = [
       : 'shortcuts.items.navigateProjectPage',
     category: 'general',
   },
+  { keys: '⌘⇧I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'mac' },
+  // Ctrl+Shift+I opens DevTools in WebView2 / Chromium, so Windows and Linux use Ctrl+Alt+I.
+  { keys: 'Ctrl+Alt+I', descriptionKey: 'shortcuts.items.openInbox', category: 'general', platform: 'other' },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
+  { keys: '⌘Z', descriptionKey: 'shortcuts.items.undoLast', category: 'general' },
+  { keys: '⌘[ ⌘]', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general' },
+  { keys: 'Alt+← Alt+→', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general', platform: 'other' },
 
   // Navigation
   { keys: 'G D', descriptionKey: 'shortcuts.items.goDashboard', category: 'navigation' },
@@ -40,6 +49,17 @@ export const SHORTCUTS: Shortcut[] = [
   // Actions (contextual)
   { keys: 'J', descriptionKey: 'shortcuts.items.nextItem', category: 'actions' },
   { keys: 'K', descriptionKey: 'shortcuts.items.prevItem', category: 'actions' },
+
+  // Missions: the run strip of the mission you are in (missions/components/run-strip-keys.ts)
+  ...(FEATURE_AGENT_CHAT
+    ? ([
+      { keys: '⌥R', descriptionKey: 'shortcuts.items.runStripFocus', category: 'missions' },
+      { keys: '⌥[ ⌥]', descriptionKey: 'shortcuts.items.runStripCycle', category: 'missions' },
+      { keys: 'Esc', descriptionKey: 'shortcuts.items.runStripBack', category: 'missions' },
+      { keys: 'P', descriptionKey: 'shortcuts.items.flowPause', category: 'missions' },
+      { keys: 'H', descriptionKey: 'shortcuts.items.flowHandOff', category: 'missions' },
+    ] satisfies Shortcut[])
+    : []),
 ]
 
 // ─── Input detection ─────────────────────────────────────────────────────────
@@ -51,6 +71,36 @@ function isEditableTarget(e: KeyboardEvent): boolean {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
   if (el.isContentEditable) return true
   return false
+}
+
+/** Monaco / CodeMirror style code editors: ⌘[ means outdent there. */
+function isInsideCodeEditor(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null
+  if (!el || typeof (el as { closest?: unknown }).closest !== 'function') return false
+  return !!el.closest('.monaco-editor, .cm-editor, [data-code-editor]')
+}
+
+/**
+ * Back / Forward: ⌘[ / ⌘] on macOS; Ctrl+[ / Ctrl+] or Alt+← / Alt+→ on
+ * Windows and Linux. Returns the direction, or null for any other chord.
+ */
+export function historyDirection(e: KeyboardEvent, mac = isMacKeyboard()): 'back' | 'forward' | null {
+  if (e.shiftKey) return null
+  if (mac) {
+    if (!e.metaKey || e.ctrlKey || e.altKey) return null
+    if (e.code === 'BracketLeft') return 'back'
+    if (e.code === 'BracketRight') return 'forward'
+    return null
+  }
+  if (e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (e.code === 'BracketLeft') return 'back'
+    if (e.code === 'BracketRight') return 'forward'
+  }
+  if (e.altKey && !e.ctrlKey && !e.metaKey) {
+    if (e.key === 'ArrowLeft') return 'back'
+    if (e.key === 'ArrowRight') return 'forward'
+  }
+  return null
 }
 
 function isInsideDialog(e: KeyboardEvent): boolean {
@@ -83,6 +133,11 @@ interface UseKeyboardShortcutsOptions {
   onToggleTerminalPanel?: () => void
   /** Toggle the global agent chat (Cmd+Shift+A / Ctrl+Shift+A) */
   onToggleAgentChat?: () => void
+  /** Toggle the "Needs you" inbox (Cmd+Shift+I on macOS, Ctrl+Alt+I elsewhere) */
+  onToggleInbox?: () => void
+  /** Back / Forward through places (⌘[ ⌘] · Ctrl+[ ⌘] · Alt+← Alt+→). */
+  onNavigateBack?: () => void
+  onNavigateForward?: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -94,6 +149,9 @@ export function useKeyboardShortcuts({
   onSwitchProjectPage,
   onToggleTerminalPanel,
   onToggleAgentChat,
+  onToggleInbox,
+  onNavigateBack,
+  onNavigateForward,
 }: UseKeyboardShortcutsOptions) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -117,6 +175,12 @@ export function useKeyboardShortcuts({
   onToggleTerminalPanelRef.current = onToggleTerminalPanel
   const onToggleAgentChatRef = useRef(onToggleAgentChat)
   onToggleAgentChatRef.current = onToggleAgentChat
+  const onToggleInboxRef = useRef(onToggleInbox)
+  onToggleInboxRef.current = onToggleInbox
+  const onNavigateBackRef = useRef(onNavigateBack)
+  onNavigateBackRef.current = onNavigateBack
+  const onNavigateForwardRef = useRef(onNavigateForward)
+  onNavigateForwardRef.current = onNavigateForward
   const locationRef = useRef(location)
   locationRef.current = location
 
@@ -141,22 +205,48 @@ export function useKeyboardShortcuts({
         return
       }
 
-      // Never intercept when typing in inputs or when an xterm has focus
-      if (isEditableTarget(e)) return
-      if (isInsideXterm(e)) return
-      if (isInsideDialog(e)) return
-
-      // ⌘B → toggle right sidebar  (e.code avoids Option layer chars like '∫')
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code === 'KeyB') {
+      // ⌘⇧I (macOS) / Ctrl+Alt+I (elsewhere: Ctrl+Shift+I is DevTools) → the "Needs you" inbox
+      // ("I" for Inbox). Opens from anywhere (even a text field); inside the inbox's own dialog Esc closes it instead.
+      const inboxChord = isMacKeyboard()
+        ? e.metaKey && !e.ctrlKey && e.shiftKey && !e.altKey
+        : e.ctrlKey && !e.metaKey && e.altKey && !e.shiftKey
+      if (inboxChord && e.code === 'KeyI') {
+        if (isInsideDialog(e) || !onToggleInboxRef.current) return
         e.preventDefault()
-        onToggleRightSidebarRef.current?.()
+        onToggleInboxRef.current()
         return
       }
 
-      // ⌥⌘B → toggle left sidebar
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyB') {
+      // Never intercept when typing in inputs or when an xterm has focus
+      if (isEditableTarget(e)) return
+      if (isInsideXterm(e)) return
+
+      // Back / Forward. Allowed inside a dialog (a modal opened as a place is
+      // closed by Back) but never while typing or in a code editor, where
+      // ⌘[ ⌘] outdent / indent and Alt+← ↦ moves by word.
+      const direction = historyDirection(e)
+      if (direction) {
+        if (isInsideCodeEditor(e)) return
+        const handler = direction === 'back' ? onNavigateBackRef.current : onNavigateForwardRef.current
+        if (!handler) return
+        e.preventDefault()
+        handler()
+        return
+      }
+
+      if (isInsideDialog(e)) return
+
+      // ⌘B → toggle LEFT sidebar, ⌥⌘B → toggle RIGHT sidebar (the VS Code /
+      // Cursor convention). e.code avoids Option-layer chars like '∫'.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code === 'KeyB') {
         e.preventDefault()
         onToggleLeftSidebarRef.current?.()
+        return
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyB') {
+        e.preventDefault()
+        onToggleRightSidebarRef.current?.()
         return
       }
 

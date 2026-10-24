@@ -299,11 +299,11 @@ export class JiraClient {
    */
   async getComments(
     issueIdOrKey: string
-  ): Promise<JiraResult<{ comments: Array<{ id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }> }> }>> {
+  ): Promise<JiraResult<{ comments: Array<{ id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }>; author?: { displayName?: string; accountId?: string } | null; created?: string }> }>> {
     // PAGE through ALL comments: the dedup self-marker may sit on an older page,
     // and a single (default ~50) page would miss it on a heavily-commented issue,
     // re-posting a duplicate completion/discard comment. Cap pages defensively.
-    type Comment = { id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }> }
+    type Comment = { id: string; body: unknown; properties?: Array<{ key: string; value?: unknown }>; author?: { displayName?: string; accountId?: string } | null; created?: string }
     const all: Comment[] = []
     let startAt = 0
     const maxResults = 100

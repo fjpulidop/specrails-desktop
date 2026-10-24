@@ -33,7 +33,22 @@
       "noMatch": "フィルターに一致するテンプレートはありません。",
       "clearFilters": "フィルターをクリア",
       "openInStudio": "Studio で開く →",
-      "tip": "ヒント: カードのタグをクリックすると、そのタグで絞り込めます。"
+      "tip": "ヒント: カードのタグをクリックすると、そのタグで絞り込めます。",
+      "categories": {
+        "software-engineering": "ソフトウェアエンジニアリング",
+        "testing-qa": "テストと QA",
+        "data-analytics": "データと分析",
+        "security-compliance": "セキュリティとコンプライアンス",
+        "product-design": "プロダクトとデザイン",
+        "business-operations": "ビジネスとオペレーション",
+        "marketing-growth": "マーケティングとグロース",
+        "science-research": "科学と研究",
+        "education": "教育",
+        "health-medicine": "健康と医療",
+        "legal": "法務",
+        "arts-creative": "アートとクリエイティブ",
+        "management-leadership": "マネジメントとリーダーシップ"
+      }
     },
     "generate": {
       "title": "カスタムエージェントを生成",
@@ -43,7 +58,8 @@
       "descriptionPlaceholder": "例: Terraform/IaC の変更をレビューし、マージ前にセキュリティ設定ミス、過剰な IAM 権限、公開 S3 バケットを指摘する。保守的かつ簡潔に。",
       "note": "Claude が完全な <code>.md</code> 本文をドラフトします。Studio で確認し、保存前に編集できます。ワンショットの claude 呼び出しが起動され、最大 90 秒かかることがあります。",
       "generating": "生成中…",
-      "generateButton": "生成"
+      "generateButton": "生成",
+      "dialogDescription": "必要なエージェントを説明すると、Claude が下書きを作成します。保存する前に Studio で確認できます。"
     },
     "empty": {
       "title": "カスタムエージェントはまだありません",
@@ -135,7 +151,8 @@
     },
     "sidebar": {
       "title": "プロファイル",
-      "teamDefault": "（チームデフォルト）"
+      "teamDefault": "（チームデフォルト）",
+      "new": "新しいプロファイル"
     },
     "editorFooter": {
       "fixValidationIssues": "保存する前に検証エラーを修正してください",

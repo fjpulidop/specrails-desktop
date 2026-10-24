@@ -168,7 +168,7 @@ describe('BackgroundProcessesProvider', () => {
     vi.mocked(fetch).mockResolvedValue(response({ processes: [{ ...target, status: 'stopping' }] }))
     for (let index = 0; index < 7; index++) await act(async () => vi.advanceTimersByTimeAsync(2000))
     await act(async () => vi.advanceTimersByTimeAsync(1000))
-    expect(latest.processes[0]).toMatchObject({ status: 'stopping', stopError: expect.stringContaining('retry') })
+    expect(latest.processes[0]).toMatchObject({ status: 'stopping', stopError: expect.stringContaining('Try again') })
     const calls = vi.mocked(fetch).mock.calls.length
     await act(async () => vi.advanceTimersByTimeAsync(20_000))
     expect(fetch).toHaveBeenCalledTimes(calls)

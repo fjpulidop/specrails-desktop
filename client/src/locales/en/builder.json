@@ -104,7 +104,8 @@
     "commit": "Commit {{count}} specs as {{label}}",
     "commitToast": "{{count}} specs committed to the board as {{label}}",
     "commitFailed": "Could not commit the milestone",
-    "providerUnavailable": "Milestone generation is unavailable because this provider has no native read-only mode."
+    "providerUnavailable": "Milestone generation is unavailable because this provider has no native read-only mode.",
+    "send": "Send"
   },
   "mode": {
     "title": "Project Builder",

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
+import { Button } from '../../../components/ui/button'
+import { SettingsCard } from './SettingsCard'
 import { checkAppUpdate, isStableChannelUnavailable } from '../../../lib/app-updater'
 import { getVersion } from '@tauri-apps/api/app'
 import {
@@ -61,13 +63,9 @@ export function AppUpdateSection() {
   }, [mockEnabled, t])
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {t('appUpdate.heading')}
-      </h3>
-      <div className="rounded-md border border-border p-3 space-y-3">
+    <SettingsCard title={t('appUpdate.heading')}>
         {!available ? (
-          <p className="text-[11px] text-muted-foreground">{t('appUpdate.unavailable')}</p>
+          <p className="text-xs text-muted-foreground">{t('appUpdate.unavailable')}</p>
         ) : (
           <>
             <div className="flex items-center justify-between gap-3">
@@ -76,7 +74,7 @@ export function AppUpdateSection() {
                   {t('appUpdate.installed')}{' '}
                   <span className="font-semibold tabular-nums">{currentVersion ?? '—'}</span>
                 </p>
-                <p className="text-[10px] text-muted-foreground/70 truncate">
+                <p className="text-xs text-muted-foreground truncate">
                   {result === 'update-available' && latestVersion
                     ? t('appUpdate.updateAvailable', { version: latestVersion })
                     : result === 'up-to-date'
@@ -84,25 +82,25 @@ export function AppUpdateSection() {
                       : t('appUpdate.autoHint')}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => void onCheck()}
                 disabled={checking}
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                className="h-7 shrink-0 gap-1.5"
               >
                 {checking ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
                 ) : result === 'up-to-date' ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-accent-success" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-accent-success" aria-hidden />
                 ) : (
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                 )}
                 {checking ? t('appUpdate.checking') : t('appUpdate.check')}
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </div>
-    </div>
+    </SettingsCard>
   )
 }

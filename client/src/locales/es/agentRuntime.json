@@ -627,5 +627,16 @@
     "body": "El desarrollador y el revisor usan ahora el mismo proveedor. Es solo una sugerencia: no cambia nada a menos que la apliques.",
     "apply": "Aplicar",
     "dismiss": "Descartar"
+  },
+  "triageEngine": {
+    "title": "Motor del triaje de specs",
+    "hint": "El triaje lee cada spec nueva o editada y recomienda el loop con el que lanzarla. Es una llamada breve y estructurada por spec. Por defecto usa el proveedor principal del proyecto con su modelo más barato.",
+    "provider": "Proveedor del triaje",
+    "inherit": "Proveedor principal",
+    "model": "Modelo",
+    "cheapestModel": "Modelo más barato (por defecto)",
+    "loading": "Cargando el motor del triaje…",
+    "loadFailed": "No se pudo leer el motor del triaje. El triaje sigue usando el proveedor principal; vuelve a abrir estos ajustes para reintentarlo.",
+    "saveFailed": "No se guardó el motor del triaje. Se mantiene la elección anterior."
   }
 }

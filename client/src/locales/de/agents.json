@@ -33,7 +33,22 @@
       "noMatch": "Keine Vorlagen entsprechen deinen Filtern.",
       "clearFilters": "Filter zurücksetzen",
       "openInStudio": "Im Studio öffnen →",
-      "tip": "Tipp: Klicke auf einen Tag-Chip auf einer Karte, um nach diesem Tag zu filtern."
+      "tip": "Tipp: Klicke auf einen Tag-Chip auf einer Karte, um nach diesem Tag zu filtern.",
+      "categories": {
+        "software-engineering": "Softwareentwicklung",
+        "testing-qa": "Tests & QA",
+        "data-analytics": "Daten & Analytics",
+        "security-compliance": "Sicherheit & Compliance",
+        "product-design": "Produkt & Design",
+        "business-operations": "Business & Betrieb",
+        "marketing-growth": "Marketing & Wachstum",
+        "science-research": "Wissenschaft & Forschung",
+        "education": "Bildung",
+        "health-medicine": "Gesundheit & Medizin",
+        "legal": "Recht",
+        "arts-creative": "Kunst & Kreatives",
+        "management-leadership": "Management & Führung"
+      }
     },
     "generate": {
       "title": "Custom-Agent generieren",
@@ -43,7 +58,8 @@
       "descriptionPlaceholder": "z. B. Terraform-/IaC-Änderungen reviewen und Sicherheits-Fehlkonfigurationen, übermäßige IAM-Berechtigungen und öffentliche S3-Buckets vor dem Merge markieren. Konservativ und knapp.",
       "note": "Claude entwirft einen vollständigen <code>.md</code>-Inhalt. Du prüfst ihn im Studio und kannst ihn vor dem Speichern bearbeiten. Dabei wird ein einmaliger claude-Aufruf gestartet, der bis zu 90 Sekunden dauern kann.",
       "generating": "Wird generiert…",
-      "generateButton": "Generieren"
+      "generateButton": "Generieren",
+      "dialogDescription": "Beschreibe den Agenten, den du brauchst, und Claude entwirft ihn, damit du ihn vor dem Speichern im Studio prüfen kannst."
     },
     "empty": {
       "title": "Noch keine Custom-Agents",
@@ -65,7 +81,7 @@
     "sections": {
       "upstream": "Upstream ({{count}})",
       "upstreamDescription": "Basisrollen, definiert von der specrails-core-Laufzeit; schreibgeschützt.",
-      "custom": "Custom ({{count}})",
+      "custom": "Benutzerdefiniert ({{count}})",
       "customDescription": "Die custom-*.md-Dateien deines Projekts. Nutze Vorlage / Generieren / Leer oben, um einen zu erstellen.",
       "noCustomAgents": "Noch keine Custom-Agents."
     },
@@ -79,7 +95,7 @@
     },
     "kind": {
       "upstream": "upstream",
-      "custom": "custom"
+      "custom": "benutzerdefiniert"
     }
   },
   "profiles": {
@@ -135,7 +151,8 @@
     },
     "sidebar": {
       "title": "Profile",
-      "teamDefault": "(Team-Standard)"
+      "teamDefault": "(Team-Standard)",
+      "new": "Neues Profil"
     },
     "editorFooter": {
       "fixValidationIssues": "Behebe Validierungsprobleme vor dem Speichern",

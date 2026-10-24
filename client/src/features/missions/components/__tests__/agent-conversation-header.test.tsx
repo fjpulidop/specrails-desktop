@@ -25,6 +25,7 @@ let messages = [
   },
 ]
 let favoriteConversationIds = new Set<string>()
+let streamingConversationIds = new Set<string>()
 vi.mock('../../context/AgentChatContext', () => ({
   useAgentChat: () => ({
     active,
@@ -34,6 +35,7 @@ vi.mock('../../context/AgentChatContext', () => ({
     startNewConversation,
     favoriteConversationIds,
     toggleFavoriteConversation,
+    streamingConversationIds,
   }),
 }))
 vi.mock('../../../../hooks/useDesktop', () => ({
@@ -118,8 +120,22 @@ describe('AgentConversationHeader', () => {
 
   it('renders the breadcrumb: project path / conversation title', () => {
     render(<AgentConversationHeader />)
-    expect(screen.getByText('/Users/javi/repos/outrun')).toBeInTheDocument()
+    expect(screen.getByText('outrun')).toBeInTheDocument()
     expect(screen.getByText('Greeting And Friendly Introduction')).toBeInTheDocument()
+  })
+
+  it('names the conversation mode next to the title ("In Flow"), with icon and words', async () => {
+    const { MissionExtensionsProvider } = await import('../../context/MissionExtensionsContext')
+    const Icon = (props: { className?: string }) => <svg data-testid="header-mode-icon" {...props} />
+    render(
+      <MissionExtensionsProvider value={{ useConversationMode: () => ({ headerBadge: { label: 'In Flow', description: 'Flow mode', icon: Icon } }) }}>
+        <AgentConversationHeader />
+      </MissionExtensionsProvider>,
+    )
+    const badge = screen.getByTestId('mission-mode-badge-header')
+    expect(badge).toHaveTextContent('In Flow')
+    expect(badge).toHaveAttribute('title', 'Flow mode')
+    expect(screen.getByTestId('header-mode-icon')).toBeInTheDocument()
   })
 
   it('renders nothing when there is no active conversation', () => {
@@ -243,22 +259,33 @@ describe('AgentConversationHeader', () => {
 })
 
 describe('AgentConversationHeader — delete mission', () => {
-  it('shows Delete mission below Rename, confirms inline, deletes + returns to New Mission', async () => {
+  beforeEach(() => { streamingConversationIds = new Set() })
+
+  it('deletes an idle mission at once (no confirm) and returns to New Mission', async () => {
     render(<AgentConversationHeader />)
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     const del = screen.getByTestId('agent-conv-delete')
     expect(del).toBeInTheDocument()
-    // Clicking Delete does NOT delete immediately — it asks for confirmation.
     fireEvent.click(del)
-    expect(deleteConversation).not.toHaveBeenCalled()
-    expect(screen.getByTestId('agent-conv-delete-confirm')).toBeInTheDocument()
-    // Confirm → delete + jump back to the "+ New Mission" screen (pinned project).
-    fireEvent.click(screen.getByTestId('agent-conv-delete-confirm-btn'))
+    expect(screen.queryByTestId('agent-conv-delete-confirm')).toBeNull()
+    // Delete + jump back to the "+ New Mission" screen (pinned project).
     await waitFor(() => expect(deleteConversation).toHaveBeenCalledWith('conv-1'))
     expect(startNewConversation).toHaveBeenCalledWith('p1')
   })
 
-  it('Cancel drops back to the menu without deleting', () => {
+  it('still asks first when the mission has a turn in flight (stopping it cannot be undone)', async () => {
+    streamingConversationIds = new Set(['conv-1'])
+    render(<AgentConversationHeader />)
+    fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
+    fireEvent.click(screen.getByTestId('agent-conv-delete'))
+    expect(deleteConversation).not.toHaveBeenCalled()
+    expect(screen.getByTestId('agent-conv-delete-confirm')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('agent-conv-delete-confirm-btn'))
+    await waitFor(() => expect(deleteConversation).toHaveBeenCalledWith('conv-1'))
+  })
+
+  it('Cancel on the live-turn confirm drops back to the menu without deleting', () => {
+    streamingConversationIds = new Set(['conv-1'])
     render(<AgentConversationHeader />)
     fireEvent.click(screen.getByTestId('agent-conv-menu-trigger'))
     fireEvent.click(screen.getByTestId('agent-conv-delete'))

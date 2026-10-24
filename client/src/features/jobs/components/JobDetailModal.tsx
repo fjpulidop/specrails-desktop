@@ -1,20 +1,34 @@
-import { modalOverlayStyle } from '../../../lib/modal-safe-area'
+import { modalDialogStyle, modalOverlayStyle } from '../../../lib/modal-safe-area'
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { getDateFnsLocale } from '../../../lib/i18n'
+import { cn } from '../../../lib/utils'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
 import { toast } from 'sonner'
-import { X, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { Button } from '../../../components/ui/button'
+import {
+  DIALOG_PANEL_CLASS,
+  DIALOG_SCRIM_CLASS,
+  DIALOG_SIZE_CLASS,
+  DialogCloseButton,
+  DialogDescription,
+  DialogHeader,
+  DialogLayerProvider,
+  DialogTitle,
+} from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { TooltipProvider } from '../../../components/ui/tooltip'
 import { JobRunHeader } from './job-run/JobRunHeader'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplorer'
 import { NarratedProgress } from '../../loops/components/loop-log/NarratedProgress'
+import { humaniseCommand, ticketTitlesOf } from '../lib/humanise-command'
 import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
 import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { isJobDisplayEvent, jobEventsWithNotice, retainJobEvents, type JobEventBuffer } from '../lib/job-event-buffer'
@@ -26,6 +40,23 @@ import { WS_URL } from '../../../lib/ws-url'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
+
+/** Short, human-readable job id for the title ("#1a2b3c4d"). */
+function shortJobId(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) : id
+}
+
+/**
+ * Human name of the job's command for the modal title: `loop:<id>` → loop
+ * run, `/specrails:implement …` → "Implement", anything else → generic.
+ */
+function jobTitleKind(command: string): { loop: true } | { loop: false; name: string | null } {
+  if (command.startsWith('loop:')) return { loop: true }
+  const m = /^\/(?:[\w-]+:)?([\w-]+)/.exec(command.trim())
+  if (!m) return { loop: false, name: null }
+  const words = m[1].replace(/[-_]+/g, ' ').trim()
+  return { loop: false, name: words ? words.charAt(0).toUpperCase() + words.slice(1) : null }
+}
 
 interface JobDetailModalProps {
   jobId: string
@@ -196,18 +227,6 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
 
   useWebSocket(WS_URL, handleMessage)
 
-  // Foreground dialogs consume Escape before it reaches this window listener.
-  // Otherwise dismiss the inline cancel confirmation first, then the log modal.
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (showCancelConfirm) { setShowCancelConfirm(false); return }
-      onClose()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose, showCancelConfirm])
-
   // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
   // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
   // go through the shared manager-aware helper (POST /jobs/:id/cancel — the server
@@ -240,217 +259,237 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
   const isRunning = job?.status === 'running'
   const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
 
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal({
+    persistKey: 'specrails.modal.job-detail',
+  })
 
-  return createPortal(
-    // PORTAL to document.body: agent-chat job-ref chips mount this from INSIDE
-    // the floating AgentChatPanel, whose backdrop-filter/transform makes it the
-    // containing block for fixed descendants — without the portal the modal is
-    // positioned against the panel and clipped by its overflow-hidden (looks
-    // like "nothing opened"). z-[65]: above the panel (z-[60]/z-[61]), below
-    // the MinimizedChatsDock (z-[70]) and browser-capture portals (z-[80]).
-    //
-    // Own TooltipProvider: this modal mounts from trees WITHOUT one (the
-    // Agent-Mode surface bypasses ProjectLayout) — without it Radix throws and
-    // blanks the whole app on open.
-    <TooltipProvider delayDuration={400}>
-    <div style={modalOverlayStyle()} className="fixed inset-0 z-[65] flex items-stretch justify-center p-[clamp(12px,2vmin,24px)]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={guardBackdrop(onClose)}
-      />
+  // Focus return: this controlled dialog has no Radix `DialogTrigger`, so
+  // remember what was focused when it opened (a ref chip, a board row) and
+  // refocus it on close.
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const setPanelNode = useCallback((node: HTMLDivElement | null) => {
+    panelRef(node)
+    if (!node) return
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active !== document.body && !node.contains(active)) {
+      returnFocusRef.current = active
+    }
+  }, [panelRef])
 
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        className="relative w-full min-w-0 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
-        style={panelStyle}
-      >
-        {/* Header */}
-        <div
-          {...headerHandleProps}
-          className={`flex items-center justify-between px-4 py-3 border-b border-border/30${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+  // Human title ("Implement job · #1a2b3c4d"); the raw command is the mono
+  // subtitle. While loading, the id is already known — never a bare spinner.
+  const shortId = shortJobId(jobId)
+  const titleKind = job ? jobTitleKind(job.command) : null
+  const title = titleKind?.loop
+    ? t('modal.titleLoop', { id: shortId })
+    : titleKind?.name
+      ? t('modal.title', { kind: titleKind.name, id: shortId })
+      : t('modal.titleGeneric', { id: shortId })
+
+  return (
+    // Radix dialog on the `entity` layer (65): above the floating agent panel
+    // (60/61), below the minimized-chats dock (75) and capture surfaces (80).
+    // The Portal escapes the floating AgentChatPanel, whose backdrop-filter /
+    // transform would otherwise be the containing block for the fixed panel.
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          style={modalOverlayStyle()}
+          className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)}
+        />
+        <DialogPrimitive.Content
+          ref={setPanelNode}
+          data-testid="job-detail-modal"
+          data-dialog-size="fullscreen"
+          data-dialog-layer="entity"
+          {...(notFound && !job ? { 'aria-describedby': undefined } : {})}
+          // Bespoke geometry: the fullscreen size token, movable by the header
+          // and resizable from inset grips (persisted per surface).
+          className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.entity, DIALOG_SIZE_CLASS.fullscreen)}
+          style={{ ...modalDialogStyle(92), ...panelStyle }}
+          onCloseAutoFocus={(e) => {
+            const target = returnFocusRef.current
+            returnFocusRef.current = null
+            if (target?.isConnected) { e.preventDefault(); target.focus() }
+          }}
+          // Dismiss the inline cancel confirmation first, then the modal.
+          onEscapeKeyDown={(e) => {
+            if (showCancelConfirm) { e.preventDefault(); setShowCancelConfirm(false) }
+          }}
+          // Ignore the outside press that ends a move/resize drag.
+          onPointerDownOutside={(e) => {
+            let allowed = false
+            guardBackdrop(() => { allowed = true })()
+            if (!allowed) e.preventDefault()
+          }}
         >
-          <div className="flex items-center gap-3 min-w-0">
+          {/* Own TooltipProvider: this modal mounts from trees WITHOUT one (the
+              Agent-Mode surface bypasses ProjectLayout) — without it Radix
+              throws and blanks the whole app on open. */}
+          <TooltipProvider delayDuration={400}>
+          <DialogLayerProvider layer="entity">
+            <DialogHeader
+              {...headerHandleProps}
+              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
+              actions={<DialogCloseButton className="-mr-1.5 -mt-1" />}
+            >
+              <DialogTitle className="truncate">{title}</DialogTitle>
+              {job ? (
+                <DialogDescription className="flex min-w-0 items-baseline gap-2">
+                  {(() => {
+                    const friendly = humaniseCommand(job.command, ticketTitlesOf(job.tickets))
+                    return friendly
+                      ? <span className="min-w-0 truncate text-xs text-foreground/80" title={job.command}>{friendly}</span>
+                      : <code className="min-w-0 truncate font-mono text-xs text-foreground/80">{job.command}</code>
+                  })()}
+                  <span className="shrink-0 text-xs">
+                    {activityTime
+                      ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
+                      : '—'}
+                  </span>
+                </DialogDescription>
+              ) : isLoading ? (
+                <DialogDescription>{t('common:states.loading')}</DialogDescription>
+              ) : null}
+            </DialogHeader>
+
+            {/* The ONE run header shared with the board's Job Detail page. */}
             {job && (
-              <>
-                <code className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
-                <span className="text-[10px] text-muted-foreground shrink-0">
-                  {activityTime
-                    ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
-                    : '—'}
-                </span>
-              </>
-            )}
-            {isLoading && <span className="text-xs text-muted-foreground">{t('common:states.loading')}</span>}
-          </div>
-
-          <button
-            onClick={onClose}
-            className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* The ONE run header shared with the board's Job Detail page. */}
-        {job && (
-          <JobRunHeader
-            onOpenRun={openFork}
-            job={job}
-            events={events}
-            phases={phases}
-            phaseDefinitions={phaseDefinitions}
-            projectId={projectId}
-            variant="glass"
-            actions={isRunning ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCancelConfirm(true)}
-                disabled={isCanceling}
-                className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
-                {isLoopRun
-                  ? t('dashboard:railControls.stop')
-                  : cancelKind === 'interactive'
-                    ? t('common:actions.discard')
-                    : t('common:actions.cancel')}
-              </Button>
-            ) : null}
-          />
-        )}
-
-        {eventBuffer.omitted && (
-          <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
-            {t('logViewer.retainedTail')}
-          </p>
-        )}
-
-        {/* Content */}
-        <div className="min-h-0 flex-1 overflow-hidden relative">
-          {notFound ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
-            </div>
-          ) : FEATURE_NARRATED_PROGRESS && job ? (
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
-                {(['narrated', 'log'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setNarrationMode(mode)}
-                    aria-pressed={narrationMode === mode}
-                    data-testid={`modal-narration-mode-${mode}`}
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                      narrationMode === mode
-                        ? 'bg-accent-primary/15 text-accent-primary'
-                        : 'text-muted-foreground hover:bg-surface/60'
-                    }`}
+              <JobRunHeader
+                onOpenRun={openFork}
+                job={job}
+                events={events}
+                phases={phases}
+                phaseDefinitions={phaseDefinitions}
+                projectId={projectId}
+                variant="glass"
+                actions={isRunning ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={isCanceling}
+                    className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                  </button>
-                ))}
-              </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                {narrationMode === 'narrated' ? (
-                  <NarratedProgress
-                    events={events}
-                    settled={job.status !== 'running' && job.status !== 'queued'}
-                    elapsedMs={job.duration_ms ?? null}
-                    variant="glass"
-                  />
-                ) : job.command.startsWith('loop:') ? (
-                  <LoopStepExplorer
-                    events={events}
-                    jobStatus={job.status}
-                    isLoading={isLoading}
-                    variant="glass"
-                    projectId={projectId}
-                    onOpenRun={openFork}
-                  />
-                ) : (
-                  <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
-                )}
-              </div>
+                    {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
+                    {isLoopRun
+                      ? t('dashboard:railControls.stop')
+                      : cancelKind === 'interactive'
+                        ? t('common:actions.discard')
+                        : t('common:actions.cancel')}
+                  </Button>
+                ) : null}
+              />
+            )}
+
+            {eventBuffer.omitted && (
+              <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                {t('logViewer.retainedTail')}
+              </p>
+            )}
+
+            {/* Content — the log surfaces own their scrolling (virtualized),
+                so this region clips instead of being a DialogBody. */}
+            <div className="min-h-0 flex-1 overflow-hidden relative">
+              {notFound ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
+                </div>
+              ) : FEATURE_NARRATED_PROGRESS && job ? (
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
+                    {(['narrated', 'log'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        data-chip=""
+                        onClick={() => setNarrationMode(mode)}
+                        aria-pressed={narrationMode === mode}
+                        data-testid={`modal-narration-mode-${mode}`}
+                        className={`inline-flex h-5 items-center rounded-md px-2 text-caption font-medium transition-colors ${
+                          narrationMode === mode
+                            ? 'bg-accent-primary/15 text-accent-primary'
+                            : 'text-muted-foreground hover:bg-surface/60'
+                        }`}
+                      >
+                        {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-hidden">
+                    {narrationMode === 'narrated' ? (
+                      <NarratedProgress
+                        events={events}
+                        settled={job.status !== 'running' && job.status !== 'queued'}
+                        elapsedMs={job.duration_ms ?? null}
+                        variant="glass"
+                      />
+                    ) : job.command.startsWith('loop:') ? (
+                      <LoopStepExplorer
+                        events={events}
+                        jobStatus={job.status}
+                        isLoading={isLoading}
+                        variant="glass"
+                        projectId={projectId}
+                        onOpenRun={openFork}
+                      />
+                    ) : (
+                      <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+                    )}
+                  </div>
+                </div>
+              ) : job?.command.startsWith('loop:') ? (
+                <LoopStepExplorer
+                  events={events}
+                  jobStatus={job.status}
+                  isLoading={isLoading}
+                  variant="glass"
+                  projectId={projectId}
+                  onOpenRun={openFork}
+                />
+              ) : (
+                <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+              )}
             </div>
-          ) : job?.command.startsWith('loop:') ? (
-            <LoopStepExplorer
-              events={events}
-              jobStatus={job.status}
-              isLoading={isLoading}
-              variant="glass"
-              projectId={projectId}
-              onOpenRun={openFork}
+
+            {/* Interactive in-job agent composer — the SAME control the board's Job
+                Detail page mounts, so a mission-mode user steers the running job
+                without leaving the workspace. */}
+            {!!job?.interactive && job.status === 'running' && (
+              <InteractiveJobComposer
+                jobId={jobId}
+                projectId={projectId}
+                settleMode={job.interactiveSettleMode}
+                initialAcceptingTurns={job.interactiveAcceptingTurns}
+                pendingInterrupts={job.pendingInterrupts}
+                kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
+                variant="glass"
+                onFinalized={refetchJob}
+              />
+            )}
+
+            {/* Cancel confirmation — a nested ConfirmDialog. Inside this entity
+                modal it climbs to the `stacked` layer (70) automatically, so it
+                always paints above the panel. */}
+            <ConfirmDialog
+              open={showCancelConfirm}
+              onOpenChange={setShowCancelConfirm}
+              testId="job-cancel-confirm"
+              title={isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
+              description={isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
+              cancelLabel={t('modal.keepRunning')}
+              confirmLabel={isLoopRun
+                ? t('modal.stopRun')
+                : cancelKind === 'interactive'
+                  ? t('common:actions.discard')
+                  : t('modal.cancelJob')}
+              onConfirm={() => { setShowCancelConfirm(false); void handleCancel() }}
             />
-          ) : (
-            <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
-          )}
-        </div>
-
-        {/* Interactive in-job agent composer — the SAME control the board's Job
-            Detail page mounts, so a mission-mode user steers the running job
-            without leaving the workspace. */}
-        {!!job?.interactive && job.status === 'running' && (
-          <InteractiveJobComposer
-            jobId={jobId}
-            projectId={projectId}
-            settleMode={job.interactiveSettleMode}
-            initialAcceptingTurns={job.interactiveAcceptingTurns}
-            pendingInterrupts={job.pendingInterrupts}
-            kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
-            variant="glass"
-            onFinalized={refetchJob}
-          />
-        )}
-      </div>
-
-      <ResizeGrips handles={resizeHandles} />
-
-      {/* Cancel confirmation — rendered IN-PORTAL (not a Radix Dialog, which
-          portals to body at z-50 and would sit BEHIND this z-[65] modal). As an
-          absolute overlay inside the modal's stacking context it always sits
-          above the panel. */}
-      {showCancelConfirm && (
-        <div
-          data-testid="job-cancel-confirm"
-          className="absolute inset-0 z-10 flex items-center justify-center p-4"
-        >
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowCancelConfirm(false)}
-          />
-          <div className="relative w-full max-w-sm rounded-xl glass-card border border-border/30 p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-semibold text-foreground">
-              {isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
-            </h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowCancelConfirm(false)}>
-                {t('modal.keepRunning')}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => { setShowCancelConfirm(false); handleCancel() }}
-              >
-                {isLoopRun
-                  ? t('modal.stopRun')
-                  : cancelKind === 'interactive'
-                    ? t('common:actions.discard')
-                    : t('modal.cancelJob')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    </TooltipProvider>,
-    document.body,
+          </DialogLayerProvider>
+          </TooltipProvider>
+          <ResizeGrips handles={resizeHandles} placement="inset" />
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }

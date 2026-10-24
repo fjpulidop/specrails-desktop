@@ -78,3 +78,11 @@ Exporte berücksichtigen die aktuell angewendeten Zeitraum- und Surface-Filter, 
 ## Immer live
 
 Du musst nicht neu laden. Sobald irgendwo im Projekt ein neuer Aufruf erfasst wird, lädt sich das geöffnete Dashboard kurz darauf still neu, sodass der Burn-Meter mit der Arbeit Schritt hält, während sie fertig wird.
+
+## Tagesbudgets {#daily-budget}
+
+Mit einem Tagesbudget begrenzt du, was ein Tag kosten darf. Das app-weite Budget findest du unter **Einstellungen → Erweitert**, das Projektbudget unter **Projekteinstellungen → Budget**.
+
+Erreichen die erfassten Tagesausgaben ein Budget, pausiert die Warteschlange sich selbst, Rails und Loop-Läufe starten nicht mehr und melden *Tagesbudget erreicht*, und ein laufender Loop-Lauf hält zwischen zwei Schritten an, pausiert durch das Budget. Erhöhe oder entferne das Budget oder warte auf das tägliche Zurücksetzen und setze dann fort.
+
+Das Projektbudget zählt deinen lokalen Tag, das app-weite Budget den UTC-Tag. Die Kostenwarnung pro Job ist eine eigene Einstellung.

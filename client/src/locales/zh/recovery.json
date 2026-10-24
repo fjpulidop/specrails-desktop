@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "测试在{{phase}}阶段失败，已修复 {{count}} 轮",
+      "phaseRounds_other": "测试在{{phase}}阶段失败，已修复 {{count}} 轮",
+      "rounds_one": "测试失败，已修复 {{count}} 轮",
+      "rounds_other": "测试失败，已修复 {{count}} 轮",
+      "phase": "测试在{{phase}}阶段失败",
+      "plain": "测试失败"
+    },
+    "provider_limit": "已达到 AI 提供商的使用上限",
+    "environment": "环境无法运行检查",
+    "blocked": {
+      "phase": "运行在{{phase}}阶段被阻塞",
+      "plain": "运行被阻塞"
+    },
+    "timeout": {
+      "phase": "{{phase}}阶段超时",
+      "plain": "运行超时"
+    },
+    "tool_inactivity": {
+      "phase": "代理在{{phase}}阶段停止了动作",
+      "plain": "代理停止了动作"
+    },
+    "crash": {
+      "phase": "代理在{{phase}}阶段意外停止",
+      "plain": "代理意外停止"
+    },
+    "unknown": "原因未知"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "将在 {{resetAt}} 重置。重置后再继续。",
+      "noReset": "等待上限重置，然后继续。"
+    },
+    "environment": "问题不在改动本身，机器需要先准备好一些东西。",
+    "tests_failed": "修正之后检查仍然失败。",
+    "blocked": "是某个上限或某项决定让它停下的，并没有崩溃。",
+    "timeout": "在完成之前达到了时间上限。",
+    "tool_inactivity": "它太久没有使用工具，也没有回复。",
+    "crash": "提供商进程或其连接在运行中断开了。",
+    "unknown": "应用无法确定它为什么停止，也不会猜测。"
+  },
+  "remedies": {
+    "label": "恢复方式"
+  },
+  "remedy": {
+    "resume": "继续",
+    "resumeFrom": "从{{phase}}继续",
+    "retry": "再次运行",
+    "editSpec": "编辑规格并重新启动",
+    "fixEnvironment": "修复环境",
+    "openLogs": "在失败处打开日志"
+  },
+  "environment": {
+    "command": "命令",
+    "copy": "复制命令",
+    "copied": "已复制",
+    "inDirectory": "位于 {{cwd}}",
+    "requiredAction": "需要的操作",
+    "generic": "需要先处理环境问题，运行才能继续。",
+    "then": "处理完成后，继续运行。"
+  },
+  "logTail": {
+    "title": "日志末尾"
+  },
+  "logs": {
+    "notFound": "暂无可显示的日志"
+  },
+  "technicalDetails": "技术详情"
+}

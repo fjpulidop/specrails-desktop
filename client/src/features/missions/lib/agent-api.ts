@@ -306,8 +306,30 @@ export async function patchAgentConversation(
   return (await json<{ conversation: AgentConversation }>(res)).conversation
 }
 
+/** Soft delete: the mission moves to "Recently deleted" (restorable for 30 days). */
 export async function deleteAgentConversation(id: string): Promise<void> {
   await json(await fetch(`${base}/conversations/${id}`, { method: 'DELETE' }))
+}
+
+/** Undo a delete: the mission comes back with its whole history. */
+export async function restoreAgentConversation(id: string): Promise<AgentConversation> {
+  return (await json<{ conversation: AgentConversation }>(await fetch(`${base}/conversations/${encodeURIComponent(id)}/restore`, { method: 'POST' }))).conversation
+}
+
+/** "Delete permanently": removes the mission, its messages and attachments for good. */
+export async function purgeAgentConversation(id: string): Promise<void> {
+  await json(await fetch(`${base}/conversations/${encodeURIComponent(id)}?permanent=1`, { method: 'DELETE' }))
+}
+
+export interface DeletedAgentConversation {
+  conversation: AgentConversation
+  deletedAt: string | null
+  purgeAt: string | null
+}
+
+/** Missions of one project deleted within the retention window, newest deletion first. */
+export async function listDeletedAgentConversations(projectId: string, signal?: AbortSignal): Promise<{ items: DeletedAgentConversation[]; retentionDays: number }> {
+  return json(await fetch(`${base}/conversations/trash?projectId=${encodeURIComponent(projectId)}`, { signal }))
 }
 
 export async function sendAgentMessage(
@@ -476,6 +498,13 @@ export interface AgentPrDecisionEnvelope {
   runtime?: MissionRunRuntime | null
   /** Reviewer risk brief summary: the card's top-risk line (absent without a brief). */
   riskSummary?: import('../../../types').PrDeliveryRiskSummary
+  /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks. */
+  flowReview?: import('../../../types').PrDeliveryFlowReview
+  /** "Integrate locally" saved the person's uncommitted work as a stash. */
+  localStash?: import('../../../types').PrDeliveryLocalStash
+  /** The loop that produced the delivery (absent on older cards). */
+  loopId?: string | null
+  loopName?: string | null
 }
 
 export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
@@ -573,6 +602,10 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(typeof o.railName === 'string' ? { railName: o.railName } : {}),
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
     ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
+    ...(snapshot.flowReview ? { flowReview: snapshot.flowReview } : {}),
+    ...(snapshot.localStash ? { localStash: snapshot.localStash } : {}),
+    ...(snapshot.loopId ? { loopId: snapshot.loopId } : {}),
+    ...(snapshot.loopName ? { loopName: snapshot.loopName } : {}),
   }
 }
 
@@ -591,6 +624,89 @@ const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
   'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ]
 
+/** The saved-local-changes part of an integrate / restore response. */
+export interface LocalChangesOutcome {
+  state: 'saved' | 'restored' | 'needs_attention' | 'released'
+  stashName: string
+  stashSha: string
+  branch: string
+  restoreBranch: string | null
+  conflictPaths: string[]
+}
+
+const LOCAL_CHANGES_STATES: readonly string[] = ['saved', 'restored', 'needs_attention', 'released']
+
+export function coerceLocalChanges(v: unknown): LocalChangesOutcome | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.state !== 'string' || !LOCAL_CHANGES_STATES.includes(o.state)) return null
+  return {
+    state: o.state as LocalChangesOutcome['state'],
+    stashName: typeof o.stashName === 'string' ? o.stashName : '',
+    stashSha: typeof o.stashSha === 'string' ? o.stashSha : '',
+    branch: typeof o.branch === 'string' ? o.branch : '',
+    restoreBranch: typeof o.restoreBranch === 'string' && o.restoreBranch ? o.restoreBranch : null,
+    conflictPaths: Array.isArray(o.conflictPaths) ? o.conflictPaths.filter((p): p is string => typeof p === 'string') : [],
+  }
+}
+
+export type RestoreLocalChangesOutcome =
+  | { kind: 'ok'; localChanges: LocalChangesOutcome | null; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty' | 'branch_changed' | 'target_conflict' | 'unavailable'; detail: string; current: string | null; base: string; snapshot: RailPrStateSnapshot | null }
+  /** Bring back / discard: the restore branch is not ready, or its resolver is still running. */
+  | { kind: 'not_ready'; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'in_progress'; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'busy'; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'recovering' }
+  | { kind: 'failed'; detail: string }
+
+/**
+ * "Restore my changes": re-apply the stash "Integrate locally" saved. Project
+ * base from the card's own `projectId` (see postRailPrDecision). Never throws
+ * on HTTP errors.
+ */
+export async function postRestoreLocalChanges(projectId: string, prDeliveryId: string): Promise<RestoreLocalChangesOutcome> {
+  return postLocalChangesAction(projectId, prDeliveryId, 'restore')
+}
+
+/** "Bring them back" (fast-forward the target to the reviewed restore branch)
+ *  or "Discard the restored branch" (the stash is kept). Never throws. */
+export async function postLocalChangesAction(
+  projectId: string,
+  prDeliveryId: string,
+  action: 'restore' | 'bring-back' | 'discard-branch',
+): Promise<RestoreLocalChangesOutcome> {
+  let res: Response
+  let data: Record<string, unknown> | null = null
+  try {
+    res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-local-changes/${action}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prDeliveryId }),
+    })
+    data = await parseApiJson<Record<string, unknown>>(res)
+  } catch (error) {
+    return { kind: 'failed', detail: error instanceof Error ? error.message : i18n.t('network.invalidResponse', { ns: 'common' }) }
+  }
+  const snapshot = coerceRailPrStateSnapshot(data?.snapshot)
+  if (res.ok) return { kind: 'ok', localChanges: coerceLocalChanges(data?.localChanges), snapshot }
+  if (res.status === 409) {
+    if (data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
+    if (data?.error === 'operation_in_progress') return { kind: 'busy', snapshot }
+    if (data?.error === 'restore_not_ready') return { kind: 'not_ready', snapshot }
+    if (data?.error === 'restore_in_progress') return { kind: 'in_progress', snapshot }
+    if (data?.error === 'local_restore_blocked') {
+      const known = ['wrong_branch', 'dirty', 'branch_changed', 'target_conflict'] as const
+      const reason = known.find((r) => r === data?.reason) ?? 'unavailable'
+      return {
+        kind: 'blocked', reason, detail: typeof data.detail === 'string' ? data.detail : '',
+        current: typeof data.current === 'string' ? data.current : null, base: typeof data.base === 'string' ? data.base : '', snapshot,
+      }
+    }
+  }
+  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+}
+
 export type AgentPrDecisionOutcome =
   | {
       kind: 'ok'
@@ -604,6 +720,8 @@ export type AgentPrDecisionOutcome =
       remoteHeadSha: string | null
       pushed: boolean | null
       recoveryUnavailable: boolean
+      /** "Integrate locally" saved the person's uncommitted work (absent otherwise). */
+      localChanges: LocalChangesOutcome | null
       snapshot: RailPrStateSnapshot | null
     }
   /** Startup reconciliation owns the project; no decision effect was run. */
@@ -655,6 +773,7 @@ export async function postRailPrDecision(
       remoteHeadSha: typeof data?.remoteHeadSha === 'string' ? data.remoteHeadSha : null,
       pushed: typeof data?.pushed === 'boolean' ? data.pushed : null,
       recoveryUnavailable: data?.recoveryUnavailable === true,
+      localChanges: coerceLocalChanges(data?.localChanges),
       snapshot,
     }
   }
@@ -726,6 +845,7 @@ export function agentEnvelopeFromSnapshot(
     repositoryDeliveries: snapshot.repositoryDeliveries,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
+    localStash: snapshot.localStash,
   }
 }
 

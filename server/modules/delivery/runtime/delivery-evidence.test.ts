@@ -712,3 +712,42 @@ describe('reviewer risk brief harvest (Core reviewBrief: 1)', () => {
     expect(healRuntimeEvidence(healed!, '/ws/pipeline', fsIo, new Map(), { reviewBrief: true })).toBeNull()
   })
 })
+
+describe('phase-3 run records harvest (Core specTrace / baselineOnTouch / rulesInventory)', () => {
+  const dir = '/ws/.specrails/pipeline/run-9'
+  const trace = { schemaVersion: 1, evidence: 'receipt', receiptId: 'r', requirements: 2, demonstrated: [{ id: 'search/a', name: 'A', tests: [] }], undemonstrated: [{ id: 'search/b', name: 'B', reason: 'no-test', tests: [] }], untagged: [], touched: ['search/a', 'search/b'], touchedUndemonstrated: ['search/b'], changes: ['c'] }
+  const baseline = { schemaVersion: 1, change: 'c', status: 'passed', recordedAt: 't', detection: { uncovered: ['src/search.ts'], covered: [] }, tests: ['src/search.char.test.ts'], receiptId: 'r0' }
+  const files = { [`${dir}/spec-trace.json`]: JSON.stringify(trace), [`${dir}/baseline.json`]: JSON.stringify(baseline) }
+  const io = (over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
+    readEvents: () => [], listDir: () => [], fileExists: (p) => p in files, readFile: (p) => files[p as keyof typeof files], fileMtimeMs: () => 0,
+    now: () => new Date('2026-10-22T00:00:00.000Z'), ...over,
+  })
+  const unit = { ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }
+
+  it('reads the spec trace and the baseline with its capabilities and cost', () => {
+    const out = harvestDeliveryEvidence(io({ specTrace: true, baselineOnTouch: true, baselineCost: () => ({ invocations: 2, costUsd: 0.4, inputTokens: 10, outputTokens: 5 }), humanRules: [{ text: 'Copy reviewed by design', source: 'AGENTS.md:3' }] }), [unit])
+    expect(out.harvest).toBe('ok')
+    expect(out.units[0].specTrace).toMatchObject({ requirements: 2, touchedUndemonstrated: ['search/b'] })
+    expect(out.units[0].baseline).toMatchObject({ status: 'passed', capabilities: [{ capability: 'search', requirements: 2, demonstrated: 1 }], cost: { costUsd: 0.4 } })
+    expect(out.humanRules).toEqual([{ text: 'Copy reviewed by design', source: 'AGENTS.md:3' }])
+  })
+
+  it('uses recordsDir when no runtime dir is given (recovered settlement)', () => {
+    const out = harvestDeliveryEvidence(io({ specTrace: true }), [{ ticketId: 8, runId: 'run-9', worktreePath: null, recordsDir: dir }])
+    expect(out.units[0].specTrace?.requirements).toBe(2)
+    expect(out.units[0].runtime).toBeUndefined()
+  })
+
+  it('leaves evidence byte-identical without the capabilities', () => {
+    const gated = harvestDeliveryEvidence(io({ specTrace: false, baselineOnTouch: false, humanRules: [] }), [unit])
+    const legacy = harvestDeliveryEvidence(io(), [unit])
+    expect(JSON.stringify(gated)).toBe(JSON.stringify(legacy))
+    expect('specTrace' in gated.units[0] || 'baseline' in gated.units[0] || 'humanRules' in gated).toBe(false)
+  })
+
+  it('marks the unit partial when a record read throws, keeping the rest', () => {
+    const out = harvestDeliveryEvidence(io({ specTrace: true, fileExists: () => true, readFile: () => { throw new Error('EACCES') }, listDir: () => { throw new Error('EACCES') } }), [unit, { ...unit, ticketId: 9, runtimeDir: null }])
+    expect(out.units[0].specTrace).toBeUndefined()
+    expect(out.harvest).not.toBe('failed')
+  })
+})

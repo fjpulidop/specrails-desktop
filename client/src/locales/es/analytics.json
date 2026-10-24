@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Refinado",
-    "smash": "SMASH",
+    "smash": "División",
     "fileSummary": "Resúmenes de archivo",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} ejecuciones",
   "page": {
     "title": "Analíticas",
+    "subtitle": "En qué se va el gasto: coste, tokens y actividad por modelo, spec y motor.",
     "all": "Todo",
     "engine": "Motor",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Error al cargar: {{error}}",
+    "failedToLoad": "No se pudieron cargar las analíticas. Inténtalo de nuevo.",
     "modelChip": "Modelo: {{model}}",
     "clearModelFilter": "Quitar filtro de modelo",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "Más desgloses"
   },
   "hero": {
     "spending": "Gasto",
@@ -46,27 +48,31 @@
     "tokensTooltip": "Tokens totales = entrada nueva + salida + lectura de caché + creación de caché en todas las invocaciones de esta ventana.",
     "usageUnavailable": "· uso de tokens no disponible",
     "usageUnavailableTooltip": "El proveedor completó estas invocaciones pero no expuso telemetría de tokens.",
-    "usagePartiallyUnavailable": "· {{tokens}} tokens conocidos; {{count}} ejecución(es) sin datos",
+    "usagePartiallyUnavailable_one": "· {{tokens}} tokens conocidos; {{count}} ejecución sin datos",
+    "usagePartiallyUnavailable_other": "· {{tokens}} tokens conocidos; {{count}} ejecuciones sin datos",
     "usagePartiallyUnavailableTooltip": "Solo subtotal de tokens conocido; algunas invocaciones no expusieron telemetría.",
     "costUnavailable": "coste no disponible",
     "costUnavailableTooltip": "El proveedor completó estas invocaciones pero no expuso telemetría suficiente para determinar su coste.",
-    "costPartiallyUnavailable": "· subtotal conocido; {{count}} ejecución(es) sin coste",
+    "costPartiallyUnavailable_one": "· subtotal conocido; {{count}} ejecución sin coste",
+    "costPartiallyUnavailable_other": "· subtotal conocido; {{count}} ejecuciones sin coste",
     "costPartiallyUnavailableTooltip": "Solo subtotal de coste conocido; algunas invocaciones no expusieron telemetría suficiente.",
     "includesEstimated": "· incluye ~{{amount}} estimado",
     "includesEstimatedTooltip": "Incluye {{amount}} de coste estimado de proveedores sin campo de coste nativo (p. ej. codex mediante la tabla de precios local).",
     "trackingStarted": "Seguimiento iniciado el {{date}}",
     "trackingStartedFallback": "El seguimiento empieza con la primera invocación",
     "emptyState": "Aún no hay invocaciones para esta ventana de filtros.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Facturado",
+    "legendEstimated": "Estimado"
   },
   "providerCard": {
     "title": "Por proveedor",
-    "description": "Cómo se reparte el coste entre las CLI de IA de este proyecto. El prefijo <tilde>~</tilde> marca las filas cuyo coste se estima con la tabla de precios local (el proveedor no lo informa de forma nativa).",
+    "description": "<tilde>~</tilde> = estimado con precios locales.",
     "noCost": "Aún no hay coste registrado en esta ventana.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "coste no disponible",
     "costUnavailableTooltip": "Este proveedor se ejecutó pero no expuso telemetría suficiente para determinar el coste.",
-    "costPartiallyUnavailable": "· {{count}} no disponible(s)",
+    "costPartiallyUnavailable": "· no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones no tienen coste disponible."
   },
   "timeline": {
@@ -74,7 +80,7 @@
     "subtitle": "apilada por superficie",
     "empty": "Sin gasto en este periodo.",
     "costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible.",
-    "costPartiallyUnavailable": "costes conocidos · {{count}} no disponible(s)"
+    "costPartiallyUnavailable": "costes conocidos · no disponibles: {{count}}"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -99,7 +105,7 @@
     "others": "Otros",
     "costUnavailableWithRuns": "— · {{count}}",
     "costUnavailableTooltip": "El coste no está disponible para ninguna ejecución de este modelo.",
-    "costPartiallyUnavailable": "· {{count}} no disponible(s)",
+    "costPartiallyUnavailable": "· no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones de este modelo no tienen telemetría de coste."
   },
   "scatter": {
@@ -109,7 +115,8 @@
     "costLabel": "coste",
     "truncated": "Mostrando {{shown}} de {{total}} — se conserva el punto más costoso, pero se ocultan los anteriores",
     "costUnavailable": "Hay invocaciones registradas, pero no existe telemetría de coste para representarlas.",
-    "costPartiallyUnavailable": "La gráfica solo incluye ejecuciones con precio; {{count}} no tienen coste disponible."
+    "costPartiallyUnavailable_one": "La gráfica solo incluye ejecuciones con precio; {{count}} no tiene coste disponible.",
+    "costPartiallyUnavailable_other": "La gráfica solo incluye ejecuciones con precio; {{count}} no tienen coste disponible."
   },
   "topTickets": {
     "title": "Tickets principales",
@@ -119,7 +126,7 @@
     "deletedTicket": "ticket eliminado #{{id}}",
     "costUnavailable": "coste no disponible",
     "costUnavailableTooltip": "Ninguna ejecución de este ticket expuso telemetría de coste.",
-    "costPartiallyUnavailable": "{{count}} no disponible(s)",
+    "costPartiallyUnavailable": "no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones de este ticket no tienen coste disponible."
   },
   "table": {
@@ -170,7 +177,7 @@
   "desktop": {
     "title": "Analíticas de Desktop",
     "refreshAria": "Actualizar analíticas",
-    "failedToLoad": "No se pudieron cargar las analíticas: {{error}}",
+    "failedToLoad": "No se pudieron cargar las analíticas de Desktop. Prueba a actualizar.",
     "totalCost": "Coste total",
     "costToday": "{{value}} hoy",
     "costTodayUnavailable": "coste no disponible hoy",
@@ -193,12 +200,11 @@
     "includesEstimatedTooltip": "Incluye {{amount}} de coste estimado por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "includesEstimatedShort": "incl. estimado",
     "timelineEstimatedTooltip": "Algunos días incluyen coste estimado por tabla de precios (codex/gemini) marcado con ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} del coste de este proyecto es una estimación por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "statusBarEstimatedTooltip": "Incluye coste estimado por tabla de precios (codex/gemini), no facturado por el proveedor.",
     "costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible.",
     "costUnavailableShort": "no disponible",
-    "costPartiallyUnavailable": "Subtotal de coste conocido; {{count}} invocación(es) sin datos."
+    "costPartiallyUnavailable_one": "Subtotal de coste conocido; {{count}} invocación sin datos.",
+    "costPartiallyUnavailable_other": "Subtotal de coste conocido; {{count}} invocaciones sin datos."
   },
   "windowLabels": {
     "7d": "Últimos 7 días",

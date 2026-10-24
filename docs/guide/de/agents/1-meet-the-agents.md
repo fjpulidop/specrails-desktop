@@ -1,4 +1,4 @@
-# Die Agents im Überblick
+# Die Agents im Überblick {#agents}
 
 Wenn du eine **Implement**-Rail startest, übergibt Specrails deine Spec nicht einfach einer einzigen KI und hofft auf das Beste. Stattdessen arbeitet ein kleines Team spezialisierter *Agents*, jeder mit einer einzigen Aufgabe und in einer bewusst gewählten Reihenfolge. Diese Seite stellt dir vor, wer zu diesem Team gehört und was jeder Einzelne tut.
 

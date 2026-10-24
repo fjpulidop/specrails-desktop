@@ -59,8 +59,9 @@ describe('JobComparisonModal', () => {
 
   it('shows loading skeleton while fetching', () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
-    const { container } = render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
-    const skeleton = container.querySelector('.animate-pulse')
+    render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
+    // ui/dialog portals the content to document.body.
+    const skeleton = document.body.querySelector('[aria-busy="true"]')
     expect(skeleton).toBeInTheDocument()
   })
 
@@ -107,9 +108,22 @@ describe('JobComparisonModal', () => {
   it('renders formatted cost values', async () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
     await waitFor(() => {
-      expect(screen.getByText('$0.023')).toBeInTheDocument()
-      expect(screen.getByText('$0.012')).toBeInTheDocument()
+      expect(screen.getByText('$0.02')).toBeInTheDocument()
+      expect(screen.getByText('$0.01')).toBeInTheDocument()
     })
+    // Both billed → the cheaper side is highlighted.
+    expect(screen.getByText('$0.01').closest('.text-accent-success')).not.toBeNull()
+  })
+
+  it('marks an estimated cost with ~ and skips the cheaper-cost highlight', async () => {
+    render(<JobComparisonModal jobIds={jobIds} onClose={onClose} estimatedCost={[true, false]} />)
+    await waitFor(() => {
+      expect(screen.getByText('$0.01')).toBeInTheDocument()
+    })
+    const estimated = screen.getByText('$0.02', { exact: false })
+    expect(estimated.textContent).toContain('~')
+    expect(estimated.textContent).toContain('estimated')
+    expect(screen.getByText('$0.01').closest('.text-accent-success')).toBeNull()
   })
 
   it('renders Tokens out row', async () => {
@@ -138,23 +152,17 @@ describe('JobComparisonModal', () => {
     })
   })
 
-  it('calls onClose when backdrop is clicked', () => {
+  it('is a labelled dialog and calls onClose on Escape', () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
-    const backdrop = document.querySelector('.fixed.inset-0') as HTMLElement
-    if (backdrop) {
-      fireEvent.click(backdrop)
-      expect(onClose).toHaveBeenCalled()
-    }
+    const dialog = screen.getByRole('dialog', { name: 'Job Comparison' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 
-  it('calls onClose when × button is clicked', () => {
+  it('calls onClose when the named close button is clicked', () => {
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
-    // X close button
-    const closeButton = document.querySelector('button[type="button"]') as HTMLElement
-    if (closeButton) {
-      fireEvent.click(closeButton)
-      expect(onClose).toHaveBeenCalled()
-    }
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('renders job id prefix (first 8 chars)', async () => {

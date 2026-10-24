@@ -41,4 +41,17 @@ describe('WelcomeScreen', () => {
     render(<WelcomeScreen onAddProject={vi.fn()} />)
     expect(screen.queryByText(/specrails-desktop add/i)).not.toBeInTheDocument()
   })
+
+  it('offers a Replay tour action below the CTA when provided', async () => {
+    const user = userEvent.setup()
+    const onReplayTour = vi.fn()
+    render(<WelcomeScreen onAddProject={vi.fn()} onReplayTour={onReplayTour} />)
+    await user.click(screen.getByRole('button', { name: /Replay tour/i }))
+    expect(onReplayTour).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides Replay tour when no handler is given', () => {
+    render(<WelcomeScreen onAddProject={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /Replay tour/i })).not.toBeInTheDocument()
+  })
 })

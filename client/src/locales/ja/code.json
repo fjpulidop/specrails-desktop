@@ -54,7 +54,9 @@
     "save": "保存",
     "saving": "保存中…",
     "saved": "ファイルを保存しました",
-    "saveFailed": "保存に失敗しました"
+    "saveFailed": "保存に失敗しました",
+    "budgetPromptBody": "ファイル要約の AI 予算上限に達しました。それでも再生成すると、上限を超えて要約がもう 1 回実行されます。",
+    "budgetPromptConfirm": "それでも再生成"
   },
   "summary": {
     "generationFailed": "要約の生成に失敗しました",

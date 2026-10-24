@@ -30,11 +30,11 @@ export function ChatHeader({
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/30 px-2.5">
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate text-xs font-medium text-foreground">
+        <span className="truncate text-label text-foreground">
           {title ?? t('header.fallbackTitle')}
         </span>
         {projectName && (
-          <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium bg-accent-primary/15 text-accent-primary/80 leading-none">
+          <span className="shrink-0 rounded px-1 py-0.5 text-caption font-medium bg-accent-primary/15 text-accent-primary/80 leading-none">
             {projectName}
           </span>
         )}

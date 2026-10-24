@@ -1,10 +1,13 @@
-import { useEffect, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useMemo, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { projectRepositories } from '../../../projects/lib/project-repositories'
 import { Button } from '../../../../components/ui/button'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
+import { cn } from '../../../../lib/utils'
 import { wordDiff, arrayDiff, type DiffSegment, type ArrayDiffEntry } from './diff-utils'
 
 export interface ReviewBaseline {
@@ -64,33 +67,39 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
   const labelsDiff = useMemo(() => arrayDiff(baseline.labels, proposed.labels), [baseline.labels, proposed.labels])
   const criteriaDiff = useMemo(() => arrayDiff(baseline.acceptanceCriteria, proposed.acceptanceCriteria), [baseline.acceptanceCriteria, proposed.acceptanceCriteria])
   const priorityChanged = baseline.priority !== proposed.priority
+  // Focus return to the shell's Review button (Radix only refocuses a DialogTrigger).
+  const [returnTarget] = useState<HTMLElement | null>(() => {
+    if (typeof document === 'undefined') return null
+    const el = document.activeElement
+    return el instanceof HTMLElement && el !== document.body ? el : null
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    e.preventDefault()
+    if (returnTarget?.isConnected) returnTarget.focus()
+  }, [returnTarget])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onBack()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onBack])
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('reviewOverlay.dialogAriaLabel')}
-      data-testid="explore-review-overlay"
-      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/70 backdrop-blur-sm"
-    >
-      <div className="flex flex-col w-full max-w-5xl h-full bg-background border-x border-border/30 shadow-2xl">
+  // Opened over the Explore Spec shell, so it sits on the `stacked` layer.
+  // Radix owns Escape (= Back to edit) and stacks it above the shell's own
+  // Esc handling; full-height column geometry is specific to this review.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next && !isCommitting) onBack() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.stacked)} />
+        <DialogPrimitive.Content
+          aria-label={t('reviewOverlay.dialogAriaLabel')}
+          aria-describedby={undefined}
+          data-testid="explore-review-overlay"
+          data-dialog-layer="stacked"
+          onCloseAutoFocus={handleCloseAutoFocus}
+          className={cn(
+            'modal-panel fixed inset-y-0 left-1/2 flex w-full max-w-5xl -translate-x-1/2 flex-col border-x border-border/30 bg-background shadow-xl outline-none',
+            DIALOG_LAYER_CLASS.stacked,
+          )}
+        >
+        <DialogLayerProvider layer="stacked">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/30">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
-              {t('reviewOverlay.eyebrow')}
-            </div>
-            <h2 className="text-base font-semibold mt-0.5">{t('reviewOverlay.heading')}</h2>
+            <DialogPrimitive.Title className="text-title">{t('reviewOverlay.heading')}</DialogPrimitive.Title>
           </div>
         </header>
 
@@ -109,7 +118,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
                 {priorityChanged ? (
                   <>
                     <PriorityPill value={baseline.priority} removed />
-                    <ChevronRight className="w-3 h-3 text-muted-foreground/60" aria-hidden="true" />
+                    <ChevronRight className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
                     <PriorityPill value={proposed.priority} added />
                   </>
                 ) : (
@@ -132,7 +141,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             <section data-testid="review-labels" className="space-y-2">
               <FieldHeader label={t('reviewOverlay.labelsLabel')} />
               {labelsDiff.ordered.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic">{t('reviewOverlay.noLabels')}</p>
+                <p className="text-xs text-muted-foreground italic">{t('reviewOverlay.noLabels')}</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {labelsDiff.ordered.map((entry, i) => (
@@ -145,7 +154,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             <section data-testid="review-criteria" className="space-y-2">
               <FieldHeader label={t('reviewOverlay.acceptanceCriteriaLabel')} />
               {criteriaDiff.ordered.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic">{t('reviewOverlay.noCriteria')}</p>
+                <p className="text-xs text-muted-foreground italic">{t('reviewOverlay.noCriteria')}</p>
               ) : (
                 <ul className="space-y-1 text-sm">
                   {criteriaDiff.ordered.map((entry, i) => (
@@ -161,7 +170,6 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             onClick={onBack}
             disabled={isCommitting}
             data-testid="review-back"
@@ -171,7 +179,6 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
           </Button>
           <Button
             type="button"
-            size="sm"
             onClick={onCommit}
             disabled={isCommitting || !proposed.title.trim()}
             data-testid="review-commit"
@@ -181,15 +188,16 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             {mode === 'edit' ? t('reviewOverlay.updateSpec') : t('reviewOverlay.createSpec')}
           </Button>
         </footer>
-      </div>
-    </div>,
-    document.body,
+        </DialogLayerProvider>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
 function FieldHeader({ label }: { label: string }) {
   return (
-    <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+    <div className="text-label text-muted-foreground">
       {label}
     </div>
   )
@@ -223,15 +231,15 @@ function DiffText({ parts }: { parts: DiffSegment[] }) {
 
 function DiffChip<T extends string>({ entry }: { entry: ArrayDiffEntry<T> }) {
   const { t } = useTranslation('explore')
-  const base = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-caption'
   if (entry.status === 'added') {
-    return <span className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>+ {entry.value}</span>
+    return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>+ {entry.value}</span>
   }
   if (entry.status === 'removed') {
-    return <span className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>− {entry.value}</span>
+    return <span data-chip="" className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>− {entry.value}</span>
   }
   return (
-    <span
+    <span data-chip=""
       className={`${base} bg-card/60 text-muted-foreground border border-border/40`}
       aria-label={t('reviewOverlay.unchanged')}
     >
@@ -276,14 +284,14 @@ function PriorityPill({
 }) {
   const { t } = useTranslation('explore')
   if (!value) {
-    return <span className="text-[11px] text-muted-foreground/60 italic">{t('reviewOverlay.noPriority')}</span>
+    return <span className="text-xs text-muted-foreground italic">{t('reviewOverlay.noPriority')}</span>
   }
-  const base = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] capitalize border'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-caption capitalize border'
   if (added) {
-    return <span className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>{t(`priority.${value}`)}</span>
+    return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>{t(`priority.${value}`)}</span>
   }
   if (removed) {
-    return <span className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>{t(`priority.${value}`)}</span>
+    return <span data-chip="" className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>{t(`priority.${value}`)}</span>
   }
-  return <span className={`${base} bg-card/60 text-muted-foreground border-border/40`}>{t(`priority.${value}`)}</span>
+  return <span data-chip="" className={`${base} bg-card/60 text-muted-foreground border-border/40`}>{t(`priority.${value}`)}</span>
 }

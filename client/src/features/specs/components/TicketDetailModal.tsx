@@ -1,16 +1,23 @@
 import { modalOverlayStyle } from '../../../lib/modal-safe-area'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect, useCallback, useRef, useMemo, useId } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
-import { Trans, useTranslation } from 'react-i18next'
-import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, MoreHorizontal, Split } from 'lucide-react'
+import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { openExternalUrl } from '../../../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { Button } from '../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
+import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
+import { cn } from '../../../lib/utils'
 import { AttachmentsSection } from '../../chat/components/AttachmentsSection'
 import { TicketFilesTouched } from '../../code/components/code-explorer/TicketFilesTouched'
 import { SpecAddendaSection } from './SpecAddendaSection'
@@ -20,6 +27,7 @@ import { useMinimizedChats } from '../../missions/context/MinimizedChatsContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
 import { jiraApi } from '../../integrations/lib/jira-api'
+import { MANUAL_STATUS_TARGETS, STATUS_LABEL_KEY, moveJiraSpecToStatus } from '../lib/ticket-status-moves'
 import { DiscardSpecDialog } from '../../integrations/components/jira/DiscardSpecDialog'
 import { JiraSpecDetailsPanel } from '../../integrations/components/jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
@@ -29,10 +37,12 @@ import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { RegressionOfPicker, isBugTicket } from './RegressionOfPicker'
+import { NonGoalsSection } from './NonGoalsSection'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
 import { MoveToRailPopover } from '../../rails/components/MoveToRailPopover'
+import { useSpecExtensions } from '../context/SpecExtensionsContext'
 import { isSmashCapable } from '../../providers/lib/provider-capabilities'
 import type { RailState } from '../../rails/components/RailsBoard'
 import type { Attachment, LocalTicket, TicketPriority, TicketStatus } from '../../../types'
@@ -45,26 +55,11 @@ const DRAG_SNAP_THRESHOLD = 0.20 // 20% of viewport width
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-// Manual status targets from the detail selector. `draft` (Explore-owned) and
-// `on_review` (pipeline-owned, PR-decision semantics) are never offered as
-// TARGETS — but the CURRENT status always renders so the select stays truthful.
-const MANUAL_STATUS_TARGETS: TicketStatus[] = ['todo', 'in_progress', 'done', 'cancelled']
-
-// tickets:ticketStatus.* uses camelCase keys — map the snake_case status ids.
-const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
-  draft: 'ticketStatus.draft',
-  todo: 'ticketStatus.todo',
-  in_progress: 'ticketStatus.inProgress',
-  on_review: 'ticketStatus.onReview',
-  done: 'ticketStatus.done',
-  cancelled: 'ticketStatus.cancelled',
-}
-
 const PRIORITY_OPTIONS: { value: TicketPriority; labelKey: string; className: string }[] = [
-  { value: 'critical', labelKey: 'priority.critical', className: 'text-red-400' },
-  { value: 'high', labelKey: 'priority.high', className: 'text-orange-400' },
-  { value: 'medium', labelKey: 'priority.medium', className: 'text-yellow-400' },
-  { value: 'low', labelKey: 'priority.low', className: 'text-slate-400' },
+  { value: 'critical', labelKey: 'priority.critical', className: 'text-destructive' },
+  { value: 'high', labelKey: 'priority.high', className: 'text-accent-warning' },
+  { value: 'medium', labelKey: 'priority.medium', className: 'text-accent-highlight' },
+  { value: 'low', labelKey: 'priority.low', className: 'text-muted-foreground' },
 ]
 
 /** Browser URL of a spec's parent Jira epic, derived from the issue's jira_url. */
@@ -92,7 +87,7 @@ interface TicketDetailModalProps {
   onClose: () => void
   /** Navigation hook: open a different ticket inside the same modal stack. */
   onOpenTicket?: (ticketId: number) => void
-  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds'>> & { metadata?: { regressionOf?: string | null } }) => Promise<boolean>
+  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf?: string | null } }) => Promise<boolean>
   onDelete: (ticketId: number) => Promise<boolean>
   /** Rails available in the project — drives the Move-to-Rail popover. */
   rails?: RailState[]
@@ -125,6 +120,9 @@ export function TicketDetailModal({
 }: TicketDetailModalProps) {
   const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
+  const { t: tAct } = useTranslation('activity')
+  // Another way to work on the spec next to Move to Rail (Flow), from the composition root.
+  const { StartAlternative } = useSpecExtensions()
   const { activeProjectId, projects } = useDesktop()
   const { enterSplit, state: splitState } = useTicketDetailModal()
   const inSplit = splitState.originSide !== null
@@ -138,6 +136,9 @@ export function TicketDetailModal({
   // closed while project context is loading.
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
   const smashFlagOn = isSmashCapable(activeProvider)
+  const [statusPrimaryShown, setStatusPrimaryShown] = useState(false)
+  const [smashAvailable, setSmashAvailable] = useState(false)
+  const [smashOpenRequest, setSmashOpenRequest] = useState(0)
   const childrenList = useMemo(
     () => (allTickets ?? []).filter((t) => t.parent_epic_id === ticket.id),
     [allTickets, ticket.id],
@@ -157,6 +158,7 @@ export function TicketDetailModal({
   const [labels, setLabels] = useState<string[]>([...(ticket.labels ?? [])])
   const [repositoryIds, setRepositoryIds] = useState(ticket.repositoryIds)
   const [regressionOf, setRegressionOf] = useState<string | null>(ticket.metadata?.regressionOf ?? null)
+  const [nonGoals, setNonGoals] = useState<string[]>([...(ticket.nonGoals ?? [])])
 
   // Edit mode toggles
   const [editingTitle, setEditingTitle] = useState(false)
@@ -165,7 +167,6 @@ export function TicketDetailModal({
   const [showLabelInput, setShowLabelInput] = useState(false)
 
   // Confirmation dialog
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
   const [showJiraSaveConfirm, setShowJiraSaveConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -212,10 +213,7 @@ export function TicketDetailModal({
     if (!next || next === jiraStatusValue) return
     setStatusMoving(true)
     try {
-      await jiraApi.moveSpecToStatus(ticket.id, next)
-      toast.success(tj('moveToStatus.queued', { status: next }))
-    } catch {
-      toast.error(tj('moveToStatus.failed'))
+      await moveJiraSpecToStatus(ticket.id, next, tj)
     } finally {
       setStatusMoving(false)
     }
@@ -233,9 +231,10 @@ export function TicketDetailModal({
       priority !== ticket.priority ||
       JSON.stringify(labels) !== JSON.stringify(ticket.labels) ||
       JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds) ||
-      regressionOf !== (ticket.metadata?.regressionOf ?? null)
+      regressionOf !== (ticket.metadata?.regressionOf ?? null) ||
+      JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])
     )
-  }, [title, description, priority, labels, repositoryIds, regressionOf, ticket])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket])
 
   // Focus on edit start
   useEffect(() => {
@@ -256,16 +255,20 @@ export function TicketDetailModal({
     if (showLabelInput) labelInputRef.current?.focus()
   }, [showLabelInput])
 
-  // Close on Escape (unless editing or AI overlay is open — overlay owns Esc).
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !editingTitle && !editingDescription && !showDeleteConfirm) {
-        onClose()
-      }
+  // Escape (Radix): close the spec unless an inline editor or the Move-to-rail
+  // popover owns it. Nested dialogs (confirms, SMASH, Selects) are their own
+  // Radix layers, so Escape only ever closes the top one.
+  const handleEscapeKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target instanceof HTMLElement ? e.target : null
+    if (
+      editingTitle
+      || editingDescription
+      || target?.closest('input, textarea, select, [contenteditable="true"]')
+      || document.querySelector('[data-testid="move-to-rail-popover"]')
+    ) {
+      e.preventDefault()
     }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onClose, editingTitle, editingDescription, showDeleteConfirm])
+  }, [editingTitle, editingDescription])
 
   // Label autocomplete suggestions
   const labelSuggestions = useMemo(() => {
@@ -289,13 +292,14 @@ export function TicketDetailModal({
   }, [])
 
   const handleSave = useCallback(async () => {
-    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds'>> & { metadata?: { regressionOf: string | null } } = {}
+    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds' | 'nonGoals'>> & { metadata?: { regressionOf: string | null } } = {}
     if (title !== ticket.title) changes.title = title
     if (description !== ticket.description) changes.description = description
     if (priority !== ticket.priority) changes.priority = priority
     if (JSON.stringify(labels) !== JSON.stringify(ticket.labels)) changes.labels = labels
     if (JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds)) changes.repositoryIds = repositoryIds
     if (regressionOf !== (ticket.metadata?.regressionOf ?? null)) changes.metadata = { regressionOf }
+    if (JSON.stringify(nonGoals) !== JSON.stringify(ticket.nonGoals ?? [])) changes.nonGoals = nonGoals
 
     if (Object.keys(changes).length === 0) {
       onClose()
@@ -312,7 +316,7 @@ export function TicketDetailModal({
     } else {
       toast.error(t('detailModal.toast.updateFailed'))
     }
-  }, [title, description, priority, labels, repositoryIds, regressionOf, ticket, onSave, onClose, t])
+  }, [title, description, priority, labels, repositoryIds, regressionOf, nonGoals, ticket, onSave, onClose, t])
 
   const handleDelete = useCallback(async () => {
     if (deleting) return
@@ -328,7 +332,6 @@ export function TicketDetailModal({
       toast.error(t('detailModal.toast.deleteFailed'))
       return
     }
-    setShowDeleteConfirm(false)
     onClose()
   }, [deleting, ticket.id, onDelete, onClose, t])
 
@@ -410,28 +413,61 @@ export function TicketDetailModal({
   }, [canDrag, enterSplit, splitState.leftId, ticket.id, onClose])
 
   // ─── Resize-only floating (header stays the split gesture) ──────────────────
+  // Unique per instance: the split view renders two of these side by side.
+  const titleId = `ticket-detail-title-${useId()}`
   const { panelRef, panelStyle, resizeHandles, guardBackdrop } = useMovableResizableModal({
     enabled: !embedded,
     allowMove: false,
+    persistKey: 'specrails.modal.spec-detail',
   })
 
+  // Terminal specs (done/cancelled) are finished work: no Move to rail / Flow.
+  const isTerminal = ticket.status === 'done' || ticket.status === 'cancelled'
+  // Compare needs a second spec to compare against (unknown list ⇒ keep it).
+  const hasComparable = allTickets === undefined || allTickets.some((t) => t.id !== ticket.id)
+
+  // Focus return: the board card that opened the modal often re-renders while
+  // it is open; remember its identity so focus lands on its live replacement.
+  const [returnTarget] = useState(() => {
+    if (embedded || typeof document === 'undefined') return null
+    const el = document.activeElement
+    if (!(el instanceof HTMLElement) || el === document.body) return null
+    const testId = el.getAttribute('data-testid')
+    const selector = el.id ? `#${CSS.escape(el.id)}` : testId ? `[data-testid="${CSS.escape(testId)}"]` : null
+    return { el, selector }
+  })
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    // Radix only refocuses a `DialogTrigger`; this modal is opened from cards,
+    // chips and menus, so return focus to whatever opened it.
+    e.preventDefault()
+    if (!returnTarget) return
+    const next = returnTarget.el.isConnected
+      ? returnTarget.el
+      : returnTarget.selector ? document.querySelector<HTMLElement>(returnTarget.selector) : null
+    next?.focus()
+  }, [returnTarget])
+
   // ─── Layout helpers ────────────────────────────────────────────────────────
-  const panel = (
+  // Spec detail keeps its own workspace geometry (wider than the `workspace`
+  // size token, 90vh tall): it is an entity page with a metadata rail, and its
+  // header doubles as the drag-to-split gesture, so it is built on the raw
+  // Radix primitives instead of `DialogContent`.
+  const panelClassName = embedded
+    ? 'relative w-full h-full rounded-panel bg-popover border border-border/40 shadow-3 flex flex-col overflow-hidden'
+    : 'modal-enter relative w-full max-w-[67rem] m-4 rounded-panel bg-popover border border-border/40 shadow-3 flex flex-col h-[90vh] max-h-[calc(100%-2rem)] outline-none'
+  const panelInlineStyle: React.CSSProperties = {
+    ...(dragOffset !== 0
+      ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
+      : { transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }),
+    ...panelStyle,
+  }
+  const statusLabel = t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })
+  const titleHeading = (
+    // No `id` key when standalone: Radix's Title (asChild) supplies the id.
+    <h2 {...(embedded ? { id: titleId } : {})} className="text-headline text-foreground line-clamp-2 break-words">{title || t('untitled')}</h2>
+  )
+  const panelContent = (
     <>
-      <div
-        ref={panelRef}
-        className={
-          embedded
-            ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
-            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 h-[90vh] max-h-[calc(100%-2rem)]'
-        }
-        style={{
-          ...(dragOffset !== 0
-            ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
-            : { transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)' }),
-          ...panelStyle,
-        }}
-      >
         {/* Épica breadcrumb (children only) */}
         {epicParent && (
           <div className="px-5 pt-3">
@@ -460,7 +496,7 @@ export function TicketDetailModal({
                   if (e.key === 'Enter') setEditingTitle(false)
                   if (e.key === 'Escape') { setTitle(ticket.title); setEditingTitle(false) }
                 }}
-                className="w-full bg-transparent border-b border-accent-primary/50 text-sm font-semibold text-foreground outline-none pb-0.5"
+                className="w-full bg-transparent border-b border-accent-primary/50 text-title text-foreground outline-none pb-0.5"
               />
             ) : (
               <button
@@ -468,12 +504,12 @@ export function TicketDetailModal({
                 onClick={() => setEditingTitle(true)}
                 className="group flex items-center gap-1.5 text-left w-full"
               >
-                <h2 className="text-sm font-semibold text-foreground truncate">{title || t('untitled')}</h2>
+                {embedded ? titleHeading : <DialogPrimitive.Title asChild>{titleHeading}</DialogPrimitive.Title>}
                 <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </button>
             )}
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] text-foreground font-mono">#{ticket.id}</span>
+              <span className="text-xs text-foreground font-mono">#{ticket.id}</span>
               {/* Work delivered as a draft PR — awaiting the human review decision. */}
               {ticket.status === 'on_review' && (
                 <span title={t('specs:status.onReviewHint')} data-testid="ticket-modal-on-review-badge">
@@ -481,10 +517,14 @@ export function TicketDetailModal({
                 </span>
               )}
             </div>
-            <TicketSpendingLine ticketId={ticket.id} />
+            {/* Plain-language gloss for the "~$x · ≥N turns · 1 quick + 3 loops" line. */}
+            <div title={t('detailModal.spendingLineHint')} data-testid="ticket-spending-line">
+              <TicketSpendingLine ticketId={ticket.id} />
+            </div>
           </div>
 
-          {activeProjectId && (
+          {/* A Done spec is finished work — SMASHing it into Sub-Specs makes no sense. */}
+          {activeProjectId && ticket.status !== 'done' && (
             <div className="shrink-0">
               <SmashActions
                 ticket={ticket}
@@ -492,37 +532,77 @@ export function TicketDetailModal({
                 provider={activeProvider}
                 featureFlagOn={smashFlagOn}
                 childrenCount={childrenList.length}
+                hideButton
+                openRequest={smashOpenRequest}
+                onAvailableChange={setSmashAvailable}
               />
             </div>
           )}
 
           <ContinueEditingButton ticket={ticket} title={title} description={description} priority={priority} labels={labels} repositoryIds={repositoryIds} onClose={onClose} />
 
+          {!isTerminal && (ticket.status === 'on_review' || ticket.status === 'in_progress') && (
+            <StatusPrimaryAction ticket={ticket} rails={rails} onClose={onClose} onShownChange={setStatusPrimaryShown} />
+          )}
+
           {rails && (onMoveToRail || onRemoveFromRail) && (
             <RailAssignmentButton
               ticket={ticket}
               rails={rails}
-              onMoveToRail={onMoveToRail}
+              onMoveToRail={isTerminal ? undefined : onMoveToRail}
               onRemoveFromRail={onRemoveFromRail}
+              secondary={statusPrimaryShown}
             />
           )}
 
-          {canDrag && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 mr-1 gap-1.5"
-              data-testid="ticket-modal-compare"
-              onClick={handleCompareClick}
-              title={t('detailModal.compareTooltip')}
-            >
-              <Columns2 className="w-3.5 h-3.5" />
-              {t('detailModal.compare')}
-            </Button>
+          {/* Flow and Implement (Move to Rail) are two equal ways to work on a spec. */}
+          {rails && onMoveToRail && StartAlternative && !isTerminal && (
+            <StartAlternative
+              variant="button"
+              className="shrink-0 mr-1"
+              spec={ticket}
+              rail={(() => { const rail = rails.find((r) => r.ticketIds.includes(ticket.id)); return rail ? { running: rail.status === 'running' } : null })()}
+            />
+          )}
+
+          {((activeProjectId && ticket.status !== 'done' && smashAvailable) || (canDrag && hasComparable)) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={t('detailModal.moreActions')}
+                title={t('detailModal.moreActions')}
+                data-testid="ticket-modal-more"
+                className="h-7 w-7 mr-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer shrink-0"
+              >
+                <MoreHorizontal className="w-4 h-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className={DIALOG_LAYER_CLASS.stacked}>
+                {activeProjectId && ticket.status !== 'done' && smashAvailable && (
+                  <DropdownMenuItem
+                    data-testid="ticket-modal-smash"
+                    onSelect={() => setSmashOpenRequest((n) => n + 1)}
+                  >
+                    <Split className="w-3.5 h-3.5" aria-hidden />
+                    {ticket.is_epic ? tAct('smash.reSmashButton') : tAct('smash.smashButton')}
+                  </DropdownMenuItem>
+                )}
+                {canDrag && hasComparable && (
+                  <DropdownMenuItem
+                    data-testid="ticket-modal-compare"
+                    onSelect={handleCompareClick}
+                    title={t('detailModal.compareTooltip')}
+                  >
+                    <Columns2 className="w-3.5 h-3.5" aria-hidden />
+                    {t('detailModal.compare')}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('common:actions.close')}
             className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer shrink-0"
             data-testid="ticket-modal-close"
           >
@@ -539,14 +619,14 @@ export function TicketDetailModal({
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-label text-muted-foreground flex items-center gap-1.5">
                     {t('fields.description')}
                   </span>
                   {!editingDescription && (
                     <button
                       type="button"
                       onClick={() => setEditingDescription(true)}
-                      className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                     >
                       <Pencil className="w-2.5 h-2.5" />
                       {t('common:actions.edit')}
@@ -567,12 +647,12 @@ export function TicketDetailModal({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[10px]"
+                        className="h-6 text-xs"
                         onClick={() => setEditingDescription(false)}
                       >
                         {t('detailModal.doneEditing')}
                       </Button>
-                      <span className="text-[9px] text-muted-foreground">{t('fields.supportsMarkdown')}</span>
+                      <span className="text-xs text-muted-foreground">{t('fields.supportsMarkdown')}</span>
                     </div>
                   </div>
                 ) : description ? (
@@ -591,6 +671,9 @@ export function TicketDetailModal({
                 )}
               </div>
 
+              {/* Non-goals — "Out of scope" under the description (feedback-2026-10 3.2) */}
+              <NonGoalsSection value={nonGoals} onChange={setNonGoals} disabled={saving} />
+
               {/* Spec addenda — iterate without editing the description (spec-addenda) */}
               <SpecAddendaSection ticket={ticket} />
 
@@ -607,14 +690,15 @@ export function TicketDetailModal({
               {/* Prerequisites */}
               {ticket.prerequisites && ticket.prerequisites.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  <span className="text-label text-muted-foreground block mb-1.5">
                     {t('detailModal.prerequisites')}
                   </span>
                   <div className="flex flex-wrap gap-1">
                     {ticket.prerequisites.map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-accent/60 text-foreground/70"
+                        data-chip=""
+                        className="inline-flex h-5 items-center rounded px-1.5 text-caption font-mono bg-accent/60 text-foreground/70"
                       >
                         #{id}
                       </span>
@@ -632,7 +716,7 @@ export function TicketDetailModal({
                   type="button"
                   onClick={() => { void openExternalUrl(ticket.jira_url!) }}
                   data-testid="jira-go-to-ticket"
-                  className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded border border-accent-info/50 bg-accent-info/10 px-2 text-xs font-medium text-accent-info hover:bg-accent-info/20 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded border border-accent-info/50 bg-accent-info/10 px-2 text-label text-accent-info hover:bg-accent-info/20 transition-colors"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   {tj('detail.goToTicket', { key: ticket.jira_key })}
@@ -641,7 +725,7 @@ export function TicketDetailModal({
               {/* Parent Jira epic — only when the issue has one */}
               {ticket.jira_epic_key && (
                 <div data-testid="jira-epic">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  <span className="text-label text-muted-foreground block mb-1.5">
                     {tj('detail.epic')}
                   </span>
                   <button
@@ -660,85 +744,100 @@ export function TicketDetailModal({
                   (transition rides the outbox); local specs offer the manual
                   targets (never INTO on_review/draft — pipeline-owned). */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.status')}
                 </span>
                 {isJiraBacked ? (
-                  <select
-                    value={jiraStatusValue}
+                  <Select
+                    value={jiraStatusValue || undefined}
                     disabled={statusMoving || jiraStatuses === null}
-                    onChange={(e) => { void handleJiraStatusMove(e.target.value) }}
-                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
-                    data-testid="ticket-jira-status-select"
+                    onValueChange={(v) => { void handleJiraStatusMove(v) }}
                   >
-                    {jiraStatuses === null ? (
-                      <option value={jiraStatusValue}>{jiraStatusValue || t('states.loading', { ns: 'common' })}</option>
-                    ) : (
-                      <>
-                        {jiraStatusValue && !jiraStatuses.some((s) => s.name === jiraStatusValue) && (
-                          <option value={jiraStatusValue}>{jiraStatusValue}</option>
-                        )}
-                        {jiraStatuses.map((s) => (
-                          <option key={s.name} value={s.name}>{s.name}</option>
-                        ))}
-                      </>
-                    )}
-                  </select>
+                    <SelectTrigger
+                      className="h-7 w-full text-xs"
+                      aria-label={t('fields.status')}
+                      data-testid="ticket-jira-status-select"
+                    >
+                      <SelectValue placeholder={t('states.loading', { ns: 'common' })} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jiraStatusValue && !(jiraStatuses ?? []).some((s) => s.name === jiraStatusValue) && (
+                        <SelectItem value={jiraStatusValue} className="text-xs">{jiraStatusValue}</SelectItem>
+                      )}
+                      {(jiraStatuses ?? []).map((s) => (
+                        <SelectItem key={s.name} value={s.name} className="text-xs">{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <select
+                  <Select
                     value={ticket.status}
                     disabled={statusMoving}
-                    onChange={(e) => { void handleLocalStatusMove(e.target.value as TicketStatus) }}
-                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
-                    data-testid="ticket-status-select"
+                    onValueChange={(v) => { void handleLocalStatusMove(v as TicketStatus) }}
                   >
-                    {/* Current status always listed (even draft/on_review) so the
-                        select renders truthfully; manual targets exclude the
-                        pipeline-owned states. */}
-                    {!MANUAL_STATUS_TARGETS.includes(ticket.status) && (
-                      <option value={ticket.status}>{t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })}</option>
-                    )}
-                    {MANUAL_STATUS_TARGETS.map((s) => (
-                      <option key={s} value={s}>{t(STATUS_LABEL_KEY[s], { ns: 'tickets' })}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      className="h-7 w-full text-xs"
+                      aria-label={t('fields.status')}
+                      data-testid="ticket-status-select"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Current status always listed (even draft/on_review) so the
+                          trigger renders truthfully; manual targets exclude the
+                          pipeline-owned states. */}
+                      {!MANUAL_STATUS_TARGETS.includes(ticket.status) && (
+                        <SelectItem value={ticket.status} className="text-xs">{t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })}</SelectItem>
+                      )}
+                      {MANUAL_STATUS_TARGETS.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">{t(STATUS_LABEL_KEY[s], { ns: 'tickets' })}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 
               {/* Priority selector */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.priority')}
                 </span>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
-                  className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground"
-                >
-                  {PRIORITY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
-                  ))}
-                </select>
+                <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
+                  <SelectTrigger
+                    className="h-7 w-full text-xs"
+                    aria-label={t('fields.priority')}
+                    data-testid="ticket-priority-select"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">{t(opt.labelKey)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={saving} />
 
               {/* Labels */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-label text-muted-foreground block mb-1.5">
                   {t('fields.labels')}
                 </span>
                 <div className="flex flex-wrap gap-1 mb-1.5">
                   {labels.map((label) => (
                     <span
                       key={label}
-                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/60 text-foreground/70 group"
+                      data-chip=""
+                      className="inline-flex h-5 items-center gap-0.5 rounded px-1.5 text-caption font-medium bg-accent/60 text-foreground/70 group"
                     >
                       {label}
                       <button
                         type="button"
                         onClick={() => removeLabel(label)}
-                        className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={t('fields.removeLabel', { label })}
+                        className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                       >
                         <XCircle className="w-2.5 h-2.5" />
                       </button>
@@ -767,7 +866,7 @@ export function TicketDetailModal({
                         setLabelInput('')
                       }}
                       placeholder={t('detailModal.addLabelPlaceholder')}
-                      className="w-full h-6 rounded border border-border bg-input px-2 text-[10px] text-foreground placeholder:text-muted-foreground"
+                      className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground placeholder:text-muted-foreground"
                     />
                     {labelSuggestions.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-0.5 rounded border border-border/50 bg-popover shadow-lg z-10 py-0.5">
@@ -779,7 +878,7 @@ export function TicketDetailModal({
                               e.preventDefault()
                               addLabel(suggestion)
                             }}
-                            className="w-full text-left px-2 py-1 text-[10px] hover:bg-accent/50 text-foreground/80"
+                            className="w-full text-left px-2 py-1 text-xs hover:bg-accent/50 text-foreground/80"
                           >
                             {suggestion}
                           </button>
@@ -791,7 +890,7 @@ export function TicketDetailModal({
                   <button
                     type="button"
                     onClick={() => setShowLabelInput(true)}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Plus className="w-2.5 h-2.5" />
                     {t('detailModal.addLabel')}
@@ -821,7 +920,7 @@ export function TicketDetailModal({
               {/* Metadata */}
               {ticket.metadata?.effort_level && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-0.5">
+                  <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.effort')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.metadata.effort_level}</span>
@@ -830,7 +929,7 @@ export function TicketDetailModal({
 
               {ticket.assignee && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-0.5">
+                  <span className="text-label text-muted-foreground block mb-0.5">
                     {t('detailModal.assignee')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.assignee}</span>
@@ -840,9 +939,30 @@ export function TicketDetailModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border/30">
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+        {/* Footer: destructive action + provenance on the left, Save on the right. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 border-t border-border/40">
+          <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+            {canDiscard ? (
+              <Button
+                variant="ghost"
+                className="text-accent-info hover:bg-accent-info/10"
+                onClick={() => setShowDiscard(true)}
+                data-testid="jira-move-to-button"
+              >
+                <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                {tj('discard.moveButton', { status: jira.discardStatus })}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => { void handleDelete() }}
+                disabled={deleting}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                {t('common:actions.delete')}
+              </Button>
+            )}
             <span>{t('meta.createdAgo', { time: formatRelTime(ticket.created_at) })}</span>
             <span>{t('meta.updatedAgo', { time: formatRelTime(ticket.updated_at) })}</span>
             {ticket.source && (
@@ -851,72 +971,22 @@ export function TicketDetailModal({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            {canDiscard ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-accent-info hover:bg-accent-info/10"
-                onClick={() => setShowDiscard(true)}
-                data-testid="jira-move-to-button"
-              >
-                <ArrowRight className="w-3 h-3 mr-1" />
-                {tj('discard.moveButton', { status: jira.discardStatus })}
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-red-400 aurora-light:text-destructive hover:text-red-300 aurora-light:hover:text-destructive hover:bg-red-500/10 aurora-light:hover:bg-destructive/10"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                {t('common:actions.delete')}
-              </Button>
-            )}
-            {isDirty && (
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => { if (isJiraBacked) setShowJiraSaveConfirm(true); else void handleSave() }}
-                disabled={saving || !title.trim()}
-              >
-                <Save className="w-3 h-3 mr-1" />
-                {saving ? t('common:states.saving') : t('common:actions.save')}
-              </Button>
-            )}
-          </div>
+          {isDirty && (
+            <Button
+              onClick={() => { if (isJiraBacked) setShowJiraSaveConfirm(true); else void handleSave() }}
+              disabled={saving || !title.trim()}
+            >
+              <Save className="w-3.5 h-3.5 mr-1" />
+              {saving ? t('common:states.saving') : t('common:actions.save')}
+            </Button>
+          )}
         </div>
-      </div>
+        {!embedded && <ResizeGrips handles={resizeHandles} placement="inset" />}
+    </>
+  )
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!deleting) setShowDeleteConfirm(open) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-            <DialogDescription>
-              <Trans
-                t={t}
-                i18nKey="deleteDialog.body"
-                values={{ id: ticket.id, title: ticket.title }}
-                components={{ strong: <span className="font-semibold text-foreground" /> }}
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => { void handleDelete() }} disabled={deleting} aria-busy={deleting}>
-              {deleting
-                ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                : <Trash2 className="w-3.5 h-3.5 mr-1.5" />}
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+  const dialogs = (
+    <>
       {/* Jira "Move to <status>" — replaces delete for Jira-backed specs */}
       {canDiscard && jira.discardStatus && (
         <DiscardSpecDialog
@@ -929,41 +999,73 @@ export function TicketDetailModal({
       )}
 
       {/* Save confirmation — Save on a Jira-backed spec writes back to the issue */}
-      <Dialog open={showJiraSaveConfirm} onOpenChange={setShowJiraSaveConfirm}>
-        <DialogContent className="max-w-md" data-testid="jira-save-confirm">
-          <DialogHeader>
-            <DialogTitle>{tj('detail.saveTitle')}</DialogTitle>
-            <DialogDescription>{tj('detail.saveBody', { key: ticket.jira_key ?? `#${ticket.id}` })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowJiraSaveConfirm(false)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button size="sm" onClick={() => { setShowJiraSaveConfirm(false); void handleSave() }} disabled={saving} data-testid="jira-save-confirm-btn">
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              {tj('detail.saveConfirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={showJiraSaveConfirm}
+        onOpenChange={setShowJiraSaveConfirm}
+        tone="default"
+        title={tj('detail.saveTitle')}
+        description={tj('detail.saveBody', { key: ticket.jira_key ?? `#${ticket.id}` })}
+        confirmLabel={tj('detail.saveConfirm')}
+        confirmDisabled={saving}
+        onConfirm={() => { setShowJiraSaveConfirm(false); void handleSave() }}
+        testId="jira-save-confirm"
+        confirmTestId="jira-save-confirm-btn"
+      />
     </>
   )
 
-  if (embedded) return panel
-  return createPortal(
-    // z-[68]: above the floating AgentChatPanel (z-[60]/z-[61]) AND above the
-    // JobDetailModal (z-[65]) — a spec chip clicked INSIDE a mission-mode job
-    // modal must open the ticket IN FRONT of it, not behind. The ticket surface
-    // never opens a job modal, so ticket-always-above-job is a consistent rule.
-    // Still below the MinimizedChatsDock (z-[70]) and browser-capture (z-[80]).
-    // Portalled to document.body so it escapes the #root stacking context
-    // (position:relative + z-index:0) and can layer against body-portalled modals.
-    <div style={modalOverlayStyle()} className="fixed inset-0 z-[68] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
-      {panel}
-      <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+  if (embedded) {
+    // Embedded in the split view: the shell is the dialog, each pane a region.
+    return (
+      <>
+        <div ref={panelRef} role="region" aria-labelledby={titleId} className={panelClassName} style={panelInlineStyle}>
+          {panelContent}
+        </div>
+        {dialogs}
+      </>
+    )
+  }
+
+  // Standalone: a Radix modal on the `entity` layer (focus trap, hideOthers,
+  // focus return, Escape stacking). Above the floating agent panel and level
+  // with Job detail — a spec opened from inside Job detail mounts later, so it
+  // is the top layer; nested confirms/SMASH climb to `stacked`.
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          style={modalOverlayStyle()}
+          className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.entity)}
+          data-testid="ticket-modal-overlay"
+        />
+        <div
+          style={modalOverlayStyle()}
+          className={cn('pointer-events-none fixed inset-0 flex items-center justify-center', DIALOG_LAYER_CLASS.entity)}
+        >
+          <DialogPrimitive.Content
+            ref={panelRef}
+            data-testid="ticket-detail-modal"
+            data-dialog-layer="entity"
+            className={cn(panelClassName, 'pointer-events-auto')}
+            style={panelInlineStyle}
+            onEscapeKeyDown={handleEscapeKeyDown}
+            onPointerDownOutside={(e) => {
+              // A resize drag that ends over the scrim must not dismiss.
+              let dismiss = false
+              guardBackdrop(() => { dismiss = true })()
+              if (!dismiss) e.preventDefault()
+            }}
+            onCloseAutoFocus={handleCloseAutoFocus}
+          >
+            <DialogPrimitive.Description className="sr-only">#{ticket.id} · {statusLabel}</DialogPrimitive.Description>
+            <DialogLayerProvider layer="entity">
+              {panelContent}
+              {dialogs}
+            </DialogLayerProvider>
+          </DialogPrimitive.Content>
+        </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -1039,6 +1141,7 @@ function ContinueEditingButton({ ticket, title, description, priority, labels, r
           priority,
           repositoryIds,
           acceptanceCriteria: criteria,
+          nonGoals: ticket.nonGoals ?? [],
           // Drives publish-vs-update on commit: a draft PUBLISHES (flips to a
           // real spec), a live spec PATCHes in place. See ExploreSpecShell.
           status: ticket.status,
@@ -1075,6 +1178,8 @@ interface RailAssignmentButtonProps {
   rails: RailState[]
   onMoveToRail?: (ticketId: number, railId: string) => void
   onRemoveFromRail?: (ticketId: number) => void
+  /** Another primary is shown: render as outline so exactly one stays filled. */
+  secondary?: boolean
 }
 
 /**
@@ -1083,7 +1188,7 @@ interface RailAssignmentButtonProps {
  * "← Remove from Rail" (returns the spec to the specs list), depending on
  * whether the ticket is already assigned to a rail.
  */
-function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }: RailAssignmentButtonProps) {
+function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail, secondary }: RailAssignmentButtonProps) {
   const { t } = useTranslation('tickets')
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -1111,9 +1216,9 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
     <>
       <Button
         ref={buttonRef}
-        variant="outline"
         size="sm"
-        className="shrink-0 mr-2 gap-1.5 border-accent-info/30 text-accent-info hover:bg-accent-info/10 hover:text-accent-info"
+        variant={secondary ? 'outline' : 'default'}
+        className="shrink-0 mr-2 gap-1.5"
         data-testid="modal-move-to-rail"
         onClick={() => {
           if (!buttonRef.current) return
@@ -1132,6 +1237,54 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
         />
       )}
     </>
+  )
+}
+
+// ─── Status primary action ──────────────────────────────────────────────────
+
+/**
+ * The one primary action of a spec that is already past the rail hand-off:
+ * `on_review` opens the review packet, `in_progress` opens the running job.
+ * Renders nothing when the target cannot be resolved (no live delivery / job).
+ */
+function StatusPrimaryAction(props: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void; onShownChange?: (shown: boolean) => void }) {
+  const inRouter = useInRouterContext()
+  return inRouter ? <StatusPrimaryActionInner {...props} /> : null
+}
+
+function StatusPrimaryActionInner({ ticket, rails, onClose, onShownChange }: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void; onShownChange?: (shown: boolean) => void }) {
+  const { t } = useTranslation('tickets')
+  const navigate = useNavigate()
+  const { decisions } = useRailPrDecisions()
+  let path: string | null = null
+  let label = ''
+  if (ticket.status === 'on_review') {
+    for (const d of decisions.values()) {
+      if (d.ticketIds.includes(ticket.id)) { path = `/review/${encodeURIComponent(d.prDeliveryId)}`; break }
+    }
+    label = t('detailModal.openReview')
+  } else {
+    const jobId = rails?.find((r) => r.ticketIds.includes(ticket.id))?.activeJobId
+    if (jobId) path = `/jobs/${encodeURIComponent(jobId)}`
+    label = t('detailModal.viewJob')
+  }
+  const shown = Boolean(path)
+  useEffect(() => {
+    onShownChange?.(shown)
+    return () => onShownChange?.(false)
+  }, [shown, onShownChange])
+  if (!path) return null
+  const target = path
+  return (
+    <Button
+      size="sm"
+      className="shrink-0 mr-2 gap-1.5"
+      data-testid="modal-primary-action"
+      onClick={() => { onClose(); navigate(target) }}
+    >
+      {label}
+      <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+    </Button>
   )
 }
 
@@ -1204,7 +1357,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1213,13 +1366,13 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
           className="mt-3 rounded-md border border-border/40 bg-muted/10 px-2 py-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <summary className="cursor-pointer text-[10px] font-medium text-foreground/80 select-none flex items-center gap-2">
+          <summary className="cursor-pointer text-label text-foreground/80 select-none flex items-center gap-2">
             {t('contractLayer.title')}
-            <span className="rounded-full bg-muted/40 px-1.5 text-[9px] text-foreground/60">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-muted/40 px-1.5 text-caption text-foreground/60">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-foreground prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-control text-foreground/90">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

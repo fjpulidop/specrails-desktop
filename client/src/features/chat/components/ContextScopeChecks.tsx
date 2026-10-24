@@ -39,7 +39,7 @@ function CheckRow({ id, label, hint, checked, disabled, tooltip, onChange }: Che
     >
       <label htmlFor={id} className="flex flex-col gap-0.5 text-xs">
         <span className="font-medium text-foreground">{label}</span>
-        <span className="text-[10px] text-muted-foreground">{hint}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
       </label>
       <button
         id={id}
@@ -104,14 +104,14 @@ export function ContextScopeChecks({
         aria-controls="ctx-scope-body"
         data-testid="context-scope-toggle"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between gap-2 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold hover:text-foreground transition-colors"
+        className="flex items-center justify-between gap-2 text-label text-muted-foreground font-semibold hover:text-foreground transition-colors"
       >
         <span className="flex items-center gap-1.5">
           {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           {effectiveLabel}
         </span>
         {!open && showSummary ? (
-          <span className="text-[10px] normal-case tracking-normal text-muted-foreground/80">
+          <span className="text-xs normal-case tracking-normal text-muted-foreground/80">
             {summary} · {tier}
           </span>
         ) : null}

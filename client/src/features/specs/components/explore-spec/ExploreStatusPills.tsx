@@ -87,7 +87,7 @@ export function ExploreStatusPills({
   const label = t(STAGE_LABEL_KEY[displayedStage])
   return (
     <div
-      className="inline-flex items-center gap-2 rounded-full bg-accent-info/10 text-accent-info px-3 py-1 text-[11px] font-medium"
+      className="inline-flex items-center gap-2 rounded-full bg-accent-info/10 text-accent-info px-3 py-1 text-caption font-medium"
       role="status"
       aria-live="polite"
       data-testid="explore-status-pill"

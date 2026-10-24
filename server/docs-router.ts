@@ -194,9 +194,42 @@ function categoryLabel(slug: string, lang: string): string {
   return CATEGORY_LABELS[lang]?.[slug] ?? CATEGORY_LABELS[DEFAULT_LANG]?.[slug] ?? slugToTitle(slug)
 }
 
+/**
+ * Headings may carry an explicit, locale-independent anchor: `## Title {#anchor}`.
+ * The anchor is a link target for in-app "Learn more" hints, never part of the
+ * visible title.
+ */
+const HEADING_ANCHOR = /\s*\{#([a-z0-9][a-z0-9-]*)\}\s*$/i
+
+function stripHeadingAnchor(text: string): string {
+  return text.replace(HEADING_ANCHOR, '').trim()
+}
+
 function extractTitle(content: string, slug: string): string {
   const match = content.match(/^#\s+(.+)$/m)
-  return match ? match[1].trim() : slugToTitle(slug)
+  return match ? stripHeadingAnchor(match[1]) || slugToTitle(slug) : slugToTitle(slug)
+}
+
+interface GuideHeading {
+  level: number
+  text: string
+  anchor: string | null
+}
+
+/** Headings outside code fences, with their optional explicit anchors. */
+function extractHeadings(content: string): GuideHeading[] {
+  const out: GuideHeading[] = []
+  let fenced = false
+  for (const line of content.split('\n')) {
+    if (/^```/.test(line)) fenced = !fenced
+    if (fenced) continue
+    const m = /^(#{1,4})\s+(.+?)\s*$/.exec(line)
+    if (!m) continue
+    const anchor = HEADING_ANCHOR.exec(m[2])?.[1]?.toLowerCase() ?? null
+    const text = stripHeadingAnchor(m[2])
+    if (text) out.push({ level: m[1].length, text, anchor })
+  }
+  return out
 }
 
 /** Parse an `<order>-<slug>.md` filename into { order, slug }. */
@@ -215,6 +248,18 @@ interface DocEntry {
   title: string
   slug: string
 }
+interface DocSearchResult {
+  category: string
+  categoryName: string
+  slug: string
+  title: string
+  /** The matching heading, or null when the page title itself matched. */
+  heading: string | null
+  /** The heading's explicit anchor (`{#id}`) when it has one. */
+  anchor: string | null
+  rank: number
+}
+const MAX_SEARCH_RESULTS = 8
 interface DocCategory {
   name: string
   slug: string
@@ -351,6 +396,42 @@ export function createDocsRouter(): Router {
     const guideRoot = resolveGuideRoot()
     const categories = guideRoot ? buildCategories(guideRoot, lang) : []
     res.json({ categories })
+  })
+
+  // Search the guide's page titles and headings in one language (the in-app
+  // `?` cheatsheet lists the matches next to the shortcuts). A page that is
+  // not translated falls back to English, like the index.
+  router.get('/search', (req, res) => {
+    const lang = normalizeLang(req.query.lang)
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().toLocaleLowerCase(lang) : ''
+    const guideRoot = resolveGuideRoot()
+    if (!query || query.length > 80 || !guideRoot) {
+      res.json({ results: [] })
+      return
+    }
+    const results: DocSearchResult[] = []
+    for (const cat of buildCategories(guideRoot, lang)) {
+      for (const doc of cat.docs) {
+        const resolved = resolveDocFile(guideRoot, lang, cat.slug, doc.slug)
+        if (!resolved) continue
+        let content = ''
+        try {
+          content = fs.readFileSync(resolved.filePath, 'utf-8')
+        } catch {
+          continue
+        }
+        const titleHit = doc.title.toLocaleLowerCase(lang).includes(query)
+        const headings = extractHeadings(content).filter((h) => h.level > 1 && h.text.toLocaleLowerCase(lang).includes(query))
+        if (titleHit) {
+          results.push({ category: cat.slug, categoryName: cat.name, slug: doc.slug, title: doc.title, heading: null, anchor: null, rank: 0 })
+        }
+        for (const h of headings.slice(0, 3)) {
+          results.push({ category: cat.slug, categoryName: cat.name, slug: doc.slug, title: doc.title, heading: h.text, anchor: h.anchor, rank: 1 })
+        }
+      }
+    }
+    results.sort((a, b) => a.rank - b.rank)
+    res.json({ results: results.slice(0, MAX_SEARCH_RESULTS).map(({ rank: _rank, ...rest }) => rest) })
   })
 
   router.get('/:category/:slug', (req, res) => {

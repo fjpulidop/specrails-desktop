@@ -1,16 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Drop here",
     "emptyNoSpecs": "No specs yet",
     "emptyNoLabelMatch": "No specs match the active labels",
     "emptyNoActiveSpecs": "No active specs",
-    "emptyHint": "Click \"+ Add\" to get started",
+    "emptyHint": "Click \"New spec\" to get started",
     "dropToMarkDone": "Drop to mark as done",
     "emptyNoDoneLabelMatch": "No done specs match the active labels",
     "emptyNoCompleted": "No completed specs yet",
     "emptyNoStatusMatch": "No specs match the selected status",
-    "untitledSpec": "Untitled spec"
+    "untitledSpec": "Untitled spec",
+    "doneHeading": "Done · {{count}}",
+    "clearFilters": "Clear filters",
+    "emptyNoSearchMatch": "No specs match \"{{query}}\""
   },
   "status": {
     "todo": "Todo",
@@ -45,12 +48,11 @@
   },
   "card": {
     "deleteSpec": "Delete spec #{{id}}",
-    "deleteTicket": "Delete ticket #{{id}}",
     "ticketFallbackLabel": "Ticket #{{id}}",
     "dependsOn": "Depends on {{count}}",
     "continueEditing": "Continue Editing",
     "continueEditingTitle": "Continue editing this spec",
-    "moveToRail": "Move to Rail"
+    "moveToRail": "Move to rail"
   },
   "emptyState": {
     "noTickets": "No tickets yet",
@@ -93,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "Filter by status",
     "all": "All",
-    "active": "Active"
+    "active": "Active",
+    "more": "More",
+    "moreSelected": "Status: {{status}}. Choose another status"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filter by Jira status",
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filter by labels",
-    "all": "All",
+    "all": "All labels",
     "empty": "No labels in this project.",
     "selected_one": "{{count}} label",
     "selected_other": "{{count}} labels",
@@ -155,7 +159,6 @@
       "securitySurface": "Security",
       "none": "No public API, data or security impact"
     },
-    "flowHint": "Flow suggested",
     "filesLikely": "Likely files",
     "moreFiles_one": "+{{count}} more file",
     "moreFiles_other": "+{{count}} more files",
@@ -165,5 +168,47 @@
     "unavailableDetail": "No model is available for triage ({{reason}}).",
     "failed": "Triage failed",
     "failedDetail": "The triage could not be completed: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "New spec",
+    "newSpecTooltip": "New spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Search specs",
+    "ariaLabel": "Search specs by title, number, label or Jira key",
+    "clear": "Clear search"
+  },
+  "filters": {
+    "trigger": "Filters",
+    "triggerActive_one": "Filters, {{count}} active",
+    "triggerActive_other": "Filters, {{count}} active",
+    "title": "Filters",
+    "sections": {
+      "labels": "Labels",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Jira status"
+    },
+    "clearSection": "Clear",
+    "clearAll": "Clear all",
+    "done": "Done",
+    "findLabel": "Find a label",
+    "removeChip": "Remove filter: {{label}}",
+    "resultCount": "{{shown}} of {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Search: \"{{query}}\"",
+      "label": "Label: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Sort and view",
+    "menuLabel": "Sort and view options",
+    "sortBy": "Sort by",
+    "direction": "Direction",
+    "view": "View"
   }
 }

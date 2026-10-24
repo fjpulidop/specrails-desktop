@@ -33,7 +33,22 @@
       "noMatch": "Nessun template corrisponde ai filtri.",
       "clearFilters": "Cancella filtri",
       "openInStudio": "Apri nello Studio →",
-      "tip": "Suggerimento: clicca un tag su una card per filtrare per quel tag."
+      "tip": "Suggerimento: clicca un tag su una card per filtrare per quel tag.",
+      "categories": {
+        "software-engineering": "Ingegneria del software",
+        "testing-qa": "Test e QA",
+        "data-analytics": "Dati e analisi",
+        "security-compliance": "Sicurezza e conformità",
+        "product-design": "Prodotto e design",
+        "business-operations": "Business e operazioni",
+        "marketing-growth": "Marketing e crescita",
+        "science-research": "Scienza e ricerca",
+        "education": "Istruzione",
+        "health-medicine": "Salute e medicina",
+        "legal": "Legale",
+        "arts-creative": "Arte e creatività",
+        "management-leadership": "Management e leadership"
+      }
     },
     "generate": {
       "title": "Genera un agente custom",
@@ -43,14 +58,15 @@
       "descriptionPlaceholder": "es. Revisiona le modifiche Terraform/IaC e segnala configurazioni di sicurezza errate, permessi IAM eccessivi e bucket S3 pubblici prima del merge. Conservativo e conciso.",
       "note": "Claude redigerà un corpo <code>.md</code> completo. Lo revisionerai nello Studio e potrai modificarlo prima di salvare. Questo avvia un'invocazione claude one-shot e può richiedere fino a 90 secondi.",
       "generating": "Generazione…",
-      "generateButton": "Genera"
+      "generateButton": "Genera",
+      "dialogDescription": "Descrivi l'agente che ti serve e Claude ne prepara una bozza da rivedere nello Studio prima di salvarla."
     },
     "empty": {
       "title": "Nessun agente custom ancora",
       "body": "I ruoli base (architect, developer, reviewer) sono definiti dal runtime di specrails-core e non richiedono installazione. Crea un agente custom per ampliare il tuo team."
     },
     "actions": {
-      "template": "Template",
+      "template": "Modello",
       "templateTitle": "Parti da un template",
       "generate": "Genera",
       "generateWithClaude": "Genera con Claude",
@@ -65,7 +81,7 @@
     "sections": {
       "upstream": "Upstream ({{count}})",
       "upstreamDescription": "Ruoli base definiti dal runtime di specrails-core; sola lettura.",
-      "custom": "Custom ({{count}})",
+      "custom": "Personalizzati ({{count}})",
       "customDescription": "I file custom-*.md del tuo progetto. Usa Template / Genera / Vuoto qui sopra per crearne uno.",
       "noCustomAgents": "Ancora nessun agente custom."
     },
@@ -79,7 +95,7 @@
     },
     "kind": {
       "upstream": "upstream",
-      "custom": "custom"
+      "custom": "personalizzato"
     }
   },
   "profiles": {
@@ -135,7 +151,8 @@
     },
     "sidebar": {
       "title": "Profili",
-      "teamDefault": "(default del team)"
+      "teamDefault": "(default del team)",
+      "new": "Nuovo profilo"
     },
     "editorFooter": {
       "fixValidationIssues": "Correggi i problemi di validazione prima di salvare",

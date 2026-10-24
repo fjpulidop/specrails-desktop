@@ -76,7 +76,7 @@
       "subscriptionUsage": "Uso de suscripciones"
     },
     "title": "Ajustes de Desktop",
-    "description": "Gestiona los proyectos registrados y consulta la información de Desktop.",
+    "description": "Apariencia, proveedores de IA, actualizaciones y preferencias generales de Desktop.",
     "registeredProjects": "Proyectos registrados",
     "noProjects": "Aún no hay proyectos registrados",
     "techUrlDescription": "URL base de la API de specrails-tech (por defecto: http://localhost:3000)",
@@ -97,11 +97,19 @@
     "platformTour": "Tour de la plataforma",
     "platformTourDescription": "Vuelve a ver el asistente de bienvenida para repasar las funciones clave.",
     "replayTour": "Repetir tour",
-    "terminalPanelHeading": "Panel de terminal",
     "infoHeading": "Información de Desktop",
     "infoPort": "Puerto",
     "infoProjects": "Proyectos",
-    "infoDb": "BD de Desktop"
+    "infoDb": "BD de Desktop",
+    "removeProjectConfirmTitle": "¿Quitar {{name}}?",
+    "removeProjectConfirmBody": "{{name}} se elimina del registro de Specrails y su trabajo en curso se detiene. Los archivos del repositorio en disco no se borran; puedes volver a añadir la carpeta más tarde.",
+    "navLabel": "Secciones de ajustes",
+    "navGroups": {
+      "personal": "Personal",
+      "agents": "Agentes",
+      "system": "Sistema"
+    },
+    "unsavedChanges": "Cambios sin guardar"
   },
   "notifications": {
     "heading": "Notificaciones del sistema",
@@ -120,8 +128,6 @@
     "eventJobCompleted": "Job completado",
     "eventJobFailed": "Job fallido",
     "eventDailyBudgetExceeded": "Presupuesto diario superado",
-    "statusOn": "on",
-    "statusOff": "off",
     "disable": "Desactivar",
     "enable": "Activar",
     "sendTestPing": "Enviar ping de prueba",
@@ -136,7 +142,10 @@
     "removed": "Webhook eliminado",
     "removeFailed": "No se pudo eliminar el webhook",
     "testPingSent": "Ping de prueba enviado",
-    "testPingFailed": "No se pudo enviar el ping de prueba"
+    "testPingFailed": "No se pudo enviar el ping de prueba",
+    "removeConfirmTitle": "¿Eliminar el webhook?",
+    "removeConfirmBody": "{{url}} dejará de recibir eventos de Desktop.",
+    "urlLabel": "URL del webhook"
   },
   "terminal": {
     "title": "Panel de terminal",
@@ -170,7 +179,7 @@
     "taglines": {
       "dracula": "El original — oscuro con tinte púrpura y acentos neón vivos",
       "aurora-light": "Claro premium — índigo inspirado en Linear sobre blanco cálido",
-      "obsidian-dark": "Oscuro premium — casi negro con tinte azul y acentos eléctricos",
+      "obsidian-dark": "Grafito pro — casi negro neutro con un solo acento violeta apagado",
       "specrails": "Tema de marca — azul marino-índigo profundo con acentos cian saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre casi negro verdoso",
       "galaxy": "Azul de espacio profundo con una estela de hoja brillante"
@@ -198,7 +207,8 @@
     "windowsFirewall": "El Firewall de Windows pedirá permiso para el servidor de SpecRails la primera vez que lo actives — elige «Permitir en redes privadas».",
     "pairedDevices": "Dispositivos emparejados",
     "noDevices": "Aún no hay dispositivos emparejados.",
-    "revokeDevice": "Revocar {{name}}"
+    "revokeDevice": "Revocar {{name}}",
+    "resetConfirmTitle": "¿Restablecer la identidad móvil?"
   },
   "pairWeb": {
     "title": "Emparejar companion web",
@@ -231,10 +241,7 @@
     "affectsAll": "Afecta a todos los proyectos — sin reiniciar.",
     "unavailable": "Las actualizaciones del core no están disponibles en esta versión.",
     "toastDone": "Specrails Core actualizado a {{version}}",
-    "toastError": "Error al actualizar el core: {{message}}",
     "toastUpToDate": "Specrails Core está actualizado",
-    "toastCheckFailed": "Error al comprobar actualizaciones: {{message}}",
-    "loadFailed": "No se pudo actualizar el estado de Core. Reintentar",
     "runtime": "Motor: {{version}}",
     "bundled": "Incluido en Desktop: {{version}}",
     "sources": {
@@ -245,7 +252,10 @@
       "global": "CLI externo"
     },
     "repair": "Completar actualización {{version}}",
-    "stableFallback": "specrails-core aún no tiene versión estable, así que Core sigue Última por ahora."
+    "stableFallback": "specrails-core aún no tiene versión estable, así que Core sigue Última por ahora.",
+    "updateFailed": "No se pudo actualizar Core",
+    "checkFailed": "No se pudo buscar actualizaciones",
+    "loadError": "No se pudo actualizar el estado de Core."
   },
   "updateChannel": {
     "heading": "Canal de actualización",
@@ -277,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Ajustes",
-    "description": "Configuración del proyecto: prompts, rama base, entorno, presupuesto, telemetría y terminal.",
+    "description": "Configuración del proyecto: prompts, rama base, entorno, presupuesto, telemetría, reglas y terminal.",
     "nav": {
       "general": "General",
       "branch": "Rama base",
@@ -286,8 +296,11 @@
       "telemetry": "Telemetría",
       "terminal": "Terminal",
       "agentRuntime": "Comandos de verificación",
-      "subagents": "Sub-agentes"
-    }
+      "subagents": "Sub-agentes",
+      "rules": "Reglas",
+      "recentlyDeleted": "Eliminado recientemente"
+    },
+    "navLabel": "Secciones de ajustes del proyecto"
   },
   "integrationBranch": {
     "title": "Rama de integración",
@@ -439,5 +452,65 @@
     "saved_other": "Límite de revisión fijado en {{count}}",
     "removed": "Límite de revisión eliminado",
     "saveFailed": "No se pudo guardar el límite de revisión"
+  },
+  "anchoring": {
+    "title": "Anclaje en proyectos existentes",
+    "description": "Comportamientos opcionales que ayudan a que los runs respeten lo que el proyecto ya hace. Cada uno necesita un Core que lo soporte.",
+    "coreRequired": "El Core instalado aún no lo soporta. Actualiza Core para activarlo.",
+    "saveFailed": "No se pudo guardar el ajuste",
+    "jiraPostClarifications": {
+      "label": "Publicar las aclaraciones del arquitecto en Jira",
+      "description": "Cuando un run se pausa con preguntas del arquitecto, o continúa con supuestos, se publican como comentario en la issue de Jira enlazada. Una respuesta allí se registra en la spec como aclaración.",
+      "enabled": "Las aclaraciones se publicarán en Jira",
+      "disabled": "Las aclaraciones se quedarán en Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline al tocar",
+      "description": "Cuando un cambio llega a código que ninguna spec describe, primero escribe tests de caracterización (demostrados sobre el código sin cambios) y una spec as-built mínima. Añade coste, que se muestra aparte.",
+      "enabled": "Baseline al tocar activado",
+      "disabled": "Baseline al tocar desactivado"
+    }
+  },
+  "rules": {
+    "title": "Reglas del proyecto",
+    "description": "Los checks que el proyecto ya ejecuta y cada regla escrita, clasificada como aplicada, automatizable o solo humana. Las reglas solo humanas aparecen en cada packet de revisión.",
+    "rerun": "Volver a inventariar",
+    "running": "Inventariando…",
+    "coreRequired": "El Core instalado no soporta el inventario de reglas. Actualiza Core para ejecutarlo.",
+    "missing": "Aún no hay inventario. Ejecútalo para listar los gates y las reglas del proyecto.",
+    "invalid": "No se pudo leer el fichero de reglas: {{message}}",
+    "inventoryDone": "Inventario de reglas actualizado",
+    "inventoryFailed": "El inventario de reglas falló",
+    "specCreated": "Spec #{{id}} creada",
+    "specFailed": "No se pudo crear la spec",
+    "status": {
+      "automatable": "Automatizable",
+      "humanOnly": "Solo humana",
+      "enforcedBy": "Aplicada",
+      "unclassified": "Sin clasificar"
+    },
+    "generatedAt": "Generado {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Los comandos de gate simples se ofrecen primero como checks de verificación en los ajustes del agent runtime cuando no hay ninguno configurado.",
+    "enforcedBy": "Aplicada por {{check}}",
+    "proposedCheck": "Check propuesto: {{check}}",
+    "createSpec": "Crear spec",
+    "dropped_one": "{{count}} entrada no seguía el formato y se omitió",
+    "dropped_other": "{{count}} entradas no seguían el formato y se omitieron",
+    "classification": {
+      "offline": "Las reglas se inventariaron sin conexión y aún no están clasificadas. Vuelve a inventariar con un proveedor configurado.",
+      "unavailable": "No hay un proveedor configurado para clasificar las reglas.",
+      "failed": "Falló la clasificación de las reglas.",
+      "empty": "No se encontraron reglas escritas.",
+      "unknown": "Las reglas no están clasificadas."
+    },
+    "autoRunning": "El inventario se está ejecutando tras la configuración. Esta lista se actualiza al terminar.",
+    "lastRun": {
+      "setupFailed": "El inventario automático tras la configuración falló ({{date}}).",
+      "manualFailed": "La última ejecución del inventario falló ({{date}}).",
+      "retryHint": "Corrige la causa indicada arriba y vuelve a ejecutar el inventario.",
+      "setupDone": "Inventariado automáticamente tras la configuración."
+    }
   }
 }

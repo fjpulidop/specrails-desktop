@@ -39,6 +39,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
     getAgentConversation: vi.fn(async () => ({ conversation: c1, messages: [] })),
     patchAgentConversation: vi.fn(async () => c1),
     deleteAgentConversation: vi.fn(async () => {}),
+    restoreAgentConversation: vi.fn(async () => c1),
     sendAgentMessage: vi.fn(async () => ({ queued: false })),
     abortAgentTurn: vi.fn(async () => {}),
     editQueuedAgentMessage: vi.fn(async () => 'saved' as const),
@@ -60,6 +61,7 @@ import { toast } from 'sonner'
 import * as agentApi from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
 import { compactRelativeTime } from '../../../../lib/relative-time'
+import { UndoProvider } from '../../../../hooks/useUndo'
 
 describe('compactRelativeTime (Cursor-style time-since)', () => {
   const NOW = Date.parse('2026-07-05T12:00:00.000Z')
@@ -163,57 +165,34 @@ describe('AgentMissionSelector', () => {
     expect(screen.getByTestId('mission-trigger')).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('delete is a two-step inline confirm inside the row', async () => {
+  it('deleting an idle mission applies at once: no confirm step', async () => {
     await openPanel()
     openDropdown()
-    fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    // Row swapped to the confirm state — nothing deleted yet.
-    expect(agentApi.deleteAgentConversation).not.toHaveBeenCalled()
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Delete?')
-    await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
+    await act(async () => { fireEvent.click(screen.getByTestId('mission-delete-c2')) })
+    expect(screen.queryByTestId('mission-confirm-yes')).not.toBeInTheDocument()
     expect(agentApi.deleteAgentConversation).toHaveBeenCalledWith('c2')
     await waitFor(() => expect(screen.queryByTestId('mission-row-c2')).not.toBeInTheDocument())
     // Deleting a NON-active mission never switches the thread.
     expect(screen.getByTestId('active-id').textContent).toBe('c1')
   })
 
-  it('✕ cancels the confirm without deleting', async () => {
-    await openPanel()
+  it('offers Undo after a delete: the toast action restores the mission', async () => {
+    vi.mocked(agentApi.restoreAgentConversation).mockResolvedValue(c2)
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([c1, c2, c3])
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
+      conversation: [c1, c2, c3].find((c) => c.id === id) ?? c1, messages: [],
+    }))
+    render(<UndoProvider><AgentChatProvider><Harness /></AgentChatProvider></UndoProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
     openDropdown()
-    fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    fireEvent.click(screen.getByTestId('mission-confirm-no'))
-    expect(agentApi.deleteAgentConversation).not.toHaveBeenCalled()
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Spending report')
-  })
-
-  it('an armed confirm reverts on its own after 3s', async () => {
-    await openPanel()
-    openDropdown()
-    vi.useFakeTimers()
-    fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Delete?')
-    act(() => { vi.advanceTimersByTime(3100) })
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Spending report')
-    expect(agentApi.deleteAgentConversation).not.toHaveBeenCalled()
-  })
-
-  it('deleting the ACTIVE mission hands off to the newest remaining one', async () => {
-    await openPanel()
-    openDropdown()
-    fireEvent.click(screen.getByTestId('mission-delete-c1'))
-    await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
-    expect(agentApi.deleteAgentConversation).toHaveBeenCalledWith('c1')
-    // Handoff: newest remaining (c2) becomes the active thread.
-    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c2'))
-  })
-
-  it('deleting the LAST mission lands on the empty compose state', async () => {
-    await openPanel([c1])
-    openDropdown()
-    fireEvent.click(screen.getByTestId('mission-delete-c1'))
-    await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
-    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('none'))
-    expect(screen.getByTestId('mission-trigger')).toHaveTextContent('New mission')
+    await act(async () => { fireEvent.click(screen.getByTestId('mission-delete-c2')) })
+    const call = vi.mocked(toast).mock.calls.at(-1)!
+    expect(call[0]).toBe('Deleted mission “Spending report”')
+    const action = (call[1] as { action: { label: string; onClick: () => void } }).action
+    expect(action.label).toBe('Undo')
+    await act(async () => { action.onClick() })
+    expect(agentApi.restoreAgentConversation).toHaveBeenCalledWith('c2')
   })
 
   it('warns differently when deleting a mission with a LIVE stream (still allowed)', async () => {
@@ -222,7 +201,7 @@ describe('AgentMissionSelector', () => {
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c2', delta: 'working…' }) })
     openDropdown()
     fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Agent is working — delete anyway?')
+    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('The agent is working. Delete anyway?')
     await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
     expect(agentApi.deleteAgentConversation).toHaveBeenCalledWith('c2')
   })
@@ -231,8 +210,7 @@ describe('AgentMissionSelector', () => {
     vi.mocked(agentApi.deleteAgentConversation).mockRejectedValueOnce(new Error('network'))
     await openPanel()
     openDropdown()
-    fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    await act(async () => { fireEvent.click(screen.getByTestId('mission-confirm-yes')) })
+    await act(async () => { fireEvent.click(screen.getByTestId('mission-delete-c2')) })
     expect(toast.error).toHaveBeenCalledWith("Couldn't delete the mission")
   })
 
@@ -309,11 +287,12 @@ describe('AgentMissionSelector', () => {
     expect(screen.getByTestId('active-id').textContent).toBe('none') // empty compose
   })
 
-  it('Esc with an armed confirm disarms it first, keeping the list open', async () => {
+  it('Esc with an armed (live-turn) confirm disarms it first, keeping the list open', async () => {
     await openPanel()
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c2', delta: 'working…' }) })
     openDropdown()
     fireEvent.click(screen.getByTestId('mission-delete-c2'))
-    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Delete?')
+    expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Delete anyway?')
     fireEvent.keyDown(screen.getByTestId('mission-trigger'), { key: 'Escape' })
     expect(screen.getByRole('listbox')).toBeInTheDocument() // still open
     expect(screen.getByTestId('mission-row-c2')).toHaveTextContent('Spending report')

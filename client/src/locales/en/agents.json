@@ -33,7 +33,22 @@
       "noMatch": "No templates match your filters.",
       "clearFilters": "Clear filters",
       "openInStudio": "Open in Studio →",
-      "tip": "Tip: click a tag pill on any card to filter by that tag."
+      "tip": "Tip: click a tag pill on any card to filter by that tag.",
+      "categories": {
+        "software-engineering": "Software Engineering",
+        "testing-qa": "Testing & QA",
+        "data-analytics": "Data & Analytics",
+        "security-compliance": "Security & Compliance",
+        "product-design": "Product & Design",
+        "business-operations": "Business & Operations",
+        "marketing-growth": "Marketing & Growth",
+        "science-research": "Science & Research",
+        "education": "Education",
+        "health-medicine": "Health & Medicine",
+        "legal": "Legal",
+        "arts-creative": "Arts & Creative",
+        "management-leadership": "Management & Leadership"
+      }
     },
     "generate": {
       "title": "Generate a custom agent",
@@ -43,7 +58,8 @@
       "descriptionPlaceholder": "e.g. Review Terraform/IaC changes and flag security misconfigurations, excessive IAM permissions, and public S3 buckets before merging. Conservative and terse.",
       "note": "Claude will draft a full <code>.md</code> body. You'll review it in the Studio and can edit before saving. This spawns a one-shot claude invocation and can take up to 90 seconds.",
       "generating": "Generating…",
-      "generateButton": "Generate"
+      "generateButton": "Generate",
+      "dialogDescription": "Describe the agent you need and Claude drafts it for you to review in the Studio before saving."
     },
     "empty": {
       "title": "No custom agents yet",
@@ -135,7 +151,8 @@
     },
     "sidebar": {
       "title": "Profiles",
-      "teamDefault": "(team default)"
+      "teamDefault": "(team default)",
+      "new": "New profile"
     },
     "editorFooter": {
       "fixValidationIssues": "Fix validation issues before saving",

@@ -1,7 +1,7 @@
 // Spec triage — effectful coordinator (launch-triage, feedback-2026-10 annex D.2).
 //
 // Deterministic inputs first (ticket text, repo map, files touched by similar
-// tickets via file_provenance, available loops, Flow availability), hashed;
+// tickets via file_provenance, available loops), hashed;
 // then ONE cheap structured-output call on the triage engine. The record lands
 // in `metadata.triage` of the ticket store and is announced as `ticket_updated`.
 //
@@ -139,7 +139,6 @@ export interface SpecTriageDeps {
   broadcast: (msg: WsMessage) => void
   /** Suppress the ticket-watcher echo of our own write. */
   notifyDesktopWrite?: (revision: number) => void
-  flowAvailable?: () => Promise<boolean>
   // Test seams.
   resolveEngine?: () => TriageEngineResolution
   runModel?: TriageModelRunner
@@ -240,15 +239,12 @@ export class SpecTriageService {
     const others = Object.values(store.tickets).filter((t) => !t.is_epic)
     const similar = similarTicketIds({ id: ticket.id, title: ticket.title, labels: ticket.labels ?? [] }, others.map((t) => ({ id: t.id, title: t.title, labels: t.labels ?? [] })))
     const loops = this.deps.loops?.() ?? listTriageLoops(this.deps.db, derivePrimaryProvider(this.deps.project))
-    let flowAvailable = false
-    try { flowAvailable = (await this.deps.flowAvailable?.()) === true } catch { flowAvailable = false }
     const inputs: TriageInputs = {
       promptVersion: TRIAGE_PROMPT_VERSION,
       ticket: triageTicketText(ticket),
       repoMap: this.repoMap(),
       similarFiles: filesTouchedByTickets(this.deps.db, similar),
       loops: loops.map(({ id, name, description }) => ({ id, name, description })),
-      flowAvailable,
       engine: engine.ok ? `${engine.engine.provider}:${engine.engine.model}` : null,
     }
     return { inputs, loops }
@@ -297,7 +293,7 @@ export class SpecTriageService {
         signal: this.abort.signal,
       })
       usage = result
-      const parsed = parseTriageOutput(result.text, { loops, flowAvailable: inputs.flowAvailable })
+      const parsed = parseTriageOutput(result.text, { loops })
       if (parsed.ok) {
         record = { status: 'ready', ...parsed.value, inputsHash, model: result.model, costUsd: result.costUsd, computedAt: computedAt() }
       } else {

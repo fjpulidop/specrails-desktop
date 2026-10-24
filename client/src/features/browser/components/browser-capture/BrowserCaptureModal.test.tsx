@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CaptureResult } from '../../lib/browser-capture'
 
@@ -146,9 +147,12 @@ describe('BrowserCaptureModal capture destination', () => {
     // Step badges do not require canvas flattening to create a dirty annotation.
     fireEvent.click(screen.getByRole('button', { name: /Step number/ }))
     fireEvent.pointerDown(screen.getByRole('img').parentElement!.querySelector('svg')!, { clientX: 50, clientY: 60, pointerId: 1 })
-    fireEvent.keyDown(window, { key: 'Escape' })
+    // Escape reaches both Radix (document) and the editor (window): only the
+    // editor decides, the surface stays open.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(window.confirm).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('dialog').parentElement!)
+    fireEvent.pointerDown(document.querySelector('[data-capture-scrim]')!)
+    fireEvent.click(document.querySelector('[data-capture-scrim]')!)
     expect(callbacks.onClose).not.toHaveBeenCalled()
     expect(callbacks.onCaptured).not.toHaveBeenCalled()
     expect(screen.getByTestId('annotation-confirm')).toBeInTheDocument()
@@ -172,5 +176,71 @@ describe('BrowserCaptureModal capture destination', () => {
     selectRegion()
     await screen.findByTestId('annotation-confirm')
     expect(session.capture).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('BrowserCaptureModal dialog standard (capture layer)', () => {
+  it('traps focus, forwards Tab and arrows to the page, and returns focus to the opener', async () => {
+    const opener = document.createElement('button')
+    opener.textContent = 'Open browser'
+    document.body.appendChild(opener)
+    opener.focus()
+    const callbacks = props()
+    const { rerender } = render(<BrowserCaptureModal {...callbacks} />)
+    const dialog = screen.getByRole('dialog', { name: 'Browser capture' })
+    expect(dialog).toHaveClass('z-[80]')
+    // The surface is measured once the portal has mounted it.
+    await waitFor(() => expect(session.setViewport).toHaveBeenCalledWith(1000, 800, 1))
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    const user = userEvent.setup()
+    for (let i = 0; i < 16; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+
+    // The viewport forwards Tab/arrows to the remote page; FocusScope must not
+    // move focus (no wrap-around to the first toolbar button).
+    const viewport = session.canvasRef.current!.parentElement!
+    viewport.focus()
+    session.forwardInput.mockClear()
+    await user.keyboard('{Tab}')
+    expect(session.forwardInput).toHaveBeenCalledWith(expect.objectContaining({ type: 'key', action: 'down', key: 'Tab' }))
+    expect(document.activeElement).toBe(viewport)
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(document.activeElement).toBe(viewport)
+    await user.keyboard('{ArrowDown}')
+    expect(session.forwardInput).toHaveBeenCalledWith(expect.objectContaining({ key: 'ArrowDown' }))
+    expect(document.activeElement).toBe(viewport)
+
+    // Escape closes (Radix), then focus returns to the opener.
+    await user.keyboard('{Escape}')
+    expect(callbacks.onClose).toHaveBeenCalledTimes(1)
+    rerender(<BrowserCaptureModal {...callbacks} open={false} />)
+    await waitFor(() => expect(document.activeElement).toBe(opener))
+    opener.remove()
+  })
+
+  it('leaves select mode on Escape before closing the surface', async () => {
+    const callbacks = props()
+    render(<BrowserCaptureModal {...callbacks} />)
+    fireEvent.click(screen.getByTestId('browser-select-toggle'))
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    expect(callbacks.onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    expect(callbacks.onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes on a scrim press but not on a press elsewhere outside the panel', async () => {
+    const callbacks = props()
+    const toast = document.createElement('div')
+    document.body.appendChild(toast)
+    render(<BrowserCaptureModal {...callbacks} />)
+    // Radix arms its outside-press listener on the next tick.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+    fireEvent.pointerDown(toast)
+    expect(callbacks.onClose).not.toHaveBeenCalled()
+    fireEvent.pointerDown(document.querySelector('[data-capture-scrim]')!)
+    expect(callbacks.onClose).toHaveBeenCalledTimes(1)
+    toast.remove()
   })
 })

@@ -27,18 +27,18 @@
     "priority": "Prioridade",
     "labels": "Etiquetas",
     "markdownPlaceholder": "Descrição em Markdown...",
-    "supportsMarkdown": "Suporta Markdown"
+    "supportsMarkdown": "Suporta Markdown",
+    "removeLabel": "Remover a etiqueta {{label}}"
   },
   "meta": {
     "createdAgo": "Criado {{time}}",
     "updatedAgo": "Atualizado {{time}}"
   },
   "untitled": "Sem título",
-  "deleteDialog": {
-    "title": "Eliminar ticket",
-    "body": "Tem a certeza de que quer eliminar <strong>#{{id}} {{title}}</strong>? Esta ação não pode ser anulada."
-  },
   "detailModal": {
+    "moreActions": "Mais ações",
+    "openReview": "Abrir revisão",
+    "viewJob": "Ver job",
     "toast": {
       "updated": "Ticket atualizado",
       "updateFailed": "Falha ao atualizar o ticket",
@@ -54,7 +54,8 @@
     "effort": "Esforço",
     "assignee": "Responsável",
     "continueEditing": "Continuar a editar",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Tudo o que foi gasto nesta spec até agora: custo total · turnos do agente (um + no final indica que algumas execuções não informaram turnos) · tempo ativo · execuções por tipo (ex.: “1 quick, 3 loops” = uma geração Quick da spec e três execuções de loop). Clique para abrir em Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -89,7 +90,8 @@
     "toast": {
       "created": "Ticket criado",
       "createFailed": "Falha ao criar o ticket"
-    }
+    },
+    "description": "Adicione uma spec ao quadro manualmente. Ela começa no status escolhido e pode ser refinada ou movida para um rail depois."
   },
   "comparePicker": {
     "title": "Comparar com…",
@@ -100,8 +102,10 @@
   },
   "spendingLine": {
     "ariaLabel": "Ver os gastos do ticket em Analytics",
-    "turns_one": "{{count}} turno",
-    "turns_other": "{{count}} turnos",
+    "turns_one": "{{count}} turno do agente",
+    "turns_other": "{{count}} turnos do agente",
+    "turnsAtLeast_one": "{{count}}+ turno do agente",
+    "turnsAtLeast_other": "{{count}}+ turnos do agente",
     "active": "{{duration}} ativo",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimado a partir da tabela de preços local — este provedor não informa o custo nativamente.",
@@ -187,5 +191,16 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Entrega desconhecida ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Fora do escopo",
+    "ariaLabel": "Fora do escopo, um item por linha",
+    "placeholder": "O que esta spec deliberadamente não muda nem entrega. Um item por linha",
+    "onePerLine": "Um item por linha",
+    "add": "Adicione o que esta spec deixa de fora"
+  },
+  "split": {
+    "label": "Comparar specs",
+    "resize": "Redimensionar painéis"
   }
 }

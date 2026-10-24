@@ -1,4 +1,4 @@
-# 从任意 AI 操控 Specrails（MCP 服务器）
+# 从任意 AI 操控 Specrails（MCP 服务器） {#mcp-server}
 
 > **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
 

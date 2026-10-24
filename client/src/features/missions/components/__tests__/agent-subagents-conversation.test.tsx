@@ -35,6 +35,7 @@ import type { AgentMessage, AgentSubagent } from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
 import { AgentConversationView } from '../AgentConversationView'
 import { composerDrafts, __clearComposerDrafts } from '../../lib/agent-composer-drafts'
+import { MissionExtensionsProvider, type MissionExtensions } from '../../context/MissionExtensionsContext'
 
 const node = (over: Partial<AgentSubagent> = {}): AgentSubagent => ({
   subagentId: 'sa-1', parentId: null, kind: 'background', agentType: 'Explore', description: 'Scan the repo', phase: 'running', reason: null,
@@ -92,6 +93,22 @@ describe('mission conversation with Core sub-agents', () => {
     emit({ type: 'agent_session_updated', conversationId: 'c1', outcome: 'deferred', changes: { model: 'opus' } })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Stop agents and apply now' })) })
     expect(agentApi.stopMissionSubagents).toHaveBeenCalledWith('c1', undefined)
+  })
+
+  it('in Flow, shows the Flow session sub-agents in the same card under the Flow turn', async () => {
+    const flowMode: MissionExtensions = { useConversationMode: () => ({ attributes: { 'data-flow': 'active' }, gitBranch: null, interruptWhileBusy: true }) }
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: conv, messages })
+    vi.mocked(agentApi.getMissionSubagents).mockResolvedValue({ subagents: [], session: null })
+    render(<MissionExtensionsProvider value={flowMode}><AgentChatProvider><Harness /></AgentChatProvider></MissionExtensionsProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select')) })
+    await screen.findByText('Launched two agents.')
+    // Projected from the Flow's own Core session (`flow:<flowId>`), keyed by the conversation.
+    emit({ type: 'agent_subagent', conversationId: 'c1', coreSessionId: 'flow:f1', subagent: node({ subagentId: 'flow-sa', description: 'Particle trail', launchedInTurnId: 'turn-1' }) })
+    emit({ type: 'agent_resident_state', conversationId: 'c1', coreSessionId: 'flow:f1', phase: 'background', liveSubagents: 1, processAlive: true })
+    const card = await screen.findByTestId('agent-subagents-card')
+    expect(within(card).getByText('Particle trail')).toBeInTheDocument()
+    const launching = screen.getByText('Launched two agents.').closest('.space-y-1') as HTMLElement
+    expect(launching).toContainElement(card)
   })
 
   it('drafts a relaunch request for an interrupted agent', async () => {

@@ -1,4 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
+import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
@@ -8,18 +10,27 @@ import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
   ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen, Eye,
-  ShieldCheck, Wrench, Activity,
+  ShieldCheck, Wrench, Activity, MessageSquareWarning, Undo2,
 } from 'lucide-react'
 import { cn } from '../../../lib/utils'
+import { AgentFlowReviewBlock, AgentFlowReturnedNote } from './AgentFlowReviewBlock'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { RepositoryDeliveries } from '../../delivery/components/RepositoryDeliveries'
 import { TopRiskLine } from '../../delivery/components/TopRiskLine'
+import { LocalStashNotice } from '../../delivery/components/LocalStashNotice'
+import { FLOW_SPEC_LOOP_ID, LoopChip } from '../../delivery/components/LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { FailureDiagnosisCard } from '../../recovery/components/FailureDiagnosisCard'
+import { useRunDiagnosis } from '../../recovery/hooks/useRunDiagnosis'
+import type { RemedyHandlers } from '../../recovery/lib/failure-diagnosis'
+import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
 import { useAgentRefActions } from '../hooks/useAgentRefActions'
 import { useRunVitals, formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import {
   postRailPrDecision,
   postRailPrCheckout,
+  postLocalChangesAction,
   agentEnvelopeFromSnapshot,
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
@@ -28,10 +39,9 @@ import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnown
 import { cancelJob } from '../../jobs/lib/cancel-job'
 import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { useAgentChat } from '../context/AgentChatContext'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { useDialogLayer } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { nestedDialogLayer } from '../../../lib/layers'
 import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
@@ -40,11 +50,15 @@ import { dailyBudgetActionMessage, dailyBudgetExceededMessage, dailyBudgetPaused
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
 import type { RuntimeRun } from '../../settings/lib/agent-runtime'
-import { FOCUS_PR_CARD_EVENT, focusMatchesCard, type FocusPrCardDetail } from './agent-run-failure'
+import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
+import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
+import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
+import { formatUsd } from '../../analytics/lib/format'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
-// job-ref chips; the modal itself portals to document.body at z-[65]).
+// job-ref chips; the modal itself portals to document.body on the entity layer, 65).
 const JobDetailModal = lazy(() =>
   import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
 )
@@ -75,7 +89,7 @@ const HEADER_ICON: Record<AgentPrDecisionEnvelope['decision'], typeof GitBranch>
 
 const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
   building: 'text-accent-primary/70',
-  on_review: 'text-accent-primary',
+  on_review: 'text-accent-review',
   pr_draft: 'text-accent-info',
   pr_ready: 'text-accent-info',
   no_changes: 'text-accent-success',
@@ -88,14 +102,16 @@ const HEADER_ICON_TONE: Record<AgentPrDecisionEnvelope['decision'], string> = {
   discarded: 'text-foreground/40',
 }
 
-function OutcomeEvidence({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
+function OutcomeEvidence({ envelope, hideFailedUnits = false }: { envelope: AgentPrDecisionEnvelope; hideFailedUnits?: boolean }) {
   const { t } = useTranslation('agent')
   const presentation = derivePrDeliveryPresentation(envelope)
+  // A Flow-owned outcome already says what failed: no duplicate red unit chip.
+  if (hideFailedUnits && !presentation.partial) return null
   if (presentation.units.length === 0 && !presentation.partial) return null
   return (
     <div className="mt-2 space-y-1.5" data-testid="agent-pr-unit-evidence">
       {presentation.partial && (
-        <p className="text-[11px] font-medium text-accent-warning">
+        <p className="text-label font-medium text-accent-warning">
           {t('prCard.partialSummary', {
             succeeded: presentation.succeededCount,
             failed: presentation.failedCount,
@@ -121,7 +137,7 @@ function OutcomeEvidence({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
                 key={`${unit.ticketId}-${unit.runId ?? unit.branch}`}
                 title={unit.failureCode ?? unit.branch}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]',
+                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption',
                   failed
                     ? 'border-destructive/35 bg-destructive/10 text-destructive'
                     : blocked
@@ -161,7 +177,7 @@ function ReviewPacketEntry({ prDeliveryId, projectId }: { prDeliveryId: string; 
       data-testid="agent-pr-open-packet"
       data-agent-interactive
       title={t('prCard.openReviewTooltip')}
-      className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/20"
+      className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-caption font-medium text-accent-primary transition-colors hover:bg-accent-primary/20"
     >
       <Eye className="h-3 w-3" />
       {t('prCard.openReview')}
@@ -171,7 +187,7 @@ function ReviewPacketEntry({ prDeliveryId, projectId }: { prDeliveryId: string; 
 
 // ── mission-rail-cards: run phase + failure ──────────────────────────────────
 
-type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown'
+type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown' | 'changes_requested' | 'returned'
 
 /**
  * The status the run-phase header shows. Live runtime data wins while the run
@@ -179,7 +195,7 @@ type MissionRunStatus = 'running' | 'paused' | 'succeeded' | 'failed' | 'stalled
  * decision. Never invents: an unknown state renders as "unknown".
  */
 export function deriveMissionRunStatus(
-  envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'runtime' | 'implementationOutcome'>,
+  envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'runtime' | 'implementationOutcome'> & Partial<Pick<AgentPrDecisionEnvelope, 'statusCode'>>,
   live: { active?: boolean; status?: string } | null,
   paused: boolean,
 ): MissionRunStatus {
@@ -189,6 +205,10 @@ export function deriveMissionRunStatus(
     return 'running'
   }
   if (live?.active) return 'running'
+  // Flow → Spec: the work still needs changes / went back to its Flow — not a crash.
+  const flow = flowCardOutcome(envelope)
+  if (flow === 'changes') return 'changes_requested'
+  if (flow === 'returned') return 'returned'
   const snap = envelope.runtime?.status
   if (snap === 'running') return 'running'
   if (snap === 'failed' || snap === 'stalled' || snap === 'cancelled' || snap === 'succeeded') return snap
@@ -199,14 +219,29 @@ export function deriveMissionRunStatus(
   return 'unknown'
 }
 
+/**
+ * Flow → Spec outcome a card presents instead of a generic failure (null for
+ * every other run): `changes` — the review still requests changes; `crashed`
+ * — the run failed outright (a technical failure, not a review verdict);
+ * `returned` — the work went back to its Flow.
+ */
+export function flowCardOutcome(envelope: Partial<Pick<AgentPrDecisionEnvelope, 'decision' | 'statusCode' | 'loopId'>>): 'changes' | 'crashed' | 'returned' | null {
+  if (envelope.decision === 'implementation_failed' && envelope.statusCode === 'review_changes_requested') return 'changes'
+  if (envelope.decision === 'discarded' && envelope.statusCode === 'returned_to_flow') return 'returned'
+  if (envelope.decision === 'implementation_failed' && envelope.loopId === FLOW_SPEC_LOOP_ID) return 'crashed'
+  return null
+}
+
 const RUN_STATUS_TONE: Record<MissionRunStatus, string> = {
   running: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
   paused: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
   succeeded: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   failed: 'border-destructive/40 bg-destructive/10 text-destructive',
   stalled: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
-  cancelled: 'border-border/60 bg-surface/60 text-foreground/55',
-  unknown: 'border-border/60 bg-surface/60 text-foreground/55',
+  cancelled: 'border-border/60 bg-surface/60 text-foreground/70',
+  unknown: 'border-border/60 bg-surface/60 text-foreground/70',
+  changes_requested: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
+  returned: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
 }
 
 function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
@@ -215,10 +250,10 @@ function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
     <span
       data-testid="mission-run-status"
       data-status={status}
-      className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide', RUN_STATUS_TONE[status])}
+      className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium', RUN_STATUS_TONE[status])}
     >
       {(status === 'running' || status === 'paused') && (
-        <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', status === 'running' ? 'animate-pulse bg-accent-info' : 'bg-accent-warning')} />
+        <LiveDot size="xs" tone={status === 'running' ? 'info' : 'warning'} pulsing={status === 'running'} aria-hidden />
       )}
       {t(`runCard.status.${status}`)}
     </span>
@@ -240,17 +275,17 @@ function RunFailureBlock({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
   const unitFailures = (envelope.units ?? []).filter((u) => u.failureCode).map((u) => ({ ticketId: u.ticketId, code: u.failureCode as string }))
   if (!code && !detail && unitFailures.length === 0) return null
   return (
-    <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/[0.06] px-2.5 py-2 text-[11px]" data-testid="mission-run-failure">
+    <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/[0.06] px-2.5 py-2 text-label" data-testid="mission-run-failure">
       <div className="flex flex-wrap items-center gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
         <span className="font-medium text-destructive">{t('runCard.failure.title')}</span>
         {code && (
-          <span className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-px font-mono text-[10px] text-destructive" data-testid="mission-run-failure-code">
+          <span className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-px font-mono text-caption text-destructive" data-testid="mission-run-failure-code">
             {code}
           </span>
         )}
         {failure?.stepId && (
-          <span className="rounded-full border border-border/60 bg-surface/60 px-2 py-px font-mono text-[10px] text-foreground/60">
+          <span className="rounded-full border border-border/60 bg-surface/60 px-2 py-px font-mono text-caption text-foreground/70">
             {t('runCard.failure.step', { step: failure.stepId })}
           </span>
         )}
@@ -259,7 +294,7 @@ function RunFailureBlock({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
         <p className="mt-1 break-words leading-4 text-foreground/70" data-testid="mission-run-failure-detail">{detail}</p>
       )}
       {unitFailures.length > 0 && (
-        <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-foreground/55">
+        <ul className="mt-1 space-y-0.5 font-mono text-caption text-foreground/70">
           {unitFailures.map((u) => (
             <li key={`${u.ticketId}-${u.code}`}>{t('runCard.failure.unit', { ticket: u.ticketId, code: u.code })}</li>
           ))}
@@ -300,7 +335,7 @@ function prNumberFromUrl(prUrl: string): string | null {
  * opens the run's JobDetailModal scoped to the CARD's project.
  */
 function RunLogChip({
-  projectId, runId, ticketLabel, live, onOpen, onVitals,
+  projectId, runId, ticketLabel, live, onOpen, onVitals, onSnapshot,
 }: {
   projectId: string
   runId: string
@@ -309,6 +344,8 @@ function RunLogChip({
   live: boolean
   onOpen: (runId: string) => void
   onVitals?: (runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => void
+  /** The run strip's totals (elapsed · billed cost · progress) — ticks while live. */
+  onSnapshot?: (runId: string, snapshot: MissionRunVitalsSnapshot) => void
 }) {
   const { t } = useTranslation('agent')
   const vitals = useRunVitals(projectId, runId, { live })
@@ -322,6 +359,9 @@ function RunLogChip({
   useEffect(() => {
     onVitals?.(runId, { paused: vitals.paused, pausedReason, budgetPaused })
   }, [onVitals, runId, vitals.paused, pausedReason, budgetPaused])
+  useEffect(() => {
+    onSnapshot?.(runId, { running: vitals.running, loaded: vitals.loaded, status: vitals.status, elapsedMs: vitals.elapsedMs, costUsd: vitals.costUsd })
+  }, [onSnapshot, runId, vitals.running, vitals.loaded, vitals.status, vitals.elapsedMs, vitals.costUsd])
   return (
     <button
       type="button"
@@ -341,10 +381,7 @@ function RunLogChip({
       )}
     >
       {(vitals.paused || (vitals.running && live)) && (
-        <span
-          aria-hidden
-          className={cn('h-1.5 w-1.5 shrink-0 animate-pulse rounded-full', vitals.paused ? 'bg-accent-warning' : 'bg-accent-info')}
-        />
+        <LiveDot size="xs" tone={vitals.paused ? 'warning' : 'info'} pulsing={!vitals.paused} aria-hidden />
       )}
       <span className="max-w-[160px] truncate">{label}</span>
       {dot}
@@ -360,7 +397,7 @@ function RunLogChip({
           {dot}
           <span
             className="tabular-nums"
-            aria-label={t('prCard.runCostAria', { cost: `$${vitals.costUsd!.toFixed(2)}` })}
+            aria-label={t('prCard.runCostAria', { cost: formatUsd(vitals.costUsd!) })}
           >
             ${vitals.costUsd!.toFixed(2)}
           </span>
@@ -370,7 +407,21 @@ function RunLogChip({
   )
 }
 
-export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: { envelope: AgentPrDecisionEnvelope; conversationId?: string | null }) {
+export interface AgentPrDecisionCardProps {
+  envelope: AgentPrDecisionEnvelope
+  conversationId?: string | null
+  /** Inside the run strip's panel: no card chrome of its own (the panel is the surface). */
+  embedded?: boolean
+  /** What the card knows about its live run (the strip's state) — on change only. */
+  onSummary?: (summary: MissionRunCardSummary) => void
+  /** Each run's vitals as its log chip measures them (the strip's totals). */
+  onRunVitals?: (runId: string, snapshot: MissionRunVitalsSnapshot) => void
+}
+
+/** Chrome removed when the card is the content of the run strip's panel. */
+const EMBEDDED_CARD = 'rounded-none border-0 bg-transparent px-0 py-0 shadow-none'
+
+export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, embedded = false, onSummary, onRunVitals }: AgentPrDecisionCardProps) {
   const { t } = useTranslation('agent')
   // The card is deliberately Router-OPTIONAL (it is unit-rendered bare in dozens
   // of tests and mounted inside the app Router in production). useNavigate would
@@ -385,6 +436,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const { openRef } = useAgentRefActions()
   const [busy, setBusy] = useState<AgentPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
+  const [localAction, setLocalAction] = useState<'restore' | 'bring-back' | 'discard-branch' | null>(null)
+  // Confirm layer: inside a dialog (e.g. Job detail, entity 65) climb one
+  // layer as usual; outside any dialog the card lives in the floating agent
+  // chat (60), so a base (50) confirm would paint BEHIND it — use `stacked`.
+  const parentDialogLayer = useDialogLayer()
+  const confirmLayer = parentDialogLayer ? nestedDialogLayer(parentDialogLayer) : 'stacked'
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [confirmingDismiss, setConfirmingDismiss] = useState(false)
   const [confirmingDiscardLocal, setConfirmingDiscardLocal] = useState(false)
@@ -422,6 +479,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const liveRun: RuntimeRun | null = runtime.runs.find((r) => r.runId === primaryRunId) ?? runtime.runs[0] ?? null
   const actionableRun: RuntimeRun | null = liveRun ?? (primaryRunId ? runtimeRunFromSnapshot(envelope, primaryRunId) : null)
   const [relaunching, setRelaunching] = useState(false)
+  const [retryingDelivery, setRetryingDelivery] = useState(false)
   const relaunchInFlight = useRef(false)
   const [relaunchAccepted, setRelaunchAccepted] = useState(false)
   const [relaunchError, setRelaunchError] = useState<string | null>(null)
@@ -434,7 +492,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     const onFocus = (event: Event): void => {
       const detail = (event as CustomEvent<FocusPrCardDetail>).detail
       if (!focusMatchesCard(detail, { prDeliveryId: envelope.prDeliveryId, runIds: envelope.runIds })) return
-      cardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      if (conversationId && !focusInConversation(detail, conversationId)) return
+      const card = cardRef.current
+      // Hidden in the run strip's closed panel: the strip opens it and re-dispatches.
+      if (card?.closest('[hidden]')) return
+      card?.scrollIntoView?.({ behavior: focusScrollBehavior(), block: 'nearest' })
+      // Keyboard focus follows the request (the region is labelled for screen readers).
+      try { card?.focus({ preventScroll: true }) } catch { card?.focus() }
       setFlash(true)
       if (flashTimer) clearTimeout(flashTimer)
       flashTimer = setTimeout(() => setFlash(false), 1400)
@@ -445,10 +509,44 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       window.removeEventListener(FOCUS_PR_CARD_EVENT, onFocus)
       if (flashTimer) clearTimeout(flashTimer)
     }
-  }, [envelope.prDeliveryId, envelope.runIds])
-  const flashClass = flash ? 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background' : ''
+  }, [envelope.prDeliveryId, envelope.runIds, conversationId])
+  // Brief highlight pulse in theme tokens; the pulse only runs when motion is allowed.
+  const flashClass = cn('outline-none', flash && 'ring-2 ring-accent-primary/50 ring-offset-1 ring-offset-background motion-safe:animate-pulse')
+  const focusRegion = {
+    tabIndex: -1,
+    role: 'region' as const,
+    'aria-label': t('prCard.focusRegion', {
+      rail: envelope.railName || t('prCard.rail', { index: envelope.railIndex + 1 }),
+      tickets: envelope.ticketIds.map((id) => `#${id}`).join(' '),
+    }),
+  }
   const hasRepositoryDeliveries = Boolean(envelope.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(envelope)
+  const { RunCardActions, RunFailureOutcome } = useMissionExtensions()
+  const rawFlowOutcome = flowCardOutcome(envelope)
+  // A failed Flow → Spec run is explained by Flow itself; without the
+  // extension the card keeps its generic failure presentation.
+  const flowOutcome = rawFlowOutcome === 'crashed' && !RunFailureOutcome ? null : rawFlowOutcome
+  const flowFailure = envelope.runtime?.failure ?? null
+  // Returned after a failure (not a review): the card keeps explaining why.
+  const returnedAfterFailure = flowOutcome === 'returned' && !envelope.flowReview && !!flowFailure && !!RunFailureOutcome
+  const flowFailureView = (flowOutcome === 'crashed' || returnedAfterFailure) && RunFailureOutcome ? (
+    <RunFailureOutcome
+      projectId={envelope.projectId}
+      prDeliveryId={envelope.prDeliveryId}
+      conversationId={conversationId ?? null}
+      stepId={flowFailure?.stepId ?? null}
+      // The runtime's own error, never the delivery's generic detail (that one is technical).
+      cause={flowFailure?.stepId && flowFailure.detail && flowFailure.detail !== envelope.statusDetail ? flowFailure.detail : null}
+      statusCode={flowOutcome === 'crashed' ? envelope.statusCode ?? null : flowFailure?.code ?? null}
+      failureCode={(envelope.units ?? []).find((unit) => unit.failureCode)?.failureCode ?? null}
+      statusDetail={flowOutcome === 'crashed' ? envelope.statusDetail ?? null : null}
+      repositoryName={envelope.repositoryDeliveries?.length ? envelope.repositoryDeliveries.map((repository) => repository.name).join(', ') : null}
+      returned={flowOutcome === 'returned'}
+      surface="card"
+      busy={busy !== null || envelope.operation != null}
+    />
+  ) : null
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(envelope.statusCode, envelope.statusDetail)
   const recoveredInterruptedOperation = envelope.operation == null && interruptedOperationDetail
   const projectName = projects.find((p) => p.id === envelope.projectId)?.name ?? envelope.projectId
@@ -456,6 +554,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const existingPrContinuation = decision === 'building' && prState === 'pr-created' && Boolean(envelope.branch)
   const displayedPrNumber = envelope.prNumber ? `#${envelope.prNumber}` : prUrl ? prNumberFromUrl(prUrl) : null
   const terminal = presentation.terminal
+  // Peak: the delivery arrived at review (a PR exists and awaits the person).
+  const showArrival = Boolean(prUrl) && (decision === 'pr_draft' || decision === 'pr_ready')
   const statusLabel = isKnownPrDeliveryStatusCode(envelope.statusCode)
     ? t(`common:prDeliveryStatus.${envelope.statusCode}`)
     : null
@@ -482,7 +582,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     setConfirmingRecoverAndRetry(false)
   }, [decision, prUrl, envelope.prDeliveryId])
 
-  const onRunVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => {
+  const onChipVitals = useCallback((runId: string, vitals: { paused: boolean; pausedReason: string | null; budgetPaused?: boolean }) => {
     setPausedRuns((prev) => {
       const current = prev[runId]
       if (current?.paused === vitals.paused && current?.pausedReason === vitals.pausedReason && current?.budgetPaused === vitals.budgetPaused) return prev
@@ -595,7 +695,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       } else if (action === 'poll-merge' && !r.merged && r.decision !== 'pr_closed') {
         toast.info(t('prCard.notMergedYet'))
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
-        toast.success(t('prCard.mergedLocally', { base: targetBase }))
+        const tickets = envelope.ticketIds.map((id) => `#${id}`).join(', ')
+        if (r.localChanges?.state === 'restored') toast.success(t('prCard.mergedLocallyRestored', { tickets }))
+        else if (r.localChanges?.state === 'needs_attention') toast.warning(t('prCard.mergedLocallyStashConflict', { tickets }), { description: r.localChanges.stashName })
+        else if (r.localChanges?.state === 'saved') toast.warning(t('prCard.mergedLocallyStashKept', { tickets }), { description: r.localChanges.stashName })
+        else toast.success(t('prCard.mergedLocally', { base: targetBase }))
       }
       // Repo-mutating decisions (branch created/pushed, branches deleted,
       // local merge commit) → git-state surfaces refresh immediately.
@@ -606,6 +710,46 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
     } finally {
       setBusy(null)
+    }
+  }
+
+  /** The saved-local-changes actions: "Restore my changes" (re-apply the
+   *  stash), "Bring them back" (fast-forward the target to the reviewed
+   *  restore branch) and "Discard the restored branch" (the stash is kept). */
+  const runLocalChangesAction = async (action: 'restore' | 'bring-back' | 'discard-branch') => {
+    if (localAction || busy || envelope.operation) return
+    setLocalAction(action)
+    const branch = envelope.localStash?.branch || envelope.baseBranch
+    try {
+      const r = await postLocalChangesAction(envelope.projectId, envelope.prDeliveryId, action)
+      if (r.kind !== 'recovering' && r.kind !== 'failed' && r.snapshot) {
+        const next = agentEnvelopeFromSnapshot(envelope, r.snapshot)
+        if (applyPrDecisionSnapshot(next) !== 'stale') setLocalEnvelope(next)
+      }
+      if (r.kind === 'ok') {
+        const state = r.localChanges?.state
+        if (action === 'discard-branch') toast.info(t('prCard.localStash.discardedToast'))
+        else if (action === 'bring-back') toast.success(t('prCard.localStash.broughtBackToast', { branch }))
+        else if (state === 'restored') toast.success(t('prCard.localStash.restoredToast', { branch }))
+        else if (state === 'released') toast.info(t('prCard.localStash.released'))
+        else toast.warning(t('prCard.localStash.stillConflicting', { branch }))
+        if (action !== 'discard-branch') notifyGitChanged(envelope.projectId)
+      } else if (r.kind === 'blocked') {
+        if (r.reason === 'wrong_branch') toast.warning(t('prCard.localStash.blockedBranch', { base: r.base || branch, current: r.current ?? '?' }))
+        else if (r.reason === 'dirty') toast.warning(t('prCard.localStash.blockedDirty'))
+        else if (r.reason === 'branch_changed' || r.reason === 'target_conflict') toast.warning(t('prCard.localStash.blockedBringBack', { branch }), { description: r.detail || undefined })
+        else toast.error(t('prCard.localStash.failed'))
+      } else if (r.kind === 'not_ready' || r.kind === 'in_progress') {
+        toast.info(t('prCard.localStash.notReady'))
+      } else if (r.kind === 'busy') {
+        toast.info(t('prCard.operation.inProgress'))
+      } else if (r.kind === 'recovering') {
+        toast.info(t('common:prRecovery.inProgress'))
+      } else {
+        toast.error(t('prCard.localStash.failed'), { description: r.detail })
+      }
+    } finally {
+      setLocalAction(null)
     }
   }
 
@@ -754,7 +898,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           ticketLabel={runTicketLabel(i)}
           live={decision === 'building'}
           onOpen={setLogRunId}
-          onVitals={onRunVitals}
+          onVitals={onChipVitals}
+          onSnapshot={onRunVitals}
         />
       ))}
     </div>
@@ -773,54 +918,95 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // Every button disables while ANY action is in flight and re-enables from
   // the next runtime poll / envelope broadcast — no optimistic state.
   const runStatus = deriveMissionRunStatus(envelope, liveRun, pausedRunId !== null)
-  const runActionBtn = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50'
+  // The run strip shows what this card knows; reported on change only.
+  const summaryStep = liveRun?.nextStep ?? envelope.runtime?.currentStep ?? null
+  const summaryPausedReason = pausedReason
+  const summaryStalled = liveRun?.status === 'stalled'
+  const summaryApproval = Boolean(liveRun?.pendingApproval)
+  useEffect(() => {
+    onSummary?.({ step: summaryStep, paused: pausedRunId !== null, pausedReason: summaryPausedReason, stalled: summaryStalled, pendingApproval: summaryApproval })
+  }, [onSummary, summaryStep, pausedRunId, summaryPausedReason, summaryStalled, summaryApproval])
+  const runActionBtn = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-caption font-medium transition-colors disabled:pointer-events-none disabled:opacity-50'
   const runtimeBusy = runtime.busy !== null || relaunching
   const runtimeActions = FEATURE_MISSION_RAIL_CARDS && actionableRun && (
     <>
       {actionableRun.canResume && (
-        <button type="button" data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'resume', label: t('runCard.actions.resume'), kind: 'local', rank: 2 }} data-agent-interactive data-testid="mission-run-resume" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'resume')}
           className={cn(runActionBtn, 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20')}>
           {runtime.busy === actionableRun.runId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
           {t('runCard.actions.resume')}
-        </button>
+        </RunPrimaryButton>
       )}
       {actionableRun.pendingApproval && (
-        <button type="button" data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'approve', label: t('runCard.actions.approve'), kind: 'outward', rank: 0 }} data-agent-interactive data-testid="mission-run-approve" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'approve')}
           className={cn(runActionBtn, 'border-accent-success/40 bg-accent-success/10 text-accent-success hover:bg-accent-success/20')}>
           <ShieldCheck className="h-3 w-3" />
           {t('runCard.actions.approve')}
-        </button>
+        </RunPrimaryButton>
       )}
       {actionableRun.recoverableSteps.length > 0 && (
-        <button type="button" data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
+        <RunPrimaryButton primary={{ id: 'recover', label: t('runCard.actions.recover'), kind: 'outward', rank: 3 }} data-agent-interactive data-testid="mission-run-recover" disabled={runtimeBusy || busy !== null}
           onClick={() => void runtime.act(actionableRun, 'recover')}
           className={cn(runActionBtn, 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20')}>
           <Wrench className="h-3 w-3" />
           {t('runCard.actions.recover')}
-        </button>
+        </RunPrimaryButton>
       )}
     </>
   )
   const relaunchBlocked = Boolean(liveRun?.active) || runStatus === 'running' || runStatus === 'paused'
-  const relaunchAction = FEATURE_MISSION_RAIL_CARDS && (
+  // A Flow → Spec run relaunches from its Flow (same worktree, rail and
+  // engine): the plain rail relaunch refuses that loop, so the card offers
+  // the Flow's own actions in its place.
+  const flowSpecRun = envelope.loopId === FLOW_SPEC_LOOP_ID
+  const flowRunActions = flowSpecRun && RunCardActions && decision === 'implementation_failed' && (flowOutcome === null || flowOutcome === 'crashed') ? (
+    <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
+      decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null || runtimeBusy} />
+  ) : null
+  const relaunchAction = flowSpecRun ? flowRunActions : FEATURE_MISSION_RAIL_CARDS && (
     <>
-      <button type="button" data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
+      <RunPrimaryButton primary={{ id: 'relaunch', label: t('runCard.actions.relaunch'), kind: 'outward', rank: 5 }} data-agent-interactive data-testid="mission-run-relaunch" disabled={runtimeBusy || busy !== null || relaunchBlocked || relaunchAccepted}
         title={relaunchBlocked ? t('runCard.relaunchBlockedActive') : undefined}
         onClick={() => void relaunch()}
         className={cn(runActionBtn, 'border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10')}>
         {relaunching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
         {t('runCard.actions.relaunch')}
-      </button>
+      </RunPrimaryButton>
       {relaunchError && <p role="alert" className="w-full text-xs text-destructive" data-testid="mission-run-relaunch-error">{relaunchError}</p>}
     </>
   )
+  // ── failure recovery cockpit: the run's diagnosis, with the remedies this card really has ──
+  const { openTicketDetailInProject } = useTicketDetailModal()
+  const { t: tRecovery } = useTranslation('recovery')
+  const diagnosisRunIds = envelope.runIds ?? []
+  const diagnosisRunId = diagnosisRunIds[diagnosisRunIds.length - 1] ?? null
+  const failedRunForDiagnosis = FEATURE_MISSION_RAIL_CARDS && !flowSpecRun && (
+    Boolean(runFailure) || decision === 'implementation_failed' || runStatus === 'failed' || runStatus === 'stalled'
+  )
+  const diagnosis = useRunDiagnosis(envelope.projectId, diagnosisRunId, failedRunForDiagnosis && runStatus !== 'running' && runStatus !== 'paused', envelope.updatedAt ?? null)
+  const diagnosisHandlers: RemedyHandlers = {}
+  if (actionableRun?.canResume && actionableRun.recoverableSteps.length === 0) {
+    diagnosisHandlers.resume = { run: () => void runtime.act(actionableRun, 'resume'), busy: runtime.busy !== null, disabled: busy !== null }
+  }
+  if (!relaunchBlocked) diagnosisHandlers.retry = { run: () => void relaunch(), busy: relaunching, disabled: runtimeBusy || busy !== null }
+  if (envelope.ticketIds.length > 0) diagnosisHandlers['edit-spec'] = { run: () => openTicketDetailInProject(envelope.projectId, envelope.ticketIds[0]) }
+  if (diagnosisRunId) diagnosisHandlers['open-logs'] = { run: () => setLogRunId(diagnosisRunId) }
+  const diagnosisCard = diagnosis ? (
+    <div className="mt-2 space-y-1.5" data-testid="mission-run-diagnosis">
+      <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} />
+      <details>
+        <summary className="cursor-pointer text-caption text-muted-foreground hover:text-foreground">{tRecovery('technicalDetails')}</summary>
+        <RunFailureBlock envelope={envelope} />
+      </details>
+    </div>
+  ) : null
   const runtimeError = FEATURE_MISSION_RAIL_CARDS && runtime.error && runtimeInterest ? (
-    <p className="mt-1 text-[10px] text-destructive/80" data-testid="mission-run-runtime-error">{runtime.error}</p>
+    <p className="mt-1 text-label text-destructive" data-testid="mission-run-runtime-error">{runtime.error}</p>
   ) : null
   const phaseLine = FEATURE_MISSION_RAIL_CARDS && liveRun?.nextStep ? (
-    <span className="inline-flex min-w-0 items-center gap-1 truncate text-[11px] text-foreground/50" data-testid="mission-run-phase">
+    <span className="inline-flex min-w-0 items-center gap-1 truncate text-label text-foreground/70" data-testid="mission-run-phase">
       <Activity className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
       <span className="truncate">{liveRun.nextStep}</span>
     </span>
@@ -839,32 +1025,37 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
     return (
       <div
         ref={cardRef}
+      {...focusRegion}
         data-testid="agent-pr-decision-card"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/60 shadow-lg backdrop-blur-xl transition-shadow', flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-2.5 text-xs text-foreground/70 shadow-lg transition-shadow', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
           {buildingPaused
             ? <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />
             : existingPrContinuation
               ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
-              : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
-          <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'animate-pulse', buildingPaused && 'text-accent-warning')}>
+              : <RailTrack running className="w-16 shrink-0" />}
+          <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'motion-safe:animate-pulse', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
               : existingPrContinuation
                 ? t('prCard.title.buildingExistingPr')
-                : runOnly ? t('prCard.title.buildingInPlace') : t('prCard.title.building')}
+                : runOnly ? t('prCard.title.buildingInPlace')
+                  : envelope.loopId === FLOW_SPEC_LOOP_ID ? t('prCard.title.flowSpecBuilding') : t('prCard.title.building')}
           </span>
           {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
           {FEATURE_MISSION_RAIL_CARDS && (
-            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/60">
+            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
               {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
             </span>
           )}
         </div>
         {phaseLine && <div className="mt-1 flex items-center pl-[22px]">{phaseLine}</div>}
-        {ticketChips && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">{ticketChips}</div>
+        {(ticketChips || !runOnly) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
+            {!runOnly && <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />}
+            {ticketChips}
+          </div>
         )}
         {existingPrContinuation && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
@@ -876,21 +1067,21 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
                 onClick={(e) => openPr(e, prUrl)}
                 title={prUrl}
                 data-agent-interactive
-                className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-[11px] text-accent-info transition-colors hover:border-accent-info/60 hover:bg-accent-info/15"
+                className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-caption text-accent-info transition-colors hover:border-accent-info/60 hover:bg-accent-info/15"
               >
                 <GitPullRequest className="h-3 w-3" />
                 {displayedPrNumber ?? t('prCard.openPr')}
                 <ExternalLink className="h-2.5 w-2.5 opacity-60" />
               </a>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-[11px] text-accent-info">
+              <span className="inline-flex items-center gap-1 rounded-full border border-accent-info/40 bg-accent-info/10 px-2 py-0.5 font-mono text-caption text-accent-info">
                 <GitPullRequest className="h-3 w-3" />
                 {displayedPrNumber ?? t('prCard.existingPr')}
               </span>
             )}
             <span
               title={t('git.branch')}
-              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-foreground/70"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-foreground/70"
             >
               <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />
               <span className="truncate">{envelope.branch}</span>
@@ -898,20 +1089,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           </div>
         )}
         {buildingPaused && pausedRunId && (
-          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-[11px] text-accent-warning" data-testid="pr-run-paused-actions">
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-label text-accent-warning" data-testid="pr-run-paused-actions">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate" title={pausedReason ?? undefined}>
               {pausedRunLabel ? t('prCard.pausedForRun', { ref: pausedRunLabel }) : t('prCard.paused')}
               {pausedReason ? `: ${pausedReason}` : ''}
             </span>
-            <button
-              type="button"
+            <RunPrimaryButton
+              primary={{ id: 'resume-paused', label: pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume'), kind: 'local', rank: 1 }}
               data-agent-interactive
               data-testid="pr-run-paused-resume"
               disabled={runtimeBusy}
               title={pausedResumeStep ? t('prCard.resumeFromStepHint', { step: pausedResumeStep }) : undefined}
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={() => {
                 if (pausedOnBudget) void resumeBudgetPausedRun(pausedRunId)
                 else if (pausedLive) void runtime.act(pausedLive, pausedLive.recoverableSteps.length ? 'recover' : 'resume')
                 else setLogRunId(pausedRunId)
@@ -920,7 +1110,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             >
               {runtime.busy === pausedRunId || resumingBudgetRunId === pausedRunId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
               {pausedResumeStep ? t('prCard.resumeFromStep', { step: pausedResumeStep }) : t('prCard.resume')}
-            </button>
+            </RunPrimaryButton>
             <button
               type="button"
               data-agent-interactive
@@ -937,9 +1127,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           </div>
         )}
         {runChips && <div className="pl-[22px]">{runChips}</div>}
-        <p className="mt-1 pl-[22px] text-[11px] leading-4 text-foreground/40">
-          {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
-        </p>
+        {/* Flow → Spec says what it does in its title; the generic PR hint is noise there. */}
+        {envelope.loopId !== FLOW_SPEC_LOOP_ID && (
+          <p className="mt-1 pl-[22px] text-label leading-4 text-foreground/70">
+            {runOnly ? t('runCard.noDeliveryHint') : existingPrContinuation ? t('prCard.buildingExistingPrHint') : t('prCard.buildingHint')}
+          </p>
+        )}
         {runtimeError}
         {logModal}
       </div>
@@ -951,27 +1144,30 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // deliver. It shows the run outcome honestly, the failure (if any) with its
   // recovery actions, and Dismiss.
   if (runOnly) {
-    const runOnlyIcon = runStatus === 'succeeded' ? CheckCircle2 : runStatus === 'failed' || runStatus === 'stalled' ? AlertTriangle : runStatus === 'cancelled' ? XCircle : Loader2
+    const runOnlyIcon = runStatus === 'succeeded' ? CheckCircle2 : runStatus === 'failed' || runStatus === 'stalled' ? AlertTriangle : runStatus === 'cancelled' ? XCircle : null
     const RunOnlyIcon = runOnlyIcon
     const runOnlyBusy = busy !== null || runtimeBusy
     return (
       <div
         ref={cardRef}
+      {...focusRegion}
         data-testid="agent-pr-decision-card"
         data-run-only="true"
-        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', flashClass)}
+        className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
-          <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50', runStatus === 'running' && 'animate-spin text-accent-primary/70')} />
+          {RunOnlyIcon
+            ? <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50')} />
+            : <RailTrack running className="w-10 shrink-0" />}
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t(`runCard.title.${runStatus}`)}</span>
           <MissionRunStatusPill status={runStatus} />
-          <span className="max-w-[140px] shrink-0 truncate text-[11px] text-foreground/50" title={projectName}>{projectName}</span>
-          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/60">
+          <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>{projectName}</span>
+          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
             {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
           </span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-foreground/70">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70">
             <Ticket className="h-3 w-3 text-accent-secondary/80" />
             {t('prCard.specCount', { count: envelope.ticketIds.length })}
           </span>
@@ -980,8 +1176,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         </div>
         {runChips}
         <OutcomeEvidence envelope={envelope} />
-        {(runFailure || runStatus === 'failed' || runStatus === 'stalled') && <RunFailureBlock envelope={envelope} />}
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-foreground/45" data-testid="mission-run-no-delivery">
+        {(runFailure || runStatus === 'failed' || runStatus === 'stalled') && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-foreground/70" data-testid="mission-run-no-delivery">
           <GitBranch className="mt-px h-3 w-3 shrink-0 opacity-60" aria-hidden />
           <span>{t('runCard.noDeliveryNote')}</span>
         </p>
@@ -1003,27 +1199,36 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             </button>
           )}
         </motion.div>
-        <Dialog open={confirmingDismiss} onOpenChange={setConfirmingDismiss}>
-          <DialogContent className="max-w-sm" data-testid="agent-pr-dismiss-confirm">
-            <DialogHeader>
-              <DialogTitle>{t('prCard.confirm.dismissTitle')}</DialogTitle>
-              <DialogDescription>{t('prCard.confirm.dismissBody')}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setConfirmingDismiss(false)}>{t('common:actions.cancel')}</Button>
-              <Button size="sm" disabled={runOnlyBusy} data-testid="agent-pr-dismiss-confirm-btn" onClick={() => { setConfirmingDismiss(false); void act('dismiss') }}>
-                {t('prCard.dismiss')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={confirmingDismiss}
+          onOpenChange={setConfirmingDismiss}
+          layer={confirmLayer}
+          tone="default"
+          testId="agent-pr-dismiss-confirm"
+          confirmTestId="agent-pr-dismiss-confirm-btn"
+          title={t('prCard.confirm.dismissTitle')}
+          description={t('prCard.confirm.dismissBody')}
+          confirmLabel={t('prCard.dismiss')}
+          confirmDisabled={runOnlyBusy}
+          onConfirm={() => { setConfirmingDismiss(false); void act('dismiss') }}
+        />
         {logModal}
       </div>
     )
   }
 
-  const Icon = HEADER_ICON[decision]
-  const title = presentation.superseded
+  const Icon = flowOutcome === 'changes' ? MessageSquareWarning : flowOutcome === 'returned' ? Undo2 : HEADER_ICON[decision]
+  const iconTone = flowOutcome === 'changes' || flowOutcome === 'crashed' ? 'text-accent-warning' : flowOutcome === 'returned' ? 'text-accent-info' : HEADER_ICON_TONE[decision]
+  // Flow → Spec names itself where the title would otherwise be generic.
+  const flowSpec = envelope.loopId === FLOW_SPEC_LOOP_ID
+  const flowSpecDelivered = flowSpec && ['on_review', 'pr_draft', 'pr_ready', 'completed'].includes(decision) && !degradedDraft
+  const title = flowOutcome === 'changes'
+    ? t(flowSpec ? 'prCard.title.flowSpecChanges' : 'prCard.title.review_changes_requested')
+    : flowOutcome === 'crashed'
+      ? t('prCard.title.flowSpecFailed')
+    : flowOutcome === 'returned'
+      ? t('prCard.title.returned_to_flow')
+      : presentation.superseded
     ? t('prCard.title.superseded')
     : presentation.noChanges
       ? t('prCard.title.no_changes')
@@ -1037,10 +1242,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             ? t('prCard.title.partial')
             : envelope.statusCode === 'existing_pr_updated'
                 ? t('prCard.title.existing_pr_updated')
-                : degradedDraft ? t('prCard.title.pr_draft_degraded') : t(`prCard.title.${decision}`)
+                : degradedDraft ? t('prCard.title.pr_draft_degraded')
+                  : flowSpecDelivered ? t('prCard.title.flowSpecDelivered') : t(`prCard.title.${decision}`)
 
-  const primaryBtn =
-    'inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-primary/90 disabled:cursor-default disabled:opacity-60'
+  const primaryBtn = PRIMARY_ACTION
   const ghostBtn = cn(
     'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-60',
     'border-border/60 text-foreground/70 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
@@ -1050,11 +1255,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
+  // Create PR / Publish / Reopen reach other people: the strip only points at them.
   const primaryAction = (action: AgentPrDecisionAction, label: string) => !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
+    <RunPrimaryButton primary={{ id: action, label, kind: action === 'poll-merge' ? 'local' : 'outward', rank: 1 }}
+      onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === action && spinner}
       {label}
-    </button>
+    </RunPrimaryButton>
   )
 
   // Entry into the plain-language review packet (nontech-review-experience).
@@ -1073,7 +1280,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       data-testid="agent-pr-checkout"
       data-agent-interactive
       title={t('prCard.checkoutTooltip', { branch: checkoutBranch })}
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {checkingOut ? spinner : <GitBranch className="h-3 w-3" />}
       {t('prCard.checkout')}
@@ -1088,7 +1295,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       data-testid="agent-pr-inspect-local-result"
       data-agent-interactive
       title={t('prCard.inspectLocalResultTooltip')}
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       <FolderOpen className="h-3 w-3" aria-hidden />
       {t('prCard.inspectLocalResult')}
@@ -1096,21 +1303,51 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   )
 
   const recoveryIsRecheck = presentation.recoveryRecheck
-  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (
+  // A blocked delivery whose run finished: repeat ONLY the settlement (commit,
+  // push, PR) on the run's own worktree. No AI work is redone.
+  const settlementRunId = (envelope.runIds ?? []).length === 1 ? envelope.runIds![0] : null
+  const retryDelivery = async () => {
+    if (!settlementRunId || retryingDelivery) return
+    setRetryingDelivery(true)
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(envelope.projectId)}/loop-runs/${encodeURIComponent(settlementRunId)}/resume`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      })
+      if (res.ok) { toast.success(t('prCard.retryDeliverySent')); return }
+      const body = await res.json().catch(() => null) as { error?: string; detail?: string } | null
+      toast.error(t('prCard.retryDeliveryFailed'), { description: body?.detail ?? body?.error ?? `HTTP ${res.status}` })
+    } catch (e) {
+      toast.error(t('prCard.retryDeliveryFailed'), { description: e instanceof Error ? e.message : undefined })
+    } finally {
+      setRetryingDelivery(false)
+    }
+  }
+  const recoverAndRetryAction = (presentation.manualRecovery || recoveryIsRecheck) && (recoveryIsRecheck ? (
     <button
       type="button"
       onClick={() => setConfirmingRecoverAndRetry(true)}
       disabled={anyBusy}
-      data-testid={recoveryIsRecheck ? 'agent-pr-recheck-recovery' : 'agent-pr-recover-and-retry'}
+      data-testid="agent-pr-recheck-recovery"
       data-agent-interactive
-      className={recoveryIsRecheck
-        ? 'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50'
-        : primaryBtn}
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-caption font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
-      {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
+      {t('prCard.recheckRecovery')}
     </button>
-  )
+  ) : (
+    // Retrying delivers the work: outward, the strip only points at it.
+    <RunPrimaryButton
+      primary={{ id: 'recover-and-retry', label: t('prCard.recoverAndRetry'), kind: 'outward', rank: 1 }}
+      onClick={() => setConfirmingRecoverAndRetry(true)}
+      disabled={anyBusy}
+      data-testid="agent-pr-recover-and-retry"
+      data-agent-interactive
+      className={primaryBtn}
+    >
+      {busy === 'recover-and-retry' ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
+      {t('prCard.recoverAndRetry')}
+    </RunPrimaryButton>
+  ))
 
   // Remote-less acceptance (no PR exists yet): merge into the base locally.
   const mergeLocalAction = !hasRepositoryDeliveries && (
@@ -1121,7 +1358,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       data-testid="agent-pr-merge-local"
       data-agent-interactive
       title={t('prCard.mergeLocalTooltip', { base: envelope.baseBranch })}
-      className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-2 py-1 text-[11px] font-medium text-accent-success transition-colors hover:bg-accent-success/20 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-accent-success/40 bg-accent-success/10 px-2 py-1 text-caption font-medium text-accent-success transition-colors hover:bg-accent-success/20 disabled:pointer-events-none disabled:opacity-50"
     >
       {busy === 'merge-local' && spinner}
       {t('prCard.mergeLocal')}
@@ -1150,10 +1387,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   )
 
   const acknowledgeNoChangesAction = !hasRepositoryDeliveries && (
-    <button type="button" onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
+    <RunPrimaryButton primary={{ id: 'acknowledge-no-changes', label: t('prCard.markDone'), kind: 'local', rank: 1 }}
+      onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === 'acknowledge-no-changes' && spinner}
       {t('prCard.markDone')}
-    </button>
+    </RunPrimaryButton>
   )
 
   const refineAction = (
@@ -1171,7 +1409,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       onClick={(e) => openPr(e, prUrl)}
       title={prUrl}
       data-agent-interactive
-      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-accent-info transition-colors hover:border-accent-info/50 hover:bg-accent-info/10"
+      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-accent-info transition-colors hover:border-accent-info/50 hover:bg-accent-info/10"
     >
       <GitPullRequest className="h-3 w-3" />
       {displayedPrNumber ?? t('prCard.openPr')}
@@ -1182,7 +1420,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   // mission-rail-cards: failed / auto-closed deliveries show their failure as
   // text (code + detail + per-unit codes) instead of a hover title. When this
   // block renders, the older status-detail paragraph is skipped (no double).
-  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && (
+  const failureBlockShown = FEATURE_MISSION_RAIL_CARDS && flowOutcome === null && (
     !!runFailure
     || decision === 'implementation_failed'
     || (decision === 'discarded' && (!!envelope.statusDetail || envelope.statusCode === 'delivery_failed'))
@@ -1191,12 +1429,14 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
   return (
     <div
       ref={cardRef}
+      {...focusRegion}
       data-testid="agent-pr-decision-card"
       className={cn(
-        'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg backdrop-blur-xl transition-shadow',
+        'rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow',
         decision === 'merged' && 'border-accent-success/30',
         decision === 'completed' && 'border-accent-success/30',
         decision === 'discarded' && 'opacity-70',
+        embedded && EMBEDDED_CARD,
         flashClass,
       )}
     >
@@ -1212,12 +1452,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       )}
       {/* Header: state icon + title + project + rail badge */}
       <div className="flex items-center gap-2">
-        <Icon className={cn('h-4 w-4 shrink-0', HEADER_ICON_TONE[decision])} />
+        <Icon className={cn('h-4 w-4 shrink-0', iconTone)} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
-        <span className="max-w-[140px] shrink-0 truncate text-[11px] text-foreground/50" title={projectName}>
+        <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>
           {projectName}
         </span>
-        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/60">
+        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
           {t('prCard.rail', { index: envelope.railIndex + 1 })}
         </span>
       </div>
@@ -1228,31 +1468,42 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       {/* Reviewer risk brief: the single top risk (absent without a brief). */}
       <TopRiskLine summary={envelope.riskSummary} className="mt-2" />
 
+      {showArrival && prUrl && (
+        <DeliveryArrival
+          deliveryId={envelope.prDeliveryId}
+          prNumber={displayedPrNumber}
+          prUrl={prUrl}
+          onOpen={(e) => openPr(e, prUrl)}
+          className="mt-2"
+        />
+      )}
+
       {/* Body: base-branch chip + spec count + PR link */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {!hasRepositoryDeliveries && <span
           title={t('prCard.base')}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-foreground/70"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-caption text-foreground/70"
         >
           <GitBranch className="h-3 w-3 text-accent-primary/70" />
           {'→ '}
           {envelope.baseBranch}
         </span>}
-        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-foreground/70">
+        <LoopChip loopId={envelope.loopId} loopName={envelope.loopName} />
+        <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption text-foreground/70">
           <Ticket className="h-3 w-3 text-accent-secondary/80" />
           {t('prCard.specCount', { count: envelope.ticketIds.length })}
         </span>
         {ticketChips}
-        {prLink}
+        {!showArrival && prLink}
         {envelope.deliverySha && (
           <span
             data-testid="agent-pr-delivery-sha"
             title={envelope.deliverySha}
             className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px]',
+              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-caption',
               envelope.deliveryOutcome === 'delivered'
                 ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
-                : 'border-border/60 bg-surface/60 text-foreground/65',
+                : 'border-border/60 bg-surface/60 text-foreground/70',
             )}
           >
             <CheckCircle2 className="h-3 w-3" />
@@ -1265,87 +1516,106 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       {runChips}
 
       {envelope.operation && (
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-accent-info" data-testid="agent-pr-operation">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+        <p className="mt-2 flex items-center gap-1.5 text-label font-medium text-accent-info" data-testid="agent-pr-operation">
+          <RailTrack running className="w-16 shrink-0" />
           {t(`prCard.operation.${envelope.operation}`)}
         </p>
       )}
 
       {recoveredInterruptedOperation && (
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-info" data-testid="agent-pr-recovery-interrupted">
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-accent-info" data-testid="agent-pr-recovery-interrupted">
           <RotateCcw className="mt-px h-3 w-3 shrink-0" aria-hidden />
           <span>{t('common:prRecovery.interrupted')}</span>
         </p>
       )}
 
-      <OutcomeEvidence envelope={envelope} />
+      <OutcomeEvidence envelope={envelope} hideFailedUnits={flowOutcome !== null} />
 
-      {failureBlockShown && <RunFailureBlock envelope={envelope} />}
+      {failureBlockShown && (diagnosisCard ?? <RunFailureBlock envelope={envelope} />)}
+      {flowFailureView}
+      {flowOutcome === 'changes' && (
+        <AgentFlowReviewBlock review={envelope.flowReview ?? { reason: 'review', summary: envelope.statusDetail ?? null, issues: [], issuesOmitted: 0, score: null, failingChecks: [] }}>
+          {RunCardActions && (
+            <RunCardActions projectId={envelope.projectId} prDeliveryId={envelope.prDeliveryId} conversationId={conversationId ?? null}
+              decision={decision} statusCode={envelope.statusCode ?? null} busy={busy !== null || envelope.operation != null} />
+          )}
+        </AgentFlowReviewBlock>
+      )}
+      {flowOutcome === 'returned' && !returnedAfterFailure && <AgentFlowReturnedNote />}
       {runtimeError}
 
-      {statusLabel && (
-        <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-foreground/45" data-testid="agent-pr-status-code">
+      {statusLabel && flowOutcome === null && (
+        <p className="mt-2 text-label text-muted-foreground" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
       )}
 
-      {!terminal && presentation.deliveryBlocked && (
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
+      {!terminal && presentation.deliveryBlocked && flowOutcome === null && (
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
             {presentation.recoveryUnavailable
               ? t('prCard.recoveryUnavailableBody')
               : t(presentation.partial ? 'prCard.partialDeliveryBlockedNote' : 'prCard.deliveryBlockedNote')}
             {envelope.statusDetail && !interruptedOperationDetail && !presentation.recoveryUnavailable
-              ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span>
+              ? <span className="mt-0.5 block text-foreground/70">{envelope.statusDetail}</span>
               : null}
           </span>
         </p>
       )}
 
       {!terminal && presentation.recoveryUnavailable && envelope.statusDetail && !interruptedOperationDetail && (
-        <details className="mt-1.5 text-[10px] leading-4 text-foreground/55" data-testid="agent-pr-recovery-technical-detail">
-          <summary className="cursor-pointer font-medium text-foreground/65">{t('prCard.recoveryDetailSummary')}</summary>
+        <details className="mt-1.5 text-label leading-4 text-foreground/70" data-testid="agent-pr-recovery-technical-detail">
+          <summary className="cursor-pointer font-medium text-foreground/75">{t('prCard.recoveryDetailSummary')}</summary>
           <p className="mt-1 break-words">{envelope.statusDetail}</p>
         </details>
       )}
 
       {!terminal && presentation.retryablePush && (
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           <span>
             {t('prCard.retryPushNote')}
-            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/50">{envelope.statusDetail}</span> : null}
+            {envelope.statusDetail && !interruptedOperationDetail ? <span className="mt-0.5 block text-foreground/70">{envelope.statusDetail}</span> : null}
           </span>
         </p>
       )}
 
-      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && (
-        <p className="mt-1 text-[10px] leading-4 text-foreground/45" data-testid="agent-pr-status-detail">
+      {envelope.statusDetail && !interruptedOperationDetail && !presentation.deliveryBlocked && !presentation.retryablePush && !failureBlockShown && flowOutcome === null && (
+        <p className="mt-1 text-label leading-4 text-foreground/70" data-testid="agent-pr-status-detail">
           {envelope.statusDetail}
         </p>
       )}
 
       {/* Degraded delivery: pushed / assembled-locally but no PR yet. */}
       {!terminal && !prUrl && (prState === 'pushed' || prState === 'local-only') && (
-        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-accent-warning">
+        <p className="mt-2 flex items-start gap-1.5 text-label leading-4 text-accent-warning">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
           {prState === 'local-only' ? t('prCard.degraded.localOnly') : t('prCard.degraded.pushed')}
         </p>
       )}
 
       {presentation.cleanupWarnings.length > 0 && (
-        <div className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-[11px] text-accent-warning" data-testid="agent-pr-cleanup-warning">
+        <div className="mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/10 px-2 py-1.5 text-label text-accent-warning" data-testid="agent-pr-cleanup-warning">
           <p className="font-medium">{t('prCard.cleanupIncomplete', { count: presentation.cleanupWarnings.length })}</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-foreground/60">
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-foreground/75">
             {presentation.cleanupWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
           </ul>
         </div>
       )}
 
+      <LocalStashNotice
+        stash={envelope.localStash}
+        onRestore={() => void runLocalChangesAction('restore')}
+        onBringBack={() => void runLocalChangesAction('bring-back')}
+        onDiscardBranch={() => void runLocalChangesAction('discard-branch')}
+        pendingAction={localAction}
+        disabled={anyBusy}
+      />
+
       {presentation.safetyArchives.length > 0 && (
         <details
-          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-[11px] text-foreground/65"
+          className="mt-2 rounded-md border border-accent-info/25 bg-accent-info/5 px-2 py-1.5 text-label text-foreground/75"
           data-agent-interactive
           data-testid="agent-pr-safety-archives"
         >
@@ -1353,7 +1623,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             {t('prCard.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
           </summary>
           <p className="mt-1 leading-4">{t('prCard.safetyArchiveHint')}</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-foreground/50">
+          <ul className="mt-1 space-y-0.5 font-mono text-caption text-foreground/70">
             {presentation.safetyArchives.map((archive) => (
               <li key={archive} className="break-all">{archive}</li>
             ))}
@@ -1373,7 +1643,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
       >
           {presentation.noChanges && !terminal && (
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+              <p className="flex items-center gap-1.5 text-label text-accent-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 {presentation.continuation ? t('prCard.noChangesExisting') : t('prCard.noChangesNote')}
               </p>
@@ -1384,6 +1654,21 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
           )}
           {!terminal && presentation.deliveryBlocked && (
             <div className="flex flex-wrap items-center gap-1.5">
+              {settlementRunId && !presentation.manualRecovery && !recoveryIsRecheck && (
+                // Retrying delivers the work: outward, the strip only points at it.
+                <RunPrimaryButton
+                  primary={{ id: 'retry-delivery', label: t('prCard.retryDelivery'), kind: 'outward', rank: 1 }}
+                  onClick={() => void retryDelivery()}
+                  disabled={anyBusy || retryingDelivery}
+                  title={t('prCard.retryDeliveryHint')}
+                  data-testid="agent-pr-retry-delivery"
+                  data-agent-interactive
+                  className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-label text-accent-primary transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {retryingDelivery ? spinner : <RotateCcw className="h-3 w-3" aria-hidden />}
+                  {t('prCard.retryDelivery')}
+                </RunPrimaryButton>
+              )}
               {inspectLocalResultAction}
               {recoverAndRetryAction}
               {presentation.continuation
@@ -1459,9 +1744,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
               {presentation.continuation ? dismissAction : discardAction}
             </div>
           )}
-          {decision === 'implementation_failed' && presentation.implementationFailed && (
+          {decision === 'implementation_failed' && presentation.implementationFailed && flowOutcome === null && (
             <div className="space-y-2">
-              <p className="flex items-start gap-1.5 text-[11px] leading-4 text-destructive">
+              <p className="flex items-start gap-1.5 text-label leading-4 text-destructive">
                 <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
                 {t('prCard.implementationFailedNote')}
               </p>
@@ -1478,137 +1763,128 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
             </div>
           )}
           {decision === 'merged' && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+            <p className="flex items-center gap-1.5 text-label text-accent-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {t('prCard.mergedNote')}
             </p>
           )}
           {decision === 'discarded' && (
-            <p className="flex items-center gap-1.5 text-xs text-foreground/50">
+            <p className="flex items-center gap-1.5 text-xs text-foreground/70">
               <XCircle className="h-3.5 w-3.5" />
               {t('prCard.discardedNote')}
             </p>
           )}
           {decision === 'completed' && (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-accent-success">
+            <p className="flex items-center gap-1.5 text-label text-accent-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {t('prCard.completedNote')}
             </p>
           )}
           {decision === 'superseded' && (
-            <p className="flex items-center gap-1.5 text-xs text-foreground/50">
+            <p className="flex items-center gap-1.5 text-xs text-foreground/70">
               <GitPullRequest className="h-3.5 w-3.5" />
               {t('prCard.supersededNote')}
             </p>
           )}
       </motion.div>
-      <Dialog open={!hasRepositoryDeliveries && confirmingMergeLocal} onOpenChange={setConfirmingMergeLocal}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-merge-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.mergeLocalTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.mergeLocalBody', { base: envelope.baseBranch })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingMergeLocal(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-merge-local-confirm-btn" onClick={() => { setConfirmingMergeLocal(false); void act('merge-local') }}>
-              {t('prCard.mergeLocal')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingRecoverAndRetry} onOpenChange={setConfirmingRecoverAndRetry}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-recover-and-retry-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}</DialogTitle>
-            <DialogDescription>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingRecoverAndRetry(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-recover-and-retry-confirm-btn" onClick={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}>
-              {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDiscard} onOpenChange={setConfirmingDiscard}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-discard-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(decision === 'implementation_failed'
-              ? 'prCard.confirm.implementationFailedDiscardTitle'
-              : 'prCard.confirm.freshDiscardTitle')}</DialogTitle>
-            <DialogDescription>{t(decision === 'implementation_failed'
-              ? 'prCard.confirm.implementationFailedDiscardBody'
-              : 'prCard.confirm.freshDiscardBody')}</DialogDescription>
-            {isStackedHead && (
-              <p className="mt-2 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="agent-pr-discard-stacked-note">
-                {t('prCard.discardStackedNote')}
-              </p>
-            )}
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDiscard(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-discard-confirm-btn" onClick={() => { setConfirmingDiscard(false); void act('discard') }}>
-              {t('prCard.discard')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDismiss} onOpenChange={setConfirmingDismiss}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-dismiss-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.dismissTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.dismissBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDismiss(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-dismiss-confirm-btn" onClick={() => { setConfirmingDismiss(false); void act('dismiss') }}>
-              {t('prCard.dismiss')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDiscardLocal} onOpenChange={setConfirmingDiscardLocal}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-discard-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.discardLocalTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.discardLocalBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDiscardLocal(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-discard-local-confirm-btn" onClick={() => { setConfirmingDiscardLocal(false); void act('discard') }}>
-              {t('prCard.discardLocalResult')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!hasRepositoryDeliveries && confirmingNoChangesDone} onOpenChange={setConfirmingNoChangesDone}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-no-changes-done-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.noChangesDoneTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.noChangesDoneBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingNoChangesDone(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-no-changes-done-confirm-btn" onClick={() => { setConfirmingNoChangesDone(false); void act('acknowledge-no-changes') }}>
-              {t('prCard.markDone')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingRefine} onOpenChange={setConfirmingRefine}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-refine-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.refineTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.refineBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingRefine(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-refine-confirm-btn" onClick={() => { setConfirmingRefine(false); void act('discard') }}>
-              {t('prCard.refine')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!hasRepositoryDeliveries && confirmingMergeLocal}
+        onOpenChange={setConfirmingMergeLocal}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-merge-local-confirm"
+        confirmTestId="agent-pr-merge-local-confirm-btn"
+        title={t('prCard.confirm.mergeLocalTitle')}
+        description={t('prCard.confirm.mergeLocalBody', { base: envelope.baseBranch })}
+        confirmLabel={t('prCard.mergeLocal')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingMergeLocal(false); void act('merge-local') }}
+      />
+      <ConfirmDialog
+        open={confirmingRecoverAndRetry}
+        onOpenChange={setConfirmingRecoverAndRetry}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-recover-and-retry-confirm"
+        confirmTestId="agent-pr-recover-and-retry-confirm-btn"
+        title={t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}
+        description={t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}
+        confirmLabel={t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}
+      />
+      <ConfirmDialog
+        open={confirmingDiscard}
+        onOpenChange={setConfirmingDiscard}
+        layer={confirmLayer}
+        testId="agent-pr-discard-confirm"
+        confirmTestId="agent-pr-discard-confirm-btn"
+        title={t(decision === 'implementation_failed'
+          ? 'prCard.confirm.implementationFailedDiscardTitle'
+          : 'prCard.confirm.freshDiscardTitle')}
+        description={t(decision === 'implementation_failed'
+          ? 'prCard.confirm.implementationFailedDiscardBody'
+          : 'prCard.confirm.freshDiscardBody')}
+        confirmLabel={t('prCard.discard')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDiscard(false); void act('discard') }}
+      >
+        {isStackedHead ? (
+          <p className="rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="agent-pr-discard-stacked-note">
+            {t('prCard.discardStackedNote')}
+          </p>
+        ) : null}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirmingDismiss}
+        onOpenChange={setConfirmingDismiss}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-dismiss-confirm"
+        confirmTestId="agent-pr-dismiss-confirm-btn"
+        title={t('prCard.confirm.dismissTitle')}
+        description={t('prCard.confirm.dismissBody')}
+        confirmLabel={t('prCard.dismiss')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDismiss(false); void act('dismiss') }}
+      />
+      <ConfirmDialog
+        open={confirmingDiscardLocal}
+        onOpenChange={setConfirmingDiscardLocal}
+        layer={confirmLayer}
+        testId="agent-pr-discard-local-confirm"
+        confirmTestId="agent-pr-discard-local-confirm-btn"
+        title={t('prCard.confirm.discardLocalTitle')}
+        description={t('prCard.confirm.discardLocalBody')}
+        confirmLabel={t('prCard.discardLocalResult')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDiscardLocal(false); void act('discard') }}
+      />
+      <ConfirmDialog
+        open={!hasRepositoryDeliveries && confirmingNoChangesDone}
+        onOpenChange={setConfirmingNoChangesDone}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-no-changes-done-confirm"
+        confirmTestId="agent-pr-no-changes-done-confirm-btn"
+        title={t('prCard.confirm.noChangesDoneTitle')}
+        description={t('prCard.confirm.noChangesDoneBody')}
+        confirmLabel={t('prCard.markDone')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingNoChangesDone(false); void act('acknowledge-no-changes') }}
+      />
+      <ConfirmDialog
+        open={confirmingRefine}
+        onOpenChange={setConfirmingRefine}
+        layer={confirmLayer}
+        testId="agent-pr-refine-confirm"
+        confirmTestId="agent-pr-refine-confirm-btn"
+        title={t('prCard.confirm.refineTitle')}
+        description={t('prCard.confirm.refineBody')}
+        confirmLabel={t('prCard.refine')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingRefine(false); void act('discard') }}
+      />
       {logModal}
     </div>
   )

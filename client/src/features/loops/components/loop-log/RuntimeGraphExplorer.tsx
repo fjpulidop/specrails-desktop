@@ -4,8 +4,7 @@ import { CheckCircle2, Circle, CircleHelp, Loader2, Maximize2, Minimize2, PauseC
 import { ReactFlow, Background, Controls, MarkerType } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '../../../../components/ui/button'
-import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from '../../../../components/ui/dialog'
-import { modalTitleBarInset } from '../../../../lib/modal-safe-area'
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../../components/ui/dialog'
 import { useActiveTheme } from '../../../settings/context/ThemeContext'
 import { layoutLoop } from '../../lib/loop-layout'
 import type { LoopNodeData } from '../../lib/loop-graph-rf'
@@ -43,7 +42,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
       const color = state === 'running' ? 'var(--color-accent-primary)' : state === 'ok' ? 'var(--color-accent-success)'
         : state === 'failed' ? 'var(--color-destructive)' : ['paused', 'stalled', 'interrupted'].includes(state) ? 'var(--color-accent-warning)' : 'var(--color-border)'
       const Icon = state === 'running' ? Loader2 : state === 'ok' ? CheckCircle2 : state === 'failed' ? XCircle : ['paused', 'stalled', 'interrupted'].includes(state) ? PauseCircle : state === 'unknown' ? CircleHelp : Circle
-      return { id: node.id, type: 'default', position: { x: 0, y: 0 }, data: { kind: 'core', label: <span className="block text-left" data-state={state}><strong className="flex items-center gap-2"><Icon aria-hidden className={`h-4 w-4 shrink-0 ${state === 'running' ? 'motion-safe:animate-spin' : ''}`} style={{ color: state === 'pending' || state === 'unknown' ? 'var(--color-muted-foreground)' : color }} />{node.label}</strong><span className="mt-1 block text-[10px]">{node.kind} · {t(`loopExplorer.graphState.${state}`)}</span></span> } as LoopNodeData,
+      return { id: node.id, type: 'default', position: { x: 0, y: 0 }, data: { kind: 'core', label: <span className="block text-left" data-state={state}><strong className="flex items-center gap-2"><Icon aria-hidden className={`h-4 w-4 shrink-0 ${state === 'running' ? 'motion-safe:animate-spin' : ''}`} style={{ color: state === 'pending' || state === 'unknown' ? 'var(--color-muted-foreground)' : color }} />{node.label}</strong><span className="mt-1 block text-xs">{node.kind} · {t(`loopExplorer.graphState.${state}`)}</span></span> } as LoopNodeData,
         style: { background: state === 'pending' || state === 'unknown' ? 'var(--color-background)' : `color-mix(in srgb, ${color} 12%, var(--color-background))`, color: 'var(--color-foreground)', borderColor: color,
           borderWidth: state === 'pending' || state === 'unknown' ? 1 : 2,
           boxShadow: state === 'running' ? `0 0 0 2px color-mix(in srgb, ${color} 30%, transparent), 0 0 22px color-mix(in srgb, ${color} 35%, transparent)` : undefined } }
@@ -71,19 +70,29 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onF
         <code className="break-all">{selected}</code>
         {component && trail.length < 16 && <Button size="sm" variant="outline" onClick={() => { setTrail(value => [...value, { path: selected, body: component }]); setSelected(null) }}>{t('loopExplorer.graphOpenComponent')}</Button>}
         {attempts.length === 0 ? <p>{t('loopExplorer.graphNoAttempts')}</p> : <ul className="max-h-40 space-y-1 overflow-auto">
-          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}{attempt.meta.traceId && <code className="block break-all text-[10px] text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
+          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}{attempt.meta.traceId && <code className="block break-all text-xs text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
         </ul>}
       </div>}
     </>
   return <Dialog open={fullscreen} onOpenChange={setFullscreen}>
     <details className="shrink-0 border-b border-border p-2" onToggle={event => setOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer text-xs font-medium">{t('loopExplorer.runtimeGraph')}</summary>
+      <summary className="cursor-pointer text-label">{t('loopExplorer.runtimeGraph')}</summary>
       {open && content(false)}
     </details>
-    {/* Keep both portal layers above the log modal, dock and browser overlays. */}
-    <DialogContent overlayClassName="z-[2147483646]" className="z-[2147483647] flex w-screen max-w-none !max-h-none flex-col gap-0 rounded-none p-3 sm:rounded-none" style={{ height: `calc(100dvh - ${modalTitleBarInset()}px)` }} showCloseButton={false} aria-describedby={undefined}>
-      <DialogTitle className="shrink-0 text-sm">{t('loopExplorer.runtimeGraph')}</DialogTitle>
-      {content(true)}
+    {/*
+      * `capture` layer: the fullscreen graph opens from the loop log explorer,
+      * which can itself sit over the job detail (entity, z-65) and the
+      * minimized chats dock (z-75); capture (z-80) clears both and ties with
+      * the browser-capture overlays, where portal order puts the graph on
+      * top. The native browser pane is an OS webview composited above the
+      * whole DOM, so no z-index can beat it; the old z-[2147483647] did not
+      * either. The minimize button in the toolbar is this dialog's close.
+      */}
+    <DialogContent size="fullscreen" layer="capture" showCloseButton={false} aria-describedby={undefined}>
+      <DialogHeader>
+        <DialogTitle>{t('loopExplorer.runtimeGraph')}</DialogTitle>
+      </DialogHeader>
+      <DialogBody className="flex flex-col py-0">{content(true)}</DialogBody>
     </DialogContent>
   </Dialog>
 }

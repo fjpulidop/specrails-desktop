@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · Avvio non riuscito",
       "unsupportedFileType": "Tipo di file non supportato: {{name}}",
       "uploadFailed": "Caricamento non riuscito per {{name}}: {{message}}"
-    }
+    },
+    "contextSummary": "Contesto: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Contesto: {{preset}}",
+    "costEstimateTitle": "Costo stimato per generare questa spec con il modello e il contesto selezionati"
   },
   "featureProposal": {
     "title": "Proponi una funzionalità",
@@ -115,7 +118,7 @@
     },
     "smashCapable": "Compatibile con SMASH",
     "smashHint": "Il Contract Layer è attivo, quindi questa spec potrà poi essere scomposta in Sub-Spec.",
-    "fineTune": "Fine-tune",
+    "fineTune": "Affina",
     "defaultLabel": "Ambito del contesto",
     "summaryMinimal": "minimo",
     "tags": {
@@ -139,7 +142,8 @@
       "providerUnsupported": "Non disponibile per {{provider}}",
       "contractLabel": "Arricchisci con Contract Layer",
       "contractHint": "raffinamento post-commit · abilita SMASH"
-    }
+    },
+    "costTier": "Livello di costo: {{tier}}"
   },
   "aiEngine": {
     "label": "Engine AI",
@@ -164,7 +168,7 @@
     },
     "overridesHeading": "Override del modello per agente",
     "overriddenCount": "{{count}} sovrascritti",
-    "customBadge": "custom",
+    "customBadge": "personalizzato",
     "resetToDefault": "Ripristina il default del preset"
   },
   "modelCombobox": {

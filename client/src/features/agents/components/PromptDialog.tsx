@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { ConfirmDialog as SharedConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 
@@ -42,14 +43,12 @@ export function PromptDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent movableResizable className="max-w-md">
+      <DialogContent size="form" {...(description ? {} : { 'aria-describedby': undefined })}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="py-2 space-y-2">
-          {description && (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          )}
+        <DialogBody className="space-y-2">
           <Input
             autoFocus
             value={value}
@@ -63,14 +62,14 @@ export function PromptDialog({
             className="text-sm font-mono"
           />
           {trimmed.length > 0 && !matchesPattern && inputInvalidHint && (
-            <p className="text-[11px] text-yellow-500 aurora-light:text-accent-warning">{inputInvalidHint}</p>
+            <p className="text-xs text-accent-warning">{inputInvalidHint}</p>
           )}
-        </div>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             {t('actions.cancel')}
           </Button>
-          <Button size="sm" onClick={() => onConfirm(trimmed)} disabled={!canConfirm}>
+          <Button onClick={() => onConfirm(trimmed)} disabled={!canConfirm}>
             {confirmLabel ?? t('actions.confirm')}
           </Button>
         </DialogFooter>
@@ -89,6 +88,10 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
+/**
+ * Agents-local confirm API (`destructive` + `onCancel`), rendered by the shared
+ * modal-standard `ConfirmDialog` so every confirm has the same anatomy.
+ */
 export function ConfirmDialog({
   open,
   title,
@@ -100,29 +103,14 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { t } = useTranslation()
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
-      <DialogContent movableResizable className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        {description && (
-          <div className="py-2">
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            size="sm"
-            onClick={onConfirm}
-            className={destructive ? 'bg-red-500 hover:bg-red-600 text-white' : undefined}
-          >
-            {confirmLabel ?? t('actions.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SharedConfirmDialog
+      open={open}
+      onOpenChange={(o) => { if (!o) onCancel() }}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel ?? t('actions.confirm')}
+      tone={destructive ? 'destructive' : 'default'}
+      onConfirm={onConfirm}
+    />
   )
 }

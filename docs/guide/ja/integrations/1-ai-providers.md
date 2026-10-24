@@ -1,1 +1,1 @@
-# AI プロバイダー（Claude、Codex、、）
+# AI プロバイダー（Claude、Codex、、） {#ai-providers}

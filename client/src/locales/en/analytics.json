@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Refine",
-    "smash": "SMASH",
+    "smash": "Split",
     "fileSummary": "File summaries",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} runs",
   "page": {
     "title": "Analytics",
+    "subtitle": "Where the spend goes: cost, tokens and activity by model, spec and engine.",
     "all": "All",
     "engine": "Engine",
     "ticketChip": "ticket #{{id}} ·  ✕",
-    "failedToLoad": "Failed to load: {{error}}",
+    "failedToLoad": "Analytics couldn’t be loaded. Try again.",
     "modelChip": "Model: {{model}}",
     "clearModelFilter": "Clear model filter",
-    "localEngine": "local"
+    "localEngine": "local",
+    "moreBreakdowns": "More breakdowns"
   },
   "hero": {
     "spending": "Spending",
@@ -46,22 +48,26 @@
     "tokensTooltip": "Total tokens = fresh input + output + cache-read + cache-create across all invocations in this window.",
     "usageUnavailable": "· token usage unavailable",
     "usageUnavailableTooltip": "The provider completed these invocations but did not expose token telemetry.",
-    "usagePartiallyUnavailable": "· {{tokens}} known tokens; {{count}} run(s) unavailable",
+    "usagePartiallyUnavailable_one": "· {{tokens}} known tokens; {{count}} run unavailable",
+    "usagePartiallyUnavailable_other": "· {{tokens}} known tokens; {{count}} runs unavailable",
     "usagePartiallyUnavailableTooltip": "Known token subtotal only; some invocations did not expose token telemetry.",
     "costUnavailable": "cost unavailable",
     "costUnavailableTooltip": "The provider completed these invocations but did not expose enough telemetry to determine their cost.",
-    "costPartiallyUnavailable": "· known subtotal; {{count}} run(s) without cost",
+    "costPartiallyUnavailable_one": "· known subtotal; {{count}} run without cost",
+    "costPartiallyUnavailable_other": "· known subtotal; {{count}} runs without cost",
     "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose enough telemetry to determine cost.",
     "includesEstimated": "· includes ~{{amount}} estimated",
     "includesEstimatedTooltip": "Includes {{amount}} of estimated cost from providers without a native cost field (e.g. codex via the local pricing table).",
     "trackingStarted": "Tracking started {{date}}",
     "trackingStartedFallback": "Tracking started on first invocation",
     "emptyState": "No invocations yet for this filter window.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Billed",
+    "legendEstimated": "Estimated"
   },
   "providerCard": {
     "title": "By provider",
-    "description": "How cost splits across the AI CLIs in this project. The <tilde>~</tilde> prefix marks rows where cost is estimated from the local pricing table (the provider does not report it natively).",
+    "description": "<tilde>~</tilde> = estimated from local pricing.",
     "noCost": "No cost recorded yet in this window.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "cost unavailable",
@@ -109,7 +115,8 @@
     "costLabel": "cost",
     "truncated": "Showing {{shown}} of {{total}} — the costliest point is kept, but earlier points are hidden",
     "costUnavailable": "Invocations were recorded, but no cost telemetry is available to plot.",
-    "costPartiallyUnavailable": "Plot includes priced runs only; {{count}} run(s) have unavailable cost."
+    "costPartiallyUnavailable_one": "Plot includes priced runs only; {{count}} run has unavailable cost.",
+    "costPartiallyUnavailable_other": "Plot includes priced runs only; {{count}} runs have unavailable cost."
   },
   "topTickets": {
     "title": "Top tickets",
@@ -170,7 +177,7 @@
   "desktop": {
     "title": "Desktop Analytics",
     "refreshAria": "Refresh analytics",
-    "failedToLoad": "Failed to load analytics: {{error}}",
+    "failedToLoad": "Desktop analytics couldn’t be loaded. Try refreshing.",
     "totalCost": "Total Cost",
     "costToday": "{{value}} today",
     "costTodayUnavailable": "cost unavailable today",
@@ -193,12 +200,11 @@
     "includesEstimatedTooltip": "Includes {{amount}} of rate-card estimated cost (codex/gemini), not provider-billed.",
     "includesEstimatedShort": "incl. estimated",
     "timelineEstimatedTooltip": "Some days include rate-card estimated cost (codex/gemini) marked with ~.",
-    "estimatedBadge": "est.",
-    "projectEstimatedTooltip": "{{amount}} of this project's cost is a rate-card estimate (codex/gemini), not provider-billed.",
     "statusBarEstimatedTooltip": "Includes rate-card estimated cost (codex/gemini), not provider-billed.",
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",
-    "costPartiallyUnavailable": "Known cost subtotal; {{count}} invocation(s) unavailable."
+    "costPartiallyUnavailable_one": "Known cost subtotal; {{count}} invocation unavailable.",
+    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable."
   },
   "windowLabels": {
     "7d": "Last 7 days",

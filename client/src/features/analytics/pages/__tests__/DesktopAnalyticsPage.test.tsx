@@ -1,6 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { render } from '../../../../test-utils'
+import { Dialog, DialogContent } from '../../../../components/ui/dialog'
+
+/** Matches a CostValue estimate (`~` + amount + sr-only "estimated"). */
+const estimatedCost = (amount: string) => (_content: string, el: Element | null) =>
+  !!el && el.getAttribute('title') != null && el.classList.contains('num')
+  && (el.textContent ?? '').replace(/\s*estimated$/, '') === `~${amount}`
 
 // Mock recharts
 vi.mock('recharts', () => ({
@@ -59,6 +65,10 @@ const mockAnalyticsData = {
 }
 
 describe('DesktopAnalyticsPage', () => {
+  // Warm the module once: the first dynamic import pays the whole transform
+  // (page + dialog primitives) and can exceed a single test's 5 s budget.
+  beforeAll(async () => { await import('../DesktopAnalyticsPage') }, 30_000)
+
   beforeEach(() => {
     vi.clearAllMocks()
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -80,8 +90,8 @@ describe('DesktopAnalyticsPage', () => {
 
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    // Loading skeleton uses animate-pulse
-    const skeletons = document.querySelectorAll('.animate-pulse')
+    // Loading skeleton uses data-skeleton
+    const skeletons = document.querySelectorAll('[data-skeleton]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 
@@ -116,7 +126,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load analytics/i)).toBeInTheDocument()
+      expect(screen.getByText(/analytics couldn’t be loaded/i)).toBeInTheDocument()
     })
   })
 
@@ -162,7 +172,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('$2.5000')).toBeInTheDocument()
+      expect(screen.getByText('$2.50')).toBeInTheDocument()
     })
   })
 
@@ -203,7 +213,7 @@ describe('DesktopAnalyticsPage', () => {
     })
     expect(screen.getByTestId('desktop-timeline-cost-unavailable')).toBeInTheDocument()
     expect(screen.getByTestId('desktop-project-cost-unavailable')).toBeInTheDocument()
-    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
   })
 
   it('renders "No projects registered." when projectBreakdown is empty', async () => {
@@ -269,7 +279,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('~$3.0000')).toBeInTheDocument()
+      expect(screen.getByText(estimatedCost('$3.00'))).toBeInTheDocument()
     })
     expect(screen.getByTestId('kpi-estimated-footnote')).toBeInTheDocument()
   })
@@ -282,13 +292,13 @@ describe('DesktopAnalyticsPage', () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
 
-    // 3.0 / 40 = 0.07500
+    // 3.0 / 40 = 0.075
     await waitFor(() => {
-      expect(screen.getByText('~$0.07500')).toBeInTheDocument()
+      expect(screen.getByText(estimatedCost('$0.08'))).toBeInTheDocument()
     })
   })
 
-  it('badges estimate-heavy project rows and prefixes ~ (BUG-25)', async () => {
+  it('marks estimate-heavy project rows with ~ via CostValue, no EST badge (BUG-25)', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       json: async () => estimatedData,
@@ -299,12 +309,11 @@ describe('DesktopAnalyticsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Codex Project')).toBeInTheDocument()
     })
-    // The codex project is wholly estimated → exactly one estimated badge + ~ figure
-    const badges = screen.getAllByTestId('project-estimated-badge')
-    expect(badges).toHaveLength(1)
-    expect(screen.getByText('~$2.0000')).toBeInTheDocument()
+    // The codex project is wholly estimated → ~ figure (sr-only "estimated"), no badge
+    expect(screen.queryByTestId('project-estimated-badge')).not.toBeInTheDocument()
+    expect(screen.getByText(estimatedCost('$2.00'))).toBeInTheDocument()
     // Claude project shows an authoritative figure (no ~)
-    expect(screen.getByText('$1.0000')).toBeInTheDocument()
+    expect(screen.getByText('$1.00')).toBeInTheDocument()
   })
 
   it('shows the timeline estimated note when any day is estimated (BUG-26)', async () => {
@@ -322,11 +331,34 @@ describe('DesktopAnalyticsPage', () => {
 
   // ── MED-10 · window label on the "Total cost" KPI ────────────────────────────
 
-  it('MED-10: shows the active window next to the Total cost KPI (default 7d)', async () => {
+  it('MED-10: states the active window once, in the header (default 7d)', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
     await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
-    expect(screen.getByTestId('kpi-window-label')).toHaveTextContent('Last 7 days')
+    expect(screen.getByTestId('analytics-window-label')).toHaveTextContent('Last 7 days')
+    // No per-card duplicate of the window.
+    expect(screen.queryByTestId('kpi-window-label')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
+  })
+
+  it('inside the analytics dialog, the visible heading is the DialogTitle (one string, no sr-only twin)', async () => {
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(
+      <Dialog open>
+        <DialogContent size="workspace">
+          <DesktopAnalyticsPage inDialog />
+        </DialogContent>
+      </Dialog>,
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Desktop Analytics' })
+    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    // The accessible name comes from the one visible heading — no sr-only twin.
+    expect(screen.getAllByText('Desktop Analytics')).toHaveLength(1)
+    expect(screen.getByText('Desktop Analytics')).not.toHaveClass('sr-only')
+    expect(dialog).toHaveAccessibleDescription('Last 7 days')
+    expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
+    // One close button, in the header row next to the period controls.
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1)
   })
 
   // ── MED-11 · app-level auto-refresh on real broadcasts ───────────────────────
@@ -366,7 +398,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('$2.5000')).toBeInTheDocument()
+      expect(screen.getByText('$2.50')).toBeInTheDocument()
     })
     expect(screen.queryByTestId('kpi-estimated-footnote')).not.toBeInTheDocument()
     expect(screen.queryByTestId('timeline-estimated-note')).not.toBeInTheDocument()

@@ -3,6 +3,7 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+<!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -30,21 +31,15 @@ load every UI component. Changes to this surface require updating the boundary m
 - [missions](../missions/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
+- [recovery](../recovery/README.md)
 - [settings](../settings/README.md)
 - [specs](../specs/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
+<!-- audit-client-features:end -->
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/jobs`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
-
-Job detail Page and Modal share a presentation-only event buffer for initial
-history and live updates. Raw verification frames are available through retained
-evidence rather than duplicated in rendering state. The buffer bounds ordinary
-output while keeping loop boundaries, graphs, check events and results in their
-original order. When earlier readable output is omitted, a translated notice
-also makes clear that copying copies the retained view. Persistence and runtime
-evidence are unaffected.

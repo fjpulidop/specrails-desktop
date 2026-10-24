@@ -1,4 +1,4 @@
-# Le Loop Builder
+# Le Loop Builder {#loop-builder}
 
 ## Workflows Core
 

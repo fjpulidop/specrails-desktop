@@ -730,6 +730,9 @@ export class SetupManager {
   private _broadcast: (msg: WsMessage) => void
   private _onSessionCaptured?: (projectId: string, sessionId: string) => void
   private _onSetupDone?: (projectId: string) => void
+  // Fires only when a setup SUCCEEDED (setup_complete, or a silent assemble
+  // with at least one provider assembled); `_onSetupDone` also fires on errors.
+  private _onSetupSucceeded?: (projectId: string) => void
   // Map from projectId → active child processes
   private _installProcesses: Map<string, ChildProcess>
   private _setupProcesses: Map<string, ChildProcess>
@@ -771,8 +774,10 @@ export class SetupManager {
     onSessionCaptured?: (projectId: string, sessionId: string) => void,
     onSetupDone?: (projectId: string) => void,
     dbForProject?: (projectId: string) => DbInstance | null | undefined,
+    onSetupSucceeded?: (projectId: string) => void,
   ) {
     this._broadcast = broadcast
+    this._onSetupSucceeded = onSetupSucceeded
     this._onSessionCaptured = onSessionCaptured
     this._onSetupDone = onSetupDone
     this._dbForProject = dbForProject
@@ -785,6 +790,15 @@ export class SetupManager {
     this._projectProviders = new Map()
     this._projectTiers = new Map()
     this._projectNames = new Map()
+  }
+
+  /** Post-setup hook (e.g. the rules inventory). Best effort: never breaks setup. */
+  private _notifySetupSucceeded(projectId: string): void {
+    try {
+      this._onSetupSucceeded?.(projectId)
+    } catch (err) {
+      console.warn(`[SetupManager] post-setup hook failed for ${projectId}: ${(err as Error).message}`)
+    }
   }
 
   // ─── Silent assemble (global-core-zero-friction) ─────────────────────────────
@@ -851,6 +865,8 @@ export class SetupManager {
         if (failed.length > 0) {
           console.warn(`[SetupManager] silent assemble: failed providers for ${projectId}: ${failed.join(', ')}`)
         }
+        // At least one provider is assembled: the project is set up.
+        if (results.some((r) => r.ok)) this._notifySetupSucceeded(projectId)
       })
       .catch((err) => {
         // Workspace-missing or other terminal failure: mark every provider
@@ -1159,6 +1175,7 @@ export class SetupManager {
     this._syncFilesystemCheckpoints(projectId, projectPath)
     this._broadcast({ type: 'setup_complete', projectId, summary })
     this._onSetupDone?.(projectId)
+    this._notifySetupSucceeded(projectId)
     return true
   }
 
@@ -1563,6 +1580,7 @@ export class SetupManager {
             sessionId: capturedSessionId ?? undefined,
             summary,
           })
+          this._notifySetupSucceeded(projectId)
         } else {
           // Claude finished one turn but setup isn't done yet.
           // Emit turn_done so the wizard knows to wait for user input.

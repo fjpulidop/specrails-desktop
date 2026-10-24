@@ -53,7 +53,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             key={preset.value}
             onClick={() => handlePreset(preset.value)}
             className={cn(
-              'h-7 px-3 rounded-md text-xs font-medium transition-colors',
+              'h-7 px-3 rounded-md text-label transition-colors',
               period === preset.value
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -71,7 +71,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             value={from}
             onChange={(e) => handleFromChange(e.target.value)}
             aria-label={t('periods.startDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit] focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <span className="text-xs text-muted-foreground">{t('periods.to')}</span>
           <input
@@ -79,7 +79,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             value={to}
             onChange={(e) => handleToChange(e.target.value)}
             aria-label={t('periods.endDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit] focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       )}

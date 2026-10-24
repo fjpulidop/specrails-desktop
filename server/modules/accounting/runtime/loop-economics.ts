@@ -22,6 +22,8 @@ export interface LoopEconomicsDeliveryRow extends DecisionTimeRow {
   id: string
   run_ids: string
   implementation_outcome: string | null
+  /** Settle-time evidence JSON (spec trace source); absent in older callers. */
+  settle_evidence?: string | null
 }
 
 export interface InvocationCostRow {
@@ -96,8 +98,9 @@ export interface LoopEconomicsGroup {
   rounds: LoopRoundStats
   /** Linked regression tickets; null while no ticket in the project carries `regressionOf`. */
   escapedDefects: number | null
-  /** Placeholder until spec-trace lands. */
-  requirementsDemonstrated: { demonstrated: number; total: number } | null
+  /** Requirements demonstrated by a passing test (Core `specTrace: 1`), summed
+   *  over the delivered deliveries that carry a spec trace; null when none does. */
+  requirementsDemonstrated: { demonstrated: number; total: number; deliveries: number } | null
   /** Placeholder until triage lands (recommendedLoop == chosenLoop). */
   triageAccuracy: { matched: number; total: number } | null
 }
@@ -113,7 +116,8 @@ export interface LoopEconomicsResponse {
   to: string
   sources: {
     escapedDefects: 'tracked' | 'untracked'
-    requirementsDemonstrated: 'unavailable'
+    /** `measured` once any delivery in the window carries a spec trace. */
+    requirementsDemonstrated: 'measured' | 'unavailable'
     triageAccuracy: 'unavailable'
   }
   project: LoopEconomicsGroup
@@ -127,6 +131,8 @@ export interface LoopEconomicsDelivery {
   /** null when the delivery's runs emitted no loop_step events. */
   rounds: { review: number; fixer: number } | null
   escapedDefects: number
+  /** From the settle evidence's spec traces; null when the delivery has none. */
+  requirements?: { demonstrated: number; total: number } | null
 }
 
 // ─── Pure helpers ────────────────────────────────────────────────────────────
@@ -138,6 +144,27 @@ const REVIEW_NODES = new Set(['reviewer', 'review'])
 const FIXER_NODES = new Set(['fixer', 'fix'])
 
 const round6 = (value: number) => Math.round(value * 1e6) / 1e6
+
+/**
+ * Requirements demonstrated by one delivery, summed over its units' spec
+ * traces (Core `specTrace: 1`). Null when the evidence carries no trace —
+ * unknown, never zero. Tolerant of malformed JSON.
+ */
+export function requirementsFromSettleEvidence(raw: string | null | undefined): { demonstrated: number; total: number } | null {
+  if (!raw || !raw.includes('"specTrace"')) return null
+  try {
+    const evidence = JSON.parse(raw) as { units?: Array<{ specTrace?: { requirements?: unknown; demonstrated?: unknown } }> }
+    let demonstrated = 0, total = 0, traced = 0
+    for (const unit of Array.isArray(evidence.units) ? evidence.units : []) {
+      const trace = unit?.specTrace
+      if (!trace || !Array.isArray(trace.demonstrated)) continue
+      traced++
+      demonstrated += trace.demonstrated.length
+      total += typeof trace.requirements === 'number' && Number.isSafeInteger(trace.requirements) && trace.requirements >= 0 ? Math.max(trace.requirements, trace.demonstrated.length) : trace.demonstrated.length
+    }
+    return traced ? { demonstrated, total } : null
+  } catch { return null }
+}
 
 /** A delivery counts as delivered once it reached `on_review` or beyond. */
 export function isDelivered(row: Pick<LoopEconomicsDeliveryRow, 'decision' | 'on_review_at' | 'merged_at' | 'implementation_outcome'>): boolean {
@@ -230,6 +257,10 @@ export function aggregateLoopEconomics(deliveries: readonly LoopEconomicsDeliver
       group.rounds.fixerRounds += d.rounds.fixer
     }
     if (regressionTracked) group.escapedDefects = (group.escapedDefects ?? 0) + d.escapedDefects
+    if (d.requirements) {
+      const current = group.requirementsDemonstrated ?? { demonstrated: 0, total: 0, deliveries: 0 }
+      group.requirementsDemonstrated = { demonstrated: current.demonstrated + d.requirements.demonstrated, total: current.total + d.requirements.total, deliveries: current.deliveries + 1 }
+    }
   }
 
   group.hasData = true
@@ -296,7 +327,7 @@ export interface LoopEconomicsOptions {
 export function getLoopEconomics(db: DbInstance, filters: SpendingFilters, options: LoopEconomicsOptions = {}): LoopEconomicsResponse {
   const range = resolveRange(filters, options.now ?? new Date())
   const rows = db.prepare(`
-    SELECT id, loop_id, loop_name, decision, on_review_at, decided_at, merged_at, run_ids, implementation_outcome
+    SELECT id, loop_id, loop_name, decision, on_review_at, decided_at, merged_at, run_ids, implementation_outcome, settle_evidence
       FROM rail_pr_deliveries
      WHERE parent_delivery_id IS NULL
        AND julianday(COALESCE(on_review_at, created_at)) >= julianday(?)
@@ -327,6 +358,7 @@ export function getLoopEconomics(db: DbInstance, filters: SpendingFilters, optio
       cost: summarizeInvocationCost(invocationsForRuns(db, runIds)),
       rounds: countLoopRounds(stepsForRuns(db, runIds)),
       escapedDefects: defects.get(row.id) ?? 0,
+      requirements: requirementsFromSettleEvidence(row.settle_evidence),
     }
   })
 
@@ -352,7 +384,7 @@ export function getLoopEconomics(db: DbInstance, filters: SpendingFilters, optio
     to: range.to,
     sources: {
       escapedDefects: tracked ? 'tracked' : 'untracked',
-      requirementsDemonstrated: 'unavailable',
+      requirementsDemonstrated: joined.some((item) => item.requirements) ? 'measured' : 'unavailable',
       triageAccuracy: 'unavailable',
     },
     project: aggregateLoopEconomics(joined, tracked),

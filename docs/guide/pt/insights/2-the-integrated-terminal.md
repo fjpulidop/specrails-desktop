@@ -1,4 +1,4 @@
-# O terminal integrado
+# O terminal integrado {#integrated-terminal}
 
 O Specrails tem um terminal a sério mesmo lá dentro — o painel que sobe a partir do fundo da janela, tal como o do VS Code ou do Cursor. Corre a sua shell real, na pasta real do seu projeto, para poder correr `git`, `npm`, testes ou o que precisar sem sair da aplicação.
 

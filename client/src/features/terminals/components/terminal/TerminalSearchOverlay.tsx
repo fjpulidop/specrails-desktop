@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SearchAddon } from '@xterm/addon-search'
 import { ChevronUp, ChevronDown, X } from 'lucide-react'
+import { useThemeOptional } from '../../../settings/context/ThemeContext'
+import { searchDecorations } from '../../lib/search-decorations'
 
 interface Props {
   search: SearchAddon
@@ -16,6 +18,8 @@ interface Props {
  */
 export function TerminalSearchOverlay({ search, onClose }: Props) {
   const { t } = useTranslation('terminal')
+  // Highlight colours follow the active theme's xterm palette.
+  const xtermPalette = useThemeOptional()?.theme.xterm ?? null
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [query, setQuery] = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
@@ -46,12 +50,7 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
       caseSensitive,
       regex,
       wholeWord,
-      decorations: {
-        matchBackground: '#bd93f9',
-        matchOverviewRuler: '#bd93f9',
-        activeMatchBackground: '#ff79c6',
-        activeMatchColorOverviewRuler: '#ff79c6',
-      },
+      decorations: searchDecorations(xtermPalette),
     }
   }
 
@@ -79,7 +78,7 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
 
   return (
     <div
-      className="absolute top-2 right-2 flex items-center gap-1 bg-[#1f1f29] border border-[#44475a] rounded-md shadow-lg px-2 py-1 z-30"
+      className="absolute top-2 right-2 flex items-center gap-1 bg-popover border border-border rounded-md shadow-lg px-2 py-1 z-30"
       role="search"
       data-terminal-search-overlay
     >
@@ -91,28 +90,30 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
           if (e.key === 'Enter') { e.preventDefault(); if (e.shiftKey) findPrev(); else findNext() }
         }}
         placeholder={t('search.placeholder')}
-        className="bg-transparent text-sm outline-none text-[#f8f8f2] placeholder:text-[#6272a4] w-48"
+        className="bg-transparent text-sm outline-none text-popover-foreground placeholder:text-muted-foreground w-48"
       />
       {matchInfo && (
-        <span className="text-xs text-[#6272a4] tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {matchInfo.current}/{matchInfo.total}
         </span>
       )}
       <button
         type="button"
         title={t('search.previous')}
+        aria-label={t('search.previous')}
         onClick={findPrev}
-        className="text-[#f8f8f2] hover:text-white p-1"
+        className="text-popover-foreground hover:text-foreground p-1"
       >
-        <ChevronUp size={14} />
+        <ChevronUp size={14} aria-hidden />
       </button>
       <button
         type="button"
         title={t('search.next')}
+        aria-label={t('search.next')}
         onClick={findNext}
-        className="text-[#f8f8f2] hover:text-white p-1"
+        className="text-popover-foreground hover:text-foreground p-1"
       >
-        <ChevronDown size={14} />
+        <ChevronDown size={14} aria-hidden />
       </button>
       <ToggleButton label="Aa" title={t('search.matchCase')} active={caseSensitive} onToggle={() => setCaseSensitive((v) => !v)} />
       <ToggleButton label=".*" title={t('search.regex')} active={regex} onToggle={() => setRegex((v) => !v)} />
@@ -120,10 +121,11 @@ export function TerminalSearchOverlay({ search, onClose }: Props) {
       <button
         type="button"
         title={t('search.close')}
+        aria-label={t('search.close')}
         onClick={onClose}
-        className="text-[#f8f8f2] hover:text-white p-1"
+        className="text-popover-foreground hover:text-foreground p-1"
       >
-        <X size={14} />
+        <X size={14} aria-hidden />
       </button>
     </div>
   )
@@ -134,8 +136,10 @@ function ToggleButton({ label, title, active, onToggle }: { label: string; title
     <button
       type="button"
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       onClick={onToggle}
-      className={`text-xs px-1.5 py-0.5 rounded font-mono ${active ? 'bg-[#6272a4] text-white' : 'text-[#f8f8f2] hover:bg-[#44475a]'}`}
+      className={`text-xs px-1.5 py-0.5 rounded font-mono ${active ? 'bg-primary text-primary-foreground' : 'text-popover-foreground hover:bg-accent'}`}
     >
       {label}
     </button>

@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Command } from 'cmdk'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import {
   Search,
@@ -14,14 +15,43 @@ import {
   Settings,
   FileText,
   PieChart,
-  PanelLeft,
-  PanelRight,
   MessagesSquare,
+  ChevronLeft,
+  ChevronRight,
+  History,
 } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
+import { usePlaceHistory } from '../hooks/usePlaceHistory'
+import { useInbox } from '../features/inbox/context/InboxContext'
+import { useUndo } from '../hooks/useUndo'
+import { useThemeOptional } from '../features/settings/context/ThemeContext'
+import { loopsApi } from '../features/loops/lib/loops-api'
+import { loopNeedsTicket } from '../features/loops/lib/loop-ticket-need'
+import { openAppSettings, openProjectSettings } from '../lib/app-settings-events'
+import { usePaletteSurfaces } from '../lib/palette-bridge'
+import { isGlobalRoute } from '../lib/sidebar-layout'
+import { keyboardLabel } from '../lib/keyboard-label'
+import { FEATURE_AGENT_MODE, FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
+import { SPEC_PARAM } from '../lib/places'
+import {
+  MAX_ARG_ROWS,
+  MAX_RECENT_PLACES,
+  filterArgOptions,
+  parseActionQuery,
+  rankActions,
+  PALETTE_ACTIONS,
+  recentActionRows,
+  type ArgOption,
+  type ArgPage,
+  type PaletteAction,
+  type PaletteContext,
+} from './command-palette/palette-actions'
+import { readRecentActionIds, recordRecentAction } from './command-palette/recent-actions'
 import { getApiBase } from '../lib/api'
 import type { CommandInfo, JobSummary } from '../types'
 import { cn } from '../lib/utils'
+import { DIALOG_PANEL_CLASS, DIALOG_SCRIM_CLASS, DIALOG_SIZE_CLASS } from './ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../lib/layers'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
@@ -38,6 +68,14 @@ import {
   type PaletteGroup,
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
+import { LiveDot } from './ui/live-dot'
+import { Kbd } from './ui/kbd'
+import { RailTrack } from './brand/RailTrack'
+
+interface PageFrame {
+  actionId: string
+  page: ArgPage
+}
 
 interface CommandPaletteProps {
   onOpenSettings?: () => void
@@ -71,9 +109,69 @@ function renderSnippet(snippet: MissionSearchSnippet): ReactNode {
   return parts
 }
 
+const PALETTE_BY_ID = new Map(PALETTE_ACTIONS.map((a) => [a.id, a]))
+
+/** "This row opens a second page of options": a chevron, announced instead of read as a glyph. */
+function OpensOptionsMark() {
+  const { t } = useTranslation('commands')
+  return (
+    <>
+      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="sr-only">{t('palette.actions.opensOptions')}</span>
+    </>
+  )
+}
+
+/** The second palette page: the options of an action's argument. */
+function ArgPageList({ frame, search, loaded, onSelect, itemClass, loadingLabel, failedLabel }: {
+  frame: PageFrame
+  search: string
+  loaded: { options: ArgOption[] | null; failed: boolean } | null
+  onSelect: (option: ArgOption) => void
+  itemClass: string
+  loadingLabel: string
+  failedLabel: string
+}) {
+  const { page } = frame
+  const options = page.load ? loaded?.options ?? null : page.options ?? []
+  if (options === null) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-body text-muted-foreground" role="status" data-testid="palette-page-loading">
+        <RailTrack running className="w-24" />
+        {loadingLabel}
+      </div>
+    )
+  }
+  const visible = filterArgOptions(options, search)
+  return (
+    <Command.Group heading={page.title} data-testid="palette-page">
+      {visible.length === 0 && (
+        <div className="py-8 text-center text-body text-muted-foreground" data-testid="palette-page-empty">
+          {loaded?.failed ? failedLabel : page.emptyLabel}
+        </div>
+      )}
+      {visible.slice(0, MAX_ARG_ROWS * 4).map((option) => (
+        <Command.Item
+          key={option.id}
+          value={`opt:${option.id}`}
+          disabled={option.disabled}
+          onSelect={() => onSelect(option)}
+          className={cn(itemClass, option.disabled && 'opacity-50 cursor-not-allowed')}
+          data-testid={`palette-option-${option.id}`}
+        >
+          <span className="flex-1 truncate">{option.label}</span>
+          {option.next && <OpensOptionsMark />}
+          {option.hint && <span className="shrink-0 text-caption text-muted-foreground">{option.hint}</span>}
+        </Command.Item>
+      ))}
+    </Command.Group>
+  )
+}
+
 export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: CommandPaletteProps) {
   const { t } = useTranslation('commands')
   const { t: tAgent } = useTranslation('agent')
+  const { t: tLoops } = useTranslation('loops')
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [commands, setCommands] = useState<CommandInfo[]>([])
@@ -81,8 +179,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   const [serverHits, setServerHits] = useState<ServerHits>({ query: '', hits: EMPTY_HITS })
   const { projects, activeProjectId, setActiveProjectId } = useDesktop()
   const { leftMode, rightMode, cycleLeftMode, cycleRightMode } = useSidebarPin()
-  const { uiMode } = useUiMode()
-  const { conversations, liveByConversation, selectConversation, open: openAgentPanel } = useAgentChat()
+  const { uiMode, setUiMode } = useUiMode()
+  const { conversations, liveByConversation, selectConversation, open: openAgentPanel, startNewConversation } = useAgentChat()
   const leftLabel = leftMode === 'pinned-open'
     ? t('palette.sidebar.collapseLeftKeepPinned')
     : leftMode === 'pinned-collapsed'
@@ -94,6 +192,19 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       ? t('palette.sidebar.unpinRight')
       : t('palette.sidebar.pinRightOpen')
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const places = usePlaceHistory()
+  const inbox = useInbox()
+  const { undoLast, peekUndo } = useUndo()
+  const theme = useThemeOptional()
+  const surfaces = usePaletteSurfaces()
+  // Argument pages (cmdk pages): a stack so multi-step actions (pick a spec,
+  // then a rail) return one step per Backspace/Back.
+  const [pages, setPages] = useState<PageFrame[]>([])
+  const [loadedOptions, setLoadedOptions] = useState<{ frame: PageFrame; options: ArgOption[] | null; failed: boolean } | null>(null)
+  const [recentIds, setRecentIds] = useState<string[]>(() => readRecentActionIds())
+  const inputRef = useRef<HTMLInputElement>(null)
   const fetchedRef = useRef(false)
   const searchSeq = useRef(0)
 
@@ -114,8 +225,11 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     if (!open) {
       fetchedRef.current = false
       setSearch('')
+      setPages([])
+      setLoadedOptions(null)
       return
     }
+    setRecentIds(readRecentActionIds())
     if (fetchedRef.current) return
     fetchedRef.current = true
 
@@ -143,7 +257,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
   // Phase B of mission search: debounced server query, previous request
   // aborted, answers matched back to the query they belong to (D1).
   useEffect(() => {
-    const q = search.trim()
+    const parsed = parseActionQuery(search)
+    const q = parsed.explicit ? '' : parsed.text
     const seq = ++searchSeq.current
     if (!open || !q) return
     const ctrl = new AbortController()
@@ -165,7 +280,9 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
 
   const untitledMission = tAgent('mission.untitled')
   const missionRows = useMemo<MissionSearchRow[]>(() => {
-    const q = search.trim()
+    const parsedQuery = parseActionQuery(search)
+    if (parsedQuery.explicit) return []
+    const q = parsedQuery.text
     if (!q) return recentMissions(conversations)
     const titleRows = matchMissionTitles(conversations, q, untitledMission)
     return mergeMissionResults(titleRows, serverHits.query === q ? serverHits.hits : EMPTY_HITS)
@@ -198,7 +315,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       toast.success(t('toasts.queued', { name: slug }))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('errors.spawnFailed'))
+      toast.error(t('errors.spawnFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [navigate, t])
 
@@ -218,13 +335,16 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     action()
   }, [])
 
-  const navItemClass = 'flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground'
+  const navItemClass = 'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground'
 
   // cmdk's own fuzzy filter is OFF (a content hit whose title lacks the query
   // would otherwise be hidden), so every group filters itself (D5).
-  const visibleProjects = projects.filter((p) => matchesPaletteQuery(search, p.name, [p.slug]))
-  const visibleCommands = commands.filter((cmd) => matchesPaletteQuery(search, cmd.name, [cmd.slug, cmd.description ?? '']))
-  const visibleJobs = recentJobs.filter((job) => matchesPaletteQuery(search, `${job.command} ${job.id}`, [job.status]))
+  const parsedQuery = parseActionQuery(search)
+  const commandMode = parsedQuery.explicit
+  const textQuery = parsedQuery.text
+  const visibleProjects = commandMode ? [] : projects.filter((p) => matchesPaletteQuery(textQuery, p.name, [p.slug]))
+  const visibleCommands = commandMode ? [] : commands.filter((cmd) => matchesPaletteQuery(textQuery, cmd.name, [cmd.slug, cmd.description ?? '']))
+  const visibleJobs = commandMode ? [] : recentJobs.filter((job) => matchesPaletteQuery(textQuery, `${job.command} ${job.id}`, [job.status]))
 
   interface NavEntry {
     key: string
@@ -242,10 +362,147 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     { key: 'activityFeed', label: t('palette.nav.activityFeed'), keywords: ['log'], icon: <Activity className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => handleNavigate('/activity') },
     { key: 'desktopSettings', label: t('palette.nav.desktopSettings'), keywords: ['configuration'], icon: <Settings className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenSettings ? handleDesktopAction(onOpenSettings) : handleNavigate('/settings')) },
     { key: 'docs', label: t('palette.nav.docs'), keywords: ['documentation'], icon: <FileText className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => (onOpenDocs ? handleDesktopAction(onOpenDocs) : handleNavigate('/docs')) },
-    { key: 'leftSidebar', label: leftLabel, keywords: ['sidebar', 'panel', 'left', 'pin', 'collapse', 'unpin', 'cycle'], icon: <PanelLeft className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => { cycleLeftMode(); setOpen(false) } },
-    { key: 'rightSidebar', label: rightLabel, keywords: ['sidebar', 'panel', 'right', 'nav', 'pin', 'collapse', 'unpin', 'cycle'], icon: <PanelRight className="w-4 h-4 text-muted-foreground shrink-0" />, onSelect: () => { cycleRightMode(); setOpen(false) } },
   ]
-  const visibleNav = navEntries.filter((entry) => matchesPaletteQuery(search, entry.label, entry.keywords))
+  const visibleNav = commandMode ? [] : navEntries.filter((entry) => matchesPaletteQuery(textQuery, entry.label, entry.keywords))
+
+  // ─── Actions (QW1) ─────────────────────────────────────────────────────────
+  const focusedSpecParam = Number(searchParams.get(SPEC_PARAM))
+  const paletteCtx: PaletteContext = {
+    t: t as PaletteContext['t'],
+    uiMode,
+    projectId: activeProjectId,
+    projects: projects.map((p) => ({ id: p.id, name: p.name })),
+    focusedSpecId: Number.isInteger(focusedSpecParam) && focusedSpecParam > 0 ? focusedSpecParam : null,
+    surfaces,
+    flags: { agentMode: FEATURE_AGENT_MODE, loops: FEATURE_LOOPS_SECTION },
+    theme: theme ? { id: theme.themeId, set: theme.setTheme } : null,
+    history: places ? { canBack: places.canBack, canForward: places.canForward, back: places.back, forward: places.forward } : null,
+    inbox: inbox ? { count: inbox.count, open: inbox.openInbox } : null,
+    undoLabel: open ? peekUndo() : null,
+    sidebarLabels: { left: leftLabel, right: rightLabel },
+    go: {
+      navigate,
+      setUiMode,
+      openAppSettings,
+      // Mission mode hosts project settings as a modal; Board mode shows the same sections on /settings.
+      openProjectSettings: (section) => { if (uiMode === 'agent') openProjectSettings(section); else navigate('/settings') },
+      newMission: () => {
+        startNewConversation(activeProjectId)
+        if (isGlobalRoute(location.pathname, uiMode)) navigate('/')
+      },
+      setProject: setActiveProjectId,
+      toggleLeftSidebar: cycleLeftMode,
+      toggleRightSidebar: cycleRightMode,
+      undoLast: () => { void undoLast() },
+      listRunnableLoops: async () => (await loopsApi.list()).filter((l) => !loopNeedsTicket(l.graph)).map((l) => ({ id: l.id, name: l.name })),
+      runLoop: (loopId, name) => {
+        if (!activeProjectId) return
+        loopsApi.runStandalone(activeProjectId, loopId)
+          .then(({ loopRunId }) => {
+            navigate(`/jobs/${loopRunId}`)
+            toast.success(tLoops('run.launched', { name }))
+          })
+          .catch(() => { toast.error(tLoops('errors.save')) })
+      },
+    },
+  }
+  const actionRows = open ? rankActions(paletteCtx, search) : { leading: false, rows: [] }
+  const recentRows = open && !search.trim() ? recentActionRows(paletteCtx, recentIds) : []
+  const recentPlaces = open && !search.trim() && places ? places.recent(MAX_RECENT_PLACES) : []
+  const topPage = pages.length > 0 ? pages[pages.length - 1] : null
+
+  const finishAction = (action: PaletteAction, arg?: unknown) => {
+    setOpen(false)
+    setRecentIds(recordRecentAction(action.id))
+    action.run(paletteCtx, arg)
+  }
+
+  const selectAction = (action: PaletteAction) => {
+    const page = action.page?.(paletteCtx) ?? null
+    if (page) {
+      setPages([{ actionId: action.id, page }])
+      setSearch('')
+      return
+    }
+    finishAction(action)
+  }
+
+  const selectOption = (frame: PageFrame, option: ArgOption) => {
+    if (option.disabled) return
+    if (option.next) {
+      setPages((prev) => [...prev, { actionId: frame.actionId, page: option.next as ArgPage }])
+      setSearch('')
+      return
+    }
+    const action = PALETTE_BY_ID.get(frame.actionId)
+    if (action) finishAction(action, option.arg)
+  }
+
+  const popPage = () => {
+    setPages((prev) => prev.slice(0, -1))
+    setSearch('')
+  }
+
+  // A page change keeps typing (and Backspace-to-go-back) working after a mouse pick.
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open, pages.length])
+
+  // Options that load when the page opens (loops, Jira workflow statuses).
+  useEffect(() => {
+    if (!topPage?.page.load) { setLoadedOptions(null); return }
+    let alive = true
+    setLoadedOptions({ frame: topPage, options: null, failed: false })
+    topPage.page.load()
+      .then((options) => { if (alive) setLoadedOptions({ frame: topPage, options, failed: false }) })
+      .catch(() => { if (alive) setLoadedOptions({ frame: topPage, options: [], failed: true }) })
+    return () => { alive = false }
+  }, [topPage])
+
+  const actionRow = (action: PaletteAction, label: string, keyPrefix: string) => {
+    const Icon = action.icon
+    const opensPage = !!action.page && action.page(paletteCtx) !== null
+    return (
+      <Command.Item
+        key={`${keyPrefix}-${action.id}`}
+        value={`${keyPrefix}:${action.id}`}
+        onSelect={() => selectAction(action)}
+        className={navItemClass}
+        data-testid={`palette-action-${keyPrefix}-${action.id}`}
+      >
+        {/* Icons stay quiet; the lamp colour is the selected row's. */}
+        <Icon className="w-4 h-4 shrink-0 text-muted-foreground group-data-[selected=true]:text-accent-primary" />
+        <span className="flex-1 truncate">{label}</span>
+        {opensPage && <OpensOptionsMark />}
+        {action.shortcut && <Kbd className="shrink-0">{keyboardLabel(action.shortcut)}</Kbd>}
+      </Command.Item>
+    )
+  }
+
+  const actionsGroup = actionRows.rows.length > 0 && (
+    <Command.Group key="actions" heading={t('palette.groups.actions')} data-testid="palette-group-actions">
+      {actionRows.rows.map(({ action, label }) => actionRow(action, label, 'a'))}
+    </Command.Group>
+  )
+  const recentActionsGroup = recentRows.length > 0 && (
+    <Command.Group key="recentActions" heading={t('palette.groups.recentActions')} data-testid="palette-group-recent-actions">
+      {recentRows.map(({ action, label }) => actionRow(action, label, 'r'))}
+    </Command.Group>
+  )
+  const recentPlacesGroup = recentPlaces.length > 0 && (
+    <Command.Group key="recentPlaces" heading={t('palette.groups.recentPlaces')} data-testid="palette-group-recent-places">
+      {recentPlaces.map((place) => (
+        <Command.Item
+          key={place.key}
+          value={`place:${place.key}`}
+          onSelect={() => { setOpen(false); navigate(place.to) }}
+          className={navItemClass}
+          data-testid="palette-recent-place"
+        >
+          <History className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="flex-1 truncate">{place.label}</span>
+        </Command.Item>
+      ))}
+    </Command.Group>
+  )
 
   const groups: Record<PaletteGroup, ReactNode> = {
     missions: missionRows.length > 0 && (
@@ -269,23 +526,20 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{conversation.title?.trim() || untitledMission}</span>
                   {streaming && (
-                    <span
+                    <LiveDot
+                      size="xs"
                       aria-label={tAgent('mission.working')}
                       data-testid={`palette-mission-live-${conversation.id}`}
-                      className="relative flex h-1.5 w-1.5 shrink-0"
-                    >
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-primary opacity-60" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-primary" />
-                    </span>
+                    />
                   )}
                   <span
-                    className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
+                    className="ml-auto shrink-0 text-caption tabular-nums text-muted-foreground"
                     title={absoluteTime(conversation.updated_at)}
                   >
                     {compactRelativeTime(conversation.updated_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 min-w-0 text-[11px] text-muted-foreground/60">
+                <div className="flex items-center gap-1.5 min-w-0 text-caption text-muted-foreground">
                   <span className="shrink-0">{projectName ?? t('palette.missions.home')}</span>
                   {row.snippet && (
                     <>
@@ -315,7 +569,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{project.name}</span>
             {project.id === activeProjectId && (
-              <span className="text-[10px] text-accent-primary font-medium">{t('palette.activeBadge')}</span>
+              <span className="text-caption text-accent-primary font-medium">{t('palette.activeBadge')}</span>
             )}
           </Command.Item>
         ))}
@@ -335,7 +589,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <div className="flex-1 min-w-0">
               <span className="truncate">{cmd.name}</span>
               {cmd.description && (
-                <span className="text-[11px] text-muted-foreground/60 ml-2 truncate">{cmd.description}</span>
+                <span className="text-caption text-muted-foreground ml-2 truncate">{cmd.description}</span>
               )}
             </div>
           </Command.Item>
@@ -355,7 +609,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{job.command}</span>
             <span className={cn(
-              'text-[10px] font-medium',
+              'text-caption font-medium',
               job.status === 'completed' && 'text-accent-success',
               job.status === 'failed' && 'text-destructive',
               job.status === 'running' && 'text-accent-info',
@@ -384,43 +638,87 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       open={open}
       onOpenChange={setOpen}
       shouldFilter={false}
-      label={t('palette.label')}
-      className={cn(
-        'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
-        'border border-border/30 bg-popover shadow-2xl backdrop-blur-md rounded-xl overflow-hidden',
-      )}
+      label={t('palette.dialogTitle')}
+      // cmdk renders a Radix dialog: style its Content as a standard `form`
+      // panel and its Overlay with the shared scrim.
+      overlayClassName={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.stacked)}
+      contentClassName={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.stacked, DIALOG_SIZE_CLASS.form)}
+      className="flex min-h-0 flex-col"
     >
-      {/* Visually hidden title for accessibility */}
-      <span className="sr-only">{t('palette.label')}</span>
+      {/* Radix Title/Description: the dialog's aria-labelledby/-describedby
+          resolve to real elements (cmdk's Content only sets aria-label). */}
+      <DialogPrimitive.Title className="sr-only">{t('palette.dialogTitle')}</DialogPrimitive.Title>
+      <DialogPrimitive.Description className="sr-only">{t('palette.dialogDescription')}</DialogPrimitive.Description>
 
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 border-b border-border/30">
-        <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+        {topPage ? (
+          <button
+            type="button"
+            onClick={popPage}
+            aria-label={t('palette.actions.back')}
+            data-testid="palette-page-back"
+            className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        ) : (
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+        )}
         <Command.Input
+          ref={inputRef}
           value={search}
           onValueChange={setSearch}
-          placeholder={uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
-          className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+          onKeyDown={(e) => {
+            // cmdk pages: Backspace on an empty query steps back one page.
+            if (e.key === 'Backspace' && !search && pages.length > 0) {
+              e.preventDefault()
+              popPage()
+            }
+          }}
+          placeholder={topPage ? topPage.page.placeholder : uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
+          className="flex-1 h-11 bg-transparent text-body outline-none placeholder:text-muted-foreground"
         />
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
-          esc
-        </kbd>
+        <Kbd className="hidden sm:inline-flex">esc</Kbd>
       </div>
 
       {/* Results list — group order follows the UI mode (D6) */}
       <Command.List className="max-h-80 overflow-y-auto p-2">
-        <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-          {t('palette.noResults')}
-        </Command.Empty>
-        {groupOrderForMode(uiMode).map((group) => groups[group])}
+        {topPage ? (
+          <ArgPageList
+            frame={topPage}
+            search={search}
+            loaded={loadedOptions && loadedOptions.frame === topPage ? loadedOptions : null}
+            onSelect={(option) => selectOption(topPage, option)}
+            itemClass={navItemClass}
+            loadingLabel={t('palette.actions.pages.loading')}
+            failedLabel={t('palette.actions.pages.loadFailed')}
+          />
+        ) : (
+          <>
+            <Command.Empty className="py-8 text-center text-body text-muted-foreground">
+              {t('palette.noResults')}
+            </Command.Empty>
+            {actionRows.leading && actionsGroup}
+            {!search.trim() && recentActionsGroup}
+            {!search.trim() && recentPlacesGroup}
+            {groupOrderForMode(uiMode).map((group) => groups[group])}
+            {!actionRows.leading && actionsGroup}
+          </>
+        )}
       </Command.List>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-[10px] text-muted-foreground/50">
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-caption text-muted-foreground">
         <div className="flex items-center gap-3">
-          <span><kbd className="font-mono">↑↓</kbd> {t('palette.footer.navigate')}</span>
-          <span><kbd className="font-mono">↵</kbd> {t('palette.footer.select')}</span>
-          <span><kbd className="font-mono">esc</kbd> {t('palette.footer.close')}</span>
+          <span><Kbd>↑↓</Kbd> {t('palette.footer.navigate')}</span>
+          <span><Kbd>↵</Kbd> {t('palette.footer.select')}</span>
+          <span><Kbd>esc</Kbd> {t('palette.footer.close')}</span>
+          {topPage ? (
+            <span data-testid="palette-footer-back"><Kbd>⌫</Kbd> {t('palette.footer.back')}</span>
+          ) : (
+            <span><Kbd>&gt;</Kbd> {t('palette.footer.actions')}</span>
+          )}
         </div>
       </div>
     </Command.Dialog>

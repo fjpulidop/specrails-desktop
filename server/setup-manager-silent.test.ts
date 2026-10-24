@@ -58,6 +58,26 @@ describe('SetupManager.startSilentAssemble', () => {
     expect(manager.silentAssembleState('proj-1')).toEqual({ running: false, failed: ['codex'] })
   })
 
+  it('runs the post-setup hook once a provider assembled, never when every provider failed', async () => {
+    const succeeded = vi.fn()
+    const hooked = new SetupManager((msg) => broadcasts.push(msg), undefined, undefined, undefined, succeeded)
+    mocks.assemble.mockResolvedValueOnce([{ provider: 'claude', ok: true }, { provider: 'codex', ok: false, error: 'boom' }])
+    hooked.startSilentAssemble('proj-1', '/tmp/repo', 'my-app', ['claude', 'codex'])
+    await flush(); await flush()
+    expect(succeeded).toHaveBeenCalledWith('proj-1')
+    succeeded.mockClear()
+    mocks.assemble.mockResolvedValueOnce([{ provider: 'claude', ok: false, error: 'boom' }])
+    hooked.startSilentAssemble('proj-2', '/tmp/repo2', 'other', ['claude'])
+    await flush(); await flush()
+    expect(succeeded).not.toHaveBeenCalled()
+    // A throwing hook never breaks setup.
+    const throwing = new SetupManager((msg) => broadcasts.push(msg), undefined, undefined, undefined, () => { throw new Error('hook') })
+    mocks.assemble.mockResolvedValueOnce([{ provider: 'claude', ok: true }])
+    throwing.startSilentAssemble('proj-3', '/tmp/repo3', 'third', ['claude'])
+    await flush(); await flush()
+    expect(throwing.silentAssembleState('proj-3')).toEqual({ running: false, failed: [] })
+  })
+
   it('is a no-op while a run is in flight', async () => {
     let release: () => void = () => {}
     mocks.assemble.mockImplementation(

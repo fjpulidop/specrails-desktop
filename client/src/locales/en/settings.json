@@ -76,7 +76,7 @@
       "subscriptionUsage": "Subscription usage"
     },
     "title": "Desktop Settings",
-    "description": "Manage registered projects and view Desktop information.",
+    "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
     "registeredProjects": "Registered Projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
@@ -97,11 +97,19 @@
     "platformTour": "Platform Tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
     "replayTour": "Replay Tour",
-    "terminalPanelHeading": "Terminal Panel",
     "infoHeading": "Desktop Information",
     "infoPort": "Port",
     "infoProjects": "Projects",
-    "infoDb": "Desktop DB"
+    "infoDb": "Desktop DB",
+    "removeProjectConfirmTitle": "Remove {{name}}?",
+    "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later.",
+    "navLabel": "Settings sections",
+    "navGroups": {
+      "personal": "Personal",
+      "agents": "Agents",
+      "system": "System"
+    },
+    "unsavedChanges": "Unsaved changes"
   },
   "notifications": {
     "heading": "OS Notifications",
@@ -120,8 +128,6 @@
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
     "eventDailyBudgetExceeded": "Daily budget exceeded",
-    "statusOn": "on",
-    "statusOff": "off",
     "disable": "Disable",
     "enable": "Enable",
     "sendTestPing": "Send test ping",
@@ -136,7 +142,10 @@
     "removed": "Webhook removed",
     "removeFailed": "Failed to remove webhook",
     "testPingSent": "Test ping sent",
-    "testPingFailed": "Failed to send test ping"
+    "testPingFailed": "Failed to send test ping",
+    "removeConfirmTitle": "Remove webhook?",
+    "removeConfirmBody": "{{url}} will stop receiving Desktop events.",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "Terminal panel",
@@ -170,7 +179,7 @@
     "taglines": {
       "dracula": "The original — dark purple-tinted with vivid neon accents",
       "aurora-light": "Premium light — Linear-inspired indigo on warm off-white",
-      "obsidian-dark": "Premium dark — near-black blue-tinted with electric accents",
+      "obsidian-dark": "Graphite pro — neutral near-black with one muted violet accent",
       "specrails": "Brand theme — deep navy-indigo with saturated cyan accents",
       "code-rain": "Phosphor terminal — soft mint on green-tinted near-black",
       "galaxy": "Deep-space blue with a glowing blade trail"
@@ -198,7 +207,8 @@
     "windowsFirewall": "Windows Firewall will ask to allow the SpecRails server on first enable — choose “Allow on private networks”.",
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
-    "revokeDevice": "Revoke {{name}}"
+    "revokeDevice": "Revoke {{name}}",
+    "resetConfirmTitle": "Reset mobile identity?"
   },
   "pairWeb": {
     "title": "Pair web companion",
@@ -231,10 +241,7 @@
     "affectsAll": "Applies to all projects — no restart needed.",
     "unavailable": "Core updates aren't available in this build.",
     "toastDone": "Specrails Core updated to {{version}}",
-    "toastError": "Core update failed: {{message}}",
     "toastUpToDate": "Specrails Core is up to date",
-    "toastCheckFailed": "Update check failed: {{message}}",
-    "loadFailed": "Could not refresh Core status. Retry",
     "runtime": "Runtime: {{version}}",
     "bundled": "Included in Desktop: {{version}}",
     "sources": {
@@ -245,7 +252,10 @@
       "global": "External CLI"
     },
     "repair": "Finish updating {{version}}",
-    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now."
+    "stableFallback": "specrails-core has no stable release yet, so Core follows Latest for now.",
+    "updateFailed": "Core update failed",
+    "checkFailed": "Update check failed",
+    "loadError": "Could not refresh Core status."
   },
   "updateChannel": {
     "heading": "Update channel",
@@ -277,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Settings",
-    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry and terminal.",
+    "description": "Project-level configuration: prompts, branch, environment, budget, telemetry, rules and terminal.",
     "nav": {
       "general": "General",
       "branch": "Branch",
@@ -286,8 +296,11 @@
       "telemetry": "Telemetry",
       "terminal": "Terminal",
       "agentRuntime": "Verification commands",
-      "subagents": "Sub-agents"
-    }
+      "subagents": "Sub-agents",
+      "rules": "Rules",
+      "recentlyDeleted": "Recently deleted"
+    },
+    "navLabel": "Project settings sections"
   },
   "integrationBranch": {
     "title": "Integration branch",
@@ -439,5 +452,65 @@
     "saved_other": "Review limit set to {{count}}",
     "removed": "Review limit removed",
     "saveFailed": "Could not save the review limit"
+  },
+  "anchoring": {
+    "title": "Existing-project anchoring",
+    "description": "Optional behaviours that help runs respect what the project already does. Each one needs a Core that supports it.",
+    "coreRequired": "The installed Core does not support this yet. Update Core to enable it.",
+    "saveFailed": "Could not save the setting",
+    "jiraPostClarifications": {
+      "label": "Post architect clarifications to Jira",
+      "description": "When a run pauses with the architect's questions, or proceeds on assumptions, post them as a comment on the linked Jira issue. A reply there is recorded on the spec as a clarification.",
+      "enabled": "Clarifications will be posted to Jira",
+      "disabled": "Clarifications will stay in Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline on touch",
+      "description": "When a change reaches code no spec describes, first write characterization tests (proven on the unchanged code) and a minimal as-built spec. Adds cost, reported apart.",
+      "enabled": "Baseline on touch enabled",
+      "disabled": "Baseline on touch disabled"
+    }
+  },
+  "rules": {
+    "title": "Project rules",
+    "description": "The checks this project already runs and every written rule, classified as enforced, automatable or human-only. Human-only rules appear in each review packet.",
+    "rerun": "Re-run inventory",
+    "running": "Running inventory…",
+    "coreRequired": "The installed Core does not support the rules inventory. Update Core to run it.",
+    "missing": "No inventory yet. Run it to list the project's gates and rules.",
+    "invalid": "The rules file could not be read: {{message}}",
+    "inventoryDone": "Rules inventory updated",
+    "inventoryFailed": "The rules inventory failed",
+    "specCreated": "Spec #{{id}} created",
+    "specFailed": "Could not create the spec",
+    "status": {
+      "automatable": "Automatable",
+      "humanOnly": "Human only",
+      "enforcedBy": "Enforced",
+      "unclassified": "Unclassified"
+    },
+    "generatedAt": "Generated {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Plain gate commands are offered first as verification checks in the agent runtime settings when none are configured.",
+    "enforcedBy": "Enforced by {{check}}",
+    "proposedCheck": "Proposed check: {{check}}",
+    "createSpec": "Create spec",
+    "dropped_one": "{{count}} entry did not match the format and was skipped",
+    "dropped_other": "{{count}} entries did not match the format and were skipped",
+    "classification": {
+      "offline": "Rules were inventoried offline and are not classified yet. Re-run the inventory with a configured provider.",
+      "unavailable": "No provider is configured to classify the rules.",
+      "failed": "Classifying the rules failed.",
+      "empty": "No written rules were found.",
+      "unknown": "The rules are not classified."
+    },
+    "autoRunning": "The inventory is running after setup. This list updates when it finishes.",
+    "lastRun": {
+      "setupFailed": "The automatic inventory after setup failed ({{date}}).",
+      "manualFailed": "The last inventory run failed ({{date}}).",
+      "retryHint": "Fix the cause shown above, then re-run the inventory.",
+      "setupDone": "Inventoried automatically after setup."
+    }
   }
 }

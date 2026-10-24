@@ -1,4 +1,4 @@
-# Plugins (Integrationen)
+# Plugins (Integrationen) {#plugins}
 
 Der Bereich **Integrationen** ist ein projektbezogener Marktplatz für optionale Erweiterungen, die den Funktionsumfang der KI ausbauen. Jedes Projekt entscheidet eigenständig, welche Plugins es haben möchte — ein Plugin in einem Projekt zu installieren, berührt nie ein anderes.
 

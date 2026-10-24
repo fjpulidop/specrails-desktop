@@ -21,7 +21,10 @@
   },
   "sidebar": {
     "rename": "Renombrar {{name}}",
-    "close": "Cerrar {{name}}"
+    "close": "Cerrar {{name}}",
+    "label": "Sesiones de terminal",
+    "closeRunningConfirm": "¿Cerrar «{{name}}» con un comando en ejecución?",
+    "closeRunningBody": "El comando en ejecución se detendrá y se perderá su salida no guardada."
   },
   "emptyState": {
     "noTerminals": "Aún no hay terminales en este proyecto.",

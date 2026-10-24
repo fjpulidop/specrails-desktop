@@ -40,7 +40,7 @@ describe('RailRow', () => {
 
   it('shows empty drop zone when no tickets', () => {
     renderRailRow()
-    expect(screen.getByText('Drag specs here')).toBeInTheDocument()
+    expect(screen.getByText('Drop a spec onto this rail')).toBeInTheDocument()
   })
 
   it('clicking label enters edit mode', () => {
@@ -104,14 +104,10 @@ describe('RailRow', () => {
 
   it('delete button calls onDelete in jiggle mode', () => {
     const onDelete = vi.fn()
-    const { container } = renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
-    // Jiggle delete button has only a Trash2 icon, no text — find by svg
-    const svgs = container.querySelectorAll('button svg')
-    const deleteBtn = Array.from(svgs).map(s => s.closest('button')!).find(
-      b => b.classList.contains('bg-red-500')
-    )
-    expect(deleteBtn).toBeDefined()
-    fireEvent.click(deleteBtn!)
+    renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
+    // The icon-only jiggle delete is named for assistive tech.
+    const deleteBtn = screen.getByRole('button', { name: /^delete /i })
+    fireEvent.click(deleteBtn)
     expect(onDelete).toHaveBeenCalled()
   })
 
@@ -137,7 +133,7 @@ describe('RailRow', () => {
 
     it('omits the drop zone in compact mode', () => {
       renderRailRow({ ...defaultProps, density: 'compact' } as any)
-      expect(screen.queryByText('Drag specs here')).not.toBeInTheDocument()
+      expect(screen.queryByText('Drop a spec onto this rail')).not.toBeInTheDocument()
     })
 
     it('renders clickable id pills for each assigned ticket and opens via onTicketClick', () => {
@@ -302,5 +298,17 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
   it('never preselects a loop the picker does not offer', () => {
     renderRailRow({ ...base, tickets: [triaged(1, 'factory:sdd-quick-openspec')] } as any)
     expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
+  })
+})
+
+describe('RailRow status dot', () => {
+  it('names the rail status for assistive tech (not colour-only)', () => {
+    renderRailRow({ ...defaultProps, status: 'failed' as never })
+    expect(screen.getByRole('img', { name: 'Failed' }).querySelector('.bg-destructive')).not.toBeNull()
+  })
+
+  it('reports an idle rail', () => {
+    renderRailRow()
+    expect(screen.getByRole('img', { name: 'Idle' })).toBeInTheDocument()
   })
 })

@@ -16,6 +16,30 @@ Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 
+## Local integration with uncommitted work
+
+`merge-local` stashes the person's uncommitted work when it overlaps the
+delivery, integrates, then re-applies it. The stash is identified by commit
+sha, recorded in `rail_pr_deliveries.local_stash` (migration 83), applied
+(never popped) and dropped only after a clean apply. On conflict, only the
+stash's own paths go back to `HEAD`. The stash is kept, the delivery becomes
+`merged` / `local_changes_attention`, the origin mission is informed (report
+only — missions are read-only) and Specrails restores the stash itself on
+`specrails/restore-local-<sha8>` in its own worktree: clean ⇒ committed;
+otherwise the write-capable AI merge-resolver runs confined to that worktree
+and Specrails verifies and commits. The person brings it back (fast-forward)
+or discards the branch; the stash is dropped only after bring-back.
+Specrails-managed generated files (OpenSpec skills/commands) take the
+integrated version instead of counting as conflicts.
+Git effects: [`runtime/local-stash.ts`](runtime/local-stash.ts),
+[`runtime/local-restore-branch.ts`](runtime/local-restore-branch.ts); resolver:
+[`runtime/local-restore-resolver.ts`](runtime/local-restore-resolver.ts). Body,
+briefing, `POST /rails/pr-local-changes/{restore,bring-back,discard-branch}`
+and startup recovery:
+[`adapters/decisions/local-changes.ts`](adapters/decisions/local-changes.ts).
+Real-Git tests: [`runtime/local-stash.test.ts`](runtime/local-stash.test.ts). See the
+[safe PR guide](../../../docs/internals/safe-pr-review-flow.md).
+
 ## Review WIP limit
 
 [`domain/review-wip.ts`](domain/review-wip.ts) is the pure rule. `countPendingReview` counts
@@ -32,7 +56,10 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
+- [runtime/flow-review-legacy.ts](runtime/flow-review-legacy.ts)
+- [runtime/flow-review-outcome.ts](runtime/flow-review-outcome.ts)
 - [runtime/flow-worktree-handoff.ts](runtime/flow-worktree-handoff.ts)
+- [runtime/flow-worktree-return.ts](runtime/flow-worktree-return.ts)
 - [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
 - [runtime/isolated-worktree.ts](runtime/isolated-worktree.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
@@ -40,11 +67,28 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 - [runtime/pr-publisher.ts](runtime/pr-publisher.ts)
 - [runtime/rail-isolated-launch.ts](runtime/rail-isolated-launch.ts)
 - [runtime/rail-isolation.ts](runtime/rail-isolation.ts)
+- [runtime/rail-pr-decision.ts](runtime/rail-pr-decision.ts)
 - [runtime/rail-pr-store.ts](runtime/rail-pr-store.ts)
 - [runtime/rail-pr-ticket-effects.ts](runtime/rail-pr-ticket-effects.ts)
 - [runtime/rails-router.ts](runtime/rails-router.ts)
 - [runtime/rails-store.ts](runtime/rails-store.ts)
 - [runtime/review-wip-gate.ts](runtime/review-wip-gate.ts)
+- [runtime/run-records.ts](runtime/run-records.ts)
+- [runtime/run-review-diagnosis.ts](runtime/run-review-diagnosis.ts)
+
+## Phase-3 run records
+
+[`runtime/run-records.ts`](runtime/run-records.ts) parses Core's
+`spec-trace.json`, `baseline.json` and `clarifications.json` (run dir first,
+then the newest engine-2 `<runId>-impl-*` dir; schema 1 only, bounded, a
+malformed file reads as absent) and builds the packet sections "Requirements
+demonstrated X/Y" and "Spec created where the work passed".
+[`runtime/phase3-harvest.ts`](runtime/phase3-harvest.ts) turns the active Core's
+capabilities into harvest options: `specTrace`, `baselineOnTouch` (with the
+run's baseline spend) and the project's human-only rules frozen into
+`settle_evidence.humanRules`. Without a capability the evidence is
+byte-identical to before. See
+[existing-project anchoring](../../../docs/internals/existing-project-anchoring.md).
 
 ### Isolated worktree preparation
 
@@ -74,6 +118,37 @@ contract's `adopt` callback; a rollback after adoption deletes the row and
 calls `release`. The rails launch route accepts `flowId` and resolves the
 contract through `ProjectContext.flowHandOff`. Delivery never imports the
 Flow module. See [Flow mode](../../../docs/internals/flow-mode.md).
+
+A Flow → Spec run that settles `implementation_failed` while its evidence
+shows a rejected review or failing checks
+([`flowReviewOutcome`](runtime/flow-review-outcome.ts)) records
+`status_code = review_changes_requested` with the reviewer's first issue,
+and every snapshot/envelope carries `flowReview` (issues, score, failing
+checks). Back to Flow is the inverse of the adoption
+([`returnFlowWorktree`](runtime/flow-worktree-return.ts)): one transaction
+deletes the adopted `rail_worktrees` row, closes the delivery as
+`discarded` / `returned_to_flow` and runs the Flow's commit callback; the
+worktree is never removed. Tests:
+[`runtime/flow-worktree-return.test.ts`](runtime/flow-worktree-return.test.ts).
+
+Deliveries settled as a generic `implementation_failed` before that
+classification existed are re-evaluated on read: `toPrDeliverySnapshot`
+applies `legacyFlowReviewReclassification`, so the strip, the mission card and
+Back to Flow / Relaunch see exactly a `review_changes_requested` delivery when
+the stored evidence shows a rejected review or failing checks; any other
+failure stays a failure. After startup admission,
+[`healLegacyFlowReviews`](runtime/flow-review-legacy.ts) persists that once
+(one transaction: evidence + status) and, when the stored evidence lacks the
+reviewer verdict, re-reads the retained run read-only through the settle
+harvest (`probeDefinitionRuns` + `healRuntimeEvidence({ refreshMissingReview })`).
+Tests: [`runtime/flow-review-legacy.test.ts`](runtime/flow-review-legacy.test.ts).
+
+[`readRunReviewDiagnosis`](runtime/run-review-diagnosis.ts) gives the
+operator's diagnosis tools (`runtime_diagnose`, the `runtime_evidence`
+overview) the run's latest reviewer verdict, failing host checks and Flow →
+Spec derivation coverage: stored settle evidence first, else the retained run
+through the same `healRuntimeEvidence` projection (engine 2 probe, engine 1
+pipeline dir). Bounded, read-only, never throws.
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

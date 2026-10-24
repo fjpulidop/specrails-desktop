@@ -102,17 +102,33 @@ describe('StatusBar', () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument()
   })
 
-  it('shows "Connection restored" toast on reconnect', async () => {
+  it('shows "Connection restored" toast after a real outage (>= 3 s offline)', async () => {
     const { toast } = await import('sonner')
     global.fetch = vi.fn().mockResolvedValue({ ok: false })
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
     const { rerender } = render(<StatusBar connectionStatus="connected" />)
-    // Simulate disconnect then reconnect
     rerender(<StatusBar connectionStatus="disconnected" />)
+    now.mockReturnValue(1_004_000)
     rerender(<StatusBar connectionStatus="connected" />)
 
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Connection restored')
     })
+    now.mockRestore()
+  })
+
+  it('stays quiet on a short blip and on a plain reload', async () => {
+    const { toast } = await import('sonner')
+    vi.mocked(toast.success).mockClear()
+    global.fetch = vi.fn().mockResolvedValue({ ok: false })
+    const now = vi.spyOn(Date, 'now').mockReturnValue(2_000_000)
+    const { rerender } = render(<StatusBar connectionStatus="connecting" />)
+    rerender(<StatusBar connectionStatus="connected" />)
+    rerender(<StatusBar connectionStatus="disconnected" />)
+    now.mockReturnValue(2_001_000)
+    rerender(<StatusBar connectionStatus="connected" />)
+    expect(toast.success).not.toHaveBeenCalled()
+    now.mockRestore()
   })
 
   it('prefixes ~ and marks data-estimated when cost includes an estimate (BUG-27)', async () => {

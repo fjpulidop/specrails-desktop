@@ -27,18 +27,18 @@
     "priority": "优先级",
     "labels": "标签",
     "markdownPlaceholder": "Markdown 描述…",
-    "supportsMarkdown": "支持 Markdown"
+    "supportsMarkdown": "支持 Markdown",
+    "removeLabel": "移除标签 {{label}}"
   },
   "meta": {
     "createdAgo": "创建于 {{time}}",
     "updatedAgo": "更新于 {{time}}"
   },
   "untitled": "未命名",
-  "deleteDialog": {
-    "title": "删除工单",
-    "body": "确定要删除 <strong>#{{id}} {{title}}</strong> 吗？此操作无法撤销。"
-  },
   "detailModal": {
+    "moreActions": "更多操作",
+    "openReview": "打开评审",
+    "viewJob": "查看作业",
     "toast": {
       "updated": "工单已更新",
       "updateFailed": "更新工单失败",
@@ -54,15 +54,16 @@
     "effort": "工作量",
     "assignee": "负责人",
     "continueEditing": "继续编辑",
-    "ticketFallbackLabel": "工单 #{{id}}"
+    "ticketFallbackLabel": "工单 #{{id}}",
+    "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（末尾的 + 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick, 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
   },
   "contractLayer": {
     "title": "Contract Layer",
     "populated": "已填充 {{n}}/5"
   },
   "rail": {
-    "moveToRail": "放入 Rail",
-    "removeFromRail": "从 Rail 移除",
+    "moveToRail": "放入 rail",
+    "removeFromRail": "从 rail 移除",
     "currentlyOn": "当前位于 {{rail}}",
     "popoverTitle": "放入 rail",
     "noRails": "没有可用的 rail。"
@@ -89,7 +90,8 @@
     "toast": {
       "created": "工单已创建",
       "createFailed": "创建工单失败"
-    }
+    },
+    "description": "手动向看板添加一个规格。它会以你选择的状态开始，之后可以继续完善或移到 rail。"
   },
   "comparePicker": {
     "title": "选择对比对象…",
@@ -100,8 +102,10 @@
   },
   "spendingLine": {
     "ariaLabel": "在分析页查看此工单的支出",
-    "turns_one": "{{count}} 轮",
-    "turns_other": "{{count}} 轮",
+    "turns_one": "{{count}} 轮智能体交互",
+    "turns_other": "{{count}} 轮智能体交互",
+    "turnsAtLeast_one": "{{count}}+ 轮智能体交互",
+    "turnsAtLeast_other": "{{count}}+ 轮智能体交互",
     "active": "活跃 {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
@@ -187,5 +191,16 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "未知交付（{{id}}）"
+  },
+  "nonGoals": {
+    "title": "不在范围内",
+    "ariaLabel": "不在范围内，每行一项",
+    "placeholder": "此规格有意不更改或不交付的内容，每行一项",
+    "onePerLine": "每行一项",
+    "add": "添加此规格不涵盖的内容"
+  },
+  "split": {
+    "label": "比较规格",
+    "resize": "调整面板大小"
   }
 }

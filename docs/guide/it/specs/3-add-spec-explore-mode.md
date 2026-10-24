@@ -22,7 +22,7 @@ Mentre converssi, un pannello mostra la bozza così com'è in quel momento — t
 
 Questo è il cuore della modalità Explore: non ti trovi mai davanti a un form vuoto. Stai sempre guardando una spec reale, in evoluzione.
 
-## Quanto vede l'AI: lo slider del contesto
+## Quanto vede l'AI: lo slider del contesto {#context-scope}
 
 Prima che l'AI risponda, decidi tu quanto del tuo progetto può vedere. Uno slider di preset di contesto ti permette di scambiare velocità con profondità:
 

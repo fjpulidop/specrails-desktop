@@ -19,9 +19,11 @@
   },
   "analytics": {
     "publicEntries": [
+      "components/CostValue.tsx",
       "components/ExportDropdown.tsx",
       "components/TicketSpendingLine.tsx",
       "hooks/useActivity.ts",
+      "lib/format.ts",
       "pages/ActivityFeedPage.tsx",
       "pages/AnalyticsPage.tsx",
       "pages/DesktopAnalyticsPage.tsx"
@@ -76,6 +78,7 @@
   },
   "chat": {
     "publicEntries": [
+      "components/AttachmentPreviewLightbox.tsx",
       "components/AttachmentsSection.tsx",
       "components/ChatPanel.tsx",
       "components/ContextScopeChecks.tsx",
@@ -121,6 +124,8 @@
   },
   "delivery": {
     "publicEntries": [
+      "components/LocalStashNotice.tsx",
+      "components/LoopChip.tsx",
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
       "components/TargetPrLaunchDialog.tsx",
@@ -147,12 +152,26 @@
   },
   "flow": {
     "publicEntries": [
-      "components/FlowMissionsBridge.tsx"
+      "components/FlowMissionsBridge.tsx",
+      "components/StartInFlow.tsx"
     ],
     "dependencies": [
+      "background",
       "missions",
       "providers",
-      "rails"
+      "rails",
+      "specs"
+    ]
+  },
+  "inbox": {
+    "publicEntries": [
+      "components/InboxButton.tsx",
+      "components/InboxDialog.tsx",
+      "context/InboxContext.tsx"
+    ],
+    "dependencies": [
+      "integrations",
+      "recovery"
     ]
   },
   "integrations": {
@@ -192,6 +211,7 @@
       "missions",
       "projects",
       "providers",
+      "recovery",
       "settings",
       "specs"
     ]
@@ -225,15 +245,18 @@
       "components/AgentMessage.tsx",
       "components/AgentModeSurface.tsx",
       "components/AgentModelSelector.tsx",
-      "components/AgentPrPinnedDock.tsx",
+      "components/AgentPrDecisionPill.tsx",
       "components/AgentRailLaunchCard.tsx",
+      "components/AgentRunStrip.tsx",
       "components/AgentToolbarSelector.tsx",
       "components/AgentWorkspaceSidebar.tsx",
       "components/MissionConversationMenu.tsx",
+      "components/MissionModeBadge.tsx",
       "components/MissionWindowAction.tsx",
       "components/MissionWindowBindings.tsx",
       "components/MissionWindowSurface.tsx",
       "components/agent-run-failure.ts",
+      "components/run-primary.tsx",
       "context/AgentChatContext.tsx",
       "context/AgentWorkspaceContext.tsx",
       "context/MinimizedChatsContext.tsx",
@@ -242,6 +265,7 @@
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
       "hooks/useAgentRefActions.ts",
+      "hooks/useMissionPlaceSync.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",
       "lib/mission-search.ts",
@@ -253,6 +277,7 @@
       "background",
       "browser",
       "builder",
+      "chat",
       "code",
       "delivery",
       "jobs",
@@ -260,6 +285,7 @@
       "projects",
       "providers",
       "rails",
+      "recovery",
       "settings",
       "specs",
       "terminals"
@@ -332,6 +358,14 @@
       "specs"
     ]
   },
+  "recovery": {
+    "publicEntries": [
+      "components/FailureDiagnosisCard.tsx",
+      "hooks/useRunDiagnosis.ts",
+      "lib/failure-diagnosis.ts"
+    ],
+    "dependencies": []
+  },
   "settings": {
     "publicEntries": [
       "components/AgentRuntimeMetrics.tsx",
@@ -351,6 +385,7 @@
       "context/ThemeContext.tsx",
       "lib/agent-runtime.ts",
       "lib/effects-prefs.ts",
+      "lib/project-settings-section-ids.ts",
       "lib/terminal-settings-events.ts",
       "lib/terminal-settings-types.ts",
       "lib/theme-palette.ts",
@@ -363,8 +398,10 @@
       "integrations",
       "jobs",
       "loops",
+      "missions",
       "projects",
       "providers",
+      "specs",
       "subscription-usage"
     ]
   },
@@ -378,6 +415,7 @@
       "components/TicketDetailModal.tsx",
       "components/explore-spec/useSmoothStream.ts",
       "context/SmashTrackerContext.tsx",
+      "context/SpecExtensionsContext.tsx",
       "context/TicketDetailModalContext.tsx",
       "hooks/useContractRefineTracker.tsx",
       "hooks/useSpecGenTracker.tsx",
@@ -385,8 +423,11 @@
       "lib/spec-addenda-core.ts",
       "lib/spec-draft.ts",
       "lib/spec-sort.ts",
+      "lib/spec-status-filter.ts",
       "lib/spec-triage.ts",
       "lib/specs-view-tier.ts",
+      "lib/ticket-status-moves.ts",
+      "lib/trash-api.ts",
       "types/spec-sort.ts"
     ],
     "dependencies": [
@@ -394,6 +435,7 @@
       "browser",
       "chat",
       "code",
+      "delivery",
       "integrations",
       "loops",
       "missions",

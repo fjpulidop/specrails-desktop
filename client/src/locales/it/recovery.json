@@ -1,0 +1,71 @@
+{
+  "headline": {
+    "tests_failed": {
+      "phaseRounds_one": "I test sono falliti nella fase {{phase}} dopo {{count}} giro di correzioni",
+      "phaseRounds_other": "I test sono falliti nella fase {{phase}} dopo {{count}} giri di correzioni",
+      "rounds_one": "I test sono falliti dopo {{count}} giro di correzioni",
+      "rounds_other": "I test sono falliti dopo {{count}} giri di correzioni",
+      "phase": "I test sono falliti nella fase {{phase}}",
+      "plain": "I test sono falliti"
+    },
+    "provider_limit": "È stato raggiunto il limite d'uso del provider IA",
+    "environment": "L'ambiente non riesce a eseguire i controlli",
+    "blocked": {
+      "phase": "L'esecuzione è bloccata nella fase {{phase}}",
+      "plain": "L'esecuzione è bloccata"
+    },
+    "timeout": {
+      "phase": "La fase {{phase}} ha esaurito il tempo",
+      "plain": "L'esecuzione ha esaurito il tempo"
+    },
+    "tool_inactivity": {
+      "phase": "L'agente è rimasto in silenzio nella fase {{phase}}",
+      "plain": "L'agente è rimasto in silenzio"
+    },
+    "crash": {
+      "phase": "L'agente si è fermato all'improvviso nella fase {{phase}}",
+      "plain": "L'agente si è fermato all'improvviso"
+    },
+    "unknown": "Causa sconosciuta"
+  },
+  "why": {
+    "provider_limit": {
+      "reset": "Si azzera {{resetAt}}. Riprendi dopo.",
+      "noReset": "Aspetta che il limite si azzeri, poi riprendi."
+    },
+    "environment": "Il problema non è la modifica in sé. La macchina ha bisogno di qualcosa prima.",
+    "tests_failed": "I controlli continuano a fallire dopo le correzioni.",
+    "blocked": "L'ha fermata un limite o una decisione. Non è andata in crash.",
+    "timeout": "Ha raggiunto il limite di tempo prima di finire.",
+    "tool_inactivity": "Ha smesso di usare strumenti e di rispondere per troppo tempo.",
+    "crash": "Il processo del provider o la sua connessione è morto a metà esecuzione.",
+    "unknown": "L'app non sa perché si è fermata e non tira a indovinare."
+  },
+  "remedies": {
+    "label": "Modi per ripartire"
+  },
+  "remedy": {
+    "resume": "Riprendi",
+    "resumeFrom": "Riprendi da {{phase}}",
+    "retry": "Esegui di nuovo",
+    "editSpec": "Modifica la spec e rilancia",
+    "fixEnvironment": "Sistema l'ambiente",
+    "openLogs": "Apri il log al punto del guasto"
+  },
+  "environment": {
+    "command": "Comando",
+    "copy": "Copia comando",
+    "copied": "Copiato",
+    "inDirectory": "in {{cwd}}",
+    "requiredAction": "Azione richiesta",
+    "generic": "L'ambiente richiede attenzione prima che l'esecuzione possa continuare.",
+    "then": "Quando è fatto, riprendi l'esecuzione."
+  },
+  "logTail": {
+    "title": "Fine del log"
+  },
+  "logs": {
+    "notFound": "Ancora nessun log da mostrare"
+  },
+  "technicalDetails": "Dettagli tecnici"
+}

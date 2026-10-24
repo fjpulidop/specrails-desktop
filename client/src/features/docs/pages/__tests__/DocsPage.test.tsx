@@ -133,15 +133,34 @@ describe('DocsPage', () => {
       ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}))
       renderWithRoute('/docs/engineering/architecture')
       // The spinner is rendered during load
-      const spinners = document.querySelectorAll('.animate-spin')
+      const spinners = document.querySelectorAll('[data-testid="rail-track"]')
       expect(spinners.length).toBeGreaterThanOrEqual(1)
     })
 
     it('shows error when document fetch fails with non-404', async () => {
       renderWithRoute('/docs/engineering/server-error')
       await waitFor(() => {
-        expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('This document could not be loaded.')
       })
+      // The raw transport detail stays behind a disclosure.
+      expect(screen.getByText(/HTTP 500/i).closest('details')).not.toBeNull()
+    })
+
+    it('retries a failed document load', async () => {
+      renderWithRoute('/docs/engineering/server-error')
+      await screen.findByRole('alert')
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([u]) => String(u).includes('server-error')).length
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await waitFor(() => {
+        const after = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([u]) => String(u).includes('server-error')).length
+        expect(after).toBeGreaterThan(calls)
+      })
+    })
+
+    it('labels the docs navigation and renders category labels as headings', async () => {
+      renderWithRoute('/docs')
+      expect(await screen.findByRole('navigation', { name: 'Documentation sections' })).toBeInTheDocument()
+      expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0)
     })
 
     it('clicking an internal markdown link navigates to that doc route (SPA, no reload)', async () => {

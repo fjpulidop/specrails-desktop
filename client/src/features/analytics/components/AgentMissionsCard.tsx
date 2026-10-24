@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Bot } from 'lucide-react'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import type { SpendingResponse } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -10,9 +11,7 @@ interface Props {
 }
 
 function fmtUsd(v: number): string {
-  if (v < 0.005 && v > 0) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtTokens(v: number): string {
@@ -43,13 +42,13 @@ export function AgentMissionsCard({ data, loading }: Props) {
     <div className="rounded-xl border border-border/50 bg-card p-4" data-testid="agent-missions-card">
       <div className="mb-3 flex items-center gap-2">
         <Bot className="h-4 w-4 text-accent-highlight" />
-        <h3 className="text-sm font-medium">{t('agentMissions.title')}</h3>
-        <span className="text-[10px] text-muted-foreground">{t('agentMissions.subtitle')}</span>
+        <h3 className="text-strong">{t('agentMissions.title')}</h3>
+        <span className="text-caption text-muted-foreground">{t('agentMissions.subtitle')}</span>
       </div>
 
       <div className="flex items-baseline gap-3">
         <span
-          className="text-3xl font-semibold tabular-nums tracking-tight"
+          className="text-3xl font-semibold num tracking-tight"
           data-estimated={isEstimated ? 'true' : undefined}
           title={isEstimated ? t('agentMissions.estimatedNote') : undefined}
         >
@@ -81,12 +80,12 @@ export function AgentMissionsCard({ data, loading }: Props) {
               <span className="min-w-0 flex-1 truncate text-foreground/85">
                 {c.title?.trim() || t('agentMissions.untitled')}
               </span>
-              <span className="shrink-0 text-[10px] text-muted-foreground">
+              <span className="shrink-0 text-caption text-muted-foreground">
                 {c.turns} · {c.lastAt
                   ? formatDistanceToNow(new Date(c.lastAt), { addSuffix: true, locale: getDateFnsLocale() })
                   : '—'}
               </span>
-              <span className="shrink-0 tabular-nums font-medium">
+              <span className="shrink-0 num font-medium">
                 {c.estimatedCostUsd > 0 ? '~' : ''}{fmtUsd(c.costUsd)}
               </span>
             </li>

@@ -1,4 +1,4 @@
-# L'app companion per il telefono
+# L'app companion per il telefono {#mobile-companion}
 
 Specrails ha un'app companion per il telefono così puoi tenere d'occhio i tuoi rail anche quando sei lontano dalla scrivania — guarda i job in esecuzione, vedili terminare e resta aggiornato senza dover stare davanti alla dashboard.
 

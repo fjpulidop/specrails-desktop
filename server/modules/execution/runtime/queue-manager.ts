@@ -53,6 +53,7 @@ import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } fro
 import type { CommandInfo } from '../../../config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
+import { descriptionWithNonGoals } from '../../specs/domain/non-goals'
 import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from '../../specs/runtime/spec-addenda'
 import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
@@ -1651,7 +1652,7 @@ export class QueueManager {
         for (const ticketId of ticketIds) {
           const ticket = store.tickets[String(ticketId)]
           if (!ticket) continue
-          const body = (ticket.description ?? '').trim()
+          const body = descriptionWithNonGoals(ticket.description, ticket.nonGoals).trim()
           specs.push(`# Spec #${ticketId}: ${ticket.title}\n\n${body || '_(no description)_'}`)
         }
       } catch (err) {
@@ -2710,14 +2711,18 @@ export class QueueManager {
     // ─── Relocate-artifacts spawn env ──────────────────────────────────────
     // Merge SPECRAILS_REPO_DIR (+ workspace/tickets/state/etc.) so stage-3
     // `${SPECRAILS_REPO_DIR:-.}` re-pointing drives source/openspec/git I/O back
-    // into the repo. Per provider: gemini trusts the workspace cwd; codex gets
-    // NO CODEX_HOME override (all-or-nothing incl. auth → breaks the rail) and
-    // relies on cwd-based discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // into the repo. Per provider: codex gets NO CODEX_HOME override
+    // (all-or-nothing incl. auth → breaks the rail) and relies on cwd-based
+    // discovery from the workspace. Legacy ⇒ empty env, no-op.
+    // Gemini trusts its spawn cwd in BOTH layouts (the workspace when
+    // relocated, the repo or rail worktree otherwise): headless `gemini -p`
+    // in an untrusted folder ignores the project's settings and subagents.
+    // The loop path gets the same through the runtime bridge (coreProviderEnv).
+    if (adapter.id === 'gemini') {
+      spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
+    }
     if (execution.relocated) {
       spawnEnv = { ...spawnEnv, ...execution.env }
-      if (adapter.id === 'gemini') {
-        spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
-      }
       // openspec PATH shim (claude rails only): prepend a per-job shim dir that
       // re-points every BARE `openspec` call at the repo working tree, so a
       // skill- or un-wrapped-template-driven `openspec <verb>` from the workspace

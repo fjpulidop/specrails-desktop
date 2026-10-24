@@ -45,7 +45,7 @@ export function RuntimeExecutionEvidence({ projectId, runId, summary, historical
     finally { if (currentEndpoint.current === endpoint) setBusy(false) }
   }
   return <details className="min-h-0 rounded-md border border-border" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="cursor-pointer px-3 py-2 text-xs font-medium">{t('evidence.title')}</summary>
+    <summary className="cursor-pointer px-3 py-2 text-label">{t('evidence.title')}</summary>
     <div className="max-h-96 min-h-0 space-y-3 overflow-y-auto overscroll-contain p-3" tabIndex={0} aria-label={t('evidence.title')}>
       {summary && <div className="space-y-2 text-xs">
         <p>{t('evidence.acceptance')}: {t(`evidence.acceptanceStatus.${summary.technicalAcceptance}`)}</p>

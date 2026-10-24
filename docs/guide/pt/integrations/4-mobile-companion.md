@@ -1,4 +1,4 @@
-# A app companion para telemóvel
+# A app companion para telemóvel {#mobile-companion}
 
 O Specrails tem uma app companion para telemóvel para que possa ficar de olho nos seus rails enquanto está longe da secretária — ver trabalhos a correr, vê-los terminar e manter-se a par sem estar sentado em frente ao painel.
 

@@ -50,6 +50,15 @@ describe('Core definitions in Loop Manager',()=>{
     expect(readDefinitionExecutionClaim(db, 'r1')).toBeUndefined()
   })
 
+  it('notifies the invocation-end observer with the run tickets, and an observer failure never affects the run', async () => {
+    const seen: Array<[string, readonly number[], string]> = []
+    const manager = new LoopRunManager(db, () => {}, executors(async () => complete()), undefined, {
+      onDefinitionInvocationEnd: (runId, ticketIds, status) => { seen.push([runId, ticketIds, status]); throw new Error('observer broke') },
+    })
+    expect(await manager.run({ ...request(), ticketId: 7 })).toMatchObject({ outcome: 'success' })
+    expect(seen).toEqual([['r1', [7], 'succeeded']])
+  })
+
   it('uses one Core process and physical invocation evidence, never legacy traversal or aggregate double billing',async()=>{
     const ex=executors(async input=>{input.onRuntimeEvent(step(1,'step_started'));input.onRuntimeEvent(usage(2));input.onRuntimeEvent(step(3,'step_succeeded'));return complete()})
     const manager=new LoopRunManager(db,()=>{},ex)

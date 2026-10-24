@@ -61,19 +61,48 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
 
   router.post('/:projectId/flow', withService(async (service, req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>
+    // `ticketId`: start from that existing spec (the idea is then optional).
+    if (body.ticketId !== undefined && body.ticketId !== null && (typeof body.ticketId !== 'number' || !Number.isSafeInteger(body.ticketId) || body.ticketId <= 0)) {
+      throw new FlowValidationError('invalid_ticket_id', 'ticketId must be a positive integer')
+    }
     const flow = await service.startFlow({
       conversationId: typeof body.conversationId === 'string' ? body.conversationId : '',
       idea: typeof body.idea === 'string' ? body.idea : '',
+      ...(typeof body.ticketId === 'number' ? { ticketId: body.ticketId } : {}),
       ...(body.title !== undefined ? { title: optionalString(body.title, 'title') ?? null } : {}),
       ...(body.flowId !== undefined ? { flowId: String(body.flowId) } : {}),
+      // The repository the Flow runs in (workspace / multi-repository projects).
+      ...(body.repositoryId !== undefined && body.repositoryId !== null ? { repositoryId: optionalString(body.repositoryId, 'repositoryId') ?? null } : {}),
     })
     res.status(201).json({ flow })
+  }))
+
+  // The project's conversations in Flow mode (the mission list marks them).
+  router.get('/:projectId/flow/open', withService((service, _req, res) => {
+    res.json({ flows: service.listOpen().map((flow) => ({ id: flow.id, conversationId: flow.conversationId, state: flow.state, branch: flow.branch })) })
   }))
 
   router.get('/:projectId/flow/by-conversation/:conversationId', withService((service, req, res) => {
     const conversationId = String(req.params.conversationId ?? '')
     if (!conversationId || conversationId.length > 200) throw new FlowValidationError('invalid_conversation_id', 'Invalid conversation id')
     res.json({ flow: service.getByConversation(conversationId) })
+  }))
+
+  const deliveryId = (req: Request): string => {
+    const id = String(req.params.deliveryId ?? '')
+    if (!ID_RE.test(id)) throw new FlowValidationError('invalid_delivery_id', 'Invalid delivery id')
+    return id
+  }
+
+  // Back to Flow: a Flow -> Spec run stopped with requested changes; its
+  // worktree returns to the Flow (same mount) and the agent session reopens.
+  router.post('/:projectId/flow/by-delivery/:deliveryId/return', withService(async (service, req, res) => {
+    res.json({ flow: await service.returnToFlow({ deliveryId: deliveryId(req) }) })
+  }))
+
+  // Relaunch Flow -> Spec on the SAME worktree (same rail and engine choices).
+  router.post('/:projectId/flow/by-delivery/:deliveryId/relaunch', withService(async (service, req, res) => {
+    res.status(202).json(await service.relaunchFlow({ deliveryId: deliveryId(req) }))
   }))
 
   router.get('/:projectId/flow/:flowId', withService((service, req, res) => {
@@ -90,6 +119,10 @@ export function registerFlowHttp(router: Router, serviceForRequest: (request: Re
 
   router.post('/:projectId/flow/:flowId/discard', withService(async (service, req, res) => {
     res.json({ flow: await service.discardFlow(flowId(req)) })
+  }))
+
+  router.post('/:projectId/flow/:flowId/close', withService(async (service, req, res) => {
+    res.json({ flow: await service.closeFlow(flowId(req)) })
   }))
 
   router.post('/:projectId/flow/:flowId/hand-off', withService(async (service, req, res) => {

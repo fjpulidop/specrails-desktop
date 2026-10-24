@@ -51,6 +51,22 @@ describe('AgentModeSurface', () => {
     refreshConversations.mockClear()
   })
 
+  it('teaches the composer on the empty state: starters append their trigger to the new-mission draft', async () => {
+    const { composerDrafts, __clearComposerDrafts, NEW_MISSION_DRAFT_KEY } = await import('../../lib/agent-composer-drafts')
+    __clearComposerDrafts()
+    render(<AgentModeSurface />)
+    const starters = screen.getByTestId('agent-empty-starters')
+    expect(starters).toHaveTextContent('⇧⇥ changes what the agent may do')
+    fireEvent.click(screen.getByRole('button', { name: /Reference a spec/ }))
+    expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('@')
+    fireEvent.click(screen.getByRole('button', { name: /Run an action/ }))
+    expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('@ /')
+    __clearComposerDrafts()
+    fireEvent.click(screen.getByRole('button', { name: 'Plan a new spec' }))
+    expect(composerDrafts.get(NEW_MISSION_DRAFT_KEY)).toBe('Help me plan a new spec: ')
+    __clearComposerDrafts()
+  })
+
   it('exposes a narrow root styling hook', () => {
     const { container } = render(<AgentModeSurface />)
 

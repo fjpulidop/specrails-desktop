@@ -1,4 +1,4 @@
-# Specs & das Backlog
+# Specs & das Backlog {#specs-backlog}
 
 Eine **Spec** ist die Arbeitseinheit, die die KI-Pipeline umsetzt. Stell sie dir wie ein Ticket vor: ein Titel, eine Beschreibung dessen, was du erledigt haben möchtest, eine Priorität und optionale Labels. Wenn du die Pipeline startest, lesen die KI-Agenten die Spec und handeln danach – eine klare Spec ist also der mit Abstand wichtigste Input für ein gutes Ergebnis.
 
@@ -13,7 +13,7 @@ Das Board hat zwei Ansichtsmodi, die du über einen Umschalter in der Toolbar we
 - **Post-it-Ansicht** (Standard) – kartenartige Kacheln mit kurzen Zusammenfassungen.
 - **Listenansicht** – kompakte, einzeilige Zeilen.
 
-Der **Status-Selektor** in der Werkzeugleiste zeigt jeden Status als eigenen Chip mit Live-Zähler — plus zwei smarte Gruppen: **Aktiv** (der Standard — alles, was noch in Bewegung ist: Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. Bei Jira-verbundenen Projekten erscheint zusätzlich ein **Jira-Status**-Dropdown mit den *echten* Workflow-Status des Boards (ihre Rohnamen, z. B. „Code Review", jeweils mit Live-Zähler), gruppiert unter dem Zustand, auf den sie abbilden — es kombiniert sich mit den Status-Chips. Du kannst außerdem nach **Label** filtern sowie nach **Standard**, **Ticket #** oder **Priorität** sortieren (jeweils mit Umschalter für auf- und absteigend).
+Die Specs-Werkzeugleiste hat zwei Zeilen. Die erste enthält ein **Suchfeld** (mit `/` springst du hinein; es findet Titel, `#Nummer`, Label oder Jira-Schlüssel), eine einzige **Filter**-Schaltfläche, die Sortier- und Ansichtssteuerung sowie **Neue Spec**. Die zweite Zeile ist der **Status-Selektor**: jeder Status als eigenes Segment mit Live-Zähler, dazu zwei smarte Gruppen, **Aktiv** (der Standard: alles, was noch in Bewegung ist, also Entwürfe, To-dos, in Arbeit und in Prüfung) und **Alle** (alles, mit Fertig unten angeheftet). Ist die Spalte schmal, wandern die seltener genutzten Status in ein **Mehr**-Menü, und der gewählte Status bleibt immer sichtbar. Deine Auswahl wird pro Projekt gemerkt und in die URL gespiegelt, sodass ein Neuladen oder ein geteilter Link exakt dieselbe Ansicht wiederherstellt. **Filter** öffnet ein Panel mit einem Abschnitt pro Dimension: **Labels** (Mehrfachauswahl) und bei Jira-verbundenen Projekten **Epic**, **Sprint** und **Jira-Status** (die *echten* Workflow-Status des Boards, z. B. „Code Review“, gruppiert unter dem Zustand, auf den sie abbilden, kombiniert mit dem Status-Selektor). Solange eine Suche oder ein Filter das Board eingrenzt, zeigt eine dritte Zeile jeden davon als entfernbaren Chip, nennt „x von y“ Specs und bietet **Alle zurücksetzen** (dein gewählter Status bleibt erhalten). Sortiere nach **Standard**, **Ticket #** oder **Priorität**, jeweils mit Umschalter für auf- und absteigend.
 
 ## Status
 
@@ -38,7 +38,7 @@ Entwürfe sind die einzige Ausnahme: Ein Entwurf darf *gar keine* Priorität hab
 
 ## Eine Spec erstellen
 
-Um eine Spec zu erstellen, klicke auf **Hinzufügen** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
+Um eine Spec zu erstellen, klicke auf **Neue Spec** (die Plus-Schaltfläche in der SpecsBoard-Toolbar). Der Dialog **Spec hinzufügen** öffnet sich mit mehreren Arbeitsweisen:
 
 - **Quick-Modus** – du beschreibst, was du möchtest, und die KI schreibt die vollständige Spec in einem Rutsch. Siehe [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md).
 - **Explore-Modus** – du unterhältst dich mit der KI, und sie hilft dir, die Spec Zug um Zug zu formen. Siehe [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md).
@@ -53,6 +53,12 @@ Wenn hinter einer Spec bereits Arbeit steckt – ein PR im Review, ein gemergtes
 ## Eine Lieferung prüfen – worauf zuerst achten
 
 Wenn ein Lauf endet, beginnt sein Review-Paket mit **Worauf achten**: den kurzen Hinweisen des KI-Reviewers, die die riskantesten Stellen zuerst nennen (hoch, dann mittel, dann niedrig, jeweils mit Datei und Zeile), das Verhalten, das sich ändert, die Regeln, auf die sich die Änderung stützt, die Codepfade, die kein Test ausführt, und die Prüfungen, die nur ein Mensch machen kann. Dieselben Risiken, ungetesteten Pfade und Prüfungen stehen in einem kurzen Block oben im Pull Request, und die Missionskarte zeigt das größte Risiko in einer Zeile. Die Hinweise unterstützen Ihr Review, sie sind kein Prüfergebnis und blockieren Annehmen nie. Läufe mit einem älteren Specrails Core haben keine Hinweise; ihr Paket sieht aus wie bisher.
+
+## Rückgängig und Zuletzt gelöscht {#recently-deleted}
+
+Eine Spec löschen, ihren Status ändern, ihre Labels ändern oder sie von einer Rail nehmen geschieht sofort — ohne vorherige Rückfrage. Stattdessen bietet ein Hinweis etwa acht Sekunden lang **Rückgängig** an, und **⌘Z** (**Strg+Z** unter Windows und Linux) tut dasselbe, solange du nicht in einem Feld tippst. Rückgängig gilt pro Projekt: Ein Projektwechsel beendet das Zeitfenster.
+
+Eine gelöschte Spec (und eine gelöschte Mission) ist nicht weg. Sie landet unter **Einstellungen → Zuletzt gelöscht** in den Projekteinstellungen, wo du sie 30 Tage lang **Wiederherstellen** oder **Endgültig löschen** kannst — Letzteres fragt nach. Nach 30 Tagen wird sie endgültig entfernt. Nicht gepushte Arbeit verwerfen, einen Pull Request erzwungen schließen und ein Projekt entfernen fragen weiterhin nach, weil sie sich nicht rückgängig machen lassen. Eine Jira-gestützte Spec wird weiterhin mit **Verschieben nach** statt durch Löschen bearbeitet.
 
 ## Wie es weitergeht
 

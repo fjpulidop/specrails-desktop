@@ -76,7 +76,7 @@
       "subscriptionUsage": "サブスクリプション使用量"
     },
     "title": "Desktop 設定",
-    "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
+    "description": "外観、AI プロバイダー、アップデート、Desktop 全体の設定。",
     "registeredProjects": "登録済みプロジェクト",
     "noProjects": "登録されたプロジェクトはまだありません",
     "techUrlDescription": "specrails-tech API のベース URL（デフォルト: http://localhost:3000）",
@@ -97,11 +97,19 @@
     "platformTour": "プラットフォームツアー",
     "platformTourDescription": "ウェルカムウィザードを再生して主要機能を確認します。",
     "replayTour": "ツアーを再生",
-    "terminalPanelHeading": "ターミナルパネル",
     "infoHeading": "Desktop 情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
-    "infoDb": "Desktop DB"
+    "infoDb": "Desktop DB",
+    "removeProjectConfirmTitle": "{{name}} を削除しますか？",
+    "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。",
+    "navLabel": "設定セクション",
+    "navGroups": {
+      "personal": "個人",
+      "agents": "エージェント",
+      "system": "システム"
+    },
+    "unsavedChanges": "未保存の変更"
   },
   "notifications": {
     "heading": "OS 通知",
@@ -120,8 +128,6 @@
     "eventJobCompleted": "ジョブ完了",
     "eventJobFailed": "ジョブ失敗",
     "eventDailyBudgetExceeded": "日次予算超過",
-    "statusOn": "オン",
-    "statusOff": "オフ",
     "disable": "無効化",
     "enable": "有効化",
     "sendTestPing": "テスト ping を送信",
@@ -136,7 +142,10 @@
     "removed": "Webhook を削除しました",
     "removeFailed": "Webhook の削除に失敗しました",
     "testPingSent": "テスト ping を送信しました",
-    "testPingFailed": "テスト ping の送信に失敗しました"
+    "testPingFailed": "テスト ping の送信に失敗しました",
+    "removeConfirmTitle": "Webhook を削除しますか？",
+    "removeConfirmBody": "{{url}} は Desktop のイベントを受信しなくなります。",
+    "urlLabel": "Webhook URL"
   },
   "terminal": {
     "title": "ターミナルパネル",
@@ -170,7 +179,7 @@
     "taglines": {
       "dracula": "オリジナル — 紫がかったダークにネオンのアクセント",
       "aurora-light": "プレミアムライト — Linear風のインディゴと温かみのあるオフホワイト",
-      "obsidian-dark": "プレミアムダーク — 青みがかった漆黒にエレクトリックなアクセント",
+      "obsidian-dark": "グラファイト・プロ — ニュートラルなほぼ黒に、落ち着いた紫のアクセントひとつ",
       "specrails": "ブランドテーマ — 深いネイビーインディゴに鮮やかなシアン",
       "code-rain": "蛍光ターミナル — 緑がかった漆黒にソフトミント",
       "galaxy": "深宇宙のブルーと輝くブレードの軌跡"
@@ -198,7 +207,8 @@
     "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
-    "revokeDevice": "{{name}} を無効化"
+    "revokeDevice": "{{name}} を無効化",
+    "resetConfirmTitle": "モバイル ID をリセットしますか？"
   },
   "pairWeb": {
     "title": "Web コンパニオンをペアリング",
@@ -231,10 +241,7 @@
     "affectsAll": "すべてのプロジェクトに適用 — 再起動不要。",
     "unavailable": "このビルドではコアの更新は利用できません。",
     "toastDone": "Specrails Core を {{version}} に更新しました",
-    "toastError": "コアの更新に失敗しました: {{message}}",
     "toastUpToDate": "Specrails Core は最新です",
-    "toastCheckFailed": "更新の確認に失敗しました: {{message}}",
-    "loadFailed": "Core の状態を更新できませんでした。再試行",
     "runtime": "ランタイム: {{version}}",
     "bundled": "Desktop 同梱: {{version}}",
     "sources": {
@@ -245,7 +252,10 @@
       "global": "外部 CLI"
     },
     "repair": "{{version}} への更新を完了",
-    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。"
+    "stableFallback": "specrails-core にはまだ安定版がないため、Core は当面最新に従います。",
+    "updateFailed": "Core の更新に失敗しました",
+    "checkFailed": "アップデートの確認に失敗しました",
+    "loadError": "Core の状態を更新できませんでした。"
   },
   "updateChannel": {
     "heading": "アップデートチャネル",
@@ -277,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — 設定",
-    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ターミナル。",
+    "description": "プロジェクト設定：プロンプト、ブランチ、環境、予算、テレメトリ、ルール、ターミナル。",
     "nav": {
       "general": "一般",
       "branch": "ブランチ",
@@ -286,8 +296,11 @@
       "telemetry": "テレメトリ",
       "terminal": "ターミナル",
       "agentRuntime": "検証コマンド",
-      "subagents": "サブエージェント"
-    }
+      "subagents": "サブエージェント",
+      "rules": "ルール",
+      "recentlyDeleted": "最近削除した項目"
+    },
+    "navLabel": "プロジェクト設定セクション"
   },
   "integrationBranch": {
     "title": "統合ブランチ",
@@ -439,5 +452,65 @@
     "saved_other": "レビュー上限を {{count}} に設定しました",
     "removed": "レビュー上限を解除しました",
     "saveFailed": "レビュー上限を保存できませんでした"
+  },
+  "anchoring": {
+    "title": "既存プロジェクトへの定着",
+    "description": "プロジェクトの既存の振る舞いを実行が尊重するためのオプション機能です。各機能には対応する Core が必要です。",
+    "coreRequired": "インストール済みの Core はまだ対応していません。有効にするには Core を更新してください。",
+    "saveFailed": "設定を保存できませんでした",
+    "jiraPostClarifications": {
+      "label": "アーキテクトの確認事項を Jira に投稿",
+      "description": "アーキテクトの質問で実行が一時停止したとき、または前提を置いて続行したときに、リンクされた Jira 課題にコメントとして投稿します。そこへの返信は確認事項としてスペックに記録されます。",
+      "enabled": "確認事項を Jira に投稿します",
+      "disabled": "確認事項は Specrails 内にとどめます"
+    },
+    "baselineOnTouch": {
+      "label": "変更時のベースライン",
+      "description": "どのスペックにも記述されていないコードに変更が及ぶ場合、まず特性テスト（変更前のコードで実証）と最小限の現状スペックを作成します。コストが追加され、別途表示されます。",
+      "enabled": "変更時のベースラインを有効にしました",
+      "disabled": "変更時のベースラインを無効にしました"
+    }
+  },
+  "rules": {
+    "title": "プロジェクトルール",
+    "description": "プロジェクトが既に実行しているチェックと文書化された各ルールを、「適用済み」「自動化可能」「人による確認のみ」に分類します。「人による確認のみ」のルールは各レビューパケットに表示されます。",
+    "rerun": "インベントリを再実行",
+    "running": "インベントリ実行中…",
+    "coreRequired": "インストール済みの Core はルールインベントリに対応していません。実行するには Core を更新してください。",
+    "missing": "インベントリはまだありません。実行すると、プロジェクトのゲートとルールが一覧表示されます。",
+    "invalid": "ルールファイルを読み込めませんでした：{{message}}",
+    "inventoryDone": "ルールインベントリを更新しました",
+    "inventoryFailed": "ルールインベントリに失敗しました",
+    "specCreated": "スペック #{{id}} を作成しました",
+    "specFailed": "スペックを作成できませんでした",
+    "status": {
+      "automatable": "自動化可能",
+      "humanOnly": "人による確認のみ",
+      "enforcedBy": "適用済み",
+      "unclassified": "未分類"
+    },
+    "generatedAt": "{{date}} に生成",
+    "gates_other": "ゲート {{count}} 件",
+    "gatesHint": "検証チェックが未設定の場合、単純なゲートコマンドがエージェントランタイム設定で最初に提案されます。",
+    "enforcedBy": "{{check}} により適用",
+    "proposedCheck": "提案されたチェック：{{check}}",
+    "createSpec": "スペックを作成",
+    "dropped_other": "形式に合わない {{count}} 件の項目をスキップしました",
+    "classification": {
+      "offline": "ルールはオフラインで収集され、まだ分類されていません。プロバイダーを設定してインベントリを再実行してください。",
+      "unavailable": "ルールを分類するプロバイダーが設定されていません。",
+      "failed": "ルールの分類に失敗しました。",
+      "empty": "文書化されたルールが見つかりませんでした。",
+      "unknown": "ルールは分類されていません。"
+    },
+    "gates_one": "ゲート {{count}} 件",
+    "dropped_one": "形式に合わない {{count}} 件の項目をスキップしました",
+    "autoRunning": "セットアップ後のインベントリを実行中です。完了するとこの一覧が更新されます。",
+    "lastRun": {
+      "setupFailed": "セットアップ後の自動インベントリが失敗しました ({{date}})。",
+      "manualFailed": "前回のインベントリ実行が失敗しました ({{date}})。",
+      "retryHint": "上記の原因を解決してから、インベントリを再実行してください。",
+      "setupDone": "セットアップ後に自動でインベントリを作成しました。"
+    }
   }
 }

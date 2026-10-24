@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../components/ui/button'
 import { Input } from '../../../../components/ui/input'
+import { Check } from 'lucide-react'
+import { JiraStatusSelect } from './JiraStatusSelect'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import {
   jiraApi,
@@ -53,6 +55,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [testState, setTestState] = useState<TestState>('idle')
+  const [testError, setTestError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [deployment, setDeployment] = useState<'cloud' | 'dc'>('cloud')
 
@@ -82,6 +85,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
 
   async function runTest() {
     setTestState('testing')
+    setTestError(null)
     try {
       const r = await jiraApi.test(credsInput(), apiBase)
       if (!alive.current) return
@@ -91,7 +95,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
     } catch (e) {
       if (!alive.current) return
       setTestState('error')
-      toast.error(errMsg(e, t))
+      setTestError(errMsg(e, t))
     }
   }
 
@@ -171,7 +175,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{t('wizard.step', { current: step, total: 4 })}</p>
         {onSkip && (
-          <button type="button" onClick={onSkip} className="text-xs text-muted-foreground hover:text-foreground hover:underline" data-testid="jira-later">
+          <button type="button" onClick={onSkip} className="rounded-sm text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="jira-later">
             {t('wizard.later')}
           </button>
         )}
@@ -187,15 +191,25 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
             <Input value={email} onChange={(e) => { setEmail(e.target.value); setTestState('idle') }} placeholder={t('creds.emailPlaceholder')} />
           </Field>
           <Field label={t('creds.tokenLabel')} help={t('creds.tokenHelp')}>
-            <Input type="password" value={token} onChange={(e) => { setToken(e.target.value); setTestState('idle') }} />
+            <Input
+              type="password"
+              autoComplete="off"
+              value={token}
+              onChange={(e) => { setToken(e.target.value); setTestState('idle'); setTestError(null) }}
+              aria-invalid={testState === 'error' || undefined}
+              aria-describedby={testError ? 'jira-token-error' : undefined}
+            />
           </Field>
+          {testState === 'error' && testError && (
+            <p id="jira-token-error" role="alert" className="text-xs text-destructive" data-testid="jira-test-error">{testError}</p>
+          )}
           <div className="flex items-center gap-3">
             <Button size="sm" variant="outline" onClick={runTest} disabled={!baseUrl.trim() || !token.trim() || testState === 'testing'}>
               {testState === 'testing' ? t('creds.testing') : testState === 'ok' ? t('creds.retest') : t('creds.test')}
             </Button>
             {testState === 'ok' && (
-              <span className="text-xs text-accent-success" data-testid="jira-test-ok">
-                ✓ {t('creds.testOk', { name: displayName ?? '' })} · {deployment === 'cloud' ? t('review.cloud') : t('review.dc')}
+              <span className="inline-flex items-center gap-1 text-xs text-accent-success" data-testid="jira-test-ok">
+                <Check className="h-3.5 w-3.5" aria-hidden />{t('creds.testOk', { name: displayName ?? '' })} · {deployment === 'cloud' ? t('review.cloud') : t('review.dc')}
               </span>
             )}
           </div>
@@ -210,7 +224,7 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
           <h3 className="text-sm font-semibold">{t('wizard.step2Title')}</h3>
           <div className="flex gap-2">
             <Input value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} placeholder={t('project.searchPlaceholder')} />
-            <Button size="sm" variant="outline" onClick={goToProjects}>{t('project.searchPlaceholder')}</Button>
+            <Button size="sm" variant="outline" onClick={goToProjects}>{t('project.search')}</Button>
           </div>
           {loadingProjects ? (
             <p className="text-xs text-muted-foreground">{t('project.loading')}</p>
@@ -223,7 +237,8 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
                   key={p.id}
                   type="button"
                   onClick={() => chooseProject(p.key, p.name)}
-                  className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted ${selectedKey === p.key ? 'bg-muted' : ''}`}
+                  aria-pressed={selectedKey === p.key}
+                  className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedKey === p.key ? 'bg-muted' : ''}`}
                 >
                   <span className="font-medium">{p.key}</span>
                   <span className="truncate text-xs text-muted-foreground">{p.name}</span>
@@ -254,30 +269,25 @@ function JiraConnectWizardContent({ onConnected, onSkip, apiBase }: JiraConnectW
           {loadingStatuses && <p role="status" className="text-xs text-muted-foreground">{t('mapping.loading')}</p>}
           {STATE_KEYS.map((s) => (
             <Field key={s} label={t(`mapping.${STATE_LABEL[s]}`)}>
-              <select
+              <JiraStatusSelect
                 value={statusMap[s] ?? ''}
-                onChange={(e) => setStatusMap((m) => ({ ...m, [s]: e.target.value || undefined }))}
-                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-              >
-                <option value="">{t('mapping.auto')}</option>
-                {statuses.map((st) => (
-                  <option key={st.id} value={st.name}>{st.name}</option>
-                ))}
-              </select>
+                onChange={(value) => setStatusMap((m) => ({ ...m, [s]: value || undefined }))}
+                statuses={statuses}
+                emptyLabel={t('mapping.auto')}
+                aria-label={t(`mapping.${STATE_LABEL[s]}`)}
+                data-testid={`jira-wizard-statusmap-${s}`}
+              />
             </Field>
           ))}
           <Field label={t('discard.configLabel')} help={t('discard.configHelp')}>
-            <select
+            <JiraStatusSelect
               value={discardStatus}
-              onChange={(e) => setDiscardStatus(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              onChange={setDiscardStatus}
+              statuses={statuses}
+              emptyLabel={t('discard.configNone')}
+              aria-label={t('discard.configLabel')}
               data-testid="jira-discard-status-select"
-            >
-              <option value="">{t('discard.configNone')}</option>
-              {statuses.map((st) => (
-                <option key={st.id} value={st.name}>{st.name}</option>
-              ))}
-            </select>
+            />
           </Field>
           <div className="flex justify-between">
             <Button size="sm" variant="ghost" onClick={() => setStep(2)}>{t('wizard.back')}</Button>
@@ -311,7 +321,7 @@ function Field({ label, help, children }: { label: string; help?: string; childr
     <label className="block space-y-1">
       <span className="text-xs font-medium text-foreground">{label}</span>
       {children}
-      {help && <span className="block text-[11px] text-muted-foreground">{help}</span>}
+      {help && <span className="block text-xs text-muted-foreground">{help}</span>}
     </label>
   )
 }

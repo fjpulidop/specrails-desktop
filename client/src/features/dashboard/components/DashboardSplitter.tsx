@@ -8,6 +8,8 @@ interface DashboardSplitterProps {
   onPointerDown: (e: React.PointerEvent) => void
   /** Reset the split to the default 50/50. */
   onReset: () => void
+  /** Move the split by a signed pixel delta (keyboard), provided by `useDashboardSplit`. */
+  onNudge: (delta: number) => void
   /** Total dashboard width — used to derive `aria-valuemax`. */
   viewport: number
 }
@@ -17,27 +19,18 @@ interface DashboardSplitterProps {
  * (right) on the dashboard. The handle is a 6px-wide hit area with a 1px
  * visible rule that lifts to `accent-info/40` on hover.
  */
-export function DashboardSplitter({ leftWidth, onPointerDown, onReset, viewport }: DashboardSplitterProps) {
+export function DashboardSplitter({ leftWidth, onPointerDown, onReset, onNudge, viewport }: DashboardSplitterProps) {
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Keyboard a11y: arrow keys nudge ±16 px; shift = ±64 px.
+    // Keyboard a11y: arrow keys nudge ±16 px; Shift = ±64 px.
     const step = e.shiftKey ? 64 : 16
     if (e.key === 'ArrowLeft') {
       e.preventDefault()
-      const next = leftWidth - step
-      // Synthesise a pointer event-free move by dispatching a custom event
-      // is overkill; instead, expose `onReset` only and rely on the parent's
-      // state-controlled width by re-using the same DOM resize behavior:
-      // the parent owns leftWidth. For keyboard, parent listens — we just
-      // notify via the same drag pipeline by faking a pointer? No — we ask
-      // parent to apply via `onReset` semantics. To keep this minimal we
-      // dispatch a tiny custom event on the element. Parent test will check
-      // it. Simplest: walk the splitter element width via inline DOM is not
-      // possible from a leaf. Skip keyboard re-positioning here; the
-      // pointer-drag is the authoritative path and the splitter is also
-      // resettable via double-click.
-      void next
+      onNudge(-step)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      onNudge(step)
     }
-  }, [leftWidth])
+  }, [onNudge])
 
   return (
     <div

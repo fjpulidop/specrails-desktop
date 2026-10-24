@@ -87,24 +87,26 @@
     "corrupted": {
       "title": "Bundle da app corrompido",
       "description": "Não foi possível verificar uma ou mais ferramentas incluídas (Node.js, Git).",
-      "body": "Esta ferramenta é distribuída com a app Specrails e não pode ser instalada separadamente. Se vir esta mensagem, o bundle da app pode estar corrompido. Reinstale o Specrails."
+      "body": "Esta ferramenta é distribuída com a app Specrails e não pode ser instalada separadamente. Se vir esta mensagem, o bundle da app pode estar corrompido. Reinstale o Specrails.",
+      "download": "Transferir a versão mais recente"
     }
   },
   "welcome": {
     "title": "Bem-vindo ao <spec>spec</spec><rails>rails</rails>",
+    "tagline": "Specs entram, pull requests revisadas saem.",
     "description": "O Specrails gere vários projetos a partir de uma única interface. Adicione o seu primeiro projeto para começar.",
     "addFirstProject": "Adicione o seu primeiro projeto",
     "jiraHint": "Ligue cada projeto ao seu próprio quadro Jira — as specs ficam sincronizadas nos dois sentidos.",
     "mcpHint": "Liga ferramentas de IA externas ao Specrails através de um servidor MCP local seguro: ligado por defeito, gere-o em Definições → MCP.",
     "agentChatHint": "Opere o Specrails conversando — um agente integrado gere specs, rails e análises por si através do MCP local. Abra-o pela bolha ou com ⌘⇧A.",
-    "localEnginesHint": "Só um modelo local? Adicione um endpoint compatível com OpenAI em Configurações → Specrails Agents e todas as superfícies — rails, chat, missões — passam a usá-lo por padrão."
+    "localEnginesHint": "Só um modelo local? Adicione um endpoint compatível com OpenAI em Configurações → Specrails Agents e todas as superfícies — rails, chat, missões — passam a usá-lo por padrão.",
+    "replayTour": "Repetir tour"
   },
   "onboarding": {
     "productTour": "Tour do produto",
     "stepCount": "Passo {{current}} de {{total}}",
     "goToStep": "Ir para o passo {{step}}: {{label}}",
     "stepLabel": "Passo {{step}}",
-    "dontShowAgain": "Não mostrar novamente",
     "skipTour": "Saltar tour",
     "getStarted": "Começar",
     "flow": {
@@ -288,9 +290,6 @@
       "pairBody": "No seu telemóvel, abra specrails.dev/companion-app e, aqui, vá a Definições → Companion móvel → Emparelhar companion web e siga os passos no ecrã."
     },
     "moveFast": {
-      "nav": "Vai depressa",
-      "title": "Move-te à velocidade do pensamento",
-      "subtitle": "Teclado primeiro, em todo o lado",
       "paletteLabel": "Paleta de comandos",
       "paletteShortcut": "<f>Carrega</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>em qualquer lado</m>",
       "paletteBody": "Muda de projeto, executa comandos de spec, salta para qualquer página e encontra jobs recentes, tudo com pesquisa difusa.",

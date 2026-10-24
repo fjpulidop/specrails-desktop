@@ -315,4 +315,56 @@ describe('docs-router', () => {
       fs.rmSync(resourceDir, { recursive: true, force: true })
     })
   })
+  // ── Heading anchors and search ───────────────────────────────────────────
+
+  describe('heading anchors and GET /docs/search', () => {
+    beforeEach(() => {
+      writeDoc(guideRoot, 'en', 'pipeline', '1-rails.md', [
+        '# Rails & jobs {#rails}',
+        '',
+        '## Time and cost forecast {#launch-forecast}',
+        '',
+        '```',
+        '## not a heading',
+        '```',
+        '',
+        '## The job queue',
+      ].join('\n'))
+      writeDoc(guideRoot, 'es', 'pipeline', '1-rails.md', '# Rails y trabajos {#rails}\n\n## Previsión de tiempo {#launch-forecast}\n')
+    })
+
+    it('keeps the explicit anchor out of the page title', async () => {
+      const index = await request(buildApp()).get('/docs')
+      expect(index.body.categories[0].docs[0].title).toBe('Rails & jobs')
+      const doc = await request(buildApp()).get('/docs/pipeline/rails')
+      expect(doc.body.title).toBe('Rails & jobs')
+      expect(doc.body.content).toContain('{#launch-forecast}')
+    })
+
+    it('matches page titles first, then headings with their anchors', async () => {
+      const res = await request(buildApp()).get('/docs/search').query({ q: 'rails' })
+      expect(res.status).toBe(200)
+      expect(res.body.results[0]).toMatchObject({ category: 'pipeline', slug: 'rails', heading: null, anchor: null })
+      const forecast = await request(buildApp()).get('/docs/search').query({ q: 'forecast' })
+      expect(forecast.body.results).toEqual([
+        { category: 'pipeline', categoryName: 'Pipeline', slug: 'rails', title: 'Rails & jobs', heading: 'Time and cost forecast', anchor: 'launch-forecast' },
+      ])
+    })
+
+    it('ignores headings inside code fences and returns nothing for an empty query', async () => {
+      const fenced = await request(buildApp()).get('/docs/search').query({ q: 'not a heading' })
+      expect(fenced.body.results).toEqual([])
+      const empty = await request(buildApp()).get('/docs/search').query({ q: '  ' })
+      expect(empty.body.results).toEqual([])
+    })
+
+    it('searches the requested language and falls back to English per page', async () => {
+      const es = await request(buildApp()).get('/docs/search').query({ q: 'previsión', lang: 'es' })
+      expect(es.body.results).toHaveLength(1)
+      expect(es.body.results[0]).toMatchObject({ title: 'Rails y trabajos', heading: 'Previsión de tiempo', anchor: 'launch-forecast' })
+      writeDoc(guideRoot, 'en', 'pipeline', '2-only-english.md', '# Only English\n')
+      const fallback = await request(buildApp()).get('/docs/search').query({ q: 'only english', lang: 'es' })
+      expect(fallback.body.results[0]).toMatchObject({ slug: 'only-english', title: 'Only English' })
+    })
+  })
 })

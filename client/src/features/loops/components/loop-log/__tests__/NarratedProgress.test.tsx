@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { NarratedProgress } from '../NarratedProgress'
 import { JOB_LOG_MODE_KEY, loadJobLogMode, saveJobLogMode } from '../../../../jobs/lib/job-log-mode'
 import type { EventRow } from '../../../../../types'
@@ -36,8 +36,15 @@ describe('NarratedProgress', () => {
     />)
     expect(screen.getByText('Step 1: Implement')).toBeInTheDocument()
     expect(screen.getByText('Reading auth.ts')).toBeInTheDocument()
-    expect(screen.getByText('Finished step 1 in 2 min')).toBeInTheDocument()
+    // The "Finished step" line folds into the step row as a duration.
+    expect(screen.queryByText(/Finished step/)).toBeNull()
+    expect(screen.getByText('2 min')).toBeInTheDocument()
   })
+
+  it('humanises engine step ids and falls back to the raw id', () => {
+    render(<NarratedProgress events={[step(1, 'initialize-corrections'), step(2, 'mystery-step')]} settled={false} />)
+    expect(screen.getByText('Step 1: Prepare fixes')).toBeInTheDocument()
+    expect(screen.getByText('Step 2: mystery-step')).toBeInTheDocument()  })
 
   it('shows a repeat count instead of nine identical lines', () => {
     render(<NarratedProgress
@@ -81,6 +88,12 @@ describe('NarratedProgress', () => {
   it('shows real elapsed time from the clock', () => {
     render(<NarratedProgress events={[step(1, 'x')]} settled={false} elapsedMs={300_000} />)
     expect(screen.getByText('Running for 5 min')).toBeInTheDocument()
+  })
+
+  it('reports the total duration once the run has settled', () => {
+    render(<NarratedProgress events={[step(1, 'x')]} settled elapsedMs={300_000} />)
+    expect(screen.getByText('Took 5 min')).toBeInTheDocument()
+    expect(screen.queryByText('Running for 5 min')).toBeNull()
   })
 
   it('distinguishes an empty live run from an empty settled one', () => {
@@ -151,5 +164,73 @@ describe('job log mode preference', () => {
   it('ignores a corrupted value', () => {
     localStorage.setItem(JOB_LOG_MODE_KEY, 'sideways')
     expect(loadJobLogMode()).toBe('narrated')
+  })
+
+  describe('three-attempt story', () => {
+    const attempts = () => {
+      const events: EventRow[] = []
+      let idx = 0
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        events.push(step(++idx, 'fixer', { iteration: attempt }))
+        events.push(stepEnd(idx, { durationMs: 60_000 }))
+        for (const id of ['review-policy', 'capture-review']) {
+          events.push(step(++idx, id, { iteration: attempt }))
+          events.push(stepEnd(idx, { durationMs: 1_000 }))
+        }
+      }
+      return events
+    }
+
+    it('folds one-second bookkeeping steps into a collapsed checks line', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      expect(screen.queryByText(/Apply review policy/)).toBeNull()
+      const folded = screen.getAllByTestId('narration-folded')
+      expect(folded).toHaveLength(3)
+      expect(screen.getAllByRole('button', { name: '+2 checks' })[0]).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('expands a folded line on click', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      fireEvent.click(screen.getAllByRole('button', { name: '+2 checks' })[0])
+      expect(screen.getByText(/Apply review policy/)).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: '+2 checks' })[0]).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('groups retries under fix round headers', () => {
+      render(<NarratedProgress events={attempts()} settled />)
+      const rounds = screen.getAllByTestId('narration-round')
+      expect(rounds.map(r => r.textContent)).toEqual(['Fix round 2 of 3', 'Fix round 3 of 3'])
+    })
+  })
+  describe('fewer rows', () => {
+    const story = () => {
+      const events: EventRow[] = []
+      const quick = (i: number, id: string, iteration = 1) => {
+        events.push(step(i, id, { iteration }), tool('Read', { file_path: '/a.ts' }), stepEnd(i, { durationMs: 1_000 }))
+      }
+      events.push(step(1, 'architect'), stepEnd(1, { durationMs: 120_000 }))
+      quick(5, 'tasks')
+      events.push(step(6, 'developer'), stepEnd(6, { durationMs: 120_000 }))
+      quick(8, 'begin-correction')
+      events.push(step(9, 'fixer'), stepEnd(9, { durationMs: 120_000 }))
+      return events
+    }
+
+    it('folds bookkeeping steps even when activity follows them', () => {
+      render(<NarratedProgress events={story()} settled />)
+      expect(screen.queryByText(/Work through tasks/)).toBeNull()
+      expect(screen.queryByText(/Start a fix round/)).toBeNull()
+    })
+
+    it('numbers the visible steps sequentially', () => {
+      render(<NarratedProgress events={story()} settled />)
+      const numbers = screen.getAllByTestId('narration-list')[0].textContent?.match(/Step (\d+)/g)
+      expect(numbers).toEqual(['Step 1', 'Step 2', 'Step 3'])
+    })
+
+    it('heads the first fix round like the later ones', () => {
+      render(<NarratedProgress events={story()} settled />)
+      expect(screen.getAllByTestId('narration-round').map(r => r.textContent)).toEqual(['Fix round 1 of 1'])
+    })
   })
 })

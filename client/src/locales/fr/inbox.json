@@ -1,0 +1,64 @@
+{
+  "title": "À traiter",
+  "subtitle_one": "{{count}} élément vous attend",
+  "subtitle_other": "{{count}} éléments vous attendent",
+  "subtitleEmpty": "Rien ne vous attend",
+  "loading": "Vérification de vos projets…",
+  "empty": {
+    "title": "Rien n'a besoin de vous",
+    "description": "Les revues, questions et échecs de tous les projets apparaissent ici dès qu'ils surviennent."
+  },
+  "error": {
+    "title": "Impossible de charger la liste À traiter",
+    "description": "L'application n'a pas pu lire vos projets. Réessayez dans un instant.",
+    "retry": "Réessayer"
+  },
+  "kinds": {
+    "review": "Revue prête",
+    "question": "En attente de votre réponse",
+    "failed": "Échec",
+    "blocked": "Bloqué",
+    "budget": "En pause (budget)",
+    "jira": "Échec de la synchronisation Jira",
+    "failedNoCause": "Arrêté avant la livraison"
+  },
+  "actions": {
+    "open": "Ouvrir",
+    "openReview": "Ouvrir la revue",
+    "answer": "Répondre",
+    "resume": "Reprendre",
+    "retry": "Réessayer"
+  },
+  "working": "En cours…",
+  "rowLabel": "{{action}} : {{title}}",
+  "snooze": {
+    "label": "Reporter",
+    "hour": "1 heure",
+    "tomorrow": "Jusqu'à demain",
+    "cancel": "Annuler"
+  },
+  "snoozeItem": "Reporter {{title}}",
+  "snoozeFor": "Reporter {{title}} de",
+  "done": "Terminé",
+  "doneItem": "Marquer {{title}} comme terminé",
+  "age": {
+    "now": "à l'instant",
+    "ago": "il y a {{age}}"
+  },
+  "button": {
+    "withCount_one": "À traiter : {{count}}",
+    "withCount_other": "À traiter : {{count}}",
+    "empty": "À traiter : rien",
+    "title": "{{label}} ({{shortcut}})"
+  },
+  "toast": {
+    "resumed": "Exécution reprise",
+    "retried": "Nouvelle tentative en file",
+    "resumeFailed": "Impossible de reprendre l'exécution",
+    "retryFailed": "Impossible de relancer la mise à jour Jira",
+    "stillOverBudget": "Toujours au-dessus du budget quotidien",
+    "done": "Marqué comme terminé",
+    "snoozed": "Reporté jusqu'à {{when}}",
+    "undo": "Annuler"
+  }
+}

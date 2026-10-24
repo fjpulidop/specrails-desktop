@@ -7,13 +7,12 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import type { TicketSpendingSummary, Surface } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props { ticketId: number }
 
 function fmtCost(v: number): string {
-  if (v < 0.005) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtDur(ms: number): string {
@@ -48,7 +47,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
   const breakdown = (Object.entries(summary.bySurface) as Array<[Surface, { count: number; costUsd: number }]>)
     .filter(([, v]) => v.count > 0)
     .map(([s, v]) => t('spendingLine.breakdownItem', { n: v.count, label: SURFACE_LABEL[s].toLowerCase() }))
-    .join(' + ')
+    .join(', ')
   const unpricedRuns = summary.unpricedRuns ?? 0
   const pricedRuns = summary.pricedRuns
     ?? Math.max(0, summary.totalRuns - unpricedRuns)
@@ -67,11 +66,11 @@ export function TicketSpendingLine({ ticketId }: Props) {
         closeTicketDetail()
         navigate(`/analytics?ticketId=${ticketId}`)
       }}
-      className="mt-1.5 group inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      className="mt-1.5 group inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       aria-label={t('spendingLine.ariaLabel')}
     >
       <span
-        className="tabular-nums font-medium text-foreground"
+        className="num font-medium text-foreground"
         data-testid={costUnavailable ? 'ticket-cost-unavailable' : undefined}
         title={
           costUnavailable
@@ -87,9 +86,9 @@ export function TicketSpendingLine({ ticketId }: Props) {
           ? '—'
           : `${(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}${costPartiallyUnavailable ? '≥' : ''}${fmtCost(summary.totalCostUsd)}`}
       </span>
-      <span className="text-muted-foreground/60">·</span>
+      <span className="text-muted-foreground">·</span>
       <span
-        className="tabular-nums"
+        className="num"
         data-testid={turnsUnavailable ? 'ticket-turns-unavailable' : undefined}
         title={
           turnsUnavailable
@@ -101,13 +100,13 @@ export function TicketSpendingLine({ ticketId }: Props) {
       >
         {turnsUnavailable
           ? '—'
-          : `${turnsPartiallyUnavailable ? '≥' : ''}${t('spendingLine.turns', { count: summary.totalTurns })}`}
+          : t(turnsPartiallyUnavailable ? 'spendingLine.turnsAtLeast' : 'spendingLine.turns', { count: summary.totalTurns })}
       </span>
-      <span className="text-muted-foreground/60">·</span>
-      <span className="tabular-nums">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
+      <span className="text-muted-foreground">·</span>
+      <span className="num">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
       {breakdown && (
         <>
-          <span className="text-muted-foreground/60">·</span>
+          <span className="text-muted-foreground">·</span>
           <span>{breakdown}</span>
         </>
       )}

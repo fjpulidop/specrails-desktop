@@ -6,7 +6,7 @@ Quick mode is for when you already know what you want. You type your idea, the A
 
 To create a spec quickly:
 
-1. On the Dashboard, click **Add** (the Plus button on the SpecsBoard toolbar).
+1. On the Dashboard, click **New spec** (the Plus button on the SpecsBoard toolbar).
 2. Choose **Quick** mode.
 3. Type your idea in the text field — a sentence or a paragraph, whatever captures it.
 4. Click to generate.

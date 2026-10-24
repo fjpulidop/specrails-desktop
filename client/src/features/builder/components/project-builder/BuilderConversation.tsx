@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, AlertTriangle, CircleDashed, Loader2, Rocket, Sparkles, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { cn } from '../../../../lib/utils'
 import { useAgentChat } from '../../../missions/context/AgentChatContext'
 import { cutUnterminatedBlock } from '../../lib/blueprint-draft'
@@ -22,7 +23,7 @@ import { readMilestoneAutoAdvance, saveMilestoneAutoAdvance } from '../../lib/mi
 // Shared composer card chrome — the morph target of `layoutId` (the mission's
 // "agent-composer-dock" twin) so the empty hero card lowers smoothly into the
 // docked composer on first send.
-const COMPOSER_CARD = 'w-full rounded-2xl border border-border/60 bg-card/90 p-3 shadow-2xl backdrop-blur-xl'
+const COMPOSER_CARD = 'w-full rounded-2xl border border-border/60 bg-card p-3 shadow-2xl'
 
 // The builder-mode conversation body (reskin follow-up): the MISSION format —
 // messages in a centered column with the halo'd BuilderComposer docked at the
@@ -212,25 +213,25 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
 
       {session.phase === 'progress' && (
         <div className="mx-auto mt-10 w-full max-w-md p-6" data-testid="commit-progress">
-          <h2 className="text-sm font-semibold">{t('progress.title')}</h2>
+          <h2 className="text-strong">{t('progress.title')}</h2>
           <ul className="mt-4 space-y-2">
             {COMMIT_STEP_ORDER.map((step) => {
               const state = session.commitSteps.find((s) => s.step === step)
               if (!state && step === 'github') return null
               return (
                 <li key={step} className="flex items-center gap-2 text-xs">
-                  {!state && <CircleDashed className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                  {!state && <CircleDashed className="h-3.5 w-3.5 text-muted-foreground" />}
                   {state?.status === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-info" />}
                   {state?.status === 'done' && <Check className="h-3.5 w-3.5 text-accent-success" />}
                   {state?.status === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />}
                   {state?.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive" />}
-                  <span className={cn(!state && 'text-muted-foreground/50')}>{t(`progress.steps.${step}`)}</span>
+                  <span className={cn(!state && 'text-muted-foreground')}>{t(`progress.steps.${step}`)}</span>
                   {state?.status === 'warning' && step === 'github' ? (
-                    <span className="truncate text-[10px] text-accent-warning" title={state.detail}>
+                    <span className="truncate text-caption text-accent-warning" title={state.detail}>
                       {t(githubErrorKey(state.code))}
                     </span>
                   ) : (
-                    state?.detail && <span className="truncate text-[10px] text-muted-foreground" title={state.detail}>{state.detail}</span>
+                    state?.detail && <span className="truncate text-caption text-muted-foreground" title={state.detail}>{state.detail}</span>
                   )}
                 </li>
               )
@@ -242,7 +243,7 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
       {session.phase === 'done' && (
         <div className="mx-auto mt-12 w-full max-w-md p-6 text-center" data-testid="commit-done">
           <Check className="mx-auto h-10 w-10 rounded-full bg-accent-success/15 p-2 text-accent-success" />
-          <h2 className="mt-3 text-sm font-semibold">{t('done.title')}</h2>
+          <h2 className="mt-3 text-strong">{t('done.title')}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{t('done.description')}</p>
           {/* After Launch: the LIVE milestone card (server-derived progress,
               rails, chain) replaces the button — never a fire-and-forget exit. */}
@@ -272,34 +273,21 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
         </div>
       )}
 
-      {/* Exit confirmation — rendered in-surface (not a Radix portal) so it
-          stacks correctly inside the floating panel. */}
-      {confirmExit && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm" data-testid="builder-exit-confirm">
-          <div
-            className="w-72 rounded-lg border border-border/60 bg-card p-4 shadow-xl"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="builder-exit-confirm-title"
-          >
-            <p id="builder-exit-confirm-title" className="text-sm font-medium">{t('mode.exitConfirmTitle')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{t('mode.exitConfirmBody')}</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setConfirmExit(false)} data-testid="builder-exit-cancel">
-                {t('mode.exitConfirmCancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => { setConfirmExit(false); builderMode.exit() }}
-                data-testid="builder-exit-confirm-btn"
-              >
-                {t('mode.exitConfirmDiscard')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Exit confirmation (modal standard): ConfirmDialog on the stacked
+          layer, above the floating panel this conversation lives in. */}
+      <ConfirmDialog
+        open={confirmExit}
+        onOpenChange={setConfirmExit}
+        layer="stacked"
+        title={t('mode.exitConfirmTitle')}
+        description={t('mode.exitConfirmBody')}
+        cancelLabel={t('mode.exitConfirmCancel')}
+        confirmLabel={t('mode.exitConfirmDiscard')}
+        onConfirm={() => { setConfirmExit(false); builderMode.exit() }}
+        testId="builder-exit-confirm"
+        cancelTestId="builder-exit-cancel"
+        confirmTestId="builder-exit-confirm-btn"
+      />
     </div>
   )
 }

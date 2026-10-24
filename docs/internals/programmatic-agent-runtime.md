@@ -145,6 +145,12 @@ Desktop launches `node <Core>/dist/agent-runtime/cli.js` with structured argv (`
 
 Provider invocation/cancellation supports native macOS processes and Windows executables/npm shims. Actual provider behavior still depends on the installed CLI version and capabilities. The offline tests cover fake CLI/ACP frames, Windows argv rules, a local HTTP coding fixture and real verification subprocesses; live provider smoke tests and Windows CI remain separate validation.
 
+## Failure diagnosis (contract 5.8)
+
+Core 5.8 adds `failure` to `runtime-result` and `runtime-status` for a run that ended `failed` or `blocked`: `{ kind, phase?, rounds?, resetAt?, detail?, resumablePhase?, confidence }` with `kind` one of `tests_failed`, `provider_limit`, `environment`, `blocked`, `timeout`, `tool_inactivity`, `crash`, `unknown` (see Core's `docs/agent-runtime.md#failure-classification`). The bridge forwards it untouched as `AiStepResult.failure`; the loop run manager hands it, with the loop's own signals (stall reason, provider-limit notice, Core's fixed blocker sentences, `completion.blocker`), to the [recovery module](../../server/modules/recovery/README.md), which validates it and persists the resulting diagnosis in `loop_runs.failure_diagnosis` in the same commit as the outcome. An older Core sends no `failure`: Desktop derives a diagnosis from those signals and otherwise stores `unknown` with low confidence, never a guessed cause. Desktop never reads the capability: an absent field is simply an absent classification.
+
+The diagnosis card (client feature [recovery](../../client/src/features/recovery/README.md)) shows it on Job Detail, the mission run card and, as a sentence, the inbox row. Its remedies are the app's existing actions: runtime resume, run again / relaunch, opening the spec (addenda), the host blocker's required action, and the log at the failing step.
+
 ## Definition catalog compatibility (D0)
 
 Desktop accepts optional `engineVersion`, `nodeKindsVersion`, `nodeKinds` and

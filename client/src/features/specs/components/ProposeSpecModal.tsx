@@ -1,8 +1,8 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug } from 'lucide-react'
+import { Sparkles, Send, Zap, MessagesSquare, Globe, Ratio, PenLine, Plug, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useSpecGenTracker } from '../hooks/useSpecGenTracker'
@@ -14,7 +14,8 @@ import { AiEngineSelector } from '../../providers/components/AiEngineSelector'
 import type { LocalTicket, TicketPriority } from '../../../types'
 import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
 import { ContextScopeChecks } from '../../chat/components/ContextScopeChecks'
-import { ContextScopeSlider } from '../../chat/components/ContextScopeSlider'
+import { ContextScopeSlider, PRESETS, presetIndexFor } from '../../chat/components/ContextScopeSlider'
+import { formatUsd } from '../../../lib/format-usd'
 import {
   isSmashCapable,
   providerLabel,
@@ -28,7 +29,7 @@ import { useContextScope } from '../../chat/hooks/useContextScope'
 import { useContextBudget } from '../../chat/hooks/useContextBudget'
 import { useQuickContractRefineLast } from '../hooks/useQuickContractRefineLast'
 import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
-import { quickHintForScope, tierFromScope, submitAccentForTier, type ContextScope, type SpecMode } from '../../chat/types/context-scope'
+import { estimateCostUsd, quickHintForScope, tierFromScope, submitAccentForTier, type ContextScope, type SpecMode } from '../../chat/types/context-scope'
 import { BrowserCaptureModal } from '../../browser/components/browser-capture/BrowserCaptureModal'
 import { CapturedDomPanel } from '../../browser/components/browser-capture/CapturedDomPanel'
 import { isBrowserCaptureEnabled, type CaptureResult, type CapturedDom } from '../../browser/lib/browser-capture'
@@ -85,6 +86,8 @@ interface ProposeSpecModalProps {
    *  ExploreSpecShell lifecycle so it can keep the chat alive across
    *  modal close events (used by the minimize-to-dock flow). */
   onExploreLaunch?: (payload: ExploreLaunchPayload) => void
+  /** Mode the modal opens in (default Quick). ⌘K "New spec (Explore)" opens it in Explore. */
+  initialMode?: 'quick' | 'explore'
 }
 
 function genPendingId(): string {
@@ -97,7 +100,7 @@ function genPendingId(): string {
   })
 }
 
-export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: ProposeSpecModalProps) {
+export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch, initialMode = 'quick' }: ProposeSpecModalProps) {
   const { t } = useTranslation('addspec')
   const { t: tj } = useTranslation('jira')
   // On a Jira-backed project, new specs are always created in Jira; the indicator
@@ -230,7 +233,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   useEffect(() => {
     if (open) {
       setPendingSpecId(genPendingId())
-      setMode('quick')
+      setMode(initialMode)
       setIsSubmitting(false)
       setHasText(false)
       setAttachmentCount(0)
@@ -459,6 +462,21 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     }
   }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, effectiveScope, effectiveProvider, quickAvailable, captures, title, priority, labels, repositoryIds, t])
 
+  // Context disclosure summary ("Context: Light · ~$0.02"): the label is the
+  // selected slider stop (never the cost tier), so summary and slider agree.
+  const presetIndex = presetIndexFor(effectiveScope)
+  const presetLabel = presetIndex >= 0
+    ? t(`contextScope.preset.${PRESETS[presetIndex].id}`)
+    : t('contextScope.custom')
+  const costEstimate = budget && !budgetError
+    ? `~${formatUsd(estimateCostUsd(effectiveScope, budget, model ?? ''))}`
+    : null
+  const modeDescription = mode === 'quick'
+    ? t('proposeModal.modeDescription.quick')
+    : mode === 'explore'
+      ? t('proposeModal.modeDescription.explore')
+      : t('proposeModal.modeDescription.raw')
+
   return (
     <>
       {/* While the browser-capture modal is open we drop the Add Spec dialog to
@@ -468,183 +486,33 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
           canvas). DialogContent stays mounted with state preserved while the
           capture modal is stacked above at a higher z-index. */}
       <Dialog open={open} modal={!browserOpen} onOpenChange={(o) => { if (!o && !browserOpen) onClose() }}>
-        <DialogContent movableResizable className="max-w-4xl flex flex-col gap-0 p-0 overflow-hidden">
-          <DialogHeader className="px-5 py-4 border-b border-border/40 shrink-0">
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary/70" />
-              {t('proposeModal.title')}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('proposeModal.dialogDescription')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col p-5 gap-4 flex-1 min-h-0 overflow-y-auto">
-            <div className="flex items-center justify-between gap-3">
+        <DialogContent
+          size="workspace"
+          movableResizable
+          persistKey="specrails.modal.add-spec"
+          data-testid="propose-spec-modal"
+          onOpenAutoFocus={(e) => {
+            // The description editor is the primary input: focus it, not the panel.
+            e.preventDefault()
+            editorRef.current?.focus()
+          }}
+        >
+          <DialogHeader
+            icon={<Sparkles />}
+            actions={(
               <ModeSegmented
                 value={mode}
                 onChange={setMode}
                 fullCodebase={effectiveScope.full}
                 quickAvailable={quickAvailable}
               />
-              {mode !== 'free' && (
-                <div className="flex items-center gap-2">
-                  <AiEngineSelector
-                    value={effectiveProvider ?? 'claude'}
-                    providers={providers}
-                    onChange={handleEngineChange}
-                    disabled={modelLoading}
-                    ariaLabel={t('proposeModal.engineAriaLabel')}
-                  />
-                  <SpecModelPicker
-                    value={model}
-                    allowed={allowed}
-                    customModelAliases={customModelAliases}
-                    loading={modelLoading}
-                    onChange={setModel}
-                  />
-                </div>
-              )}
-            </div>
-
-            {mode !== 'free' && (
-              <div className="space-y-3">
-                <ContextScopeSlider
-                  value={effectiveScope}
-                  onChange={handleScopeChange}
-                  budget={budget}
-                  budgetError={budgetError}
-                  model={model ?? ''}
-                  maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
-                  smashCapable={smashCapable}
-                />
-                <ContextScopeChecks
-                  scope={effectiveScope}
-                  mode={mode}
-                  onChange={handleScopeChange}
-                  label={t('contextScope.fineTune')}
-                  showSummary={false}
-                  userMcpSupported={userMcpSupported}
-                  contractRefineSupported={contractRefineSupported}
-                  providerLabel={providerLabel(effectiveProvider)}
-                />
-              </div>
             )}
+          >
+            <DialogTitle>{t('proposeModal.title')}</DialogTitle>
+            <DialogDescription data-testid="propose-mode-description">{modeDescription}</DialogDescription>
+          </DialogHeader>
 
-            <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={isSubmitting} />
-
-            {mode === 'free' && (
-              <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-150">
-                {/* Title — auto-derived from the first line of the body, editable. */}
-                <div className="flex items-center gap-3">
-                  <label htmlFor="raw-spec-title" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {t('proposeModal.raw.titleLabel')}
-                  </label>
-                  <input
-                    id="raw-spec-title"
-                    type="text"
-                    value={title}
-                    onChange={(e) => {
-                      // Any edit hands the field to the user: stop auto-deriving.
-                      // If they leave it blank, the server derives a title from
-                      // the body on submit (no dead/empty-title state).
-                      titleTouchedRef.current = true
-                      setTitle(e.target.value)
-                    }}
-                    placeholder={t('proposeModal.raw.titlePlaceholder')}
-                    data-testid="raw-title-input"
-                    className="flex-1 h-8 px-2.5 rounded-md bg-card/40 border border-border/40 text-sm text-foreground placeholder-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 focus-visible:border-accent-info/60 transition-colors"
-                  />
-                </div>
-
-                {/* Priority pills + optional labels. */}
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">{t('proposeModal.raw.priorityLabel')}</span>
-                    <div
-                      role="radiogroup"
-                      aria-label={t('proposeModal.raw.priorityLabel')}
-                      data-testid="raw-priority-group"
-                      className="inline-flex items-center gap-1 p-1 rounded-lg border border-border/50 bg-card/40"
-                    >
-                      {RAW_PRIORITY_ORDER.map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          role="radio"
-                          aria-checked={priority === p}
-                          tabIndex={priority === p ? 0 : -1}
-                          onClick={() => setPriority(p)}
-                          onKeyDown={(e) => {
-                            const i = RAW_PRIORITY_ORDER.indexOf(priority)
-                            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                              e.preventDefault()
-                              setPriority(RAW_PRIORITY_ORDER[Math.min(i + 1, RAW_PRIORITY_ORDER.length - 1)])
-                            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                              e.preventDefault()
-                              setPriority(RAW_PRIORITY_ORDER[Math.max(i - 1, 0)])
-                            }
-                          }}
-                          className={`px-2 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 ${
-                            priority === p ? RAW_PRIORITY_CLASS[p] : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
-                          }`}
-                        >
-                          {t(`proposeModal.priority.${p}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-1 min-w-[12rem]">
-                    <span className="text-xs font-medium text-muted-foreground">{t('proposeModal.raw.labelsLabel')}</span>
-                    <div className="flex-1 flex items-center flex-wrap gap-1 px-2 py-1 rounded-md border border-border/40 bg-card/40">
-                      {labels.map((label) => (
-                        <span
-                          key={label}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info text-[10px] font-medium"
-                        >
-                          {label}
-                          <button
-                            type="button"
-                            aria-label={t('proposeModal.raw.removeLabel', { label })}
-                            onClick={() => setLabels((ls) => ls.filter((l) => l !== label))}
-                            className="text-accent-info/60 hover:text-accent-info"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <input
-                        type="text"
-                        aria-label={t('proposeModal.raw.addLabelAria')}
-                        data-testid="raw-label-input"
-                        placeholder={labels.length ? '' : t('proposeModal.raw.labelPlaceholder')}
-                        className="flex-1 min-w-[4rem] bg-transparent text-xs text-foreground placeholder-muted-foreground/50 focus-visible:outline-none"
-                        onKeyDown={(e) => {
-                          const el = e.target as HTMLInputElement
-                          const v = el.value.trim()
-                          if (e.key === 'Enter' && v) {
-                            e.preventDefault()
-                            setLabels((ls) => (ls.includes(v) ? ls : [...ls, v]))
-                            el.value = ''
-                          } else if (e.key === 'Backspace' && !v && labels.length) {
-                            setLabels((ls) => ls.slice(0, -1))
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <p className="text-sm text-muted-foreground">
-              {mode === 'quick'
-                ? t('proposeModal.modeDescription.quick')
-                : mode === 'explore'
-                  ? t('proposeModal.modeDescription.explore')
-                  : t('proposeModal.modeDescription.raw')}
-            </p>
+          <DialogBody className="flex flex-col gap-4">
             <RichAttachmentEditor
               ref={editorRef}
               ticketKey={pendingSpecId}
@@ -694,7 +562,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[10px] font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-label text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('proposeModal.capture.responsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -706,7 +574,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                                   alt={`${b.key} (${b.width}px)`}
                                   className="max-h-36 w-auto max-w-[10rem] object-contain rounded border border-border/60 bg-background-deep block"
                                 />
-                                <span className="text-[10px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                                <span className="text-xs text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
                               </div>
                             ))}
                           </div>
@@ -719,7 +587,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                         />
                       )}
                       {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={c.dom.url}>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={c.dom.url}>
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">{c.dom.url}</span>
                         </div>
@@ -730,28 +598,207 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                 ))}
               </div>
             )}
+
+            {mode === 'free' && (
+              <div className="flex flex-col gap-4">
+                {/* Title — auto-derived from the first line of the body, editable. */}
+                <div className="flex items-center gap-3">
+                  <label htmlFor="raw-spec-title" className="text-label text-muted-foreground whitespace-nowrap">
+                    {t('proposeModal.raw.titleLabel')}
+                  </label>
+                  <input
+                    id="raw-spec-title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => {
+                      // Any edit hands the field to the user: stop auto-deriving.
+                      // If they leave it blank, the server derives a title from
+                      // the body on submit (no dead/empty-title state).
+                      titleTouchedRef.current = true
+                      setTitle(e.target.value)
+                    }}
+                    placeholder={t('proposeModal.raw.titlePlaceholder')}
+                    data-testid="raw-title-input"
+                    className="flex-1 h-8 px-2.5 rounded-md bg-card/40 border border-border/40 text-sm text-foreground placeholder-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 focus-visible:border-accent-info/60 transition-colors"
+                  />
+                </div>
+
+                {/* Priority pills + optional labels. */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-label text-muted-foreground">{t('proposeModal.raw.priorityLabel')}</span>
+                    <div
+                      role="radiogroup"
+                      aria-label={t('proposeModal.raw.priorityLabel')}
+                      data-testid="raw-priority-group"
+                      className="inline-flex items-center gap-1 p-1 rounded-lg border border-border/50 bg-card/40"
+                    >
+                      {RAW_PRIORITY_ORDER.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          role="radio"
+                          aria-checked={priority === p}
+                          tabIndex={priority === p ? 0 : -1}
+                          onClick={() => setPriority(p)}
+                          onKeyDown={(e) => {
+                            const i = RAW_PRIORITY_ORDER.indexOf(priority)
+                            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              setPriority(RAW_PRIORITY_ORDER[Math.min(i + 1, RAW_PRIORITY_ORDER.length - 1)])
+                            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                              e.preventDefault()
+                              setPriority(RAW_PRIORITY_ORDER[Math.max(i - 1, 0)])
+                            }
+                          }}
+                          className={`px-2 py-1 rounded-md text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/40 ${
+                            priority === p ? RAW_PRIORITY_CLASS[p] : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
+                          }`}
+                        >
+                          {t(`proposeModal.priority.${p}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-1 min-w-[12rem]">
+                    <span className="text-label text-muted-foreground">{t('proposeModal.raw.labelsLabel')}</span>
+                    <div className="flex-1 flex items-center flex-wrap gap-1 px-2 py-1 rounded-md border border-border/40 bg-card/40">
+                      {labels.map((label) => (
+                        <span
+                          key={label}
+                          data-chip=""
+                          className="inline-flex h-5 items-center gap-1 px-1.5 rounded bg-accent-info/15 text-accent-info text-caption font-medium"
+                        >
+                          {label}
+                          <button
+                            type="button"
+                            aria-label={t('proposeModal.raw.removeLabel', { label })}
+                            onClick={() => setLabels((ls) => ls.filter((l) => l !== label))}
+                            className="text-accent-info/60 hover:text-accent-info"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        aria-label={t('proposeModal.raw.addLabelAria')}
+                        data-testid="raw-label-input"
+                        placeholder={labels.length ? '' : t('proposeModal.raw.labelPlaceholder')}
+                        className="flex-1 min-w-[4rem] bg-transparent text-xs text-foreground placeholder-muted-foreground/50 focus-visible:outline-none"
+                        onKeyDown={(e) => {
+                          const el = e.target as HTMLInputElement
+                          const v = el.value.trim()
+                          if (e.key === 'Enter' && v) {
+                            e.preventDefault()
+                            setLabels((ls) => (ls.includes(v) ? ls : [...ls, v]))
+                            el.value = ''
+                          } else if (e.key === 'Backspace' && !v && labels.length) {
+                            setLabels((ls) => ls.slice(0, -1))
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={isSubmitting} />
+
+            {/* Context awareness + Fine-tune collapse behind one disclosure; the
+                summary carries the selected stop and the cost estimate. */}
+            {mode !== 'free' && (
+              <details className="group rounded-lg border border-border/40 bg-card/30" data-testid="context-disclosure">
+                <summary
+                  className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-body text-foreground/90 marker:content-none [&::-webkit-details-marker]:hidden"
+                  data-testid="context-disclosure-summary"
+                >
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden />
+                  <span>
+                    {costEstimate
+                      ? t('proposeModal.contextSummary', { preset: presetLabel, cost: costEstimate })
+                      : t('proposeModal.contextSummaryNoCost', { preset: presetLabel })}
+                  </span>
+                </summary>
+                <div className="space-y-3 border-t border-border/30 px-3 py-3">
+                  <ContextScopeSlider
+                    value={effectiveScope}
+                    onChange={handleScopeChange}
+                    budget={budget}
+                    budgetError={budgetError}
+                    model={model ?? ''}
+                    maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
+                    smashCapable={smashCapable}
+                  />
+                  <ContextScopeChecks
+                    scope={effectiveScope}
+                    mode={mode}
+                    onChange={handleScopeChange}
+                    label={t('contextScope.fineTune')}
+                    showSummary={false}
+                    userMcpSupported={userMcpSupported}
+                    contractRefineSupported={contractRefineSupported}
+                    providerLabel={providerLabel(effectiveProvider)}
+                  />
+                </div>
+              </details>
+            )}
+
             {jira.connected && mode === 'quick' && (
-              <div className="flex items-center justify-end text-[11px]" data-testid="jira-create-indicator">
+              <div className="flex items-center justify-end text-xs" data-testid="jira-create-indicator">
                 <span className="inline-flex items-center gap-1 text-accent-info">
                   <Plug className="w-3 h-3" />
                   {tj('addSpec.willCreate', { key: jira.jiraProjectKey ?? '' })}
                 </span>
               </div>
             )}
-            <div className="flex items-center justify-end">
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                title={!canSubmit ? t('proposeModal.submit.disabledTitle') : undefined}
-                className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-white hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
-                data-testid="propose-submit"
-              >
-                {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                {mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+
+          <DialogFooter
+            start={mode !== 'free' ? (
+              <>
+                <AiEngineSelector
+                  value={effectiveProvider ?? 'claude'}
+                  providers={providers}
+                  onChange={handleEngineChange}
+                  disabled={modelLoading}
+                  ariaLabel={t('proposeModal.engineAriaLabel')}
+                />
+                <SpecModelPicker
+                  value={model}
+                  allowed={allowed}
+                  customModelAliases={customModelAliases}
+                  loading={modelLoading}
+                  onChange={setModel}
+                />
+                {costEstimate && (
+                  <span
+                    className="text-xs tabular-nums text-muted-foreground"
+                    title={t('proposeModal.costEstimateTitle')}
+                    data-testid="propose-cost-estimate"
+                  >
+                    {costEstimate}
+                  </span>
+                )}
+              </>
+            ) : undefined}
+          >
+            <Button type="button" variant="ghost" onClick={onClose} data-testid="propose-cancel">
+              {t('common:actions.cancel')}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              title={!canSubmit ? t('proposeModal.submit.disabledTitle') : undefined}
+              className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-background hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
+              data-testid="propose-submit"
+            >
+              {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+              {mode === 'quick' ? t('proposeModal.submit.quick') : mode === 'explore' ? t('proposeModal.submit.explore') : t('proposeModal.submit.raw')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -837,9 +884,9 @@ function ModeOption({
       disabled={disabled}
       title={disabled ? disabledReason : hint}
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-label transition-colors ${
         disabled
-          ? 'cursor-not-allowed text-muted-foreground/50 opacity-70'
+          ? 'cursor-not-allowed text-muted-foreground opacity-70'
           : active
             ? 'bg-primary/15 text-primary'
             : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
@@ -847,7 +894,7 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-[10px] ${active ? 'text-primary/60' : 'text-muted-foreground/60'}`}>{hint}</span>
+      <span className={`text-xs ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{hint}</span>
     </button>
   )
 }

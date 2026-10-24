@@ -1,5 +1,5 @@
 import type { DbInstance } from '../../../db/types'
-import { dailyBudgetRejection, evaluateDailyBudgets, localDayStartIso, type BudgetSnapshot, type DailyBudgetRejection } from '..'
+import { dailyBudgetRejection, dailyBudgetResetsAt, evaluateDailyBudgets, isDailyBudgetExceeded, localDayStartIso, type BudgetSnapshot, type DailyBudgetRejection, type DailyBudgetScope } from '..'
 import { createQueueBudgetStorage } from '../adapters/budget-storage'
 
 export interface DailyBudgetGateOptions {
@@ -32,6 +32,53 @@ export function createDailyBudgetGate(options: DailyBudgetGateOptions): () => Da
       return breach ? dailyBudgetRejection(breach, at) : null
     } catch (error) {
       console.warn('[daily-budget] budget state unavailable; admitting the launch:', error instanceof Error ? error.message : error)
+      return null
+    }
+  }
+}
+
+/** What is left of the tightest configured daily budget (read-only; nothing pauses). */
+export interface DailyBudgetHeadroom {
+  scope: DailyBudgetScope
+  budgetUsd: number
+  spentUsd: number
+  /** Whether the budget is already spent (a launch would be refused). */
+  exhausted: boolean
+  resetsAt: string
+}
+
+/**
+ * Read-only view of the same budgets the gate enforces, for surfaces that warn
+ * BEFORE a launch (the launch forecast). Picks the scope with the least money
+ * left, so one caution covers both budgets. Null when no budget is configured
+ * or it cannot be read (fail-open, like the gate).
+ */
+export function createDailyBudgetHeadroom(options: DailyBudgetGateOptions): () => DailyBudgetHeadroom | null {
+  const now = options.now ?? (() => new Date())
+  return () => {
+    try {
+      const storage = createQueueBudgetStorage(options.db)
+      const at = now()
+      const candidates: { scope: DailyBudgetScope; snapshot: BudgetSnapshot | null }[] = [
+        { scope: 'project', snapshot: storage.project(options.projectId, () => localDayStartIso(at)) },
+        { scope: 'desktop', snapshot: options.desktop?.() ?? null },
+      ]
+      let best: DailyBudgetHeadroom | null = null
+      for (const { scope, snapshot } of candidates) {
+        if (!snapshot || snapshot.budget == null || !(snapshot.budget > 0)) continue
+        const left = snapshot.budget - snapshot.totalSpend
+        if (best && left >= best.budgetUsd - best.spentUsd) continue
+        best = {
+          scope,
+          budgetUsd: snapshot.budget,
+          spentUsd: snapshot.totalSpend,
+          exhausted: isDailyBudgetExceeded(snapshot),
+          resetsAt: dailyBudgetResetsAt(scope, at),
+        }
+      }
+      return best
+    } catch (error) {
+      console.warn('[daily-budget] budget state unavailable for the forecast:', error instanceof Error ? error.message : error)
       return null
     }
   }

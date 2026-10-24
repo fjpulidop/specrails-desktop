@@ -41,7 +41,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
   const failed = state.projectId === projectId && state.error
   return <section className="rounded-xl border border-border/40 bg-card/40 p-4 space-y-3" aria-label={t('legacyUsage.title')}>
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-sm font-medium">{t('legacyUsage.title')}</h2>
+      <h2 className="text-strong">{t('legacyUsage.title')}</h2>
       <button type="button" disabled={loading} onClick={() => refresh(value => value + 1)} className="text-xs underline disabled:opacity-50">{t('legacyUsage.refresh')}</button>
     </div>
     <p className="text-xs text-muted-foreground">{t('legacyUsage.scope')}</p>
@@ -50,7 +50,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
     {summary && <>
       <p className="text-sm">{t('legacyUsage.total', { count: summary.total })}</p>
       <dl className="grid gap-2 text-xs sm:grid-cols-3">
-        {kinds.map(kind => <div key={kind}><dt className="text-muted-foreground">{t(`legacyUsage.kinds.${kind}`)}</dt><dd className="font-mono tabular-nums">{summary.byKind[kind]}</dd></div>)}
+        {kinds.map(kind => <div key={kind}><dt className="text-muted-foreground">{t(`legacyUsage.kinds.${kind}`)}</dt><dd className="font-mono num">{summary.byKind[kind]}</dd></div>)}
       </dl>
       {summary.lastAt && <p className="text-xs text-muted-foreground">{t('legacyUsage.last')} <time dateTime={summary.lastAt}>{new Date(summary.lastAt).toLocaleString()}</time></p>}
     </>}

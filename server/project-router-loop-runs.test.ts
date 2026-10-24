@@ -348,3 +348,38 @@ describe('loop runs — daily budget guard (rail-loop-budget-guard)', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('project-router launch forecast (read-only)', () => {
+  const finished = (db: DbInstance, ms: number, cost: number, provider = 'claude') => {
+    const id = `lr-${Math.random().toString(36).slice(2)}`
+    createLoopRun(db, { id, projectId: 'p1', loopId: 'factory:sdd-quick-openspec', loopName: 'L', iterationLimit: 1, provider, startedAt: new Date().toISOString() } as Parameters<typeof createLoopRun>[1])
+    db.prepare('UPDATE loop_runs SET finished_at = ?, total_duration_ms = ?, total_cost_usd = ? WHERE id = ?').run(new Date().toISOString(), ms, cost, id)
+  }
+  const app = (db: DbInstance, headroom?: unknown) =>
+    buildApp({ provider: 'claude', providers: ['claude'] }, { db, ...(headroom ? { dailyBudgetHeadroom: () => headroom } : {}) })
+
+  it('requires a loop or a command and a well-formed provider', async () => {
+    const db = initDb(':memory:')
+    expect((await request(app(db)).get('/api/projects/p1/launch-forecast')).status).toBe(400)
+    expect((await request(app(db)).get('/api/projects/p1/launch-forecast?loopId=x&provider=../etc')).status).toBe(400)
+  })
+
+  it('answers "not enough history" honestly, with the sample floor and no budget', async () => {
+    const db = initDb(':memory:')
+    for (let i = 1; i <= 4; i++) finished(db, i * 60_000, i)
+    const res = await request(app(db)).get('/api/projects/p1/launch-forecast?loopId=factory:sdd-quick-openspec&provider=claude')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ time: null, cost: null, minSamples: 5, budget: null })
+  })
+
+  it('returns the measured bands and the tightest budget headroom', async () => {
+    const db = initDb(':memory:')
+    for (let i = 1; i <= 5; i++) finished(db, i * 60_000, i)
+    for (let i = 1; i <= 5; i++) finished(db, i * 600_000, i * 10, 'codex')
+    const budget = { scope: 'project', budgetUsd: 10, spentUsd: 4, exhausted: false, resetsAt: '2026-10-25T00:00:00.000Z' }
+    const res = await request(app(db, budget)).get('/api/projects/p1/launch-forecast?loopId=factory:sdd-quick-openspec&provider=claude')
+    expect(res.body.time).toMatchObject({ p25Ms: 120_000, p75Ms: 240_000, sampleCount: 5 })
+    expect(res.body.cost).toEqual({ lowUsd: 2, highUsd: 4, sampleCount: 5 })
+    expect(res.body.budget).toEqual(budget)
+  })
+})

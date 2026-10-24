@@ -5,7 +5,8 @@
   "emptySettled": "本次运行没有记录到活动。",
   "waiting": {
     "range": "同类运行耗时 {{low}}–{{high}} 分钟（最近 {{count}} 次）",
-    "elapsed": "已运行 {{minutes}} 分钟"
+    "elapsed": "已运行 {{minutes}} 分钟",
+    "took": "耗时 {{minutes}} 分钟"
   },
   "aiNote": "根据运行期间真实发生的事情生成。",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "第 {{step}} 步停滞：{{idleMinutes}} 分钟无活动，应用已将其停止",
     "startResume": "第 {{step}} 步：{{title}}——停滞后恢复",
     "providerLimit": "步骤 {{step}} 已停止 — 已达到提供商用量限额",
-    "recovered": "恢复后步骤 {{step}} 已完成"
+    "recovered": "恢复后步骤 {{step}} 已完成",
+    "durationSec": "{{seconds}} 秒",
+    "durationMin": "{{minutes}} 分钟"
+  },
+  "steps": {
+    "architect": "设计变更",
+    "confidence": "检查置信度",
+    "validate": "验证计划",
+    "freeze": "锁定计划",
+    "initialize-corrections": "准备修复",
+    "developer": "实现",
+    "developer-blocker": "检查阻塞项",
+    "tasks": "逐项完成任务",
+    "verify": "验证",
+    "review": "审查",
+    "ship": "交付",
+    "reviewer": "审查变更",
+    "review-policy": "应用审查策略",
+    "correction-context": "收集需要修复的内容",
+    "capture-review": "记录审查结果",
+    "correction-budget": "检查重试额度",
+    "begin-correction": "开始修复轮次",
+    "fixer": "修复已报告的问题",
+    "correction-blocker": "检查阻塞项",
+    "correction-progress": "跟踪修复进度",
+    "approval-policy": "应用审批决定",
+    "verify-archive": "验证已归档的更改"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",
@@ -82,5 +109,8 @@
       "invalidated": "先前结果已失效：{{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "修复轮次 {{round}}/{{total}}",
+  "checks_one": "+1 项检查",
+  "checks_other": "+{{count}} 项检查"
 }

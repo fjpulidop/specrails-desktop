@@ -54,8 +54,8 @@ export function ProfileAnalyticsCard() {
       <div className="mx-6 my-4 rounded-md border border-border bg-muted/20">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">
           <div>
-            <div className="text-xs font-medium text-foreground">{t('usage.title')}</div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-label text-foreground">{t('usage.title')}</div>
+            <div className="text-caption text-muted-foreground">
               {t('usage.subtitleEmpty')}
             </div>
           </div>
@@ -66,7 +66,7 @@ export function ProfileAnalyticsCard() {
                 type="button"
                 onClick={() => setWindowDays(opt.days)}
                 className={
-                  'text-[10px] px-2 py-1 rounded transition-colors ' +
+                  'text-caption px-2 py-1 rounded transition-colors ' +
                   (windowDays === opt.days
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground')
@@ -90,8 +90,8 @@ export function ProfileAnalyticsCard() {
     <div className="mx-6 my-4 rounded-md border border-border bg-muted/20">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <div>
-          <div className="text-xs font-medium text-foreground">{t('usage.title')}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-label text-foreground">{t('usage.title')}</div>
+          <div className="text-caption text-muted-foreground">
             {t('usage.subtitle', { count: data.windowDays })}
           </div>
         </div>
@@ -102,7 +102,7 @@ export function ProfileAnalyticsCard() {
               type="button"
               onClick={() => setWindowDays(opt.days)}
               className={
-                'text-[10px] px-2 py-1 rounded transition-colors ' +
+                'text-caption px-2 py-1 rounded transition-colors ' +
                 (windowDays === opt.days
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground')
@@ -123,7 +123,7 @@ export function ProfileAnalyticsCard() {
                 style={{ width: `${Math.max(6, Math.round((row.jobs / maxJobs) * 100))}%` }}
               />
             </div>
-            <div className="flex gap-4 text-[11px] text-muted-foreground min-w-0 flex-shrink-0">
+            <div className="flex gap-4 text-caption text-muted-foreground min-w-0 flex-shrink-0">
               <span title={t('usage.jobsTooltip')}>
                 <span className="text-foreground font-mono">{row.jobs}</span>{' '}
                 {t('usage.jobsLabel', { count: row.jobs })}

@@ -107,6 +107,18 @@ Se la [telemetria](../settings/customizing) era abilitata per il job, nell'intes
 
 Comodo per condividere un'esecuzione con un collega, o per inviare una segnalazione di bug precisa.
 
+## Quando un'esecuzione fallisce
+
+Quando un job fallisce, si ferma o è bloccato, lo stato finale inizia con una **scheda di diagnosi** che dice in parole semplici cos'è successo, per esempio *I test sono falliti nella fase Reviewer dopo 4 giri di correzioni*, e perché quando l'app lo sa:
+
+- **Test falliti**: i controlli continuano a fallire dopo i giri di correzioni.
+- **Limite del provider**: è stato raggiunto il limite d'uso del provider IA. La scheda riporta quando si azzera, con le parole del provider.
+- **Ambiente**: la macchina non riesce a eseguire i controlli (credenziali, uno strumento mancante, un comando di preparazione che fallisce). *Sistema l'ambiente* mostra esattamente cosa eseguire o cambiare.
+- **Bloccata**, **senza tempo**, **in silenzio** e **fermata all'improvviso** indicano il limite o il processo che ha fermato l'esecuzione.
+- **Causa sconosciuta**: l'app non tira a indovinare. Mostra la fine del log perché lo legga tu.
+
+Sotto la diagnosi ci sono fino a tre rimedi in ordine, e solo quelli che qui possono funzionare: **Riprendi da** la fase che si è fermata, **Esegui di nuovo**, **Modifica la spec e rilancia** (gli addendum della spec portano la tua modifica all'esecuzione successiva), **Sistema l'ambiente** e **Apri il log al punto del guasto**. La stessa causa compare come etichetta di una riga nella [elenco Da gestire](../getting-started/the-dashboard-tour), e la scheda di esecuzione della missione mostra la stessa scheda.
+
 ## Dove andare ora
 
 - [Rail e job](rails-and-jobs) — avvio e accodamento.

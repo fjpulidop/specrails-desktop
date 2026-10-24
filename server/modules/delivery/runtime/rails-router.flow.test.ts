@@ -33,7 +33,7 @@ const required = {
   headSha: 'a'.repeat(40), baseSha: 'b'.repeat(40), adopt: vi.fn(), release: vi.fn(),
 }
 
-function app(flowHandOff?: FlowHandOffAuthority) {
+function app(flowHandOff?: FlowHandOffAuthority, overrides: Record<string, unknown> = {}) {
   const instance = express()
   instance.use(express.json())
   instance.use((req, _res, next) => {
@@ -44,6 +44,7 @@ function app(flowHandOff?: FlowHandOffAuthority) {
       getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D' }),
       onLoopRunFinished: () => {},
       ...(flowHandOff ? { flowHandOff } : {}),
+      ...overrides,
     }
     next()
   })
@@ -120,5 +121,36 @@ describe('rails launch with flowId (Flow hand-off)', () => {
     const input = mockLaunchIsolated.mock.calls[0]![0]
     expect(input).toMatchObject({ loopId: FLOW_SPEC_LOOP_ID, requiredFlowWorktree: required })
     expect(input.loopGraph.nodes.some((node: { data?: { kind?: string } }) => node.data?.kind === 'derive-change')).toBe(true)
+  })
+
+  describe('a Flow in a non-primary repository (workspace project)', () => {
+    const workspace = {
+      project: { id: 'p1', slug: 's1', provider: 'claude', providers: ['claude'], path: '/ws', primaryRepositoryId: 'ws', repositories: [
+        { id: 'ws', projectId: 'p1', name: 'workspace', path: '/ws', isPrimary: true, kind: 'folder', integrationBranch: null, addedAt: 't' },
+        { id: 'api', projectId: 'p1', name: 'api', path: '/ws/api', isPrimary: false, kind: 'git', integrationBranch: null, addedAt: 't' },
+        { id: 'web', projectId: 'p1', name: 'web', path: '/ws/web', isPrimary: false, kind: 'git', integrationBranch: null, addedAt: 't' },
+      ] },
+      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', repositoryIds: ['api'] }),
+    }
+    const inApi = { ...required, repositoryId: 'api' }
+
+    it('launches exactly the Flow repository with the Flow worktree contract', async () => {
+      setRailTickets(db, 0, [7], 'implement')
+      const res = await request(app(authority(() => inApi), workspace)).post('/rails/0/launch').send({ loopId: 'factory:implement', flowId: 'flow-1', repositoryIds: ['api'] })
+      expect(res.status).toBe(202)
+      expect(mockRepoStatus).not.toHaveBeenCalled()
+      expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [7], repositoryIds: ['api'], requiredFlowWorktree: inApi }))
+    })
+
+    it('refuses a wider repository scope or a primary Flow on a repository-scoped spec', async () => {
+      setRailTickets(db, 0, [7], 'implement')
+      const wider = await request(app(authority(() => inApi), workspace)).post('/rails/0/launch').send({ loopId: 'factory:implement', flowId: 'flow-1', repositoryIds: ['api', 'web'] })
+      expect(wider.status).toBe(409)
+      expect(wider.body.error).toBe('flow_requires_isolation')
+      const primaryFlow = await request(app(authority(), workspace)).post('/rails/0/launch').send({ loopId: 'factory:implement', flowId: 'flow-1' })
+      expect(primaryFlow.status).toBe(409)
+      expect(primaryFlow.body.error).toBe('flow_requires_isolation')
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    })
   })
 })

@@ -39,7 +39,7 @@ To rotate the token, stop the app, delete `~/.specrails/desktop.token`, and star
 
 ## App settings
 
-App settings apply across all projects. Open them from the **left sidebar → Settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
+App settings apply across all projects. Open them from the **left sidebar → App settings**, or via the Command Palette (`Cmd/Ctrl+K`) → **Desktop Settings**. They are persisted in `~/.specrails/desktop.sqlite` under the `desktop_settings` key/value table.
 
 The Global Settings page is organised into the sections below (it also surfaces a read-only **Registered Projects** list, an **Onboarding** replay button, and a **Desktop Information** diagnostics block, which carry no stored settings):
 
@@ -49,7 +49,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 | **Language** | App-wide UI language (hot-switch, no restart). Eight built-ins: `en`, `es`, `fr`, `de`, `pt`, `it`, `zh`, `ja`. | `ui_language` (unset = follow the OS language; only an explicit pick is persisted) |
 | **Mobile Access** | Enable the mobile-companion gateway, pair/revoke devices, and rotate the device cert identity. | — (loopback + token still enforced server-side) |
 | **specrails-tech** | Base URL for the external specrails-tech agents service. | `specrails_tech_url` = `http://localhost:3000` (the `SPECRAILS_TECH_URL` env var is only a fallback when this setting is unset — the stored setting wins) |
-| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded; rail/loop launches get `409 daily_budget_exceeded` and running loops pause `budget_paused` between AI steps — see [tracking cost](../tracking-cost.md#rails-and-loops-over-budget)) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
+| **Budget & Alerts** | App-wide daily spend cap (queues auto-pause when exceeded; rail/loop launches get `409 daily_budget_exceeded` and running loops pause `budget_paused` between AI steps; a running Core workflow (engine 2) whose retained Core announces `pauseRuns` is paused mid-run through `runtime pause --reason budget` as soon as recorded spend crosses the budget — its current step finishes, Core exits 2 with `state.pause`, and the run parks on the same resumable pause; an older Core keeps the between-invocation check — see [tracking cost](../tracking-cost.md#rails-and-loops-over-budget)) and a per-job cost alert threshold. | `desktop_daily_budget_usd`, `cost_alert_threshold_usd` (both unset by default = no cap / no alert) |
 | **OS Notifications** | Desktop notification preferences for long-running jobs and budget events. | — |
 | **Outbound Webhooks** | HTTP webhooks fired on `job.completed`, `job.failed`, `job.canceled`, `daily_budget_exceeded`, and `desktop_daily_budget_exceeded`. | webhooks table (a hook created without an explicit events list defaults to `["job.completed","job.failed","job.canceled"]`) |
 | **Code section** | Plain-language file-summary language (`en` / `es`) and the monthly summary budget cap. | `summary_language` = `en`, `summary_monthly_budget_usd` = `5.00` |
@@ -65,7 +65,7 @@ The Global Settings page is organised into the sections below (it also surfaces 
 
 ## Project settings
 
-Project settings apply to a single project. Open them from the project's **Settings** entry in the right sidebar (route: `/settings`). The page is titled **Project Settings** and has these sections:
+Project settings apply to a single project. Open them from the project's **Project settings** entry in the right sidebar (route: `/settings`). The page is titled **Project Settings** and has these sections:
 
 | Section | What it controls |
 |---------|------------------|
@@ -77,8 +77,10 @@ Project settings apply to a single project. Open them from the project's **Setti
 | **Budget** | Per-project daily spend cap (with queue auto-pause) and a per-job cost alert threshold. |
 | **Review limit** | `reviewWipLimit` (`config.review_wip_limit`): how many deliveries may wait for review at once. Running (`building`), undecided (`on_review`) and open app PRs (`pr_draft`/`pr_ready`) count, one per top-level delivery. Empty = no limit (default); the UI suggests 5. At the limit every rail launch door refuses a **new** delivery with `409 review_wip_limit_reached`. Changes to an existing delivery (revision, Relaunch, PR follow-up) stay allowed. See [safe PR flow](safe-pr-review-flow.md#review-wip-limit). |
 | **Agent actions audit** | `agentAuditRetentionDays` (default 30, 1–3650): how long the project keeps its log of what agents read, wrote, executed, called over MCP or fetched. Older rows are deleted 5 seconds after the project opens and then daily. See [agent actions audit](agent-actions-audit.md). |
+| **Existing-project anchoring** | Two opt-in switches (both off by default, each gated on a Core capability; without it the switch is disabled with an "update Core" note). `jiraPostClarifications` (`config.jira_post_clarifications`, Core `architectClarifications: 1`): when a run pauses with the architect's questions or proceeds on assumptions, post them as one comment on the linked Jira issue and record a reply there as a `clarification` addendum. `baselineOnTouch` (`config.baseline_on_touch`, Core `baselineOnTouch: 1`): forwarded to Core's runtime config so a change that reaches code no spec describes first writes characterization tests and an as-built spec. See [existing-project anchoring](existing-project-anchoring.md). |
+| **Project rules** | The rules inventory Core writes to `.specrails/rules.json` (Core `rulesInventory: 1`): the project's gates and every written rule classified as enforced, automatable, human-only or unclassified (Core's `init` inventories offline, so rules stay unclassified until **Re-run inventory** runs with a configured provider); **Create spec** turns an automatable rule into a spec (source `rules`). Human-only rules appear in every review packet as "Needs human eyes". |
 | **Terminal Settings** | Per-project overrides for the terminal panel defaults (project override → app default → built-in). |
-| **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. |
+| **Verification commands** | Repository checks Core runs after the developer finishes; failures go back to the developer (or the fixer). Stored under `verification` in `.specrails/agent-runtime.json`; an empty list lets the architect propose the project's own checks. The suggestions list offers the rules inventory's plain gate commands first (Core `rulesInventory: 1`), then the commands detected in each repository. |
 | **Setup commands** | Idempotent commands Core runs inside the repository checkout before every verification plan, for example `npx playwright install chromium`. Same entry shape as `verification` (`repositoryId`, `command`, `args`, optional `cwd`, `env`, `timeoutMs`, `key`, `label`), stored under `setup`, no auto-detection. Credential-like `env` keys are refused and `key` values must be unique across `setup` and `verification`. A failing setup command ends the run as blocked by the host environment. The list reaches Core only when the installed Core advertises the `setupCommands` capability; older cores receive the configuration without it and the run log records a one-line note. |
 
 > The project's **provider(s)** — **Claude, Codex, Gemini, Kimi, or any
@@ -333,7 +335,8 @@ project-less missions. Session journals live in
 stores only a rebuildable projection. See
 [agent sessions](../../server/modules/agent-sessions/README.md).
 
-**Allow sub-agents** is a setting, not a flag, and it is off by default. The
+**Allow sub-agents** is a setting, not a flag, and it is on by default (only an
+explicit `'false'` row disables it). The
 project setting `allowSubagents` (`config.allow_subagents`) applies to that
 project's conversational agents (missions, explore, refinements). The app
 setting (`agent_allow_subagents` in `desktop_settings`) covers missions without
@@ -378,7 +381,7 @@ role falls back as described:
 |------|---------|---------------------|
 | `verifier` | Loop ai-steps under a `roles` rail launch | The rail's primary engine |
 | `decider` | The Loop Decider under a `roles` rail launch | The rail's primary engine |
-| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
+| `triage` | [Spec triage](spec-triage.md), one structured-output call per spec; edited in project settings ▸ Agent runtime ▸ **Spec triage engine** | The project's primary provider and its cheapest priced catalog model (for example `haiku` on Claude) |
 
 A role whose provider is no longer detected falls back to its default. A stale
 model falls back to the provider's default model. The triage role must name a

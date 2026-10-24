@@ -255,6 +255,11 @@ describe('ProposeSpecModal', () => {
     })
   })
 
+  it('opens in Explore when asked to (⌘K New spec (Explore))', () => {
+    render(<ProposeSpecModal open={true} initialMode="explore" onClose={onCloseMock} tickets={emptyTickets} />)
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
+  })
+
   it('renames the action button to Continue in Explore mode', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
@@ -666,5 +671,40 @@ describe('ProposeSpecModal', () => {
       )).toBe(true)
     })
     expect(onCloseMock).not.toHaveBeenCalled()
+  })
+
+  describe('modal standard anatomy', () => {
+    it('focuses the description editor on open (the primary input comes first)', async () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const editor = screen.getByPlaceholderText(/add a dark mode toggle/i)
+      await waitFor(() => expect(document.activeElement).toBe(editor))
+      // The editor precedes the context controls in reading order.
+      const slider = screen.getByTestId('context-scope-slider')
+      expect(editor.compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders a ghost Cancel before the primary that closes the modal', () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const cancel = screen.getByTestId('propose-cancel')
+      const submit = screen.getByTestId('propose-submit')
+      expect(cancel.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      fireEvent.click(cancel)
+      expect(onCloseMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('puts the mode tabs in the header and collapses context behind one disclosure', () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      const header = document.querySelector('[data-dialog-header]')!
+      expect(header.querySelector('[role="tablist"]')).not.toBeNull()
+      const disclosure = screen.getByTestId('context-disclosure') as HTMLDetailsElement
+      expect(disclosure.open).toBe(false)
+      expect(disclosure.contains(screen.getByTestId('context-scope-slider'))).toBe(true)
+    })
+
+    it('labels the context disclosure with the selected slider stop', async () => {
+      render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
+      fireEvent.click(screen.getByTestId('scope-stop-max'))
+      await waitFor(() => expect(screen.getByTestId('context-disclosure-summary')).toHaveTextContent(/Context: Max/))
+    })
   })
 })

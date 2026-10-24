@@ -373,7 +373,8 @@ describe('LoopPreviewModal', () => {
         <LoopPreviewModal loop={loop} onClose={onClose} />
       </MemoryRouter>,
     )
-    fireEvent.keyDown(window, { key: 'Escape' })
+    // ui/dialog (Radix) listens for Escape on the document.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
 })
@@ -383,15 +384,22 @@ describe('LoopPreviewModal', () => {
 describe('AgentMessage per-bubble timestamp', () => {
   const ISO = '2026-07-05T09:08:07Z'
 
-  it('renders a subtle yyyy-MM-dd HH:mm:ss <time> with the ISO datetime + a full-datetime tooltip', () => {
+  it('renders a compact, readable <time> (MMM d, HH:mm for older days) with the ISO datetime + a full-datetime tooltip', () => {
     render(<AgentMessage role="assistant" content="hi" createdAt={ISO} />)
     const time = document.querySelector('time')
     expect(time).not.toBeNull()
     expect(Date.parse(time!.getAttribute('datetime')!)).toBe(Date.parse(ISO))
-    expect(time!.textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/) // date + HH:mm:ss
+    expect(time!.textContent).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}$/) // MMM d, HH:mm
     expect(time!.getAttribute('title')).toBeTruthy() // consultable full date+time
-    // Subtle by default (muted), not attention-grabbing.
-    expect(time!.className).toContain('text-foreground/25')
+    // Quiet but above the type/contrast floor (12px, 60%).
+    expect(time!.className).toContain('text-xs')
+    expect(time!.className).toContain('text-foreground/60')
+  })
+
+  it('shows only HH:mm for a message sent today', () => {
+    const now = new Date()
+    render(<AgentMessage role="assistant" content="hi" createdAt={now.toISOString()} />)
+    expect(document.querySelector('time')!.textContent).toMatch(/^\d{2}:\d{2}$/)
   })
 
   it('renders the timestamp on a user bubble too', () => {

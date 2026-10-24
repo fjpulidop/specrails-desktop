@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · interativo",
     "backAriaLabel": "Voltar (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · interativo",
-    "editingEyebrow": "A EDITAR SPEC · #{{id}}",
     "newSpecPlaceholder": "Nova spec…",
     "contextPill": "Contexto: {{scopes}}",
     "contextPillTitle": "Âmbito de contexto ativo nesta sessão de Explore",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "Critério de aceitação {{number}}",
     "removeCriterionAriaLabel": "Remover critério {{number}}",
     "addCriterion": "Adicionar critério",
-    "addCriterionAriaLabel": "Adicionar critério de aceitação"
+    "addCriterionAriaLabel": "Adicionar critério de aceitação",
+    "nonGoalsLabel": "Fora do escopo",
+    "nonGoalPlaceholder": "Algo que esta spec deixa de fora",
+    "nonGoalAriaLabel": "Item fora do escopo {{number}}",
+    "removeNonGoalAriaLabel": "Remover o item fora do escopo {{number}}",
+    "addNonGoalAriaLabel": "Adicionar um item fora do escopo",
+    "addNonGoal": "Adicionar item"
   },
   "priority": {
     "low": "baixa",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "Rever alterações",
-    "eyebrow": "Rever alterações · explore-spec",
     "heading": "Confirmar antes de submeter",
     "titleLabel": "Título",
     "priorityLabel": "Prioridade",

@@ -96,7 +96,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex h-5 items-center gap-1 rounded border px-1 text-[10px] transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40 ${
+        className={`inline-flex h-6 items-center gap-1 rounded border px-1.5 text-caption transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 ${
           value
             ? 'border-accent-info/50 text-accent-info hover:text-accent-info'
             : 'border-border/50 bg-transparent text-muted-foreground hover:text-foreground'
@@ -120,7 +120,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
         <div
           role="listbox"
           aria-label={t('targetPr.chipTitle')}
-          className="absolute left-0 top-6 z-50 w-72 rounded-lg border border-border bg-popover p-1.5 shadow-xl"
+          className="absolute left-0 top-7 z-50 w-72 rounded-lg border border-border bg-popover p-1.5 shadow-xl"
         >
           <button
             type="button"
@@ -135,7 +135,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
           <div className="my-1 border-t border-border/60" />
           {loading && (
             <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              <Loader2 className="h-3 w-3 motion-safe:animate-spin" aria-hidden />
               {t('targetPr.loading')}
             </div>
           )}
@@ -153,7 +153,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
               title={c.isCrossRepository ? t('targetPr.fork') : c.url}
               className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
                 c.isCrossRepository
-                  ? 'cursor-not-allowed text-muted-foreground/50'
+                  ? 'cursor-not-allowed text-muted-foreground'
                   : 'text-foreground hover:bg-muted/60'
               }`}
             >
@@ -162,7 +162,7 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
                 : <GitPullRequest className="mt-0.5 h-3 w-3 shrink-0 text-accent-info" aria-hidden />}
               <span className="min-w-0">
                 <span className="block truncate font-medium">#{c.number} · {c.title}</span>
-                <span className="block truncate text-[10px] text-muted-foreground">
+                <span className="block truncate text-caption text-muted-foreground">
                   {c.headRefName}
                   {c.isCrossRepository && ` — ${t('targetPr.fork')}`}
                 </span>
@@ -183,12 +183,12 @@ export function RailTargetPrSelector({ railIndex, value, onChange }: Props) {
               inputMode="numeric"
               placeholder={t('targetPr.manualPlaceholder')}
               aria-label={t('targetPr.manualPlaceholder')}
-              className="h-6 w-full rounded border border-border/60 bg-transparent px-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="h-6 w-full rounded border border-border/60 bg-transparent px-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
             <button
               type="submit"
               disabled={!manualNumber}
-              className="h-6 shrink-0 rounded border border-border/60 px-2 text-[10px] text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
+              className="h-6 shrink-0 rounded border border-border/60 px-2 text-caption text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
             >
               {t('targetPr.manualUse')}
             </button>

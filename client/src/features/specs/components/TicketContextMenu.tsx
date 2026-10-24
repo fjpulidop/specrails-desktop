@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Trash2, ChevronRight, Circle, CheckCircle2, AlertCircle, Flag, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
 import { useJiraDiscard } from '../../integrations/context/JiraDiscardContext'
 import { DiscardSpecDialog } from '../../integrations/components/jira/DiscardSpecDialog'
 import type { TicketStatus, TicketPriority, LocalTicket } from '../../../types'
@@ -15,14 +13,14 @@ const STATUS_ITEMS: { value: TicketStatus; labelKey: string; icon: React.ReactNo
   {
     value: 'todo',
     labelKey: 'ticketStatus.todo',
-    icon: <Circle className="w-3.5 h-3.5 text-slate-400 aurora-light:text-muted-foreground" />,
-    className: 'text-slate-400 aurora-light:text-muted-foreground',
+    icon: <Circle className="w-3.5 h-3.5 text-muted-foreground" />,
+    className: 'text-muted-foreground',
   },
   {
     value: 'done',
     labelKey: 'ticketStatus.done',
-    icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 aurora-light:text-accent-success" />,
-    className: 'text-emerald-400 aurora-light:text-accent-success',
+    icon: <CheckCircle2 className="w-3.5 h-3.5 text-accent-success" />,
+    className: 'text-accent-success',
   },
 ]
 
@@ -30,26 +28,26 @@ const PRIORITY_ITEMS: { value: TicketPriority; labelKey: string; icon: React.Rea
   {
     value: 'critical',
     labelKey: 'priority.critical',
-    icon: <AlertCircle className="w-3.5 h-3.5 text-red-400 aurora-light:text-destructive" />,
-    className: 'text-red-400 aurora-light:text-destructive',
+    icon: <AlertCircle className="w-3.5 h-3.5 text-destructive" />,
+    className: 'text-destructive',
   },
   {
     value: 'high',
     labelKey: 'priority.high',
-    icon: <ArrowUp className="w-3.5 h-3.5 text-orange-400 aurora-light:text-accent-warning" />,
-    className: 'text-orange-400 aurora-light:text-accent-warning',
+    icon: <ArrowUp className="w-3.5 h-3.5 text-accent-warning" />,
+    className: 'text-accent-warning',
   },
   {
     value: 'medium',
     labelKey: 'priority.medium',
-    icon: <ArrowRight className="w-3.5 h-3.5 text-yellow-400 aurora-light:text-accent-warning" />,
-    className: 'text-yellow-400 aurora-light:text-accent-warning',
+    icon: <ArrowRight className="w-3.5 h-3.5 text-accent-warning" />,
+    className: 'text-accent-warning',
   },
   {
     value: 'low',
     labelKey: 'priority.low',
-    icon: <ArrowDown className="w-3.5 h-3.5 text-slate-400 aurora-light:text-muted-foreground" />,
-    className: 'text-slate-400 aurora-light:text-muted-foreground',
+    icon: <ArrowDown className="w-3.5 h-3.5 text-muted-foreground" />,
+    className: 'text-muted-foreground',
   },
 ]
 
@@ -62,6 +60,8 @@ export interface TicketContextMenuProps {
   onPriorityChange: (ticketId: number, priority: TicketPriority) => void
   children: React.ReactNode
   className?: string
+  /** Extra actions at the top of the menu (e.g. "Start in Flow"); `close` dismisses the menu. */
+  extraItems?: (close: () => void) => React.ReactNode
 }
 
 interface MenuPosition {
@@ -84,6 +84,7 @@ interface ContextMenuPortalProps {
   /** When set, the first item is "Move to <label>" instead of Delete (Jira). */
   discardLabel?: string
   onDiscardRequest?: () => void
+  extraItems?: (close: () => void) => React.ReactNode
   onClose: () => void
 }
 
@@ -97,6 +98,7 @@ function ContextMenuPortal({
   onDeleteRequest,
   discardLabel,
   onDiscardRequest,
+  extraItems,
   onClose,
 }: ContextMenuPortalProps) {
   const { t } = useTranslation('tickets')
@@ -128,6 +130,8 @@ function ContextMenuPortal({
       style={{ left: adjustedPos.x, top: adjustedPos.y }}
       className="fixed z-[200] min-w-[180px] rounded-lg border border-border/50 bg-popover shadow-xl text-xs py-1"
     >
+      {extraItems && <>{extraItems(onClose)}<div className="my-1 h-px bg-border/40" role="separator" /></>}
+
       {/* Move to <status> (Jira-backed spec) — else Delete */}
       {discardLabel && onDiscardRequest ? (
         <button
@@ -145,7 +149,7 @@ function ContextMenuPortal({
           role="menuitem"
           type="button"
           onClick={() => { onDeleteRequest(); onClose() }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-400 aurora-light:text-destructive hover:bg-red-500/10 transition-colors"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5 shrink-0" />
           {t('contextMenu.deleteTicket')}
@@ -276,13 +280,12 @@ export function TicketContextMenu({
   onPriorityChange,
   children,
   className,
+  extraItems,
 }: TicketContextMenuProps) {
-  const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<MenuPosition>({ x: 0, y: 0 })
   const [activeSubmenu, setActiveSubmenu] = useState<ActiveSubmenu>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
 
   // Jira-synced project + Jira-backed spec + configured status → "Move to <status>"
@@ -319,11 +322,6 @@ export function TicketContextMenu({
     setMenuOpen(true)
   }
 
-  function handleDeleteConfirmed() {
-    onDelete(ticket.id)
-    setShowDeleteConfirm(false)
-  }
-
   return (
     <>
       <div
@@ -343,9 +341,10 @@ export function TicketContextMenu({
             onSetSubmenu={setActiveSubmenu}
             onStatusChange={(status) => onStatusChange(ticket.id, status)}
             onPriorityChange={(priority) => onPriorityChange(ticket.id, priority)}
-            onDeleteRequest={() => setShowDeleteConfirm(true)}
+            onDeleteRequest={() => onDelete(ticket.id)}
             discardLabel={canDiscard ? tj('discard.moveButton', { status: discardStatus }) : undefined}
             onDiscardRequest={canDiscard ? () => setShowDiscard(true) : undefined}
+            extraItems={extraItems}
             onClose={closeMenu}
           />,
           document.body
@@ -359,39 +358,6 @@ export function TicketContextMenu({
           discardStatus={discardStatus}
         />
       )}
-
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
-            <DialogDescription>
-              <Trans
-                t={t}
-                i18nKey="deleteDialog.body"
-                values={{ id: ticket.id, title: ticket.title }}
-                components={{ strong: <span className="font-semibold text-foreground" /> }}
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeleteConfirmed}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

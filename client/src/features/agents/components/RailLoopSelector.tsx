@@ -4,6 +4,7 @@ import { Workflow } from 'lucide-react'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
 import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
+import { HelpHint } from '../../../components/HelpHint'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
@@ -67,6 +68,7 @@ export function RailLoopSelector({
       onClick={(e) => e.stopPropagation()}
     >
       <Workflow className="w-3 h-3 text-muted-foreground mr-1" />
+      <HelpHint topic="railLoops" className="mr-0.5 size-5" />
       <select
         value={value ?? ''}
         disabled={disabled}
@@ -74,7 +76,7 @@ export function RailLoopSelector({
         data-testid="rail-loop-selector"
         data-recommended={recommendedId && value === recommendedId ? 'true' : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-5 text-[10px] rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
+        className={`h-6 text-caption rounded border bg-transparent hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-[160px] ${recommendedId && value === recommendedId ? 'border-accent-info/50 text-accent-info' : 'border-border/50 text-muted-foreground'}`}
       >
         <option value="" disabled>{t('railControls.pickLoop')}</option>
         <optgroup label={t('railControls.builtInLoops')}>

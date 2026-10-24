@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const browser = vi.hoisted(() => ({ available: vi.fn(), setViewport: vi.fn(), session: vi.fn() }))
 vi.mock('../../lib/native-browser', () => ({ isNativeBrowserAvailable: browser.available }))
-vi.mock('./NativeBrowserPane', () => ({
+vi.mock('./NativeBrowserPane', async (importOriginal) => ({
+  // The shared Radix capture shell is real; only the native pane is faked.
+  ...(await importOriginal<typeof import('./NativeBrowserPane')>()),
   NativeBrowserModal: ({ url, onFallback }: { url: string; onFallback: () => void }) => (
     <div data-testid="native-test"><span>{url}</span><button onClick={onFallback}>Fallback</button></div>
   ),
@@ -92,5 +96,45 @@ describe('WebViewModal engine and surface sizing', () => {
     expect(screen.getByTestId('webview-modal')).toBeInTheDocument()
     expect(screen.queryByTestId('native-test')).not.toBeInTheDocument()
     expect(browser.available).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('WebViewModal dialog standard (capture layer)', () => {
+  function Harness() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>Open link</button>
+        <WebViewModal open={open} url="https://example.test" projectId="p1" onClose={() => setOpen(false)} />
+      </>
+    )
+  }
+
+  it('traps focus, keeps Tab on the page viewport, closes on Escape and returns focus to the trigger', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'Open link' })
+    await user.click(trigger)
+    const dialog = await screen.findByRole('dialog', { name: 'Browser capture' })
+    expect(dialog).toHaveClass('z-[80]')
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    for (let i = 0; i < 12; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+
+    const session = browser.session()
+    const viewport = dialog.querySelector('canvas')!.parentElement!
+    viewport.focus()
+    await user.keyboard('{Tab}')
+    expect(session.forwardInput).toHaveBeenCalledWith(expect.objectContaining({ type: 'key', key: 'Tab' }))
+    expect(document.activeElement).toBe(viewport)
+    await user.keyboard('{ArrowLeft}')
+    expect(session.forwardInput).toHaveBeenCalledWith(expect.objectContaining({ key: 'ArrowLeft' }))
+    expect(document.activeElement).toBe(viewport)
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Browser capture' })).toBeNull())
+    await waitFor(() => expect(trigger).toHaveFocus())
   })
 })

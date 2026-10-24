@@ -76,7 +76,7 @@
       "subscriptionUsage": "Uso de assinaturas"
     },
     "title": "Definições do Desktop",
-    "description": "Faça a gestão dos projetos registados e consulte informações do Desktop.",
+    "description": "Aparência, fornecedores de IA, atualizações e preferências gerais do Desktop.",
     "registeredProjects": "Projetos registados",
     "noProjects": "Ainda não há projetos registados",
     "techUrlDescription": "URL base para a API specrails-tech (predefinição: http://localhost:3000)",
@@ -97,11 +97,19 @@
     "platformTour": "Tour da plataforma",
     "platformTourDescription": "Repita o assistente de boas-vindas para rever as funcionalidades principais.",
     "replayTour": "Repetir tour",
-    "terminalPanelHeading": "Painel de terminal",
     "infoHeading": "Informações do Desktop",
     "infoPort": "Porta",
     "infoProjects": "Projetos",
-    "infoDb": "BD do Desktop"
+    "infoDb": "BD do Desktop",
+    "removeProjectConfirmTitle": "Remover {{name}}?",
+    "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde.",
+    "navLabel": "Secções das definições",
+    "navGroups": {
+      "personal": "Pessoal",
+      "agents": "Agentes",
+      "system": "Sistema"
+    },
+    "unsavedChanges": "Alterações não guardadas"
   },
   "notifications": {
     "heading": "Notificações do SO",
@@ -120,8 +128,6 @@
     "eventJobCompleted": "Job concluído",
     "eventJobFailed": "Job falhado",
     "eventDailyBudgetExceeded": "Orçamento diário excedido",
-    "statusOn": "ligado",
-    "statusOff": "desligado",
     "disable": "Desativar",
     "enable": "Ativar",
     "sendTestPing": "Enviar ping de teste",
@@ -136,7 +142,10 @@
     "removed": "Webhook removido",
     "removeFailed": "Falha ao remover o webhook",
     "testPingSent": "Ping de teste enviado",
-    "testPingFailed": "Falha ao enviar o ping de teste"
+    "testPingFailed": "Falha ao enviar o ping de teste",
+    "removeConfirmTitle": "Remover o webhook?",
+    "removeConfirmBody": "{{url}} deixará de receber eventos do Desktop.",
+    "urlLabel": "URL do webhook"
   },
   "terminal": {
     "title": "Painel de terminal",
@@ -170,7 +179,7 @@
     "taglines": {
       "dracula": "O original — escuro com tom púrpura e acentos néon vivos",
       "aurora-light": "Claro premium — índigo inspirado no Linear sobre branco quente",
-      "obsidian-dark": "Escuro premium — quase preto com tom azulado e acentos elétricos",
+      "obsidian-dark": "Grafite pro — quase preto neutro com um único acento violeta suave",
       "specrails": "Tema da marca — azul-marinho-índigo profundo com acentos ciano saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre quase preto esverdeado",
       "galaxy": "Azul de espaço profundo com um rastro brilhante de lâmina"
@@ -198,7 +207,8 @@
     "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor SpecRails na primeira ativação — escolha “Permitir em redes privadas”.",
     "pairedDevices": "Dispositivos emparelhados",
     "noDevices": "Ainda não há dispositivos emparelhados.",
-    "revokeDevice": "Revogar {{name}}"
+    "revokeDevice": "Revogar {{name}}",
+    "resetConfirmTitle": "Repor a identidade móvel?"
   },
   "pairWeb": {
     "title": "Emparelhar companion web",
@@ -231,10 +241,7 @@
     "affectsAll": "Aplica-se a todos os projetos — sem reiniciar.",
     "unavailable": "As atualizações do core não estão disponíveis nesta versão.",
     "toastDone": "Specrails Core atualizado para {{version}}",
-    "toastError": "Falha na atualização do core: {{message}}",
     "toastUpToDate": "O Specrails Core está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
-    "loadFailed": "Não foi possível atualizar o estado do Core. Tentar novamente",
     "runtime": "Motor: {{version}}",
     "bundled": "Incluído no Desktop: {{version}}",
     "sources": {
@@ -245,7 +252,10 @@
       "global": "CLI externa"
     },
     "repair": "Concluir atualização {{version}}",
-    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto."
+    "stableFallback": "O specrails-core ainda não tem versão estável, então o Core segue Mais recente por enquanto.",
+    "updateFailed": "Falha ao atualizar o Core",
+    "checkFailed": "Falha ao procurar atualizações",
+    "loadError": "Não foi possível atualizar o estado do Core."
   },
   "updateChannel": {
     "heading": "Canal de atualização",
@@ -277,7 +287,7 @@
   },
   "projectDialog": {
     "title": "{{name}} — Configurações",
-    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria e terminal.",
+    "description": "Configuração do projeto: prompts, branch, ambiente, orçamento, telemetria, regras e terminal.",
     "nav": {
       "general": "Geral",
       "branch": "Branch",
@@ -286,8 +296,11 @@
       "telemetry": "Telemetria",
       "terminal": "Terminal",
       "agentRuntime": "Comandos de verificação",
-      "subagents": "Subagentes"
-    }
+      "subagents": "Subagentes",
+      "rules": "Regras",
+      "recentlyDeleted": "Excluídos recentemente"
+    },
+    "navLabel": "Secções das definições do projeto"
   },
   "integrationBranch": {
     "title": "Ramo de integração",
@@ -394,22 +407,22 @@
       "explainScope": "Cada projeto tem sua própria configuração nas configurações do projeto. Missões com subagentes em execução aplicam a mudança quando eles terminam."
     },
     "runtime": {
-      "label": "Executar sub-agentes com",
+      "label": "Executar subagentes com",
       "same": "Igual ao agente da missão",
-      "sameHint": "Os sub-agentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
-      "chosenHint": "Missões em {{provider}} iniciam os próprios sub-agentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
-      "providerLabel": "Provedor dos sub-agentes",
-      "modelLabel": "Modelo dos sub-agentes",
-      "effortLabel": "Esforço dos sub-agentes",
-      "claudeEffortHint": "Os sub-agentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
-      "saved": "Os sub-agentes agora rodam com {{provider}}",
-      "reset": "Os sub-agentes voltam a seguir o agente da missão",
+      "sameHint": "Os subagentes usam o provedor, o modelo e o esforço do agente da missão, iniciados nativamente pelo próprio CLI.",
+      "chosenHint": "Missões em {{provider}} iniciam os próprios subagentes com este modelo. Com qualquer outro provedor, o Specrails os inicia em {{provider}}.",
+      "providerLabel": "Provedor dos subagentes",
+      "modelLabel": "Modelo dos subagentes",
+      "effortLabel": "Esforço dos subagentes",
+      "claudeEffortHint": "Os subagentes próprios do Claude ignoram o esforço; ele se aplica quando o Specrails os inicia.",
+      "saved": "Os subagentes agora rodam com {{provider}}",
+      "reset": "Os subagentes voltam a seguir o agente da missão",
       "confirm": {
-        "title": "Executar os sub-agentes com {{provider}}?",
-        "body": "Em missões com outro provedor, os sub-agentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
-        "cost": "Mais lento e possivelmente mais caro: cada sub-agente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
-        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada sub-agente e deixe-os trabalhando após a resposta da missão.",
-        "native": "Missões que já usam {{provider}} mantêm sub-agentes nativos, agora com este modelo e esforço.",
+        "title": "Executar os subagentes com {{provider}}?",
+        "body": "Em missões com outro provedor, os subagentes deixam de ser nativos: o Specrails inicia cada um como uma sessão própria do {{provider}} em vez do CLI da missão.",
+        "cost": "Mais lento e possivelmente mais caro: cada subagente começa a frio, sem o cache de prompt que compartilharia com o agente da missão.",
+        "control": "Mais controle e flexibilidade: combine provedores, escolha modelo e esforço, veja o custo real de cada subagente e deixe-os trabalhando após a resposta da missão.",
+        "native": "Missões que já usam {{provider}} mantêm subagentes nativos, agora com este modelo e esforço.",
         "cancel": "Manter igual à missão",
         "accept": "Usar {{provider}}"
       }
@@ -439,5 +452,65 @@
     "saved_other": "Limite de revisão definido em {{count}}",
     "removed": "Limite de revisão removido",
     "saveFailed": "Não foi possível salvar o limite de revisão"
+  },
+  "anchoring": {
+    "title": "Ancoragem em projetos existentes",
+    "description": "Comportamentos opcionais que ajudam as execuções a respeitar o que o projeto já faz. Cada um precisa de um Core que o suporte.",
+    "coreRequired": "O Core instalado ainda não suporta isto. Atualize o Core para ativar.",
+    "saveFailed": "Não foi possível salvar a configuração",
+    "jiraPostClarifications": {
+      "label": "Publicar esclarecimentos do arquiteto no Jira",
+      "description": "Quando uma execução pausa com perguntas do arquiteto, ou segue com suposições, elas são publicadas como comentário na issue do Jira vinculada. Uma resposta lá é registrada na spec como esclarecimento.",
+      "enabled": "Os esclarecimentos serão publicados no Jira",
+      "disabled": "Os esclarecimentos ficarão no Specrails"
+    },
+    "baselineOnTouch": {
+      "label": "Baseline ao tocar",
+      "description": "Quando uma mudança alcança código que nenhuma spec descreve, primeiro são escritos testes de caracterização (comprovados no código inalterado) e uma spec as-built mínima. Adiciona custo, mostrado à parte.",
+      "enabled": "Baseline ao tocar ativado",
+      "disabled": "Baseline ao tocar desativado"
+    }
+  },
+  "rules": {
+    "title": "Regras do projeto",
+    "description": "As verificações que o projeto já executa e cada regra escrita, classificada como aplicada, automatizável ou somente humana. As regras somente humanas aparecem em cada pacote de revisão.",
+    "rerun": "Refazer inventário",
+    "running": "Inventariando…",
+    "coreRequired": "O Core instalado não suporta o inventário de regras. Atualize o Core para executá-lo.",
+    "missing": "Ainda não há inventário. Execute-o para listar os gates e as regras do projeto.",
+    "invalid": "Não foi possível ler o arquivo de regras: {{message}}",
+    "inventoryDone": "Inventário de regras atualizado",
+    "inventoryFailed": "O inventário de regras falhou",
+    "specCreated": "Spec #{{id}} criada",
+    "specFailed": "Não foi possível criar a spec",
+    "status": {
+      "automatable": "Automatizável",
+      "humanOnly": "Somente humana",
+      "enforcedBy": "Aplicada",
+      "unclassified": "Não classificada"
+    },
+    "generatedAt": "Gerado {{date}}",
+    "gates_one": "{{count}} gate",
+    "gates_other": "{{count}} gates",
+    "gatesHint": "Comandos de gate simples são oferecidos primeiro como verificações nas configurações do agent runtime quando nenhuma está configurada.",
+    "enforcedBy": "Aplicada por {{check}}",
+    "proposedCheck": "Verificação proposta: {{check}}",
+    "createSpec": "Criar spec",
+    "dropped_one": "{{count}} entrada não seguia o formato e foi ignorada",
+    "dropped_other": "{{count}} entradas não seguiam o formato e foram ignoradas",
+    "classification": {
+      "offline": "As regras foram inventariadas offline e ainda não estão classificadas. Refaça o inventário com um provedor configurado.",
+      "unavailable": "Nenhum provedor está configurado para classificar as regras.",
+      "failed": "A classificação das regras falhou.",
+      "empty": "Nenhuma regra escrita foi encontrada.",
+      "unknown": "As regras não estão classificadas."
+    },
+    "autoRunning": "O inventário está em execução após a configuração. Esta lista é atualizada quando terminar.",
+    "lastRun": {
+      "setupFailed": "O inventário automático após a configuração falhou ({{date}}).",
+      "manualFailed": "A última execução do inventário falhou ({{date}}).",
+      "retryHint": "Corrija a causa mostrada acima e execute o inventário novamente.",
+      "setupDone": "Inventariado automaticamente após a configuração."
+    }
   }
 }

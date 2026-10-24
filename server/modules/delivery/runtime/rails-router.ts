@@ -47,9 +47,10 @@ import { composeReviewPacket } from './review-packet'
 import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
-import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
+import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS, runBringBackLocalChanges, runDiscardRestoreBranch, runRestoreLocalChanges } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
+import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { FlowHandOffNotReadyError, FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 
 /** The Flow -> Spec loop only runs from a Flow hand-off (arch section 4.8). */
@@ -1176,8 +1177,13 @@ export function createRailsRouter(): Router {
         if (requiresRepositoryIsolation && !useIsolation) {
           res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
         }
-        if (flowWorktree && (!useIsolation || requiresRepositoryIsolation)) {
-          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree of the primary repository.' }); return
+        // A Flow runs in exactly its own repository: the primary (no group), or
+        // the one non-primary member its worktree belongs to.
+        const flowRepositoryScope = !flowWorktree ? true : flowWorktree.repositoryId
+          ? repositoryIds.length === 1 && repositoryIds[0] === flowWorktree.repositoryId
+          : !requiresRepositoryIsolation
+        if (flowWorktree && (!useIsolation || !flowRepositoryScope)) {
+          res.status(409).json({ error: 'flow_requires_isolation', detail: 'A Flow hand-off runs only on its own worktree, in the repository it belongs to.' }); return
         }
         if (relaunchSource?.delivery && !useIsolation) {
           res.status(409).json({ error: 'relaunch_isolation_required', detail: 'The original attempt was isolated; its retry must also use an isolated worktree.',
@@ -1287,6 +1293,9 @@ export function createRailsRouter(): Router {
               // Explicit-target validation failures are the USER's answer being
               // unusable — fail closed with the machine-readable code; never
               // fall back to a fresh shared-cwd run next to the designated PR.
+              if (err instanceof RepositoryHasNoCommitsError) {
+                res.status(409).json({ error: err.code, detail: err.message }); return
+              }
               if (err instanceof FlowWorktreeMismatchError) {
                 res.status(409).json({ error: err.code, detail: err.message }); return
               }
@@ -1730,6 +1739,50 @@ export function createRailsRouter(): Router {
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
     }
   })
+
+  // POST /rails/pr-local-changes/{restore,bring-back,discard-branch} — the
+  // person's uncommitted work "Integrate locally" saved as a stash (by commit
+  // sha). "restore" re-applies it (a clean apply drops it; a conflict keeps it
+  // and Specrails restores it on its own branch + worktree). "bring-back"
+  // fast-forwards the target to the reviewed restore commit and only then
+  // drops the stash; "discard-branch" removes the restore branch, keeping the
+  // stash. Each takes the repository lock and refuses while a decision lease
+  // is held (proactive-local-integration).
+  const localChangesActions = {
+    restore: runRestoreLocalChanges,
+    'bring-back': runBringBackLocalChanges,
+    'discard-branch': runDiscardRestoreBranch,
+  } as const
+  for (const [action, run] of Object.entries(localChangesActions)) {
+    router.post(`/pr-local-changes/${action}`, async (req: Request, res: Response) => {
+      const c = ctx(req)
+      const { prDeliveryId } = req.body ?? {}
+      if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
+        res.status(400).json({ error: 'prDeliveryId is required' }); return
+      }
+      try {
+        const admission = captureProcessAdmission(c.project.id)
+        const result = await run({
+          db: c.db,
+          project: { id: c.project.id, slug: c.project.slug, path: c.project.path },
+          git: defaultGitRunner,
+          exec: defaultExec,
+          broadcast: c.broadcast,
+          jiraSyncManager: c.jiraSyncManager,
+          assertAdmission: () => admission.assertCurrent(),
+        }, prDeliveryId)
+        const current = getPrDelivery(c.db, prDeliveryId)
+        const shown = current?.parent_delivery_id ? getPrDelivery(c.db, current.parent_delivery_id) : current
+        res.status(result.status).json({ ...result.body, ...(shown ? { snapshot: toPrDeliverySnapshot(shown) } : {}) })
+      } catch (err) {
+        if (err instanceof ProcessAdmissionClosedError) {
+          res.status(409).json({ error: 'project_recovery_in_progress' }); return
+        }
+        console.error(`[rails-router] local changes ${action} error:`, err)
+        res.status(500).json({ error: `${action} failed`, detail: (err as Error).message })
+      }
+    })
+  }
 
   // POST /rails/pr-checkout — move the user's main checkout to the delivered PR
   // branch. This is intentionally separate from PR decisions: it does not accept,

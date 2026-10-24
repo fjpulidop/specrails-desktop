@@ -25,11 +25,14 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { humaniseCommand, humaniseJobCrumb, ticketTitlesOf } from '../lib/humanise-command'
 import { formatCommandForProvider } from '../../../lib/format-command'
+import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
+  const { t: tRecovery } = useTranslation('recovery')
   const { id } = useParams<{ id: string }>()
   const { activeProjectId, projects } = useDesktop()
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
@@ -329,6 +332,14 @@ export default function JobDetailPage() {
     }
   }
 
+  /** "Open logs at the failure": the log view first (the narrated view has no steps to land on), then the failed step. */
+  function handleOpenLogs() {
+    if (narrationMode === 'narrated') setNarrationMode('log')
+    window.requestAnimationFrame(() => {
+      if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound'))
+    })
+  }
+
   async function handleRerun() {
     if (!job || rerunInFlightRef.current) return
     rerunInFlightRef.current = true
@@ -360,7 +371,7 @@ export default function JobDetailPage() {
       toast.success(t('detail.toast.jobRequeued'))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(t('detail.actionFailed'), { description: err instanceof Error ? err.message : undefined })
     } finally {
       rerunInFlightRef.current = false
       setIsRerunning(false)
@@ -370,10 +381,10 @@ export default function JobDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="space-y-3">
-          <div className="h-4 w-48 bg-muted/30 rounded animate-pulse" />
-          <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
-          <div className="h-64 bg-muted/30 rounded-lg animate-pulse" />
+        <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3">
+          <div className="h-4 w-48 bg-muted/30 rounded motion-safe:animate-pulse" />
+          <div className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
+          <div className="h-64 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
         </div>
       </div>
     )
@@ -402,6 +413,10 @@ export default function JobDetailPage() {
   const isInteractive = !!job.interactive
   const isInteractiveRunning = isInteractive && isRunning
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
+  // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
+  const rawCommand = formatCommandForProvider(job.command, activeProvider)
+  const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets), { omitTitle: hasTicketHeader })
+  const crumbLabel = humaniseJobCrumb(job.command)
   // Loop runs get the step-grouped explorer; every other job keeps the legacy
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
@@ -413,14 +428,20 @@ export default function JobDetailPage() {
       {/* Header */}
       <div className="px-4 pt-3 pb-2 space-y-2">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-foreground transition-colors flex items-center gap-1">
-            <Home className="w-3 h-3" />
-            {t('detail.breadcrumbDashboard')}
+        <nav aria-label={t('detail.breadcrumbAria')} className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
+            <Home className="w-3 h-3" aria-hidden />
+            {t('detail.breadcrumbJobs')}
           </Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-mono">{t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}</span>
-        </div>
+          <ChevronRight className="w-3 h-3" aria-hidden />
+          <span
+            aria-current="page"
+            className={cn('text-foreground', !crumbLabel && 'font-mono')}
+            title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+          >
+            {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+          </span>
+        </nav>
 
         {/* Ticket identity card — premium header when the job references tickets */}
         {hasTicketHeader && (
@@ -432,20 +453,32 @@ export default function JobDetailPage() {
 
         {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
-          <code
-            className={cn(
-              'font-mono text-foreground/90 truncate',
-              hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
+          <h1 className="contents">
+            {friendlyCommand ? (
+              <span
+                title={rawCommand}
+                data-testid="job-detail-command"
+                className={cn('truncate font-medium', hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm text-foreground')}
+              >
+                {friendlyCommand}
+              </span>
+            ) : (
+              <code
+                className={cn(
+                  'font-mono text-foreground truncate',
+                  hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
+                )}
+              >
+                {rawCommand}
+              </code>
             )}
-          >
-            {formatCommandForProvider(job.command, activeProvider)}
-          </code>
+          </h1>
           <span>
             {job.started_at
               ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
               : t('detail.queuedWaiting')}
           </span>
-          {job.model && <span className="text-muted-foreground/40">{job.model}</span>}
+          {job.model && <span className="text-muted-foreground">{job.model}</span>}
         </div>
       </div>
 
@@ -461,7 +494,11 @@ export default function JobDetailPage() {
         projectId={activeProjectId}
         variant="page"
         pipelineTotals={pipelineTotals}
-        actions={(
+        onRerun={isFinished ? handleRerun : undefined}
+        rerunBusy={isRerunning}
+        onEditSpec={job.tickets?.length ? () => openTicketDetail(job.tickets![0].id) : undefined}
+        onOpenLogs={handleOpenLogs}
+        actions={({ diagnosisOffersRetry }) => (
           <>
             {job.hasTelemetry && (
               <Tooltip>
@@ -482,7 +519,7 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-            {isFinished && (
+            {isFinished && !diagnosisOffersRetry && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -542,7 +579,7 @@ export default function JobDetailPage() {
                   onClick={() => setNarrationMode(mode)}
                   aria-pressed={narrationMode === mode}
                   data-testid={`job-narration-mode-${mode}`}
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
                     narrationMode === mode
                       ? 'bg-accent-primary/15 text-accent-primary'
                       : 'text-muted-foreground hover:bg-surface'

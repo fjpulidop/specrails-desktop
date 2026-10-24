@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '../../test-utils'
+import { render, screen, fireEvent, waitFor, act } from '../../test-utils'
 import { toast } from 'sonner'
 import DashboardPage from '../../features/dashboard/pages/DashboardPage'
 import type { LocalTicket } from '../../types'
@@ -126,6 +126,10 @@ describe('DashboardPage — Launch all control', () => {
     render(<DashboardPage />)
     const btn = screen.getByText('Launch all').closest('button')!
     expect(btn).toBeDisabled()
+    // Disabled reads as neutral (not faded green) and explains itself.
+    expect(btn).toBe(screen.getByTestId('rails-launch-all'))
+    expect(btn.className).not.toMatch(/bg-accent-success/)
+    expect(screen.getByText('No rail is ready. Drag specs onto a rail to launch it.')).toBeInTheDocument()
   })
 
   it('shows the eligible count and opens the confirm dialog', async () => {
@@ -309,6 +313,42 @@ describe('DashboardPage — Launch all control', () => {
     expect(persisted[0].status).toBe('idle')
   })
 
+  it('summary toast explains a repository without commits instead of counting a raw failure', async () => {
+    mockTickets = [ticket(1)]
+    seedRails([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'implement', status: 'idle' },
+    ])
+    global.fetch = mockFetch({
+      onRequest: (u, init) => {
+        if (/\/api\/rails\/0\/launch$/.test(u) && init?.method === 'POST') {
+          return {
+            ok: false, status: 409,
+            json: () => Promise.resolve({ error: 'repository_has_no_commits', detail: 'fatal: invalid reference: HEAD' }),
+          } as unknown as Response
+        }
+      },
+    })
+    render(<DashboardPage />)
+    fireEvent.click(screen.getByText('Launch all').closest('button')!)
+    fireEvent.click(await screen.findByText('Launch 1 rail'))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    const [, opts] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((opts as { description: string }).description).toContain('This repository has no commits yet.')
+    expect((opts as { description: string }).description).not.toContain('failed')
+    expect((opts as { description: string }).description).not.toContain('invalid reference')
+
+    // The summary offers Create initial commit; it posts once and confirms.
+    const action = (opts as { action: { label: string; onClick: () => void } }).action
+    expect(action.label).toBe('Create initial commit')
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockImplementationOnce(async () => ({ ok: true, status: 201, json: async () => ({ sha: 'c'.repeat(40) }) }) as unknown as Response)
+    act(() => action.onClick())
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Initial commit created. Launch the rail again.'))
+    expect(String(fetchMock.mock.calls.at(-1)![0])).toMatch(/\/api\/projects\/proj-1\/git\/initial-commit$/)
+  })
+
   it('cancel closes the dialog without launching', async () => {
     mockTickets = [ticket(1)]
     seedRails([
@@ -341,7 +381,7 @@ describe('DashboardPage — server-backed add rail (dynamic rails)', () => {
       },
     })
     render(<DashboardPage />)
-    fireEvent.click(screen.getByText('Add').closest('button')!)
+    fireEvent.click(screen.getByTestId('rails-add'))
     await waitFor(() => {
       const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
       expect(rails).toHaveLength(4)
@@ -362,7 +402,7 @@ describe('DashboardPage — server-backed add rail (dynamic rails)', () => {
       },
     })
     render(<DashboardPage />)
-    fireEvent.click(screen.getByText('Add').closest('button')!)
+    fireEvent.click(screen.getByTestId('rails-add'))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Rail limit reached (12 max)'))
     const raw = localStorage.getItem('specrails-desktop:rails:proj-1')
     if (raw) expect(JSON.parse(raw)).toHaveLength(3)

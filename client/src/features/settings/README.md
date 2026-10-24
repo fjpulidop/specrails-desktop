@@ -3,6 +3,7 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+<!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -16,8 +17,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/RuntimeEfficiencyControls.tsx](components/RuntimeEfficiencyControls.tsx)
 - [components/RuntimeExecutionEvidence.tsx](components/RuntimeExecutionEvidence.tsx)
 - [components/RuntimeGuardrails.tsx](components/RuntimeGuardrails.tsx)
-- [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx): exact-attempt recovery selection shared by saved executions and job details.
-- [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx): shared durable steering inbox for saved runs and job details.
+- [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx)
+- [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx)
 - [components/pickers/LanguagePickerGrid.tsx](components/pickers/LanguagePickerGrid.tsx)
 - [components/pickers/ThemePickerGrid.tsx](components/pickers/ThemePickerGrid.tsx)
 - [components/theme-effects/Starfield.tsx](components/theme-effects/Starfield.tsx)
@@ -26,6 +27,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [context/ThemeContext.tsx](context/ThemeContext.tsx)
 - [lib/agent-runtime.ts](lib/agent-runtime.ts)
 - [lib/effects-prefs.ts](lib/effects-prefs.ts)
+- [lib/project-settings-section-ids.ts](lib/project-settings-section-ids.ts)
 - [lib/terminal-settings-events.ts](lib/terminal-settings-events.ts)
 - [lib/terminal-settings-types.ts](lib/terminal-settings-types.ts)
 - [lib/theme-palette.ts](lib/theme-palette.ts)
@@ -39,27 +41,17 @@ load every UI component. Changes to this surface require updating the boundary m
 - [integrations](../integrations/README.md)
 - [jobs](../jobs/README.md)
 - [loops](../loops/README.md)
+- [missions](../missions/README.md)
 - [projects](../projects/README.md)
 - [providers](../providers/README.md)
+- [specs](../specs/README.md)
 - [subscription-usage](../subscription-usage/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
+<!-- audit-client-features:end -->
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/settings`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
-
-## Repository verification
-
-Project runtime settings edit repository verification commands and, below them,
-the idempotent setup commands Core runs before every verification (same row
-editor, `CommandListEditor` in `AgentRuntimeSettingsSection.tsx`, without
-auto-detection). Agent definitions,
-engine selection and workflow policy belong to the loop builder. Saving checks
-preserves historical configuration for legacy graphs; frozen executions retain
-their admission snapshot. The focused runtime forms exported above are also used
-by the loop editor.
-
-Subscription usage is available in the global settings modal and shares the machine-scoped store with the footer menu.

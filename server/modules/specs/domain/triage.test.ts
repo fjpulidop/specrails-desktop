@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TRIAGE_PROMPT_VERSION, buildTriageUserPrompt, canonicalJson, extractJsonObject, fallbackLoop, isTicketTriage,
+  TRIAGE_PROMPT_VERSION, buildTriageSystemPrompt, buildTriageUserPrompt, canonicalJson, extractJsonObject, fallbackLoop, isTicketTriage,
   parseTriageOutput, rankFiles, recommendedLoopForTickets, sanitizeFilePath, similarTicketIds, triageAccuracy,
   triageContentSignature, triageTicketText, type TriageInputs, type TriageLoopOption,
 } from './triage'
@@ -38,11 +38,21 @@ describe('canonical inputs', () => {
   it('renders the evidence as data with the prompt version outside the prompt', () => {
     const inputs: TriageInputs = {
       promptVersion: TRIAGE_PROMPT_VERSION, ticket: triageTicketText({ title: 'x' }), repoMap: null,
-      similarFiles: ['a.ts'], loops: LOOPS, flowAvailable: false, engine: 'claude:haiku',
+      similarFiles: ['a.ts'], loops: LOOPS, engine: 'claude:haiku',
     }
     const prompt = buildTriageUserPrompt(inputs)
     expect(prompt).toContain('"filesTouchedBySimilarSpecs":["a.ts"]')
     expect(prompt).not.toContain('claude:haiku')
+  })
+
+  it('never asks the model to rank Flow against Implement', () => {
+    const inputs: TriageInputs = {
+      promptVersion: TRIAGE_PROMPT_VERSION, ticket: triageTicketText({ title: 'x' }), repoMap: null,
+      similarFiles: [], loops: LOOPS, engine: 'claude:haiku',
+    }
+    expect(TRIAGE_PROMPT_VERSION).toBeGreaterThanOrEqual(2)
+    expect(buildTriageSystemPrompt()).not.toMatch(/recommendedMode|flow/i)
+    expect(buildTriageUserPrompt(inputs)).not.toMatch(/flow/i)
   })
 })
 
@@ -64,7 +74,7 @@ describe('similar tickets', () => {
 })
 
 describe('parseTriageOutput', () => {
-  const opts = { loops: LOOPS, flowAvailable: false }
+  const opts = { loops: LOOPS }
 
   it('parses a clean answer', () => {
     const parsed = parseTriageOutput(JSON.stringify({
@@ -82,14 +92,16 @@ describe('parseTriageOutput', () => {
     expect(parsed.repaired).toBe(true)
     expect(parsed.value).toMatchObject({
       size: 'XS', filesLikely: ['ok.ts'], dataModel: true, publicInterfaces: false,
-      recommendedLoop: 'factory:sdd-quick-openspec', recommendedMode: 'implement', confidence: 'low',
+      recommendedLoop: 'factory:sdd-quick-openspec', confidence: 'low',
       rationale: 'a {brace} "quoted"',
     })
   })
 
-  it('keeps flow only when Flow is available', () => {
+  it('ignores a stray mode: Flow and Implement never compete', () => {
     const answer = JSON.stringify({ size: 'M', recommendedLoop: 'factory:implement', recommendedMode: 'flow', confidence: 'medium' })
-    expect(parseTriageOutput(answer, { loops: LOOPS, flowAvailable: true })).toMatchObject({ ok: true, value: { recommendedMode: 'flow' } })
+    const parsed = parseTriageOutput(answer, opts)
+    expect(parsed).toMatchObject({ ok: true, repaired: false, value: { recommendedLoop: 'factory:implement' } })
+    if (parsed.ok) expect(parsed.value).not.toHaveProperty('recommendedMode')
   })
 
   it('fails without a JSON object or with an invalid size', () => {

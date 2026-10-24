@@ -1,0 +1,22 @@
+// Public API of failure recovery: the diagnosis vocabulary and rules (pure).
+export {
+  FAILURE_KINDS,
+  REMEDY_IDS,
+  deriveFailureDiagnosis,
+  isDiagnosableOutcome,
+  oneSentence,
+  parseBlocker,
+  parseCoreFailure,
+  parseStoredDiagnosis,
+  presentFailureDiagnosis,
+  rankRemedies,
+  serializeDiagnosis,
+  type DeriveInput,
+  type FailureBlocker,
+  type FailureConfidence,
+  type FailureDiagnosis,
+  type FailureKind,
+  type FailureSource,
+  type PresentedFailureDiagnosis,
+  type RemedyId,
+} from './domain'

@@ -1,4 +1,4 @@
-# Code-Explorer
+# Code-Explorer {#code-explorer}
 
 Der Bereich **Code** bietet dir ein freundliches, schreibgeschütztes Fenster in dein Repository – besonders gedacht für alle, die verstehen möchten, was die KI gebaut hat, ohne ständig in einem Editor zu leben. Links siehst du einen Dateibaum, rechts einen Code-Viewer und über dem Code eine verständliche Zusammenfassung dessen, was jede Datei tatsächlich tut.
 

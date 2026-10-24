@@ -7,6 +7,11 @@ vi.mock('react-markdown', () => ({
   default: ({ children }: { children: string }) => <span>{children}</span>,
 }))
 vi.mock('remark-gfm', () => ({ default: () => {} }))
+const { mockDecisions } = vi.hoisted(() => ({ mockDecisions: new Map<string, { ticketIds: number[]; prDeliveryId: string }>() }))
+vi.mock('../../../delivery/context/RailPrDecisionContext', async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  useRailPrDecisions: () => ({ decisions: mockDecisions }),
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('../../../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
@@ -28,6 +33,9 @@ vi.mock('../../../../hooks/useDesktop', () => ({
     completeSetupWizard: vi.fn(),
   }),
 }))
+vi.mock('../specs-smash/SmashActions', () => ({
+  SmashActions: () => <div data-testid="smash-actions-stub" />,
+}))
 const mockOpenExternalUrl = vi.fn()
 vi.mock('../../../../lib/tauri-shell', () => ({ openExternalUrl: (u: string) => mockOpenExternalUrl(u) }))
 
@@ -35,6 +43,12 @@ import { TicketDetailModal } from '../TicketDetailModal'
 import type { LocalTicket } from '../../../../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Radix Select: open the priority trigger from the keyboard, then pick an option. */
+function pickPriority(name: RegExp) {
+  fireEvent.keyDown(screen.getByTestId('ticket-priority-select'), { key: 'ArrowDown' })
+  fireEvent.click(screen.getByRole('option', { name }))
+}
 
 function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {
   return {
@@ -72,16 +86,17 @@ describe('TicketDetailModal', () => {
   })
 
   describe('board-mode stacking (agent-chat refs)', () => {
-    it('stacks the overlay at z-[68], above the floating agent panel (z-[60]) AND the JobDetailModal (z-[65])', () => {
+    it('sits on the entity layer (z-[65]), above the floating agent panel (z-[60])', () => {
       // Regression: agent-chat ticket-ref chips open this app-root modal while
       // the floating AgentChatPanel (z-[60]) is on screen — at the old z-50 it
-      // opened BEHIND the panel and looked like nothing happened. Raised further
-      // to z-[68] so a spec chip clicked INSIDE a mission-mode JobDetailModal
-      // (z-[65]) opens the ticket IN FRONT of it, not behind.
+      // opened BEHIND the panel. Job detail shares the entity layer; a spec
+      // opened from inside it mounts later, so Radix makes it the top layer.
       render(<TicketDetailModal {...makeDefaultProps()} />)
-      const overlay = document.querySelector('div.fixed.inset-0')
-      expect(overlay).not.toBeNull()
-      expect(overlay!.classList.contains('z-[68]')).toBe(true)
+      const overlay = screen.getByTestId('ticket-modal-overlay')
+      expect(overlay.classList.contains('z-[65]')).toBe(true)
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toHaveAttribute('data-dialog-layer', 'entity')
+      expect(dialog).toHaveAccessibleName('Test ticket')
     })
   })
 
@@ -140,7 +155,8 @@ describe('TicketDetailModal', () => {
 
     it('renders ticket ID in header', () => {
       render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 42 }) })} />)
-      expect(screen.getByText(/#42/)).toBeDefined()
+      // Visible header id (the sr-only dialog description repeats it).
+      expect(screen.getByText('#42')).toBeDefined()
     })
 
     it('renders the On Review badge in the header for an on_review spec', () => {
@@ -157,12 +173,12 @@ describe('TicketDetailModal', () => {
 
     it('removes the compare affordance when the viewport shrinks below the split threshold', async () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
-      expect(screen.getByTestId('ticket-modal-compare')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-modal-more')).toBeInTheDocument()
 
       window.innerWidth = 800
       fireEvent(window, new Event('resize'))
 
-      await waitFor(() => expect(screen.queryByTestId('ticket-modal-compare')).not.toBeInTheDocument())
+      await waitFor(() => expect(screen.queryByTestId('ticket-modal-more')).not.toBeInTheDocument())
     })
   })
 
@@ -178,14 +194,26 @@ describe('TicketDetailModal', () => {
       expect(onClose).toHaveBeenCalledTimes(1)
     })
 
-    it('calls onClose when backdrop is clicked', () => {
+    it('calls onClose when backdrop is pressed', async () => {
       const onClose = vi.fn()
       render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
 
-      // The backdrop is the absolute inset-0 div behind the panel.
-      // The overlay portals to document.body, so query the document.
-      const backdrop = document.body.querySelector('.absolute.inset-0')!
-      fireEvent.click(backdrop)
+      // Radix dismisses on a pointer-down outside the panel (the scrim); its
+      // outside listener attaches one tick after mount.
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+      fireEvent.pointerDown(screen.getByTestId('ticket-modal-overlay'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('closes on Escape (Radix) but not while editing the title', async () => {
+      const onClose = vi.fn()
+      render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
+      fireEvent.click(screen.getByText('Test ticket').closest('button')!)
+      const input = await screen.findByDisplayValue('Test ticket')
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(onClose).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByDisplayValue('Test ticket')).toBeNull())
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
       expect(onClose).toHaveBeenCalledTimes(1)
     })
   })
@@ -206,36 +234,16 @@ describe('TicketDetailModal', () => {
   })
 
   describe('delete behavior', () => {
-    it('shows delete confirmation dialog when Delete button is clicked', async () => {
-      render(<TicketDetailModal {...makeDefaultProps()} />)
-
-      // Footer has a "Delete" button
-      const deleteBtn = screen.getByRole('button', { name: /delete/i })
-      fireEvent.click(deleteBtn)
-
-      await waitFor(() => {
-        // Dialog title: "Delete ticket"
-        expect(screen.getByText('Delete ticket', { selector: '[data-slot="dialog-title"], h2, [role="heading"]' })).toBeDefined()
-      })
-    })
-
-    it('calls onDelete when delete is confirmed', async () => {
+    it('deletes at once when Delete is clicked: no confirmation dialog (Undo is the safety net)', async () => {
       const onDelete = vi.fn(async () => true)
-      render(<TicketDetailModal {...makeDefaultProps({ onDelete })} />)
+      const onClose = vi.fn()
+      render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
 
-      // Open delete dialog
       fireEvent.click(screen.getByRole('button', { name: /delete/i }))
 
-      await waitFor(() => {
-        // Two "Delete" buttons now: footer button + dialog confirm button
-        const deleteBtns = screen.getAllByRole('button', { name: /delete/i })
-        // The last one in the DOM is the confirmation button
-        fireEvent.click(deleteBtns[deleteBtns.length - 1])
-      })
-
-      await waitFor(() => {
-        expect(onDelete).toHaveBeenCalledWith(1)
-      })
+      await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
+      expect(screen.queryByTestId('ticket-delete-confirm')).toBeNull()
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
     })
 
     it('stays busy and closes only after a successful delete resolves', async () => {
@@ -243,27 +251,24 @@ describe('TicketDetailModal', () => {
       const onDelete = vi.fn(() => new Promise<boolean>((resolve) => { resolveDelete = resolve }))
       const onClose = vi.fn()
       render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
-      fireEvent.click(screen.getByRole('button', { name: /delete/i }))
-      const confirm = screen.getAllByRole('button', { name: /delete/i }).at(-1)!
-      fireEvent.click(confirm)
+      const deleteBtn = screen.getByRole('button', { name: /delete/i })
+      fireEvent.click(deleteBtn)
 
-      expect(confirm).toBeDisabled()
+      expect(deleteBtn).toBeDisabled()
       expect(onClose).not.toHaveBeenCalled()
       await act(async () => { resolveDelete(true) })
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
     })
 
-    it('keeps the confirmation open and reports an error when delete fails', async () => {
+    it('stays open and reports an error when delete fails', async () => {
       const { toast } = await import('sonner')
       const onDelete = vi.fn(async () => false)
       const onClose = vi.fn()
       render(<TicketDetailModal {...makeDefaultProps({ onDelete, onClose })} />)
       fireEvent.click(screen.getByRole('button', { name: /delete/i }))
-      fireEvent.click(screen.getAllByRole('button', { name: /delete/i }).at(-1)!)
 
       await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
       expect(onClose).not.toHaveBeenCalled()
-      expect(screen.getByText('Delete ticket')).toBeInTheDocument()
       expect(toast.error).toHaveBeenCalled()
     })
   })
@@ -271,8 +276,7 @@ describe('TicketDetailModal', () => {
   describe('priority select', () => {
     it('shows Save button when priority is changed', async () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
-      const select = screen.getByDisplayValue('Medium') as HTMLSelectElement
-      fireEvent.change(select, { target: { value: 'high' } })
+      pickPriority(/^high$/i)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /save/i })).toBeDefined()
       })
@@ -286,8 +290,7 @@ describe('TicketDetailModal', () => {
       render(<TicketDetailModal {...makeDefaultProps({ onSave, onClose })} />)
 
       // Change priority to make isDirty=true
-      const select = screen.getByDisplayValue('Medium') as HTMLSelectElement
-      fireEvent.change(select, { target: { value: 'high' } })
+      pickPriority(/^high$/i)
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /save/i })).toBeDefined()
@@ -305,7 +308,7 @@ describe('TicketDetailModal', () => {
       const onSave = vi.fn(async () => false)
       render(<TicketDetailModal {...makeDefaultProps({ onSave })} />)
 
-      fireEvent.change(screen.getByDisplayValue('Medium'), { target: { value: 'high' } })
+      pickPriority(/^high$/i)
 
       await waitFor(() => screen.getByRole('button', { name: /save/i }))
       fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -584,5 +587,157 @@ describe('TicketDetailModal regressionOf', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeDefined())
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, expect.objectContaining({ metadata: { regressionOf: null } })))
+  })
+})
+
+describe('TicketDetailModal — Out of scope (non-goals)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('shows the non-goals under the description and saves an edit', async () => {
+    const onSave = vi.fn(async () => true)
+    render(<TicketDetailModal {...makeDefaultProps({ onSave, ticket: makeTicket({ nonGoals: ['Mobile layout'] }) })} />)
+    const section = screen.getByTestId('ticket-non-goals')
+    expect(section.textContent).toContain('Mobile layout')
+    fireEvent.click(section.querySelector('button')!)
+    const textarea = section.querySelector('textarea')!
+    fireEvent.change(textarea, { target: { value: 'Mobile layout\nPDF export' } })
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeDefined())
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(1, { nonGoals: ['Mobile layout', 'PDF export'] }))
+  })
+
+  it('does not send non-goals when they did not change', async () => {
+    const onSave = vi.fn(async () => true)
+    render(<TicketDetailModal {...makeDefaultProps({ onSave })} />)
+    pickPriority(/^high$/i)
+    await waitFor(() => screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][1]).not.toHaveProperty('nonGoals')
+  })
+})
+
+describe('TicketDetailModal — Done spec header', () => {
+  it('offers SMASH for an open spec', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} />)
+    expect(screen.getByTestId('smash-actions-stub')).toBeInTheDocument()
+  })
+
+  it('hides SMASH once the spec is done', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'done' }) })} />)
+    expect(screen.queryByTestId('smash-actions-stub')).toBeNull()
+  })
+})
+
+// ─── Modal standard: focus management, layering, terminal header ─────────────
+
+function FocusHarness({ ticket = makeTicket(), onClose }: { ticket?: LocalTicket; onClose?: () => void }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>open spec</button>
+      {open && (
+        <TicketDetailModal
+          {...makeDefaultProps({ ticket })}
+          onClose={() => { onClose?.(); setOpen(false) }}
+        />
+      )}
+    </>
+  )
+}
+
+describe('TicketDetailModal — modal standard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1024 })
+  })
+
+  it('traps Tab focus inside the panel', async () => {
+    const user = userEvent.setup()
+    render(<FocusHarness />)
+    await user.click(screen.getByRole('button', { name: 'open spec' }))
+    const dialog = screen.getByRole('dialog')
+    for (let i = 0; i < 25; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+  })
+
+  it('returns focus to the trigger when closed', async () => {
+    const user = userEvent.setup()
+    render(<FocusHarness />)
+    const trigger = screen.getByRole('button', { name: 'open spec' })
+    await user.click(trigger)
+    await user.click(screen.getByTestId('ticket-modal-close'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
+  })
+
+  it('Escape closes the spec modal (there is no delete confirm layer any more)', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<FocusHarness onClose={onClose} />)
+    await user.click(screen.getByRole('button', { name: 'open spec' }))
+    expect(screen.getByTestId('ticket-detail-modal')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  const RAILS = [{ id: 'rail-1', label: 'Rail 1', ticketIds: [], status: 'idle' }] as never
+
+  it('offers Move to rail for an open spec', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} rails={RAILS} onMoveToRail={vi.fn()} />)
+    expect(screen.getByTestId('modal-move-to-rail')).toBeInTheDocument()
+  })
+
+  ;(['done', 'cancelled'] as const).forEach((status) => {
+    it(`hides Move to rail for a ${status} spec`, () => {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status }) })} rails={RAILS} onMoveToRail={vi.fn()} />)
+      expect(screen.queryByTestId('modal-move-to-rail')).toBeNull()
+    })
+  })
+
+  it('hides Compare when there is no other spec to compare against', () => {
+    const ticket = makeTicket()
+    render(<TicketDetailModal {...makeDefaultProps({ ticket })} allTickets={[ticket]} />)
+    expect(screen.queryByTestId('ticket-modal-compare')).toBeNull()
+  })
+
+  it('keeps Compare in the "more actions" menu when another spec exists', async () => {
+    const ticket = makeTicket()
+    render(<TicketDetailModal {...makeDefaultProps({ ticket })} allTickets={[ticket, makeTicket({ id: 2, title: 'Other' })]} />)
+    expect(screen.queryByTestId('ticket-modal-compare')).toBeNull()
+    await userEvent.setup().click(screen.getByTestId('ticket-modal-more'))
+    expect(await screen.findByTestId('ticket-modal-compare')).toBeInTheDocument()
+  })
+})
+
+describe('TicketDetailModal — status primary action', () => {
+  it('offers View job for an in-progress spec running on a rail', () => {
+    const rail = { id: 'r1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'running', activeJobId: 'job-9' }
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 1, status: 'in_progress' }), rails: [rail] as never })} />)
+    expect(screen.getByTestId('modal-primary-action')).toHaveTextContent(/view job|detailModal.viewJob/i)
+  })
+
+  it('shows no job action for a todo spec', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} />)
+    expect(screen.queryByTestId('modal-primary-action')).toBeNull()
+  })
+})
+
+describe('TicketDetailModal — single filled primary', () => {
+  it('renders Move to rail as outline when Open review is the primary', () => {
+    mockDecisions.set('d1', { ticketIds: [1], prDeliveryId: 'pr-1' })
+    try {
+      render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 1, status: 'on_review' }) })} rails={[]} onMoveToRail={vi.fn()} />)
+      expect(screen.getByTestId('modal-primary-action').className).toMatch(/bg-primary/)
+      expect(screen.getByTestId('modal-move-to-rail').className).not.toMatch(/bg-primary/)
+    } finally { mockDecisions.clear() }
+  })
+
+  it('keeps Move to rail filled when no other primary is shown', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} rails={[]} onMoveToRail={vi.fn()} />)
+    expect(screen.getByTestId('modal-move-to-rail').className).toMatch(/bg-primary/)
   })
 })

@@ -1,4 +1,4 @@
-# 项目环境
+# 项目环境 {#project-environment}
 
 有些项目在运行时需要凭据，例如私有 npm 包所需的 `NODE_AUTH_TOKEN`。在 **项目设置 → 环境** 中，添加你的 rail 和 loop 需要的变量**名称**。Specrails 只保存名称，从不保存值。
 

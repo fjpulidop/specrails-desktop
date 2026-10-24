@@ -10,7 +10,8 @@
       "pinnedOpen": "右サイドバーを折りたたむ (ピン留めは維持)",
       "pinnedCollapsed": "右サイドバーのピン留めを解除",
       "unpinned": "右サイドバーを開いた状態でピン留め"
-    }
+    },
+    "resize": "サイドバーのサイズを変更"
   },
   "projects": {
     "addProject": "プロジェクトを追加",
@@ -23,17 +24,22 @@
     "collapse": "{{name}} を折りたたむ",
     "settings": "{{name}} の設定",
     "assembling": "ワークスペースを準備中…",
-    "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行"
+    "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行",
+    "retrySetup": "セットアップを再試行"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "ドキュメント",
-    "analytics": "分析",
+    "analytics": "全プロジェクトの分析",
     "companion": "Companion",
-    "settings": "設定",
+    "settings": "アプリ設定",
     "plugins": "プラグイン",
-    "review": "レビュー"
+    "review": "レビュー",
+    "landmark": "プロジェクトとミッション",
+    "resize": "サイドバーのサイズを変更",
+    "sectionTools": "ワークスペース",
+    "sectionProjects": "プロジェクト"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のモーダルとして開いています。",
@@ -48,7 +54,8 @@
     "agents": "エージェント",
     "code": "コード",
     "integrations": "インテグレーション",
-    "settings": "設定"
+    "settings": "プロジェクト設定",
+    "landmark": "プロジェクトナビゲーション"
   },
   "navbar": {
     "home": "ホーム",
@@ -72,7 +79,14 @@
     "minimizeWindow": "ウィンドウを最小化",
     "maximizeWindow": "ウィンドウを最大化",
     "closeWindow": "ウィンドウを閉じる",
-    "restoreWindow": "ウィンドウを元のサイズに戻す"
+    "restoreWindow": "ウィンドウを元のサイズに戻す",
+    "history": "ナビゲーション履歴",
+    "back": "戻る",
+    "forward": "進む",
+    "backTo": "{{place}} に戻る",
+    "forwardTo": "{{place}} に進む",
+    "backMenu": "以前の場所",
+    "forwardMenu": "次の場所"
   },
   "costAlerts": {
     "costAlertTitle": "コストアラート",
@@ -86,7 +100,9 @@
   },
   "errorBoundary": {
     "title": "問題が発生しました",
-    "occurredIn": "<strong>{{name}}</strong> でエラーが発生しました"
+    "occurredIn": "<strong>{{name}}</strong> でエラーが発生しました",
+    "description": "この画面が動作しなくなりました。再試行すると再読み込みされます。他の作業には影響しません。",
+    "details": "技術的な詳細"
   },
   "healthWidget": {
     "healthLabel": "ヘルス",
@@ -123,5 +139,41 @@
     "active": "自動スリープを防止します。画面は消灯できます。",
     "inactive": "通常のスリープを許可します。",
     "failed": "スリープ設定を変更できませんでした。"
+  },
+  "skipToContent": "メインコンテンツへスキップ",
+  "places": {
+    "routes": {
+      "dashboard": "ダッシュボード",
+      "jobs": "ジョブ",
+      "analytics": "分析",
+      "activity": "アクティビティ",
+      "agents": "エージェント",
+      "code": "コード",
+      "integrations": "連携",
+      "settings": "プロジェクト設定",
+      "docs": "ドキュメント",
+      "loops": "ループ",
+      "plugins": "プラグイン"
+    },
+    "spec": "スペック #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "ミッション",
+    "missionTitled": "ミッション · {{title}}",
+    "job": "ジョブ {{id}}",
+    "review": "レビューパッケージ",
+    "inbox": "対応待ち",
+    "overlays": {
+      "loops": "ループ",
+      "plugins": "プラグイン",
+      "docs": "ドキュメント",
+      "analytics": "全プロジェクトの分析"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "そのスペックは存在しないため、スキップしました。",
+      "mission": "そのミッションは存在しないため、スキップしました。",
+      "job": "そのジョブは存在しないため、スキップしました。",
+      "review": "そのレビューパッケージは存在しないため、スキップしました。"
+    }
   }
 }

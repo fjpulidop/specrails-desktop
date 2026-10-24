@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Rocket, GitBranch, Layers, DollarSign, Inbox } from 'lucide-react'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogFooter,
@@ -51,70 +52,64 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
       <DialogContent
-        movableResizable
+        size="confirm"
         showCloseButton={false}
-        className="max-w-md gap-5"
         onOpenAutoFocus={(e) => { e.preventDefault(); confirmRef.current?.focus() }}
       >
-        <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/30">
-              <Rocket className="h-4.5 w-4.5" />
-            </span>
-            <div className="text-left">
-              <DialogTitle className="text-base">{t('launchAllDialog.title')}</DialogTitle>
-              <DialogDescription>
-                {t('launchAllDialog.railsCount', { count: railCount })}
-                {' · '}
-                {t('launchAllDialog.specsCount', { count: specCount })}
-              </DialogDescription>
-            </div>
-          </div>
+        <DialogHeader icon={<Rocket />}>
+          <DialogTitle>{t('launchAllDialog.title')}</DialogTitle>
+          <DialogDescription>
+            {t('launchAllDialog.railsCount', { count: railCount })}
+            {' · '}
+            {t('launchAllDialog.specsCount', { count: specCount })}
+          </DialogDescription>
         </DialogHeader>
 
-        {reviewLimit && (
-          <div
-            role="status"
-            data-testid="launch-all-review-limit"
-            className="flex items-start gap-2.5 rounded-lg border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-accent-warning"
-          >
-            <Inbox className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium">{t('launchAllDialog.reviewLimitTitle', { pending: reviewLimit.pending, limit: reviewLimit.limit })}</span>{' '}
-              {railCount === 0
-                ? t('launchAllDialog.reviewLimitNone', { count: reviewLimit.held })
-                : t('launchAllDialog.reviewLimitPartial', { count: reviewLimit.held, launched: railCount })}
-            </span>
-          </div>
-        )}
+        <DialogBody className="space-y-4">
+          {reviewLimit && (
+            <div
+              role="status"
+              data-testid="launch-all-review-limit"
+              className="flex items-start gap-2.5 rounded-lg border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-accent-warning"
+            >
+              <Inbox className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                <span className="font-medium">{t('launchAllDialog.reviewLimitTitle', { pending: reviewLimit.pending, limit: reviewLimit.limit })}</span>{' '}
+                {railCount === 0
+                  ? t('launchAllDialog.reviewLimitNone', { count: reviewLimit.held })
+                  : t('launchAllDialog.reviewLimitPartial', { count: reviewLimit.held, launched: railCount })}
+              </span>
+            </div>
+          )}
 
-        <ul className="space-y-2.5 text-xs text-muted-foreground">
-          <li className="flex items-start gap-2.5">
-            <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
-            <span><span className="font-medium text-foreground">{t('launchAllDialog.isolationTitle')}</span>{' '}{t('launchAllDialog.isolationBody')}</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-secondary" />
-            <span><span className="font-medium text-foreground">{t('launchAllDialog.pipelinesTitle', { count: railCount })}</span>{' '}{t('launchAllDialog.pipelinesBody')}</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
-            <span><span className="font-medium text-foreground">{t('launchAllDialog.costTitle')}</span>{' '}{t('launchAllDialog.costBody')}</span>
-          </li>
-        </ul>
+          <ul className="space-y-2.5 text-xs text-muted-foreground">
+            <li className="flex items-start gap-2.5">
+              <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
+              <span><span className="font-medium text-foreground">{t('launchAllDialog.isolationTitle')}</span>{' '}{t('launchAllDialog.isolationBody')}</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-secondary" />
+              <span><span className="font-medium text-foreground">{t('launchAllDialog.pipelinesTitle', { count: railCount })}</span>{' '}{t('launchAllDialog.pipelinesBody')}</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
+              <span><span className="font-medium text-foreground">{t('launchAllDialog.costTitle')}</span>{' '}{t('launchAllDialog.costBody')}</span>
+            </li>
+          </ul>
+        </DialogBody>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" className="h-9" onClick={onCancel}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>
             {t('common:actions.cancel')}
           </Button>
           <Button
             ref={confirmRef}
             disabled={railCount === 0}
-            className="h-9 gap-2 bg-emerald-500 text-white hover:bg-emerald-400 focus-visible:ring-emerald-400"
+            className="gap-2 bg-accent-success text-background hover:bg-accent-success/90 focus-visible:ring-accent-success"
             onClick={onConfirm}
           >
             {t('launchAllDialog.launch', { count: railCount })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-label leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

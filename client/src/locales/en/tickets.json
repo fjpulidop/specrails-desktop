@@ -27,18 +27,18 @@
     "priority": "Priority",
     "labels": "Labels",
     "markdownPlaceholder": "Markdown description...",
-    "supportsMarkdown": "Supports markdown"
+    "supportsMarkdown": "Supports markdown",
+    "removeLabel": "Remove label {{label}}"
   },
   "meta": {
     "createdAgo": "Created {{time}}",
     "updatedAgo": "Updated {{time}}"
   },
   "untitled": "Untitled",
-  "deleteDialog": {
-    "title": "Delete ticket",
-    "body": "Are you sure you want to delete <strong>#{{id}} {{title}}</strong>? This action cannot be undone."
-  },
   "detailModal": {
+    "moreActions": "More actions",
+    "openReview": "Open review",
+    "viewJob": "View job",
     "toast": {
       "updated": "Ticket updated",
       "updateFailed": "Failed to update ticket",
@@ -54,15 +54,16 @@
     "effort": "Effort",
     "assignee": "Assignee",
     "continueEditing": "Continue Editing",
-    "ticketFallbackLabel": "Ticket #{{id}}"
+    "ticketFallbackLabel": "Ticket #{{id}}",
+    "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (a trailing + means some runs did not report turns) · active time · runs by kind (e.g. “1 quick, 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
     "populated": "{{n}}/5 populated"
   },
   "rail": {
-    "moveToRail": "Move to Rail",
-    "removeFromRail": "Remove from Rail",
+    "moveToRail": "Move to rail",
+    "removeFromRail": "Remove from rail",
     "currentlyOn": "Currently on {{rail}}",
     "popoverTitle": "Move to rail",
     "noRails": "No rails available."
@@ -89,7 +90,8 @@
     "toast": {
       "created": "Ticket created",
       "createFailed": "Failed to create ticket"
-    }
+    },
+    "description": "Add a spec to the board by hand. It starts in the status you pick and can be refined or moved to a rail later."
   },
   "comparePicker": {
     "title": "Compare with…",
@@ -100,8 +102,10 @@
   },
   "spendingLine": {
     "ariaLabel": "View ticket spending in Analytics",
-    "turns_one": "{{count}} turn",
-    "turns_other": "{{count}} turns",
+    "turns_one": "{{count}} agent turn",
+    "turns_other": "{{count}} agent turns",
+    "turnsAtLeast_one": "{{count}}+ agent turn",
+    "turnsAtLeast_other": "{{count}}+ agent turns",
     "active": "{{duration}} active",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively.",
@@ -187,5 +191,16 @@
     "option": "{{loop}} · {{date}}",
     "tickets": "#{{ids}}",
     "missing": "Unknown delivery ({{id}})"
+  },
+  "nonGoals": {
+    "title": "Out of scope",
+    "ariaLabel": "Out of scope, one item per line",
+    "placeholder": "What this spec deliberately does not change or deliver. One item per line",
+    "onePerLine": "One item per line",
+    "add": "Add what this spec leaves out"
+  },
+  "split": {
+    "label": "Compare specs",
+    "resize": "Resize panels"
   }
 }

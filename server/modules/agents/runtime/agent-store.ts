@@ -20,6 +20,8 @@ export interface AgentConversation {
   /** Reasoning effort for spawns (null = default "medium"). Validated against
    *  the provider's `capabilities.reasoningEfforts` at the router. */
   reasoning_effort: string | null
+  /** Soft-delete stamp ("Recently deleted"); null = live. */
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -52,7 +54,8 @@ export interface AgentMessage {
  * `proposalIndex` (0-based order of ```rail-launch blocks in the message) was
  * launched (→ runIds / railIndex / the FINAL edited config) or dismissed.
  * `flow-offer`: the Flow-or-Implement offer was accepted (`chosenMode`) or
- * dismissed, with the agent's `recommendedMode`. `flow-hand-off`: the Flow of
+ * dismissed (`recommendedMode` only on legacy decisions: Flow and Implement no
+ * longer compete, so the card never records one). `flow-hand-off`: the Flow of
  * that offer was handed to a rail (the launch card's decision). Decisions are
  * unique per (kind, proposalIndex).
  */
@@ -198,6 +201,7 @@ interface AgentConversationRaw {
   pinned_project_id: string | null
   tier_level: number
   reasoning_effort: string | null
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -235,7 +239,7 @@ export function getAgentConversation(db: DbInstance, id: string): AgentConversat
 export function listAgentConversations(db: DbInstance, limit = 100): AgentConversation[] {
   return (
     db
-      .prepare('SELECT * FROM agent_conversations ORDER BY updated_at DESC LIMIT ?')
+      .prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?')
       .all(limit) as AgentConversationRaw[]
   ).map((r) => mapConversation(r)!)
 }
@@ -267,8 +271,40 @@ export function updateAgentConversation(
   return getAgentConversation(db, id)
 }
 
+/** Hard delete: the permanent step (purge / "Delete permanently"). Prefer {@link softDeleteAgentConversation}. */
 export function deleteAgentConversation(db: DbInstance, id: string): void {
   db.prepare('DELETE FROM agent_conversations WHERE id = ?').run(id)
+}
+
+/** 30 days: how long a deleted mission stays restorable. */
+export const AGENT_TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
+/** Hide a mission and start its restore window. Idempotent: a repeat keeps the first stamp. */
+export function softDeleteAgentConversation(db: DbInstance, id: string, now: Date = new Date()): boolean {
+  const result = db
+    .prepare('UPDATE agent_conversations SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ?')
+    .run(now.toISOString(), id)
+  return result.changes > 0
+}
+
+/** Undo a soft delete. Idempotent; returns the live row, or undefined when it no longer exists. */
+export function restoreAgentConversation(db: DbInstance, id: string): AgentConversation | undefined {
+  db.prepare('UPDATE agent_conversations SET deleted_at = NULL WHERE id = ?').run(id)
+  return getAgentConversation(db, id)
+}
+
+/** Soft-deleted missions (newest deletion first), optionally of one pinned project. */
+export function listDeletedAgentConversations(db: DbInstance, pinnedProjectId?: string): AgentConversation[] {
+  const rows = pinnedProjectId === undefined
+    ? db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC').all()
+    : db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NOT NULL AND pinned_project_id = ? ORDER BY deleted_at DESC').all(pinnedProjectId)
+  return (rows as AgentConversationRaw[]).map((r) => mapConversation(r)!)
+}
+
+/** Ids of missions deleted longer ago than the retention window. */
+export function listExpiredAgentConversationIds(db: DbInstance, now: Date = new Date(), retentionMs: number = AGENT_TRASH_RETENTION_MS): string[] {
+  const cutoff = new Date(now.getTime() - retentionMs).toISOString()
+  return (db.prepare('SELECT id FROM agent_conversations WHERE deleted_at IS NOT NULL AND deleted_at <= ?').all(cutoff) as Array<{ id: string }>).map((r) => r.id)
 }
 
 export function addAgentMessage(
@@ -500,7 +536,7 @@ export function searchAgentConversations(db: DbInstance, rawQuery: string, limit
   const cap = Math.max(1, Math.min(MISSION_SEARCH_MAX_LIMIT, Math.floor(limit)))
 
   const conversations = (
-    db.prepare('SELECT * FROM agent_conversations ORDER BY updated_at DESC').all() as AgentConversationRaw[]
+    db.prepare('SELECT * FROM agent_conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC').all() as AgentConversationRaw[]
   ).map((r) => mapConversation(r)!)
   const byId = new Map(conversations.map((c) => [c.id, c]))
 

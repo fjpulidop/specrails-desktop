@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · Falha ao iniciar",
       "unsupportedFileType": "Tipo de ficheiro não suportado: {{name}}",
       "uploadFailed": "Falha no carregamento de {{name}}: {{message}}"
-    }
+    },
+    "contextSummary": "Contexto: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "Contexto: {{preset}}",
+    "costEstimateTitle": "Custo estimado para gerar esta spec com o modelo e o contexto selecionados"
   },
   "featureProposal": {
     "title": "Propor uma funcionalidade",
@@ -139,7 +142,8 @@
       "providerUnsupported": "Indisponível para {{provider}}",
       "contractLabel": "Enriquecer com Contract Layer",
       "contractHint": "refinamento pós-commit · ativa o SMASH"
-    }
+    },
+    "costTier": "Nível de custo: {{tier}}"
   },
   "aiEngine": {
     "label": "Motor de IA",

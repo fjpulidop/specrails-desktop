@@ -10,30 +10,36 @@
       "pinnedOpen": "Recolher barra lateral direita (manter afixada)",
       "pinnedCollapsed": "Desafixar barra lateral direita",
       "unpinned": "Afixar barra lateral direita aberta"
-    }
+    },
+    "resize": "Redimensionar barra lateral"
   },
   "projects": {
     "addProject": "Adicionar projeto",
     "remove": "Remover {{name}}",
     "confirmRemove": "Confirmar remoção de {{name}}",
-    "confirmShort": "confirmar?",
+    "confirmShort": "Remover?",
     "added": "Projeto adicionado: {{name}}",
     "removed": "Projeto removido",
     "expand": "Expandir {{name}}",
     "collapse": "Recolher {{name}}",
     "settings": "Configurações de {{name}}",
     "assembling": "A preparar o workspace…",
-    "assembleFailed": "Falha ao preparar o workspace — clique para tentar novamente"
+    "assembleFailed": "Falha ao preparar o workspace — clique para tentar novamente",
+    "retrySetup": "Repetir configuração"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Análises",
+    "analytics": "Análises de todos os projetos",
     "companion": "Companion",
-    "settings": "Definições",
+    "settings": "Definições da app",
     "plugins": "Plugins",
-    "review": "Revisão"
+    "review": "Revisão",
+    "landmark": "Projetos e missões",
+    "resize": "Redimensionar barra lateral",
+    "sectionTools": "Espaço de trabalho",
+    "sectionProjects": "Projetos"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops está aberto como modal de Mission.",
@@ -48,7 +54,8 @@
     "agents": "Agentes",
     "code": "Código",
     "integrations": "Integrações",
-    "settings": "Definições"
+    "settings": "Definições do projeto",
+    "landmark": "Navegação do projeto"
   },
   "navbar": {
     "home": "Início",
@@ -72,7 +79,14 @@
     "minimizeWindow": "Minimizar janela",
     "maximizeWindow": "Maximizar janela",
     "closeWindow": "Fechar janela",
-    "restoreWindow": "Restaurar janela"
+    "restoreWindow": "Restaurar janela",
+    "history": "Histórico de navegação",
+    "back": "Voltar",
+    "forward": "Avançar",
+    "backTo": "Voltar para {{place}}",
+    "forwardTo": "Avançar para {{place}}",
+    "backMenu": "Lugares anteriores",
+    "forwardMenu": "Próximos lugares"
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de custo",
@@ -86,7 +100,9 @@
   },
   "errorBoundary": {
     "title": "Ocorreu um erro",
-    "occurredIn": "Ocorreu um erro em <strong>{{name}}</strong>"
+    "occurredIn": "Ocorreu um erro em <strong>{{name}}</strong>",
+    "description": "Esta visualização parou de funcionar. Tente novamente para recarregá-la; o restante do seu trabalho não é afetado.",
+    "details": "Detalhes técnicos"
   },
   "healthWidget": {
     "healthLabel": "saúde",
@@ -123,5 +139,41 @@
     "active": "Impede a suspensão automática. O ecrã pode apagar-se.",
     "inactive": "Suspensão normal permitida.",
     "failed": "Não foi possível alterar a suspensão."
+  },
+  "skipToContent": "Pular para o conteúdo principal",
+  "places": {
+    "routes": {
+      "dashboard": "Painel",
+      "jobs": "Jobs",
+      "analytics": "Análises",
+      "activity": "Atividade",
+      "agents": "Agentes",
+      "code": "Código",
+      "integrations": "Integrações",
+      "settings": "Configurações do projeto",
+      "docs": "Documentação",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Missão",
+    "missionTitled": "Missão · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Pacote de revisão",
+    "inbox": "Pendências",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentação",
+      "analytics": "Análises de todos os projetos"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Essa spec não existe mais e foi ignorada.",
+      "mission": "Essa missão não existe mais e foi ignorada.",
+      "job": "Esse job não existe mais e foi ignorado.",
+      "review": "Esse pacote de revisão não existe mais e foi ignorado."
+    }
   }
 }

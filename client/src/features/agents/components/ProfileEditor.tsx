@@ -329,7 +329,7 @@ export function ProfileEditor({
       />
       {/* Live validation summary */}
       {validationIssues.length > 0 && (
-        <div className="px-3 py-2 text-xs rounded-md border border-yellow-500/30 aurora-light:border-accent-warning/30 bg-yellow-500/10 aurora-light:bg-accent-warning/10 text-yellow-500 aurora-light:text-accent-warning">
+        <div className="px-3 py-2 text-xs rounded-md border border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
           <div className="font-medium mb-1">{t('profileEditor.validationSummary', { count: validationIssues.length })}</div>
           <ul className="list-disc list-inside space-y-0.5">
             {validationIssues.map((issue, i) => (
@@ -342,11 +342,11 @@ export function ProfileEditor({
       {/* Metadata */}
       <section className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t('profileEditor.nameLabel')}</label>
+          <label className="block text-label text-muted-foreground mb-1">{t('profileEditor.nameLabel')}</label>
           <Input value={profile.name} disabled className="text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{t('profileEditor.descriptionLabel')}</label>
+          <label className="block text-label text-muted-foreground mb-1">{t('profileEditor.descriptionLabel')}</label>
           <Input
             value={profile.description ?? ''}
             onChange={(e) =>
@@ -363,7 +363,7 @@ export function ProfileEditor({
       {/* Orchestrator */}
       <section>
         <p className="text-xs text-muted-foreground mb-3">{t('profileEditor.legacyWorkflowNotice')}</p>
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+        <h2 className="text-label text-muted-foreground mb-2">
           {t('profileEditor.orchestrator.heading')}
         </h2>
         <div className="flex items-center gap-3 p-3 rounded-md border border-border">
@@ -371,7 +371,7 @@ export function ProfileEditor({
             <div className="text-sm font-mono text-foreground truncate">
               {formatCommandForProvider('/specrails:implement', provider)}
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
+            <div className="text-caption text-muted-foreground mt-0.5">
               {t('profileEditor.orchestrator.description')}
             </div>
           </div>
@@ -392,7 +392,7 @@ export function ProfileEditor({
       {/* Agent chain */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <h2 className="text-label text-muted-foreground">
             {t('profileEditor.agentChain.heading', { n: profile.agents.length })}
           </h2>
           <Button
@@ -409,7 +409,7 @@ export function ProfileEditor({
         {pickingAgent && (
           <div className="mb-2 p-2 rounded-md border border-border bg-muted/30">
             <div className="flex items-center justify-between mb-1.5 px-1">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-caption text-muted-foreground">
                 {t('profileEditor.agentChain.pickFromCatalog', { n: availableToAdd.length })}
               </span>
               <button
@@ -417,6 +417,7 @@ export function ProfileEditor({
                 className="p-1 hover:bg-accent rounded"
                 onClick={() => setPickingAgent(false)}
                 title={t('common:actions.close')}
+                aria-label={t('common:actions.close')}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -437,9 +438,9 @@ export function ProfileEditor({
                     <span className="text-sm font-mono">{a.id}</span>
                     <span
                       className={
-                        'text-[10px] px-1.5 py-0.5 rounded ' +
+                        'text-caption px-1.5 py-0.5 rounded ' +
                         (a.kind === 'custom'
-                          ? 'bg-purple-500/15 aurora-light:bg-accent-secondary/15 text-purple-400 aurora-light:text-accent-secondary'
+                          ? 'bg-accent-secondary/15 text-accent-secondary'
                           : 'bg-muted text-muted-foreground')
                       }
                     >
@@ -476,7 +477,7 @@ export function ProfileEditor({
       {/* Routing */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <h2 className="text-label text-muted-foreground">
             {t('profileEditor.routing.heading', { n: profile.routing.length })}
           </h2>
           <div className="flex items-center gap-1">
@@ -502,11 +503,11 @@ export function ProfileEditor({
             </Button>
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground mb-2">
+        <p className="text-caption text-muted-foreground mb-2">
           {t('profileEditor.routing.explainer')}
         </p>
         {agentsMissingRouting.length > 0 && (
-          <div className="mb-2 px-3 py-2 text-xs rounded-md border border-yellow-500/30 aurora-light:border-accent-warning/30 bg-yellow-500/10 aurora-light:bg-accent-warning/10 text-yellow-500 aurora-light:text-accent-warning">
+          <div className="mb-2 px-3 py-2 text-xs rounded-md border border-accent-warning/30 bg-accent-warning/10 text-accent-warning">
             <div className="font-medium mb-1">{t('profileEditor.routing.untargetedTitle')}</div>
             <div>
               <Trans
@@ -604,7 +605,7 @@ function AgentRow({
       <span className="text-sm font-mono flex-1 truncate">{agent.id}</span>
       {pinnedFirst && (
         <span
-          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
+          className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
           title={t('profileEditor.agentRow.pinnedFirstTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-[135deg]" /> {t('profileEditor.agentRow.pinnedFirst')}
@@ -612,14 +613,14 @@ function AgentRow({
       )}
       {pinnedLast && (
         <span
-          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
+          className="inline-flex items-center gap-1 text-caption px-1.5 py-0.5 rounded bg-accent-primary/15 text-accent-primary"
           title={t('profileEditor.agentRow.pinnedLastTitle')}
         >
           <Pin className="w-2.5 h-2.5 rotate-45" /> {t('profileEditor.agentRow.pinnedLast')}
         </span>
       )}
       {isRequired && !pinnedFirst && !pinnedLast && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+        <span className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
           {t('profileEditor.agentRow.required')}
         </span>
       )}
@@ -632,7 +633,7 @@ function AgentRow({
       />
       <button
         type="button"
-        className="p-1 hover:bg-red-500/20 aurora-light:hover:bg-destructive/15 text-red-400 aurora-light:text-destructive rounded disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1 hover:bg-destructive/15 text-destructive rounded disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={onRemove}
         disabled={!canRemove}
         title={
@@ -678,7 +679,7 @@ function RoutingRow({
   const isDefault = 'default' in rule && rule.default === true
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border group hover:bg-accent/30 transition-colors">
-      <span className="text-[10px] font-mono text-muted-foreground w-5 text-center flex-shrink-0">
+      <span className="text-caption font-mono text-muted-foreground w-5 text-center flex-shrink-0">
         {ordinal}.
       </span>
       {isDefault ? (
@@ -686,7 +687,7 @@ function RoutingRow({
       ) : (
         <span className="text-xs flex-1 flex gap-1 flex-wrap items-center">
           {(rule as RoutingTagRule).tags.map((t) => (
-            <span key={t} className="px-1.5 py-0.5 rounded bg-muted font-mono text-[11px]">
+            <span key={t} className="px-1.5 py-0.5 rounded bg-muted font-mono text-caption">
               {t}
             </span>
           ))}
@@ -728,21 +729,22 @@ function RoutingRow({
           </button>
         )}
         {canMove && !isLast && (
-          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onDown} title={t('profileEditor.routingRow.moveDown')}>
+          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onDown} title={t('profileEditor.routingRow.moveDown')} aria-label={t('profileEditor.routingRow.moveDown')}>
             <ArrowDown className="w-3 h-3" />
           </button>
         )}
         {canMove && ordinal > 1 && (
-          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onUp} title={t('profileEditor.routingRow.moveUp')}>
+          <button type="button" className="p-1 hover:bg-accent rounded" onClick={onUp} title={t('profileEditor.routingRow.moveUp')} aria-label={t('profileEditor.routingRow.moveUp')}>
             <ArrowUp className="w-3 h-3" />
           </button>
         )}
         {canRemove && (
           <button
             type="button"
-            className="p-1 hover:bg-red-500/20 aurora-light:hover:bg-destructive/15 text-red-400 aurora-light:text-destructive rounded"
+            className="p-1 hover:bg-destructive/15 text-destructive rounded"
             onClick={onRemove}
             title={t('common:actions.remove')}
+            aria-label={t('common:actions.remove')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -750,7 +752,7 @@ function RoutingRow({
       </div>
       {isDefault && (
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+          className="text-caption px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
           title={t('profileEditor.routingRow.coreDefaultTitle')}
         >
           {t('profileEditor.routingRow.coreDefaultBadge')}

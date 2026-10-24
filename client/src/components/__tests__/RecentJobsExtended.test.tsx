@@ -344,7 +344,7 @@ describe('RecentJobs - extended coverage', () => {
       expect(screen.queryByText('Clear Jobs')).not.toBeInTheDocument()
     })
 
-    it('closes clear modal when clicking backdrop', async () => {
+    it('closes clear modal on Escape (ui/dialog dismissal)', async () => {
       const user = userEvent.setup()
       render(<RecentJobs jobs={[baseJob]} />)
 
@@ -353,12 +353,8 @@ describe('RecentJobs - extended coverage', () => {
 
       expect(screen.getByText('Clear Jobs')).toBeInTheDocument()
 
-      // Click the backdrop (the outer div with fixed inset-0)
-      const backdrop = document.querySelector('.fixed.inset-0')
-      if (backdrop) {
-        fireEvent.click(backdrop)
-        expect(screen.queryByText('Clear Jobs')).not.toBeInTheDocument()
-      }
+      await user.keyboard('{Escape}')
+      expect(screen.queryByText('Clear Jobs')).not.toBeInTheDocument()
     })
   })
 

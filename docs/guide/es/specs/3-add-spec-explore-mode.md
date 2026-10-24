@@ -22,7 +22,7 @@ A medida que conversas, un panel de borrador muestra la spec tal como está en c
 
 Esto es el corazón del modo Explore: nunca estás mirando un formulario en blanco. Siempre tienes delante una spec real y en evolución.
 
-## Cuánto ve la IA: el control deslizante de contexto
+## Cuánto ve la IA: el control deslizante de contexto {#context-scope}
 
 Antes de que la IA responda, decides cuánto de tu proyecto puede ver. Un control deslizante de presets de contexto te permite cambiar velocidad por profundidad:
 

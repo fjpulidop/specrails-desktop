@@ -48,6 +48,13 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [jobsPaneOpen, setJobsPaneOpen] = useState(false)
   const [analyticsPaneOpen, setAnalyticsPaneOpen] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
+  // Latest pane flags for the stable toggles (read synchronously, no stale closure).
+  const codePaneOpenRef = useRef(codePaneOpen)
+  codePaneOpenRef.current = codePaneOpen
+  const jobsPaneOpenRef = useRef(jobsPaneOpen)
+  jobsPaneOpenRef.current = jobsPaneOpen
+  const analyticsPaneOpenRef = useRef(analyticsPaneOpen)
+  analyticsPaneOpenRef.current = analyticsPaneOpen
   const [browserOwnerId, setBrowserOwnerId] = useState<string | null>(null)
   const [browserUrl, setBrowserUrl] = useState<string | null>(null)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
@@ -59,20 +66,39 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
       if (!detail?.jobId) return
       setRequestedJobId(detail.jobId)
       setJobsPaneOpen(true)
+      setCodePaneOpen(false)
+      setAnalyticsPaneOpen(false)
     }
     window.addEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
     return () => window.removeEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
   }, [])
 
-  const openCodePane = useCallback(() => setCodePaneOpen(true), [])
+  // Jobs / Files / Analytics are mutually exclusive side panes: opening or
+  // toggling one ON closes the other two so the conversation column keeps a
+  // readable width (it holds a 360px floor) instead of being squeezed by a stack.
+  const showOnlyPane = useCallback((pane: 'jobs' | 'code' | 'analytics') => {
+    setJobsPaneOpen(pane === 'jobs')
+    setCodePaneOpen(pane === 'code')
+    setAnalyticsPaneOpen(pane === 'analytics')
+  }, [])
+  const openCodePane = useCallback(() => showOnlyPane('code'), [showOnlyPane])
   const closeCodePane = useCallback(() => setCodePaneOpen(false), [])
-  const toggleCodePane = useCallback(() => setCodePaneOpen((v) => !v), [])
-  const openJobsPane = useCallback(() => setJobsPaneOpen(true), [])
+  const toggleCodePane = useCallback(() => {
+    if (codePaneOpenRef.current) setCodePaneOpen(false)
+    else showOnlyPane('code')
+  }, [showOnlyPane])
+  const openJobsPane = useCallback(() => showOnlyPane('jobs'), [showOnlyPane])
   const closeJobsPane = useCallback(() => setJobsPaneOpen(false), [])
-  const toggleJobsPane = useCallback(() => setJobsPaneOpen((v) => !v), [])
-  const openAnalyticsPane = useCallback(() => setAnalyticsPaneOpen(true), [])
+  const toggleJobsPane = useCallback(() => {
+    if (jobsPaneOpenRef.current) setJobsPaneOpen(false)
+    else showOnlyPane('jobs')
+  }, [showOnlyPane])
+  const openAnalyticsPane = useCallback(() => showOnlyPane('analytics'), [showOnlyPane])
   const closeAnalyticsPane = useCallback(() => setAnalyticsPaneOpen(false), [])
-  const toggleAnalyticsPane = useCallback(() => setAnalyticsPaneOpen((v) => !v), [])
+  const toggleAnalyticsPane = useCallback(() => {
+    if (analyticsPaneOpenRef.current) setAnalyticsPaneOpen(false)
+    else showOnlyPane('analytics')
+  }, [showOnlyPane])
   const openBrowser = useCallback(() => { setBrowserOwnerId(crypto.randomUUID()); setBrowserOpen(true) }, [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
   // The queue ALSO lives in a ref: `consumePendingCaptures` must return the
@@ -95,9 +121,14 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const restoreWorkspace = useCallback((snapshot: MissionWindowSnapshot['workspace']) => {
-    setCodePaneOpen(snapshot.codePaneOpen)
-    setJobsPaneOpen(snapshot.jobsPaneOpen)
-    setAnalyticsPaneOpen(snapshot.analyticsPaneOpen)
+    // Panes are exclusive: a legacy snapshot with several open keeps the first
+    // in the order jobs → code → analytics.
+    const jobs = snapshot.jobsPaneOpen
+    const code = !jobs && snapshot.codePaneOpen
+    const analytics = !jobs && !code && snapshot.analyticsPaneOpen
+    setJobsPaneOpen(jobs)
+    setCodePaneOpen(code)
+    setAnalyticsPaneOpen(analytics)
     setBrowserOwnerId(snapshot.browserOwnerId ?? null)
     setBrowserUrl(snapshot.browserUrl ?? null)
     setBrowserOpen(snapshot.browserOpen)

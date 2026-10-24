@@ -1,16 +1,19 @@
 {
   "palette": {
     "label": "Paleta de comandos",
-    "searchPlaceholder": "Buscar proyectos, comandos, jobs...",
-    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs...",
-    "noResults": "Sin resultados.",
+    "searchPlaceholder": "Buscar proyectos, comandos, jobs…",
+    "searchPlaceholderAgent": "Buscar misiones, proyectos, jobs…",
+    "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
       "projects": "Proyectos",
       "missions": "Misiones",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navegación"
+      "navigation": "Navegación",
+      "actions": "Acciones",
+      "recentActions": "Acciones recientes",
+      "recentPlaces": "Lugares recientes"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,10 +34,75 @@
     "footer": {
       "navigate": "navegar",
       "select": "seleccionar",
-      "close": "cerrar"
+      "close": "cerrar",
+      "actions": "acciones",
+      "back": "volver"
     },
     "missions": {
       "home": "Inicio"
+    },
+    "dialogTitle": "Buscar misiones, proyectos y trabajos",
+    "dialogDescription": "Escribe para filtrar y pulsa Intro para abrir el resultado resaltado.",
+    "actions": {
+      "verbs": "nuevo,nueva,crear,añadir,lanzar,ejecutar,mover,abrir,cambiar,alternar,ir,entregar,pausar,reanudar,deshacer,mostrar,iniciar,restaurar,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Atrás",
+      "newSpec": "Nueva spec",
+      "newSpecExplore": "Nueva spec (Explorar)",
+      "launchSpec": "Lanzar spec en un rail",
+      "launchSpecN": "Lanzar #{{id}} en un rail",
+      "moveSpec": "Mover spec a",
+      "moveSpecN": "Mover #{{id}} a",
+      "openReview": "Abrir revisión",
+      "openReviewN": "Abrir revisión de #{{id}}",
+      "handOffFlow": "Entregar Flow",
+      "pauseFlow": "Pausar Flow",
+      "resumeFlow": "Reanudar Flow",
+      "newMission": "Nueva misión",
+      "switchTheme": "Cambiar tema",
+      "switchToMission": "Cambiar a modo Misión",
+      "switchToBoard": "Cambiar a modo Tablero",
+      "openAppSettings": "Abrir ajustes de la app",
+      "openProjectSettings": "Abrir ajustes del proyecto",
+      "switchProject": "Cambiar de proyecto",
+      "runLoop": "Ejecutar loop",
+      "toggleLeftSidebar": "Alternar barra lateral izquierda",
+      "toggleRightSidebar": "Alternar barra lateral derecha",
+      "goBack": "Ir atrás",
+      "goForward": "Ir adelante",
+      "undoLast": "Deshacer: {{label}}",
+      "recentlyDeleted": "Eliminados recientemente",
+      "pages": {
+        "railTitle": "Rail para #{{id}}",
+        "railPlaceholder": "Elige un rail…",
+        "railRunning": "en ejecución",
+        "railHasSpec": "ya está aquí",
+        "noRails": "No hay rails disponibles.",
+        "statusTitle": "Mover #{{id}} a",
+        "statusPlaceholder": "Elige un estado…",
+        "noStatuses": "No hay estados disponibles.",
+        "current": "actual",
+        "specTitle": "Elige una spec",
+        "specPlaceholder": "Buscar specs…",
+        "noSpecs": "Ninguna spec coincide.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Elige un tema…",
+        "noThemes": "No hay temas disponibles.",
+        "appSettingsTitle": "Ajustes de la app",
+        "projectSettingsTitle": "Ajustes del proyecto",
+        "sectionPlaceholder": "Elige una sección…",
+        "noSections": "No hay secciones.",
+        "projectTitle": "Proyectos",
+        "projectPlaceholder": "Elige un proyecto…",
+        "noProjects": "No hay otros proyectos.",
+        "loopTitle": "Loops que puedes ejecutar ahora",
+        "loopPlaceholder": "Elige un loop…",
+        "noLoops": "Ningún loop puede ejecutarse sin una spec.",
+        "loading": "Cargando…",
+        "loadFailed": "No se pudieron cargar las opciones."
+      },
+      "openInbox": "Abrir Pendientes",
+      "openInboxCount": "Abrir Pendientes ({{count}})",
+      "opensOptions": "abre opciones"
     }
   },
   "toasts": {
@@ -73,7 +141,8 @@
     "categories": {
       "general": "General",
       "navigation": "Navegación",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "missions": "Misiones"
     },
     "items": {
       "showCheatsheet": "Mostrar atajos de teclado",
@@ -90,8 +159,23 @@
       "goAnalytics": "Ir a Analíticas",
       "goSettings": "Ir a Ajustes",
       "nextItem": "Siguiente elemento de la lista",
-      "prevItem": "Elemento anterior de la lista"
-    }
+      "prevItem": "Elemento anterior de la lista",
+      "runStripFocus": "Ir a la franja de ejecuciones de la misión (púlsalo otra vez para ver u ocultar los detalles)",
+      "runStripCycle": "Ejecución anterior / siguiente en la franja (fuera de los campos de texto)",
+      "runStripBack": "Salir de la franja de ejecuciones y volver a donde estabas",
+      "flowPause": "Pausar o reanudar el Flow (con la franja de ejecuciones enfocada)",
+      "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
+      "historyBackForward": "Volver al lugar anterior o avanzar al siguiente",
+      "undoLast": "Deshacer el último cambio",
+      "openInbox": "Abrir Pendientes"
+    },
+    "searchLabel": "Buscar atajos y guías",
+    "searchPlaceholder": "Buscar atajos y guías…",
+    "noShortcuts": "Ningún atajo coincide con «{{query}}».",
+    "guidesHeading": "De la guía",
+    "openGuide": "Abrir guía: {{title}}",
+    "noGuides": "Ninguna guía coincide con «{{query}}».",
+    "searching": "Buscando en la guía…"
   },
   "update": {
     "title": {

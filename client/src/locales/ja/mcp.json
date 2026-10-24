@@ -47,7 +47,8 @@
     "regenerate": "再生成",
     "regenerateConfirm": "アクセストークンを再生成しますか？古いトークンを使用しているクライアントは、設定を更新するまで動作しなくなります。",
     "regenerated": "アクセストークンを再生成しました",
-    "regenerateFailed": "トークンを再生成できませんでした: {{message}}"
+    "regenerateFailed": "トークンを再生成できませんでした: {{message}}",
+    "regenerateConfirmTitle": "アクセストークンを再生成しますか？"
   },
   "tray": {
     "open": "開く",
@@ -93,6 +94,9 @@
       "unknown_provider": "アクティベーションマトリクスに不明なプロバイダーがあります",
       "invalid_entry": "サーバーエントリの形式が不正です",
       "invalid_body": "リクエストの形式が不正です"
-    }
+    },
+    "removeConfirmTitle": "{{name}} を削除しますか？",
+    "removeConfirmBody": "ミッションエージェントは、どのプロバイダーでもこのサーバーを読み込まなくなります。検出されたサーバーは AI プロバイダーの設定に残り、再度有効にできます。",
+    "formProviderToggle": "{{provider}} で有効にする"
   }
 }

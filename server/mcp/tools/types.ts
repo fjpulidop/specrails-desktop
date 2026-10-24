@@ -175,6 +175,14 @@ export interface McpToolSpec {
   hintTier?: McpTier
   inputSchema: ZodRawShape
   handler: (ctx: McpToolContext, args: Record<string, unknown>) => Promise<unknown> | unknown
+  /**
+   * In-app agent turns only: true when this call is admitted although the
+   * conversation's permission ladder is below the action's tier, because the
+   * user already granted that scope elsewhere (an active Flow grants write and
+   * execution in its worktree). Never consulted for external MCP clients, whose
+   * tiers stay governed by Settings ▸ MCP. Must not throw.
+   */
+  tierException?: (ctx: McpToolContext, args: Record<string, unknown>) => boolean
 }
 
 /** Resolve a per-project context or throw a clear, LLM-readable error. */
@@ -296,6 +304,10 @@ export function recordMissionMcpAction(ctx: McpToolContext, toolName: string, ar
   } catch { /* audit is observing only */ }
 }
 
+function admittedByException(spec: McpToolSpec, ctx: McpToolContext, args: Record<string, unknown>): boolean {
+  try { return spec.tierException?.(ctx, args) === true } catch { return false }
+}
+
 /**
  * Registers a tool on the McpServer, wrapping the handler with (1) tier
  * enforcement and (2) uniform success/error result shaping. No tool can forget
@@ -337,7 +349,7 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
         : { ...ctx }
       callCtx.signal = extra?.signal
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
-      if (!toolTierAllowed(callCtx, tier)) {
+      if (!toolTierAllowed(callCtx, tier) && !(callCtx.firstPartyAgent && admittedByException(spec, callCtx, args ?? {}))) {
         return errorResult(tierRefusalMessage(tier))
       }
       if (capability) recordMissionMcpAction(callCtx, spec.name, args ?? {})

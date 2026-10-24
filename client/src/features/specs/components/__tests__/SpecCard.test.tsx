@@ -134,12 +134,13 @@ describe('SpecCard', () => {
     expect(card).toHaveAttribute('tabIndex', '0')
   })
 
-  it('shows a breathing Contract badge while Contract Layer is being refined', () => {
+  it('shows a static Contract ring + badge while Contract Layer is being refined', () => {
     render(<SpecCard ticket={makeTicket()} onClick={onClickMock} contractRefining />)
     expect(screen.getByText('Contract')).toBeInTheDocument()
     const card = screen.getByText('Build the feature').closest('[role="button"]')!
     expect(card).toHaveAttribute('data-contract-refining', 'true')
-    expect(card).toHaveClass('animate-pulse')
+    expect(card).toHaveClass('ring-1')
+    expect(card.className).not.toMatch(/animate-pulse/)
     expect(screen.queryByText('medium')).not.toBeInTheDocument()
   })
 
@@ -207,7 +208,7 @@ describe('SpecCard', () => {
       expect(screen.queryByText('high')).not.toBeInTheDocument()
     })
 
-    it('marks the card with data-on-review and uses the accent-warning token', () => {
+    it('marks the card with data-on-review and uses the accent-review token', () => {
       render(
         <SpecCard
           ticket={makeTicket({ status: 'on_review' })}
@@ -216,7 +217,7 @@ describe('SpecCard', () => {
       )
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
       expect(card).toHaveAttribute('data-on-review', 'true')
-      expect(card.outerHTML).toMatch(/accent-warning/)
+      expect(card.outerHTML).toMatch(/accent-review/)
       expect(card.outerHTML).not.toMatch(/dracula-/)
     })
 
@@ -307,7 +308,7 @@ describe('SpecCard', () => {
     it('applies the animate-jiggle class when jiggleMode is true', () => {
       render(<SpecCard ticket={makeTicket()} onClick={onClickMock} jiggleMode={true} onDelete={vi.fn()} />)
       const card = screen.getByText('Build the feature').closest('[role="button"]')!
-      expect(card).toHaveClass('animate-jiggle')
+      expect(card).toHaveClass('motion-safe:animate-jiggle')
       expect(card).toHaveAttribute('data-jiggle', 'true')
     })
 
@@ -412,8 +413,11 @@ describe('SpecCard spec addenda badge', () => {
       expect(screen.getByTestId('flow-badge-42')).toHaveTextContent('Flow paused')
     })
 
-    it('hides the label once delivered, without metadata, or on a rail (handed off)', () => {
+    it('hides the label once delivered or closed, without metadata, or on a rail (handed off)', () => {
       const { rerender } = render(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'delivered', conversationId: 'c1' } } })} onClick={onClickMock} />)
+      expect(screen.queryByTestId('flow-badge-42')).toBeNull()
+      // A needs-review Flow closed with its branch kept releases the spec too.
+      rerender(<SpecCard ticket={makeTicket({ metadata: { flow: { state: 'closed', conversationId: 'c1' } } })} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()
       rerender(<SpecCard ticket={makeTicket()} onClick={onClickMock} />)
       expect(screen.queryByTestId('flow-badge-42')).toBeNull()

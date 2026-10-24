@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Children, isValidElement, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
+import { AlertCircle, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { format } from 'date-fns'
+import { format, isToday } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { toDate } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
+import { MediaLightbox } from '../../chat/components/AttachmentPreviewLightbox'
+import { Button } from '../../../components/ui/button'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { extractAgentOptions } from './agent-options'
 import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import { extractAgentSpecDraft } from './agent-spec-draft'
@@ -25,21 +27,21 @@ import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextRefere
 import { AgentRefChip } from './AgentRefChip'
 import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 import { extractExtensionFences } from './agent-extension-fences'
-import { extensionFenceTags, useMissionExtensions } from '../context/MissionExtensionsContext'
+import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
 const MD = cn(
-  'text-sm leading-7 text-foreground',
+  'max-w-[72ch] text-body leading-relaxed text-foreground',
   '[&_p]:my-3.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
-  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold',
-  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-[15px] [&_h2]:font-semibold',
+  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-semibold',
+  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-strong [&_h2]:font-semibold',
   '[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold',
   '[&_strong]:font-semibold [&_strong]:text-foreground',
   '[&_em]:italic',
   '[&_a]:text-accent-info [&_a]:underline [&_a]:underline-offset-2',
   '[&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1',
-  '[&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-accent-info',
+  '[&_code]:rounded-control [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground',
   '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface [&_pre]:p-3',
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground',
   '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/80',
@@ -51,47 +53,96 @@ const MD = cn(
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
 
-function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
-  const { t } = useTranslation('agent')
+/** Clipboard write with a short-lived "copied" flag (announced, not just drawn). */
+function useCopyFeedback(): { copied: boolean; copy: (text: string) => Promise<void> } {
   const [copied, setCopied] = useState(false)
-  const onCopy = async () => {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const copy = async (text: string): Promise<void> => {
     try {
-      // Include the same `yyyy-MM-dd HH:mm:ss` shown under the bubble as a header
-      // line, so a copied message carries its timestamp.
-      let payload = text
-      if (timestampIso) {
-        const d = toDate(timestampIso)
-        if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
-      }
-      await navigator.clipboard.writeText(payload)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => setCopied(false), 1500)
     } catch {
       /* clipboard unavailable */
     }
   }
+  return { copied, copy }
+}
+
+function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
+  const { t } = useTranslation('agent')
+  const { copied, copy } = useCopyFeedback()
+  const onCopy = () => {
+    // Include the full `yyyy-MM-dd HH:mm:ss` as a header line, so a copied
+    // message carries its timestamp (the bubble shows a compact form).
+    let payload = text
+    if (timestampIso) {
+      const d = toDate(timestampIso)
+      if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
+    }
+    void copy(payload)
+  }
+  const label = copied ? t('copied') : t('copy')
   return (
     <button
       type="button"
       onClick={onCopy}
-      aria-label={t('copy')}
-      title={t('copy')}
-      className="rounded-md p-1 text-foreground/40 opacity-0 transition-opacity hover:bg-surface hover:text-foreground group-hover:opacity-100"
+      aria-label={label}
+      title={label}
+      className="rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
       data-agent-interactive
     >
-      {copied ? <Check className="h-3 w-3 text-accent-success" /> : <Copy className="h-3 w-3" />}
+      {copied ? <Check className="h-3 w-3 text-accent-success" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
+      <span className="sr-only" role="status">{copied ? t('copied') : ''}</span>
     </button>
   )
 }
 
 /**
- * Whisper-subtle per-bubble timestamp (messaging-app convention). Always present
- * so the time is visually recorded + consultable, but at 10px / 25% opacity it
- * never competes with the message; it brightens slightly on hover of the bubble
- * group and carries the full locale date+time as a tooltip. Shows the absolute
- * `yyyy-MM-dd HH:mm:ss` (24h, ISO-ish, sortable at a glance). Renders nothing
- * without a valid timestamp (streaming buffer / optimistic rows) so it can't
- * flicker.
+ * Fenced code block: the language as a quiet label and a copy button, both in
+ * a top band so neither covers the code. The copy reads the rendered text, so
+ * it matches exactly what the reader sees.
+ */
+function AgentCodeBlock({ children }: { children?: ReactNode }) {
+  const { t } = useTranslation('agent')
+  const preRef = useRef<HTMLPreElement>(null)
+  const { copied, copy } = useCopyFeedback()
+  const child = Children.toArray(children)[0]
+  const codeClass = isValidElement<{ className?: string }>(child) ? child.props.className ?? '' : ''
+  const language = /language-([\w+#.-]+)/.exec(codeClass)?.[1] ?? null
+  const label = copied ? t('copied') : t('copyCode')
+  return (
+    <div className="group/code relative" data-testid="agent-code-block">
+      {language && (
+        <span className="pointer-events-none absolute left-3 top-1.5 select-none font-mono text-xs text-foreground/60" data-testid="agent-code-language">
+          {language}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={() => void copy(preRef.current?.textContent ?? '')}
+        aria-label={label}
+        title={label}
+        className="absolute right-1.5 top-1 rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
+        data-agent-interactive
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-accent-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+        <span className="sr-only" role="status">{copied ? t('copied') : ''}</span>
+      </button>
+      <pre ref={preRef} style={{ paddingTop: '1.75rem' }}>{children}</pre>
+    </div>
+  )
+}
+
+/**
+ * Quiet per-bubble timestamp (messaging-app convention). 12px at 60% (75% on
+ * hover of the bubble group) — readable without competing with the message.
+ * Today shows `HH:mm`, older messages `MMM d, HH:mm` (locale-aware); the full
+ * locale date+time is the tooltip and the copy payload keeps the sortable
+ * `yyyy-MM-dd HH:mm:ss`. Renders nothing without a valid timestamp (streaming
+ * buffer / optimistic rows) so it can't flicker.
  */
 function MessageTime({ iso }: { iso?: string }) {
   if (!iso) return null
@@ -102,9 +153,9 @@ function MessageTime({ iso }: { iso?: string }) {
     <time
       dateTime={d.toISOString()}
       title={format(d, 'PPpp', { locale })}
-      className="shrink-0 select-none font-mono text-[10px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
+      className="shrink-0 select-none text-xs leading-none tabular-nums text-foreground/60 transition-colors duration-200 group-hover:text-foreground/75"
     >
-      {format(d, 'yyyy-MM-dd HH:mm:ss')}
+      {format(d, isToday(d) ? 'HH:mm' : 'MMM d, HH:mm', { locale })}
     </time>
   )
 }
@@ -132,20 +183,6 @@ function AgentAttachmentDialog({
   const { t } = useTranslation('agent')
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!attachment) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previousOverflow
-    }
-  }, [attachment, onClose])
 
   useEffect(() => {
     if (!attachment) {
@@ -178,115 +215,62 @@ function AgentAttachmentDialog({
 
   if (!attachment) return null
 
-  const image = isImageAttachment(attachment)
-  const downloadLabel = t('attachment.download')
-  const downloadAction = objectUrl ? (
-    <a
-      href={objectUrl}
-      download={attachment.filename}
-      onClick={(event) => event.stopPropagation()}
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-      data-agent-interactive
-    >
-      <Download className="h-4 w-4" />
-      {downloadLabel}
-    </a>
-  ) : (
-    <button
-      type="button"
-      disabled
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 py-2 text-sm font-medium text-white opacity-45"
-    >
-      {loadError ? <Download className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
-      {downloadLabel}
-    </button>
-  )
+  if (isImageAttachment(attachment)) {
+    // One lightbox for the whole app (modal standard): Radix on the media layer.
+    return (
+      <MediaLightbox
+        open
+        onClose={onClose}
+        filename={attachment.filename}
+        subtitle={formatBytes(attachment.size) || attachment.mimeType}
+        src={objectUrl}
+        mimeType={attachment.mimeType}
+        error={loadError ? t('attachment.loadError', { error: loadError }) : null}
+      />
+    )
+  }
 
-  const dialog = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={image ? t('attachment.previewTitle', { name: attachment.filename }) : t('attachment.downloadTitle')}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in-0 duration-150"
-      onClick={onClose}
-    >
-      {image ? (
-        <div className="flex h-full w-full flex-col overflow-hidden" onClick={(event) => event.stopPropagation()}>
-          <div className="flex items-center gap-3 border-b border-white/10 bg-black/30 px-3 py-2 text-white">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('close')}
-              className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-              data-agent-interactive
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t('close')}
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <div className="truncate text-sm font-medium text-white/95">{attachment.filename}</div>
-              <div className="text-[11px] text-white/45">{formatBytes(attachment.size) || attachment.mimeType}</div>
-            </div>
-            {downloadAction}
+  // Non-image attachment: a short download confirm on the modal standard.
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent size="confirm" layer="media" showCloseButton={false}>
+        <DialogHeader icon={<File />}>
+          <DialogTitle>{t('attachment.downloadTitle')}</DialogTitle>
+          <DialogDescription>{t('attachment.downloadPrompt')}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <div className="min-w-0">
+            <p className="truncate text-body font-medium text-foreground">{attachment.filename}</p>
+            <p className="text-xs text-muted-foreground">{[formatBytes(attachment.size), attachment.mimeType].filter(Boolean).join(' · ')}</p>
           </div>
-          <div className="flex flex-1 items-center justify-center overflow-auto p-6">
-            {loadError ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-8 py-7 text-center text-sm text-white/80">
-                {t('attachment.loadError', { error: loadError })}
-              </div>
-            ) : !objectUrl ? (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/70">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('attachment.loading')}
-              </div>
-            ) : (
-              <img
-                src={objectUrl}
-                alt={attachment.filename}
-                className="max-h-full max-w-full rounded-xl object-contain shadow-2xl animate-in zoom-in-95 duration-150"
-              />
-            )}
-          </div>
-        </div>
-      ) : (
-        <div
-          className="w-full max-w-sm rounded-2xl border border-border/70 bg-card p-4 text-foreground shadow-2xl"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-surface/70">
-              <File className="h-5 w-5 text-accent-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold">{t('attachment.downloadTitle')}</h2>
-              <p className="mt-1 truncate text-xs font-medium text-foreground/70">{attachment.filename}</p>
-              <p className="mt-0.5 text-[11px] text-foreground/45">{[formatBytes(attachment.size), attachment.mimeType].filter(Boolean).join(' · ')}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-foreground/70">{t('attachment.downloadPrompt')}</p>
           {loadError && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{t('attachment.loadError', { error: loadError })}</span>
             </div>
           )}
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-border/70 bg-surface/70 px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-surface hover:text-foreground"
-              data-agent-interactive
-            >
-              {t('attachment.cancelDownload')}
-            </button>
-            {downloadAction}
-          </div>
-        </div>
-      )}
-    </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} data-agent-interactive>
+            {t('attachment.cancelDownload')}
+          </Button>
+          {objectUrl ? (
+            <Button asChild data-agent-interactive>
+              <a href={objectUrl} download={attachment.filename}>
+                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                {t('attachment.download')}
+              </a>
+            </Button>
+          ) : (
+            <Button type="button" disabled>
+              {loadError ? <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden /> : <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}
+              {t('attachment.download')}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
 export function AgentAttachmentChips({
@@ -312,12 +296,12 @@ export function AgentAttachmentChips({
               onClick={() => setSelected(attachment)}
               title={attachment.filename}
               aria-label={image ? t('attachment.openPreview', { name: attachment.filename }) : t('attachment.openDownload', { name: attachment.filename })}
-              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-[11px] text-foreground/75 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
+              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-xs text-foreground/75 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
               data-agent-interactive
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
               <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
-              {attachment.size > 0 && <span className="shrink-0 text-[10px] text-foreground/35">{formatBytes(attachment.size)}</span>}
+              {attachment.size > 0 && <span className="shrink-0 text-xs text-foreground/60">{formatBytes(attachment.size)}</span>}
             </button>
           )
         })}
@@ -354,7 +338,7 @@ function AgentContextInlineChip({ refItem }: { refItem: AgentContextReference })
     <span
       title={title || refItem.token}
       className={cn(
-        'mx-0.5 inline-flex max-w-[16rem] translate-y-[2px] items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 shadow-sm shadow-black/5',
+        'mx-0.5 inline-flex max-w-[16rem] translate-y-[2px] items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium leading-4 shadow-sm shadow-black/5',
         contextTone(refItem.kind),
       )}
       data-agent-context-token={refItem.kind}
@@ -408,8 +392,8 @@ export function AgentContextInlineTokens({
 function AgentExtensionPending() {
   const { t } = useTranslation('agent')
   return (
-    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-[11px] text-accent-primary">
-      <Loader2 className="h-3 w-3 animate-spin" />
+    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
+      <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
       {t('cardPending')}
     </div>
   )
@@ -423,6 +407,10 @@ interface Props {
   /** ISO creation time — rendered as a subtle per-bubble timestamp. Absent on
    *  the live streaming buffer (the time appears once the turn settles). */
   createdAt?: string
+  /** A discreet mode mark next to the timestamp (an agent turn produced in an
+   *  extension's mode, e.g. Flow): its icon, color and words come from the
+   *  extension (useMissionTurnMark), never hard-coded here. */
+  modeMark?: MissionModeBadge | null
   /** Streaming assistant bubble: render markdown live, hide the copy button. */
   streaming?: boolean
   /** True only for the newest message while no turn is streaming — gates chips. */
@@ -462,7 +450,8 @@ interface Props {
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+  const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
   const extensionTags = extensionFenceTags(extensions).join(',')
@@ -481,6 +470,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
   // descriptions) instead of navigating the whole webview away. When the
   // embedded browser can't open (no project / feature off), keep target=_blank.
   const markdownComponents = useMemo(() => ({
+    pre: AgentCodeBlock,
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
       // `#agentref:` fragments are emitted by remarkAgentRefs (settled renders
       // only) — render them as clickable ticket/job chips instead of anchors.
@@ -514,7 +504,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
 
   if (isUser) {
     return (
-      <div className="group flex flex-col items-end gap-0.5">
+      <article aria-label={t('message.you')} className="group flex flex-col items-end gap-0.5">
         <div className="flex items-start justify-end gap-1">
           <CopyButton text={content} timestampIso={createdAt} />
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
@@ -528,7 +518,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
             <MessageTime iso={createdAt} />
           </div>
         )}
-      </div>
+      </article>
     )
   }
 
@@ -580,7 +570,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
   const railUnreadable = !streaming && rail.rejected.length > 0 ? rail.rejected.map((r) => r.excerpt) : []
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
-    <div className="group flex flex-col gap-1">
+    <article aria-label={t('message.agent')} aria-busy={streaming || undefined} className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
@@ -638,15 +628,18 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
       {extensionPending && <AgentExtensionPending />}
       {railUnreadable.length > 0 && <AgentRailLaunchUnreadable excerpts={railUnreadable} />}
       {showChips && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
+        <div role="group" aria-label={t('options.groupLabel')} className="flex flex-wrap gap-1.5 pt-1" data-testid="agent-option-chips">
           {options.map((option, i) => (
             <button
               key={`${i}-${option}`}
               type="button"
               onClick={() => onPickOption?.(option)}
-              className="rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground"
+              title={i < 9 ? t('options.shortcut', { n: i + 1 }) : undefined}
+              aria-keyshortcuts={i < 9 ? `Alt+${i + 1}` : undefined}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
               data-agent-interactive
             >
+              {i < 9 && <span aria-hidden className="text-xs tabular-nums text-foreground/60">{i + 1}</span>}
               {option}
             </button>
           ))}
@@ -656,8 +649,14 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
         <div className="flex items-center gap-2">
           {body.trim() && <CopyButton text={body} timestampIso={createdAt} />}
           {createdAt && <MessageTime iso={createdAt} />}
+          {modeMark && (
+            <span className="inline-flex shrink-0 select-none items-center gap-1 text-caption leading-none text-foreground/70" data-testid="agent-message-mode-mark" title={modeMark.description} style={{ '--turn-mode-accent': modeAccent(modeMark) } as CSSProperties}>
+              {modeMark.icon && <modeMark.icon className="h-3 w-3 shrink-0 text-[color:var(--turn-mode-accent)]" aria-hidden />}
+              {modeMark.label}
+            </span>
+          )}
         </div>
       )}
-    </div>
+    </article>
   )
 }

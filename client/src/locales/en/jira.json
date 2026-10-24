@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "No projects found",
-    "loading": "Loading projects…"
+    "loading": "Loading projects…",
+    "search": "Search"
   },
   "mapping": {
     "intro": "Statuses are matched automatically by category (To Do / In Progress / Done). Override any state if your workflow uses custom names.",
@@ -69,7 +70,8 @@
     "syncedToast": "Synced {{count}} issue(s) from Jira",
     "disconnect": "Disconnect",
     "disconnectConfirm": "Disconnect this project from Jira? Existing specs stay on the board; sync stops.",
-    "disconnectedToast": "Disconnected from Jira"
+    "disconnectedToast": "Disconnected from Jira",
+    "disconnectConfirmTitle": "Disconnect from Jira?"
   },
   "outbox": {
     "title": "Pending Jira updates",

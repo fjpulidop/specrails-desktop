@@ -232,8 +232,13 @@ describe('LogViewer', () => {
         makeLogEvent('-removed line', 5),
       ]
       render(<LogViewer events={events} />)
-      expect(screen.getByText('+added line')).toBeInTheDocument()
-      expect(screen.getByText('-removed line')).toBeInTheDocument()
+      // The +/− marker renders in its own aria-hidden glyph span (no side stripe).
+      const added = screen.getByText('added line')
+      const removed = screen.getByText('removed line')
+      expect(added.previousElementSibling?.textContent).toBe('+')
+      expect(added.previousElementSibling).toHaveAttribute('aria-hidden')
+      expect(removed.previousElementSibling?.textContent).toBe('\u2212')
+      expect(added.parentElement?.className).not.toMatch(/border-l/)
     })
   })
 

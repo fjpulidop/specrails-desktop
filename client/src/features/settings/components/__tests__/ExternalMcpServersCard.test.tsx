@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -186,6 +186,10 @@ describe('ExternalMcpServersCard', () => {
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-row-c:mi-tool')
     fireEvent.click(screen.getByTestId('external-mcp-remove-c:mi-tool'))
+    // Destructive: nothing is written until the confirmation is accepted.
+    const dialog = await screen.findByRole('dialog')
+    expect(calls).toHaveLength(0)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove server' }))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(Object.keys(calls[0].body!.servers)).toEqual(['d:claude:jira'])
   })

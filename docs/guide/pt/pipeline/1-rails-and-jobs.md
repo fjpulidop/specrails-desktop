@@ -37,7 +37,7 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 | **Seletor de Loop** | O Loop que este rail roda — um embutido (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) ou um loop personalizado. Veja a tabela abaixo. Persistido por rail. |
 | **▶ Play / ■ Stop** | Iniciar ou cancelar. |
 
-### O que um rail roda: Loops
+### O que um rail roda: Loops {#rail-loops}
 
 Um rail roda um **Loop** — a receita do trabalho. Dois loops são **embutidos** e cobrem os casos comuns:
 
@@ -85,6 +85,25 @@ Se algo parecer errado:
 - **Um rail** — clique em **■ Stop** no cabeçalho dele.
 - **Autopausa por orçamento** — defina um orçamento diário e a fila se pausa sozinha quando o gasto do dia atinge o teto.
 - **Tudo** — feche o app desktop, ou rode `specrails-desktop stop`.
+
+## Integrar localmente com alterações sem commit
+
+**Integrar localmente** junta uma entrega aprovada no seu branch de integração (por exemplo `main`) neste computador, sem PR. Não precisa de um checkout limpo:
+
+- As alterações sem commit que não tocam nos ficheiros entregues ficam onde estão.
+- Se as suas alterações tocam nos mesmos ficheiros, o Specrails guarda-as num git stash chamado `specrails: before integrating #N (…)`, integra e volta a colocá-las. O aviso diz *Guardei as suas alterações locais, integrei #N e restaurei-as.*
+- Se ao voltar a colocá-las houver conflitos com o código integrado, o Specrails deixa o branch exatamente como integrado e **mantém o stash**: nada se perde. O cartão mostra *As suas alterações locais estão guardadas num stash* com os ficheiros em conflito, **Restaurar as minhas alterações** (nova tentativa, por exemplo depois de alterar o código) e o nome do stash para copiar. Depois, o Specrails restaura-as ele próprio num novo branch `specrails/restore-local-<id>`, num worktree separado: se aí se aplicarem sem conflitos, faz commit; caso contrário, um resolvedor de conflitos com IA trabalha apenas dentro desse worktree, mantendo a sua intenção e o código integrado, e o Specrails faz commit do resultado. O cartão lista os ficheiros restaurados; **Trazê-las de volta para <branch>** coloca-as no seu branch (só então o stash é descartado) e **Descartar o branch restaurado** remove o branch e mantém o stash. Uma missão é apenas informada; nunca tem de executar nada. As skills e comandos OpenSpec gerados pelo Specrails (por exemplo `.claude/skills/openspec-*/SKILL.md`) não contam como alterações suas: num conflito mantêm a versão integrada.
+- Os ficheiros ignorados nunca vão para o stash: se algum colidir com a entrega, o Specrails pede-lhe que o mova primeiro.
+- Se a app parar entre guardar e restaurar, restaura as suas alterações da próxima vez que o projeto abrir (só se o mesmo branch estiver em checkout).
+
+## Previsão de tempo e custo {#launch-forecast}
+
+Antes de clicar em Iniciar, um rail pode mostrar quanto tempo execuções como esta costumam levar e, quando faz sentido, quanto costumam custar, por exemplo *Normalmente 6–9 min · $2–4 em execuções como esta*.
+
+O intervalo é a metade central do seu próprio histórico: do percentil 25 ao 75 das execuções concluídas neste projeto com o mesmo loop ou comando e o mesmo motor. Precisa de pelo menos 5 execuções comparáveis. Até lá, a linha diz *Ainda sem histórico suficiente* em vez de um palpite. Só entram custos informados pelo provedor; custos estimados ficam de fora. É uma estimativa, nunca uma cobrança.
+
+O valor em dólares só aparece quando se sabe que o motor cobra por uso (por exemplo, uma chave de API). Em um plano de assinatura, ou enquanto o modo de cobrança ainda não é conhecido, só o tempo aparece. Quando o rail tem várias specs, o intervalo vale para uma spec e diz isso com *(por spec)*. Se o gasto de hoje mais o topo do intervalo puder atingir o seu orçamento diário, a linha acrescenta *Pode pausar no orçamento* com um link para as configurações de orçamento. Se o orçamento de hoje já acabou, Iniciar pede confirmação antes, porque a execução ficaria em pausa até ser reiniciado.
+
 
 ## Para onde ir agora
 

@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom'
+import { useLocation, useOutlet } from 'react-router-dom'
+import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,8 @@ interface ProjectLayoutProps {
 
 export function ProjectLayout({ project }: ProjectLayoutProps) {
   const { t } = useTranslation('nav')
+  const location = useLocation()
+  const outlet = useOutlet()
   const chat = useChat()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const [budgetExceeded, setBudgetExceeded] = useState<{ dailySpend: number; budget: number } | null>(null)
@@ -81,9 +84,19 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           </div>
         )}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          <main className="flex-1 overflow-auto">
-            <Outlet />
-          </main>
+          <div data-testid="project-content" data-project-content className="flex-1 overflow-auto">
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={location.pathname}
+                className="h-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {outlet}
+              </motion.div>
+            </AnimatePresence>
+          </div>
           {FEATURE_CHAT_ENABLED && <ChatPanel chat={chat} project={project} />}
         </div>
       </div>

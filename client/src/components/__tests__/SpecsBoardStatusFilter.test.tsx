@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { useLocation } from 'react-router-dom'
 import { render, screen, fireEvent, within } from '../../test-utils'
 import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
+import { SpecStatusFilter } from '../../features/specs/components/SpecStatusFilter'
 import type { LocalTicket } from '../../types'
 
 vi.mock('@dnd-kit/core', () => ({
@@ -54,6 +55,12 @@ function makeTicket(
   }
 }
 
+/** Opens the toolbar Filters popover (idempotent: single-selects keep it open). */
+function openFilters() {
+  if (!screen.queryByTestId('specs-filters-panel')) fireEvent.click(screen.getByTestId('specs-filters-trigger'))
+  return screen.getByTestId('specs-filters-panel')
+}
+
 function LocationProbe() {
   const loc = useLocation()
   return <div data-testid="loc-search">{loc.search}</div>
@@ -76,7 +83,7 @@ describe('SpecsBoard premium status selector', () => {
     ]
     const doneTickets = [makeTicket(10, 'Done one', 'done')]
     render(<SpecsBoard tickets={tickets} doneTickets={doneTickets} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByTestId('specs-status-chip-active')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('specs-status-chip-active')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Draft one')).toBeInTheDocument()
     expect(screen.getByText('Todo one')).toBeInTheDocument()
     expect(screen.getByText('Working one')).toBeInTheDocument()
@@ -250,7 +257,7 @@ describe('SpecsBoard premium status selector', () => {
       <SpecsBoard tickets={tickets} doneTickets={doneTickets} isLoading={false} onTicketClick={onTicketClick} />,
       { route: '/?status=done' },
     )
-    expect(screen.getByTestId('specs-status-chip-done')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('specs-status-chip-done')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Done one')).toBeInTheDocument()
     expect(screen.queryByText('Active one')).toBeNull()
   })
@@ -260,7 +267,7 @@ describe('SpecsBoard premium status selector', () => {
       <SpecsBoard tickets={[makeTicket(1, 'Active one')]} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />,
       { route: '/?status=bogus' },
     )
-    expect(screen.getByTestId('specs-status-chip-active')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('specs-status-chip-active')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Active one')).toBeInTheDocument()
   })
 
@@ -284,11 +291,12 @@ describe('SpecsBoard premium status selector', () => {
 describe('SpecsBoard Jira status dimension', () => {
   const onTicketClick = vi.fn()
 
-  it('hides the Jira status dropdown when no spec carries a raw Jira status', () => {
+  it('hides the Jira status section when no spec carries a raw Jira status', () => {
     render(
       <SpecsBoard tickets={[makeTicket(1, 'Local one')]} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />,
     )
-    expect(screen.queryByTestId('spec-jira-status-filter-dropdown')).toBeNull()
+    openFilters()
+    expect(screen.queryByTestId('spec-filters-section-jira-status')).toBeNull()
   })
 
   it('groups raw statuses under their logical state with live counts', () => {
@@ -300,7 +308,7 @@ describe('SpecsBoard Jira status dimension', () => {
     ]
     const doneTickets = [makeTicket(10, 'Shipped', 'done', 'Done')]
     render(<SpecsBoard tickets={tickets} doneTickets={doneTickets} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     const panel = screen.getByTestId('spec-jira-status-filter-panel')
     // Logical groups render in lifecycle order with the raw names inside.
     expect(within(panel).getByTestId('spec-jira-status-group-todo')).toBeInTheDocument()
@@ -320,12 +328,13 @@ describe('SpecsBoard Jira status dimension', () => {
       makeTicket(2, 'Two', 'in_progress', 'Code Review'),
     ]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-jira-status-option-Code Review'))
     expect(screen.getByText('Two')).toBeInTheDocument()
     expect(screen.queryByText('One')).toBeNull()
-    // The two dimensions compose (AND): the exact-status chips reflect it too.
-    expect(screen.getByTestId('spec-jira-status-filter-dropdown')).toHaveTextContent('Code Review')
+    // The active value is surfaced in the chips row and the Filters badge.
+    expect(screen.getByTestId('specs-filter-chip-jira-status')).toHaveTextContent('Jira: Code Review')
+    expect(screen.getByTestId('specs-filters-count')).toHaveTextContent('1')
   })
 
   it('clears the raw status via "All Jira statuses"', () => {
@@ -334,10 +343,10 @@ describe('SpecsBoard Jira status dimension', () => {
       makeTicket(2, 'Two', 'in_progress', 'Code Review'),
     ]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-jira-status-option-Code Review'))
     expect(screen.queryByText('One')).toBeNull()
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-jira-status-filter-all'))
     expect(screen.getByText('One')).toBeInTheDocument()
     expect(screen.getByText('Two')).toBeInTheDocument()
@@ -349,7 +358,7 @@ describe('SpecsBoard Jira status dimension', () => {
       makeTicket(2, 'Reviewing', 'on_review', 'Code Review'),
     ]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-jira-status-option-Code Review'))
     // Raw filter alone: both visible under Active.
     expect(screen.getByText('Working')).toBeInTheDocument()
@@ -374,8 +383,20 @@ describe('SpecsBoard Jira status dimension', () => {
     )
     expect(screen.getByText('Two')).toBeInTheDocument()
     expect(screen.queryByText('One')).toBeNull()
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-jira-status-filter-all'))
     expect(screen.getByTestId('loc-search').textContent ?? '').not.toContain('jiraStatus=')
+  })
+})
+
+describe('SpecStatusFilter collapse ladder', () => {
+  const counts = { draft: 1, todo: 2, in_progress: 0, on_review: 0, done: 3, cancelled: 4 }
+
+  it('compact tier keeps a menu-held selection visible on the More trigger', () => {
+    render(<SpecStatusFilter value="cancelled" onChange={() => {}} counts={counts} forceTier="compact" />)
+    const more = screen.getByTestId('specs-status-more')
+    expect(more).toHaveTextContent('Cancelled')
+    expect(more).toHaveTextContent('4')
+    expect(screen.queryByTestId('specs-status-chip-cancelled')).toBeNull()
   })
 })

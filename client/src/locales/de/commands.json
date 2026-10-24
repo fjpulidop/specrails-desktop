@@ -10,7 +10,10 @@
       "missions": "Missionen",
       "spec": "Spec",
       "jobs": "Jobs",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "actions": "Aktionen",
+      "recentActions": "Zuletzt verwendete Aktionen",
+      "recentPlaces": "Zuletzt besuchte Orte"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,10 +34,75 @@
     "footer": {
       "navigate": "navigieren",
       "select": "auswählen",
-      "close": "schließen"
+      "close": "schließen",
+      "actions": "Aktionen",
+      "back": "zurück"
     },
     "missions": {
       "home": "Start"
+    },
+    "dialogTitle": "Missionen, Projekte und Jobs durchsuchen",
+    "dialogDescription": "Tippe zum Filtern und drücke die Eingabetaste, um das markierte Ergebnis zu öffnen.",
+    "actions": {
+      "verbs": "neu,neue,erstellen,hinzufügen,starten,ausführen,verschieben,öffnen,wechseln,umschalten,gehe,übergeben,pausieren,fortsetzen,rückgängig,zeigen,beginnen,wiederherstellen,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Zurück",
+      "newSpec": "Neue Spec",
+      "newSpecExplore": "Neue Spec (Erkunden)",
+      "launchSpec": "Spec auf Rail starten",
+      "launchSpecN": "#{{id}} auf Rail starten",
+      "moveSpec": "Spec verschieben nach",
+      "moveSpecN": "#{{id}} verschieben nach",
+      "openReview": "Review öffnen",
+      "openReviewN": "Review für #{{id}} öffnen",
+      "handOffFlow": "Flow übergeben",
+      "pauseFlow": "Flow pausieren",
+      "resumeFlow": "Flow fortsetzen",
+      "newMission": "Neue Mission",
+      "switchTheme": "Theme wechseln",
+      "switchToMission": "Zum Mission-Modus wechseln",
+      "switchToBoard": "Zum Board-Modus wechseln",
+      "openAppSettings": "App-Einstellungen öffnen",
+      "openProjectSettings": "Projekteinstellungen öffnen",
+      "switchProject": "Projekt wechseln",
+      "runLoop": "Loop ausführen",
+      "toggleLeftSidebar": "Linke Seitenleiste umschalten",
+      "toggleRightSidebar": "Rechte Seitenleiste umschalten",
+      "goBack": "Zurück gehen",
+      "goForward": "Vorwärts gehen",
+      "undoLast": "Rückgängig: {{label}}",
+      "recentlyDeleted": "Zuletzt gelöscht",
+      "pages": {
+        "railTitle": "Rail für #{{id}}",
+        "railPlaceholder": "Rail wählen...",
+        "railRunning": "läuft",
+        "railHasSpec": "bereits hier",
+        "noRails": "Keine Rails verfügbar.",
+        "statusTitle": "#{{id}} verschieben nach",
+        "statusPlaceholder": "Status wählen...",
+        "noStatuses": "Keine Status verfügbar.",
+        "current": "aktuell",
+        "specTitle": "Spec wählen",
+        "specPlaceholder": "Specs suchen...",
+        "noSpecs": "Keine passenden Specs.",
+        "themeTitle": "Theme",
+        "themePlaceholder": "Theme wählen...",
+        "noThemes": "Keine Themes verfügbar.",
+        "appSettingsTitle": "App-Einstellungen",
+        "projectSettingsTitle": "Projekteinstellungen",
+        "sectionPlaceholder": "Bereich wählen...",
+        "noSections": "Keine Bereiche.",
+        "projectTitle": "Projekte",
+        "projectPlaceholder": "Projekt wählen...",
+        "noProjects": "Keine weiteren Projekte.",
+        "loopTitle": "Jetzt ausführbare Loops",
+        "loopPlaceholder": "Loop wählen...",
+        "noLoops": "Kein Loop läuft ohne Spec.",
+        "loading": "Wird geladen...",
+        "loadFailed": "Die Optionen konnten nicht geladen werden."
+      },
+      "openInbox": "Offen öffnen",
+      "openInboxCount": "Offen öffnen ({{count}})",
+      "opensOptions": "öffnet Optionen"
     }
   },
   "toasts": {
@@ -73,7 +141,8 @@
     "categories": {
       "general": "Allgemein",
       "navigation": "Navigation",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "missions": "Missionen"
     },
     "items": {
       "showCheatsheet": "Tastaturkürzel anzeigen",
@@ -90,8 +159,23 @@
       "goAnalytics": "Zu Analytics",
       "goSettings": "Zu den Einstellungen",
       "nextItem": "Nächstes Listenelement",
-      "prevItem": "Vorheriges Listenelement"
-    }
+      "prevItem": "Vorheriges Listenelement",
+      "runStripFocus": "Zum Laufstreifen der Mission springen (erneut drücken, um Details ein- oder auszublenden)",
+      "runStripCycle": "Vorheriger / nächster Lauf im Laufstreifen (außerhalb von Textfeldern)",
+      "runStripBack": "Laufstreifen verlassen und dorthin zurückkehren, wo du warst",
+      "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
+      "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
+      "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
+      "undoLast": "Letzte Änderung rückgängig machen",
+      "openInbox": "Offen öffnen"
+    },
+    "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
+    "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",
+    "noShortcuts": "Kein Tastaturkürzel passt zu „{{query}}“.",
+    "guidesHeading": "Aus der Anleitung",
+    "openGuide": "Anleitung öffnen: {{title}}",
+    "noGuides": "Keine Anleitung passt zu „{{query}}“.",
+    "searching": "Anleitung wird durchsucht…"
   },
   "update": {
     "title": {

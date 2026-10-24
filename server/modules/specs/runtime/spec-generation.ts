@@ -174,7 +174,7 @@ export function buildSpecGenerationPrompts(input: {
     `## Labels\n[2-4 short kebab-case tags categorising the spec — comma-separated on one line, e.g. "ui, settings, dark-mode". Lowercase, no spaces inside a tag.]\n\n` +
     `## Problem Statement\n[2-3 sentences]\n\n` +
     `## Proposed Solution\n[3-5 sentences]\n\n` +
-    `## Out of Scope\n[Bullet list]\n\n` +
+    `## Out of Scope\n[Bullet list of 1-5 non-goals: what this spec deliberately does NOT change or deliver, so implementers do not widen it. Never empty — name at least one adjacent thing left out.]\n\n` +
     `## Acceptance Criteria\n[Numbered list of testable outcomes]\n\n` +
     `## Technical Considerations\n[Bullet list]\n\n` +
     `## Estimated Complexity\n[Low/Medium/High/Very High + one sentence justification]\n\n` +
@@ -213,6 +213,8 @@ export function persistGeneratedSpec(
         priority: spec.priority,
         labels: spec.labels,
         short_summary: spec.shortSummary,
+        // A rewrite without an Out of Scope section keeps the spec's non-goals.
+        ...(spec.nonGoals.length ? { nonGoals: spec.nonGoals } : {}),
         updated_at: now,
       }
       s.tickets[String(target.ticketId)] = rewritten
@@ -238,6 +240,7 @@ export function persistGeneratedSpec(
       parent_epic_id: null,
       execution_order: null,
       short_summary: spec.shortSummary,
+      ...(spec.nonGoals.length ? { nonGoals: spec.nonGoals } : {}),
       created_at: now,
       updated_at: now,
       created_by: 'sr-product-engineer',

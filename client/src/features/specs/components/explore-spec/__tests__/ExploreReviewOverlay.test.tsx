@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import {
   ExploreReviewOverlay,
   EMPTY_REVIEW_BASELINE,
@@ -156,7 +158,8 @@ describe('ExploreReviewOverlay', () => {
         onCommit={onCommit}
       />,
     )
-    fireEvent.keyDown(window, { key: 'Escape' })
+    // Radix owns Escape (document-level), so dispatch from the focused node.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
@@ -211,5 +214,49 @@ describe('ExploreReviewOverlay', () => {
     )
     expect((screen.getByTestId('review-back') as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByTestId('review-commit') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('is a Radix modal on the stacked layer that traps Tab focus', async () => {
+    const user = userEvent.setup()
+    render(
+      <ExploreReviewOverlay
+        baseline={EMPTY_REVIEW_BASELINE}
+        proposed={makeProposed()}
+        onBack={onBack}
+        onCommit={onCommit}
+      />,
+    )
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'stacked')
+    for (let i = 0; i < 6; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+  })
+
+  it('returns focus to the opener when it closes', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>review</button>
+          {open && (
+            <ExploreReviewOverlay
+              baseline={EMPTY_REVIEW_BASELINE}
+              proposed={makeProposed()}
+              onBack={() => setOpen(false)}
+              onCommit={onCommit}
+            />
+          )}
+        </>
+      )
+    }
+    const user = userEvent.setup()
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'review' })
+    await user.click(trigger)
+    await user.click(screen.getByTestId('review-back'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 })

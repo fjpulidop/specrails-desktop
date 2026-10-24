@@ -30,7 +30,8 @@ Use this draft schema. Omit fields you do not want to update:
 \`\`\`spec-draft
 {
   "title": "Concise, action-oriented title",
-  "description": "## Problem Statement\\n2-3 sentences.\\n\\n## Proposed Solution\\n3-5 sentences.\\n\\n## Out of Scope\\n- bullet\\n\\n## Technical Considerations\\n- bullet\\n\\n## Estimated Complexity\\nMedium - one sentence justification.",
+  "description": "## Problem Statement\\n2-3 sentences.\\n\\n## Proposed Solution\\n3-5 sentences.\\n\\n## Technical Considerations\\n- bullet\\n\\n## Estimated Complexity\\nMedium - one sentence justification.",
+  "nonGoals": ["What this spec deliberately does NOT change or deliver"],
   "labels": ["short-label"],
   "priority": "low | medium | high | critical",
   "acceptanceCriteria": ["Short, testable criterion"],
@@ -42,7 +43,8 @@ Use this draft schema. Omit fields you do not want to update:
 Rules:
 - Ask only the clarifying questions genuinely needed to make the spec concrete.
 - Keep visible replies brief.
-- Set \`ready: true\` only when the draft has a title, description, acceptance criteria, and no outstanding clarifying question.
+- \`nonGoals\` lists 1-5 things the spec deliberately leaves out (shown as \"Out of scope\" under the description); keep them out of \`description\`.
+- Set \`ready: true\` only when the draft has a title, description, acceptance criteria, at least one non-goal, and no outstanding clarifying question.
 - Never call \`/specrails:propose-spec\`, \`/specrails:implement\`, or any slash command with side effects.
 
 The user's idea follows below. Begin the Explore Spec conversation.

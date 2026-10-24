@@ -70,11 +70,11 @@
 
 /*
  * Hide the ChatPanel right-hand sidebar in the demo build. The panel is
- * rendered as the next sibling of <main>, carrying the border-l +
+ * rendered as the next sibling of the project content area, carrying the border-l +
  * backdrop-blur classes from ChatPanel.tsx.
  */
-main + div[class*="border-l"][class*="backdrop-blur"],
-main ~ div[class*="border-l"][class*="backdrop-blur"],
+[data-project-content] + div[class*="border-l"][class*="backdrop-blur"],
+[data-project-content] ~ div[class*="border-l"][class*="backdrop-blur"],
 [data-chat-panel] {
   display: none !important;
 }

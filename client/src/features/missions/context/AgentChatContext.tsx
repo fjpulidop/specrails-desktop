@@ -24,6 +24,7 @@ import {
   getAgentConversation,
   patchAgentConversation,
   deleteAgentConversation,
+  restoreAgentConversation,
   sendAgentMessage,
   abortAgentTurn,
   editQueuedAgentMessage,
@@ -48,8 +49,14 @@ import { AgentBubble } from '../components/AgentBubble'
 import { useBuilderSession, type BuilderSession } from '../../builder/hooks/useBuilderSession'
 import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { TRASH_RETENTION_DAYS, useUndo } from '../../../hooks/useUndo'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
+import { markUserPlaceIntent } from '../../../lib/places'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
+import { derivePrCards } from '../components/agent-pr-pinning'
+import { deliveryAttention, mergeAttention, type MissionAttentionKind } from '../components/mission-run-strip'
+import { useMissionRunAttention } from './MissionExtensionsContext'
+import { hasUnsettledPrCard, railStateDiffersFromCard, usePrCardResync } from './usePrCardResync'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
@@ -354,6 +361,11 @@ export interface AgentChatContextValue {
   streamingConversationIds: ReadonlySet<string>
   /** Conversations with assistant/system output that arrived out of view. */
   unreadConversationIds: ReadonlySet<string>
+  /** Conversations with a delivery waiting for the person (a review decision,
+   *  an approval, a failure nobody acted on) — the mission list's attention mark. */
+  attentionConversationIds: ReadonlySet<string>
+  /** Why each of those missions needs the person: a decision waits (wins) or a run failed. */
+  attentionKinds?: ReadonlyMap<string, MissionAttentionKind>
   /** Per-conversation live slices (stream/tools/queue) — feeds the mission
    *  selector's queued-count badges without flattening to the active thread. */
   liveByConversation: ReadonlyMap<string, AgentConvLive>
@@ -399,7 +411,7 @@ export interface AgentChatContextValue {
   draftTierLevel: AgentTierLevel
   draftEffort: string | null
   setEffort: (effort: string | null) => Promise<void>
-  selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => Promise<void>
+  selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -408,6 +420,12 @@ export interface AgentChatContextValue {
   /** Refresh the conversation list WITHOUT opening the floating panel. Used on
    *  entering Agent Mode (open() would mount the now-suppressed panel). */
   refreshConversations: () => Promise<void>
+  /** Re-read the active mission's run cards now (a strip waiting on a run that
+   *  has not shown yet; normally the WS events and the resync poll do it). */
+  resyncRunCards?: () => void
+  /** An extension's live run (Flow) waits for the person or not: the same
+   *  sidebar attention dot a delivery feeds (keyed by the strip entry). */
+  reportRunAttention?: (conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind) => void
   /** Apply the authoritative snapshot returned by a card action immediately;
    *  the persisted message/WS update later becomes an idempotent no-op.
    *  Standalone cards receive `untracked` so they can still use a local
@@ -428,13 +446,24 @@ export interface AgentChatContextValue {
 
 const AgentChatContext = createContext<AgentChatContextValue | null>(null)
 
+/**
+ * Known Core turn failures, matched on Core's own (English) wording, read in
+ * the person's language. Order matters: the tool variant contains the plain one.
+ */
+const KNOWN_TURN_ERRORS: ReadonlyArray<readonly [string, string]> = [
+  ['A tool call produced no provider activity before the tool inactivity limit', 'agent:turnErrors.toolInactivity'],
+  ['No provider activity before the inactivity limit', 'agent:turnErrors.providerInactivity'],
+]
+
 /** A Core failure the user can act on reads in their language; others keep the server text. */
-function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
+export function describeAgentError(msg: Pick<WsAgentMsg, 'error' | 'code' | 'provider'>): string {
   if (msg.code === 'policy_unenforceable') {
     const provider = msg.provider ? msg.provider.charAt(0).toUpperCase() + msg.provider.slice(1) : ''
     return i18n.t('agent:subagents.policyUnenforceable', { provider })
   }
-  return msg.error || 'The agent turn failed.'
+  const known = msg.error ? KNOWN_TURN_ERRORS.find(([text]) => msg.error!.includes(text)) : undefined
+  if (known) return i18n.t(known[1])
+  return msg.error || i18n.t('agent:turnErrors.generic')
 }
 
 interface WsAgentMsg {
@@ -505,6 +534,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
   const { setActiveProjectId, activeProjectId } = useDesktop()
+  const { pushUndo } = useUndo()
   const missionWindows = useMissionWindows()
   const windowsRef = useRef(missionWindows)
   windowsRef.current = missionWindows
@@ -513,6 +543,8 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
   const [conversations, setConversations] = useState<AgentConversation[]>([])
+  const conversationsRef = useRef(conversations)
+  conversationsRef.current = conversations
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const metadataVersion = useRef(new Map<string, number>())
@@ -586,6 +618,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   const transcriptEventsRef = useRef(new Map<string, AgentMessage[]>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
   const prSnapshotVersionRef = useRef(0)
+  // Latest `agent_pr_decision` envelope per conversation/delivery: replayed
+  // over a conversation load so a broadcast that lands while the load's fetch
+  // is in flight is not overwritten by the older snapshot (stale-guarded).
+  const prEnvelopeEventsRef = useRef(new Map<string, Map<string, AgentPrDecisionEnvelope>>())
+  // Bound after the resync hook below; WS handlers call through this ref.
+  const requestCardResyncRef = useRef<() => void>(() => {})
   const conversationLoadEpochRef = useRef(0)
   const localTurnStartedAtRef = useRef(new Map<string, string>())
 
@@ -639,6 +677,57 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return copy
     })
   }, [])
+
+  // Attention: per conversation, which deliveries wait for the person. WS
+  // envelopes cover every conversation; the open one is recomputed from its rows.
+  const [attentionByConversation, setAttentionByConversation] = useState<ReadonlyMap<string, ReadonlyMap<string, MissionAttentionKind>>>(new Map())
+  const recordAttention = useCallback((conversationId: string, envelope: AgentPrDecisionEnvelope): void => {
+    const kind = deliveryAttention(envelope)
+    setAttentionByConversation((current) => {
+      const before = current.get(conversationId)
+      if ((before?.get(envelope.prDeliveryId) ?? null) === kind) return current
+      const deliveries = new Map(before ?? [])
+      if (kind) deliveries.set(envelope.prDeliveryId, kind)
+      else deliveries.delete(envelope.prDeliveryId)
+      return new Map(current).set(conversationId, deliveries)
+    })
+  }, [])
+  // Extension runs without an app-wide source report theirs from the strip:
+  // kept apart so the open conversation's delivery recompute never wipes them.
+  const [runAttention, setRunAttention] = useState<ReadonlyMap<string, ReadonlyMap<string, MissionAttentionKind>>>(new Map())
+  const reportRunAttention = useCallback((conversationId: string, runKey: string, needsPerson: boolean | MissionAttentionKind): void => {
+    const kind: MissionAttentionKind | null = needsPerson === true ? 'decision' : needsPerson === false ? null : needsPerson
+    setRunAttention((current) => {
+      const before = current.get(conversationId)
+      if ((before?.get(runKey) ?? null) === kind) return current
+      const keys = new Map(before ?? [])
+      if (kind) keys.set(runKey, kind)
+      else keys.delete(runKey)
+      return new Map(current).set(conversationId, keys)
+    })
+  }, [])
+  // An extension that derives its runs' attention app-wide (Flow, from its
+  // per-project watch) feeds the dot for every listed mission, open or not.
+  const extensionAttention = useMissionRunAttention(conversations)
+  const attentionKinds = useMemo<ReadonlyMap<string, MissionAttentionKind>>(() => {
+    const kinds = new Map<string, MissionAttentionKind[]>()
+    const add = (conversationId: string, values: Iterable<MissionAttentionKind>): void => {
+      const list = kinds.get(conversationId) ?? []
+      list.push(...values)
+      if (list.length) kinds.set(conversationId, list)
+    }
+    for (const [conversationId, deliveries] of attentionByConversation) add(conversationId, deliveries.values())
+    for (const [conversationId, keys] of runAttention) add(conversationId, keys.values())
+    // An extension's app-wide source says only "needs you": read as a decision.
+    for (const [conversationId, keys] of extensionAttention) if (keys.size > 0) add(conversationId, ['decision'])
+    const merged = new Map<string, MissionAttentionKind>()
+    for (const [conversationId, list] of kinds) {
+      const kind = mergeAttention(list)
+      if (kind) merged.set(conversationId, kind)
+    }
+    return merged
+  }, [attentionByConversation, runAttention, extensionAttention])
+  const attentionConversationIds = useMemo<ReadonlySet<string>>(() => new Set(attentionKinds.keys()), [attentionKinds])
 
   const markUnread = useCallback((conversationId: string): void => {
     const documentHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -732,6 +821,12 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       if (fixedConversationId && msg.conversationId && msg.conversationId !== fixedConversationId) return
       if (msg.type === 'desktop.project_recovered') {
         setProjectRecoveryRevision((revision) => revision + 1)
+        return
+      }
+      if (msg.type === 'rail.pr_state') {
+        // The delivery moved but the active card still shows another state:
+        // its card broadcast was missed (or never sent) — re-read the cards.
+        if (railStateDiffersFromCard(messagesRef.current, raw)) requestCardResyncRef.current()
         return
       }
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
@@ -954,7 +1049,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
               : q
           )),
         }))
-      } else if (msg.type === 'agent_run_failure') {
+      } else if (msg.type === 'agent_run_failure' || msg.type === 'agent_system_row') {
         // mission-rail-cards: the server persisted a `run-failure` system row
         // and broadcast it; append it to the ACTIVE thread so the failure
         // marker appears live (background threads rehydrate on select).
@@ -969,6 +1064,15 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         }
       } else if (msg.type === 'agent_pr_decision') {
         markUnread(convId)
+        const recorded = coercePrDecisionEnvelope(raw)
+        if (recorded) {
+          recordAttention(convId, recorded)
+          const byDelivery = prEnvelopeEventsRef.current.get(convId) ?? new Map<string, AgentPrDecisionEnvelope>()
+          byDelivery.delete(recorded.prDeliveryId)
+          byDelivery.set(recorded.prDeliveryId, recorded)
+          if (byDelivery.size > 50) byDelivery.delete(byDelivery.keys().next().value as string)
+          prEnvelopeEventsRef.current.set(convId, byDelivery)
+        }
         // PR-decision card (safe-pr-review-flow): the WS message carries the
         // persisted envelope's fields top-level. Only the ACTIVE thread's
         // `messages` slice is held in state — upsert its card in place (match
@@ -992,7 +1096,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     }
     registerHandler(handlerId, handler)
     return () => unregisterHandler(handlerId)
-  }, [registerHandler, unregisterHandler, patchLive, markUnread, refreshConversations, handlerId, fixedConversationId])
+  }, [registerHandler, unregisterHandler, patchLive, markUnread, recordAttention, refreshConversations, handlerId, fixedConversationId])
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
@@ -1007,7 +1111,9 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       return
     }
     prSnapshotVersionRef.current++
-    const msgs = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    const merged = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    const msgs = [...(prEnvelopeEventsRef.current.get(id)?.values() ?? [])]
+      .reduce((projected, envelope) => upsertPrDecisionMessage(projected, id, envelope), merged)
     for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
     setActive(conversation)
     messagesRef.current = msgs
@@ -1026,15 +1132,15 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   // Reconcile persisted cards and checkpoint deliveries after missed WS events.
   // Older servers still use the card-only convergence path.
-  const hydrateActivePrCards = useCallback(async (): Promise<void> => {
+  const hydrateActivePrCards = useCallback(async (): Promise<boolean> => {
     const conversationId = activeIdRef.current
-    if (!conversationId) return
+    if (!conversationId) return true
     const version = prSnapshotVersionRef.current
     const eventVersion = conversationEventVersionRef.current.get(conversationId) ?? 0
     const metaVersion = metadataVersion.current.get(conversationId) ?? 0
     try {
       const fresh = await getAgentConversation(conversationId)
-      if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return
+      if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return true
       if (metaVersion === (metadataVersion.current.get(conversationId) ?? 0)) {
         setActive(current => current?.id === conversationId ? fresh.conversation : current)
         setConversations(current => current.map(item => item.id === conversationId ? fresh.conversation : item))
@@ -1055,7 +1161,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         .filter((message) => message.role === 'system')
         .map((message) => parsePrDecisionEnvelope(message.content))
         .filter((envelope): envelope is AgentPrDecisionEnvelope => envelope !== null)
-      if (envelopes.length === 0) return
+      if (envelopes.length === 0) return true
       setMessages((current) => {
         const next = envelopes.reduce(
           (projected, envelope) => upsertPrDecisionMessage(projected, conversationId, envelope),
@@ -1064,10 +1170,23 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         messagesRef.current = next
         return next
       })
+      return true
     } catch {
-      /* Advisory convergence path; the next focus/reconnect can retry. */
+      /* Advisory convergence path; the next focus/reconnect/poll retries. */
+      return false
     }
   }, [patchLive])
+
+  // Self-healing cards: visibility/focus/resume resync plus a gentle poll while
+  // a card is still building, so a missed broadcast never needs a reload.
+  const unsettledPrCard = useMemo(() => hasUnsettledPrCard(messages), [messages])
+  const requestCardResync = usePrCardResync({
+    enabled: FEATURE_AGENT_CHAT && active !== null,
+    resync: hydrateActivePrCards,
+    unsettled: unsettledPrCard,
+  })
+  requestCardResyncRef.current = requestCardResync
+  const resyncRunCards = useCallback((): void => { void hydrateActivePrCards() }, [hydrateActivePrCards])
 
   const reconcileActiveTurns = useCallback(async (): Promise<void> => {
     try {
@@ -1120,10 +1239,11 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
   }, [])
 
   useEffect(() => {
-    const onFocus = () => { void refreshConversations(); void hydrateActivePrCards() }
+    // Card hydration on focus runs through usePrCardResync (deduplicated).
+    const onFocus = () => { void refreshConversations() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [hydrateActivePrCards, refreshConversations])
+  }, [refreshConversations])
 
   useEffect(() => {
     if (!projectRecoveryRevision) return
@@ -1350,7 +1470,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
         patchLive(conv.id, (p) => ({ ...p, isStreaming: false, streamingText: '', liveTools: [] }))
         setMessages((current) => current.filter((message) => message.id !== userBubble.id))
       }
-      toast.error(e instanceof Error ? e.message : 'Failed to send message.')
+      toast.error(i18n.t('agent:errors.sendFailed'), { description: e instanceof Error ? e.message : undefined })
       return { accepted: false, conversationId: conv.id }
     }
   }, [active, materializeDraftConversation, patchLive, reconcileActiveTurns])
@@ -1365,7 +1485,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       // the provider stopped while it can still spend tokens and mutate state.
       patchLive(active.id, () => null)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to stop the agent.')
+      toast.error(i18n.t('agent:errors.stopFailed'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [active, patchLive])
 
@@ -1513,6 +1633,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const startNewConversation = useCallback((projectId?: string | null) => {
     if (secondaryWindow || fixedConversationId) return
+    markUserPlaceIntent()
     // An explicit mission action while the Builder skin is up is a clear
     // intent to leave it — exit (abort + reset) so the normal compose screen
     // is actually visible, not hidden behind the builder branch.
@@ -1529,6 +1650,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const newConversation = useCallback(async (projectId?: string | null) => {
     if (secondaryWindow || fixedConversationId) return
+    markUserPlaceIntent()
     exitBuilderMode() // same intent-to-leave as startNewConversation
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
@@ -1539,8 +1661,10 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     setMessages([])
   }, [active, exitBuilderMode, secondaryWindow, fixedConversationId])
 
-  const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => {
+  const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => {
     if (fixedConversationId && id !== fixedConversationId) return
+    // A mission the person picked is a navigable place; a Back/Forward restore is not a new one.
+    if (!options?.placeRestore && !options?.windowRestore && id !== activeIdRef.current) markUserPlaceIntent()
     if (secondaryWindow && !fixedConversationId && !options?.windowRestore && windowsRef.current.current?.conversationId !== id) return
     if (!fixedConversationId && !secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
     if (options?.signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
@@ -1551,7 +1675,18 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const deleteConversation = useCallback(async (id: string) => {
     if (!editable(id)) return
+    const deleted = conversationsRef.current.find((c) => c.id === id) ?? (activeIdRef.current === id ? active : null)
     await deleteAgentConversation(id)
+    // Applied at once, no confirm: Undo restores the mission with its history.
+    pushUndo({
+      projectId: deleted?.pinned_project_id ?? activeProjectId,
+      label: i18n.t('undo:missionDeleted', { title: deleted?.title?.trim() || i18n.t('undo:missionUntitled') }),
+      recoverableDays: TRASH_RETENTION_DAYS,
+      undo: async () => {
+        await restoreAgentConversation(id)
+        await refreshConversations()
+      },
+    })
     await windowsRef.current.discard(id)
     setConversations((c) => c.filter((x) => x.id !== id))
     setFavoriteConversationIds((prev) => {
@@ -1566,7 +1701,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       setActive(null)
       setMessages([])
     }
-  }, [patchLive])
+  }, [patchLive, pushUndo, activeProjectId, active, refreshConversations])
 
   /** Rename a conversation. Optimistic: the title updates locally immediately and
    *  reverts on failure. A blank/whitespace title clears back to auto-title. */
@@ -1606,37 +1741,53 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
       await enableMcp()
       await refreshMcp()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to enable MCP.')
+      toast.error(i18n.t('agent:errors.mcpEnableFailed'), { description: err instanceof Error ? err.message : undefined })
     } finally {
       setEnablingMcp(false)
     }
   }, [refreshMcp])
 
+  // The open conversation: its rows are authoritative for its attention mark.
+  const activeConversationId = active?.id ?? null
+  useEffect(() => {
+    if (!activeConversationId) return
+    const deliveries = new Map<string, MissionAttentionKind>()
+    for (const envelope of derivePrCards(messages).byDeliveryId.values()) {
+      const kind = deliveryAttention(envelope)
+      if (kind) deliveries.set(envelope.prDeliveryId, kind)
+    }
+    setAttentionByConversation((current) => {
+      const before = current.get(activeConversationId)
+      if (before && before.size === deliveries.size && [...deliveries].every(([id, kind]) => before.get(id) === kind)) return current
+      return new Map(current).set(activeConversationId, deliveries)
+    })
+  }, [activeConversationId, messages])
+
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
-    unreadConversationIds, favoriteConversationIds,
+    unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    applyPrDecisionSnapshot,
+    resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
     builderMode: { active: builderActive, enter: enterBuilderMode, exit: exitBuilderMode, session: builderSession },
   }), [
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
-    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
+    queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, attentionConversationIds, attentionKinds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     selectConversation, deleteConversation, renameConversation, toggleFavoriteConversation, refreshConversations,
-    applyPrDecisionSnapshot,
+    resyncRunCards, reportRunAttention, applyPrDecisionSnapshot,
   ])
 
   // In Agent Mode the conversation UI is the full-screen surface, so the
@@ -1663,6 +1814,7 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [], turnTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
   unreadConversationIds: new Set<string>(),
+  attentionConversationIds: new Set<string>(),
   liveByConversation: new Map<string, AgentConvLive>(),
   favoriteConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,

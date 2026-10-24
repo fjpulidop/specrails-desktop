@@ -118,6 +118,8 @@ function Harness() {
       <span data-testid="conversation-ids">{agentChat.conversations.map(c => c.id).join(',')}</span>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-ids">{[...agentChat.attentionConversationIds].sort().join(',')}</span>
+      <span data-testid="attention-kinds">{[...(agentChat.attentionKinds ?? new Map())].map(([id, kind]) => `${id}=${kind}`).sort().join(',')}</span>
       <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
         const envelope = message.role === 'system' ? agentApi.parsePrDecisionEnvelope(message.content) : null
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
@@ -547,6 +549,34 @@ describe('AgentChatContext unread conversations', () => {
   })
 })
 
+describe('AgentChatContext attention (waiting for the person)', () => {
+  it('marks a background conversation whose delivery waits for a decision, and clears it once decided', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id').textContent).toBe('c1'))
+    const ws = (decision: string) => ({ type: 'agent_pr_decision', conversationId: 'c2', kind: 'pr_decision', prDeliveryId: 'd9', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision, prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] })
+    await act(async () => { wsHandler!(ws('building')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+    await act(async () => { wsHandler!(ws('on_review')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('c2')
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c2=decision')
+    await act(async () => { wsHandler!(ws('discarded')) })
+    expect(screen.getByTestId('attention-ids').textContent).toBe('')
+  })
+
+  it('the open conversation’s own rows decide its mark', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [{ id: 's1', conversation_id: 'c1', role: 'system', created_at: '', content: JSON.stringify({ kind: 'pr_decision', prDeliveryId: 'd1', railIndex: 0, projectId: 'p1', baseBranch: 'main', ticketIds: [3], decision: 'implementation_failed', prUrl: null, prNumber: null, prState: 'none', branch: null, runIds: [] }) }],
+    } as never)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('attention-ids').textContent).toBe('c1'))
+    // A failed run is told apart from a waiting decision.
+    expect(screen.getByTestId('attention-kinds').textContent).toBe('c1=failed')
+  })
+})
+
 describe('AgentChatContext authoritative PR snapshots', () => {
   it('updates an authoritative snapshot when its delivery still belongs to the active thread', async () => {
     vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv1, messages: [prMessage('c1')] })
@@ -892,5 +922,79 @@ describe('AgentChatContext native window ownership', () => {
     act(() => { window.dispatchEvent(new StorageEvent('storage', { key: 'specrails-desktop:favorite-agent-conversations' })) })
     expect(screen.getByTestId('favorites')).toHaveTextContent('c2')
     expect(screen.getByTestId('favorites')).not.toHaveTextContent('c1')
+  })
+})
+
+describe('self-healing mission cards (missed broadcasts)', () => {
+  const building = prMessage('c1', prEnvelope({ decision: 'building', updatedAt: '2026-10-22T19:34:21.000Z' }), 'card')
+  const settled = prMessage('c1', prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }), 'card')
+
+  it('a missed card broadcast heals on reconnect', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    wsConnectionStatus = 'disconnected'
+    const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled // settled server-side while the socket was down: no broadcast reached us
+    wsConnectionStatus = 'connected'
+    view.rerender(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a missed card broadcast heals when the window becomes visible again', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    persisted = settled
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('a rail.pr_state that disagrees with the card re-reads the cards; a matching one does not', async () => {
+    let persisted = building
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => ({ conversation: api.conv1, messages: [persisted] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:building'))
+    const calls = vi.mocked(agentApi.getAgentConversation).mock.calls.length
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'building' }) })
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'other', prDeliveryId: 'd1', decision: 'on_review' }) })
+    expect(vi.mocked(agentApi.getAgentConversation).mock.calls.length).toBe(calls)
+    persisted = settled
+    await act(async () => { wsHandler?.({ type: 'rail.pr_state', projectId: 'p1', prDeliveryId: 'd1', decision: 'on_review' }) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+  })
+
+  it('keeps a card broadcast that lands while the conversation load is in flight', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async () => {
+      await gate
+      return { conversation: api.conv1, messages: [building] }
+    })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    act(() => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.getAgentConversation).toHaveBeenCalled())
+    await act(async () => {
+      wsHandler?.({ type: 'agent_pr_decision', conversationId: 'c1', ...prEnvelope({ decision: 'on_review', updatedAt: '2026-10-22T19:42:38.429Z' }) })
+    })
+    await act(async () => { release() })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:on_review'))
+    expect(screen.getByTestId('pr-deliveries')).not.toHaveTextContent('building')
+  })
+})
+
+describe('describeAgentError (known Core turn failures)', () => {
+  it('reads the inactivity limits in the person\'s language and keeps unknown server text', async () => {
+    const { describeAgentError } = await import('./AgentChatContext')
+    expect(describeAgentError({ error: 'Core session turn failed: No provider activity before the inactivity limit' }))
+      .toBe('The provider stopped responding for too long, so the turn ended. Send your message again to continue.')
+    expect(describeAgentError({ error: 'A tool call produced no provider activity before the tool inactivity limit' }))
+      .toBe('A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.')
+    expect(describeAgentError({ error: 'quota exceeded' })).toBe('quota exceeded')
+    expect(describeAgentError({})).toBe('The agent turn failed.')
   })
 })

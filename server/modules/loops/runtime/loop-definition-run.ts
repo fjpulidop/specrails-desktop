@@ -26,12 +26,15 @@ export interface DefinitionInterrupt {
   attemptId?: string
   value?: unknown
 }
+/** Core `state.pause`: a host `runtime pause` parked the run at a step boundary (no interrupt). */
+export interface DefinitionHostPause { requestId: string; reason: string; at: string }
 export interface DefinitionRuntimeResult extends AiStepResult {
   runtimeStatus: 'succeeded' | 'paused' | 'failed' | 'blocked' | 'cancelled'
   completion?: DefinitionCompletion
   pendingInterrupts?: DefinitionInterrupt[]
   pendingQuestion?: { stepId?: string; question?: string }
   pendingApproval?: { stepId?: string; reason?: string }
+  pause?: DefinitionHostPause
   graph?: Record<string, unknown>
 }
 export interface DefinitionPrepared {
@@ -76,6 +79,9 @@ export interface DefinitionLoopExecutionPorts {
   /** Host gate before re-invoking Core with a human decision (daily budget).
    *  'stop' settles the run as cancelled exactly like a Stop while paused. */
   beforeContinuation?(): Promise<'continue' | 'stop'>
+  /** Host-requested pause (`state.pause`, no interrupt), e.g. the daily budget.
+   *  'continue' resumes the retained run as is; 'stop' settles it cancelled. */
+  awaitHostPause?(pause: DefinitionHostPause): Promise<'continue' | 'stop'>
 }
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
@@ -89,6 +95,11 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
     if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
     if (result.runtimeStatus !== 'paused') return result
     const pending = result.pendingInterrupts ?? []
+    if (!pending.length && result.pause && ports.awaitHostPause) {
+      if ((await ports.awaitHostPause(result.pause)) === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      continuation = { resume: true }
+      continue
+    }
     const reason = result.pendingQuestion?.question ?? result.pendingApproval?.reason ?? pending.map(item => {
       const value = item.value as { prompt?: unknown } | undefined
       return `${item.nodePath}: ${typeof value?.prompt === 'string' ? value.prompt : item.kind}`

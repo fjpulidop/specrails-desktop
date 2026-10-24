@@ -1,4 +1,4 @@
-# Plugins (Integraciones)
+# Plugins (Integraciones) {#plugins}
 
 La sección **Integraciones** es un marketplace por proyecto de complementos opcionales que amplían lo que la IA puede hacer. Cada proyecto decide de forma independiente qué plugins quiere: instalar un plugin en un proyecto nunca afecta a otro.
 

@@ -5,7 +5,8 @@
   "emptySettled": "Nessuna attività registrata per questa esecuzione.",
   "waiting": {
     "range": "Esecuzioni come questa hanno richiesto {{low}}–{{high}} min (ultime {{count}})",
-    "elapsed": "In corso da {{minutes}} min"
+    "elapsed": "In corso da {{minutes}} min",
+    "took": "Ha richiesto {{minutes}} min"
   },
   "aiNote": "Costruito da ciò che è realmente accaduto durante l'esecuzione.",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "Il passo {{step}} si è bloccato — nessuna attività per {{idleMinutes}} min, quindi l'app l'ha fermato",
     "startResume": "Passo {{step}}: {{title}} — ripresa dopo un blocco",
     "providerLimit": "Passo {{step}} fermato — raggiunto il limite d'uso del provider",
-    "recovered": "Passaggio {{step}} completato dopo la ripresa"
+    "recovered": "Passaggio {{step}} completato dopo la ripresa",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Progettare la modifica",
+    "confidence": "Verificare la fiducia",
+    "validate": "Convalidare il piano",
+    "freeze": "Bloccare il piano",
+    "initialize-corrections": "Preparare le correzioni",
+    "developer": "Implementare",
+    "developer-blocker": "Cercare blocchi",
+    "tasks": "Scorrere le attività",
+    "verify": "Verificare",
+    "review": "Rivedere",
+    "ship": "Consegnare",
+    "reviewer": "Rivedere la modifica",
+    "review-policy": "Applicare la policy di revisione",
+    "correction-context": "Raccogliere cosa va corretto",
+    "capture-review": "Registrare la revisione",
+    "correction-budget": "Controllare il budget di tentativi",
+    "begin-correction": "Avviare un ciclo di correzione",
+    "fixer": "Correggere quanto segnalato",
+    "correction-blocker": "Cercare blocchi",
+    "correction-progress": "Seguire l'avanzamento delle correzioni",
+    "approval-policy": "Applicare la decisione di approvazione",
+    "verify-archive": "Verificare la modifica archiviata"
   },
   "decision": {
     "another": "Non ancora — un altro giro",
@@ -82,5 +109,8 @@
       "invalidated": "Risultato precedente invalidato: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Ciclo di correzione {{round}} di {{total}}",
+  "checks_one": "+1 controllo",
+  "checks_other": "+{{count}} controlli"
 }

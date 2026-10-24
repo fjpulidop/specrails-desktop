@@ -1,4 +1,7 @@
 import type {
+  PrDeliveryFlowReview,
+  PrDeliveryLocalStash,
+  PrDeliveryLocalRestore,
   PrDeliveryRiskSummary,
   ReviewRiskSeverity,
   RailDeliveryOutcome,
@@ -29,6 +32,7 @@ const STATUS_CODES: ReadonlySet<string> = new Set([
   'commit_failed', 'branch_verification_failed', 'push_failed',
   'settlement_interrupted', 'recovery_unavailable', 'operation_interrupted', 'delivery_failed', 'pr_draft_ready', 'pr_ready',
   'pr_closed', 'merged', 'discarded', 'superseded', 'cleanup_incomplete',
+  'review_changes_requested', 'returned_to_flow', 'local_changes_attention',
   // Conservative legacy aliases retained by old recovered rows.
   'status_failed', 'ref_mismatch',
 ])
@@ -131,6 +135,90 @@ export function coerceRiskSummary(v: unknown): PrDeliveryRiskSummary | null {
   }
 }
 
+const FLOW_REVIEW_ISSUES_CAP = 50
+
+/** Defensive parse of a Flow → Spec review outcome; null when absent or malformed. */
+export function coerceFlowReview(v: unknown): PrDeliveryFlowReview | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (o.reason !== 'review' && o.reason !== 'check') return null
+  const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0
+  return {
+    reason: o.reason,
+    summary: asNullableString(o.summary),
+    issues: Array.isArray(o.issues) ? o.issues.filter((issue): issue is string => typeof issue === 'string' && issue.trim().length > 0).slice(0, FLOW_REVIEW_ISSUES_CAP) : [],
+    issuesOmitted: count(o.issuesOmitted),
+    score: typeof o.score === 'number' && Number.isFinite(o.score) ? o.score : null,
+    failingChecks: Array.isArray(o.failingChecks) ? o.failingChecks.flatMap((check) => {
+      if (!check || typeof check !== 'object') return []
+      const c = check as Record<string, unknown>
+      return typeof c.command === 'string' && c.command ? [{ command: c.command, exitCode: typeof c.exitCode === 'number' && Number.isInteger(c.exitCode) ? c.exitCode : null }] : []
+    }).slice(0, 10) : [],
+  }
+}
+
+const LOCAL_STASH_STATES: ReadonlySet<string> = new Set(['saved', 'restored', 'needs_attention', 'released'])
+
+/** Defensive parse of the saved-local-changes record; null when absent or malformed. */
+export function coerceLocalStash(v: unknown): PrDeliveryLocalStash | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.sha !== 'string' || !/^[0-9a-f]{40,64}$/i.test(o.sha)) return null
+  if (typeof o.state !== 'string' || !LOCAL_STASH_STATES.has(o.state)) return null
+  return {
+    sha: o.sha,
+    name: typeof o.name === 'string' ? o.name : '',
+    branch: typeof o.branch === 'string' ? o.branch : '',
+    state: o.state as PrDeliveryLocalStash['state'],
+    restoreBranch: asNullableString(o.restoreBranch),
+    conflictPaths: Array.isArray(o.conflictPaths) ? o.conflictPaths.filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, 20) : [],
+    ...(() => { const restore = coerceLocalRestore(o.restore); return restore ? { restore } : {} })(),
+    savedAt: typeof o.savedAt === 'string' ? o.savedAt : '',
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : '',
+  }
+}
+
+const LOCAL_RESTORE_STATUSES: ReadonlySet<string> = new Set(['resolving', 'ready', 'failed', 'brought_back', 'discarded'])
+const SHA_RE = /^[0-9a-f]{40,64}$/i
+const strList = (v: unknown, max: number): string[] => Array.isArray(v) ? v.filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, max) : []
+const countOrNull = (v: unknown): number | null => typeof v === 'number' && Number.isFinite(v) ? v : null
+
+/** Defensive parse of the server-side restore branch; null when absent or malformed. */
+export function coerceLocalRestore(v: unknown): PrDeliveryLocalRestore | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.status !== 'string' || !LOCAL_RESTORE_STATUSES.has(o.status) || typeof o.branch !== 'string' || !o.branch) return null
+  return {
+    status: o.status as PrDeliveryLocalRestore['status'],
+    branch: o.branch,
+    baseSha: typeof o.baseSha === 'string' && SHA_RE.test(o.baseSha) ? o.baseSha : null,
+    commitSha: typeof o.commitSha === 'string' && SHA_RE.test(o.commitSha) ? o.commitSha : null,
+    resolvedBy: o.resolvedBy === 'clean' || o.resolvedBy === 'resolver' ? o.resolvedBy : null,
+    managedPaths: strList(o.managedPaths, 50),
+    conflictPaths: strList(o.conflictPaths, 20),
+    files: Array.isArray(o.files)
+      ? o.files.flatMap((f) => {
+        if (!f || typeof f !== 'object') return []
+        const r = f as Record<string, unknown>
+        return typeof r.path === 'string' && r.path ? [{ path: r.path, added: countOrNull(r.added), removed: countOrNull(r.removed) }] : []
+      }).slice(0, 50)
+      : [],
+    detail: typeof o.detail === 'string' ? o.detail : null,
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : '',
+  }
+}
+
+/** The restore branch still needs the person (review / bring back / discard). */
+export function localRestorePending(stash: PrDeliveryLocalStash | null | undefined): boolean {
+  const status = stash?.restore?.status
+  return status === 'resolving' || status === 'ready' || status === 'failed'
+}
+
+/** The saved stash still holds the person's work (Restore / copy name apply). */
+export function localStashHeld(stash: PrDeliveryLocalStash | null | undefined): stash is PrDeliveryLocalStash {
+  return !!stash && (stash.state === 'saved' || stash.state === 'needs_attention')
+}
+
 export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number): RailPrStateSnapshot | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
@@ -163,6 +251,10 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
       : units.map((unit) => unit.runId).filter((id): id is string => typeof id === 'string' && id.length > 0),
     originConversationId: asNullableString(o.originConversationId),
     ...(() => { const riskSummary = coerceRiskSummary(o.riskSummary); return riskSummary ? { riskSummary } : {} })(),
+    ...(() => { const flowReview = coerceFlowReview(o.flowReview); return flowReview ? { flowReview } : {} })(),
+    ...(() => { const localStash = coerceLocalStash(o.localStash); return localStash ? { localStash } : {} })(),
+    ...(asString(o.loopId) ? { loopId: asString(o.loopId) } : {}),
+    ...(asString(o.loopName) ? { loopName: asString(o.loopName) } : {}),
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : undefined,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : undefined,
     ...(implementationOutcome ? { implementationOutcome } : {}),

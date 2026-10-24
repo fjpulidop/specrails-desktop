@@ -33,7 +33,8 @@
     "expand": "Expandir",
     "collapse": "Recolher",
     "viewAll": "Ver tudo",
-    "learnMore": "Saber mais"
+    "learnMore": "Saber mais",
+    "clear": "Limpar"
   },
   "states": {
     "loading": "A carregar…",
@@ -82,7 +83,10 @@
     "cleanup_incomplete": "Limpeza incompleta",
     "status_failed": "Falha na verificação do estado do worktree",
     "ref_mismatch": "A referência do branch não corresponde",
-    "restart_pending": "A aguardar a recuperação do workflow"
+    "restart_pending": "A aguardar a recuperação do workflow",
+    "review_changes_requested": "O revisor solicitou alterações",
+    "returned_to_flow": "Devolvido ao Flow",
+    "local_changes_attention": "Integrado — as alterações locais precisam de atenção"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",
@@ -129,7 +133,8 @@
     "workspacePath": "Pastas de código",
     "workspaceHint": "Opcional. Uma pasta por linha, absoluta ou relativa ao repositório. Vazio usa a pasta do repositório. Implement, Quick SDD e Freestyle verificam cada pasta indicada.",
     "launchWorkspaces": "Pastas para esta execução",
-    "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado."
+    "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado.",
+    "advanced": "Configuração multirrepositório"
   },
   "repositoryDelivery": {
     "building": "Implementação em andamento",
@@ -161,5 +166,73 @@
     "reached_one": "Limite de revisão atingido: {{count}} entrega aguarda revisão (limite {{limit}}). Nada foi iniciado.",
     "reached_other": "Limite de revisão atingido: {{count}} entregas aguardam revisão (limite {{limit}}). Nada foi iniciado.",
     "action": "Decida uma entrega pendente (Criar PR, mesclar ou descartar) ou aumente o limite em Configurações do projeto ▸ Limite de revisão."
+  },
+  "initialCommit": {
+    "action": "Criar commit inicial",
+    "creating": "Criando o commit inicial…",
+    "createdRelaunch": "Commit inicial criado. Lance o rail novamente.",
+    "errors": {
+      "git_identity_missing": "O Git não tem identidade de autor. Configure primeiro user.name e user.email.",
+      "repository_has_commits": "Este repositório já tem commits.",
+      "generic": "Não foi possível criar o commit inicial."
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Passagem do Flow a um rail",
+    "unknown": "Loop",
+    "title": "Loop: {{name}}"
+  },
+  "estimated": "estimado",
+  "help": {
+    "learnMore": "Saiba mais",
+    "learnMoreAbout": "Saiba mais sobre {{topic}}",
+    "topics": {
+      "themes": "os temas e a aparência",
+      "codeExplorer": "o explorador de código",
+      "integratedTerminal": "o terminal integrado",
+      "agents": "os agentes",
+      "aiProviders": "os provedores de IA",
+      "mcpServer": "o servidor MCP",
+      "mobileCompanion": "o app móvel complementar",
+      "plugins": "os plugins",
+      "existingProjects": "trabalhar num projeto existente",
+      "projectRules": "as regras do projeto",
+      "updates": "as atualizações",
+      "providerCapabilities": "as capacidades de cada provedor",
+      "projectEnvironment": "o ambiente do projeto",
+      "telemetry": "a telemetria do pipeline",
+      "dailyBudget": "os orçamentos diários",
+      "recentlyDeleted": "os itens excluídos recentemente",
+      "railLoops": "o que um rail executa",
+      "flowMode": "Flow",
+      "flowHandOff": "entregar um Flow",
+      "contextScope": "o seletor de contexto",
+      "launchForecast": "a previsão de lançamento",
+      "loopBuilder": "o Loop Builder",
+      "shortcuts": "os atalhos de teclado",
+      "inbox": "a lista de pendências",
+      "specsBoard": "as specs e o backlog"
+    }
+  },
+  "forecast": {
+    "label": "Previsão de lançamento",
+    "usually": "Normalmente {{time}} · {{cost}} em execuções como esta",
+    "usuallyTime": "Normalmente {{time}} em execuções como esta",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Ainda sem histórico suficiente",
+    "insufficientHint": "Precisa de pelo menos {{count}} execuções concluídas como esta neste projeto e motor.",
+    "estimateHint": "Estimativa de {{count}} execuções anteriores — não é custo cobrado",
+    "estimateHintCost": "Estimativa de {{count}} execuções anteriores (custo de {{costCount}}) — não é custo cobrado",
+    "budgetCaution": "Pode pausar no orçamento",
+    "budgetReached": "Orçamento diário atingido",
+    "budgetCautionHint": "O gasto de hoje mais o topo desta estimativa pode atingir seu orçamento diário. Abrir configurações de orçamento.",
+    "budgetReachedHint": "O gasto de hoje atingiu seu orçamento diário, então um lançamento é recusado até a redefinição ou até você aumentá-lo. Abrir configurações de orçamento.",
+    "launchOverBudget": "O orçamento de hoje acabou. A execução ficará em pausa até ele ser reiniciado. Iniciar mesmo assim?",
+    "launchAnyway": "Iniciar mesmo assim",
+    "perSpec": "por spec"
   }
 }

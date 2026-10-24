@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "en cours",
     "completed": "terminé",
-    "done": "fini",
     "failed": "échoué",
     "canceled": "annulé",
     "queued": "en attente",
@@ -30,6 +29,7 @@
   },
   "page": {
     "title": "Jobs",
+    "subtitle": "Toutes les exécutions de ce projet, avec coût, durée et résultat.",
     "exportJobs": "Exporter les jobs",
     "proposalDeleted": "Proposition supprimée",
     "proposal": {
@@ -46,10 +46,12 @@
         "cancelled": "Annulée",
         "unknown": "Statut inconnu : {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Impossible de supprimer la proposition. Réessayez."
   },
   "detail": {
     "breadcrumbDashboard": "Tableau de bord",
+    "breadcrumbJobs": "Jobs",
     "breadcrumbJob": "Job #{{id}}",
     "notFound": "Job introuvable",
     "notFoundDescription": "L'ID de job « {{id}} » n'existe pas",
@@ -59,7 +61,7 @@
     "exportDiagnostic": "Exporter le diagnostic",
     "exportDiagnosticAria": "Exporter le bundle de diagnostic",
     "exportDiagnosticTooltip": "Télécharger un ZIP avec la télémétrie, les logs et le résumé de ce job",
-    "reExecute": "Réexécuter",
+    "reExecute": "Relancer",
     "reExecuteTooltip": "Lancer un nouveau job avec la même commande",
     "cancelJob": "Annuler le job",
     "cancelJobTooltip": "Envoyer SIGTERM au processus en cours. Le job sera marqué comme annulé.",
@@ -101,7 +103,9 @@
       "sendFailed": "Échec de l'envoi du message",
       "wrapUpScheduled": "Finalisation du job…",
       "wrapUpStepScheduled": "Clôture de l'étape — la boucle avance avec ce qu'elle a produit"
-    }
+    },
+    "actionFailed": "L’action n’a pas pu être effectuée",
+    "breadcrumbAria": "Fil d’Ariane"
   },
   "statusPanel": {
     "inProgress": "Job en cours",
@@ -172,12 +176,15 @@
       "stopSignalSentDescription": "L'exécution s'arrêtera à la prochaine limite d'étape",
       "cancelFailed": "Échec de l'annulation",
       "networkError": "Erreur réseau"
-    }
+    },
+    "title": "Tâche {{kind}} · #{{id}}",
+    "titleLoop": "Exécution de boucle · #{{id}}",
+    "titleGeneric": "Tâche · #{{id}}"
   },
   "comparison": {
     "title": "Comparaison de jobs",
     "jobN": "Job {{n}}",
-    "loadFailed": "Échec du chargement de la comparaison : {{error}}",
+    "loadFailed": "Impossible de charger la comparaison. Réessayez.",
     "duration": "Durée",
     "cost": "Coût",
     "tokensOut": "Tokens en sortie",
@@ -185,7 +192,9 @@
     "cacheRead": "Lecture cache",
     "model": "Modèle",
     "phasesDone": "Phases terminées",
-    "betterValueHint": "Les surlignages verts indiquent la meilleure valeur"
+    "betterValueHint": "Les surlignages verts indiquent la meilleure valeur",
+    "loading": "Chargement de la comparaison…",
+    "description": "Durée, coût et consommation de tokens des deux exécutions côte à côte. Le vert indique la meilleure valeur."
   },
   "recent": {
     "emptyTitle": "Aucun job pour l'instant",
@@ -204,7 +213,7 @@
     "readyToCompare": "Prêt — cliquez sur comparer",
     "compareAction": "Comparer →",
     "colStatus": "Statut",
-    "colCommand": "Commande",
+    "colCommand": "Tâche",
     "colDuration": "Durée",
     "colTokens": "Tokens",
     "colCost": "Coût",
@@ -242,7 +251,9 @@
       "cleared_other": "{{count}} jobs effacés",
       "clearFailed": "Échec de l'effacement des jobs",
       "networkError": "Erreur réseau"
-    }
+    },
+    "emptyCta": "Ouvrir le tableau des specs",
+    "loading": "Chargement des jobs…"
   },
   "activeJob": {
     "none": "Aucun job actif",
@@ -317,7 +328,8 @@
     "noOutput": "Aucune sortie",
     "completed": "Terminé",
     "turns_one": "{{count}} tour",
-    "turns_other": "{{count}} tours"
+    "turns_other": "{{count}} tours",
+    "copyAll": "Copier toutes les lignes du journal"
   },
   "completion": {
     "title": "Résultat de l’exécution",

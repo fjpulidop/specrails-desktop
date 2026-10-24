@@ -40,7 +40,7 @@ function SteeringInbox({ projectId, run, onAccepted }: { projectId: string; run:
     finally { inFlight.current = false; if (mounted.current) setBusy(false) }
   }
   return <section className="space-y-2 rounded-md border border-border p-3" aria-label={t('steering.title')}>
-    <h4 className="text-xs font-medium">{t('steering.title')}</h4>
+    <h4 className="text-label">{t('steering.title')}</h4>
     <p className="text-xs text-muted-foreground">{t('steering.hint')}</p>
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {accepted && !steering.receipts.some(receipt => receipt.id === accepted.id) && <p role="status" className="text-xs">{t('steering.accepted')} <code>{accepted.id}</code></p>}

@@ -62,8 +62,8 @@
     "smashFailed": "SMASH に失敗しました: {{message}}",
     "couldNotDeleteChildren": "現在のサブスペックを削除できませんでした",
     "deleteFailed": "削除に失敗しました: {{message}}",
-    "smashButton": "スペックをサブスペックに SMASH",
-    "reSmashButton": "再 SMASH"
+    "smashButton": "サブスペックに分割",
+    "reSmashButton": "サブスペックに再分割"
   },
   "smashModal": {
     "title": "スペックをサブスペックに SMASH",
@@ -89,7 +89,8 @@
     },
     "starting": "開始中…",
     "confirmReSmash": "再 SMASH を確認",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH はこのスペックを、1 つずつ実装・レビューできる小さなサブスペックに分割します。元のスペックはそれらの Epic になります。"
   },
   "family": {
     "subSpecsHeader": "サブスペック ({{count}})",
@@ -98,7 +99,8 @@
     "familyHeader_other": "ファミリー (サブスペック {{count}} 件)",
     "noSiblings": "兄弟スペックはありません。",
     "openParentEpic": "親エピック {{title}} を開く",
-    "openSubSpec": "サブスペック {{title}} を開く"
+    "openSubSpec": "サブスペック {{title}} を開く",
+    "priority": "優先度: {{p}}"
   },
   "epicChildren": {
     "header": "サブスペック ({{count}})",

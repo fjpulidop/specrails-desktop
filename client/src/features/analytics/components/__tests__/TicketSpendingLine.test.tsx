@@ -54,7 +54,7 @@ describe('TicketSpendingLine', () => {
     })
     render(<TicketSpendingLine ticketId={42} />)
     await waitFor(() => expect(screen.getByText(/\$4\.20/)).toBeInTheDocument())
-    expect(screen.getByText(/12 turns/)).toBeInTheDocument()
+    expect(screen.getByText(/12 agent turns/)).toBeInTheDocument()
     expect(screen.getByText(/3m/)).toBeInTheDocument()
     expect(screen.getByText(/2 jobs/)).toBeInTheDocument()
     const button = screen.getByRole('button') as HTMLButtonElement
@@ -150,7 +150,7 @@ describe('TicketSpendingLine', () => {
     })
     render(<TicketSpendingLine ticketId={78} />)
     await waitFor(() => expect(screen.getByText('≥$1.50')).toBeInTheDocument())
-    expect(screen.getByText(/≥3 turns/)).toBeInTheDocument()
+    expect(screen.getByText(/3\+ agent turns/)).toBeInTheDocument()
   })
 
   it('renders nothing when fetch fails', async () => {

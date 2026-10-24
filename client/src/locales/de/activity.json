@@ -62,8 +62,8 @@
     "smashFailed": "SMASH fehlgeschlagen: {{message}}",
     "couldNotDeleteChildren": "Aktuelle Sub-Specs konnten nicht gelöscht werden",
     "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
-    "smashButton": "Spec per SMASH in Sub-Specs aufteilen",
-    "reSmashButton": "Re-SMASH"
+    "smashButton": "In Sub-Specs aufteilen",
+    "reSmashButton": "Erneut in Sub-Specs aufteilen"
   },
   "smashModal": {
     "title": "Spec per SMASH in Sub-Specs aufteilen",
@@ -89,7 +89,8 @@
     },
     "starting": "Wird gestartet…",
     "confirmReSmash": "Re-SMASH bestätigen",
-    "smash": "SMASH"
+    "smash": "SMASH",
+    "description": "SMASH zerlegt diese Spec in kleinere Sub-Specs, die einzeln umgesetzt und geprüft werden können. Die ursprüngliche Spec wird zu ihrem Epic."
   },
   "family": {
     "subSpecsHeader": "Sub-Specs ({{count}})",
@@ -98,7 +99,8 @@
     "familyHeader_other": "Familie ({{count}} Sub-Specs)",
     "noSiblings": "Keine Geschwister.",
     "openParentEpic": "Übergeordnetes Epic {{title}} öffnen",
-    "openSubSpec": "Sub-Spec {{title}} öffnen"
+    "openSubSpec": "Sub-Spec {{title}} öffnen",
+    "priority": "Priorität: {{p}}"
   },
   "epicChildren": {
     "header": "Sub-Specs ({{count}})",

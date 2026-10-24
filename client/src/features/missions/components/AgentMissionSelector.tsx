@@ -7,6 +7,7 @@ import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
 import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
 import type { AgentConversation } from '../lib/agent-api'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** Search only earns its row once the list is big enough to need it. */
 const SEARCH_THRESHOLD = 8
@@ -102,6 +103,12 @@ export function AgentMissionSelector() {
   }
 
   const armDelete = (id: string) => {
+    // Idle missions delete at once (Undo restores them). A mission with a turn
+    // in flight still asks first: stopping that turn can't be undone.
+    if (!streamingConversationIds.has(id) && !backgroundConversationIds.has(id)) {
+      void confirmDelete(id)
+      return
+    }
     if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
     setConfirmingId(id)
     confirmTimerRef.current = setTimeout(() => {
@@ -195,7 +202,7 @@ export function AgentMissionSelector() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
-            className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl"
+            className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-xl border border-border/60 bg-popover shadow-2xl"
           >
             {showSearch && (
               <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
@@ -351,21 +358,18 @@ function MissionRow({
         {compactRelativeTime(conversation.updated_at)}
       </span>
       {streaming && (
-        <span
+        <LiveDot
+          size="xs"
           data-testid={`mission-live-${conversation.id}`}
           aria-label={t('mission.working')}
-          className="relative flex h-1.5 w-1.5 shrink-0"
-        >
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-primary opacity-60" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-primary" />
-        </span>
+        />
       )}
       {queuedCount > 0 && (
         <span
           data-testid={`mission-queued-${conversation.id}`}
           aria-label={t('mission.queuedBadge', { n: queuedCount })}
           title={t('mission.queuedBadge', { n: queuedCount })}
-          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-[9px] font-semibold leading-4 text-foreground/60"
+          className="shrink-0 rounded-full border border-border/60 bg-surface px-1.5 text-caption font-semibold leading-4 text-foreground/60"
         >
           {queuedCount}
         </span>

@@ -1,4 +1,4 @@
-# Das integrierte Terminal
+# Das integrierte Terminal {#integrated-terminal}
 
 Specrails hat ein echtes Terminal direkt eingebaut – das Panel, das vom unteren Rand des Fensters nach oben fährt, genau wie in VS Code oder Cursor. Es führt deine tatsächliche Shell in deinem tatsächlichen Projektverzeichnis aus, sodass du `git`, `npm`, Tests oder alles andere ausführen kannst, ohne die App zu verlassen.
 

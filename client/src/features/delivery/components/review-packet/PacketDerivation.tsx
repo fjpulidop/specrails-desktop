@@ -49,14 +49,14 @@ export function PacketDerivation({ derivation, settlement }: { derivation: Deriv
         <dt className="font-medium">{t('derivation.confidence')}</dt>
         <dd>{derivation.confidence ? t(`derivation.confidenceLevel.${derivation.confidence}`) : t('derivation.confidenceUnknown')}</dd>
       </dl>
-      <p className="mt-1 text-[11px] text-muted-foreground">{t('derivation.caveat')}</p>
+      <p className="mt-1 text-caption text-muted-foreground">{t('derivation.caveat')}</p>
       {unexplained > 0 ? (
         <div className="mt-3">
-          <h3 className="text-xs font-medium text-accent-warning">{t('derivation.unexplainedTitle', { count: unexplained })}</h3>
+          <h3 className="text-label text-accent-warning">{t('derivation.unexplainedTitle', { count: unexplained })}</h3>
           <ul className="mt-1 space-y-0.5" data-testid="packet-derivation-unexplained">
-            {listed.map((file) => <li key={file} className="font-mono text-[11px] text-foreground/80">{file}</li>)}
+            {listed.map((file) => <li key={file} className="font-mono text-caption text-foreground/80">{file}</li>)}
           </ul>
-          {more > 0 ? <p className="mt-1 text-[11px] text-muted-foreground">{t('derivation.more', { count: more })}</p> : null}
+          {more > 0 ? <p className="mt-1 text-caption text-muted-foreground">{t('derivation.more', { count: more })}</p> : null}
         </div>
       ) : null}
       {rewriteFailed ? <p className="mt-2 text-xs text-accent-warning" data-testid="packet-derivation-rewrite-failed">{t('derivation.rewriteFailed')}</p> : null}

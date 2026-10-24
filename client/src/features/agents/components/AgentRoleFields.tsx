@@ -19,7 +19,7 @@ export function AgentRoleFields({ body, onChange }: { body: string; onChange(bod
     <input className={fieldClass} type={numeric ? 'number' : 'text'} min={numeric ? 1 : undefined} step={numeric ? 1 : undefined} maxLength={numeric ? undefined : 256} placeholder={t('efficiency.providerDefault')} value={agentRoleField(metadata, field)} onChange={event => update(field, event.target.value)} />
   </label>
   return <details className="border-b border-border px-4 py-2" open>
-    <summary className="cursor-pointer text-xs font-medium">{t('studioRole.title')}</summary>
+    <summary className="cursor-pointer text-label">{t('studioRole.title')}</summary>
     <p className="my-2 text-xs text-muted-foreground">{t('studioRole.hint')}</p>
     <div className="grid gap-2 sm:grid-cols-3">
       {select('access', t('customRoles.access'), [['read', t('customRoles.read')], ['write', t('customRoles.write')]], 'read')}

@@ -33,7 +33,8 @@
     "expand": "展開",
     "collapse": "折りたたむ",
     "viewAll": "すべて表示",
-    "learnMore": "詳細"
+    "learnMore": "詳細",
+    "clear": "クリア"
   },
   "states": {
     "loading": "読み込み中…",
@@ -82,7 +83,10 @@
     "cleanup_incomplete": "クリーンアップが不完全",
     "status_failed": "worktree の状態確認に失敗",
     "ref_mismatch": "ブランチ参照が一致しません",
-    "restart_pending": "ワークフローの復旧を待機中"
+    "restart_pending": "ワークフローの復旧を待機中",
+    "review_changes_requested": "レビュアーが変更を依頼",
+    "returned_to_flow": "Flow に戻しました",
+    "local_changes_attention": "統合済み — ローカル変更の確認が必要です"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",
@@ -129,7 +133,8 @@
     "workspacePath": "コード作業ディレクトリ",
     "workspaceHint": "任意。1行に1ディレクトリ。絶対パスまたはリポジトリからの相対パスを指定します。空欄はリポジトリのフォルダーを使用します。Implement、Quick SDD、Freestyle は各ディレクトリを検証します。",
     "launchWorkspaces": "今回の実行用ディレクトリ",
-    "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。"
+    "launchWorkspaceHint": "コード変更とテストはこれらのフォルダーに限定されます。対象リポジトリごとに少なくとも1つ選択してください。",
+    "advanced": "複数リポジトリの設定"
   },
   "repositoryDelivery": {
     "building": "実装中",
@@ -161,5 +166,73 @@
     "reached_one": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
     "reached_other": "レビュー上限に達しました: {{count}} 件の納品がレビュー待ちです(上限 {{limit}})。何も起動していません。",
     "action": "保留中の納品を決定する(PR 作成・マージ・破棄)か、プロジェクト設定 ▸ レビュー上限 で上限を引き上げてください。"
+  },
+  "initialCommit": {
+    "action": "初回コミットを作成",
+    "creating": "初回コミットを作成中…",
+    "createdRelaunch": "初回コミットを作成しました。レールを再度起動してください。",
+    "errors": {
+      "git_identity_missing": "Git に作成者情報がありません。先に user.name と user.email を設定してください。",
+      "repository_has_commits": "このリポジトリにはすでにコミットがあります。",
+      "generic": "初回コミットを作成できませんでした。"
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow の引き渡し",
+    "unknown": "ループ",
+    "title": "ループ: {{name}}"
+  },
+  "estimated": "推定",
+  "help": {
+    "learnMore": "詳しく見る",
+    "learnMoreAbout": "{{topic}}について詳しく見る",
+    "topics": {
+      "themes": "テーマと外観",
+      "codeExplorer": "コードエクスプローラー",
+      "integratedTerminal": "統合ターミナル",
+      "agents": "エージェント",
+      "aiProviders": "AI プロバイダー",
+      "mcpServer": "MCP サーバー",
+      "mobileCompanion": "モバイルコンパニオン",
+      "plugins": "プラグイン",
+      "existingProjects": "既存プロジェクトでの作業",
+      "projectRules": "プロジェクトルール",
+      "updates": "アップデート",
+      "providerCapabilities": "プロバイダーの機能",
+      "projectEnvironment": "プロジェクト環境",
+      "telemetry": "パイプラインのテレメトリ",
+      "dailyBudget": "1 日の予算",
+      "recentlyDeleted": "最近削除した項目",
+      "railLoops": "レールが実行する内容",
+      "flowMode": "Flow",
+      "flowHandOff": "Flow の引き渡し",
+      "contextScope": "コンテキストスライダー",
+      "launchForecast": "起動時の見込み",
+      "loopBuilder": "Loop Builder",
+      "shortcuts": "キーボードショートカット",
+      "inbox": "「対応待ち」リスト",
+      "specsBoard": "スペックとバックログ"
+    }
+  },
+  "forecast": {
+    "label": "起動時の見込み",
+    "usually": "同様の実行は通常 {{time}} · {{cost}}",
+    "usuallyTime": "同様の実行は通常 {{time}}",
+    "minutesRange": "{{low}}～{{high}} 分",
+    "minutesSingle": "{{value}} 分",
+    "insufficient": "履歴がまだ足りません",
+    "insufficientHint": "このプロジェクトとエンジンで完了した同様の実行が {{count}} 件以上必要です。",
+    "estimateHint": "過去 {{count}} 回の実行からの見込み — 請求額ではありません",
+    "estimateHintCost": "過去 {{count}} 回の実行からの見込み（費用は {{costCount}} 回分）— 請求額ではありません",
+    "budgetCaution": "予算で一時停止する可能性があります",
+    "budgetReached": "1 日の予算に達しました",
+    "budgetCautionHint": "今日の支出にこの見込みの上限を足すと、1 日の予算に達する可能性があります。予算設定を開く。",
+    "budgetReachedHint": "今日の支出が 1 日の予算に達したため、リセットまたは引き上げまで起動は拒否されます。予算設定を開く。",
+    "launchOverBudget": "今日の予算を使い切りました。リセットされるまで実行は一時停止します。それでも起動しますか？",
+    "launchAnyway": "それでも起動",
+    "perSpec": "スペックごと"
   }
 }

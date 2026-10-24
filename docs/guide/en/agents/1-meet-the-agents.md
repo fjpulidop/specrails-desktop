@@ -1,4 +1,4 @@
-# Meet the agents
+# Meet the agents {#agents}
 
 When you launch an **Implement** rail, Specrails doesn't hand your spec to a single AI and hope for the best. It runs a small team of specialised *agents*, each with one job, in a deliberate order. This page introduces who's on that team and what each one does.
 

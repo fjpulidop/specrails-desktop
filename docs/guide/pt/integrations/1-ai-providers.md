@@ -1,4 +1,4 @@
-# Providers de IA (Claude, Codex)
+# Providers de IA (Claude, Codex) {#ai-providers}
 
 ## Os dois providers
 

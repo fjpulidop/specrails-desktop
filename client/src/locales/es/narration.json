@@ -5,7 +5,8 @@
   "emptySettled": "No se registró actividad en esta ejecución.",
   "waiting": {
     "range": "Ejecuciones como esta han tardado {{low}}–{{high}} min (últimas {{count}})",
-    "elapsed": "Lleva {{minutes}} min"
+    "elapsed": "Lleva {{minutes}} min",
+    "took": "Tardó {{minutes}} min"
   },
   "aiNote": "Construido a partir de lo que realmente ocurrió durante la ejecución.",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "El paso {{step}} se atascó: sin actividad durante {{idleMinutes}} min, así que la app lo detuvo",
     "startResume": "Paso {{step}}: {{title}} — reanudando tras un atasco",
     "providerLimit": "Paso {{step}} detenido — se alcanzó el límite de uso del proveedor",
-    "recovered": "Paso {{step}} completado tras reanudar"
+    "recovered": "Paso {{step}} completado tras reanudar",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Diseñar el cambio",
+    "confidence": "Comprobar la confianza",
+    "validate": "Validar el plan",
+    "freeze": "Fijar el plan",
+    "initialize-corrections": "Preparar correcciones",
+    "developer": "Implementar",
+    "developer-blocker": "Buscar bloqueos",
+    "tasks": "Recorrer las tareas",
+    "verify": "Verificar",
+    "review": "Revisar",
+    "ship": "Entregar",
+    "reviewer": "Revisar el cambio",
+    "review-policy": "Aplicar la política de revisión",
+    "correction-context": "Reunir lo que hay que corregir",
+    "capture-review": "Registrar la revisión",
+    "correction-budget": "Comprobar el margen de reintentos",
+    "begin-correction": "Iniciar una ronda de correcciones",
+    "fixer": "Corregir lo reportado",
+    "correction-blocker": "Buscar bloqueos",
+    "correction-progress": "Seguir el avance de las correcciones",
+    "approval-policy": "Aplicar la decisión de aprobación",
+    "verify-archive": "Verificar el cambio archivado"
   },
   "decision": {
     "another": "Aún no está — otra vuelta",
@@ -82,5 +109,8 @@
       "invalidated": "Resultado anterior invalidado: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Ronda de corrección {{round}} de {{total}}",
+  "checks_one": "+1 comprobación",
+  "checks_other": "+{{count}} comprobaciones"
 }

@@ -19,6 +19,7 @@ import { appendEvent } from './db'
 import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
+import { getLaunchForecast } from './modules/execution/runtime/launch-forecast'
 import { loadConstantMap } from './modules/loops/runtime/loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { isReasoningEffortValidForModel } from './providers/runtime'
@@ -28,6 +29,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
+import { readRunDiagnosis } from './modules/recovery/adapters/sqlite'
 import type { ReasoningEffort } from './providers/types'
 import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
@@ -191,11 +193,14 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       !run.provider
       || !hasAdapter(run.provider)
       || getAdapter(run.provider).capabilities.reportsUsage !== false
+    const { failure_diagnosis: _stored, ...publicRun } = run
+    const failureDiagnosis = (() => { try { return readRunDiagnosis(c.db, run.id) } catch { return null } })()
     res.json({
       loopRun: usageAvailable
-        ? { ...run, usage_available: true }
+        ? { ...publicRun, failureDiagnosis, usage_available: true }
         : {
-            ...run,
+            ...publicRun,
+            failureDiagnosis,
             total_cost_usd: null,
             total_tokens: null,
             usage_available: false,
@@ -217,6 +222,32 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       ? getLoopDurationRange(c.db, c.project.id, loopId)
       : getJobCommandDurationRange(c.db, jobCommandShape(command as string))
     res.json({ range, minSamples: MIN_DURATION_SAMPLES })
+  })
+
+  // Launch forecast ("Usually 6-9 min · $2-4 for runs like this"): the same
+  // measured samples as run-duration-range, narrowed to the provider about to
+  // run, plus a provider-reported cost band and the tightest daily budget's
+  // headroom. Read-only. `time`/`cost` are null below the sample floor — the
+  // caller MUST say "Not enough history yet", never guess. Costs here are an
+  // estimate from past runs, never a billed figure.
+  router.get('/:projectId/launch-forecast', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null)
+    const loopId = text(req.query.loopId)
+    const command = text(req.query.command)
+    const provider = text(req.query.provider)
+    if (!loopId && !command) {
+      res.status(400).json({ error: 'loopId or command is required' }); return
+    }
+    if (provider && !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(provider)) {
+      res.status(400).json({ error: 'provider is invalid' }); return
+    }
+    const forecast = getLaunchForecast(c.db, c.project.id, {
+      loopId,
+      commandShape: command ? jobCommandShape(command) : null,
+      provider,
+    })
+    res.json({ ...forecast, budget: c.dailyBudgetHeadroom?.() ?? null })
   })
 
   router.post('/:projectId/loop-runs', async (req: Request, res: Response) => {

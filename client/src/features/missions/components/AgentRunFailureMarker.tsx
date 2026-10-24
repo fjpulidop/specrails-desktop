@@ -1,40 +1,44 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronDown, ChevronRight, Sparkles } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, MessageSquareWarning, Sparkles } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { focusPrCard, type RunFailureRow } from './agent-run-failure'
 import { AgentContextInlineTokens } from './AgentMessage'
-import type { AgentContextReference } from '../lib/agent-api'
+import { AgentRunEventLine } from './AgentRunEventLine'
+import { useMissionExtensions } from '../context/MissionExtensionsContext'
+import type { AgentContextReference, AgentPrDecisionEnvelope } from '../lib/agent-api'
 
 /**
- * Compact destructive marker for a `run-failure` system row (mission-rail-cards):
- * "Rail N failed: <code>" + a one-line detail + "Open card", which focuses the
- * matching run/PR card in the pinned dock (or history) through the focus bus.
- * Deliberately NOT a second card — the card already carries the recovery
- * actions; this is the chronological trace of the moment it happened.
+ * The moment a run failed (`run-failure` system row, mission-rail-cards), as
+ * ONE history event line in plain words — "Rail 1 failed while writing the
+ * spec" — that opens the run (its strip panel while live, its card once
+ * settled). The run itself carries the recovery actions; this is only the
+ * trace of when it happened.
  */
-export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
+export function AgentRunFailureMarker({ row, conversationId = null, envelope = null }: {
+  row: RunFailureRow
+  conversationId?: string | null
+  /** The run's delivery, when the conversation has it (names the loop). */
+  envelope?: Pick<AgentPrDecisionEnvelope, 'loopId' | 'railName'> | null
+}) {
   const { t } = useTranslation('agent')
+  const { describeRun } = useMissionExtensions()
+  // Flow → Spec still needs changes: a review outcome, not a crash.
+  const changes = row.code === 'review_changes_requested'
+  const rail = envelope?.railName || t('prCard.rail', { index: row.railIndex + 1 })
+  const described = changes ? null : describeRun?.(t, { loopId: envelope?.loopId ?? null, stepId: row.stepId, codes: [row.code] })?.failure ?? null
+  const reason = described ?? (t(`runStrip.failed.${row.code}`, { defaultValue: '' }) || t('runStrip.failed.generic'))
   return (
-    <div
-      data-testid="agent-run-failure-marker"
-      className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/[0.06] px-3 py-1.5 text-[11px] text-foreground/70 backdrop-blur-sm"
+    <AgentRunEventLine
+      icon={changes ? MessageSquareWarning : AlertTriangle}
+      tone={changes ? 'warning' : 'failed'}
+      testId="agent-run-failure-marker"
+      attributes={{ 'data-code': row.code }}
+      actionLabel={t('runStrip.event.openRun')}
+      onActivate={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId], conversationId })}
     >
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
-      <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium text-destructive">{t('runFailure.marker', { rail: row.railIndex + 1, code: row.code })}</span>
-        {row.detail && <span className="text-foreground/55"> · {row.detail}</span>}
-      </span>
-      <button
-        type="button"
-        data-agent-interactive
-        data-testid="agent-run-failure-open"
-        onClick={() => focusPrCard({ prDeliveryId: row.prDeliveryId ?? null, runIds: [row.runId] })}
-        className="shrink-0 rounded-md border border-destructive/35 px-2 py-0.5 text-[10px] font-medium text-destructive transition-colors hover:bg-destructive/10"
-      >
-        {t('runFailure.openCard')}
-      </button>
-    </div>
+      {changes ? t('runStrip.event.changes', { run: rail }) : t('runStrip.event.failed', { run: rail, reason })}
+    </AgentRunEventLine>
   )
 }
 
@@ -46,6 +50,8 @@ export function AgentRunFailureMarker({ row }: { row: RunFailureRow }) {
 export function AgentSystemBriefing({ content, contextRefs }: { content: string; contextRefs?: AgentContextReference[] }) {
   const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
+  // Automatic turns other than a run failure (Back to Flow) name themselves.
+  const automatic = (contextRefs?.[0] as { metadata?: { automatic?: unknown } } | undefined)?.metadata?.automatic === true
   return (
     <div data-testid="agent-system-briefing" className="flex flex-col items-end gap-1">
       <button
@@ -54,11 +60,11 @@ export function AgentSystemBriefing({ content, contextRefs }: { content: string;
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/50 px-2.5 py-1 text-[11px] text-foreground/60 transition-colors hover:border-accent-primary/40 hover:text-foreground/80',
+          'inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/50 px-2.5 py-1 text-caption text-foreground/60 transition-colors hover:border-accent-primary/40 hover:text-foreground/80',
         )}
       >
         <Sparkles className="h-3 w-3 text-accent-primary/70" aria-hidden />
-        {t('runFailure.briefing.title')}
+        {automatic ? t('flowReturn.automaticTurn') : t('runFailure.briefing.title')}
         {open ? <ChevronDown className="h-3 w-3 opacity-60" aria-hidden /> : <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />}
       </button>
       {open && (

@@ -54,7 +54,9 @@
     "save": "Salvar",
     "saving": "Salvando…",
     "saved": "Arquivo salvo",
-    "saveFailed": "Falha ao salvar"
+    "saveFailed": "Falha ao salvar",
+    "budgetPromptBody": "O limite de orçamento de IA para resumos de arquivos foi atingido. Regenerar mesmo assim executa mais um resumo além do limite.",
+    "budgetPromptConfirm": "Regenerar mesmo assim"
   },
   "summary": {
     "generationFailed": "Falha na geração do resumo",

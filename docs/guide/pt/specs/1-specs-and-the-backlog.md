@@ -1,4 +1,4 @@
-# Specs e o backlog
+# Specs e o backlog {#specs-backlog}
 
 Uma **spec** é a unidade de trabalho que o pipeline de IA implementa. Pense nela como um ticket: um título, uma descrição do que quer fazer, uma prioridade e, opcionalmente, etiquetas. Quando lança o pipeline, os agentes de IA leem a spec e agem sobre ela — por isso, uma spec clara é o input mais importante para um bom resultado.
 
@@ -13,7 +13,7 @@ O quadro tem dois modos de visualização, alternados a partir de um botão na b
 - **Vista de post-its** (a predefinida) — mosaicos em forma de cartão com resumos curtos.
 - **Vista de lista** — linhas compactas de uma só linha.
 
-O **seletor de estados** da barra de ferramentas mostra cada estado como um chip próprio com contagem em direto — mais dois grupos inteligentes: **Ativas** (a predefinição — tudo o que ainda está em movimento: rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. Em projetos ligados ao Jira aparece ainda um menu de **estado Jira**, que lista os estados *reais* do fluxo de trabalho do quadro (os nomes tal e qual, p. ex. "Code Review", cada um com contagem em direto) agrupados sob o estado a que mapeiam — combina-se com os chips de estado. Também pode filtrar por **etiqueta**, e ordenar por **Predefinida**, **Ticket #** ou **Prioridade** (cada uma com um seletor ascendente/descendente).
+A barra de ferramentas das Specs tem duas linhas. A primeira reúne um campo de **pesquisa** (prima `/` para lá chegar; procura no título, `#número`, etiqueta ou chave do Jira), um único botão **Filtros**, os controlos de ordenação e vista, e **Nova spec**. A segunda linha é o **seletor de estados**: cada estado como um segmento próprio com contagem em direto, mais dois grupos inteligentes, **Ativas** (a predefinição: tudo o que ainda está em movimento, ou seja rascunhos, por fazer, em curso e em revisão) e **Todos** (tudo, com Concluído fixado no fundo). Quando a coluna é estreita, os estados menos usados recolhem-se num menu **Mais**, e o estado escolhido fica sempre visível. A sua escolha é lembrada por projeto e espelhada no URL, pelo que um refresh ou um link partilhado restaura a vista exata. **Filtros** abre um único painel com uma secção por dimensão: **etiquetas** (seleção múltipla) e, em projetos ligados ao Jira, **épico**, **sprint** e **estado Jira** (os estados *reais* do fluxo do quadro, p. ex. "Code Review", agrupados sob o estado a que mapeiam e combinados com o seletor de estados). Enquanto uma pesquisa ou um filtro restringe o quadro, uma terceira linha mostra cada um como um chip removível, indica "x de y" specs e oferece **Limpar tudo** (que mantém o estado escolhido). Ordene por **Predefinida**, **Ticket #** ou **Prioridade**, cada uma com um seletor ascendente/descendente.
 
 ## Estados
 
@@ -38,7 +38,7 @@ Os rascunhos são a única exceção: um rascunho pode *não* ter prioridade nen
 
 ## Criar uma spec
 
-Para criar uma spec, clique em **Adicionar** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
+Para criar uma spec, clique em **Nova spec** (o botão Mais na barra de ferramentas da SpecsBoard). Abre-se a janela **Adicionar Spec** com algumas formas de trabalhar:
 
 - **Quick** — descreve o que quer e a IA escreve a spec completa de uma só vez. Veja [Adicionar Spec — modo Quick](add-spec-quick-mode.md).
 - **Explore** — conversa com a IA, e ela ajuda-o a dar forma à spec turno a turno. Veja [Adicionar Spec — modo Explore](add-spec-explore-mode.md).
@@ -53,6 +53,12 @@ Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcional
 ## Revisar uma entrega: o que olhar primeiro
 
 Quando uma execução termina, o pacote de revisão abre com **O que olhar**: o resumo curto do revisor de IA com os pontos mais arriscados primeiro (alto, depois médio, depois baixo, cada um com arquivo e linha), o comportamento que muda, as regras em que a mudança se apoia, os caminhos de código que nenhum teste exercita e as verificações que só uma pessoa pode fazer. Os mesmos riscos, caminhos sem teste e verificações aparecem num bloco curto no topo da pull request, e o card da missão mostra o principal risco em uma linha. O resumo orienta a revisão, não é um resultado de verificação: nunca bloqueia Aceitar. Execuções feitas com um Specrails Core anterior não têm resumo e o pacote continua igual.
+
+## Desfazer e Excluídos recentemente {#recently-deleted}
+
+Excluir uma spec, movê-la para outro estado, mudar suas etiquetas ou tirá-la de um rail acontece na hora — sem um "Tem certeza?" antes. Em vez disso, um aviso oferece **Desfazer** por cerca de oito segundos, e **⌘Z** (**Ctrl+Z** no Windows e no Linux) faz o mesmo enquanto você não estiver digitando em um campo. Desfazer é por projeto: trocar de projeto encerra a janela.
+
+Uma spec excluída (e uma missão excluída) não desaparece. Ela vai para **Configurações → Excluídos recentemente**, nas configurações do projeto, onde você pode **Restaurá-la** por 30 dias ou **Excluí-la definitivamente**, o que pergunta antes. Depois de 30 dias ela é removida de vez. Descartar trabalho não enviado, fechar à força uma pull request e remover um projeto continuam perguntando antes, porque não podem ser revertidos. Uma spec ligada ao Jira continua sendo movida com **Mover para**, em vez de excluída.
 
 ## Para onde ir a seguir
 

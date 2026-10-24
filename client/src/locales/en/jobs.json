@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "running",
     "completed": "completed",
-    "done": "done",
     "failed": "failed",
     "canceled": "canceled",
     "queued": "queued",
@@ -30,6 +29,7 @@
   },
   "page": {
     "title": "Jobs",
+    "subtitle": "Every run on this project, with cost, duration and outcome.",
     "exportJobs": "Export Jobs",
     "proposalDeleted": "Proposal deleted",
     "proposal": {
@@ -46,10 +46,12 @@
         "cancelled": "Cancelled",
         "unknown": "Unknown status: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Couldn't delete the proposal. Try again."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
+    "breadcrumbJobs": "Jobs",
     "breadcrumbJob": "Job #{{id}}",
     "notFound": "Job not found",
     "notFoundDescription": "The job ID \"{{id}}\" doesn't exist",
@@ -59,7 +61,7 @@
     "exportDiagnostic": "Export diagnostic",
     "exportDiagnosticAria": "Export diagnostic bundle",
     "exportDiagnosticTooltip": "Download ZIP with telemetry, logs, and summary for this job",
-    "reExecute": "Re-execute",
+    "reExecute": "Run again",
     "reExecuteTooltip": "Spawn a new job with the same command",
     "cancelJob": "Cancel Job",
     "cancelJobTooltip": "Send SIGTERM to the running process. The job will be marked as canceled.",
@@ -101,7 +103,9 @@
       "sendFailed": "Failed to send message",
       "wrapUpScheduled": "Wrapping up the job…",
       "wrapUpStepScheduled": "Settling the step — the loop advances with what it produced"
-    }
+    },
+    "actionFailed": "The action couldn’t be completed",
+    "breadcrumbAria": "Breadcrumb"
   },
   "statusPanel": {
     "inProgress": "Job in progress",
@@ -172,12 +176,15 @@
       "stopSignalSentDescription": "The run will stop at the next step boundary",
       "cancelFailed": "Failed to cancel",
       "networkError": "Network error"
-    }
+    },
+    "title": "{{kind}} job · #{{id}}",
+    "titleLoop": "Loop run · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Job Comparison",
     "jobN": "Job {{n}}",
-    "loadFailed": "Failed to load comparison: {{error}}",
+    "loadFailed": "Failed to load comparison. Try again.",
     "duration": "Duration",
     "cost": "Cost",
     "tokensOut": "Tokens out",
@@ -185,7 +192,9 @@
     "cacheRead": "Cache read",
     "model": "Model",
     "phasesDone": "Phases done",
-    "betterValueHint": "Green highlights indicate better value"
+    "betterValueHint": "Green highlights indicate better value",
+    "loading": "Loading comparison…",
+    "description": "Duration, cost and token usage of both runs side by side. Green marks the better value."
   },
   "recent": {
     "emptyTitle": "No jobs yet",
@@ -204,7 +213,7 @@
     "readyToCompare": "Ready — click compare",
     "compareAction": "Compare →",
     "colStatus": "Status",
-    "colCommand": "Command",
+    "colCommand": "Task",
     "colDuration": "Duration",
     "colTokens": "Tokens",
     "colCost": "Cost",
@@ -242,7 +251,9 @@
       "cleared_other": "Cleared {{count}} jobs",
       "clearFailed": "Failed to clear jobs",
       "networkError": "Network error"
-    }
+    },
+    "emptyCta": "Open specs board",
+    "loading": "Loading jobs…"
   },
   "activeJob": {
     "none": "No active job",
@@ -317,7 +328,8 @@
     "noOutput": "No output",
     "completed": "Completed",
     "turns_one": "{{count}} turn",
-    "turns_other": "{{count}} turns"
+    "turns_other": "{{count}} turns",
+    "copyAll": "Copy all log lines"
   },
   "completion": {
     "title": "Run result",

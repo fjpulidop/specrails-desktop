@@ -2,6 +2,7 @@
 // `## Labels` / `## Estimated Complexity` / `## Short Summary` markdown
 // contract the spec-generation system prompt requests). No IO.
 import { clampShortSummary } from './ticket-store'
+import { extractOutOfScopeSection } from '../domain/non-goals'
 
 /**
  * Strip the metadata sections (Spec Title, Labels, Estimated Complexity,
@@ -38,9 +39,13 @@ export interface GeneratedSpec {
   /** Always starts with the `spec-proposal` marker label. */
   labels: string[]
   shortSummary: string | null
-  /** The response minus metadata sections (keeps Problem Statement, Proposed
-   *  Solution, Out of Scope, Acceptance Criteria, Technical Considerations). */
+  /** The response minus metadata sections and the `## Out of Scope` section
+   *  (keeps Problem Statement, Proposed Solution, Acceptance Criteria,
+   *  Technical Considerations). */
   description: string
+  /** The `## Out of Scope` bullets, moved to the ticket's `nonGoals` field
+   *  (feedback-2026-10 task 3.2). Empty when the model wrote none. */
+  nonGoals: string[]
 }
 
 /** True when the response carries the `## Spec Title` contract heading. */
@@ -74,11 +79,13 @@ export function parseGeneratedSpec(buffer: string, fallbackTitle: string): Gener
     : []
   const labels = Array.from(new Set(['spec-proposal', ...modelLabels]))
 
+  const { description, nonGoals } = extractOutOfScopeSection(stripSpecMetadataSections(buffer))
   return {
     title,
     priority,
     labels,
     shortSummary: clampShortSummary(extractShortSummary(buffer)),
-    description: stripSpecMetadataSections(buffer),
+    description,
+    nonGoals,
   }
 }

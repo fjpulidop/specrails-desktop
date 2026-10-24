@@ -318,17 +318,17 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
           </button>
         </div>
         {filter === 'touched-by-ai' && touchedFileCount > 0 && (
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 text-caption text-muted-foreground">
             <span>{t('tree.touchedCount', { count: touchedFileCount })}</span>
           </div>
         )}
       </div>
 
       {error && <div role="alert" className="space-y-1 border-b border-border p-3 text-xs"><p>{t('tree.loadFailed')}</p><button type="button" onClick={() => { void refresh() }} className="text-accent-primary underline">{t('explore.retry')}</button></div>}
-      {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-amber-600 dark:text-amber-400">{t('tree.partial')}</p>}
+      {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-accent-warning">{t('tree.partial')}</p>}
       {isEmpty && error ? null : isEmpty && isFirstLoad ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center" data-testid="file-tree-loading">
-          <p className="text-xs text-muted-foreground animate-pulse">{t('tree.loadingFiles')}</p>
+          <p className="text-xs text-muted-foreground motion-safe:animate-pulse">{t('tree.loadingFiles')}</p>
         </div>
       ) : isEmpty && filter === 'touched-by-ai' ? (
         <div className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-3">
@@ -417,7 +417,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                   <span className="flex items-center gap-1 flex-shrink-0">
                     {isFolder && folderTouchedCount > 0 && (
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground"
+                        className="text-caption px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground"
                         title={t('tree.folderTouched', { count: folderTouchedCount })}
                       >
                         {folderTouchedCount}
@@ -455,7 +455,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); openTicketDetail(createdBy) }}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
+                        className="text-caption px-1.5 py-0.5 rounded bg-accent-success/20 text-accent-success"
                         data-testid={`provenance-chip-created-${createdBy}`}
                         title={t('tree.createdBySpec', { id: createdBy })}
                       >
@@ -467,7 +467,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                         type="button"
                         key={tid}
                         onClick={(e) => { e.stopPropagation(); openTicketDetail(tid) }}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
+                        className="text-caption px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info"
                         data-testid={`provenance-chip-modified-${tid}`}
                         title={t('tree.modifiedBySpec', { id: tid })}
                       >

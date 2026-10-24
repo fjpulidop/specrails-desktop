@@ -83,6 +83,8 @@ export interface ThemeDescriptor {
     background: string
     foreground: string
     accents: [string, string, string, string]
+    /** End colour of the rail-pill gradient (matches `--color-rail-end`); defaults to accents[1]. */
+    railEnd?: string
   }
   /** xterm.js terminal palette. */
   xterm: XtermTheme
@@ -117,6 +119,7 @@ const DRACULA: ThemeDescriptor = {
     background: DRACULA_PALETTE.bg,
     foreground: DRACULA_PALETTE.fg,
     accents: [DRACULA_PALETTE.purple, DRACULA_PALETTE.pink, DRACULA_PALETTE.cyan, DRACULA_PALETTE.green],
+    railEnd: DRACULA_PALETTE.pink,
   },
   xterm: {
     background: DRACULA_PALETTE.bg,
@@ -176,6 +179,7 @@ const AURORA_LIGHT: ThemeDescriptor = {
     background: AURORA_PALETTE.bg,
     foreground: AURORA_PALETTE.fg,
     accents: [AURORA_PALETTE.primary, AURORA_PALETTE.secondary, AURORA_PALETTE.info, AURORA_PALETTE.success],
+    railEnd: AURORA_PALETTE.secondary,
   },
   xterm: {
     background: AURORA_PALETTE.bg,
@@ -213,28 +217,29 @@ const AURORA_LIGHT: ThemeDescriptor = {
 // ─── Obsidian Dark ─────────────────────────────────────────────────────────
 
 const OBSIDIAN_PALETTE = {
-  bg:        'hsl(222 18% 8%)',
-  fg:        'hsl(220 18% 92%)',
-  surface:   'hsl(222 16% 12%)',
-  muted:     'hsl(220 12% 60%)',
-  primary:   'hsl(265 80% 72%)',
-  info:      'hsl(192 90% 62%)',
-  success:   'hsl(150 70% 55%)',
-  secondary: 'hsl(330 80% 68%)',
-  warning:   'hsl(35 95% 62%)',
-  destructive: 'hsl(0 78% 62%)',
-  highlight: 'hsl(50 95% 65%)',
+  bg:        'hsl(220 8% 8%)',
+  fg:        'hsl(220 8% 92%)',
+  surface:   'hsl(220 7% 12%)',
+  muted:     'hsl(220 6% 60%)',
+  primary:   'hsl(258 55% 70%)',
+  info:      'hsl(192 76% 62%)',
+  success:   'hsl(150 60% 55%)',
+  secondary: 'hsl(330 68% 68%)',
+  warning:   'hsl(35 81% 62%)',
+  destructive: 'hsl(0 66% 62%)',
+  highlight: 'hsl(50 81% 65%)',
 } as const
 
 const OBSIDIAN_DARK: ThemeDescriptor = {
   id: 'obsidian-dark',
   displayName: 'Obsidian Dark',
-  tagline: 'Premium dark — near-black blue-tinted with electric accents',
+  tagline: 'Graphite pro — neutral near-black with one muted violet accent',
   scheme: 'dark',
   previewSwatches: {
     background: OBSIDIAN_PALETTE.bg,
     foreground: OBSIDIAN_PALETTE.fg,
     accents: [OBSIDIAN_PALETTE.primary, OBSIDIAN_PALETTE.info, OBSIDIAN_PALETTE.secondary, OBSIDIAN_PALETTE.success],
+    railEnd: OBSIDIAN_PALETTE.secondary,
   },
   xterm: {
     background: OBSIDIAN_PALETTE.bg,
@@ -298,6 +303,7 @@ const CODE_RAIN: ThemeDescriptor = {
     background: CODE_RAIN_PALETTE.bg,
     foreground: CODE_RAIN_PALETTE.fg,
     accents: [CODE_RAIN_PALETTE.primary, CODE_RAIN_PALETTE.info, CODE_RAIN_PALETTE.highlight, CODE_RAIN_PALETTE.destructive],
+    railEnd: CODE_RAIN_PALETTE.info,
   },
   xterm: {
     background: CODE_RAIN_PALETTE.bg,
@@ -343,7 +349,7 @@ const SPECRAILS_PALETTE = {
   primary:     'hsl(187 100% 44%)',   // cyan #00C3D2
   secondary:   'hsl(280 45% 62%)',    // violet
   success:     'hsl(152 78% 48%)',    // emerald
-  info:        'hsl(191 97% 55%)',    // electric cyan
+  info:        'hsl(234 92% 76%)',    // periwinkle — running, apart from the cyan primary
   warning:     'hsl(42 92% 58%)',     // amber
   highlight:   'hsl(248 75% 67%)',    // indigo
   destructive: 'hsl(12 80% 55%)',     // tomato-red
@@ -358,6 +364,7 @@ const SPECRAILS: ThemeDescriptor = {
     background: SPECRAILS_PALETTE.bg,
     foreground: SPECRAILS_PALETTE.fg,
     accents: [SPECRAILS_PALETTE.primary, SPECRAILS_PALETTE.highlight, SPECRAILS_PALETTE.secondary, SPECRAILS_PALETTE.success],
+    railEnd: SPECRAILS_PALETTE.secondary,
   },
   xterm: {
     background:          SPECRAILS_PALETTE.bg,
@@ -400,8 +407,8 @@ const GALAXY_PALETTE = {
   bgDeep:      'hsl(220 24% 2%)',
   fg:          'hsl(210 30% 94%)',    // cool near-white
   muted:       'hsl(215 15% 60%)',
-  primary:     'hsl(212 100% 62%)',   // light-side blue — shared by primary/ring/info
-  info:        'hsl(212 100% 62%)',   // same hue as primary (ticket-directed)
+  primary:     'hsl(212 100% 62%)',   // light-side blue — shared by primary/ring
+  info:        'hsl(201 95% 68%)',    // sky — running, apart from the blue primary
   secondary:   'hsl(210 12% 65%)',    // steel steel-gray/silver
   success:     'hsl(140 65% 50%)',    // core green
   warning:     'hsl(28 95% 56%)',     // pulse orange
@@ -418,6 +425,7 @@ const GALAXY: ThemeDescriptor = {
     background: GALAXY_PALETTE.bg,
     foreground: GALAXY_PALETTE.fg,
     accents: [GALAXY_PALETTE.primary, GALAXY_PALETTE.destructive, GALAXY_PALETTE.highlight, GALAXY_PALETTE.success],
+    railEnd: GALAXY_PALETTE.highlight,
   },
   xterm: {
     background:          GALAXY_PALETTE.bg,

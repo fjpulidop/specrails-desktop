@@ -3,6 +3,7 @@
 This capability owns its UI, state, feature utilities and adjacent tests.
 Shared rendering primitives, API origin/auth and project cache remain outside features.
 
+<!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 
 These are the explicit entry points consumed by application composition or other
@@ -29,6 +30,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [delivery](../delivery/README.md)
 - [loops](../loops/README.md)
 - [missions](../missions/README.md)
+- [projects](../projects/README.md)
 - [providers](../providers/README.md)
 - [settings](../settings/README.md)
 - [specs](../specs/README.md)
@@ -36,13 +38,8 @@ load every UI component. Changes to this surface require updating the boundary m
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
+<!-- audit-client-features:end -->
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/rails`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
-
-Rails with open addenda display Quick SDD as their effective loop. Dashboard and
-mission launch requests use the same selection, retaining the current delivery
-when its spec set matches; active runs and unrelated deliveries stay protected.
-
-Rail launch controls use the projects feature workspace selector. Each launch can narrow registered code workspaces; the selected paths are frozen with the execution request.

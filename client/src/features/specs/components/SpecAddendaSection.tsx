@@ -41,12 +41,12 @@ const KIND_ICON: Record<SpecAddendumKind, typeof Layers> = {
 
 const STATUS_PILL: Record<SpecAddendumStatus, string> = {
   open: 'border-accent-primary/50 bg-accent-primary/10 text-accent-primary',
-  in_flight: 'border-accent-info/50 bg-accent-info/10 text-accent-info animate-pulse',
+  in_flight: 'border-accent-info/50 bg-accent-info/10 text-accent-info motion-safe:animate-pulse',
   applied: 'border-accent-success/50 bg-accent-success/10 text-accent-success',
   dismissed: 'border-border bg-muted/30 text-muted-foreground',
 }
 
-const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs'
+const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-caption prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs'
 
 interface FormState { kind: SpecAddendumKind; title: string; body: string }
 const EMPTY_FORM: FormState = { kind: 'change-request', title: '', body: '' }
@@ -149,12 +149,12 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
   const renderForm = () => form && (
     <div data-testid="spec-addenda-form" className="rounded-lg border border-accent-primary/30 bg-accent-primary/[0.04] px-3 py-2.5 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="uppercase tracking-wider">{t('addenda.form.kind')}</span>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-medium">{t('addenda.form.kind')}</span>
           <select
             value={form.kind}
             onChange={(e) => setForm({ ...form, kind: e.target.value as SpecAddendumKind })}
-            className="h-6 rounded-md border border-border/60 bg-input px-1.5 text-[11px] text-foreground outline-none focus:border-accent-primary/50"
+            className="h-6 rounded-md border border-border/60 bg-input px-1.5 text-caption text-foreground outline-none focus:border-accent-primary/50"
             data-testid="spec-addenda-kind"
           >
             {SPEC_ADDENDUM_KINDS.map((kind) => <option key={kind} value={kind}>{t(`addenda.kind.${kind}`)}</option>)}
@@ -164,7 +164,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           placeholder={t('addenda.form.titlePlaceholder')}
-          className="h-6 min-w-0 flex-1 rounded-md border border-border/60 bg-input px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-accent-primary/50"
+          className="h-6 min-w-0 flex-1 rounded-md border border-border/60 bg-input px-2 text-caption text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-accent-primary/50"
           data-testid="spec-addenda-title"
         />
       </div>
@@ -182,10 +182,10 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
         data-testid="spec-addenda-body"
       />
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[9px] text-muted-foreground">{t('addenda.form.hint')}</span>
+        <span className="text-caption text-muted-foreground">{t('addenda.form.hint')}</span>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={cancelForm} disabled={busy}>{t('addenda.form.cancel')}</Button>
-          <Button size="sm" className="h-6 text-[10px]" onClick={() => void submit()} disabled={busy || !form.body.trim()} data-testid="spec-addenda-save">
+          <Button variant="ghost" size="sm" className="h-6 text-caption" onClick={cancelForm} disabled={busy}>{t('addenda.form.cancel')}</Button>
+          <Button size="sm" className="h-6 text-caption" onClick={() => void submit()} disabled={busy || !form.body.trim()} data-testid="spec-addenda-save">
             {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
             {t(busy ? 'addenda.form.saving' : 'addenda.form.save')}
           </Button>
@@ -197,13 +197,13 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
   return (
     <section data-testid="spec-addenda-section" className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground" title={t('addenda.hint')}>
+        <span className="flex items-center gap-1.5 text-label text-muted-foreground" title={t('addenda.hint')}>
           <Layers className="h-3 w-3" />
           {t('addenda.title')}
           {addenda.length > 0 && (
             <span
               data-testid="spec-addenda-open-count"
-              className={`rounded-full border px-1.5 py-px text-[9px] font-semibold normal-case tracking-normal ${openCount > 0 ? STATUS_PILL.open : 'border-border text-muted-foreground'}`}
+              className={`rounded-full border px-1.5 py-px text-caption font-semibold normal-case tracking-normal ${openCount > 0 ? STATUS_PILL.open : 'border-border text-muted-foreground'}`}
             >
               {openCount > 0 ? t('addenda.openCount', { count: openCount }) : addenda.length}
             </span>
@@ -213,7 +213,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
           <button
             type="button"
             onClick={startAdd}
-            className="flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
             data-testid="spec-addenda-add"
           >
             <Plus className="h-2.5 w-2.5" />
@@ -228,7 +228,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
         <button
           type="button"
           onClick={startAdd}
-          className="w-full rounded-lg border border-dashed border-border/40 bg-muted/10 px-3 py-3 text-left text-[11px] leading-relaxed text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
+          className="w-full rounded-lg border border-dashed border-border/40 bg-muted/10 px-3 py-3 text-left text-caption leading-relaxed text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
           data-testid="spec-addenda-empty"
         >
           {t('addenda.emptyCta')}
@@ -256,14 +256,14 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         aria-expanded={isOpen}
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`text-xs font-medium text-foreground/90 ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
-                          <span className="rounded-full border border-border/50 px-1.5 py-px text-[9px] text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
-                          <span className={`rounded-full border px-1.5 py-px text-[9px] font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
+                          <span className={`text-label text-foreground/90 ${a.status === 'dismissed' ? 'line-through' : ''}`}>{a.title}</span>
+                          <span className="rounded-full border border-border/50 px-1.5 py-px text-caption text-muted-foreground">{t(`addenda.kind.${a.kind}`)}</span>
+                          <span className={`rounded-full border px-1.5 py-px text-caption font-medium ${STATUS_PILL[a.status]}`} title={t(`addenda.statusHint.${a.status}`)} data-testid="spec-addendum-status">
                             {t(`addenda.status.${a.status}`)}
                           </span>
                         </div>
                         {!isOpen && (
-                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{a.body}</p>
+                          <p className="mt-0.5 line-clamp-2 text-caption leading-snug text-muted-foreground">{a.body}</p>
                         )}
                       </button>
                       <div className="flex shrink-0 items-center gap-0.5">
@@ -273,7 +273,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                           </button>
                         )}
                         {a.status === 'in_flight' && (
-                          <button type="button" title={t('addenda.actions.releaseHint')} aria-label={t('addenda.actions.release')} onClick={() => void setStatus(a, 'open', true)} disabled={busy} className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-foreground" data-testid="spec-addendum-release">
+                          <button type="button" title={t('addenda.actions.releaseHint')} aria-label={t('addenda.actions.release')} onClick={() => void setStatus(a, 'open', true)} disabled={busy} className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground" data-testid="spec-addendum-release">
                             <RotateCcw className="h-3 w-3" />
                           </button>
                         )}
@@ -310,7 +310,7 @@ export function SpecAddendaSection({ ticket, onChanged }: SpecAddendaSectionProp
                         <div className={MARKDOWN_CLASS} data-testid="spec-addendum-body">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{a.body}</ReactMarkdown>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-muted-foreground">
                           <span>{relative(a.created_at)} · {t('addenda.meta.by', { who: who(a.created_by) })}</span>
                           {a.run_id && <span className="font-mono">{t('addenda.meta.run', { id: a.run_id.slice(0, 8) })}</span>}
                           {a.applied_at && <span>{t('addenda.meta.applied', { when: relative(a.applied_at) })}</span>}

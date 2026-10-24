@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { FileMinus2, FilePlus2, FileText, GitCommitHorizontal, History, Loader2, RefreshCw } from 'lucide-react'
+import { FileMinus2, FilePlus2, FileText, GitCommitHorizontal, History, RefreshCw } from 'lucide-react'
 import { repositoryApiBase } from '../../../projects/lib/project-repositories'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import { useCodeRepository } from './CodeRepositoryContext'
@@ -95,28 +96,28 @@ export function CodeActivity({ projectId, repositoryName, multipleRepositories, 
     <div className="space-y-2 border-b border-border p-3">
       <div className="flex items-start justify-between gap-2"><p className="text-xs leading-relaxed text-muted-foreground">{t('activity.description')}</p><button type="button" disabled={loading} onClick={() => { void load() }} aria-label={t('explore.refresh')} title={t('explore.refresh')} className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /></button></div>
       {multipleRepositories && <select aria-label={t('activity.scope')} value={allRepositories ? 'all' : 'current'} onChange={event => setAllRepositories(event.target.value === 'all')} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"><option value="all">{t('search.allRepositories')}</option><option value="current">{repositoryName ?? t('search.currentRepository')}</option></select>}
-      {(ticketId || jobId) && <p className="break-all text-[11px] text-accent-primary">{ticketId ? t('provenancePanel.specTitle', { ticketId }) : t('provenancePanel.jobTitle', { jobId })}</p>}
+      {(ticketId || jobId) && <p className="break-all text-caption text-accent-primary">{ticketId ? t('provenancePanel.specTitle', { ticketId }) : t('provenancePanel.jobTitle', { jobId })}</p>}
     </div>
     <div className="min-h-0 flex-1 overflow-auto" aria-busy={loading}>
       {failed && <div role="alert" className="space-y-2 p-3 text-xs"><p>{t('activity.failed')}</p><button type="button" onClick={() => { void load(data?.nextCursor ?? undefined) }} className="text-accent-primary underline">{t('explore.retry')}</button></div>}
-      {data?.truncated && <p role="status" className="border-b border-border p-3 text-xs text-amber-600 dark:text-amber-400">{t('activity.partial')}</p>}
+      {data?.truncated && <p role="status" className="border-b border-border p-3 text-xs text-accent-warning">{t('activity.partial')}</p>}
       {data && data.entries.length === 0 && !data.truncated && !data.nextCursor && !loading && <div className="space-y-2 p-6 text-center text-xs text-muted-foreground"><History className="mx-auto h-6 w-6 opacity-50" /><p>{t('activity.empty')}</p></div>}
       <ol>{data?.entries.map((entry, index) => {
         const previous = data.entries[index - 1]
         const groupStart = !previous || previous.repositoryId !== entry.repositoryId || previous.jobId !== entry.jobId || previous.ticketId !== entry.ticketId
         const Icon = entry.kind === 'created' ? FilePlus2 : entry.kind === 'deleted' ? FileMinus2 : FileText
         return <li key={entry.id}>
-          {groupStart && <div className="sticky top-0 z-[1] space-y-1 border-y border-border bg-background/95 px-3 py-2 backdrop-blur">
-            <div className="flex items-center gap-2 text-[11px]"><span className="min-w-0 flex-1 truncate font-medium">{entry.repositoryName}</span>{entry.ticketId != null && <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-accent-primary">{t('story.spec', { ticketId: entry.ticketId })}</span>}</div>
-            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground"><span className="inline-flex min-w-0 items-center gap-1" title={entry.jobId ?? undefined}><GitCommitHorizontal className="h-3 w-3" />{entry.jobId?.slice(0, 10) ?? t('history.unknownJob')}</span><time dateTime={new Date(entry.at).toISOString()} title={new Date(entry.at).toLocaleString(i18n.language)}>{new Date(entry.at).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}</time></div>
+          {groupStart && <div className="sticky top-0 z-[1] space-y-1 border-y border-border bg-background px-3 py-2">
+            <div className="flex items-center gap-2 text-caption"><span className="min-w-0 flex-1 truncate font-medium">{entry.repositoryName}</span>{entry.ticketId != null && <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-accent-primary">{t('story.spec', { ticketId: entry.ticketId })}</span>}</div>
+            <div className="flex items-center justify-between gap-2 text-caption text-muted-foreground"><span className="inline-flex min-w-0 items-center gap-1" title={entry.jobId ?? undefined}><GitCommitHorizontal className="h-3 w-3" />{entry.jobId?.slice(0, 10) ?? t('history.unknownJob')}</span><time dateTime={new Date(entry.at).toISOString()} title={new Date(entry.at).toLocaleString(i18n.language)}>{new Date(entry.at).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}</time></div>
           </div>}
           <button type="button" onClick={() => onOpen({ repositoryId: entry.repositoryId, path: entry.path, changeJobId: entry.jobId })} className="flex w-full items-start gap-2 border-b border-border/30 px-3 py-3 text-left hover:bg-muted/50" title={entry.path}>
             <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${entry.kind === 'created' ? 'text-accent-success' : entry.kind === 'deleted' ? 'text-destructive' : 'text-accent-info'}`} />
-            <span className="min-w-0 flex-1 space-y-1"><span className="block break-all font-mono text-xs">{entry.path}</span><span className="block text-[10px] text-muted-foreground">{t(`story.kindLabel.${entry.kind}`)} · {t(entry.hasPatch ? entry.patchTruncated ? 'activity.partialPatch' : 'activity.patch' : 'activity.noPatch')}</span></span>
+            <span className="min-w-0 flex-1 space-y-1"><span className="block break-all font-mono text-xs">{entry.path}</span><span className="block text-caption text-muted-foreground">{t(`story.kindLabel.${entry.kind}`)} · {t(entry.hasPatch ? entry.patchTruncated ? 'activity.partialPatch' : 'activity.patch' : 'activity.noPatch')}</span></span>
           </button>
         </li>
       })}</ol>
-      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('activity.loading')}</p>}
+      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('activity.loading')}</p>}
       {data?.nextCursor && !loading && !failed && <button type="button" onClick={() => { void load(data.nextCursor!) }} className="m-3 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted/50">{t('activity.loadMore')}</button>}
     </div>
   </section>

@@ -5,12 +5,15 @@
     "emptyNoSpecs": "Ancora nessuna spec",
     "emptyNoLabelMatch": "Nessuna spec corrisponde alle etichette attive",
     "emptyNoActiveSpecs": "Nessuna spec attiva",
-    "emptyHint": "Clicca \"+ Aggiungi\" per iniziare",
+    "emptyHint": "Clicca \"Nuova spec\" per iniziare",
     "dropToMarkDone": "Rilascia per contrassegnare come completata",
     "emptyNoDoneLabelMatch": "Nessuna spec completata corrisponde alle etichette attive",
     "emptyNoCompleted": "Ancora nessuna spec completata",
     "emptyNoStatusMatch": "Nessuna spec corrisponde allo stato selezionato",
-    "untitledSpec": "Spec senza titolo"
+    "untitledSpec": "Spec senza titolo",
+    "doneHeading": "Completate · {{count}}",
+    "clearFilters": "Cancella filtri",
+    "emptyNoSearchMatch": "Nessuna spec corrisponde a \"{{query}}\""
   },
   "status": {
     "todo": "Da fare",
@@ -45,7 +48,6 @@
   },
   "card": {
     "deleteSpec": "Elimina spec #{{id}}",
-    "deleteTicket": "Elimina ticket #{{id}}",
     "ticketFallbackLabel": "Ticket #{{id}}",
     "dependsOn": "Dipende da {{count}}",
     "continueEditing": "Continua a modificare",
@@ -93,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "Filtra per stato",
     "all": "Tutti",
-    "active": "Attive"
+    "active": "Attive",
+    "more": "Altro",
+    "moreSelected": "Stato: {{status}}. Scegli un altro stato"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filtra per stato Jira",
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filtra per etichette",
-    "all": "Tutte",
+    "all": "Tutte le etichette",
     "empty": "Nessuna etichetta in questo progetto.",
     "selected_one": "{{count}} etichetta",
     "selected_other": "{{count}} etichette",
@@ -155,7 +159,6 @@
       "securitySurface": "Sicurezza",
       "none": "Nessun impatto su API pubblica, dati o sicurezza"
     },
-    "flowHint": "Flow suggerito",
     "filesLikely": "File probabili",
     "moreFiles_one": "+{{count}} altro file",
     "moreFiles_other": "+{{count}} altri file",
@@ -165,5 +168,47 @@
     "unavailableDetail": "Nessun modello disponibile per il triage ({{reason}}).",
     "failed": "Triage non riuscito",
     "failedDetail": "Impossibile completare il triage: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Nuova spec",
+    "newSpecTooltip": "Nuova spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Cerca spec",
+    "ariaLabel": "Cerca spec per titolo, numero, etichetta o chiave Jira",
+    "clear": "Cancella ricerca"
+  },
+  "filters": {
+    "trigger": "Filtri",
+    "triggerActive_one": "Filtri, {{count}} attivo",
+    "triggerActive_other": "Filtri, {{count}} attivi",
+    "title": "Filtri",
+    "sections": {
+      "labels": "Etichette",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Stato Jira"
+    },
+    "clearSection": "Cancella",
+    "clearAll": "Cancella tutto",
+    "done": "Fatto",
+    "findLabel": "Trova etichetta",
+    "removeChip": "Rimuovi filtro: {{label}}",
+    "resultCount": "{{shown}} di {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Ricerca: \"{{query}}\"",
+      "label": "Etichetta: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Ordinamento e vista",
+    "menuLabel": "Opzioni di ordinamento e vista",
+    "sortBy": "Ordina per",
+    "direction": "Direzione",
+    "view": "Vista"
   }
 }

@@ -78,3 +78,11 @@ Les exports respectent les filtres de période et de surface actuellement appliq
 ## Toujours à jour
 
 Pas besoin d'actualiser. Quand une nouvelle invocation est enregistrée n'importe où dans le projet, le tableau de bord ouvert se recharge discrètement un instant plus tard, pour que la jauge de consommation suive le rythme du travail à mesure qu'il se termine.
+
+## Budgets quotidiens {#daily-budget}
+
+Définissez un budget quotidien pour plafonner ce qu’une journée peut coûter. Le budget de toute l’app se trouve dans **Réglages → Avancé** ; le budget d’un projet, dans **Réglages du projet → Budget**.
+
+Quand la dépense enregistrée du jour atteint un budget, la file se met en pause d’elle-même, les rails et les exécutions de loops refusent de démarrer avec *Budget quotidien atteint*, et une exécution de loop en cours s’arrête entre deux étapes, en pause à cause du budget. Augmentez ou supprimez le budget, ou attendez la réinitialisation quotidienne, puis reprenez.
+
+Le budget du projet compte votre journée locale ; celui de toute l’app compte la journée UTC. L’alerte de coût par job est un réglage distinct.

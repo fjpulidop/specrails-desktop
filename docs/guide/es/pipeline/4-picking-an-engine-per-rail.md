@@ -1,6 +1,6 @@
 <!-- guide-revision: mission-first-v1 -->
 
-# Elige proveedor y capacidades
+# Elige proveedor y capacidades {#provider-capabilities}
 
 La configuración depende del proveedor elegido. Un nombre de modelo conocido no implica las mismas opciones de razonamiento, salida estructurada o aprobación en todos ellos.
 

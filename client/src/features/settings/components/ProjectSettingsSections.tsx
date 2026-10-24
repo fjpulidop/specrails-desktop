@@ -7,9 +7,12 @@ import { notifyReviewWipLimitChanged, parseReviewWipLimitInput, REVIEW_WIP_LIMIT
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
+import { Switch } from '../../../components/ui/switch'
 import { Input } from '../../../components/ui/input'
 import { Badge, type BadgeProps } from '../../../components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
+import { Skeleton } from '../../../components/ui/skeleton'
+import { HelpHint } from '../../../components/HelpHint'
 
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
@@ -27,7 +30,7 @@ interface ProjectSettingsPayload {
 /** Skeleton shown until a section's GET settles — fields never flash empty and
  *  a late response can never clobber what the user already typed. */
 function SectionSkeleton() {
-  return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 }
 
 /** Pipeline telemetry toggle (Super mode only — enforced by callers). */
@@ -83,8 +86,8 @@ export function ProjectTelemetrySection() {
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="text-xs font-medium">{t('telemetry.toggleLabel')}</p>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-label">{t('telemetry.toggleLabel')}</p>
+            <p className="text-xs text-muted-foreground">
               <Trans
                 ns="settings"
                 i18nKey="telemetry.toggleDescription"
@@ -92,23 +95,12 @@ export function ProjectTelemetrySection() {
               />
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
+          <Switch
+            checked={telemetryEnabled}
+            onCheckedChange={(next) => saveToggle(next)}
             aria-label={t('telemetry.toggleLabel')}
-            aria-checked={telemetryEnabled}
             disabled={isSaving}
-            onClick={() => saveToggle(!telemetryEnabled)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 ${
-              telemetryEnabled ? 'bg-primary' : 'bg-input'
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${
-                telemetryEnabled ? 'translate-x-4' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
+          />
         </div>
       </CardContent>
     </Card>
@@ -182,7 +174,7 @@ export function ProjectIntegrationBranchSection() {
           data-testid="integration-branch-input"
         />
         {resolved && (
-          <p className="text-[10px] text-muted-foreground" data-testid="integration-branch-resolved">
+          <p className="text-xs text-muted-foreground" data-testid="integration-branch-resolved">
             <Trans
               ns="settings"
               i18nKey="integrationBranch.resolved"
@@ -410,7 +402,7 @@ export function ProjectWorktreeEnvSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="worktree-env-name" className="text-xs font-medium">
+          <label htmlFor="worktree-env-name" className="text-label">
             {t('worktreeEnv.label')}
           </label>
           <div className="flex gap-2">
@@ -442,9 +434,9 @@ export function ProjectWorktreeEnvSection() {
             </Button>
           </div>
           {error ? (
-            <p className="text-[10px] text-destructive" data-testid="worktree-env-error">{error}</p>
+            <p className="text-xs text-destructive" data-testid="worktree-env-error">{error}</p>
           ) : (
-            <p className="text-[10px] text-muted-foreground">{t('worktreeEnv.helper')}</p>
+            <p className="text-xs text-muted-foreground">{t('worktreeEnv.helper')}</p>
           )}
         </div>
 
@@ -454,7 +446,7 @@ export function ProjectWorktreeEnvSection() {
               key={name}
               type="button"
               onClick={() => addNames(name)}
-              className="rounded-md border border-border bg-muted/30 px-2 py-1 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md border border-border bg-muted/30 px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {name}
             </button>
@@ -469,7 +461,7 @@ export function ProjectWorktreeEnvSection() {
                 return (
                   <span
                     key={name}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-2 pr-1 font-mono text-[11px]"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-2 pr-1 font-mono text-xs"
                   >
                     {name}
                     {entry && report && <EnvStatusChip entry={entry} report={report} />}
@@ -494,7 +486,7 @@ export function ProjectWorktreeEnvSection() {
 
         {report && unresolved.length > 0 && (
           <ul
-            className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground aurora-light:border-accent-warning/30 aurora-light:bg-accent-warning/5"
+            className="space-y-1.5 rounded-md border px-3 py-2 text-xs leading-relaxed text-muted-foreground border-accent-warning/30 bg-accent-warning/5"
             data-testid="worktree-env-unresolved"
           >
             <li className="font-medium text-foreground">{t('worktreeEnv.unresolvedTitle')}</li>
@@ -509,7 +501,7 @@ export function ProjectWorktreeEnvSection() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] text-muted-foreground" data-testid="worktree-env-status-meta" aria-live="polite">
+          <p className="text-xs text-muted-foreground" data-testid="worktree-env-status-meta" aria-live="polite">
             {statusError
               ? t('worktreeEnv.statusUnavailable')
               : isRechecking || report?.checking
@@ -564,7 +556,7 @@ function PrePromptCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2">
-          <label htmlFor={fieldId} className="text-xs font-medium">
+          <label htmlFor={fieldId} className="text-label">
             {t(`${i18nRoot}.label`)}
           </label>
           <textarea
@@ -768,7 +760,10 @@ export function ProjectBudgetSection() {
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium">{t('budget.dailyLabel')}</label>
+              <div className="flex items-center gap-1">
+                <label className="text-label">{t('budget.dailyLabel')}</label>
+                <HelpHint topic="dailyBudget" />
+              </div>
               <p className="text-xs text-muted-foreground">{t('budget.dailyHelper')}</p>
             </div>
             <Input
@@ -789,7 +784,7 @@ export function ProjectBudgetSection() {
 
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium">{t('budget.perJobLabel')}</label>
+              <label className="text-label">{t('budget.perJobLabel')}</label>
               <p className="text-xs text-muted-foreground">{t('budget.perJobHelper')}</p>
             </div>
             <Input
@@ -881,7 +876,7 @@ export function ProjectReviewWipSection() {
         <CardDescription>{t('reviewWip.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <label htmlFor="review-wip-limit" className="text-xs font-medium">{t('reviewWip.label')}</label>
+        <label htmlFor="review-wip-limit" className="text-label">{t('reviewWip.label')}</label>
         <p className="text-xs text-muted-foreground">{t('reviewWip.help', { suggested: SUGGESTED_REVIEW_WIP_LIMIT })}</p>
         <div className="flex items-center gap-2">
           <Input
@@ -988,7 +983,7 @@ export function ProjectAgentAuditSection() {
           />
           <span className="text-muted-foreground">{t('agentAudit.daysUnit')}</span>
         </label>
-        <p className="text-[11px] text-muted-foreground">{t('agentAudit.caveat')}</p>
+        <p className="text-xs text-muted-foreground">{t('agentAudit.caveat')}</p>
         <Button size="sm" onClick={save} disabled={isSaving} data-testid="agent-audit-retention-save">
           {t('agentAudit.save')}
         </Button>

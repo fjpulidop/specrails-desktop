@@ -294,3 +294,29 @@ repaired derivation supersedes the rejected one.
 
 The draft PR body adds one line (`buildDerivationLine`):
 `> Derived from a Flow session: OpenSpec change \`x\`, N/M changed files explained by its design (K unexplained — see the review packet).`
+
+## 2026-10-22 — Requirements demonstrated, baseline and "Needs human eyes"
+
+Three advisory sections, each gated on a Core capability and absent (`null`)
+otherwise, so older packets read exactly as before. They render after "What to
+look at"; none ever gates a decision. Source and rules in
+[existing-project anchoring](existing-project-anchoring.md).
+
+- **Needs human eyes** (`packet.needsHumanEyes`, Core `rulesInventory: 1`): the
+  project's `humanOnly` rules from `.specrails/rules.json`, frozen into
+  `settle_evidence.humanRules` when the delivery settles.
+- **Requirements demonstrated X/Y** (`packet.requirementsDemonstrated`, Core
+  `specTrace: 1`): `settle_evidence.units[].specTrace` (Core's
+  `spec-trace.json`) merged across units. Lists undemonstrated requirements
+  first (the ones this change touches are flagged), then demonstrated ones with
+  their first tagged test, then tags that match no requirement. App-verified:
+  Core crossed test tags with the verification receipt; a trace without a
+  receipt says so.
+- **Spec created where the work passed** (`packet.baseline`, Core
+  `baselineOnTouch: 1`): one entry per unit whose run planned a baseline
+  (`baseline.json`): status (`planned`, `passed`, `failed`, `violated`), the
+  module described, the as-built requirements per capability with how many are
+  demonstrated, Core's reason when it blocked, and the baseline's own cost.
+  The cost line in the header adds "baseline $X of it" when every baseline
+  reported a cost.
+

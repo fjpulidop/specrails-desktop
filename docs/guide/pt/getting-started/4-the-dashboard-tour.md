@@ -37,11 +37,14 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 - **Gasto total** (à direita) — um total acumulado do que gastou, para que o custo esteja sempre a um relance de distância.
 - **Botão do terminal** (à direita ao fundo) — abre o painel de terminal integrado. Carregue em **Cmd+J** (macOS) ou **Ctrl+J** (Windows/Linux) para o alternar a qualquer momento. É uma shell completa, aberta diretamente na pasta do seu projeto.
 
-## Alguns atalhos úteis
+## Alguns atalhos úteis {#shortcuts}
 
-- **Cmd/Ctrl+B** — afixar ou recolher as barras laterais.
+- **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.
 - **Cmd/Ctrl+J** — alternar o painel de terminal.
-- **Cmd/Ctrl+K** — abrir a pesquisa.
+- **Cmd/Ctrl+K** — a paleta de comandos: pesquise missões, projetos e jobs e **execute ações**. Digite um verbo ("nova", "lançar", "mover", "trocar") ou comece com **>** para listar ações: Nova spec (também em Explorar), Lançar ou Mover uma spec, Abrir sua revisão, Entregar ou Pausar um Flow, Nova missão, Trocar tema, Alternar entre os modos Missão e Quadro, Abrir as configurações do app ou do projeto em uma seção, Executar um loop, alternar as barras laterais, Voltar ou Avançar, Desfazer a última alteração e Excluídos recentemente. Ações que precisam de uma escolha (um rail, um status, um tema, uma seção) abrem uma segunda página; **Backspace** com a pesquisa vazia volta. Cada ação mostra seu atalho de teclado, então a paleta ensina as teclas. Ela só oferece o que funciona onde você está e segue as mesmas regras dos botões (uma spec que não pode ser lançada não é oferecida). Com a pesquisa vazia, lista suas **Ações recentes** e **Lugares recentes**.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** no Windows/Linux), os botões **←  →** da barra de título ou os botões voltar/avançar do mouse — voltam ou avançam pelos lugares onde você esteve: specs, missões, jobs, projetos e painéis em tela cheia. Clique com o botão direito (ou pressione e segure) um botão para ver os últimos lugares.
+- **Cmd+Shift+I** (**Ctrl+Alt+I** no Windows e no Linux) ou o botão **Pendências** na barra de título — a lista **Pendências**: tudo o que espera por você em todos os seus projetos, numa só lista agrupada por projeto. Reúne revisões prontas para decidir, perguntas que um agente está aguardando, execuções que falharam ou ficaram bloqueadas, execuções pausadas pelo orçamento diário e atualizações do Jira que não puderam sincronizar. Cada linha tem a ação principal ali mesmo (**Abrir revisão**, **Responder**, **Retomar**, **Tentar novamente**) mais **Adiar** (1 hora ou até amanhã) e **Concluído**. Um item adiado ou concluído volta sozinho se o estado dele mudar. O botão mostra quantos itens aguardam e uma notificação de limite do provedor abre a lista. A lista também é um link (`?inbox=1`) e uma ação da paleta de comandos.
+- **?** — a folha de atalhos. Digite na caixa de pesquisa para filtrar os atalhos e encontrar páginas e seções deste guia, que abrem no guia sem sair da sua tela. Os pequenos ícones **ⓘ** e os links **Saiba mais** ao lado das configurações, dos rails, do Flow, do seletor de contexto e dos orçamentos abrem o guia na seção correspondente do mesmo modo.
 
 ## Para onde ir a seguir
 

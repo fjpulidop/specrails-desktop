@@ -33,7 +33,10 @@
     "railWorktreesNoCommits": "Isolation par worktree indisponible : le dépôt n'a pas encore de commit — faites un commit initial puis relancez.",
     "railWorktreesError": "L'isolation par worktrees a échoué — cette exécution continue SANS le flux de revue par PR (pas de carte d'implémentation). Voir le détail de l'erreur ci-dessous.",
     "onReviewCannotMoveToRail": "Cette spec attend une revue de PR — résolvez d'abord la décision de la PR",
-    "onReviewNotLaunchable": "Une spec de ce rail attend une revue de PR — résolvez la décision de la PR avant de lancer"
+    "onReviewNotLaunchable": "Une spec de ce rail attend une revue de PR. Prenez la décision sur la PR avant de lancer.",
+    "launchRepositoryHasNoCommits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet.",
+    "railDeletePrPending": "{{rail}} a une décision de PR en attente — tranchez-la avant de retirer le rail",
+    "railDeleteLastRail": "Un projet a besoin d'au moins un rail — celui-ci ne peut pas être retiré"
   },
   "railPr": {
     "operation": {
@@ -106,6 +109,7 @@
     "publish": "Publier",
     "publishTooltip": "Ouvre la PR en brouillon pour la relecture de l'équipe",
     "checkout": "Changer de branche",
+    "moreActions": "Plus d’actions",
     "checkoutTooltip": "Basculer le dossier principal du projet sur {{branch}}",
     "checkoutSuccess": "Checkout effectué sur {{branch}}",
     "checkoutFailed": "Impossible de basculer sur la branche d’implémentation",
@@ -162,14 +166,30 @@
     "mergeLocalBlockedBranch": "Impossible d'intégrer : votre checkout est sur {{current}}, pas sur {{base}}. Passez sur {{base}}, puis réessayez.",
     "mergeLocalFailed": "La fusion locale a échoué : {{detail}}",
     "mergedLocally": "Intégré dans {{base}} en local",
-    "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail."
+    "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
+    "reviewChangesRequested": "Modifications demandées",
+    "reviewChangesRequestedHint": "La remise du Flow a encore besoin de modifications. Ouvrez sa carte de mission pour revenir dans Flow ou relancer.",
+    "mergedLocallyRestored": "Vos modifications locales ont été mises de côté, {{tickets}} a été intégré, puis elles ont été restaurées.",
+    "mergedLocallyStashConflict": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; Specrails les restaure sur une branche séparée.",
+    "mergedLocallyStashKept": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; restaurez-les quand vous voulez."
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} en cours",
-    "runningCount_other": "{{count}} en cours",
     "launchAll": "Tout lancer",
-    "launchAllTitle": "Lance en parallèle tous les rails prêts — chaque exécution est isolée dans son propre worktree git"
+    "launchAllTitle": "Lance en parallèle tous les rails prêts — chaque exécution est isolée dans son propre worktree git",
+    "addRail": "Ajouter un rail",
+    "addRailLimit": "Limite de rails atteinte ({{max}} max.)",
+    "launchAllNoneReady": "Aucun rail n'est prêt. Glissez des specs sur un rail pour le lancer.",
+    "summary": {
+      "running_one": "{{count}} en cours",
+      "running_other": "{{count}} en cours",
+      "ready_one": "{{count}} prêt",
+      "ready_other": "{{count}} prêts",
+      "failed_one": "{{count}} en échec",
+      "failed_other": "{{count}} en échec",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rails"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} déjà en cours",
@@ -238,7 +258,13 @@
     "deleteRail": "Supprimer {{label}}",
     "dropHere": "Déposer ici",
     "dropOnThisRail": "Déposer sur ce rail",
-    "dragSpecsHere": "Glissez des specs ici"
+    "dropHint": "Déposez une spec sur ce rail",
+    "dragHandle": "Réordonner {{label}}",
+    "status": {
+      "idle": "Inactif",
+      "running": "En cours",
+      "failed": "Échec"
+    }
   },
   "freestyleDialog": {
     "title": "Lancer en mode Freestyle",
@@ -250,7 +276,8 @@
     "autonomyBody": "{{provider}} travaille seul avec ses agents natifs et des workflows dynamiques.",
     "costTitle": "Coût variable.",
     "costBody": "La dépense dépend de ce que {{provider}} décide de faire — elle peut être plus élevée que prévu.",
-    "continue": "Continuer"
+    "continue": "Continuer",
+    "gloss": "Freestyle confie chaque spec directement à {{provider}} : une exécution autonome par spec, sans le pipeline de planification et de revue d’OpenSpec."
   },
   "useRails": {
     "fetchFailed": "Échec de la récupération des rails : {{status}}"
@@ -291,5 +318,8 @@
     "panelReached": "La limite de {{limit}} est atteinte. Décidez de l’une d’elles (Créer la PR, fusionner ou abandonner) pour lancer du nouveau travail. Les modifications de ces livraisons restent autorisées.",
     "empty": "Rien n’attend de revue.",
     "playBlocked": "Limite de revue atteinte ({{pending}}/{{limit}} en attente). Décidez d’une livraison pour lancer du nouveau travail."
+  },
+  "errors": {
+    "deleteFailed": "Impossible de supprimer la spec"
   }
 }

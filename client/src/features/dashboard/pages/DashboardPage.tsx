@@ -27,6 +27,9 @@ import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../../specs/components/TicketDetailModal'
+import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { SPEC_PARAM } from '../../../lib/places'
 import { CreateTicketModal } from '../../specs/components/CreateTicketModal'
 import { FreestyleLaunchDialog } from '../../rails/components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
@@ -47,11 +50,16 @@ import {
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../../rails/lib/rail-id'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
+import { useUndo, UndoBlockedError } from '../../../hooks/useUndo'
+import { useRegisterPaletteSurface } from '../../../lib/palette-bridge'
+import { useJiraConnection } from '../../integrations/hooks/useJiraConnection'
+import { jiraApi } from '../../integrations/lib/jira-api'
+import { MANUAL_STATUS_TARGETS, STATUS_LABEL_KEY, isJiraBackedTicket, moveJiraSpecToStatus } from '../../specs/lib/ticket-status-moves'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useSpecGenTracker } from '../../specs/hooks/useSpecGenTracker'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Starfield } from '../../settings/components/theme-effects/Starfield'
-import type { LocalTicket, RailPrStateSnapshot } from '../../../types'
+import type { LocalTicket, RailPrStateSnapshot, TicketStatus } from '../../../types'
 import type { RailMode, RailStatus } from '../../rails/components/RailControls'
 import type { SpecSortMode, SpecSortDir } from '../../specs/types/spec-sort'
 import { applySpecSort, loadSpecSort, saveSpecSort } from '../../specs/lib/spec-sort'
@@ -60,8 +68,9 @@ import {
   saveSpecsViewTier,
   type SpecsViewTier,
 } from '../../specs/lib/specs-view-tier'
-import { insertAt, resolveDestContainer } from '../lib/dashboard-dnd'
+import { insertAt, resolveDestContainer, restoreTicketToRail } from '../lib/dashboard-dnd'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
+import { createInitialCommit, initialCommitErrorMessage } from '../../../lib/initial-commit'
 import { pendingReviewFromDecisions, railLaunchAddsReviewWip, readReviewWipRejection, reviewWipActionMessage, reviewWipCapacity, reviewWipRejectionMessage, useReviewWipLimit } from '../../../lib/review-wip'
 
 const INITIAL_RAILS: RailState[] = [
@@ -98,7 +107,7 @@ function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number,
 /** Why a rail is excluded from a Launch-all batch. */
 type LaunchAllSkipReason = 'running' | 'empty' | 'pendingDecision' | 'onReview' | 'reviewLimit'
 /** Per-rail terminal outcome of a (batched) launch attempt. */
-type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit'
+type LaunchOutcome = 'launched' | 'failed' | 'pendingDecision' | 'skipped' | 'budget' | 'reviewLimit' | 'noCommits'
 
 function loadSpecOrder(projectId: string | null): number[] | null {
   if (!projectId) return null
@@ -160,6 +169,11 @@ function saveRails(projectId: string | null, rails: RailState[]) {
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
+  const { t: tUndo } = useTranslation('undo')
+  const { t: tTickets } = useTranslation('tickets')
+  const { t: tJira } = useTranslation('jira')
+  const jira = useJiraConnection()
+  const { pushUndo } = useUndo()
   const { activeProjectId, projects } = useDesktop()
   const isGalaxy = useActiveTheme().id === 'galaxy'
   const railProviders = (() => {
@@ -169,7 +183,23 @@ export default function DashboardPage() {
   const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
-  const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
+  // The spec detail modal is a place: `?spec=<id>` (Back closes it, a link reopens it).
+  // The ticket object seeds a spec created a moment ago, before the list refetch lands.
+  const specParam = usePlaceParam(SPEC_PARAM)
+  const { claimSpecHost } = useTicketDetailModal()
+  useEffect(() => claimSpecHost(), [claimSpecHost])
+  const [detailSeed, setDetailSeed] = useState<LocalTicket | null>(null)
+  const specId = specParam.value !== null && /^\d+$/.test(specParam.value) ? Number(specParam.value) : null
+  const detailTicket = specId === null
+    ? null
+    : tickets.find((ticket) => ticket.id === specId) ?? (detailSeed?.id === specId ? detailSeed : null)
+  const { open: openSpecParam, close: closeSpecParam } = specParam
+  const setDetailTicket = useCallback((ticket: LocalTicket | null) => {
+    if (ticket) {
+      setDetailSeed(ticket)
+      openSpecParam(String(ticket.id))
+    } else closeSpecParam()
+  }, [openSpecParam, closeSpecParam])
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
   const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)
@@ -467,6 +497,9 @@ export default function DashboardPage() {
     })
   }, [activeProjectId])
 
+  const railsRef = useRef(rails)
+  railsRef.current = rails
+
   // Persist-aware rails updater
   const updateRails = useCallback((updater: (prev: RailState[]) => RailState[]) => {
     setRails((prev) => {
@@ -551,8 +584,14 @@ export default function DashboardPage() {
       // 404 = the server never knew this rail (legacy local-only) — still drop it.
       if (res.ok || res.status === 404) { removeLocally(); return }
       // 409 rail_active / pr_decision_pending, 400 last-rail:
-      // the server knows something this board doesn't — keep the rail visible.
-      toast.error(t('toasts.railDeleteFailed'))
+      // the server knows something this board doesn't — keep the rail visible
+      // and say exactly which guard refused the delete.
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+      const code = typeof body?.error === 'string' ? body.error : null
+      if (code === 'rail_active') toast.error(t('toasts.railRunningStopFirst', { rail: rail.label }))
+      else if (code === 'pr_decision_pending') toast.error(t('toasts.railDeletePrPending', { rail: rail.label }))
+      else if (res.status === 400 || code === 'cannot_delete_last_rail') toast.error(t('toasts.railDeleteLastRail'))
+      else toast.error(t('toasts.railDeleteFailed'))
     } catch {
       // Unknown server state: keep the rail visible until a successful retry
       // or refresh reconciles it. Optimistic removal here can desync the board.
@@ -905,8 +944,25 @@ export default function DashboardPage() {
       const current = prev ?? specTickets.map((t) => t.id)
       return current.includes(ticketId) ? current : [...current, ticketId]
     })
-    toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
-  }, [rails, specTickets, updateRails, updateSpecOrder, t])
+    const wasAt = sourceRail.ticketIds.indexOf(ticketId)
+    const shown = pushUndo({
+      projectId: activeProjectId,
+      label: tUndo('removedFromRail', { id: ticketId, rail: sourceRail.label }),
+      undo: () => {
+        // The rail may have started since: a running rail never takes a spec back.
+        const restored = restoreTicketToRail(railsRef.current, sourceRail.id, ticketId, wasAt)
+        if (!restored.ok) {
+          throw new UndoBlockedError(tUndo(restored.reason === 'rail_running' ? 'railRunning' : 'failed', { id: ticketId }))
+        }
+        updateRails((prev) => {
+          const next = restoreTicketToRail(prev, sourceRail.id, ticketId, wasAt)
+          return next.ok ? next.rails : prev
+        })
+        updateSpecOrder((prev) => (prev ?? specTickets.map((tk) => tk.id)).filter((id) => id !== ticketId))
+      },
+    })
+    if (!shown) toast.success(t('toasts.removedFromRail', { rail: sourceRail.label }))
+  }, [rails, specTickets, updateRails, updateSpecOrder, t, tUndo, pushUndo, activeProjectId])
 
   // ── DnD helpers ──────────────────────────────────────────────────────────────
   const findContainer = useCallback(
@@ -1273,6 +1329,22 @@ export default function DashboardPage() {
     await doLaunchRail(railId)
   }
 
+  // "Create initial commit" from a repository_has_no_commits toast: one empty
+  // commit in the primary repository, then the user relaunches.
+  function initialCommitAction() {
+    const projectId = activeProjectId
+    return {
+      label: t('common:initialCommit.action'),
+      onClick: () => {
+        if (!projectId) return
+        void createInitialCommit(projectId).then((result) => {
+          if (result.ok) toast.success(t('common:initialCommit.createdRelaunch'))
+          else toast.error(initialCommitErrorMessage(t, result.code))
+        })
+      },
+    }
+  }
+
   async function doLaunchRail(railId: string, opts?: { silent?: boolean }): Promise<LaunchOutcome> {
     const silent = opts?.silent ?? false
     const rail = rails.find((r) => r.id === railId)
@@ -1388,6 +1460,11 @@ export default function DashboardPage() {
           if (!silent) toast.error(reviewWipRejectionMessage(t, wip), { description: reviewWipActionMessage(t), duration: 10000 })
           return 'reviewLimit'
         }
+        // Unborn HEAD in a repository the launch must isolate: nothing spawned.
+        if (res.status === 409 && data.error === 'repository_has_no_commits') {
+          if (!silent) toast.error(t('toasts.launchRepositoryHasNoCommits'), { duration: 10000, action: initialCommitAction() })
+          return 'noCommits'
+        }
         // The active Core runs only definitions (Core 7): the loop must be converted.
         if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
           if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
@@ -1484,6 +1561,7 @@ export default function DashboardPage() {
     let skippedLate = 0
     let overBudget = 0
     let overReviewLimit = 0
+    let noCommits = 0
     for (const s of settled) {
       const v: LaunchOutcome = s.status === 'fulfilled' ? s.value : 'failed'
       if (v === 'launched') launched++
@@ -1491,6 +1569,7 @@ export default function DashboardPage() {
       else if (v === 'skipped') skippedLate++
       else if (v === 'budget') overBudget++
       else if (v === 'reviewLimit') overReviewLimit++
+      else if (v === 'noCommits') noCommits++
       else failed++
     }
     // One compact summary toast: launched count + per-reason skip breakdown.
@@ -1511,19 +1590,81 @@ export default function DashboardPage() {
     }
     if (skippedLate > 0) parts.push(t('launchAll.skipInFlight', { count: skippedLate }))
     if (overBudget > 0) parts.push(t('launchAll.skipBudget', { count: overBudget }))
+    if (noCommits > 0) parts.push(t('toasts.launchRepositoryHasNoCommits'))
     if (failed > 0) parts.push(t('launchAll.failedCount', { count: failed }))
     const description = parts.length > 0 ? parts.join(' · ') : undefined
+    const action = noCommits > 0 ? { action: initialCommitAction() } : {}
     if (launched > 0) {
-      toast.success(t('toasts.launchAllSummary', { count: launched }), description ? { description } : undefined)
+      toast.success(t('toasts.launchAllSummary', { count: launched }), description || noCommits > 0 ? { description, ...action } : undefined)
     } else {
-      toast.error(t('toasts.launchAllFailed'), description ? { description } : undefined)
+      toast.error(t('toasts.launchAllFailed'), description || noCommits > 0 ? { description, ...action } : undefined)
     }
   }
 
   const activeTicket = activeId !== null ? ticketMap.get(activeId) : undefined
 
   const dashboardContainerRef = useRef<HTMLDivElement | null>(null)
-  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault } = useDashboardSplit(activeProjectId, dashboardContainerRef)
+  // ⌘K board actions (Launch on rail, Move to, Open review). Every action calls
+  // the handlers the buttons call: the rail's own launch gates (handleToggle ->
+  // freestyle / target-PR confirms, review WIP, on-review freeze), the board's
+  // status move (with Undo) and the Jira-backed workflow move.
+  const pendingPaletteLaunch = useRef<{ ticketId: number; railId: string } | null>(null)
+  useEffect(() => {
+    const pending = pendingPaletteLaunch.current
+    if (!pending) return
+    const rail = rails.find((r) => r.id === pending.railId)
+    if (rail?.ticketIds.includes(pending.ticketId)) {
+      pendingPaletteLaunch.current = null
+      void handleToggle(pending.railId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rails])
+  const paletteLaunchBlocker = (ticketId: number): string | null => {
+    const ticket = tickets.find((tk) => tk.id === ticketId)
+    if (!ticket) return t('toasts.onReviewNotLaunchable')
+    if (ticket.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions, tickets))) return t('toasts.onReviewNotLaunchable')
+    return null
+  }
+  useRegisterPaletteSurface('board', {
+    specs: () => tickets.filter((tk) => tk.status !== 'done' && tk.status !== 'cancelled').map((tk) => ({ id: tk.id, title: tk.title, status: tk.status })),
+    rails: (ticketId) => rails.map((r) => ({ id: r.id, label: r.label, running: r.status === 'running', hasSpec: r.ticketIds.includes(ticketId) })),
+    launchBlocker: paletteLaunchBlocker,
+    launchOnRail: (ticketId, railId) => {
+      if (paletteLaunchBlocker(ticketId) !== null) return
+      const rail = rails.find((r) => r.id === railId)
+      if (!rail) return
+      if (rail.ticketIds.includes(ticketId)) { void handleToggle(railId); return }
+      pendingPaletteLaunch.current = { ticketId, railId }
+      setTimeout(() => { if (pendingPaletteLaunch.current?.ticketId === ticketId) pendingPaletteLaunch.current = null }, 3000)
+      handleMoveTicketToRail(ticketId, railId)
+    },
+    statusOptions: async (ticketId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket) return []
+      if (isJiraBackedTicket(ticket, jira.connected)) {
+        const { statuses } = await jiraApi.listStatuses()
+        return statuses.map((s) => ({ id: s.name, label: s.name, current: s.name === (ticket.jira_status ?? '') }))
+      }
+      const targets = MANUAL_STATUS_TARGETS.includes(ticket.status) ? MANUAL_STATUS_TARGETS : [ticket.status, ...MANUAL_STATUS_TARGETS]
+      return targets.map((st) => ({ id: st, label: tTickets(STATUS_LABEL_KEY[st]), current: st === ticket.status }))
+    },
+    moveStatus: (ticketId, optionId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket) return
+      if (isJiraBackedTicket(ticket, jira.connected)) void moveJiraSpecToStatus(ticketId, optionId, tJira)
+      else void updateTicketStatus(ticketId, optionId as TicketStatus)
+    },
+    reviewPath: (ticketId) => {
+      const ticket = tickets.find((tk) => tk.id === ticketId)
+      if (!ticket || ticket.status !== 'on_review') return null
+      for (const d of railPrDecisions.values()) {
+        if (d.ticketIds.includes(ticketId)) return `/review/${encodeURIComponent(d.prDeliveryId)}`
+      }
+      return null
+    },
+  })
+
+  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault, nudge: nudgeSplit } = useDashboardSplit(activeProjectId, dashboardContainerRef)
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
 
   return (
@@ -1547,7 +1688,9 @@ export default function DashboardPage() {
             onRetry={() => { void refetch() }}
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
-            onTicketDelete={(id) => deleteTicket(id)}
+            onTicketDelete={(id) => {
+              void Promise.resolve(deleteTicket(id)).then((ok) => { if (!ok) toast.error(t('errors.deleteFailed')) })
+            }}
             onTicketStatusChange={(id, status) => { void updateTicketStatus(id, status) }}
             onTicketPriorityChange={(id, priority) => { void updateTicketPriority(id, priority) }}
             contractRefiningIds={contractRefiningIds}
@@ -1569,6 +1712,7 @@ export default function DashboardPage() {
             viewport={viewportWidth}
             onPointerDown={beginDrag}
             onReset={resetToDefault}
+            onNudge={nudgeSplit}
           />
         )}
 
@@ -1615,11 +1759,11 @@ export default function DashboardPage() {
       <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
         {activeTicket ? (
           viewTier === 'postit' ? (
-            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card/95 shadow-xl shadow-black/30 backdrop-blur-sm p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
+            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card shadow-xl shadow-black/30 p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10px] font-mono text-muted-foreground/60">#{activeTicket.id}</span>
+                <span className="text-caption font-mono text-muted-foreground">#{activeTicket.id}</span>
                 {activeTicket.priority && (
-                  <span className="h-4 px-1.5 rounded-full text-[9px] font-medium uppercase bg-muted/40 text-foreground">
+                  <span className="h-5 px-1.5 rounded-full text-caption font-medium bg-muted/40 text-foreground">
                     {activeTicket.priority}
                   </span>
                 )}
@@ -1634,14 +1778,14 @@ export default function DashboardPage() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-1 scale-[1.03] pointer-events-none">
-              <span className="text-[10px] font-mono text-muted-foreground/50 shrink-0">#{activeTicket.id}</span>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-1 scale-[1.03] pointer-events-none">
+              <span className="text-caption font-mono text-muted-foreground shrink-0">#{activeTicket.id}</span>
               <span className="flex-1 text-sm truncate max-w-[240px]">{activeTicket.title}</span>
             </div>
           )
         ) : activeRailDragLabel ? (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-[0.5deg] scale-[1.02] pointer-events-none">
-            <span className="text-xs font-medium">{activeRailDragLabel}</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-[0.5deg] scale-[1.02] pointer-events-none">
+            <span className="text-label">{activeRailDragLabel}</span>
           </div>
         ) : null}
       </DragOverlay>

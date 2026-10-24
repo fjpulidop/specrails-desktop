@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronUp } from 'lucide-react'
 import type { MinimizedChat } from '../../context/MinimizedChatsContext'
 import { MinimizedChatChip } from './MinimizedChatChip'
+import { LAYER_CLASS } from '../../../../lib/layers'
 
 /**
  * Always-visible dock of minimized chats. Replaces the previous sonner-toast
@@ -16,9 +17,10 @@ import { MinimizedChatChip } from './MinimizedChatChip'
  * Anchored bottom-right (clearing the right icon rail, w-12). The container is
  * pointer-events-none with pointer-events-auto chips so the empty gutter never
  * blocks a full-screen Explore / AI-Edit overlay underneath — yet a chip can
- * still be clicked to switch sessions while an overlay is open. `z-[70]` sits
- * above the z-50 shells AND their z-[60] sub-overlays (ExploreReviewOverlay,
- * SmashConfirmModal) but below the z-[100] attachment lightbox.
+ * still be clicked to switch sessions while an overlay is open. It sits on the
+ * `dock` layer (75, `LAYER_CLASS.dock` in lib/layers): above base dialogs (50),
+ * the floating chat (60), entity modals such as Job detail (65) and stacked
+ * modals (70), but below capture surfaces (80) and the media lightbox (100).
  * `flex-col-reverse` keeps the newest chip pinned to the bottom edge (always
  * visible even when the list overflows and scrolls).
  */
@@ -58,7 +60,7 @@ export function MinimizedChatsDock({
     <div
       data-testid="minimized-chats-dock"
       aria-label={t('dock.minimizedSessions', { count: ordered.length })}
-      className={`fixed bottom-4 ${rightClass} z-[70] flex flex-col-reverse gap-2 w-[320px] max-w-[calc(100vw-15rem)] max-h-[70vh] overflow-y-auto pointer-events-none`}
+      className={`fixed bottom-4 ${rightClass} ${LAYER_CLASS.dock} flex flex-col-reverse gap-2 w-[320px] max-w-[calc(100vw-15rem)] max-h-[70vh] overflow-y-auto pointer-events-none`}
     >
       {ordered.map((chat) => (
         <div
@@ -74,7 +76,7 @@ export function MinimizedChatsDock({
         </div>
       ))}
       {ordered.length > 1 && (
-        <div className="pointer-events-auto self-end inline-flex items-center gap-1 rounded-full bg-card/80 border border-border/40 px-2 py-0.5 text-[10px] text-muted-foreground backdrop-blur-sm">
+        <div className="pointer-events-auto self-end inline-flex items-center gap-1 rounded-full bg-card/80 border border-border/40 px-2 py-0.5 text-caption text-muted-foreground">
           <ChevronUp className="w-3 h-3" />
           {t('dock.minimizedCount', { count: ordered.length })}
         </div>

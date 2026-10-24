@@ -8,6 +8,7 @@ import type { RuntimeLocalProvider, RuntimeProviderStatus, RuntimeProviderTestRe
 import { registerDynamicModelCatalog } from '../../../loops/lib/loop-run-models'
 import { ConnectionStatusPill, pillStateFor } from './ConnectionStatusPill'
 import { TestConnectionButton } from './TestConnectionButton'
+import { SettingsSelect } from '../SettingsSelect'
 
 /** Recommended settings for 7–14B local models: compact loop, effort forwarded, a 32k window. */
 export const SMALL_MODEL_CONTEXT = 32768
@@ -28,7 +29,6 @@ interface Props {
 }
 
 const CUSTOM = '__custom__'
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
 const labelClass = 'space-y-1 text-xs text-muted-foreground'
 
 function rateText(value: number | undefined): string { return value === undefined ? '' : String(value) }
@@ -76,7 +76,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
     <div className="space-y-4" data-testid={`local-connection-${provider.id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <ConnectionStatusPill state={pill} latencyMs={status?.latencyMs} />
-        {status?.error && pill !== 'reachable' && <span className="truncate text-[11px] text-destructive/90" title={status.error}>{status.error}</span>}
+        {status?.error && pill !== 'reachable' && <span className="truncate text-xs text-destructive/90" title={status.error}>{status.error}</span>}
         <div className="ml-auto flex items-center gap-2">
           <TestConnectionButton baseUrl={provider.baseUrl} apiKeyEnv={provider.apiKeyEnv} onStart={() => { setProbing(true); setTestError('') }} onResult={applyTest} onError={(message) => { setProbing(false); setTestError(message) }} />
           <Button type="button" variant="ghost" size="sm" onClick={onRemove}>{t('providers.remove')}</Button>
@@ -88,10 +88,10 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
         <div className={labelClass}>
           <div className="flex items-center gap-2">
             <label htmlFor={`${uid}-id`}>{t('providers.id')}</label>
-            {persisted && !renaming && <button type="button" className="inline-flex items-center gap-1 text-[11px] text-accent-primary hover:underline" onClick={() => setRenaming(true)}><Pencil className="h-3 w-3" aria-hidden />{t('providers.rename')}</button>}
+            {persisted && !renaming && <button type="button" className="inline-flex items-center gap-1 text-xs text-accent-primary hover:underline" onClick={() => setRenaming(true)}><Pencil className="h-3 w-3" aria-hidden />{t('providers.rename')}</button>}
           </div>
           <Input id={`${uid}-id`} value={provider.id} readOnly={!renaming} aria-readonly={!renaming} title={!renaming ? t('providers.idLocked') : undefined} className={cn(!renaming && 'text-muted-foreground')} onChange={(e) => onChange({ ...provider, id: e.target.value })} />
-          {renaming && persisted && <p className="text-[11px] text-muted-foreground/80">{t('providers.renameHint')}</p>}
+          {renaming && persisted && <p className="text-xs text-muted-foreground/80">{t('providers.renameHint')}</p>}
         </div>
         <label className={labelClass} htmlFor={`${uid}-label`}>{t('providers.label')}
           <Input id={`${uid}-label`} value={provider.label ?? ''} placeholder={t('providers.labelPlaceholder')} onChange={(e) => onChange({ ...provider, label: e.target.value || undefined })} />
@@ -102,7 +102,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
         <label className={labelClass} htmlFor={`${uid}-env`}>{t('providers.apiKeyEnv')}
           <Input id={`${uid}-env`} value={provider.apiKeyEnv ?? ''} onChange={(e) => onChange({ ...provider, apiKeyEnv: e.target.value || undefined })} />
           {status?.apiKeyEnvMissing && provider.apiKeyEnv && (
-            <span role="note" className="flex items-center gap-1 text-[11px] text-accent-warning"><TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />{t('providers.apiKeyEnvMissing', { name: provider.apiKeyEnv })}</span>
+            <span role="note" className="flex items-center gap-1 text-xs text-accent-warning"><TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />{t('providers.apiKeyEnvMissing', { name: provider.apiKeyEnv })}</span>
           )}
         </label>
       </div>
@@ -110,24 +110,30 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">{t('providers.discoveredModels')}</p>
         {models.length === 0
-          ? <p className="text-[11px] text-muted-foreground/70">{t('providers.noModels')}</p>
+          ? <p className="text-xs text-muted-foreground/70">{t('providers.noModels')}</p>
           : <ul className="flex flex-wrap gap-1.5" aria-label={t('providers.discoveredModels')}>
             {models.map((model) => <li key={model}>
               <button type="button" onClick={() => { setCustomModel(false); onChange({ ...provider, defaultModel: model }) }}
-                className={cn('rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition-colors', provider.defaultModel === model ? 'border-accent-primary/50 bg-accent-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground')}
+                className={cn('rounded-full border px-2.5 py-0.5 font-mono text-xs transition-colors', provider.defaultModel === model ? 'border-accent-primary/50 bg-accent-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground')}
                 aria-pressed={provider.defaultModel === model}>{model}</button>
             </li>)}
           </ul>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={labelClass} htmlFor={`${uid}-default`}>{t('providers.defaultModel')}
-            <select id={`${uid}-default`} className={selectClass} value={showCustom ? CUSTOM : (provider.defaultModel ?? '')} onChange={(e) => {
-              if (e.target.value === CUSTOM) { setCustomModel(true); return }
-              setCustomModel(false); onChange({ ...provider, defaultModel: e.target.value || undefined })
-            }}>
-              <option value="">{t('providers.defaultModelNone')}</option>
-              {models.map((model) => <option key={model} value={model}>{model}</option>)}
-              <option value={CUSTOM}>{t('providers.customModel')}</option>
-            </select>
+            <SettingsSelect
+              id={`${uid}-default`}
+              aria-label={t('providers.defaultModel')}
+              value={showCustom ? CUSTOM : (provider.defaultModel ?? '')}
+              onChange={(value) => {
+                if (value === CUSTOM) { setCustomModel(true); return }
+                setCustomModel(false); onChange({ ...provider, defaultModel: value || undefined })
+              }}
+              options={[
+                { value: '', label: t('providers.defaultModelNone') },
+                ...models.map((model) => ({ value: model, label: model })),
+                { value: CUSTOM, label: t('providers.customModel') },
+              ]}
+            />
           </label>
           {showCustom && <label className={labelClass} htmlFor={`${uid}-custom`}>{t('providers.customModel')}
             <Input id={`${uid}-custom`} value={provider.defaultModel ?? ''} placeholder={t('providers.defaultModelPlaceholder')} onChange={(e) => onChange({ ...provider, defaultModel: e.target.value || undefined })} />
@@ -136,7 +142,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">{t('providers.rates')} <span className="text-muted-foreground/60">· {t('providers.ratesHint')}</span></p>
+        <p className="text-xs text-muted-foreground">{t('providers.rates')} <span className="text-muted-foreground">· {t('providers.ratesHint')}</span></p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={labelClass} htmlFor={`${uid}-in`}>{t('providers.inputRate')}
             <Input id={`${uid}-in`} type="number" min="0" step="0.01" inputMode="decimal" value={rates.input} onChange={(e) => setRate('input', e.target.value)} aria-invalid={ratesInvalid} />
@@ -145,12 +151,12 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
             <Input id={`${uid}-out`} type="number" min="0" step="0.01" inputMode="decimal" value={rates.output} onChange={(e) => setRate('output', e.target.value)} aria-invalid={ratesInvalid} />
           </label>
         </div>
-        {ratesInvalid && <p role="alert" className="text-[11px] text-destructive">{t('providers.ratesInvalid')}</p>}
+        {ratesInvalid && <p role="alert" className="text-xs text-destructive">{t('providers.ratesInvalid')}</p>}
       </div>
 
       <label className="flex cursor-pointer items-start gap-2 text-xs" htmlFor={`${uid}-effort`}>
         <input id={`${uid}-effort`} type="checkbox" role="switch" aria-checked={Boolean(provider.supportsReasoningEffort)} className="mt-0.5 accent-accent-primary" checked={Boolean(provider.supportsReasoningEffort)} onChange={(e) => onChange({ ...provider, supportsReasoningEffort: e.target.checked || undefined })} />
-        <span><span className="text-foreground">{t('providers.reasoningEffort')}</span><span className="block text-[11px] text-muted-foreground">{t('providers.reasoningEffortHint')}</span>{!provider.supportsReasoningEffort && <span className="block text-[11px] text-muted-foreground/70">{t('providers.reasoningEffortRailHint')}</span>}</span>
+        <span><span className="text-foreground">{t('providers.reasoningEffort')}</span><span className="block text-xs text-muted-foreground">{t('providers.reasoningEffortHint')}</span>{!provider.supportsReasoningEffort && <span className="block text-xs text-muted-foreground/70">{t('providers.reasoningEffortRailHint')}</span>}</span>
       </label>
 
       <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
@@ -162,11 +168,11 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
             <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden />{isSmallModelPreset(provider) ? t('providers.presetSmallModelApplied') : t('providers.presetSmallModel')}
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground/70">{t('providers.presetSmallModelHint')}</p>
+        <p className="text-xs text-muted-foreground/70">{t('providers.presetSmallModelHint')}</p>
       </div>
 
       <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
-        <p className="text-xs text-muted-foreground">{t('providers.agentLoop')} <span className="text-muted-foreground/60">· {t('providers.agentLoopHint')}</span></p>
+        <p className="text-xs text-muted-foreground">{t('providers.agentLoop')} <span className="text-muted-foreground">· {t('providers.agentLoopHint')}</span></p>
         <div role="radiogroup" aria-label={t('providers.agentLoop')} className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1">
           {(['compact', 'free'] as const).map((mode) => {
             const active = (provider.agentLoop ?? 'compact') === mode
@@ -175,7 +181,7 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
                 className={cn('rounded px-2 py-1.5 text-xs transition-colors', active ? 'bg-accent-primary/15 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
                 onClick={() => onChange({ ...provider, agentLoop: mode === 'compact' ? undefined : mode })}>
                 <span className="block font-medium">{t(`providers.agentLoop_${mode}`)}</span>
-                <span className="block text-[11px] text-muted-foreground">{t(`providers.agentLoop_${mode}Hint`)}</span>
+                <span className="block text-xs text-muted-foreground">{t(`providers.agentLoop_${mode}Hint`)}</span>
               </button>
             )
           })}
@@ -184,13 +190,13 @@ export function LocalConnectionEditor({ provider, status, persisted, onChange, o
           <Input id={`${uid}-ctx`} type="number" min={4096} step={1024} inputMode="numeric" placeholder="32768" value={provider.contextWindowTokens ?? ''}
             aria-invalid={provider.contextWindowTokens !== undefined && provider.contextWindowTokens < 4096}
             onChange={(e) => { const n = Number.parseInt(e.target.value, 10); onChange({ ...provider, contextWindowTokens: Number.isFinite(n) && e.target.value !== '' ? n : undefined }) }} />
-          <span className="block text-[11px] text-muted-foreground">{t('providers.contextWindowHint')}</span>
+          <span className="block text-xs text-muted-foreground">{t('providers.contextWindowHint')}</span>
         </label>
         <label className={labelClass} htmlFor={`${uid}-out`}>{t('providers.maxOutput')}
           <Input id={`${uid}-out`} type="number" min={1024} step={1024} inputMode="numeric" placeholder="8192" value={provider.maxOutputTokens ?? ''}
             aria-invalid={provider.maxOutputTokens !== undefined && provider.maxOutputTokens < 1024}
             onChange={(e) => { const n = Number.parseInt(e.target.value, 10); onChange({ ...provider, maxOutputTokens: Number.isFinite(n) && e.target.value !== '' ? n : undefined }) }} />
-          <span className="block text-[11px] text-muted-foreground">{t('providers.maxOutputHint')}</span>
+          <span className="block text-xs text-muted-foreground">{t('providers.maxOutputHint')}</span>
         </label>
       </div>
     </div>

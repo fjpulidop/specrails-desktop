@@ -36,7 +36,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
   const Icon = settled ? Check : ICON[kind]
   const time = createdAt ? safeTime(createdAt) : null
   const shell = cn(
-    'group relative my-1 w-full max-w-lg overflow-hidden rounded-xl border text-left shadow-lg backdrop-blur',
+    'group relative my-1 w-full max-w-lg overflow-hidden rounded-xl border text-left shadow-lg',
     settled
       ? 'border-accent-success/25 bg-card/60'
       : 'border-accent-primary/25 bg-card/80 transition-colors hover:border-accent-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60',
@@ -61,14 +61,14 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
       >
         <span
           className={cn(
-            'flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest',
+            'flex items-center gap-1.5 text-xs font-semibold',
             settled ? 'text-accent-success/90' : 'text-accent-primary/90',
           )}
         >
           {settled ? <Check className="h-3 w-3" aria-hidden /> : <Sparkles className="h-3 w-3" aria-hidden />}
           {settled ? t('decisionCard.settledLabel') : t(`decisionCard.${kind}.label`)}
         </span>
-        <span className="text-[10px] text-muted-foreground" data-testid="builder-decision-card-meta">
+        <span className="text-caption text-muted-foreground" data-testid="builder-decision-card-meta">
           {settled ? time : t(`decisionCard.${kind}.hint`)}
         </span>
       </div>
@@ -84,7 +84,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold leading-snug text-foreground">
+          <span className="block text-strong leading-snug text-foreground">
             {t(settled ? `decisionCard.${kind}.settledTitle` : `decisionCard.${kind}.title`)}
           </span>
           <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
@@ -92,7 +92,7 @@ export function BuilderDecisionCard({ kind, mode, onAction, disabled = false, cr
           </span>
         </span>
         {!settled && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-[11px] font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-primary/15 px-2.5 py-1 text-caption font-medium text-accent-primary transition-colors group-hover:bg-accent-primary/25">
             {t(`decisionCard.${kind}.cta`)}
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
           </span>

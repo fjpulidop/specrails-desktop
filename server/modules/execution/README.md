@@ -31,7 +31,7 @@ The queue suite covers settlement failure, crash replay, cancellation and budget
 
 ## Daily budget admission
 
-[enforce-budget](application/enforce-budget.ts) has two parts. `enforceDailyBudgets` pauses the queue. `evaluateDailyBudgets` is a read-only check that uses the same predicate. [daily-budget](domain/daily-budget.ts) defines the shared `daily_budget_exceeded` 409 body: scope, amounts, `resetsAt`, detail and action. [daily-budget-gate](runtime/daily-budget-gate.ts) binds one project's connection and the app-wide snapshot. It fails open when the budget can't be read. The composition root exposes it as `ProjectContext.dailyBudgetRejection` for rail and loop launch and resume. It also passes it to `LoopRunManager`, which pauses `budget_paused` between AI steps.
+[enforce-budget](application/enforce-budget.ts) has two parts. `enforceDailyBudgets` pauses the queue. `evaluateDailyBudgets` is a read-only check that uses the same predicate. [daily-budget](domain/daily-budget.ts) defines the shared `daily_budget_exceeded` 409 body: scope, amounts, `resetsAt`, detail and action. [daily-budget-gate](runtime/daily-budget-gate.ts) binds one project's connection and the app-wide snapshot. It fails open when the budget can't be read. The composition root exposes it as `ProjectContext.dailyBudgetRejection` for rail and loop launch and resume. It also passes it to `LoopRunManager`, which pauses `budget_paused` between AI steps. For a running Core workflow the manager re-checks the gate whenever recorded spend grows and, when the retained Core announces `pauseRuns`, requests Core's cooperative pause (`runtime pause --reason budget`, request id `desktop-budget-pause:<runId>:<n>`): the current step finishes, Core exits 2 with `state.pause` and no interrupt, and the run parks on the same resumable `budget_paused` pause (resume re-invokes Core with a plain `resume`). Without the capability the check stays between invocations.
 
 ## Reviewed public entry points
 
@@ -56,3 +56,5 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/execution` and any affected consumers.
+
+[launch-forecast](runtime/launch-forecast.ts) is the read model behind `GET /launch-forecast`: the interquartile time band of [run-duration-stats](runtime/run-duration-stats.ts) samples narrowed to one provider, plus a cost band built only from provider-reported costs (a run whose cost was estimated, or has none, still informs the time band but never the cost band). Both are null below `MIN_DURATION_SAMPLES`. `createDailyBudgetHeadroom` in [daily-budget-gate](runtime/daily-budget-gate.ts) exposes the tightest budget (project or app-wide) read-only as `ProjectContext.dailyBudgetHeadroom`, so the UI can warn *before* the gate would refuse.

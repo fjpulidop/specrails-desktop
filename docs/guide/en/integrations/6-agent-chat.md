@@ -33,6 +33,8 @@ The agent can touch the whole app, so you decide how much freedom it has with a 
 
 Start on **Observe** and raise the level only when you want the agent to act. If it tries something above the current level it stops and tells you exactly which level to switch on — it never works around the limit. This is separate from the Settings ▸ MCP tiers, which govern *external* assistants; the level here is just for this in-app agent.
 
+Raising the level **to Autonomous** never happens on a keystroke alone: Shift+Tab from Operate shows a notice with **Switch to Autonomous**, and pressing Shift+Tab again instead skips back to Observe. Lowering the level is always immediate.
+
 ## A few things you can ask
 
 Once you're on **Operate**, try:
@@ -47,15 +49,20 @@ Once you're on **Operate**, try:
 
 Replies stream in smoothly and land formatted (headings, tables, lists), each with a small **copy** button. A status chip at the bottom shows what the agent is doing right now — *Thinking…*, *MCP · jobs*, *Terminal* — so you always know its state.
 
+Code blocks show their language and have their own **copy** button. If you scroll up while the agent is still writing, a **New messages** pill appears above the box — click it to jump back to the latest reply.
+
 ## Handy touches
 
 - **Click what it mentions.** In a project-pinned mission, spec numbers (`#12`) and job/run ids in the agent's replies are clickable chips — a spec opens the board's detail modal, a job id opens the live job view. If the reference no longer exists you get a quiet "not found" note.
-- **The implementation card stays in sight.** When the agent implements specs, a live card tracks the work — and while it needs something from you (create the PR, publish it, retry, discard) it stays **pinned just above the message box**, however far the conversation scrolls; its place in the history shows a slim "pinned above" marker instead. Several active cards stack as small chips (click one to bring it forward), and a chevron minimizes the card to a slim bar. Once the PR is published — or the work is merged or discarded — the card settles back into the conversation history.
+- **One strip for your runs.** When the agent launches work, a single strip just above the message box follows it: what the run is doing in plain words ("Writing the spec from your changes"), how many runs finished, the time and the real cost so far (`—` until the provider bills it). When a run needs you — create the PR, retry, go back to Flow — the strip says so with an icon and words and offers that one action; click the strip to open the run's full card just above it (Esc closes it). With several runs, the strip shows the one that needs you first and a small switcher ("Rail 1 · Rail 2 · +1"). The conversation keeps only what happened — "Launched on Rail 1", "Rail 1 failed: …", "Delivered: PR #812" — and each line opens its run. Missions waiting for your decision show a dot in the mission list. Actions that start a new paid run (**Relaunch**, **Recover & retry**) or that other people see (Create PR, Publish) never fire from the strip: it opens the card with the focus on that button, so you confirm there.
+- **The strip from the keyboard.** **⌥R** (**Alt+R** on Windows/Linux) jumps from the message box to the strip of the mission you are in; press it again to show or hide the run's details, and **Esc** takes you back to where you were. Outside a text field, **⌥[** and **⌥]** switch between runs. While the strip has focus, **P** pauses or resumes a Flow and **H** hands it off; these letters never act from anywhere else. Press **?** for the full list.
 - **Prompt history.** With the box empty, press **↑**/**↓** to browse what you asked before (shown dimmed while you scroll); start typing to edit it, or hit Enter to send.
 - **Edit the queue.** Sent more while the agent was busy? While messages are queued, **↑**/**↓** moves through *them* instead — the box shows the selected one, you edit it in place, and **Enter saves it back to the queue** (Esc cancels; your unsent draft comes right back).
+- **Answer with a key.** When the agent offers choices, each chip carries a number: press **⌥1**…**⌥9** (**Alt+1**…**Alt+9** on Windows/Linux) with the box empty to pick one.
+- **Undo a deleted queued message.** Deleting a queued message shows **Undo** for a few seconds; it puts the message back in the queue.
 - **Minimize, don't lose.** Click the ✕ to drop the panel back to the bubble — the conversation keeps running. Reopen and you land at the latest message; nothing is re-typed.
 - **New conversation.** The **+** button starts a clean thread; the history lives app-wide, above any single project.
-- **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission after a quick inline confirm — even a running one (it warns first, then stops the agent).
+- **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission at once and shows **Undo** (or press **⌘Z**) for a few seconds; the mission then waits in **Recently deleted** in the project settings for 30 days. A mission where the agent is still working asks first, because stopping the agent can't be undone.
 - **Find a mission from anywhere.** Press **⌘K** (or the sidebar **Search** button in Agent Mode) and type any fragment you remember — a word from the title *or* from what was said inside. Missions match instantly by title from memory, and a heartbeat later the matches by content arrive with the matching passage highlighted, plus the pinned project and when it was last active. In Agent Mode missions are the first group; on the board they sit right after Projects. Enter opens the mission.
 
 ## Rail launch cards and run cards
@@ -68,9 +75,9 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 
 ## Sub-agents
 
-Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **off by default**: they multiply what one request costs.
+Some providers can hand parts of a task to **sub-agents** — helpers that work in parallel and keep going after the agent replies. Sub-agents are **on by default**; turn them off per project if you want to keep each request's cost down, since they multiply what one request costs.
 
-- **Turn them on per project.** Open the project's **Settings → Sub-agents** and switch on **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
+- **Turn them off per project.** Open the project's **Settings → Sub-agents** and switch off **Allow sub-agents in this project**. It covers that project's missions, explore and refinements; Implement pipelines are never affected. Missions without a project follow **App settings → AI providers → Allow sub-agents in missions without a project**.
 - **Choose who runs them.** Under **Run sub-agents with**, the default **Same as the mission agent** lets the mission's own CLI launch them natively: fastest, and they share its prompt cache. Pick a provider, model and effort instead to mix providers — for example a Codex mission with Claude sub-agents. Missions already on that provider stay native with that model; on another provider Specrails launches each sub-agent itself, which starts colder and can cost more, but gives you more control and shows each one's real cost. Specrails asks you to confirm before switching, and those sub-agents carry a provider badge in the mission.
 - **Watch them work.** The agents a reply launched appear as one compact line under that reply. It stays open while they work, and once they all finish it folds into a summary with the total time and tokens. Expand a row to read its result and what it cost, or to follow its activity live. Each launch stays at its point in the conversation, so later launches never mix with earlier ones. Stop a running agent from its row, or stop them all from the line.
 - **The agent follows up on its own.** When background agents finish, the agent continues and posts what they found, marked *Continued after background agents*.

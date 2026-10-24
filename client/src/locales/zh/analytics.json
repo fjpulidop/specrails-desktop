@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "AI 编辑",
-    "smash": "SMASH",
+    "smash": "拆分",
     "fileSummary": "文件摘要",
     "loop": "Loops",
     "chatSidebar": "对话",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} 次运行",
   "page": {
     "title": "分析",
+    "subtitle": "开销去向：按模型、规格和引擎统计成本、token 与活动。",
     "all": "全部",
     "engine": "引擎",
     "ticketChip": "工单 #{{id}} ·  ✕",
-    "failedToLoad": "加载失败：{{error}}",
+    "failedToLoad": "无法加载分析数据，请重试。",
     "modelChip": "模型：{{model}}",
     "clearModelFilter": "清除模型筛选",
-    "localEngine": "本地"
+    "localEngine": "本地",
+    "moreBreakdowns": "更多细分"
   },
   "hero": {
     "spending": "支出",
@@ -46,22 +48,26 @@
     "tokensTooltip": "总 token 数 = 此时间窗口内所有调用的新输入 + 输出 + 缓存读取 + 缓存创建之和。",
     "usageUnavailable": "· token 使用量不可用",
     "usageUnavailableTooltip": "提供方已完成这些调用，但未提供 token 遥测数据。",
-    "usagePartiallyUnavailable": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
+    "usagePartiallyUnavailable_one": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
+    "usagePartiallyUnavailable_other": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
     "usagePartiallyUnavailableTooltip": "仅显示已知 token 小计；部分调用未提供 token 遥测数据。",
     "costUnavailable": "成本不可用",
     "costUnavailableTooltip": "提供方已完成这些调用，但未提供足以确定成本的遥测数据。",
-    "costPartiallyUnavailable": "· 已知小计；{{count}} 次调用无成本数据",
+    "costPartiallyUnavailable_one": "· 已知小计；{{count}} 次调用无成本数据",
+    "costPartiallyUnavailable_other": "· 已知小计；{{count}} 次调用无成本数据",
     "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供足以确定成本的遥测数据。",
     "includesEstimated": "· 含约 {{amount}} 估算值",
     "includesEstimatedTooltip": "包含 {{amount}} 的估算成本，来自不原生上报成本的提供方（例如 codex，按本地价格表估算）。",
     "trackingStarted": "追踪始于 {{date}}",
     "trackingStartedFallback": "首次调用后开始追踪",
     "emptyState": "当前筛选窗口内暂无调用。",
-    "segmentTitle": "{{label}}：{{value}}"
+    "segmentTitle": "{{label}}：{{value}}",
+    "legendBilled": "已计费",
+    "legendEstimated": "估算"
   },
   "providerCard": {
     "title": "按提供方",
-    "description": "此项目中各 AI CLI 的成本分布。<tilde>~</tilde> 前缀表示该行成本由本地价格表估算（提供方不原生上报）。",
+    "description": "<tilde>~</tilde> = 按本地价格估算。",
     "noCost": "此时间窗口内暂无成本记录。",
     "segmentTitle": "{{label}}：{{value}}（{{count}}）",
     "costUnavailable": "成本不可用",
@@ -109,7 +115,8 @@
     "costLabel": "成本",
     "truncated": "显示 {{total}} 中的 {{shown}} 个 — 保留成本最高的点，但隐藏较早的点",
     "costUnavailable": "已记录调用，但没有可供绘图的成本遥测数据。",
-    "costPartiallyUnavailable": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
+    "costPartiallyUnavailable_one": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。",
+    "costPartiallyUnavailable_other": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
   },
   "topTickets": {
     "title": "热门工单",
@@ -170,7 +177,7 @@
   "desktop": {
     "title": "Desktop 分析",
     "refreshAria": "刷新分析数据",
-    "failedToLoad": "加载分析数据失败：{{error}}",
+    "failedToLoad": "无法加载 Desktop 分析数据，请尝试刷新。",
     "totalCost": "总成本",
     "costToday": "今日 {{value}}",
     "costTodayUnavailable": "今日成本不可用",
@@ -193,12 +200,11 @@
     "includesEstimatedTooltip": "包含 {{amount}} 的价格表估算成本（codex/gemini），非提供商计费。",
     "includesEstimatedShort": "含估算",
     "timelineEstimatedTooltip": "某些天包含以 ~ 标记的价格表估算成本（codex/gemini）。",
-    "estimatedBadge": "估算",
-    "projectEstimatedTooltip": "此项目成本中的 {{amount}} 为价格表估算（codex/gemini），非提供商计费。",
     "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。",
     "costUnavailable": "已记录调用，但成本遥测数据不可用。",
     "costUnavailableShort": "不可用",
-    "costPartiallyUnavailable": "已知成本小计；{{count}} 次调用不可用。"
+    "costPartiallyUnavailable_one": "已知成本小计；{{count}} 次调用不可用。",
+    "costPartiallyUnavailable_other": "已知成本小计；{{count}} 次调用不可用。"
   },
   "windowLabels": {
     "7d": "最近 7 天",

@@ -53,7 +53,7 @@ export function MessageBubble({ message, onConfirmCommand, onDismissCommand }: M
       <div className={cn(
         'max-w-[95%] rounded-2xl rounded-bl-sm bg-surface/30 px-3 py-2 text-xs',
         'prose prose-invert prose-xs max-w-none',
-        '[&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-accent-info',
+        '[&_code]:rounded-control [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-foreground',
         '[&_pre]:rounded [&_pre]:bg-background/60 [&_pre]:p-2',
         '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
         '[&_a]:text-accent-info',

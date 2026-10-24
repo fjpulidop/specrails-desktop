@@ -1,5 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { ByProviderEntry, SpendingResponse } from '../types/spending'
+import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -17,14 +19,11 @@ const PROVIDER_ACCENT: Record<string, string> = {
   claude: 'bg-accent-info',
   codex: 'bg-accent-highlight',
   gemini: 'bg-accent-success',
-  kimi: 'bg-purple-400',
+  kimi: 'bg-accent-secondary',
 }
 
 function fmtUsd(v: number): string {
-  if (v >= 100) return `$${v.toFixed(0)}`
-  if (v >= 10) return `$${v.toFixed(1)}`
-  if (v >= 0.01) return `$${v.toFixed(2)}`
-  return `$${v.toFixed(4)}`
+  return formatUsd(v)
 }
 
 function providerLabel(id: string): string {
@@ -38,7 +37,7 @@ function providerAccent(id: string): string {
 export function ProviderBreakdownCard({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-32 rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <Skeleton className="h-32" />
   }
   if (!data || data.byProvider.length === 0) {
     // Single-provider projects (or empty datasets) skip this widget — the
@@ -65,10 +64,10 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-baseline justify-between mb-3">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-caption text-muted-foreground">
             {t('providerCard.title')}
           </div>
-          <div className="text-xs text-muted-foreground/70 mt-0.5">
+          <div className="text-xs text-muted-foreground mt-0.5">
             <Trans
               ns="analytics"
               i18nKey="providerCard.description"
@@ -129,20 +128,20 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
-      <span className="text-xs font-medium">{providerLabel(entry.provider)}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums">
+      <span className="text-label">{providerLabel(entry.provider)}</span>
+      <span className="text-caption text-muted-foreground num">
         {t('runs', { count: entry.count })}
       </span>
       {costUnavailable ? (
         <span
-          className="ml-auto text-xs font-medium text-muted-foreground/80 italic"
+          className="ml-auto text-label text-muted-foreground/80 italic"
           title={t('providerCard.costUnavailableTooltip')}
         >
           {t('providerCard.costUnavailable')}
         </span>
       ) : (
         <span
-          className="ml-auto text-xs font-medium tabular-nums"
+          className="ml-auto text-label num"
           title={costPartiallyUnavailable ? t('providerCard.costPartiallyUnavailableTooltip') : undefined}
         >
           {allEstimated ? '~' : ''}{fmtUsd(sum)}

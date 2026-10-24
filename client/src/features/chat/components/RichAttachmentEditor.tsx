@@ -82,7 +82,7 @@ function buildPill(attachment: Attachment): HTMLSpanElement {
   pill.dataset.attachmentId = attachment.id
   pill.dataset.filename = attachment.filename
   pill.className =
-    'inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-accent/80 hover:bg-accent text-accent-foreground text-xs font-medium align-baseline select-none border border-border shadow-sm transition-all'
+    'inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-accent/80 hover:bg-accent text-accent-foreground text-label align-baseline select-none border border-border shadow-sm transition-all'
   const label = document.createElement('span')
   label.textContent = `@${attachment.filename}`
   label.className = 'max-w-[180px] truncate'
@@ -557,7 +557,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between mt-2 text-caption text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -571,7 +571,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
             {footerExtra}
           </div>
           {uploads.length > 0 && (
-            <span className="animate-pulse">{t('editor.uploadingFiles', { count: uploads.length })}</span>
+            <span className="motion-safe:animate-pulse">{t('editor.uploadingFiles', { count: uploads.length })}</span>
           )}
         </div>
 

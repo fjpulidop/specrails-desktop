@@ -17,9 +17,9 @@ const STEP_TITLES = [
   'Run the pipeline on rails',
   'Bring your own agent',
   'Track every cent',
-  'Make it your workspace',
   'Take Specrails with you',
-  'Move at the speed of thought',
+  // The former "move fast" step is merged in: the tour ends on the workspace.
+  'Make it your workspace',
 ]
 
 describe('OnboardingWizard', () => {
@@ -76,35 +76,46 @@ describe('OnboardingWizard', () => {
     expect(hasSeenOnboarding()).toBe(true)
   })
 
-  it('dismisses on skip when "Don\'t show again" is checked', () => {
+  it('leaving the tour via Skip counts as seen (no opt-in checkbox)', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
-    fireEvent.click(screen.getByTestId('onboarding-dismiss-checkbox'))
+    expect(screen.queryByTestId('onboarding-dismiss-checkbox')).toBeNull()
     fireEvent.click(screen.getByTestId('onboarding-skip'))
     expect(onClose).toHaveBeenCalled()
     expect(hasSeenOnboarding()).toBe(true)
   })
 
-  it('does not dismiss on skip when checkbox is unchecked', () => {
-    render(<OnboardingWizard open={true} onClose={onClose} />)
-    fireEvent.click(screen.getByTestId('onboarding-skip'))
-    expect(onClose).toHaveBeenCalled()
-    expect(hasSeenOnboarding()).toBe(false)
-  })
-
-  it('shows the "Don\'t show again" checkbox only on the first step', () => {
-    render(<OnboardingWizard open={true} onClose={onClose} />)
-    expect(screen.getByTestId('onboarding-dismiss-checkbox')).toBeTruthy()
-    fireEvent.click(screen.getByTestId('onboarding-next'))
-    expect(screen.queryByTestId('onboarding-dismiss-checkbox')).toBeNull()
-  })
-
-  it('shows Back instead of Skip after the first step', () => {
+  it('offers Skip on every step, with Back after the first', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     expect(screen.getByTestId('onboarding-skip')).toBeTruthy()
     expect(screen.queryByTestId('onboarding-back')).toBeNull()
+    for (let i = 1; i < STEP_TITLES.length; i++) {
+      fireEvent.click(screen.getByTestId('onboarding-next'))
+      expect(screen.getByTestId('onboarding-skip')).toBeTruthy()
+      expect(screen.getByTestId('onboarding-back')).toBeTruthy()
+    }
+  })
+
+  it('the header close button dismisses and marks the tour as seen', () => {
+    render(<OnboardingWizard open={true} onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(hasSeenOnboarding()).toBe(true)
+  })
+
+  it('"Get started" hands off through onFinish', () => {
+    const onFinish = vi.fn()
+    render(<OnboardingWizard open={true} onClose={onClose} onFinish={onFinish} />)
+    const navButtons = screen.getAllByRole('button', { name: /^Go to step/ })
+    fireEvent.click(navButtons[STEP_TITLES.length - 1])
     fireEvent.click(screen.getByTestId('onboarding-next'))
-    expect(screen.queryByTestId('onboarding-skip')).toBeNull()
-    expect(screen.getByTestId('onboarding-back')).toBeTruthy()
+    expect(onFinish).toHaveBeenCalledTimes(1)
+  })
+
+  it('Skip does not trigger the onFinish hand-off', () => {
+    const onFinish = vi.fn()
+    render(<OnboardingWizard open={true} onClose={onClose} onFinish={onFinish} />)
+    fireEvent.click(screen.getByTestId('onboarding-skip'))
+    expect(onFinish).not.toHaveBeenCalled()
   })
 
   it('left-nav step buttons allow jumping to a specific step', () => {
@@ -127,7 +138,7 @@ describe('OnboardingWizard', () => {
   it('renders the keyboard keys inside the shortcut chips (regression: empty <Kbd>)', () => {
     render(<OnboardingWizard open={true} onClose={onClose} />)
     const navButtons = screen.getAllByRole('button', { name: /^Go to step/ })
-    fireEvent.click(navButtons[STEP_TITLES.length - 1]) // move-fast step (last)
+    fireEvent.click(navButtons[STEP_TITLES.length - 1]) // workspace step (last, includes the former move-fast content)
     // jsdom has no Mac platform, so the modifier resolves to Ctrl / Alt.
     expect(screen.getAllByText('Ctrl').length).toBeGreaterThan(0)
     expect(screen.getAllByText('K').length).toBeGreaterThan(0)
@@ -208,6 +219,37 @@ describe('OnboardingWizard interactive steps (with providers)', () => {
       expect(screen.getByTestId('theme-card-code-rain')).toHaveAttribute('data-selected', 'true')
     )
     expect(document.documentElement.dataset.theme).toBe('code-rain')
+  })
+})
+
+describe('OnboardingWizard — modal standard', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('opens with focus on the selected language option, never on Close', async () => {
+    render(
+      <LanguageProvider>
+        <OnboardingWizard open={true} onClose={vi.fn()} />
+      </LanguageProvider>,
+    )
+    await waitFor(() => {
+      const active = document.activeElement as HTMLElement | null
+      expect(active).toHaveAttribute('role', 'radio')
+      expect(active).toHaveAttribute('aria-checked', 'true')
+    })
+    expect(document.activeElement).not.toBe(screen.getByTestId('onboarding-close'))
+    // Enter on the initial focus must not dismiss the tour.
+    expect(hasSeenOnboarding()).toBe(false)
+  })
+
+  it('uses the shared scrim token and a 28px standard close button', () => {
+    render(<OnboardingWizard open={true} onClose={vi.fn()} />)
+    const scrim = document.querySelector('.modal-scrim')
+    expect(scrim).not.toBeNull()
+    expect(scrim!.className).toContain('bg-scrim')
+    expect(scrim!.className).not.toMatch(/bg-black\//)
+    const close = screen.getByTestId('onboarding-close')
+    expect(close).toHaveAccessibleName('Close')
+    expect(close.className).toContain('h-7')
   })
 })
 

@@ -2,30 +2,41 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { Loader2, ScrollText } from 'lucide-react'
 
+/** The i18n key under `activity.tool.*` for each built-in tool verb. */
+const TOOL_KEYS: Record<string, string> = {
+  Bash: 'terminal',
+  Read: 'reading',
+  Grep: 'searching',
+  Glob: 'searching',
+  Write: 'editing',
+  Edit: 'editing',
+  NotebookEdit: 'editing',
+  WebFetch: 'web',
+  WebSearch: 'web',
+  Task: 'agent',
+  Agent: 'agent',
+  spawnAgent: 'agent',
+}
+
+/** True when the tool is a sub-agent spawn (its label can carry a description). */
+export function isAgentTool(tool: string): boolean {
+  return TOOL_KEYS[tool] === 'agent'
+}
+
 /**
  * Abbreviated, synthetic label for the current tool activity. MCP calls collapse
- * to `MCP · <domain>`; built-ins map to a short verb; anything else shows raw.
+ * to `MCP · <domain>`; built-ins map to a short localized verb; anything else
+ * shows raw.
  */
-export function toolChipLabel(tool: string): string {
+export type ToolLabelTranslate = (key: string, options?: Record<string, unknown>) => string
+
+export function toolChipLabel(tool: string, t: ToolLabelTranslate): string {
   if (tool.startsWith('mcp__')) {
     const last = tool.split('__').pop()?.replace(/^specrails_/, '') ?? ''
-    return last ? `MCP · ${last}` : 'MCP Tool'
+    return last ? t('activity.tool.mcp', { name: last }) : t('activity.tool.mcpTool')
   }
-  const map: Record<string, string> = {
-    Bash: 'Terminal',
-    Read: 'Reading',
-    Grep: 'Searching',
-    Glob: 'Searching',
-    Write: 'Editing',
-    Edit: 'Editing',
-    NotebookEdit: 'Editing',
-    WebFetch: 'Web',
-    WebSearch: 'Web',
-    Task: 'Agent',
-    Agent: 'Agent',
-    spawnAgent: 'Agent',
-  }
-  return map[tool] ?? tool
+  const key = TOOL_KEYS[tool]
+  return key ? t(`activity.tool.${key}`) : tool
 }
 
 /**
@@ -42,12 +53,14 @@ const NOISE = new Set(['<unnamed>', '<missing>', ''])
  */
 export function AgentActivityChip({ tool, onClick, agentDescription }: { tool: string | null; onClick?: () => void; agentDescription?: string | null }) {
   const { t } = useTranslation('agent')
-  const base = tool && !NOISE.has(tool) ? toolChipLabel(tool) : t('thinking')
-  const label = base === 'Agent' && agentDescription ? `Agent · ${agentDescription}` : base
+  const named = !!tool && !NOISE.has(tool)
+  const label = named && isAgentTool(tool) && agentDescription
+    ? t('activity.tool.agentNamed', { description: agentDescription })
+    : named ? toolChipLabel(tool, t) : t('thinking')
 
   const body = (
     <>
-      <Loader2 className="h-3 w-3 animate-spin text-accent-info" />
+      <Loader2 className="h-3 w-3 animate-spin text-accent-info motion-reduce:animate-none" />
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={label}
@@ -64,7 +77,7 @@ export function AgentActivityChip({ tool, onClick, agentDescription }: { tool: s
   )
 
   const baseCls =
-    'inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-xs font-medium text-foreground/80'
+    'inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-label text-foreground/80'
 
   // Clickable variant (agent chat): opens the execution-log modal. The plain
   // div variant stays for callers with no activity stream (BuilderConversation).

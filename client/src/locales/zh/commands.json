@@ -10,7 +10,10 @@
       "missions": "任务",
       "spec": "Spec",
       "jobs": "任务",
-      "navigation": "导航"
+      "navigation": "导航",
+      "actions": "操作",
+      "recentActions": "最近的操作",
+      "recentPlaces": "最近的位置"
     },
     "nav": {
       "dashboard": "仪表盘",
@@ -31,10 +34,75 @@
     "footer": {
       "navigate": "导航",
       "select": "选择",
-      "close": "关闭"
+      "close": "关闭",
+      "actions": "操作",
+      "back": "返回"
     },
     "missions": {
       "home": "主页"
+    },
+    "dialogTitle": "搜索任务、项目和作业",
+    "dialogDescription": "输入以筛选，然后按 Enter 打开高亮的结果。",
+    "actions": {
+      "verbs": "新建,创建,添加,启动,运行,移动,打开,切换,转到,交接,暂停,继续,撤销,显示,开始,恢复,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "返回",
+      "newSpec": "新建 Spec",
+      "newSpecExplore": "新建 Spec（探索）",
+      "launchSpec": "在 Rail 上启动 Spec",
+      "launchSpecN": "在 Rail 上启动 #{{id}}",
+      "moveSpec": "将 Spec 移动到",
+      "moveSpecN": "将 #{{id}} 移动到",
+      "openReview": "打开评审",
+      "openReviewN": "打开 #{{id}} 的评审",
+      "handOffFlow": "交接 Flow",
+      "pauseFlow": "暂停 Flow",
+      "resumeFlow": "继续 Flow",
+      "newMission": "新建任务",
+      "switchTheme": "切换主题",
+      "switchToMission": "切换到任务模式",
+      "switchToBoard": "切换到看板模式",
+      "openAppSettings": "打开应用设置",
+      "openProjectSettings": "打开项目设置",
+      "switchProject": "切换项目",
+      "runLoop": "运行 Loop",
+      "toggleLeftSidebar": "切换左侧边栏",
+      "toggleRightSidebar": "切换右侧边栏",
+      "goBack": "后退",
+      "goForward": "前进",
+      "undoLast": "撤销：{{label}}",
+      "recentlyDeleted": "最近删除",
+      "pages": {
+        "railTitle": "#{{id}} 的 Rail",
+        "railPlaceholder": "选择 Rail...",
+        "railRunning": "运行中",
+        "railHasSpec": "已在此处",
+        "noRails": "没有可用的 Rail。",
+        "statusTitle": "将 #{{id}} 移动到",
+        "statusPlaceholder": "选择状态...",
+        "noStatuses": "没有可用的状态。",
+        "current": "当前",
+        "specTitle": "选择 Spec",
+        "specPlaceholder": "搜索 Spec...",
+        "noSpecs": "没有匹配的 Spec。",
+        "themeTitle": "主题",
+        "themePlaceholder": "选择主题...",
+        "noThemes": "没有可用的主题。",
+        "appSettingsTitle": "应用设置",
+        "projectSettingsTitle": "项目设置",
+        "sectionPlaceholder": "选择分区...",
+        "noSections": "没有分区。",
+        "projectTitle": "项目",
+        "projectPlaceholder": "选择项目...",
+        "noProjects": "没有其他项目。",
+        "loopTitle": "现在可运行的 Loop",
+        "loopPlaceholder": "选择 Loop...",
+        "noLoops": "没有无需 Spec 即可运行的 Loop。",
+        "loading": "加载中...",
+        "loadFailed": "无法加载选项。"
+      },
+      "openInbox": "打开待处理",
+      "openInboxCount": "打开待处理（{{count}}）",
+      "opensOptions": "打开选项"
     }
   },
   "toasts": {
@@ -73,7 +141,8 @@
     "categories": {
       "general": "通用",
       "navigation": "导航",
-      "actions": "操作"
+      "actions": "操作",
+      "missions": "任务"
     },
     "items": {
       "showCheatsheet": "显示键盘快捷键",
@@ -90,8 +159,23 @@
       "goAnalytics": "前往分析",
       "goSettings": "前往设置",
       "nextItem": "列表中的下一项",
-      "prevItem": "列表中的上一项"
-    }
+      "prevItem": "列表中的上一项",
+      "runStripFocus": "跳到任务的运行条（再按一次显示或隐藏详情）",
+      "runStripCycle": "运行条中的上一个 / 下一个运行（在文本框之外）",
+      "runStripBack": "离开运行条，回到原来的位置",
+      "flowPause": "暂停或继续 Flow（运行条获得焦点时）",
+      "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）",
+      "historyBackForward": "后退 / 前进到上一个或下一个位置",
+      "undoLast": "撤销上一次更改",
+      "openInbox": "打开待处理"
+    },
+    "searchLabel": "搜索快捷键和指南",
+    "searchPlaceholder": "搜索快捷键和指南…",
+    "noShortcuts": "没有与“{{query}}”匹配的快捷键。",
+    "guidesHeading": "来自指南",
+    "openGuide": "打开指南：{{title}}",
+    "noGuides": "没有与“{{query}}”匹配的指南。",
+    "searching": "正在搜索指南…"
   },
   "update": {
     "title": {

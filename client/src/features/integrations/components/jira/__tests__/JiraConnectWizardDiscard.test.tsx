@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../../../test-utils'
+import userEvent from '@testing-library/user-event'
 
 const toastError = vi.fn()
 vi.mock('sonner', () => ({ toast: { error: (m: string) => toastError(m), success: vi.fn() } }))
@@ -67,13 +68,15 @@ describe('JiraConnectWizard — discard status step', () => {
 
     await driveToStep3(undefined)
 
-    const select = screen.getByTestId('jira-discard-status-select') as HTMLSelectElement
+    const select = screen.getByTestId('jira-discard-status-select')
     // The discovered statuses populate the picker.
+    const user = userEvent.setup()
+    await user.click(select)
     for (const st of STATUSES) {
-      expect(screen.getAllByRole('option', { name: st.name }).length).toBeGreaterThan(0)
+      expect(await screen.findByRole('option', { name: st.name })).toBeInTheDocument()
     }
-    fireEvent.change(select, { target: { value: 'Cancelled' } })
-    expect(select.value).toBe('Cancelled')
+    await user.click(screen.getByRole('option', { name: 'Cancelled' }))
+    expect(select).toHaveTextContent('Cancelled')
 
     // Step 4 — review + connect.
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
@@ -94,8 +97,7 @@ describe('JiraConnectWizard — discard status step', () => {
     await driveToStep3(apiBase)
 
     // Leave the discard select untouched (default empty option).
-    const select = screen.getByTestId('jira-discard-status-select') as HTMLSelectElement
-    expect(select.value).toBe('')
+    expect(screen.getByTestId('jira-discard-status-select')).toHaveTextContent('None — delete normally')
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))

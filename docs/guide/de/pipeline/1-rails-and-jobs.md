@@ -37,7 +37,7 @@ Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontex
 | **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
 | **▶ Play / ■ Stop** | Starten oder abbrechen. |
 
-### Was eine rail ausführt: Loops
+### Was eine rail ausführt: Loops {#rail-loops}
 
 Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Zwei Loops sind **eingebaut** und decken die gängigen Fälle ab:
 
@@ -85,6 +85,25 @@ Wenn etwas nicht stimmt:
 - **Eine einzelne rail** — klick in ihrem Header auf **■ Stop**.
 - **Auto-Pause beim Budget** — setze ein Tagesbudget, und die Queue pausiert sich selbst, sobald die Ausgaben des Tages das Limit erreichen.
 - **Alles** — beende die Desktop-App oder führe `specrails-desktop stop` aus.
+
+## Lokal integrieren mit nicht committeten Änderungen
+
+**Lokal integrieren** führt eine freigegebene Lieferung auf diesem Rechner ohne PR in deinen Integrationsbranch (zum Beispiel `main`) zusammen. Ein sauberer Checkout ist nicht nötig:
+
+- Nicht committete Änderungen, die die gelieferten Dateien nicht berühren, bleiben einfach, wo sie sind.
+- Berühren deine Änderungen dieselben Dateien, sichert Specrails sie als git stash namens `specrails: before integrating #N (…)`, integriert und spielt sie zurück. Die Meldung lautet sinngemäß: Änderungen gesichert, #N integriert, wiederhergestellt.
+- Führt das Zurückspielen zu Konflikten mit dem integrierten Code, lässt Specrails den Branch genau wie integriert und **behält den Stash** — nichts geht verloren. Die Karte zeigt *Deine lokalen Änderungen sind als Stash gesichert* mit den Konfliktdateien, **Meine Änderungen wiederherstellen** (erneuter Versuch, etwa nachdem du den Code geändert hast) und den Stash-Namen zum Kopieren. Anschließend stellt Specrails sie selbst auf einem neuen Branch `specrails/restore-local-<id>` in einem separaten Worktree wieder her: Lassen sie sich dort konfliktfrei anwenden, committet es sie; andernfalls arbeitet ein KI-Konfliktlöser nur in diesem Worktree, bewahrt deine Absicht und den integrierten Code, und Specrails committet das Ergebnis. Die Karte listet die wiederhergestellten Dateien; **Nach <Branch> zurückholen** bringt sie auf deinen Branch (erst dann wird der Stash verworfen) und **Wiederhergestellten Branch verwerfen** entfernt den Branch und behält den Stash. Eine Mission wird nur informiert; sie muss nie etwas ausführen. Von Specrails generierte OpenSpec-Skills und -Befehle (etwa `.claude/skills/openspec-*/SKILL.md`) gelten nicht als deine Änderungen: Bei einem Konflikt behalten sie die integrierte Version.
+- Ignorierte Dateien werden nie gestasht: kollidiert eine davon mit der Lieferung, bittet Specrails dich, sie vorher zu verschieben.
+- Stoppt die App zwischen Sichern und Wiederherstellen, stellt sie deine Änderungen beim nächsten Öffnen des Projekts wieder her (nur wenn derselbe Branch ausgecheckt ist).
+
+## Zeit- und Kostenprognose {#launch-forecast}
+
+Bevor du auf Starten drückst, kann ein Rail zeigen, wie lange vergleichbare Läufe üblicherweise dauern und, wo es sinnvoll ist, was sie üblicherweise kosten, zum Beispiel *Üblicherweise 6–9 Min. · 2–4 $ für solche Läufe*.
+
+Die Spanne ist die mittlere Hälfte deines eigenen Verlaufs: das 25. bis 75. Perzentil abgeschlossener Läufe in diesem Projekt mit demselben Loop oder Befehl und derselben Engine. Es braucht mindestens 5 vergleichbare Läufe. Bis dahin steht in der Zeile *Noch nicht genug Verlauf* statt einer Vermutung. Es zählen nur vom Anbieter gemeldete Kosten; geschätzte Kosten bleiben außen vor. Es ist eine Schätzung, nie eine Rechnung.
+
+Der Dollarbetrag erscheint nur, wenn bekannt ist, dass die Engine nach Verbrauch abrechnet (zum Beispiel mit einem API-Schlüssel). Bei einem Abo-Tarif oder solange die Abrechnungsart noch nicht bekannt ist, wird nur die Zeit angezeigt. Enthält die Rail mehrere Specs, gilt die Spanne für eine Spec und sagt das mit *(pro Spec)*. Könnten die heutigen Ausgaben plus das obere Ende der Spanne dein Tagesbudget erreichen, ergänzt die Zeile *Könnte am Budget pausieren* mit einem Link zu den Budgeteinstellungen. Ist das heutige Budget bereits aufgebraucht, bittet Starten zuerst um Bestätigung, weil der Lauf bis zum Zurücksetzen pausieren würde.
+
 
 ## Wie es weitergeht
 

@@ -50,6 +50,7 @@ import {
   findAgentSystemMessages,
   deleteAgentMessagesByIds,
   updateAgentMessageContent,
+  type AgentConversation,
 } from '../../agents/runtime/agent-store'
 import type { PrDecisionCardEnvelope } from '../../../types'
 import { generateAutoTitle } from '../../conversations/runtime/explore-draft-title'
@@ -71,7 +72,8 @@ import { createCoreSessionRunner, type CoreInvocationResult } from './core-sessi
 import { recordToolCall, type AgentAuditRecorder } from '../../audit'
 import type { MissionCoreSessions } from './mission-core-sessions'
 import type { FlowTurn, FlowTurnContext } from './flow-turn-context'
-import { getSessionCursor, listActiveSessionCursors, listSubagents } from './agent-session-store'
+import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
+import { conversationSessionState, listActiveSessionCursors, listSubagents } from './agent-session-store'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -120,6 +122,12 @@ interface QueuedTurn {
 
 /** A projection rebuild was requested while a turn is running. */
 export class SessionRebuildBusyError extends Error {}
+
+/** Core refused the turn because the session is closed (or unknown after a restart), or another driver opened it. */
+export function isClosedFlowSessionError(error: string | null | undefined, code?: string | null): boolean {
+  if (code === 'session_closed' || code === 'session_not_found' || code === 'session_driver_mismatch') return true
+  return !!error && /\bsession\b[^\n]{0,200}\bis closed\b|session_closed/i.test(error)
+}
 
 export class AgentChatManager {
   private readonly _broadcast: (msg: WsMessage) => void
@@ -205,6 +213,24 @@ export class AgentChatManager {
       return await this._flowTurns.offerable(conversationId)
     } catch {
       return false
+    }
+  }
+
+  /**
+   * Replace the Flow's Core session for this turn (closed, or opened by another
+   * provider): the Flow commits a new session id, the old one is closed without
+   * touching this turn. Null when the Flow cannot renew (no longer active).
+   */
+  private async _renewFlowTurn(conversation: AgentConversation, flowTurn: FlowTurn, reason: string): Promise<FlowTurn | null> {
+    if (!this._flowTurns?.renewSession) return null
+    try {
+      const renewed = await this._flowTurns.renewSession(conversation.id, flowTurn.flowId)
+      if (!renewed || renewed.coreSessionId === flowTurn.coreSessionId) return null
+      if (this._coreSessions) await this._coreSessions.closeFlowSession(conversation, flowTurn.coreSessionId, reason)
+      return renewed
+    } catch (error) {
+      console.warn(`[agent-chat] Flow session renewal failed (${conversation.id}):`, error)
+      return null
     }
   }
 
@@ -350,9 +376,10 @@ export class AgentChatManager {
 
   /** Projected Core session state of one mission (null when it never ran in Core). */
   sessionState(conversationId: string) {
-    const cursor = getSessionCursor(this._db, conversationId)
-    if (!cursor) return null
-    return { residentPhase: cursor.residentPhase, processAlive: cursor.processAlive, liveSubagents: cursor.liveSubagents, subagents: listSubagents(this._db, conversationId) }
+    // Across the mission's Core sessions: its own and, in Flow, the Flow's.
+    const state = conversationSessionState(this._db, conversationId)
+    if (!state) return null
+    return { ...state, subagents: listSubagents(this._db, conversationId) }
   }
 
   /** Stop a mission's background sub-agents through its Core session. */
@@ -553,10 +580,15 @@ export class AgentChatManager {
     const adapter = getAdapter(conversation.provider)
     // Flow mode: an active Flow turns this mission turn into a Flow turn (its own
     // Core session in the worktree). There is no legacy transport for Flow.
-    const flowTurn = this._flowTurn(conversationId)
+    let flowTurn = this._flowTurn(conversationId)
     if (flowTurn && !this._coreSessions) {
       this._emitError(conversationId, 'Flow needs Core agent sessions; this turn was not started.', { code: 'flow_sessions_unavailable', provider: adapter.id })
       return
+    }
+    // Never send to a closed Flow session or one another provider opened: a new
+    // session takes the turn (seeded with the conversation history below).
+    if (flowTurn && this._coreSessions && !this._coreSessions.flowSessionUsable(flowTurn.coreSessionId, adapter.id)) {
+      flowTurn = await this._renewFlowTurn(conversation, flowTurn, 'flow_session_renewed') ?? flowTurn
     }
     // Resolve a model that is VALID for this provider. A stale model from another
     // provider (e.g. claude's "sonnet" after switching to codex) is rejected by
@@ -663,7 +695,9 @@ export class AgentChatManager {
     const inputReceiptNote = options.queueId
       ? `[Mission input ID: ${JSON.stringify(options.queueId)}. After reading this message, confirm receipt with specrails_mission(action:"acknowledge_inputs", inputIds:[this exact ID]). This records reading, not completion of the requested work.]\n\n`
       : ''
-    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${userWithAttachments}`
+    // Back to Flow: the review the Flow agent must address rides this user turn once.
+    const flowBriefing = flowTurn?.briefing ? `${flowTurn.briefing}\n\n` : ''
+    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${flowBriefing}${userWithAttachments}`
     const basePrompt = flowTurn ? flowTurn.systemPrompt : buildOperatorSystemPrompt()
     const systemPrompt = hasAttachments
       ? `${basePrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
@@ -723,6 +757,7 @@ export class AgentChatManager {
         errorCode?: string
       }
 
+      let missionCoreTurn = false
       const invoke = async (useResume: boolean): Promise<TurnOutcome> => {
         // A stale-session retry is another process: its capability and bearer
         // file must be new so late calls from the old bridge stay revoked.
@@ -737,6 +772,7 @@ export class AgentChatManager {
         const coreContext = this._coreSessions
           ? await this._coreSessions.prepareTurn(conversation, adapter, { capability: agentCapability, external: resolveExternalEntries(adapter.id, this._db), plugins: this._pluginMcpServers(adapter.id, conversation.pinned_project_id), flow: flowTurn })
           : null
+        if (coreContext && !flowTurn) missionCoreTurn = true
         if (!coreContext) try {
           const wiring = prepareAgentMcp({
             adapterId: adapter.id, conversationId, invocationId, cwd,
@@ -769,7 +805,8 @@ export class AgentChatManager {
         )
 
         const buildOpts = {
-          prompt: effectivePrompt(useResume),
+          // A new mission session generation is seeded with the conversation history.
+          prompt: effectivePrompt(useResume && !coreContext?.freshSession),
           systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
           model,
           sessionId: useResume && !flowTurn ? conversation.session_id ?? undefined : undefined,
@@ -1164,6 +1201,58 @@ export class AgentChatManager {
         return
       }
 
+      // A Flow session Core reports closed (a journal closed by a pause, a
+      // hand-off or a previous process): reopen as a new session and retry
+      // once, never a user-facing failure. Nothing ran in a closed session.
+      if (
+        flowTurn &&
+        !r.spawnFailed && !r.fullText && !r.checkpointed &&
+        !r.events.some((event) => event.kind === 'tool-use' || event.kind === 'tool-result') &&
+        isClosedFlowSessionError(r.error, r.errorCode)
+      ) {
+        const renewed = await this._renewFlowTurn(conversation, flowTurn, 'flow_session_closed')
+        if (renewed) {
+          console.log(`[agent-chat] Flow session ${flowTurn.coreSessionId} is closed — retrying in ${renewed.coreSessionId} conv=${conversationId}`)
+          flowTurn = renewed
+          r = await invoke(false)
+          if (this._disposed || r.disposed) return
+          if (!getAgentConversation(this._db, conversationId)) {
+            record(r, 'aborted')
+            return
+          }
+          if (this._abortedTurns.delete(conversationId)) {
+            settleAborted(r)
+            record(r, 'aborted')
+            return
+          }
+        }
+      }
+
+      // The mission's Core session is closed or was opened by another provider
+      // (e.g. a switch before this process knew the session's driver): continue
+      // in a new generation, seeded with the history, once. Nothing ran.
+      if (
+        !flowTurn && missionCoreTurn && this._coreSessions &&
+        !r.spawnFailed && !r.fullText && !r.checkpointed &&
+        !r.events.some((event) => event.kind === 'tool-use' || event.kind === 'tool-result') &&
+        isClosedFlowSessionError(r.error, r.errorCode)
+      ) {
+        const renewed = await this._coreSessions.renewMissionSession(conversation, adapter.id, r.errorCode === 'session_driver_mismatch' ? 'driver_mismatch' : 'session_closed')
+        console.log(`[agent-chat] mission Core session unusable (${r.errorCode ?? r.error}) — retrying in ${renewed} conv=${conversationId}`)
+        persistSession(null)
+        r = await invoke(false)
+        if (this._disposed || r.disposed) return
+        if (!getAgentConversation(this._db, conversationId)) {
+          record(r, 'aborted')
+          return
+        }
+        if (this._abortedTurns.delete(conversationId)) {
+          settleAborted(r)
+          record(r, 'aborted')
+          return
+        }
+      }
+
       // Retry only a verified stale resume that did not execute tools. An empty
       // reply can still have launched a rail or edited a spec; replaying that
       // turn would duplicate its mutations and spend tokens twice.
@@ -1213,6 +1302,10 @@ export class AgentChatManager {
       }
 
       if (flowTurn) this._briefedFlowSessions.add(flowTurn.coreSessionId)
+      if (flowTurn?.briefing && this._flowTurns?.briefingDelivered) {
+        void this._flowTurns.briefingDelivered(conversationId, flowTurn.flowId).catch((error: unknown) =>
+          console.warn(`[agent-chat] Flow return briefing not cleared (${conversationId}): ${error instanceof Error ? error.message : String(error)}`))
+      }
       if (r.text || r.checkpointed) {
         const message = r.text ? addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text, ...(r.coreTurnId ? { coreTurnId: r.coreTurnId, turnOrigin: 'user' as const } : {}) }) : undefined
         persistSession(r.sessionId)
@@ -1453,6 +1546,15 @@ export class AgentChatManager {
         this.postPrDecisionCard(conversationId, envelope)
         return
       }
+      // A Flow → Spec run that went back to its Flow keeps the failure it
+      // stopped with (the settle-time `runtime` snapshot): the delivery's own
+      // codes now say `returned_to_flow`, and the card still explains why.
+      if (envelope.statusCode === 'returned_to_flow' && !envelope.runtime) {
+        try {
+          const previous = JSON.parse(existing[existing.length - 1].content) as PrDecisionCardEnvelope
+          if (previous.runtime?.failure) envelope = { ...envelope, runtime: previous.runtime }
+        } catch { /* a malformed stored card is simply replaced */ }
+      }
       const serialized = JSON.stringify(envelope)
       // Keep the newest history anchor: client cold-load dedupe uses the same
       // newest-row rule, so a crash between hydration and this repair cannot
@@ -1527,6 +1629,45 @@ export class AgentChatManager {
   }
 
   private readonly _systemTurnRuns = new Set<string>()
+
+  /**
+   * Persist an app-authored system row once per `dedupeKey` (durable: an
+   * existing row with the same key is never duplicated, across restarts too)
+   * and broadcast `agent_system_row` so open clients append it live. NEVER throws.
+   */
+  postSystemRow(conversationId: string, row: Record<string, unknown> & { kind: string }, dedupeKey: string): string | null {
+    if (this._disposed) return null
+    try {
+      if (!getAgentConversation(this._db, conversationId)) return null
+      const existing = findAgentSystemMessages(this._db, conversationId, (content) => {
+        try { return (JSON.parse(content) as { dedupeKey?: unknown }).dedupeKey === dedupeKey } catch { return false }
+      })
+      if (existing.length > 0) return null
+      const content = { ...row, dedupeKey }
+      const message = addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(content) })
+      this._broadcast({ type: 'agent_system_row', conversationId, messageId: message.id, ...content, timestamp: message.created_at })
+      return message.id
+    } catch (err) {
+      console.error(`[agent-chat] postSystemRow failed (${conversationId}):`, err)
+      return null
+    }
+  }
+
+  /**
+   * Start ONE automatic, app-authored turn through the normal path (queued
+   * behind a live turn, Flow-aware, accounted, interruptible). The durable
+   * queue id `turnKey` makes a repeat (reload, retry, restart) a no-op. It is
+   * rendered as a muted automatic briefing, never as the person's speech.
+   * Returns once admitted; the turn runs in the background. NEVER throws.
+   */
+  async startAutomaticTurn(conversationId: string, text: string, opts: { turnKey: string; label: string }): Promise<'started' | 'skipped'> {
+    if (this._disposed || !getAgentConversation(this._db, conversationId)) return 'skipped'
+    if (getAgentInput(this._db, conversationId, opts.turnKey)) return 'skipped'
+    const ref = { kind: FAILURE_BRIEFING_REF_KIND, id: opts.turnKey, label: opts.label, token: '', metadata: { automatic: true } } as unknown as AgentContextReference
+    void this.sendMessage(conversationId, text, { queueId: opts.turnKey, contextRefs: [ref] }).catch((err: unknown) =>
+      console.error(`[agent-chat] automatic turn failed (${conversationId}):`, err))
+    return 'started'
+  }
 
   /**
    * Dismiss a RUN-ONLY card (mission-rail-cards: a shared-cwd launch keyed on a

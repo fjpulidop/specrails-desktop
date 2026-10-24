@@ -370,14 +370,15 @@ describe('themes', () => {
       expect(ratio).toBeGreaterThanOrEqual(4.5)
     })
 
-    it('primary, ring-equivalent, and info share the saturated blue hue', () => {
+    it('primary and ring-equivalent share the saturated blue hue; info (running) is its own hue', () => {
       const t = THEMES['galaxy']
       // previewSwatches.accents[0] = primary; status.running = info; xterm's
       // cursor and blue/cyan ANSI slots also mirror primary (ring-equivalent).
+      // Running must not read as the primary action color.
       const primaryHue = hueOf(t.previewSwatches.accents[0])
       const infoHue = hueOf(t.status.running)
       const cursorHue = hueOf(t.xterm.cursor)
-      expect(Math.abs(primaryHue - infoHue)).toBeLessThanOrEqual(5)
+      expect(Math.abs(primaryHue - infoHue)).toBeGreaterThanOrEqual(10)
       expect(Math.abs(primaryHue - cursorHue)).toBeLessThanOrEqual(5)
     })
 

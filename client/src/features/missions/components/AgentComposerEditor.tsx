@@ -39,6 +39,11 @@ interface AgentComposerEditorProps {
   title?: string
   className?: string
   ariaLabel?: string
+  /** Combobox wiring for the `@ # /` palette (the editor owns focus, the
+   *  palette is its listbox). */
+  ariaExpanded?: boolean
+  ariaControls?: string
+  ariaActiveDescendant?: string
 }
 
 interface NodePosition {
@@ -213,7 +218,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     pill.setAttribute('contenteditable', 'false')
     pill.dataset.inlineReference = reference.key
     pill.dataset.token = reference.chip.token
-    pill.className = `mx-0.5 inline-flex max-w-[240px] items-center gap-1 align-middle rounded-full border px-2 py-0.5 text-[11px] select-none ${chipTone(reference.chip.kind)}`
+    pill.className = `mx-0.5 inline-flex max-w-[240px] items-center gap-1 align-middle rounded-full border px-2 py-0.5 text-caption select-none ${chipTone(reference.chip.kind)}`
     pill.title = [reference.chip.label, reference.chip.detail, reference.chip.projectName, reference.chip.status].filter(Boolean).join(' · ')
     const glyph = document.createElement('span')
     glyph.textContent = /^[#@/]/.test(reference.chip.token) ? reference.chip.token[0] : '@'
@@ -224,7 +229,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     pill.append(glyph, label)
     if (reference.chip.status) {
       const status = document.createElement('span')
-      status.className = 'text-foreground/40'
+      status.className = 'text-foreground/70'
       status.textContent = reference.chip.status
       pill.append(status)
     }
@@ -234,7 +239,7 @@ function renderContents(document: Document, value: string, references: AgentInli
     remove.disabled = disabled ?? false
     remove.dataset.removeReference = reference.key
     remove.setAttribute('aria-label', removeLabel(reference.chip.label))
-    remove.className = 'rounded-sm px-0.5 text-foreground/45 hover:bg-background/60 hover:text-foreground'
+    remove.className = 'rounded-sm px-0.5 text-foreground/70 hover:bg-background/60 hover:text-foreground'
     remove.textContent = '×'
     pill.append(remove)
     fragment.append(pill)
@@ -340,7 +345,14 @@ export const AgentComposerEditor = forwardRef<AgentComposerEditorHandle, AgentCo
       restoreHistory(inputKind === 'historyUndo' ? -1 : 1)
       return
     }
-    const state = read()
+    let state = read()
+    // Chromium leaves a sole <br> (or an empty block) behind after select-all +
+    // delete, which reads as "\n": an editor that looks empty must BE empty so
+    // the draft clears and the placeholder comes back.
+    if (state.references.length === 0 && /^\n+$/.test(state.value)) {
+      root.replaceChildren()
+      state = read()
+    }
     const selection: [number, number] = selectionOffsets(root, state) ?? [state.value.length, state.value.length]
     recordHistory({ value: state.value, references: state.references, selection }, pendingInputKind.current ?? inputKind)
     rememberSelection(selection)
@@ -448,6 +460,11 @@ export const AgentComposerEditor = forwardRef<AgentComposerEditorHandle, AgentCo
       role="textbox"
       aria-label={props.ariaLabel ?? props.placeholder}
       aria-multiline="true"
+      aria-autocomplete="list"
+      aria-haspopup="listbox"
+      aria-expanded={props.ariaExpanded ?? false}
+      aria-controls={props.ariaControls}
+      aria-activedescendant={props.ariaActiveDescendant}
       aria-disabled={props.disabled || undefined}
       data-agent-interactive
       contentEditable={!props.disabled}
@@ -455,7 +472,7 @@ export const AgentComposerEditor = forwardRef<AgentComposerEditorHandle, AgentCo
       data-placeholder={props.placeholder}
       data-empty={props.value.length === 0}
       title={props.title}
-      className={`whitespace-pre-wrap break-words outline-none data-[empty=true]:before:pointer-events-none data-[empty=true]:before:text-foreground/35 data-[empty=true]:before:content-[attr(data-placeholder)] ${props.className ?? ''}`}
+      className={`whitespace-pre-wrap break-words outline-none data-[empty=true]:before:pointer-events-none data-[empty=true]:before:text-muted-foreground data-[empty=true]:before:content-[attr(data-placeholder)] ${props.className ?? ''}`}
       onInput={(event) => reportInput((event.nativeEvent as InputEvent).inputType || 'insertText')}
       onCompositionStart={() => {
         composing.current = true

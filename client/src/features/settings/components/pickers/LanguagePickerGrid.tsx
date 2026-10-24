@@ -60,7 +60,7 @@ export function LanguagePickerGrid() {
           >
             <span className="min-w-0">
               <span className="block text-xs font-semibold truncate">{lang.nativeName}</span>
-              <span className="block text-[10px] text-muted-foreground truncate">
+              <span className="block text-xs text-muted-foreground truncate">
                 {lang.englishName}
               </span>
             </span>

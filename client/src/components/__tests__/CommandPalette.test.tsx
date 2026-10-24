@@ -377,7 +377,7 @@ describe('CommandPalette', () => {
     await user.click(screen.getByText('Implement'))
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Budget exceeded')
+      expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Budget exceeded' })
     })
   })
 
@@ -429,16 +429,20 @@ describe('CommandPalette', () => {
     render(<CommandPalette />)
 
     await user.keyboard('{Meta>}k{/Meta}')
+    // The sidebar toggles are registry actions now (QW1): find them by query.
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
-      expect(screen.getByText('Pin left sidebar open')).toBeInTheDocument()
+      // New users start with the left sidebar pinned open.
+      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Pin left sidebar open'))
+    await user.click(screen.getByText('Collapse left sidebar (keep pinned)'))
 
     // Palette closes; reopen and verify the label advanced one step in the cycle
     await user.keyboard('{Meta>}k{/Meta}')
+    await user.type(screen.getByPlaceholderText(/search/i), 'sidebar')
     await waitFor(() => {
-      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
+      expect(screen.getByText('Unpin left sidebar')).toBeInTheDocument()
     })
   })
 
@@ -454,5 +458,21 @@ describe('CommandPalette', () => {
       expect(screen.getByText('select')).toBeInTheDocument()
       expect(screen.getByText('close')).toBeInTheDocument()
     })
+  })
+
+  // ─── Accessibility (modal standard) ────────────────────────────────────────
+
+  it('names the dialog via a real Radix title (aria-labelledby is non-empty)', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = await screen.findByRole('dialog', { name: 'Search missions, projects and jobs' })
+    const labelledBy = dialog.getAttribute('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+    expect(document.getElementById(labelledBy!)).toHaveTextContent('Search missions, projects and jobs')
+    expect(dialog).toHaveAccessibleDescription(/press Enter to open the highlighted result/)
+    // Standard form-size panel on the shared scrim.
+    expect(dialog).toHaveClass('max-w-lg')
+    expect(document.querySelector('[cmdk-overlay]')).toHaveClass('modal-scrim')
   })
 })

@@ -44,6 +44,7 @@ import {
   countOutboxByState,
   deleteConnection,
   enqueueMany,
+  enqueueHeldUpdate,
   enqueueOutbox,
   getConnection,
   getDecryptedToken,
@@ -67,6 +68,22 @@ import {
   type EnqueueOutboxInput,
 } from './jira-db'
 import { resolveProjectExecution } from '../workspace-resolution'
+import { getProjectSettings } from '../db'
+import { appendSpecAddendum, buildSpecAddendum, parseSpecAddendumInput } from '../modules/specs/runtime/spec-addenda'
+import { hasClarificationContent, type RunClarificationsRecord } from '../modules/delivery/runtime/run-records'
+import {
+  buildClarificationsComment,
+  clarificationAddendumInput,
+  clarificationsCommentMarker,
+  clarificationsDigest,
+  clarificationThreadKind,
+  importedCommentIds,
+  insertClarificationThread,
+  listOpenClarificationThreads,
+  recordImportedReplies,
+  selectClarificationReplies,
+  type JiraCommentLike,
+} from './jira-clarifications'
 import type { DevStatusDataType, JiraClient as JiraClientT } from './jira-client'
 import type {
   JiraConnection,
@@ -720,7 +737,88 @@ export class JiraSyncManager {
 
     if (maxUpdated > (conn.highWaterMs ?? 0)) setHighWater(this.db, this.projectId, maxUpdated)
     if (totalUpserted > 0) this.broadcast({ type: 'jira.synced', projectId: this.projectId, upserted: totalUpserted, at: Date.now() })
+    await this.importClarificationReplies(client).catch((err) => console.error('[jira-sync] clarification replies failed:', err))
     return { upserted: totalUpserted }
+  }
+
+  // ─── Architect clarifications (feedback-2026-10 task 3.2) ─────────────────
+
+  /**
+   * A run's architect clarifications (Core `clarifications.json`): when the
+   * project enabled `jiraPostClarifications`, enqueue ONE comment per linked
+   * ticket with the questions the run paused on, or the assumptions it
+   * proceeded with. Idempotent per run, ticket and record content (a second
+   * pause with different questions posts again). Never throws.
+   */
+  onRunClarifications(runId: string, ticketIds: readonly number[], record: RunClarificationsRecord): number {
+    try {
+      if (!this.isActive() || !hasClarificationContent(record)) return 0
+      if (!getProjectSettings(this.db).jiraPostClarifications) return 0
+      const digest = clarificationsDigest(record)
+      const kind = clarificationThreadKind(record)
+      const text = buildClarificationsComment(record)
+      const now = new Date().toISOString()
+      const ops: EnqueueOutboxInput[] = []
+      for (const localId of new Set(ticketIds)) {
+        const link = getLinkByLocalId(this.db, localId)
+        if (!link || link.tombstoned) continue
+        const marker = clarificationsCommentMarker(runId, localId, digest)
+        const fresh = insertClarificationThread(this.db, { id: `${runId}:${localId}:${digest}`, run_id: runId, ticket_id: localId, jira_issue_id: link.jiraIssueId, kind, marker, created_at: now })
+        if (!fresh) continue
+        ops.push({
+          jiraIssueId: link.jiraIssueId,
+          opType: 'comment',
+          idempotencyKey: `${runId}:${localId}:comment:clarifications:${digest}`,
+          payload: { jiraIssueId: link.jiraIssueId, text, marker },
+        })
+      }
+      if (ops.length === 0) return 0
+      enqueueMany(this.db, ops)
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return ops.length
+    } catch (err) {
+      console.error('[jira-sync] onRunClarifications failed:', err)
+      return 0
+    }
+  }
+
+  /** Import human replies to posted clarifications as `clarification` addenda. */
+  async importClarificationReplies(client: Pick<JiraClient, 'getComments'>): Promise<number> {
+    let threads
+    try { threads = listOpenClarificationThreads(this.db) } catch { return 0 }
+    let imported = 0
+    for (const thread of threads) {
+      const res = await client.getComments(thread.jira_issue_id)
+      if (!res.ok) continue
+      const replies = selectClarificationReplies(res.data.comments as JiraCommentLike[], thread.marker, importedCommentIds(thread))
+      if (replies.length === 0) continue
+      const jiraKey = getLinkByLocalId(this.db, thread.ticket_id)?.jiraKey ?? null
+      try {
+        const file = resolveTicketStoragePath(this._artifactRoot())
+        let touched = false
+        const store = mutateStore(file, (s) => {
+          const ticket = s.tickets[String(thread.ticket_id)]
+          if (!ticket) return
+          for (const reply of replies) {
+            const input = parseSpecAddendumInput(clarificationAddendumInput(reply, jiraKey, thread.kind))
+            appendSpecAddendum(ticket, buildSpecAddendum(input, { createdBy: 'jira' }))
+            touched = true
+          }
+        })
+        // Recorded even when the ticket is gone, so a deleted spec is not retried forever.
+        recordImportedReplies(this.db, thread.id, replies.map((reply) => reply.commentId))
+        if (!touched) continue
+        imported += replies.length
+        this.notifyLocalWrite(store.revision)
+        const ticket = store.tickets[String(thread.ticket_id)]
+        if (ticket) this.broadcast({ type: 'ticket_updated', ticket: ticket as unknown as never, projectId: this.projectId, timestamp: ticket.updated_at } as WsMessage)
+      } catch (err) {
+        // A full addenda list (or a validation error) keeps the thread for a later poll.
+        console.error('[jira-sync] clarification reply import failed:', err)
+      }
+    }
+    return imported
   }
 
   // ─── Outbound write-back hooks ─────────────────────────────────────────────
@@ -804,6 +902,7 @@ export class JiraSyncManager {
   onSpecEdited(
     localId: number,
     changes: { title?: string; description?: string; priority?: string | null; labels?: string[] },
+    opts: { holdMs?: number } = {},
   ): void {
     if (!this.isActive()) return
     const link = getLinkByLocalId(this.db, localId)
@@ -811,14 +910,7 @@ export class JiraSyncManager {
     const conn = getConnection(this.db, this.projectId)
     if (!conn) return
 
-    const fields: Record<string, unknown> = {}
-    if (typeof changes.title === 'string' && changes.title.trim()) fields.summary = changes.title.trim().slice(0, 250)
-    if (typeof changes.description === 'string') fields.description = bodyForDeployment(changes.description, conn.deployment)
-    if (changes.labels !== undefined) fields.labels = (changes.labels ?? []).filter((l) => typeof l === 'string')
-    if (changes.priority) {
-      const name = PRIORITY_TO_JIRA[changes.priority]
-      if (name) fields.priority = { name }
-    }
+    const fields = this.specUpdateFields(changes, conn.deployment)
     if (Object.keys(fields).length === 0) return
 
     // A random component makes two saves of the same ticket inside one wall-clock
@@ -826,6 +918,20 @@ export class JiraSyncManager {
     // INSERT OR IGNORE silently drops the second edit while the local cache shows
     // it (local↔Jira divergence). randomUUID() guarantees uniqueness per op.
     const nonce = `${Date.now().toString(36)}:${randomUUID()}`
+    if (opts.holdMs && opts.holdMs > 0) {
+      // Undo window: the write waits, and an edit undone inside the window
+      // collapses with it so Jira never sees the transient value.
+      enqueueHeldUpdate(this.db, {
+        jiraIssueId: link.jiraIssueId,
+        idempotencyKey: `update:${localId}:${nonce}`,
+        fields,
+        holdMs: opts.holdMs,
+      })
+      this.broadcastOutboxState()
+      const timer = setTimeout(() => { void this.drainOnce().catch(() => undefined) }, opts.holdMs + 250)
+      timer.unref?.()
+      return
+    }
     enqueueMany(this.db, [
       {
         jiraIssueId: link.jiraIssueId,
@@ -836,6 +942,54 @@ export class JiraSyncManager {
     ])
     this.broadcastOutboxState()
     void this.drainOnce().catch(() => undefined)
+  }
+
+  /** The editable Jira fields of a spec edit (summary, description, labels, priority). */
+  private specUpdateFields(
+    changes: { title?: string; description?: string; priority?: string | null; labels?: string[] },
+    deployment: Parameters<typeof bodyForDeployment>[1],
+  ): Record<string, unknown> {
+    const fields: Record<string, unknown> = {}
+    if (typeof changes.title === 'string' && changes.title.trim()) fields.summary = changes.title.trim().slice(0, 250)
+    if (typeof changes.description === 'string') fields.description = bodyForDeployment(changes.description, deployment)
+    if (changes.labels !== undefined) fields.labels = (changes.labels ?? []).filter((l) => typeof l === 'string')
+    if (changes.priority) {
+      const name = PRIORITY_TO_JIRA[changes.priority]
+      if (name) fields.priority = { name }
+    }
+    return fields
+  }
+
+  /**
+   * Durable, IDEMPOTENT push of a linked spec's current summary, description,
+   * labels and priority to its existing issue (Flow settlement of a spec that
+   * already had an issue: the rewritten spec updates THAT issue, never a new
+   * one). The same `idempotencyKey` never enqueues twice; the pending op
+   * freezes the id so the inbound poll cannot revert the rewrite. Never throws.
+   */
+  enqueueSpecUpdate(localTicketId: number, idempotencyKey: string): 'enqueued' | 'not_linked' | 'inactive' | 'failed' {
+    try {
+      if (!this.isActive()) return 'inactive'
+      const link = getLinkByLocalId(this.db, localTicketId)
+      if (!link || link.tombstoned) return 'not_linked'
+      const conn = getConnection(this.db, this.projectId)
+      if (!conn) return 'inactive'
+      const ticket = readStore(resolveTicketStoragePath(this._artifactRoot())).tickets[String(localTicketId)]
+      if (!ticket) return 'failed'
+      const fields = this.specUpdateFields({ title: ticket.title, description: ticket.description ?? '', labels: ticket.labels ?? [], priority: ticket.priority }, conn.deployment)
+      enqueueMany(this.db, [{
+        jiraIssueId: link.jiraIssueId,
+        opType: 'update',
+        idempotencyKey,
+        payload: { jiraIssueId: link.jiraIssueId, fields },
+      }])
+      this.broadcastOutboxState()
+      void this.drainOnce().catch(() => undefined)
+      return 'enqueued'
+    } catch (err) {
+      console.error('[jira-sync] enqueueSpecUpdate failed:', err)
+      return 'failed'
+    }
   }
 
   /**

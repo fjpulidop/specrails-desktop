@@ -233,10 +233,10 @@ export function MilestoneGenerateShell({
 
   if (!generationAvailable) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
         <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
           <Hammer className="h-4 w-4 text-accent-primary" />
-          <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+          <h1 className="text-strong">{t('milestone.title', { label })}</h1>
           <button
             type="button"
             onClick={onClose}
@@ -258,10 +258,10 @@ export function MilestoneGenerateShell({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm" data-testid="milestone-shell">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background" data-testid="milestone-shell">
       <header className="flex items-center gap-2 border-b border-border/40 px-4 py-2.5">
         <Hammer className="h-4 w-4 text-accent-primary" />
-        <h1 className="text-sm font-semibold">{t('milestone.title', { label })}</h1>
+        <h1 className="text-strong">{t('milestone.title', { label })}</h1>
         {milestone && <span className="text-xs text-muted-foreground">{milestone.title}</span>}
         <button
           type="button"
@@ -291,7 +291,7 @@ export function MilestoneGenerateShell({
             {streamBuffer !== null && (
               <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-surface/70 px-3 py-2 text-xs leading-relaxed">
                 {cutUnterminatedBlock(streamBuffer)}
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-accent-primary/70 align-middle" />
+                <span className="ml-0.5 inline-block h-3 w-1.5 motion-safe:animate-pulse bg-accent-primary/70 align-middle" />
               </div>
             )}
             {generation.generating && (
@@ -312,7 +312,7 @@ export function MilestoneGenerateShell({
               placeholder={t('milestone.inputPlaceholder')}
               className="min-h-[2.5rem] flex-1 resize-none rounded-md border border-border/40 bg-surface/50 px-3 py-2 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId}>
+            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId} aria-label={t('milestone.send')}>
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
           </div>

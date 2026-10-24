@@ -10,30 +10,36 @@
       "pinnedOpen": "Rechte Seitenleiste einklappen (angepinnt lassen)",
       "pinnedCollapsed": "Rechte Seitenleiste lösen",
       "unpinned": "Rechte Seitenleiste offen anpinnen"
-    }
+    },
+    "resize": "Seitenleiste skalieren"
   },
   "projects": {
     "addProject": "Projekt hinzufügen",
     "remove": "{{name}} entfernen",
     "confirmRemove": "Entfernen von {{name}} bestätigen",
-    "confirmShort": "bestätigen?",
+    "confirmShort": "Entfernen?",
     "added": "Projekt hinzugefügt: {{name}}",
     "removed": "Projekt entfernt",
     "expand": "{{name}} aufklappen",
     "collapse": "{{name}} einklappen",
     "settings": "Einstellungen für {{name}}",
     "assembling": "Workspace wird eingerichtet…",
-    "assembleFailed": "Workspace-Einrichtung fehlgeschlagen — zum Wiederholen klicken"
+    "assembleFailed": "Workspace-Einrichtung fehlgeschlagen — zum Wiederholen klicken",
+    "retrySetup": "Einrichtung wiederholen"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Doku",
-    "analytics": "Analytics",
+    "analytics": "Analytics aller Projekte",
     "companion": "Companion",
-    "settings": "Einstellungen",
+    "settings": "App-Einstellungen",
     "plugins": "Plugins",
-    "review": "Review"
+    "review": "Review",
+    "landmark": "Projekte und Missionen",
+    "resize": "Seitenleiste skalieren",
+    "sectionTools": "Arbeitsbereich",
+    "sectionProjects": "Projekte"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops ist als Mission-Modal geöffnet.",
@@ -48,7 +54,8 @@
     "agents": "Agenten",
     "code": "Code",
     "integrations": "Integrationen",
-    "settings": "Einstellungen"
+    "settings": "Projekteinstellungen",
+    "landmark": "Projektnavigation"
   },
   "navbar": {
     "home": "Start",
@@ -72,7 +79,14 @@
     "minimizeWindow": "Fenster minimieren",
     "maximizeWindow": "Fenster maximieren",
     "closeWindow": "Fenster schließen",
-    "restoreWindow": "Fenster wiederherstellen"
+    "restoreWindow": "Fenster wiederherstellen",
+    "history": "Navigationsverlauf",
+    "back": "Zurück",
+    "forward": "Vor",
+    "backTo": "Zurück zu {{place}}",
+    "forwardTo": "Vor zu {{place}}",
+    "backMenu": "Vorherige Orte",
+    "forwardMenu": "Nächste Orte"
   },
   "costAlerts": {
     "costAlertTitle": "Kostenwarnung",
@@ -86,7 +100,9 @@
   },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
-    "occurredIn": "In <strong>{{name}}</strong> ist ein Fehler aufgetreten"
+    "occurredIn": "In <strong>{{name}}</strong> ist ein Fehler aufgetreten",
+    "description": "Diese Ansicht funktioniert nicht mehr. Versuche es erneut, um sie neu zu laden; deine übrige Arbeit ist nicht betroffen.",
+    "details": "Technische Details"
   },
   "healthWidget": {
     "healthLabel": "Health",
@@ -123,5 +139,41 @@
     "active": "Verhindert automatischen Ruhezustand. Der Bildschirm darf ausgehen.",
     "inactive": "Normaler Ruhezustand erlaubt.",
     "failed": "Ruhezustand konnte nicht geändert werden."
+  },
+  "skipToContent": "Zum Hauptinhalt springen",
+  "places": {
+    "routes": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "analytics": "Analysen",
+      "activity": "Aktivität",
+      "agents": "Agenten",
+      "code": "Code",
+      "integrations": "Integrationen",
+      "settings": "Projekteinstellungen",
+      "docs": "Dokumentation",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Mission",
+    "missionTitled": "Mission · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Review-Paket",
+    "inbox": "Offen",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Dokumentation",
+      "analytics": "Analysen aller Projekte"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Diese Spec existiert nicht mehr und wurde übersprungen.",
+      "mission": "Diese Mission existiert nicht mehr und wurde übersprungen.",
+      "job": "Dieser Job existiert nicht mehr und wurde übersprungen.",
+      "review": "Dieses Review-Paket existiert nicht mehr und wurde übersprungen."
+    }
   }
 }

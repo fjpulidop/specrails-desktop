@@ -1,4 +1,6 @@
+import { PageHeader } from '../../../components/ui/page-header'
 import { toast } from 'sonner'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { isPluginWindowRoute, openPluginWindow } from '../lib/plugin-windows'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import {
@@ -22,7 +24,9 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Button } from '../../../components/ui/button'
+import { Switch } from '../../../components/ui/switch'
 import { JiraConnectWizard } from '../../integrations/components/jira/JiraConnectWizard'
 import { JiraConnectedCard } from '../../integrations/components/jira/JiraConnectedCard'
 import { API_ORIGIN } from '../../../lib/origin'
@@ -31,6 +35,7 @@ import { projectProviders, useDesktop, type DesktopProject } from '../../../hook
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { ConnectionState } from '../../integrations/lib/jira-api'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
+import { EmptyState } from '../../../components/ui/empty-state'
 
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
@@ -247,7 +252,7 @@ function formatTokenCount(value: number, locale: string, tokenLabel: string): st
   return `${formatCompactNumber(value, locale)} ${tokenLabel}`
 }
 
-export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () => void } = {}) {
+export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWindowOpened?: () => void; inDialog?: boolean } = {}) {
   const { t } = useTranslation('integrations')
   const { projects } = useDesktop()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
@@ -423,28 +428,33 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
     projectSummary.jira > 0,
     projectSummary.serena > 0,
   ].filter(Boolean).length
+  // A plugin with an open issue is counted as needing attention, not as ready.
+  const attentionCount = headroom.installed && headroom.lastIssue ? 1 : 0
+  const readyCount = Math.max(0, installedCount - attentionCount)
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="border-b border-border px-6 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-primary/25 bg-accent-primary/10 text-accent-primary">
-            <Puzzle className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-normal">{t('plugins.page.title')}</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {t('plugins.page.subtitle')}
-            </p>
-          </div>
-          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted">
-            <ExternalLink className="h-3.5 w-3.5" />{t('plugins.page.openWindow')}
+      <div className="border-b border-border px-4 py-4">
+        <PageHeader
+          titleHidden={inDialog}
+          title={t('plugins.page.title')}
+          description={t('plugins.page.subtitle')}
+          actions={<>
+          {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch((error: unknown) => toast.error(t('plugins.page.openWindowFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />{t('plugins.page.openWindow')}
           </button>}
-          <div className="mr-12 flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
-            <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: installedCount })}</span>
+            <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: readyCount })}</span>
           </div>
-        </div>
+          {attentionCount > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs" data-testid="plugins-attention-count">
+              <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" aria-hidden />
+              <span className="text-muted-foreground">{t('plugins.page.attentionCount', { count: attentionCount })}</span>
+            </div>
+          )}
+          </>}
+        />
 
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
           <label className="relative flex-1">
@@ -453,17 +463,36 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('plugins.search.placeholder')}
-              className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent-primary/60"
+              aria-label={t('plugins.search.placeholder')}
+              className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
-          <div className="inline-flex h-9 rounded-lg border border-border bg-card p-1">
+          <div
+            role="radiogroup"
+            aria-label={t('plugins.filters.label')}
+            className="inline-flex h-9 rounded-lg border border-border bg-card p-1"
+            onKeyDown={(e) => {
+              const order: ScopeFilter[] = ['all', 'global', 'project']
+              const idx = order.indexOf(scope)
+              const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+              if (!delta) return
+              e.preventDefault()
+              const next = order[(idx + delta + order.length) % order.length]
+              setScope(next)
+              document.getElementById(`plugins-scope-${next}`)?.focus()
+            }}
+          >
             {(['all', 'global', 'project'] as ScopeFilter[]).map((value) => (
               <button
                 key={value}
+                id={`plugins-scope-${value}`}
                 type="button"
+                role="radio"
+                aria-checked={scope === value}
+                tabIndex={scope === value ? 0 : -1}
                 onClick={() => setScope(value)}
                 className={cn(
-                  'rounded-md px-3 text-xs capitalize transition-colors',
+                  'rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   scope === value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -474,12 +503,12 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 py-5">
+      <div className="flex-1 overflow-auto px-4 py-5">
         <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
+          <h2 className="mb-3 flex items-center gap-2 text-strong">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.installed')}
-          </div>
+          </h2>
           {hasInstalledMatches ? (
             <PluginSectionGroups
               globalPlugins={installedGlobalCatalog}
@@ -491,10 +520,10 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
         </section>
 
         <section>
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Puzzle className="h-3.5 w-3.5" />
+          <h2 className="mb-3 flex items-center gap-2 text-strong">
+            <Puzzle className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             {t('plugins.sections.available')}
-          </div>
+          </h2>
 
           {hasAvailableMatches ? (
             <PluginSectionGroups
@@ -508,13 +537,14 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
       </div>
 
       <Dialog open={headroomOpen} onOpenChange={setHeadroomOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl overflow-x-hidden p-4 sm:p-6">
+        <DialogContent size="wide">
           <DialogHeader>
             <DialogTitle>{t('plugins.headroom.title')}</DialogTitle>
             <DialogDescription>
               {t('plugins.headroom.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
+          <DialogBody className="overflow-x-hidden">
           <HeadroomPanel
             state={headroom}
             loading={loadingHeadroom}
@@ -554,6 +584,7 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
             )}
             onOpenDiagnostics={() => setDiagnosticsOpen(true)}
           />
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -614,21 +645,7 @@ function PluginSectionGroups({
 
 function PluginEmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-[74px] max-w-[320px] items-center rounded-lg border border-dashed border-border bg-card/35 px-3 text-xs text-muted-foreground">
-      {text}
-    </div>
-  )
-}
-
-function ScopeBadge({ scope }: { scope: 'global' | 'project' }) {
-  const { t } = useTranslation('integrations')
-  return (
-    <span className={cn(
-      'rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide',
-      scope === 'global' ? 'bg-accent-primary/10 text-accent-primary' : 'bg-accent-info/10 text-accent-info',
-    )}>
-      {t(`plugins.scope.${scope}`)}
-    </span>
+    <EmptyState title={text} className="max-w-[320px] py-5 bg-card/35" />
   )
 }
 
@@ -648,9 +665,8 @@ function PluginGroupHeader({
         scope === 'global' ? 'bg-accent-primary/30' : 'bg-accent-info/30',
       )} />
       <div className="flex items-center gap-2 rounded-md border border-border bg-card/70 px-2 py-1">
-        <ScopeBadge scope={scope} />
-        <span className="text-xs font-medium">{title}</span>
-        <span className="hidden text-[11px] text-muted-foreground sm:inline">{detail}</span>
+        <span className="text-label">{title}</span>
+        <span className="hidden text-xs text-muted-foreground sm:inline">{detail}</span>
       </div>
       <div className={cn(
         'h-px flex-1',
@@ -658,6 +674,13 @@ function PluginGroupHeader({
       )} />
     </div>
   )
+}
+
+/** Busy label per card action (the old single "Installing" read wrong for configure/review). */
+const BUSY_LABEL_KEY: Record<CatalogPlugin['actionKind'], string> = {
+  install: 'plugins.actions.installBusy',
+  manage: 'plugins.actions.configureBusy',
+  review: 'plugins.actions.reviewBusy',
 }
 
 function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
@@ -673,7 +696,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         ? AlertTriangle
         : Settings2
   const statusClassName = cn(
-    'shrink-0 rounded border px-1.5 py-0.5 text-[10px] leading-none',
+    'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-caption leading-none',
     isAttention
       ? 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
       : plugin.installed
@@ -692,21 +715,20 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold leading-5">{plugin.title}</h2>
-        <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground">{plugin.description}</p>
+        <h3 className="truncate text-strong leading-5">{plugin.title}</h3>
+        <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">{plugin.description}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
-          <ScopeBadge scope={plugin.scope} />
-          <span className={statusClassName}>{plugin.statusLabel}</span>
+          <span data-chip="" className={statusClassName}>{plugin.statusLabel}</span>
         </div>
       </div>
       <button
         type="button"
         disabled={plugin.busy}
         onClick={plugin.action}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-label transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
-        <ActionIcon className={cn('h-3.5 w-3.5', plugin.busy && 'animate-spin')} />
-        {plugin.busy ? t('plugins.actions.installing') : plugin.actionLabel}
+        <ActionIcon className={cn('h-3.5 w-3.5', plugin.busy && 'motion-safe:animate-spin')} aria-hidden />
+        {plugin.busy ? t(BUSY_LABEL_KEY[plugin.actionKind]) : plugin.actionLabel}
       </button>
     </article>
   )
@@ -752,7 +774,7 @@ function HeadroomPanel({
           <PlugZap className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">{t('plugins.headroom.title')}</h2>
+          <h2 className="text-strong">{t('plugins.headroom.title')}</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {t('plugins.headroom.panelDescription')}
           </p>
@@ -784,7 +806,7 @@ function HeadroomPanel({
           type="button"
           disabled={!!busy}
           onClick={onInstall}
-          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 text-xs font-medium text-white disabled:opacity-50"
+          className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-label text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           {busy === 'install' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {t('plugins.headroom.actions.installWithUv')}
@@ -824,7 +846,7 @@ function HeadroomPanel({
       {state.installed && <HeadroomMetricsPanel state={state} />}
 
       <div className="mb-4 rounded-lg border border-border bg-background/45 p-3">
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('plugins.headroom.port.label')}</label>
+        <label className="mb-1 block text-label text-muted-foreground">{t('plugins.headroom.port.label')}</label>
         <div className="flex gap-2">
           <input
             value={portDraft}
@@ -843,7 +865,7 @@ function HeadroomPanel({
       </div>
 
       {logs.length > 0 && (
-        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-[10px] text-muted-foreground">
+        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-xs text-muted-foreground">
           {logs.join('\n')}
         </pre>
       )}
@@ -864,14 +886,14 @@ function HeadroomPanel({
               type="button"
               disabled={!!busy}
               onClick={() => setConfirmUninstall(true)}
-              className="flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              className="flex h-8 w-full items-center justify-center gap-2 rounded-md text-label text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {externalInstall ? t('plugins.headroom.actions.detachHeadroom') : t('plugins.headroom.actions.uninstallHeadroom')}
             </button>
           ) : (
             <div className="space-y-2">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {externalInstall
                   ? t('plugins.headroom.confirmDetach')
                   : t('plugins.headroom.confirmUninstall')}
@@ -889,7 +911,7 @@ function HeadroomPanel({
                   type="button"
                   disabled={!!busy}
                   onClick={onUninstall}
-                  className="flex h-8 items-center justify-center gap-2 rounded-md bg-destructive px-2 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                  className="flex h-8 items-center justify-center gap-2 rounded-md bg-destructive px-2 text-label text-destructive-foreground disabled:opacity-50"
                 >
                   {busy === 'uninstall' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {externalInstall ? t('plugins.headroom.actions.detach') : t('plugins.headroom.actions.uninstall')}
@@ -906,7 +928,7 @@ function HeadroomPanel({
 function Metric({ label, value, good }: { label: string; value: string; good: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-background/45 p-2">
-      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn('mt-0.5 font-medium', good ? 'text-foreground' : 'text-accent-warning')}>{value}</div>
     </div>
   )
@@ -923,9 +945,9 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
         <div className="min-w-0">
-          <div className="text-xs font-medium">{title}</div>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{guidance}</p>
-          <div className="mt-1 text-[10px] text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
+          <div className="text-label">{title}</div>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{guidance}</p>
+          <div className="mt-1 text-xs text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
         </div>
       </div>
     </div>
@@ -967,10 +989,10 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <BarChart3 className="h-3.5 w-3.5 text-accent-primary" />
-          <div className="truncate text-xs font-medium">{t('plugins.headroom.savings.title')}</div>
+          <div className="truncate text-label">{t('plugins.headroom.savings.title')}</div>
         </div>
-        <span className={cn(
-          'shrink-0 rounded border px-1.5 py-0.5 text-[10px]',
+        <span data-chip="" className={cn(
+          'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-caption',
           statusEmphasis
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
             : hasActiveProvider
@@ -982,7 +1004,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
       </div>
 
       <div className="mb-2 rounded-md bg-muted/35 px-2.5 py-2">
-        <div className="mb-1.5 text-[10px] font-medium uppercase text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
+        <div className="mb-1.5 text-label text-muted-foreground">{t('plugins.headroom.savings.totals')}</div>
         <div className="grid grid-cols-2 gap-3">
           <TokenStatsColumn
             label={t('plugins.headroom.savings.input')}
@@ -1008,7 +1030,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         ))}
       </div>
 
-      <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
         {metrics.updatedAt
           ? t('plugins.headroom.savings.updatedLive')
           : t('plugins.headroom.savings.baselineSamples', { count: state.learning.baselineSamples })}
@@ -1033,8 +1055,8 @@ function TokenStatsColumn({
   const { t } = useTranslation('integrations')
   return (
     <div className={cn('min-w-0', align === 'right' && 'text-right')}>
-      <div className="text-[10px] font-medium uppercase text-muted-foreground">{label}</div>
-      <div className="mt-1 space-y-0.5 text-[11px]">
+      <div className="text-label text-muted-foreground">{label}</div>
+      <div className="mt-1 space-y-0.5 text-xs">
         <div className="flex min-w-0 items-baseline justify-between gap-2">
           <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.processed')}</span>
           <span className="truncate font-semibold tabular-nums text-foreground">{processed}</span>
@@ -1044,7 +1066,7 @@ function TokenStatsColumn({
           <span className="truncate font-semibold tabular-nums text-foreground">{saved}</span>
         </div>
       </div>
-      {detail && <div className="mt-1 truncate text-[10px] text-muted-foreground">{detail}</div>}
+      {detail && <div className="mt-1 truncate text-xs text-muted-foreground">{detail}</div>}
     </div>
   )
 }
@@ -1084,14 +1106,14 @@ function ProviderMetricRow({
       muted && 'opacity-70',
     )}>
       <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-xs font-medium">{metric.label}</span>
+          <span className="text-label">{metric.label}</span>
           {metric.detectedRoute && (
-            <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-[9px] uppercase text-accent-primary">
+            <span data-chip="" className="inline-flex h-5 items-center rounded bg-accent-primary/10 px-1.5 text-caption font-medium text-accent-primary">
               {t('plugins.headroom.savings.detected')}
             </span>
           )}
       </div>
-      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{detail}</div>
+      <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>
 
       <div className="mt-2 grid grid-cols-2 gap-3">
         <TokenStatsColumn
@@ -1134,26 +1156,35 @@ function ProviderToggle({
         ? t('plugins.headroom.provider.detectedExternalRoute')
         : t('plugins.headroom.provider.notRouted')
 
+  const labelId = `headroom-provider-${provider}-label`
+  const statusId = `headroom-provider-${provider}-status`
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy || !available}
-      className="flex w-full items-center gap-3 rounded-lg border border-border bg-background/45 p-3 text-left hover:bg-muted/35 disabled:opacity-50"
+    <div
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg border border-border bg-background/45 p-3 text-left',
+        (busy || !available) && 'opacity-50',
+      )}
     >
       <div className={cn('grid h-8 w-8 place-items-center rounded-md', active ? 'bg-accent-success/15 text-accent-success' : 'bg-muted text-muted-foreground')}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe2 className="h-3.5 w-3.5" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium capitalize">{provider}</div>
-        <div className="text-[11px] text-muted-foreground">
+        <div id={labelId} className="text-label capitalize">{provider}</div>
+        <div id={statusId} className="text-xs text-muted-foreground">
           {statusText}
         </div>
       </div>
-      <span className={cn('h-5 w-9 rounded-full p-0.5 transition-colors', active ? 'bg-accent-success' : 'bg-muted')}>
-        <span className={cn('block h-4 w-4 rounded-full bg-white shadow transition-transform', active && 'translate-x-4')} />
-      </span>
-    </button>
+      <Switch
+        checked={active}
+        onCheckedChange={() => onClick()}
+        disabled={busy || !available}
+        aria-labelledby={labelId}
+        aria-describedby={statusId}
+        onClassName="bg-accent-success"
+        className="disabled:opacity-100"
+      />
+    </div>
   )
 }
 
@@ -1173,16 +1204,17 @@ function ProjectPluginWizard({
 
   return (
     <Dialog open={!!plugin} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl overflow-x-hidden p-4 sm:p-6">
+      <DialogContent size="workspace">
         <DialogHeader>
           <DialogTitle>{plugin === 'jira' ? t('plugins.projectWizard.configureJira') : t('plugins.projectWizard.installSerena')}</DialogTitle>
           <DialogDescription>
             {t('plugins.projectWizard.description')}
           </DialogDescription>
         </DialogHeader>
+        <DialogBody className="overflow-x-hidden">
         <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
           <div className="rounded-lg border border-border bg-card/70 p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
+            <div className="mb-2 text-label text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
             <div className="max-h-[52vh] space-y-1 overflow-auto">
               {projects.map((project) => {
                 const disabled = plugin === 'serena' &&
@@ -1199,12 +1231,10 @@ function ProjectPluginWizard({
                       disabled && 'cursor-not-allowed opacity-45',
                     )}
                   >
-                    <div className="truncate text-xs font-medium">{project.name}</div>
-                    <div className="truncate text-[10px]">
+                    <div className="truncate text-label">{project.name}</div>
+                    <div className="truncate text-xs">
                       {disabled
-                        ? t('plugins.projectWizard.requiresSupportedProvider', {
-                            defaultValue: 'Requires Claude or Codex',
-                          })
+                        ? t('plugins.projectWizard.requiresSupportedProvider')
                         : project.path}
                     </div>
                   </button>
@@ -1224,6 +1254,7 @@ function ProjectPluginWizard({
             )}
           </div>
         </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )
@@ -1257,8 +1288,8 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {t('plugins.jira.loading', { defaultValue: 'Loading Jira...' })}
+        <RailTrack running className="w-16 shrink-0" />
+        {t('plugins.jira.loading')}
       </div>
     )
   }
@@ -1267,9 +1298,9 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
     return (
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+          <h3 className="text-strong">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {t('plugins.jira.configuredDescription', { defaultValue: 'Manage the Jira project, status mapping, discard status, sync, and connection state.' })}
+            {t('plugins.jira.configuredDescription')}
           </p>
         </div>
         <JiraConnectedCard
@@ -1284,11 +1315,11 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">{t('plugins.jira.titleForProject', { name: project.name, defaultValue: `Jira for ${project.name}` })}</h3>
+        <h3 className="text-strong">{t('plugins.jira.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           {error
-            ? t('plugins.jira.loadFailed', { message: error, defaultValue: `Could not load the current Jira configuration: ${error}` })
-            : t('plugins.jira.notConfiguredDescription', { defaultValue: 'Connect this project to Jira.' })}
+            ? t('plugins.jira.loadFailed', { message: error })
+            : t('plugins.jira.notConfiguredDescription')}
         </p>
       </div>
       <JiraConnectWizard
@@ -1374,21 +1405,21 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
     : plugin?.description
 
   if (!plugin && !error) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('plugins.serena.loading')}</div>
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground"><RailTrack running className="w-16 shrink-0" /> {t('plugins.serena.loading')}</div>
   }
 
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">{t('plugins.serena.titleForProject', { name: project.name })}</h3>
+        <h3 className="text-strong">{t('plugins.serena.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{t('plugins.serena.description')}</p>
       </div>
       <label className="block space-y-1">
-        <span className="text-xs font-medium">
-          {t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+        <span className="text-label">
+          {t('plugins.serena.provider')}
         </span>
         <select
-          aria-label={t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+          aria-label={t('plugins.serena.provider')}
           value={providerId}
           disabled={busy}
           onChange={(event) => {
@@ -1405,14 +1436,14 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
       </label>
       {plugin && (
         <div className="rounded-lg border border-border bg-background/45 p-3">
-          <div className="text-xs font-medium">{t('plugins.serena.status', { status: pluginStatusLabel })}</div>
+          <div className="text-label">{t('plugins.serena.status', { status: pluginStatusLabel })}</div>
           {pluginDescription && <p className="mt-1 text-xs text-muted-foreground">{pluginDescription}</p>}
         </div>
       )}
       {preview && (
         <div className="space-y-3">
           <div>
-            <div className="mb-1 text-xs font-medium">{t('plugins.serena.files')}</div>
+            <div className="mb-1 text-label">{t('plugins.serena.files')}</div>
             <ul className="space-y-1 text-xs font-mono">
               {preview.files.map((file) => (
                 <li key={file.path} className={file.op === 'create' ? 'text-accent-success' : 'text-accent-info'}>
@@ -1422,7 +1453,7 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
             </ul>
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium">{t('plugins.serena.prerequisites')}</div>
+            <div className="mb-1 text-label">{t('plugins.serena.prerequisites')}</div>
             <ul className="space-y-1 text-xs">
               {preview.requirements.map((req) => {
                 const ok = req.installed && req.executable && req.meetsMinimum
@@ -1441,15 +1472,15 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onDone} className="rounded-md border border-border px-3 py-1.5 text-xs">{t('plugins.actions.cancel')}</button>
-        <button
+        <Button
           type="button"
           disabled={busy || plugin?.status !== 'not-installed' || !prereqsOk}
           onClick={install}
-          className="flex items-center gap-2 rounded-md bg-accent-primary px-3 py-1.5 text-xs text-white disabled:opacity-50"
+          className="gap-2"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {t('plugins.actions.install')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1467,16 +1498,18 @@ function DiagnosticsDialog({ open, onClose }: { open: boolean; onClose: () => vo
   }, [open])
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Settings2 className="h-4 w-4" /> {t('plugins.diagnostics.title')}</DialogTitle>
+      <DialogContent size="wide">
+        <DialogHeader icon={<Settings2 />}>
+          <DialogTitle>{t('plugins.diagnostics.title')}</DialogTitle>
           <DialogDescription>
             {t('plugins.diagnostics.description')}
           </DialogDescription>
         </DialogHeader>
-        <pre className="max-h-[62vh] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-3 text-xs">
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <DialogBody>
+          <pre className="overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-3 text-xs">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

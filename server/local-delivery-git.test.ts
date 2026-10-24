@@ -113,8 +113,22 @@ describe('real Git local delivery acceptance', () => {
     expect(getPrDelivery(db, row.id)?.decision).toBe('merged')
   })
 
-  it.each(['tracked', 'untracked', 'ignored'] as const)('preserves a %s collision and can retry after the conflicting work is saved', async (kind) => {
-    const file = kind === 'tracked' ? 'tracked.txt' : kind === 'ignored' ? 'cache/collision.txt' : 'collision.txt'
+  it.each(['tracked', 'untracked'] as const)('saves a %s collision as a stash, integrates, and keeps the person\'s work in it', async (kind) => {
+    const file = kind === 'tracked' ? 'tracked.txt' : 'collision.txt'
+    const sha = feature('feat/delivery', file)
+    const row = delivery('feat/delivery', sha)
+    write(file, 'precious local work\n')
+    const result = await integrate(row.id)
+    expect(result).toMatchObject({ status: 200, body: { decision: 'merged', localChanges: { state: 'needs_attention' } } })
+    expect(read(file)).toBe('implemented\n')
+    const stash = git(['stash', 'list', '--format=%H'])
+    const shown = git(['show', kind === 'tracked' ? `${stash}:${file}` : `${stash}^3:${file}`])
+    expect(shown).toBe('precious local work')
+    expect(getPrDelivery(db, row.id)?.status_code).toBe('local_changes_attention')
+  })
+
+  it('preserves an ignored collision (never stashed) and can retry after the conflicting work is saved', async () => {
+    const file = 'cache/collision.txt'
     const sha = feature('feat/delivery', file)
     const row = delivery('feat/delivery', sha)
     write(file, 'precious local work\n')
@@ -123,10 +137,10 @@ describe('real Git local delivery acceptance', () => {
     expect(result).toMatchObject({ status: 409, body: { error: 'merge_local_blocked', reason: 'dirty' } })
     expect(git(['rev-parse', 'HEAD'])).toBe(before)
     expect(read(file)).toBe('precious local work\n')
+    expect(git(['stash', 'list'])).toBe('')
     expect(getPrDelivery(db, row.id)?.decision).toBe('on_review')
     // Simulate the user saving the conflicting file elsewhere before retry.
     fs.renameSync(path.join(repo, file), path.join(root, 'saved-work.txt'))
-    if (kind === 'tracked') git(['restore', '--', file])
     expect((await integrate(row.id)).status).toBe(200)
     expect(read('saved-work.txt', root)).toBe('precious local work\n')
     expect(read(file)).toBe('implemented\n')

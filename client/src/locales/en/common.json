@@ -33,7 +33,8 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "viewAll": "View all",
-    "learnMore": "Learn more"
+    "learnMore": "Learn more",
+    "clear": "Clear"
   },
   "states": {
     "loading": "Loading…",
@@ -82,10 +83,13 @@
     "cleanup_incomplete": "Cleanup incomplete",
     "status_failed": "Worktree status check failed",
     "ref_mismatch": "Branch reference mismatch",
-    "restart_pending": "Waiting for workflow recovery"
+    "restart_pending": "Waiting for workflow recovery",
+    "review_changes_requested": "Reviewer requested changes",
+    "returned_to_flow": "Returned to Flow",
+    "local_changes_attention": "Integrated — local changes need attention"
   },
   "prRecovery": {
-    "inProgress": "Project recovery is still in progress. Your delivery is safe — retry in a moment.",
+    "inProgress": "Project recovery is still in progress. Your delivery is safe. Retry in a moment.",
     "interrupted": "A previous delivery action was interrupted during restart. Your work was preserved; review the current state and retry when ready."
   },
   "modal": {
@@ -129,7 +133,8 @@
     "workspacePath": "Code workspace path",
     "workspaceHint": "Optional. One directory per line, absolute or relative to this repository. Empty uses the repository folder. Implement, Quick SDD and Freestyle verify each listed code workspace.",
     "launchWorkspaces": "Workspaces for this run",
-    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository."
+    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository.",
+    "advanced": "Multi-repository setup"
   },
   "repositoryDelivery": {
     "building": "Building",
@@ -161,5 +166,73 @@
     "reached_one": "Review limit reached: {{count}} delivery is waiting for review (limit {{limit}}). Nothing was launched.",
     "reached_other": "Review limit reached: {{count}} deliveries are waiting for review (limit {{limit}}). Nothing was launched.",
     "action": "Decide a pending delivery (Create PR, merge or discard) or raise the limit in Project settings ▸ Review limit."
+  },
+  "initialCommit": {
+    "action": "Create initial commit",
+    "creating": "Creating initial commit…",
+    "createdRelaunch": "Initial commit created. Launch the rail again.",
+    "errors": {
+      "git_identity_missing": "Git has no author identity. Set user.name and user.email first.",
+      "repository_has_commits": "This repository already has commits.",
+      "generic": "The initial commit could not be created."
+    }
+  },
+  "loopChip": {
+    "implement": "Implement",
+    "sddQuick": "SDD Quick",
+    "freestyle": "Freestyle",
+    "flowSpec": "Flow hand-off",
+    "unknown": "Loop",
+    "title": "Loop: {{name}}"
+  },
+  "estimated": "estimated",
+  "help": {
+    "learnMore": "Learn more",
+    "learnMoreAbout": "Learn more about {{topic}}",
+    "topics": {
+      "themes": "themes and appearance",
+      "codeExplorer": "the code explorer",
+      "integratedTerminal": "the integrated terminal",
+      "agents": "agents",
+      "aiProviders": "AI providers",
+      "mcpServer": "the MCP server",
+      "mobileCompanion": "the mobile companion",
+      "plugins": "plugins",
+      "existingProjects": "working in an existing project",
+      "projectRules": "project rules",
+      "updates": "updates",
+      "providerCapabilities": "provider capabilities",
+      "projectEnvironment": "the project environment",
+      "telemetry": "pipeline telemetry",
+      "dailyBudget": "daily budgets",
+      "recentlyDeleted": "recently deleted items",
+      "railLoops": "what a rail runs",
+      "flowMode": "Flow",
+      "flowHandOff": "handing off a Flow",
+      "contextScope": "the context slider",
+      "launchForecast": "the launch forecast",
+      "loopBuilder": "the Loop Builder",
+      "shortcuts": "keyboard shortcuts",
+      "inbox": "the Needs you inbox",
+      "specsBoard": "specs and the backlog"
+    }
+  },
+  "forecast": {
+    "label": "Launch forecast",
+    "usually": "Usually {{time}} · {{cost}} for runs like this",
+    "usuallyTime": "Usually {{time}} for runs like this",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Not enough history yet",
+    "insufficientHint": "Needs at least {{count}} finished runs like this in this project and engine.",
+    "estimateHint": "Estimate from {{count}} past runs — not billed cost",
+    "estimateHintCost": "Estimate from {{count}} past runs (cost from {{costCount}}) — not billed cost",
+    "budgetCaution": "May pause at budget",
+    "budgetReached": "Daily budget reached",
+    "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily budget. Open budget settings.",
+    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings.",
+    "launchOverBudget": "Today’s budget is used up. The run will pause until it resets. Launch anyway?",
+    "launchAnyway": "Launch anyway",
+    "perSpec": "per spec"
   }
 }

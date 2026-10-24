@@ -2,7 +2,6 @@
   "statusLabel": {
     "running": "実行中",
     "completed": "完了",
-    "done": "完了",
     "failed": "失敗",
     "canceled": "キャンセル",
     "queued": "待機中",
@@ -30,12 +29,13 @@
   },
   "page": {
     "title": "ジョブ",
+    "subtitle": "このプロジェクトのすべての実行を、コスト・所要時間・結果とともに表示します。",
     "exportJobs": "ジョブをエクスポート",
     "proposalDeleted": "提案を削除しました",
     "proposal": {
       "title": "提案",
       "noContent": "提案の内容はまだありません。",
-      "githubIssue": "GitHub Issue:",
+      "githubIssue": "GitHub イシュー:",
       "status": {
         "input": "入力待ち",
         "exploring": "調査中",
@@ -46,10 +46,12 @@
         "cancelled": "キャンセル済み",
         "unknown": "不明なステータス: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "提案を削除できませんでした。もう一度お試しください。"
   },
   "detail": {
     "breadcrumbDashboard": "ダッシュボード",
+    "breadcrumbJobs": "ジョブ",
     "breadcrumbJob": "ジョブ #{{id}}",
     "notFound": "ジョブが見つかりません",
     "notFoundDescription": "ジョブ ID「{{id}}」は存在しません",
@@ -59,7 +61,7 @@
     "exportDiagnostic": "診断をエクスポート",
     "exportDiagnosticAria": "診断バンドルをエクスポート",
     "exportDiagnosticTooltip": "このジョブのテレメトリ、ログ、サマリーを含む ZIP をダウンロード",
-    "reExecute": "再実行",
+    "reExecute": "もう一度実行",
     "reExecuteTooltip": "同じコマンドで新しいジョブを起動",
     "cancelJob": "ジョブをキャンセル",
     "cancelJobTooltip": "実行中のプロセスに SIGTERM を送信します。ジョブはキャンセル済みとしてマークされます。",
@@ -101,7 +103,9 @@
       "sendFailed": "メッセージの送信に失敗しました",
       "wrapUpScheduled": "ジョブを切り上げ中…",
       "wrapUpStepScheduled": "ステップを確定中 — ループは産出済みの成果で先へ進みます"
-    }
+    },
+    "actionFailed": "操作を完了できませんでした",
+    "breadcrumbAria": "パンくずリスト"
   },
   "statusPanel": {
     "inProgress": "ジョブ実行中",
@@ -172,12 +176,15 @@
       "stopSignalSentDescription": "実行は次のステップ境界で停止します",
       "cancelFailed": "キャンセルに失敗しました",
       "networkError": "ネットワークエラー"
-    }
+    },
+    "title": "{{kind}} ジョブ · #{{id}}",
+    "titleLoop": "ループ実行 · #{{id}}",
+    "titleGeneric": "ジョブ · #{{id}}"
   },
   "comparison": {
     "title": "ジョブ比較",
     "jobN": "ジョブ {{n}}",
-    "loadFailed": "比較の読み込みに失敗しました: {{error}}",
+    "loadFailed": "比較を読み込めませんでした。もう一度お試しください。",
     "duration": "実行時間",
     "cost": "コスト",
     "tokensOut": "出力トークン",
@@ -185,7 +192,9 @@
     "cacheRead": "キャッシュ読み取り",
     "model": "モデル",
     "phasesDone": "完了フェーズ",
-    "betterValueHint": "緑のハイライトはより良い値を示します"
+    "betterValueHint": "緑のハイライトはより良い値を示します",
+    "loading": "比較を読み込み中…",
+    "description": "2 つの実行の所要時間・コスト・トークン使用量を並べて比較します。緑はより良い値を示します。"
   },
   "recent": {
     "emptyTitle": "ジョブはまだありません",
@@ -204,7 +213,7 @@
     "readyToCompare": "準備完了 — 比較をクリック",
     "compareAction": "比較 →",
     "colStatus": "ステータス",
-    "colCommand": "コマンド",
+    "colCommand": "タスク",
     "colDuration": "実行時間",
     "colTokens": "トークン",
     "colCost": "コスト",
@@ -242,7 +251,9 @@
       "cleared_other": "{{count}} 件のジョブをクリアしました",
       "clearFailed": "ジョブのクリアに失敗しました",
       "networkError": "ネットワークエラー"
-    }
+    },
+    "emptyCta": "スペックボードを開く",
+    "loading": "ジョブを読み込み中…"
   },
   "activeJob": {
     "none": "アクティブなジョブはありません",
@@ -317,7 +328,8 @@
     "noOutput": "出力なし",
     "completed": "完了",
     "turns_one": "{{count}} ターン",
-    "turns_other": "{{count}} ターン"
+    "turns_other": "{{count}} ターン",
+    "copyAll": "すべてのログ行をコピー"
   },
   "completion": {
     "title": "実行結果",

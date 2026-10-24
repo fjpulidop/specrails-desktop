@@ -21,6 +21,9 @@ import { isMilestoneLaunchable } from '../../lib/milestone-progress'
 import { MilestoneAutoAdvanceToggle, MilestoneCard } from './MilestoneProgressCard'
 import { MilestoneGenerateShell } from './MilestoneGenerateShell'
 import { providerSupportsToolPolicy } from '../../../providers/lib/provider-capabilities'
+import { SIDEBAR_FLYOUT_ATTR } from '../../../../hooks/useSidebarHoverIntent'
+
+const PANEL_ID = 'builder-sidebar-panel'
 
 // Builder sidebar re-entry (add-project-builder D5/D6, premium-milestone-
 // progress D5): visible only when the ACTIVE project has a blueprint (the
@@ -48,11 +51,13 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const [generating, setGenerating] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
   // Fixed-position anchor for the portalled flyout: both host sidebars clip
   // (`overflow-hidden` is load-bearing for their collapse animation), so an
   // in-flow absolute panel is invisible. Portal to <body> + fixed coords.
   const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null)
   const PANEL_WIDTH = 320
+  const panelPlaced = panelPos !== null
 
   useLayoutEffect(() => {
     if (!panelOpen) {
@@ -70,11 +75,37 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     place()
     window.addEventListener('resize', place)
     window.addEventListener('scroll', place, true)
+    // The host sidebar animates its width (pin, hover, drag-resize): follow it.
+    const host = rootRef.current?.closest('aside') ?? rootRef.current?.parentElement ?? null
+    const ro = host && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null
+    if (host) ro?.observe(host)
     return () => {
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
+      ro?.disconnect()
     }
   }, [panelOpen])
+
+  // The host sidebar collapsing (expanded → rail) closes the flyout.
+  const wasExpandedRef = useRef(expanded)
+  useEffect(() => {
+    if (wasExpandedRef.current && !expanded) setPanelOpen(false)
+    wasExpandedRef.current = expanded
+  }, [expanded])
+
+  // Opening moves focus into the dialog; closing with Escape returns it.
+  useEffect(() => {
+    if (!panelOpen || !panelPlaced) return
+    const first = panelRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    ;(first ?? panelRef.current)?.focus()
+  }, [panelOpen, panelPlaced])
+
+  const closePanel = useCallback((restoreFocus: boolean) => {
+    setPanelOpen(false)
+    if (restoreFocus) triggerRef.current?.focus()
+  }, [])
 
   // Close on outside click.
   useEffect(() => {
@@ -180,7 +211,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     <>
       {/* One spec per rail, launched in dependency order; each rail stacks on
           the previous rail's delivered branch. */}
-      <p className="text-[10px] text-muted-foreground" data-testid="milestone-launch-hint">
+      <p className="text-xs text-muted-foreground" data-testid="milestone-launch-hint">
         {t('milestoneProgress.sequentialHint')}
       </p>
       <MilestoneAutoAdvanceToggle
@@ -192,7 +223,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
         type="button"
         onClick={handleLaunchM1}
         disabled={launching}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-caption font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
         data-testid="sidebar-launch-m1"
       >
         {launching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
@@ -204,12 +235,18 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   return (
     <div ref={rootRef} className="relative" data-testid="builder-sidebar-entry">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setPanelOpen((v) => !v)}
+        aria-expanded={panelOpen}
+        aria-haspopup="dialog"
+        aria-controls={panelOpen ? PANEL_ID : undefined}
+        aria-label={t('sidebar.title')}
         className={cn(
           'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
           expanded ? 'px-2' : 'px-0 justify-center',
           panelOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
         )}
         title={!expanded ? t('sidebar.title') : undefined}
         data-testid="builder-sidebar-toggle"
@@ -221,7 +258,18 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
       {panelOpen && panelPos && createPortal(
         <div
           ref={panelRef}
-          className="fixed z-[72] w-80 max-h-[80vh] overflow-y-auto rounded-lg border border-border/50 bg-background p-3 shadow-xl"
+          id={PANEL_ID}
+          role="dialog"
+          aria-label={t('sidebar.title')}
+          tabIndex={-1}
+          {...{ [SIDEBAR_FLYOUT_ATTR]: '' }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape') return
+            e.preventDefault()
+            e.stopPropagation()
+            closePanel(true)
+          }}
+          className="fixed z-[72] w-80 max-h-[80vh] overflow-y-auto rounded-lg border border-border/50 bg-background p-3 shadow-xl outline-none"
           style={{ top: panelPos.top, left: panelPos.left }}
           data-testid="builder-sidebar-panel"
         >
@@ -252,7 +300,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
                   setPanelOpen(false)
                 }}
                 disabled={!milestoneGenerationAvailable}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-[11px] font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-highlight/40 px-2 py-1.5 text-caption font-medium text-accent-highlight transition-colors hover:bg-accent-highlight/10 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
                 title={milestoneGenerationAvailable
                   ? t('sidebar.generateHint')
                   : t('sidebar.generateUnavailable')}

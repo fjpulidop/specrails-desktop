@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { Eye, Pencil, Zap, Flame } from 'lucide-react'
 import type { AgentTierLevel } from '../lib/agent-api'
 
@@ -7,7 +7,7 @@ const TIERS: { level: AgentTierLevel; key: string; icon: typeof Eye; tone: strin
   { level: 0, key: 'observe', icon: Eye, tone: 'text-foreground/70', bar: 'bg-accent-info' },
   { level: 1, key: 'edit', icon: Pencil, tone: 'text-accent-info', bar: 'bg-accent-info' },
   { level: 2, key: 'operate', icon: Zap, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
-  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-destructive', bar: 'bg-destructive' },
+  { level: 3, key: 'autonomous', icon: Flame, tone: 'text-accent-warning', bar: 'bg-accent-warning' },
 ]
 
 interface Props {
@@ -21,6 +21,17 @@ export function AgentTierChip({ level, onCycle, compact = false }: Props) {
   const { t } = useTranslation('agent')
   const tier = TIERS[level]
   const Icon = tier.icon
+  const reduced = useReducedMotion()
+  const ladder = (thin: boolean) => (
+    <span className={thin ? 'flex gap-px' : 'ml-1 flex gap-0.5'} aria-hidden data-testid={thin ? 'agent-tier-ladder-compact' : undefined}>
+      {TIERS.map((s) => (
+        <span
+          key={s.level}
+          className={`${thin ? 'h-0.5 w-1' : 'h-1 w-2'} rounded-full transition-colors duration-200 ${s.level <= level ? tier.bar : 'bg-border/50'}`}
+        />
+      ))}
+    </span>
+  )
 
   return (
     <button
@@ -33,22 +44,20 @@ export function AgentTierChip({ level, onCycle, compact = false }: Props) {
     >
       <motion.span
         key={level}
-        initial={{ scale: 0.8 }}
-        animate={{ scale: [1, 1.18, 1] }}
+        initial={reduced ? false : { scale: 0.8 }}
+        animate={reduced ? { scale: 1 } : { scale: [1, 1.18, 1] }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
         className="flex items-center gap-1.5"
       >
-        <Icon className="h-4 w-4" />
+        {/* Narrow containers drop the name: a thin 4-step ladder under the
+            icon keeps the level readable without text. */}
+        <span className={compact ? 'flex flex-col items-center gap-0.5' : 'contents'}>
+          <Icon className="h-4 w-4" />
+          {compact && <span className="@min-[640px]:hidden">{ladder(true)}</span>}
+        </span>
         <span className={compact ? 'hidden @min-[640px]:inline' : undefined}>{t(`tier.${tier.key}.name`)}</span>
       </motion.span>
-      {!compact && <span className="ml-1 flex gap-0.5" aria-hidden>
-        {TIERS.map((s) => (
-          <span
-            key={s.level}
-            className={`h-1 w-2 rounded-full transition-colors duration-200 ${s.level <= level ? tier.bar : 'bg-border/50'}`}
-          />
-        ))}
-      </span>}
+      {!compact && ladder(false)}
     </button>
   )
 }

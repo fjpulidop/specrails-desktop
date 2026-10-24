@@ -1,5 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { SpendingResponse, ByModeEntry } from '../types/spending'
+import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -8,9 +10,7 @@ interface Props {
 
 function fmtUsd(v: number | null): string {
   if (v == null) return '—'
-  if (v < 0.005) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtDur(ms: number | null): string {
@@ -49,7 +49,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
     <div className="flex-1 p-4 first:pr-2 last:pl-2">
       <div className="flex items-center gap-2 mb-2">
         <span className={`w-1.5 h-1.5 rounded-full ${accentClass}`} />
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className="text-label text-muted-foreground">{label}</span>
       </div>
       {sparseExplore ? (
         <div className="py-3">
@@ -61,7 +61,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
       ) : (
         <>
           <div
-            className="text-3xl font-semibold tabular-nums tracking-tight"
+            className="text-3xl font-semibold num tracking-tight"
             data-estimated={isEstimated ? 'true' : undefined}
             title={
               costUnavailable
@@ -74,11 +74,11 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
             {isEstimated && mode.avgCostPerSpec != null ? '~' : ''}
             {fmtUsd(mode.avgCostPerSpec)}
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
+          <div className="text-caption text-muted-foreground mt-0.5">
             {costUnavailable ? t('quickVsExplore.costUnavailable') : t('quickVsExplore.perSpec')}
           </div>
           <div className="mt-3"><Sparkline values={mode.sparkline.length > 0 ? mode.sparkline : [0]} /></div>
-          <div className="mt-3 space-y-0.5 text-xs tabular-nums text-muted-foreground">
+          <div className="mt-3 space-y-0.5 text-xs num text-muted-foreground">
             <div>
               <Trans
                 ns="analytics"
@@ -99,7 +99,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
 export function QuickVsExploreCard({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <Skeleton className="h-[220px]" />
   }
   if (!data) return null
 
@@ -119,7 +119,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40">
       <div className="px-4 pt-3 pb-1">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('quickVsExplore.title')}</h2>
+        <h2 className="text-strong">{t('quickVsExplore.title')}</h2>
       </div>
       <div className="flex divide-x divide-border/40">
         <ModeColumn mode={quick} label={t('quickVsExplore.quick')} accentClass="bg-accent-secondary" />
@@ -127,14 +127,14 @@ export function QuickVsExploreCard({ data, loading }: Props) {
       </div>
       {showRatio && (
         <div className="px-4 pb-3 -mt-1">
-          <div className="text-center text-[11px] text-muted-foreground tabular-nums">
+          <div className="text-center text-caption text-muted-foreground num">
             <span className="px-2">━━━━━━ {t('quickVsExplore.ratio', { ratio: ratio!.toFixed(1) })} ━━━━━━</span>
           </div>
         </div>
       )}
       {hasEstimated && (
         <div className="px-4 pb-3 -mt-1" data-testid="quick-vs-explore-estimated-footnote">
-          <p className="text-[10px] text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
+          <p className="text-caption text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
         </div>
       )}
     </div>

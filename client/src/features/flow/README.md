@@ -1,82 +1,126 @@
 # flow
 
-Client side of Flow mode: the user builds working code with an agent in an
-isolated worktree, by conversation and without a spec, and then hands the
-worktree to a rail that derives the spec. Server contract:
-[Flow module](../../../../server/modules/flow/README.md); design:
-[Flow mode](../../../../docs/internals/flow-mode.md).
+This capability owns its UI, state, feature utilities and adjacent tests.
+Shared rendering primitives, API origin/auth and project cache remain outside features.
 
-## How Flow reaches the mission chat
-
-Missions never import this feature. [FlowMissionsBridge](components/FlowMissionsBridge.tsx)
-is mounted by `App.tsx` around `AgentChatProvider`; it provides
-[FlowContext](context/FlowContext.tsx) and plugs `FLOW_MISSION_EXTENSIONS`
-into the missions extension seam
-([MissionExtensionsContext](../missions/context/MissionExtensionsContext.tsx)):
-
-| Slot | Flow implementation |
-| --- | --- |
-| `fenceCards['flow-offer']` | [FlowOfferCard](components/FlowOfferCard.tsx): Flow or spec + Implement, with the recommendation, its reason and the other option one click away; Flow opens [FlowEntryCard](components/FlowEntryCard.tsx) |
-| `useConversationMode` | `data-flow="active"` on the conversation surface ([flow.css](flow.css)), the worktree branch in the git strip, interrupting sends |
-| `ConversationDock` | [FlowDock](components/FlowDock.tsx): [FlowBar](components/FlowBar.tsx) (active, paused, needs-review) or [FlowHandOffCard](components/FlowHandOffCard.tsx) |
-
-A registry/slot seam was chosen over render props threaded through missions
-because the Flow UI appears in three places (messages, surface, dock) of two
-hosts (floating panel and Agent Mode, including split panes); one context value
-reaches all of them and keeps the dependency one-way (`flow → missions`).
-
-## Lifecycle in the UI
-
-1. The operator emits a `flow-offer` block. Choosing Flow shows the entry card
-   (isolated worktree, main branch untouched, idea, provider). Start calls
-   `POST /flow`; the offer records `{ chosenMode: 'flow', recommendedMode, flowId }`
-   on `agent_messages.intent` (`flow-offer`). Choosing Implement records
-   `chosenMode: 'implement'` and replies to the agent, which continues with
-   framing and the spec draft. When `GET /flow/availability` is unavailable,
-   Start is disabled and the missing Core capabilities are listed in plain words.
-2. While the Flow is `active`: surface treatment, Flow bar (branch, files and
-   +/−, real cost, View changes, Pause, Discard with confirmation, **This is
-   it**), worktree branch in the git strip, and busy sends use
-   `deliveryMode: 'interrupt'` (Zap button). A 409 `interrupt_requires_flow`
-   (the Flow ended meanwhile) is resent as a normal message.
-3. `paused`: compact bar with **Resume Flow**, This is it and Discard.
-   `needs-review`: the worktree is missing; the bar explains it and offers no
-   destructive action.
-4. **This is it** calls nothing on the server. The bar and surface animate out
-   and the hand-off card appears: `AgentRailLaunchCard` in hand-off mode with
-   the Flow's spec, the `factory:flow-spec` loop preselected and a free empty
-   rail. Launch calls `POST /flow/:id/hand-off`; refusals (review WIP limit,
-   budget, `rail_not_empty`…) render inline like any launch card. **Not yet**
-   returns to the Flow. The launch is recorded as `flow-hand-off` on the offer
-   message; reloads show the frozen record there.
-
-Cost is the server's provider-billed sum (`GET /flow/:id/cost`): `—` until a
-turn is priced, `*` with a tooltip when some turns were not priced. It is never
-estimated. Diff and cost refresh on state changes, when a turn settles and every
-8 s while the agent works.
-
-## State and events
-
-`FlowContext` caches the Flow per `(projectId, conversationId)` a mounted view
-watches, availability per project, the wrapping-up set and recent hand-off
-receipts. `flow.state` WebSocket events are applied only for watched projects
-(a ref, never a stale closure); a reconnect refetches every watched Flow. Calls
-name the conversation's pinned project explicitly (`flowBase(projectId)`, the
-same base `getApiBase()` builds for the active project).
-
-The board label lives in specs (`lib/spec-flow.ts`, `SpecCard`): it reads
-`metadata.flow.state` (`active`/`paused`), links to the conversation and keeps
-the placeholder spec off rails until the hand-off.
-
+<!-- audit-client-features:begin (generated: public subpaths and feature dependencies; edit outside this block) -->
 ## Public subpaths
 
+These are the explicit entry points consumed by application composition or other
+features. Keep imports focused on a subpath so importing a model does not eagerly
+load every UI component. Changes to this surface require updating the boundary manifest.
+
 - [components/FlowMissionsBridge.tsx](components/FlowMissionsBridge.tsx)
+- [components/StartInFlow.tsx](components/StartInFlow.tsx)
 
 ## Feature dependencies
 
+- [background](../background/README.md)
 - [missions](../missions/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
+- [specs](../specs/README.md)
+
+Dependencies record existing collaboration; they do not claim every feature is
+independent or that this is a hexagonal frontend. Pure models should not gain
+React, network or native-shell dependencies. Bind effects in hooks and adapters.
+<!-- audit-client-features:end -->
+
+## Mission extension slots
+
+`FlowMissionsBridge` fills the missions seam: the `flow-offer` fence card, the
+conversation mode (`useFlowConversationMode`: while a Flow is open the
+composer's **Flow** chip and placeholder, "In Flow" by the
+mission title, no git strip; only an active Flow interrupts sends), the
+Flow's runs in the mission's run strip (`useLiveRuns` → [`FlowLiveRuns`](components/FlowLiveRuns.tsx)),
+the words for the steps of Flow → Spec (`describeRun` → `describeFlowRun`),
+the mission list's "In Flow" mark (`useConversationMarks` →
+[`FlowConversationMarks`](components/FlowConversationMarks.tsx), fed by
+`GET /flow/open` and `flow.state`) and, from the same app-wide watch, its
+attention dot for Flow runs (`useRunAttention` → `useFlowRunAttention`, live
+whether or not the mission is open; one rule with the strip's tone in
+[`lib/flow-run-tone.ts`](lib/flow-run-tone.ts): no open Flow state waits for
+the person today, paused and needs-review are calm, and a Flow → Spec run
+that fails or waits is a delivery that feeds the dot itself), the state announcements
+(`ConversationDock` → `FlowDock`, said through the run strip's one live
+region), the per-turn mark (`useTurnMark`), the run card's Back to Flow / Relaunch
+(`FlowRunCardActions`, Back to Flow is the run's declared `local` primary) and
+`RunFailureOutcome` (`FlowRunFailure`): a Flow → Spec run that failed outright
+is explained in the person's words — a localized headline per failing step
+([`lib/flow-failure.ts`](lib/flow-failure.ts) maps the recipe's step ids), the
+runtime's error as the cause, what happens next, the actions or "Returned to
+Flow", and the codes only under **Technical details**. Flow API refusals read
+by code (`flowErrorMessage`); the server detail is never the headline.
+
+## Flow from an existing spec
+
+[`StartInFlow`](components/StartInFlow.tsx) is the door for a spec that
+already exists, always next to the Implement door, never instead of it.
+Specs never import Flow: App.tsx provides `FLOW_SPEC_EXTENSIONS` through the
+specs seam ([SpecExtensionsContext](../specs/context/SpecExtensionsContext.tsx)
+`StartAlternative`): `StartInFlowMenuItem` in the board's spec context menu
+(`extraItems` of `TicketContextMenu`) and `StartInFlowButton` in the spec
+detail header (next to **Move to Rail**). `FlowRailLaunchAlternative` fills
+missions' `RailLaunchAlternative` slot on a rail-launch card of one spec. `startInFlowBlock` mirrors
+the server's checks (in Flow, done/cancelled, on a rail or running, Flow
+unavailable) and the disabled action says why. `useStartInFlow` starts the
+Flow in the spec's own mission, else in a new mission pinned to the project
+and titled after the spec, then opens it. A `flow-offer` block with
+`ticketId` shows the spec ("Spec #N · title") and spec-specific hints;
+`FlowEntryCard` with `ticketId` names the spec and explains that it is
+rewritten from what was built (its text kept as a comment).
+
+## Flow in the run strip and the hand-off
+
+The Flow is one entry of the mission's run strip, keyed `flow:<id>` so the
+strip morphs in place. Its row stays short: "Flow · 7 files", Pause (or
+Resume Flow) and the primary **Hand off**
+([`FlowStripControls`](components/FlowStripControls.tsx)); disabled controls
+say why. While the strip has focus, **P** pauses or resumes and **H** hands
+off (`FlowBarControl.shortcut`, named in the tooltip); never globally. The chevron opens `FlowPanel`: the copyable branch, a files ± stat
+that opens `FlowChangesDialog`, the billed cost (with a visible note when
+partial), Preview and **Discard** set apart (`FlowDiscardDialog` lists what is
+lost). `useFlowLiveStats` measures diff and cost once per Flow and polls only
+while the agent works and the page is visible. A needs-review Flow is
+informational (`info` tone): its panel keeps the branch and stats and offers
+only **Close this Flow** (`FlowCloseDialog`, branch kept; `POST …/close`). **Hand off** turns the entry
+into "Ready to turn into a PR" — a calm `info` tone (no bell, no attention
+dot: the person just asked for it) — and opens `FlowHandOffCard` as the
+strip's panel: ONE line ("Rail 2 will turn your 7 changed files into a
+reviewed PR. If it fails, your work is safe.") with **Launch** and **Not
+yet**, and the engine fallback note right under it when relevant; rail,
+engine, model and effort are prefilled under **Change how** (with the files ±
+and cost so far). Only **Not yet** and Esc dismiss it (the entry's
+`onPanelClose` seam hears `escape`); a click outside, the toggle or another run
+only fold the panel (`collapse`): the strip keeps "Ready to turn into a PR" and
+offers Launch as its primary (`wantsPrimary`). The choices (rail, engine,
+model, effort) are kept per Flow in `FlowContext.handOffDrafts` and restored
+when the hand-off reopens; a launch clears them.
+**Launch** is declared as an outward primary; while the request runs
+(`FlowContext.launching`) and until the run's own entry shows (the hand-off
+receipt, `yieldsTo` its delivery) the strip is a launching skeleton. After
+`HAND_OFF_SHOW_TIMEOUT_MS` (45 s) without the run it stops spinning: "Still
+handing off to Rail N…" with **Refresh** (re-reads the run cards and drops
+the receipt, so the Flow state rules). Every Flow entry keeps the Waves mark;
+the strip badges it with the state's shape. The offer stub's **View run** opens the run through missions' focus
+bus.
+
+## Repository target
+
+In a workspace (folder primary) or a project with several Git repositories,
+`FlowEntryCard` shows where the Flow runs: the Git members from
+`GET /api/projects/:id/repositories` (`flowApi.repositories`,
+`flowRepositoryChoice`), preselected from the `flow-offer` block's
+`repositoryId`. It sends `repositoryId` only for such projects; a
+single-repository project never shows or sends it.
+The picker is `FlowRepositoryPicker` (Git members only, one tab stop, arrow
+keys / Home / End). "Start in Flow" from the board or the spec detail reuses
+it in `FlowRepositoryPrompt` (a dialog provided by `FlowMissionsBridge`) when
+the project has several Git members and the spec does not name exactly one:
+the spec's repository, else the Git primary, is preselected and the pick is
+sent as `repositoryId`. The mission rail-launch card's "Start in Flow"
+(`FlowRailLaunchAlternative`) asks the same way.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/flow`.
+For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.

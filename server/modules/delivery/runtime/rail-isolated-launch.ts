@@ -35,12 +35,14 @@ import { createRailWorktree, deleteRailWorktree, updateRailWorktreeState, listNo
 import { FlowWorktreeMismatchError, type RequiredFlowWorktree } from './flow-worktree-handoff'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName } from './pr-naming'
 import {
-  isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
+  assertRepositoryHasCommits, isolatedWorktreesRoot, materializeIsolatedWorktree, readHeadSha, resolveOverlaySources, ticketNamingInput,
   type IsolatedBranchOwnership, type IsolatedWorktreeIO, type IsolatedWorktreeOwnership,
 } from './isolated-worktree'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
+import { FLOW_SPEC_DELIVERY_LOOP_ID, flowReviewOutcome, flowReviewStatusDetail } from './flow-review-outcome'
 import { coreAnnouncesReviewBrief, harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
+import { phase3HarvestOptions } from './phase3-harvest'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
 import { getLoopRun, readDefinitionRun, readDefinitionForkTarget, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
@@ -206,6 +208,8 @@ export interface IsolatedLaunchIO extends IsolatedWorktreeIO {
   harvestEvidence?: typeof harvestDeliveryEvidence
   /** Core `reviewBrief: 1` probe (injectable for tests). */
   reviewBriefCapability?: () => Promise<boolean>
+  /** Phase-3 Core capabilities (spec trace, baseline, rules); injectable for tests. */
+  phase3Capabilities?: () => Promise<import('../../agent-runtime/runtime/core-capabilities').CorePhase3Capabilities>
   /** gh-backed PR discovery for continuing already-open PR branches. */
   exec?: Exec
 }
@@ -914,16 +918,25 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     const row = getPrDelivery(ctx.db, deliveryId)
     if (!row?.origin_conversation_id) return
     const snapshot = toPrDeliverySnapshot(row)
-    const envelope = toPrDecisionCardEnvelope(ctx.project.id, snapshot)
     const primaryRunId = runId ?? snapshot.runIds[0] ?? deliveryId
+    // A Flow → Spec run that failed outright goes back to its Flow on its own
+    // (flow module, `rail.pr_state` observer); the Flow's return card and
+    // automatic turn carry the failure, so the mission gets only the card
+    // update — no second trace row, no second briefing turn.
+    const flowCrash = row.loop_id === FLOW_SPEC_DELIVERY_LOOP_ID && failure.code === 'implementation_failed'
     void (async () => {
       const summary = runId ? await runtimeRunSummary(ctx, runId).catch(() => null) : null
+      // Re-read after the await: the delivery may have moved on meanwhile
+      // (Back to Flow closes it) and the card must never regress to the old decision.
+      const current = getPrDelivery(ctx.db, deliveryId) ?? row
+      const envelope = toPrDecisionCardEnvelope(ctx.project.id, toPrDeliverySnapshot(current))
       await notifyMissionRunFailure({
         originConversationId: row.origin_conversation_id,
         projectId: ctx.project.id, runId: primaryRunId, railIndex, ticketIds: [...ticketIds],
         railName: getRailName(ctx, railIndex),
         failure, envelope, summary, hasDelivery: true, prDeliveryId: deliveryId,
         tickets: ticketIds.map((id) => ({ id, title: ctx.getTicketSpec(id)?.title ?? null })),
+        ...(flowCrash ? { cardOnly: true } : {}),
       })
     })().catch((err) => console.error('[rail-isolated] mission failure notify failed:', err))
   }
@@ -1016,6 +1029,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const worktreeBaseRef = await resolveWorktreeBaseRef(git, {
     repoDir: baseRepo, integration, fetchOk: fetchResult.ok,
   })
+  // Unborn HEAD: refuse before the decision row, branches or worktrees exist.
+  await assertRepositoryHasCommits(git, baseRepo, worktreeBaseRef.baseRef)
   if (worktreeBaseRef.warning) {
     console.warn(`[rail-isolated] ${worktreeBaseRef.warning} (repo ${baseRepo})`)
     try {
@@ -1118,9 +1133,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // It never combines with continuation, revision or retry contracts. Checked
   // before the delivery row exists, so a rejection leaves nothing behind.
   const flowWorktree = input.requiredFlowWorktree ?? null
+  // A Flow in a non-primary repository runs as the ONE child of a
+  // single-repository group: only that repository's leg may adopt it.
+  const flowRepositoryLeg = !input.repositoryExecution
+    ? !flowWorktree?.repositoryId
+    : Boolean(flowWorktree?.repositoryId) && input.repositoryExecution.repositoryId === flowWorktree?.repositoryId
   if (flowWorktree && (
     units.length !== 1 || launchContinuation || input.requiredPrContinuation || input.revision ||
-    input.retryOfDelivery || input.repositoryExecution || input.explicitPrTarget
+    input.retryOfDelivery || !flowRepositoryLeg || input.explicitPrTarget
   )) {
     throw new FlowWorktreeMismatchError('A Flow hand-off launches exactly its own spec on a fresh delivery')
   }
@@ -1299,7 +1319,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           if (!adoptedHead) throw new FlowWorktreeMismatchError('The Flow worktree HEAD could not be verified')
           ctx.db.transaction(() => {
             createRailWorktree(ctx.db, ledgerRow)
-            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: prDeliveryId, headSha: adoptedHead })
+            // A repository leg reports the GROUP delivery: the Flow settles on
+            // the parent's `rail.pr_state`, which is the only one broadcast.
+            flowWorktree.adopt({ railIndex, runId, ledgerId, deliveryId: input.repositoryExecution?.parentDeliveryId ?? prDeliveryId, headSha: adoptedHead })
           })()
         } else {
           createRailWorktree(ctx.db, ledgerRow)
@@ -1506,7 +1528,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
         // Flow hand-off: Core derives the change from the Flow reservation commit.
-        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '' } } : {}),
+        ...(input.requiredFlowWorktree ? { flowDerivation: { baseSha: input.requiredFlowWorktree.baseSha ?? null, summary: input.requiredFlowWorktree.summary ?? '', ...(input.requiredFlowWorktree.changeId ? { changeId: input.requiredFlowWorktree.changeId } : {}) } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
       if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)
@@ -1874,8 +1896,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env },
           results.filter(result => getLoopRun(ctx.db, result.run.runId)?.engine_version === 2).map(result => result.run.runId), true)
         const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
+        const phase3 = await phase3HarvestOptions({ db: ctx.db, project: ctx.project, capabilities: io.phase3Capabilities })
         settleEvidence = harvest(
-          { readEvents: (runId) => getJobEvents(ctx.db, runId), reviewBrief },
+          { readEvents: (runId) => getJobEvents(ctx.db, runId), reviewBrief, ...phase3 },
           results.map((result) => ({
             ticketId: result.run.ticketId,
             runId: result.run.runId,
@@ -1892,14 +1915,23 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         console.warn(`[rail-isolated] evidence harvest failed: ${e instanceof Error ? e.message : String(e)}`)
         settleEvidence = undefined
       }
+      // Flow -> Spec: a run that stopped because the work still needs changes
+      // (review rejected / checks failing after the repair rounds) is not an
+      // opaque implementation failure. Say so, with the reviewer's own words.
+      const flowReview = flowReviewOutcome({ loopId, implementationOutcome, evidence: settleEvidence })
+      const settledStatusCode: PrDeliveryStatusCode = flowReview ? 'review_changes_requested' : statusCode
+      const settledStatusDetail = flowReview ? flowReviewStatusDetail(flowReview) : statusDetail
+      if (flowReview) {
+        for (const unit of settledBranchRecords) if (unit.failureCode === 'settlement_interrupted') unit.failureCode = 'review_changes_requested'
+      }
       const patch = {
         settleEvidence,
         branches: settledBranchRecords,
         worktreeIds,
         implementationOutcome,
         deliveryOutcome,
-        statusCode,
-        statusDetail,
+        statusCode: settledStatusCode,
+        statusDetail: settledStatusDetail,
         deliverySha,
         ...(launchContinuation ? {
           branch: launchContinuation.branch,
@@ -1948,8 +1980,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         if (implementationOutcome === 'failed') {
           const failedUnit = results.find((result) => result.implementationOutcome === 'failed') ?? results[0]
           notifyOriginRunFailure(prDeliveryId, {
-            code: 'implementation_failed',
-            detail: statusDetail,
+            code: flowReview ? 'review_changes_requested' : 'implementation_failed',
+            detail: settledStatusDetail,
             stepId: null,
           }, failedUnit?.run.runId ?? null)
         }
@@ -2132,8 +2164,11 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
       const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results.map(item => item.run.runId), true)
       const reviewBrief = await (io.reviewBriefCapability ?? coreAnnouncesReviewBrief)()
-      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id), reviewBrief }, results.map(item => ({
+      const phase3 = await phase3HarvestOptions({ db: ctx.db, project: ctx.project, capabilities: io.phase3Capabilities })
+      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id), reviewBrief, ...phase3 }, results.map(item => ({
         ticketId: item.run.ticketId, runId: item.run.runId, worktreePath: item.run.handle.worktreePath,
+        // Phase-3 run records only (spec trace, baseline); runtime evidence keeps its probe.
+        recordsDir: path.join((io.resolveExecution ?? resolveProjectExecution)(ctx.project).specrailsDir, 'pipeline', item.run.runId),
         definitionStatus: definitionEvidence.get(item.run.runId),
         reviewerStepId: readDefinitionRun(ctx.db, item.run.runId)?.request.graph.config.reviewerStepId,
       })))
@@ -2155,7 +2190,18 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
   }
   for (const row of allRows) {
     const latest = getPrDelivery(ctx.db, row.id)
-    if (latest) ctx.broadcast(toRailPrStateMessage(ctx.project.id, toPrDeliverySnapshot(latest)))
+    if (!latest) continue
+    const snapshot = toPrDeliverySnapshot(latest)
+    ctx.broadcast(toRailPrStateMessage(ctx.project.id, snapshot))
+    // A recovered settlement (server restart mid-run, then resume/reattach)
+    // has no launch closure left to refresh the origin mission card. Without
+    // this the persisted card stays `building` after the delivery reached
+    // review, and every client hydration faithfully re-reads the stale card.
+    if (latest.origin_conversation_id) {
+      try {
+        getAgentChatManager()?.updatePrDecisionCard(latest.origin_conversation_id, toPrDecisionCardEnvelope(ctx.project.id, snapshot))
+      } catch { /* the durable row is authoritative; startup reprojection heals */ }
+    }
   }
 }
 

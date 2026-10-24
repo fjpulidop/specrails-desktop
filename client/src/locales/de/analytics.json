@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Verfeinern",
-    "smash": "SMASH",
+    "smash": "Aufteilen",
     "fileSummary": "Dateizusammenfassungen",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} Läufe",
   "page": {
     "title": "Analytics",
+    "subtitle": "Wohin das Budget fließt: Kosten, Tokens und Aktivität nach Modell, Spec und Engine.",
     "all": "Alle",
     "engine": "Engine",
     "ticketChip": "Ticket #{{id}} ·  ✕",
-    "failedToLoad": "Laden fehlgeschlagen: {{error}}",
+    "failedToLoad": "Analysen konnten nicht geladen werden. Versuche es erneut.",
     "modelChip": "Modell: {{model}}",
     "clearModelFilter": "Modellfilter zurücksetzen",
-    "localEngine": "lokal"
+    "localEngine": "lokal",
+    "moreBreakdowns": "Weitere Aufschlüsselungen"
   },
   "hero": {
     "spending": "Ausgaben",
@@ -46,22 +48,26 @@
     "tokensTooltip": "Tokens gesamt = neue Eingabe + Ausgabe + Cache-Read + Cache-Create über alle Aufrufe in diesem Zeitraum.",
     "usageUnavailable": "· Token-Nutzung nicht verfügbar",
     "usageUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber keine Token-Telemetrie bereitgestellt.",
-    "usagePartiallyUnavailable": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
     "usagePartiallyUnavailableTooltip": "Nur bekannte Token-Zwischensumme; einige Aufrufe haben keine Token-Telemetrie bereitgestellt.",
     "costUnavailable": "Kosten nicht verfügbar",
     "costUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
-    "costPartiallyUnavailable": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
+    "costPartiallyUnavailable_one": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
+    "costPartiallyUnavailable_other": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
     "costPartiallyUnavailableTooltip": "Nur bekannte Kosten-Zwischensumme; einige Aufrufe haben nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
     "includesEstimated": "· enthält ~{{amount}} geschätzt",
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten von Providern ohne natives Kostenfeld (z. B. codex über die lokale Preistabelle).",
     "trackingStarted": "Tracking gestartet am {{date}}",
     "trackingStartedFallback": "Tracking beginnt mit dem ersten Aufruf",
     "emptyState": "Noch keine Aufrufe für diesen Filterzeitraum.",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "Abgerechnet",
+    "legendEstimated": "Geschätzt"
   },
   "providerCard": {
     "title": "Nach Provider",
-    "description": "So verteilen sich die Kosten auf die KI-CLIs in diesem Projekt. Das Präfix <tilde>~</tilde> markiert Zeilen, deren Kosten über die lokale Preistabelle geschätzt sind (der Provider meldet sie nicht nativ).",
+    "description": "<tilde>~</tilde> = geschätzt anhand lokaler Preise.",
     "noCost": "Noch keine Kosten in diesem Zeitraum erfasst.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "Kosten nicht verfügbar",
@@ -109,7 +115,8 @@
     "costLabel": "Kosten",
     "truncated": "Zeige {{shown}} von {{total}} — der teuerste Punkt bleibt erhalten, frühere Punkte werden ausgeblendet",
     "costUnavailable": "Aufrufe wurden erfasst, aber es sind keine Kostendaten zum Darstellen verfügbar.",
-    "costPartiallyUnavailable": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}."
+    "costPartiallyUnavailable_one": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}.",
+    "costPartiallyUnavailable_other": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}."
   },
   "topTickets": {
     "title": "Top-Tickets",
@@ -132,7 +139,7 @@
     "failed": "Fehlgeschlagen",
     "aborted": "Abgebrochen",
     "empty": "Keine Aufrufe entsprechen den aktuellen Filtern.",
-    "colSurface": "Surface",
+    "colSurface": "Oberfläche",
     "colTicket": "Ticket",
     "colCost": "Kosten",
     "colTurns": "Turns",
@@ -170,7 +177,7 @@
   "desktop": {
     "title": "Desktop-Analytics",
     "refreshAria": "Analytics aktualisieren",
-    "failedToLoad": "Analytics konnten nicht geladen werden: {{error}}",
+    "failedToLoad": "Desktop-Analysen konnten nicht geladen werden. Versuche zu aktualisieren.",
     "totalCost": "Gesamtkosten",
     "costToday": "{{value}} heute",
     "costTodayUnavailable": "Kosten heute nicht verfügbar",
@@ -193,12 +200,11 @@
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "includesEstimatedShort": "inkl. geschätzt",
     "timelineEstimatedTooltip": "Einige Tage enthalten geschätzte Kosten aus der Preistabelle (codex/gemini), markiert mit ~.",
-    "estimatedBadge": "gesch.",
-    "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
     "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
     "costUnavailableShort": "nicht verfügbar",
-    "costPartiallyUnavailable": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
+    "costPartiallyUnavailable_one": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}.",
+    "costPartiallyUnavailable_other": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
   },
   "windowLabels": {
     "7d": "Letzte 7 Tage",

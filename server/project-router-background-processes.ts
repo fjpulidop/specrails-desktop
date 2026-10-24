@@ -5,6 +5,17 @@ import { getProjectRepositories, resolveProjectRepository, RepositoryValidationE
 import { BackgroundProcessOwnershipLostError, backgroundProcessHooks, backgroundStartBusyReason, resolveBackgroundCwd, stopOwnedBackgroundProcess } from './modules/terminals/runtime/background-process-service'
 import { withAppUrls } from './modules/terminals/runtime/app-urls'
 
+/** The chat's ACTIVE Flow with a worktree (null when none or the lookup fails). */
+function activeFlow(c: { flow?: { getByConversation(id: string): { id: string; state: string; step: string | null; worktreePath: string | null; repositoryId?: string | null } | null } }, chatId: string): { flowId: string; worktreePath: string; repositoryId?: string } | null {
+  try {
+    const flow = c.flow?.getByConversation(chatId)
+    if (!flow || flow.state !== 'active' || flow.step !== null || !flow.worktreePath) return null
+    return { flowId: flow.id, worktreePath: flow.worktreePath, ...(flow.repositoryId ? { repositoryId: flow.repositoryId } : {}) }
+  } catch {
+    return null
+  }
+}
+
 function processQuery(req: Request, res: Response): { pid: number; chatId: string; processId?: string } | null {
   const pid = Number(req.params.pid)
   if (!Number.isSafeInteger(pid) || pid <= 0) { res.status(400).json({ error: 'pid must be a positive integer' }); return null }
@@ -49,7 +60,18 @@ export function registerBackgroundProcessRoutes({ router, ctx }: ProjectRoutesDe
         res.status(409).json({ error: 'project is busy', reason: busyReason, hint: 'Wait for the running job/loop to finish, or pass allowWhileBusy:true only after explicit user confirmation.' }); return
       }
       if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId.trim())) throw new RepositoryValidationError('repositoryId must be a nonempty string')
-      if (getProjectRepositories(c.project).length > 1 && repositoryId === undefined) throw new RepositoryValidationError('repositoryId is required for multi-repository projects', 'repository_required')
+      const multiRepository = getProjectRepositories(c.project).length > 1
+      // Inside an ACTIVE Flow of a multi-repository project the repository is
+      // the Flow's own: the process runs in the Flow worktree, tagged with the
+      // Flow so it stops with it (as the in-app agent's background_start does).
+      const flow = multiRepository && repositoryId === undefined ? activeFlow(c, chatId.trim()) : null
+      if (flow) {
+        const repository = resolveProjectRepository(c.project, flow.repositoryId)
+        const process = startBackgroundProcess(command.trim(), resolveBackgroundCwd(flow.worktreePath, cwd, 'the Flow worktree'), chatId.trim(), c.project.id,
+          backgroundProcessHooks(c.broadcast), { repositoryId: repository.id, repositoryName: repository.name, flowId: flow.flowId })
+        res.status(202).json({ ok: true, repositoryId: repository.id, flowId: flow.flowId, process }); return
+      }
+      if (multiRepository && repositoryId === undefined) throw new RepositoryValidationError('repositoryId is required for multi-repository projects', 'repository_required')
       const repository = resolveProjectRepository(c.project, repositoryId)
       const process = startBackgroundProcess(command.trim(), resolveBackgroundCwd(repository.path, cwd), chatId.trim(), c.project.id,
         backgroundProcessHooks(c.broadcast), { repositoryId: repository.id, repositoryName: repository.name })

@@ -1,23 +1,11 @@
-import { ProjectSubagentsSection } from '../components/SubagentsSettingsSection'
-import { ProjectAgentEnvModeSection } from '../components/AgentEnvModeSection'
 import { useEffect, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import type { ProjectConfig } from '../../../types'
-import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
-import { ProjectRepositoriesSection } from '../components/ProjectRepositoriesSection'
-import { AgentRuntimeSettingsSection } from '../components/AgentRuntimeSettingsSection'
-import {
-  ProjectTelemetrySection,
-  ProjectPrePromptsSection,
-  ProjectBudgetSection,
-  ProjectAgentAuditSection,
-  ProjectIntegrationBranchSection,
-  ProjectWorktreeEnvSection,
-  ProjectReviewWipSection,
-} from '../components/ProjectSettingsSections'
+import { PROJECT_SETTINGS_SECTIONS } from '../components/project-settings-sections'
+import { ProjectTelemetrySection } from '../components/ProjectSettingsSections'
 
 export default function SettingsPage() {
   const { t } = useTranslation('settings')
@@ -90,7 +78,7 @@ export default function SettingsPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-32 bg-muted/30 rounded-lg animate-pulse" />
+          <div key={i} className="h-32 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
         ))}
       </div>
     )
@@ -99,40 +87,22 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="text-base font-semibold">{t('page.title')}</h1>
+        <h1 className="text-headline">{t('page.title')}</h1>
         {config && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             {config.project.name}
             {config.project.repo && ` · ${config.project.repo}`}
           </p>
         )}
       </div>
 
-      {/* Pipeline Telemetry Section — Super mode only */}
-      {isSuperMode && <ProjectTelemetrySection />}
-
-      <ProjectPrePromptsSection />
-
-      <ProjectRepositoriesSection />
-
-      <AgentRuntimeSettingsSection />
-
-      <ProjectSubagentsSection />
-
-      <ProjectIntegrationBranchSection />
-
-      <ProjectWorktreeEnvSection />
-
-      <ProjectAgentEnvModeSection />
-
-      <ProjectBudgetSection />
-
-      <ProjectReviewWipSection />
-
-      <ProjectAgentAuditSection />
-
-      <TerminalSettingsSection mode="project" />
-
+      {/* Same sections, same order as the Agent-mode project settings dialog.
+          Pipeline telemetry stays Super-mode only. */}
+      {PROJECT_SETTINGS_SECTIONS.flatMap((section) =>
+        section.panes
+          .filter((Pane) => isSuperMode || Pane !== ProjectTelemetrySection)
+          .map((Pane, i) => <Pane key={`${section.id}-${i}`} />),
+      )}
     </div>
   )
 }

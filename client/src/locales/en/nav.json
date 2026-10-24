@@ -10,30 +10,36 @@
       "pinnedOpen": "Collapse right sidebar (keep pinned)",
       "pinnedCollapsed": "Unpin right sidebar",
       "unpinned": "Pin right sidebar open"
-    }
+    },
+    "resize": "Resize sidebar"
   },
   "projects": {
     "addProject": "Add project",
     "remove": "Remove {{name}}",
     "confirmRemove": "Confirm remove {{name}}",
-    "confirmShort": "confirm?",
+    "confirmShort": "Remove?",
     "added": "Project added: {{name}}",
     "removed": "Project removed",
     "expand": "Expand {{name}}",
     "collapse": "Collapse {{name}}",
     "settings": "Settings for {{name}}",
     "assembling": "Setting up workspace…",
-    "assembleFailed": "Workspace setup failed — click to retry"
+    "assembleFailed": "Workspace setup failed — click to retry",
+    "retrySetup": "Retry setup"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analytics",
+    "analytics": "All-projects analytics",
     "companion": "Companion",
-    "settings": "Settings",
+    "settings": "App settings",
     "plugins": "Plugins",
-    "review": "Review"
+    "review": "Review",
+    "landmark": "Projects and missions",
+    "resize": "Resize sidebar",
+    "sectionTools": "Workspace",
+    "sectionProjects": "Projects"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops are open as a Mission modal.",
@@ -48,7 +54,8 @@
     "agents": "Agents",
     "code": "Code",
     "integrations": "Integrations",
-    "settings": "Settings"
+    "settings": "Project settings",
+    "landmark": "Project navigation"
   },
   "navbar": {
     "home": "Home",
@@ -72,7 +79,14 @@
     "minimizeWindow": "Minimize window",
     "maximizeWindow": "Maximize window",
     "closeWindow": "Close window",
-    "restoreWindow": "Restore window"
+    "restoreWindow": "Restore window",
+    "history": "Navigation history",
+    "back": "Back",
+    "forward": "Forward",
+    "backTo": "Back to {{place}}",
+    "forwardTo": "Forward to {{place}}",
+    "backMenu": "Previous places",
+    "forwardMenu": "Next places"
   },
   "costAlerts": {
     "costAlertTitle": "Cost alert",
@@ -86,7 +100,9 @@
   },
   "errorBoundary": {
     "title": "Something went wrong",
-    "occurredIn": "An error occurred in <strong>{{name}}</strong>"
+    "occurredIn": "An error occurred in <strong>{{name}}</strong>",
+    "description": "This view stopped working. Retry to reload it; your other work is unaffected.",
+    "details": "Technical details"
   },
   "healthWidget": {
     "healthLabel": "health",
@@ -123,5 +139,41 @@
     "active": "Prevents idle sleep. The display can turn off.",
     "inactive": "Normal sleep allowed.",
     "failed": "Could not change sleep prevention."
+  },
+  "skipToContent": "Skip to main content",
+  "places": {
+    "routes": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "analytics": "Analytics",
+      "activity": "Activity",
+      "agents": "Agents",
+      "code": "Code",
+      "integrations": "Integrations",
+      "settings": "Project settings",
+      "docs": "Docs",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Mission",
+    "missionTitled": "Mission · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Review packet",
+    "inbox": "Inbox",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Docs",
+      "analytics": "All-projects analytics"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "That spec no longer exists, so it was skipped.",
+      "mission": "That mission no longer exists, so it was skipped.",
+      "job": "That job no longer exists, so it was skipped.",
+      "review": "That review packet no longer exists, so it was skipped."
+    }
   }
 }

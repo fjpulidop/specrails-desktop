@@ -148,7 +148,7 @@ describe('LogViewer ticket refs (plain log lines)', () => {
     ]
     render(<LogViewer events={events} />)
     expect(screen.queryAllByTestId('log-ticket-ref')).toHaveLength(0)
-    expect(screen.getByText('+added for #4')).toBeInTheDocument()
+    expect(screen.getByText('added for #4')).toBeInTheDocument()
   })
 
   it('never linkifies stderr lines (stack frames read `#1 0x…`)', () => {

@@ -56,7 +56,7 @@ describe('PipelineProgress', () => {
     const connectors = document.querySelectorAll('.h-px.w-12')
     const firstConnector = connectors[0] as HTMLElement
     // Tailwind classes — check CSS class rather than computed style (jsdom doesn't process Tailwind)
-    expect(firstConnector.className).toContain('bg-emerald-500')
+    expect(firstConnector.className).toContain('bg-accent-success')
   })
 
   it('connector uses muted color when both phases are explicitly idle', () => {
@@ -66,7 +66,7 @@ describe('PipelineProgress', () => {
     const firstConnector = connectors[0] as HTMLElement
     // All idle — connector should use bg-border class, not the green emerald
     expect(firstConnector.className).toContain('bg-border')
-    expect(firstConnector.className).not.toContain('bg-emerald-500')
+    expect(firstConnector.className).not.toContain('bg-accent-success')
   })
 
   it('has correct number of phase items', () => {

@@ -1,4 +1,4 @@
-# Thèmes
+# Thèmes {#themes}
 
 Donnez à Specrails l'allure qui vous plaît. L'application est livrée avec cinq thèmes peaufinés à la main que vous pouvez changer instantanément — sans redémarrage, sans recompilation, sans rien à configurer.
 

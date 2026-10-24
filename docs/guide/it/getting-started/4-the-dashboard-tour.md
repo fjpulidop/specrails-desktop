@@ -37,11 +37,14 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 - **Spesa totale** (a destra) — un totale aggiornato di quanto hai speso, così il costo è sempre a portata di sguardo.
 - **Interruttore del terminale** (all'estrema destra) — apre il pannello del terminale integrato. Premi **Cmd+J** (macOS) o **Ctrl+J** (Windows/Linux) per aprirlo o chiuderlo in qualsiasi momento. È una shell completa, aperta direttamente nella cartella del tuo progetto.
 
-## Qualche scorciatoia utile
+## Qualche scorciatoia utile {#shortcuts}
 
-- **Cmd/Ctrl+B** — fissa o comprimi le barre laterali.
+- **Cmd/Ctrl+B** — fissa o comprimi la barra laterale sinistra; **Option+Cmd+B** (**Ctrl+Alt+B**) fa lo stesso con quella destra.
 - **Cmd/Ctrl+J** — apri o chiudi il pannello del terminale.
-- **Cmd/Ctrl+K** — apri la ricerca.
+- **Cmd/Ctrl+K** — la palette dei comandi: cerca missioni, progetti e job ed **esegui azioni**. Digita un verbo ("nuova", "avvia", "sposta", "cambia") o inizia con **>** per elencare le azioni: Nuova spec (anche in Esplora), Avvia o Sposta una spec, Apri la sua revisione, Consegna o metti in pausa un Flow, Nuova missione, Cambia tema, Passa tra modalità Missione e Board, Apri le impostazioni dell'app o del progetto su una sezione, Esegui un loop, mostra/nascondi le barre laterali, Torna indietro o avanti, Annulla l'ultima modifica ed Eliminati di recente. Le azioni che richiedono una scelta (un rail, uno stato, un tema, una sezione) aprono una seconda pagina; **Backspace** a ricerca vuota torna indietro. Ogni azione mostra la propria scorciatoia da tastiera, così la palette insegna i tasti. Offre solo ciò che funziona dove ti trovi e rispetta le stesse regole dei pulsanti (una spec che non può essere avviata non viene proposta). A ricerca vuota elenca le tue **Azioni recenti** e i **Luoghi recenti**.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** su Windows/Linux), i pulsanti **←  →** nella barra del titolo o i pulsanti indietro/avanti del mouse — tornano indietro o avanti tra i luoghi visitati: spec, missioni, job, progetti e pannelli a schermo intero. Clic destro (o pressione prolungata) su un pulsante mostra gli ultimi luoghi.
+- **Cmd+Maiusc+I** (**Ctrl+Alt+I** su Windows e Linux) o il pulsante **Da gestire** nella barra del titolo — l'elenco **Da gestire**: tutto ciò che ti aspetta in tutti i progetti, in un'unica lista raggruppata per progetto. Raccoglie le revisioni pronte da decidere, le domande a cui un agente sta aspettando risposta, le esecuzioni fallite o bloccate, le esecuzioni in pausa per il budget giornaliero e gli aggiornamenti Jira che non si sono potuti sincronizzare. Ogni riga ha l'azione principale a portata di mano (**Apri revisione**, **Rispondi**, **Riprendi**, **Riprova**) più **Posticipa** (1 ora o fino a domani) e **Fatto**. Un elemento posticipato o fatto torna da solo se il suo stato cambia. Il pulsante mostra quanti elementi attendono e una notifica di limite del provider apre l'elenco. L'elenco è anche un link (`?inbox=1`) e un'azione della palette dei comandi.
+- **?** — la guida rapida alle scorciatoie. Scrivi nel suo campo di ricerca per filtrare le scorciatoie e trovare pagine e sezioni di questa guida, che si aprono nella guida senza lasciare la schermata. Le piccole icone **ⓘ** e i link **Scopri di più** accanto a impostazioni, rail, Flow, slider del contesto e budget aprono la guida nella sezione corrispondente allo stesso modo.
 
 ## Dove andare adesso
 

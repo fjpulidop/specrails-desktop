@@ -14,7 +14,7 @@ interface AgentThinkingHaloProps {
   inset?: number
 }
 
-export function AgentThinkingHalo({ active, radius = '1.5rem', inset = -1 }: AgentThinkingHaloProps) {
+export function AgentThinkingHalo({ active, radius = 'calc(var(--radius-panel) + 1px)', inset = -1 }: AgentThinkingHaloProps) {
   const { agentThinkingHalo } = useEffectsPrefs()
   if (!agentThinkingHalo) return null
   return (

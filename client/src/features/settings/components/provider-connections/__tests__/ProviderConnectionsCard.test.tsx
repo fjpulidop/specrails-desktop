@@ -119,17 +119,19 @@ describe('ProviderConnectionsCard', () => {
     expect(within(local).getByRole('note')).toHaveTextContent('MY_KEY is not set in the app process')
     expect(within(local).getByText('a-model', { selector: 'button' })).toBeInTheDocument()
     expect(within(local).getByText('2 models')).toBeInTheDocument()
-    const picker = within(local).getByLabelText('Default model') as HTMLSelectElement
-    expect(Array.from(picker.options).map((o) => o.value)).toEqual(['', 'a-model', 'b-model', '__custom__'])
-    await user.selectOptions(picker, 'b-model')
+    const picker = within(local).getByRole('combobox', { name: 'Default model' })
+    await user.click(picker)
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['No default (first discovered)', 'a-model', 'b-model', 'Custom alias…'])
+    await user.click(screen.getByRole('option', { name: 'b-model' }))
     expect(within(local).getByRole('button', { name: 'b-model' })).toHaveAttribute('aria-pressed', 'true')
     // A test never PUTs.
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
     expect(modelsForProvider('local').map((m) => m.value)).toEqual(['a-model', 'b-model'])
     // Custom alias path.
-    await user.selectOptions(picker, '__custom__')
-    await user.type(within(local).getByLabelText('Custom alias…'), 'my-alias')
-    expect(picker).toHaveValue('__custom__')
+    await user.click(picker)
+    await user.click(await screen.findByRole('option', { name: 'Custom alias…' }))
+    await user.type(within(local).getByLabelText('Custom alias…', { selector: 'input' }), 'my-alias')
+    expect(picker).toHaveTextContent('Custom alias…')
   })
 
   it('maps 401 to not authorized, network errors to unreachable and a failed probe to an alert', async () => {
@@ -294,7 +296,9 @@ describe('ProviderConnectionsCard', () => {
     expect(within(local).getByLabelText('Provider ID')).not.toHaveAttribute('readonly')
     await user.type(within(local).getByLabelText('API base URL'), '/x')
     const claude = screen.getByTestId('connection-row-claude')
-    await user.selectOptions(within(claude).getByLabelText('Coding CLI'), 'codex')
+    await user.click(within(claude).getByRole('combobox', { name: 'Coding CLI' }))
+    await user.click(await screen.findByRole('option', { name: 'Codex' }))
+    expect(within(claude).getByRole('combobox', { name: 'Coding CLI' })).toHaveTextContent('Codex')
     await user.click(screen.getByRole('button', { name: 'Add CLI provider' }))
     expect(screen.getByTestId('connection-row-cli')).toBeInTheDocument()
     await user.click(within(screen.getByTestId('connection-row-cli')).getByRole('button', { name: 'Remove provider' }))

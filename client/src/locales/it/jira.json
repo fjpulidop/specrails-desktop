@@ -37,7 +37,8 @@
     "manualPlaceholder": "PROJ",
     "selected": "{{key}} — {{name}}",
     "none": "Nessun progetto trovato",
-    "loading": "Caricamento progetti…"
+    "loading": "Caricamento progetti…",
+    "search": "Cerca"
   },
   "mapping": {
     "intro": "Gli stati vengono associati automaticamente per categoria (Da fare / In corso / Fatto). Sovrascrivi uno stato se il tuo workflow usa nomi personalizzati.",
@@ -69,7 +70,8 @@
     "syncedToast": "{{count}} ticket sincronizzati da Jira",
     "disconnect": "Disconnetti",
     "disconnectConfirm": "Disconnettere questo progetto da Jira? Le spec esistenti restano sulla board; la sincronizzazione si ferma.",
-    "disconnectedToast": "Disconnesso da Jira"
+    "disconnectedToast": "Disconnesso da Jira",
+    "disconnectConfirmTitle": "Disconnettere da Jira?"
   },
   "outbox": {
     "title": "Aggiornamenti Jira in sospeso",

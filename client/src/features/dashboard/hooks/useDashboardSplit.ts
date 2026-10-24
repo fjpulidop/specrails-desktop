@@ -90,6 +90,8 @@ interface UseDashboardSplitResult {
   beginDrag: (e: React.PointerEvent | PointerEvent) => void
   /** Reset to the default 50/50 split. */
   resetToDefault: () => void
+  /** Move the splitter by `delta` px (keyboard), clamped and persisted. */
+  nudge: (delta: number) => void
 }
 
 export function useDashboardSplit(
@@ -246,7 +248,16 @@ export function useDashboardSplit(
     saveStored(projectId, next)
   }, [projectId, containerRef])
 
+  const nudge = useCallback((delta: number) => {
+    setLeftWidth((prev) => {
+      if (prev === null) return prev
+      const clamped = clampToViewport(prev + delta, viewport)
+      saveStored(projectId, clamped)
+      return clamped
+    })
+  }, [projectId, viewport])
+
   const enabled = leftWidth !== null && viewport >= DISABLE_BELOW_VIEWPORT_PX
 
-  return { leftWidth, enabled, beginDrag, resetToDefault }
+  return { leftWidth, enabled, beginDrag, resetToDefault, nudge }
 }

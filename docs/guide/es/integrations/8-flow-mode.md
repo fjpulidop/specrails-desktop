@@ -1,6 +1,6 @@
-# Flow: construir primero, spec después
+# Flow: construir primero, spec después {#flow-mode}
 
-Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en un worktree aislado y, cuando el resultado es el bueno, dices **Esto es**: un rail toma el worktree, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
+Flow es una forma de construir con un agente cuando todavía no sabes exactamente qué quieres. Hablas con el agente en tu misión, escribe y ejecuta código real en su propia rama de Flow (una copia aparte de tu proyecto) y, cuando el resultado es el bueno, pulsas **Pasar a un rail**: un rail toma tus cambios, deriva la spec y ejecuta la verificación, la revisión y la entrega de siempre.
 
 Implement sirve para delegar trabajo que ya sabes describir. Flow, para descubrirlo.
 
@@ -11,34 +11,59 @@ No tienes que pedir Flow por su nombre. Cuando describes algo exploratorio o vis
 - **Flow**: construirlo juntos ahora; la spec llega al final.
 - **Spec + Implement**: acordar primero una spec y luego delegarla a un rail.
 
-La tarjeta marca el camino recomendado y explica por qué en una frase. El otro camino está siempre a un clic, y el agente no insistirá si lo eliges o pulsas **Ahora no**.
+Los dos caminos tienen el mismo peso y aparecen siempre en el mismo orden: ninguno se recomienda, eliges tú. En **Por qué pregunta el agente**, el agente explica en una frase qué le hizo preguntar, y no insistirá elijas el camino que elijas o si pulsas **Ahora no**.
 
-Al elegir Flow se abre una confirmación: Specrails crea un worktree aislado donde el agente puede escribir código, y tu rama principal no se toca. Pulsa **Empezar Flow**. En el board aparece una spec provisional con la etiqueta **En Flow** (haz clic en ella para volver a la misión).
+Al elegir Flow se abre una confirmación: Specrails crea una copia aparte del proyecto en su propia rama de Flow, donde el agente puede escribir código, y tu rama principal no se toca. Pulsa **Empezar Flow**. En el board aparece una spec provisional con la etiqueta **En Flow** (haz clic en ella para volver a la misión).
 
-Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivado y la tarjeta lista lo que falta; normalmente se arregla actualizando Specrails Core.
+Si tu Specrails Core todavía no puede ejecutar Flow, el botón está desactivado y la tarjeta lista lo que falta. Normalmente se arregla actualizando Specrails Core.
+
+## Empezar un Flow desde una spec que ya tienes
+
+Cualquier spec se puede construir en Flow, no solo una idea nueva. Flow e Implement siguen siendo dos formas iguales de trabajarla:
+
+- en el tablero, haz clic derecho en una spec y elige **Empezar en Flow** (junto a arrastrarla a un rail); en el detalle de la spec, **Empezar en Flow** está junto a **Mover a rail**;
+- en una misión, cuando pides implementar una spec sin nombrar un rail, el agente muestra la misma tarjeta de dos caminos para esa spec: **Flow** la trabaja contigo y **Spec + Implement** la lanza en un rail;
+- una tarjeta de lanzamiento en rail de una sola spec también ofrece **Empezar en Flow** junto a su lanzamiento.
+
+La propia spec pasa a **En Flow**: no se crea ninguna spec provisional y el primer turno del agente recibe la spec (sus criterios de aceptación, la Contract Layer, lo que queda fuera de alcance y los addenda abiertos). Si la empiezas desde el tablero, el Flow se abre en la misión de la propia spec o en una misión nueva con el nombre de la spec. En un proyecto con varios repositorios Git, cuando la spec no indica exactamente uno de ellos, un pequeño diálogo pregunta antes dónde se ejecuta el Flow: solo aparecen los repositorios Git, viene preseleccionado el repositorio de la spec (o, si no, el principal) y las flechas cambian la elección. **Empezar en Flow** aparece desactivado, con el motivo al pasar el ratón, cuando la spec ya está en Flow, está hecha o cancelada, está en un rail o Flow no está disponible.
+
+**Descartar** devuelve la spec tal como estaba, con su estado anterior: tu spec nunca se borra. Cuando el Flow se entrega, la spec se reescribe a partir de lo construido y antes se guarda su texto original como comentario, **Original spec before Flow**, para que no se pierda nada. Una spec ya enlazada con Jira actualiza esa misma incidencia y la mueve al estado asignado a revisión; no se crea una segunda.
 
 ## Mientras estás en Flow
 
-La conversación cambia de aspecto (una fina línea de acento en el borde) y aparece una barra encima del compositor:
+El modo Flow se nombra allí donde miras, con su propio color de Flow: el compositor muestra un chip **Flow** junto al de autonomía y la pista *Dile al agente qué cambiar en este Flow…*; el título de la misión indica **En Flow**, igual que su fila en la lista de misiones. La conversación marca dónde entraste y saliste de Flow, y las respuestas del agente escritas en Flow llevan una pequeña marca **Flow** junto a su hora.
 
-- la **rama** del worktree, los **ficheros cambiados** con líneas añadidas y eliminadas, y el **gasto real** del Flow hasta ahora según factura el proveedor. Muestra `—` hasta que un turno tiene coste informado, y nunca una estimación;
-- **Ver cambios** lista cada fichero cambiado con su estado y +/−;
-- **Pausar** detiene al agente y conserva el worktree y la spec. La misión muestra entonces **Reanudar Flow**;
-- **Descartar** borra el worktree, su rama y la spec provisional, tras una confirmación;
-- **Esto es**: la acción principal, más abajo.
+La franja justo encima del compositor muestra el Flow en una fila corta: su estado, **Flow · 7 archivos**, **Pausar Flow** y la acción principal, **Pasar a un rail**. Cuando una acción no está disponible (el Flow aún está guardando, hay otra acción en curso), al pasar el ratón dice por qué. Abre la fila con su flecha, como cualquier otra ejecución, para ver el resto:
 
-Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. La franja de git bajo el compositor muestra la rama del worktree.
+- la **rama** (pulsa para copiar su nombre), los **cambios** con líneas añadidas y eliminadas (pulsa para ver cada archivo con su estado y +/−) y el **coste hasta ahora** según factura el proveedor. Muestra `—` hasta que un turno tiene coste informado, y nunca una estimación; un `*` marca un total que deja fuera turnos sin precio, con una nota que dice cuántos;
+- **Vista previa** mientras la app del Flow está en marcha (ver más abajo);
+- **Descartar**, aparte, borra los cambios del Flow, su rama y la spec provisional. La confirmación enumera lo que pierdes: los archivos cambiados con sus +/−, la rama y la spec.
 
-## Esto es
+**Pausar Flow** detiene al agente y conserva tus cambios y la spec. La fila muestra entonces **Reanudar Flow**.
 
-Cuando el resultado te convenza, pulsa **Esto es**. La barra de Flow y el tratamiento visual desaparecen y aparece la tarjeta de lanzamiento de rail de siempre, con el loop **Flow → Spec** preseleccionado y un rail libre elegido por ti. Ajusta el motor, el modelo o el esfuerzo si quieres y pulsa **Lanzar**. Si se ha alcanzado el límite de revisión o un presupuesto, la tarjeta lo dice y no lanza. **Todavía no** te devuelve al Flow.
+Puedes escribir mientras el agente trabaja: en Flow tu mensaje **interrumpe** el paso actual (el botón de enviar se convierte en un rayo) y el agente sigue al momento con tu nueva información. Mientras el Flow está abierto, la franja de git bajo el compositor se aparta: el panel del Flow ya muestra su rama.
 
-El rail deriva la spec de Specrails y el cambio OpenSpec a partir de lo que construiste, lo verifica y lo revisa, y la tarjeta de entrega aparece en la misión como en cualquier ejecución.
+## Prueba la app
+
+El agente de Flow ejecuta él mismo el typecheck y los tests para comprobar su trabajo. Cuando hay algo que probar, te pregunta con tres opciones: **Start the app**, **Start and expose on the local network** o **Not now**. Exponerla te permite abrir la app desde un móvil en la misma Wi-Fi o VPN, y cualquiera en esa red puede acceder a ella.
+
+Cuando la app escucha, el agente te da sus direcciones como enlaces y el panel del Flow muestra **Vista previa** con un punto verde: abre la app en tu navegador. Su menú tiene la dirección de red y **Detener app**. La app se ejecuta desde la copia del Flow, nunca desde tu checkout principal, y Specrails la detiene cuando pausas, descartas o entregas el Flow.
+
+## Pasar a un rail {#flow-hand-off}
+
+Cuando el resultado te convenza, pulsa **Pasar a un rail**. La fila pasa a **Listo para convertirse en un PR** y abre una sola línea encima: *Rail 2 convertirá tus 7 archivos cambiados en un PR revisado. Si falla, tu trabajo está a salvo.* Pulsa **Lanzar**, o **Todavía no** para volver al Flow; **Esc** equivale a **Todavía no**; un clic fuera solo pliega la línea, y la fila sigue en **Listo para convertirse en un PR** con **Lanzar**. Si el motor de tu conversación no puede pasar el Flow a un rail en este equipo, una nota justo debajo de la línea lo dice y se usa el motor por defecto del rail.
+
+El rail, el motor, el modelo y el esfuerzo ya están elegidos (un rail libre y el motor de tu conversación). Para cambiarlos, abre **Cambiar cómo**; ahí también ves qué cambió. El coste hasta ahora aparece en la línea principal. Tus elecciones se conservan si pulsas **Todavía no** y vuelves a pasarlo más tarde. Mientras arranca, la franja lo muestra lanzándose, sin huecos, y después sigue la ejecución paso a paso. Si se alcanza el límite de revisión o un presupuesto, la línea lo dice y no se lanza nada. Si la ejecución no aparece en 45 segundos, la franja deja de girar y dice **Aún pasando a Rail 2…** con **Actualizar**, que vuelve a comprobar y sigue esperando hasta que aparezca la ejecución.
+
+El rail deriva la spec y su cambio de spec a partir de lo que construiste, lo verifica y lo revisa, y la tarjeta de entrega aparece en la misión como en cualquier ejecución.
+
+Si la ejecución falla por un motivo técnico, el trabajo vuelve solo a este Flow, intacto: la tarjeta dice en palabras sencillas qué falló (los códigos quedan en **Detalles técnicos**) y el agente recibe el error y lo explica. Si la revisión pide cambios, la tarjeta ofrece **Volver a Flow** o **Relanzar**. Cuando la entrega se asienta, la misión cierra el Flow con un resumen: el pull request, la spec reescrita a partir de lo que construiste, el cambio de spec archivado y la incidencia de Jira si la hay.
 
 ## Conviene saber
 
-- Flow solo escribe dentro de su worktree. Fuera de Flow las misiones siguen siendo de solo lectura.
+- Flow solo escribe en su propia rama. Fuera de Flow las misiones siguen siendo de solo lectura.
 - Un Flow por misión a la vez. La pausa sobrevive a un reinicio de la app.
-- Si el worktree desaparece, el Flow queda marcado como **necesita revisión** y no se borra nada.
+- Si la copia del proyecto del Flow desaparece, el Flow queda marcado como **necesita revisión** (para tu información, no hay nada que decidir) y no se borra nada.
+- La franja nunca cambia la ejecución que estás mirando. Si otra empieza a necesitarte mientras tanto, su nombre en el selector de la franja dice **te necesita**.
 - Jira no recibe nada mientras estás en Flow ni si lo descartas.
 - El gasto de Flow aparece en Analítica como superficie propia, **Flow**, y dentro del bloque de misiones del agente.

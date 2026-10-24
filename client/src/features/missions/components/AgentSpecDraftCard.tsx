@@ -24,10 +24,10 @@ const PRIORITY_PILL: Record<SpecDraftPriority, string> = {
 const DESC_MD = cn(
   'text-xs leading-6 text-foreground/85',
   '[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
-  '[&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-[11px] [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-foreground/60 [&_h2:first-child]:mt-0',
+  '[&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-label [&_h2]:font-semibold [&_h2]:text-muted-foreground [&_h2:first-child]:mt-0',
   '[&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold',
   '[&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-0.5',
-  '[&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-accent-info',
+  '[&_code]:rounded-control [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground',
   '[&_pre]:my-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface [&_pre]:p-2',
   '[&_strong]:font-semibold',
 )
@@ -45,17 +45,17 @@ export function AgentSpecDraftCard({ draft }: Props) {
   return (
     <div
       data-testid="agent-spec-draft-card"
-      className="my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg backdrop-blur"
+      className="my-1 overflow-hidden rounded-xl border border-accent-primary/25 bg-card/80 shadow-lg"
     >
       {/* Header: identity + priority */}
       <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-accent-primary/90">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary/90">
           <Sparkles className="h-3 w-3" />
           {t('specDraft.heading')}
         </span>
         <span
           className={cn(
-            'rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+            'rounded-full border px-2 py-0.5 text-caption font-medium',
             PRIORITY_PILL[draft.priority],
           )}
         >
@@ -64,7 +64,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
       </div>
 
       <div className="flex flex-col gap-2.5 px-3.5 py-3">
-        <div className="text-sm font-semibold leading-snug text-foreground">
+        <div className="text-strong leading-snug text-foreground">
           {draft.title.trim() || t('specDraft.untitled')}
         </div>
 
@@ -73,7 +73,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
             {draft.labels.map((label, i) => (
               <span
                 key={`${i}-${label}`}
-                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[10px] text-foreground/70"
+                className="rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-caption text-foreground/70"
               >
                 {label}
               </span>
@@ -98,7 +98,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
               type="button"
               onClick={() => setExpanded((v) => !v)}
               data-agent-interactive
-              className="mt-1 flex items-center gap-1 text-[11px] text-accent-info transition-colors hover:text-foreground"
+              className="mt-1 flex items-center gap-1 text-xs text-accent-info transition-colors hover:text-foreground"
             >
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {expanded ? t('specDraft.collapse') : t('specDraft.expand')}
@@ -108,7 +108,7 @@ export function AgentSpecDraftCard({ draft }: Props) {
 
         {criteria.length > 0 && (
           <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+            <div className="mb-1 text-label text-muted-foreground">
               {t('specDraft.acceptanceCriteria')} · {criteria.length}
             </div>
             <ul className="flex flex-col gap-1">
@@ -133,9 +133,9 @@ export function AgentSpecDraftPending() {
   return (
     <span
       data-testid="agent-spec-draft-pending"
-      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-[11px] text-accent-primary/90"
+      className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary/90"
     >
-      <Sparkles className="h-3 w-3 animate-pulse" />
+      <Sparkles className="h-3 w-3 motion-safe:animate-pulse" />
       {t('specDraft.drafting')}
     </span>
   )

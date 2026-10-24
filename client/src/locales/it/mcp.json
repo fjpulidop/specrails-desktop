@@ -47,7 +47,8 @@
     "regenerate": "Rigenera",
     "regenerateConfirm": "Rigenerare il token di accesso? Qualsiasi client che usa il vecchio token smetterà di funzionare finché non ne aggiorni la configurazione.",
     "regenerated": "Token di accesso rigenerato",
-    "regenerateFailed": "Impossibile rigenerare il token: {{message}}"
+    "regenerateFailed": "Impossibile rigenerare il token: {{message}}",
+    "regenerateConfirmTitle": "Rigenerare il token di accesso?"
   },
   "tray": {
     "open": "Apri",
@@ -93,6 +94,9 @@
       "unknown_provider": "Provider sconosciuto nella matrice di attivazione",
       "invalid_entry": "Voce di server malformata",
       "invalid_body": "Richiesta malformata"
-    }
+    },
+    "removeConfirmTitle": "Rimuovere {{name}}?",
+    "removeConfirmBody": "L’agente di missione smette di caricare questo server per tutti i provider. Un server rilevato resta nella configurazione del tuo provider IA e può essere riattivato.",
+    "formProviderToggle": "Attiva per {{provider}}"
   }
 }

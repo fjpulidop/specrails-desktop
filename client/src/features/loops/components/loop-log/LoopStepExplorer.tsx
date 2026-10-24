@@ -36,6 +36,7 @@ import { LoopStepSection, LoopSetupSection, SETUP_KEY } from './LoopStepSection'
 import { useLogTicketActions } from '../../../jobs/hooks/useLogTicketActions'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useDefinitionFork } from '../../hooks/useDefinitionFork'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 export interface LoopStepExplorerProps {
   events: EventRow[]
@@ -51,10 +52,7 @@ export interface LoopStepExplorerProps {
 
 function PulseDot() {
   return (
-    <span className="relative flex h-1.5 w-1.5 shrink-0">
-      <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-primary opacity-60" />
-      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent-primary" />
-    </span>
+    <LiveDot size="xs" />
   )
 }
 
@@ -274,7 +272,7 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={expandAll}
           aria-label={t('loopExplorer.expandAll')}
           title={t('loopExplorer.expandAll')}
@@ -284,7 +282,7 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={collapseAll}
           aria-label={t('loopExplorer.collapseAll')}
           title={t('loopExplorer.collapseAll')}
@@ -292,7 +290,7 @@ export function LoopStepExplorer({
           <ChevronsDownUp className="w-3.5 h-3.5" />
         </Button>
         {mode === 'follow' && isJobRunning && (
-          <span className="flex items-center gap-1.5 text-[10px] text-accent-primary shrink-0">
+          <span className="flex items-center gap-1.5 text-caption text-accent-primary shrink-0">
             <PulseDot />
             {t('loopExplorer.follow')}
           </span>
@@ -301,13 +299,13 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={handleCopyAll}
           aria-label={t('logViewer.copySuccess')}
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {t('logViewer.lineCount', { filtered: filteredCount, total: model.totalLines })}
         </span>
       </div>
@@ -362,7 +360,7 @@ export function LoopStepExplorer({
         {waiting && (
           <div
             data-testid="loop-waiting-row"
-            className="mt-3 flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground/70 italic"
+            className="mt-3 flex items-center gap-2 px-3 py-2 text-caption text-muted-foreground italic"
           >
             <PulseDot />
             {t('loopExplorer.waiting')}
@@ -376,7 +374,7 @@ export function LoopStepExplorer({
           type="button"
           data-testid="resume-follow-pill"
           onClick={resumeFollow}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full glass-card border border-accent-primary/30 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-lg hover:border-accent-primary/60 transition-colors cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full glass-card border border-accent-primary/30 px-3 py-1.5 text-caption font-medium text-foreground shadow-lg hover:border-accent-primary/60 transition-colors cursor-pointer u-enter"
         >
           <PulseDot />
           {t('loopExplorer.resumeFollow')}

@@ -1,4 +1,4 @@
-# Code explorer
+# Code explorer {#code-explorer}
 
 La section **Code** vous offre une fenêtre conviviale et en lecture seule sur votre dépôt — pensée tout particulièrement pour celles et ceux qui veulent comprendre ce que l'IA construit sans devoir vivre dans un éditeur. Vous disposez d'une arborescence de fichiers à gauche, d'un afficheur de code à droite, et, au-dessus du code, d'un résumé en langage clair de ce que fait réellement chaque fichier.
 

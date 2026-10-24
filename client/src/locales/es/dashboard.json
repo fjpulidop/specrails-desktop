@@ -33,7 +33,10 @@
     "railWorktreesNoCommits": "Aislamiento por worktrees no disponible: el repositorio aún no tiene commits — haz un commit inicial y relanza.",
     "railWorktreesError": "La aislación por worktrees falló — este run continúa SIN el flujo de revisión por PR (sin tarjeta de implementación). Mira el detalle del error abajo.",
     "onReviewCannotMoveToRail": "Esta spec está pendiente de revisión de PR — resuelve primero la decisión de la PR",
-    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR — resuelve la decisión de la PR antes de lanzar"
+    "onReviewNotLaunchable": "Una spec de este rail está pendiente de revisión de PR. Decide sobre la PR antes de lanzar.",
+    "launchRepositoryHasNoCommits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto.",
+    "railDeletePrPending": "{{rail}} tiene una decisión de PR pendiente: resuélvela antes de quitar el rail",
+    "railDeleteLastRail": "Un proyecto necesita al menos un rail: este no se puede quitar"
   },
   "railPr": {
     "operation": {
@@ -86,6 +89,7 @@
     "publish": "Publicar",
     "publishTooltip": "Abre la PR en borrador para la revisión del equipo",
     "checkout": "Cambiar a la rama",
+    "moreActions": "Más acciones",
     "checkoutTooltip": "Cambia la carpeta principal del proyecto a {{branch}}",
     "checkoutSuccess": "Checkout en {{branch}}",
     "checkoutFailed": "No se pudo hacer checkout de la rama de implementación",
@@ -162,14 +166,30 @@
       "noChanges": "sin cambios",
       "succeeded": "lista"
     },
-    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "reviewChangesRequested": "Cambios solicitados",
+    "reviewChangesRequestedHint": "El paso de Flow a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar.",
+    "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
+    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; Specrails los está restaurando en una rama aparte.",
+    "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras."
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} en ejecución",
-    "runningCount_other": "{{count}} en ejecución",
     "launchAll": "Lanzar todos",
-    "launchAllTitle": "Lanza en paralelo todos los rails listos — cada ejecución se aísla en su propio worktree de git"
+    "launchAllTitle": "Lanza en paralelo todos los rails listos — cada ejecución se aísla en su propio worktree de git",
+    "addRail": "Añadir rail",
+    "addRailLimit": "Límite de rails alcanzado (máx. {{max}})",
+    "launchAllNoneReady": "Ningún rail está listo. Arrastra specs a un rail para lanzarlo.",
+    "summary": {
+      "running_one": "{{count}} en ejecución",
+      "running_other": "{{count}} en ejecución",
+      "ready_one": "{{count}} listo",
+      "ready_other": "{{count}} listos",
+      "failed_one": "{{count}} fallido",
+      "failed_other": "{{count}} fallidos",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rails"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} ya en ejecución",
@@ -238,7 +258,13 @@
     "deleteRail": "Eliminar {{label}}",
     "dropHere": "Suelta aquí",
     "dropOnThisRail": "Suelta en este rail",
-    "dragSpecsHere": "Arrastra specs aquí"
+    "dropHint": "Suelta una spec en este rail",
+    "dragHandle": "Reordenar {{label}}",
+    "status": {
+      "idle": "Inactivo",
+      "running": "En ejecución",
+      "failed": "Fallido"
+    }
   },
   "freestyleDialog": {
     "title": "Lanzar en modo Freestyle",
@@ -250,7 +276,8 @@
     "autonomyBody": "{{provider}} trabaja por su cuenta con agentes nativos y flujos dinámicos.",
     "costTitle": "Coste variable.",
     "costBody": "El gasto depende de lo que {{provider}} decida hacer — puede ser mayor de lo esperado.",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "gloss": "Freestyle entrega cada spec directamente a {{provider}}: una ejecución autónoma por spec, sin el pipeline de planificación y revisión de OpenSpec."
   },
   "useRails": {
     "fetchFailed": "No se pudieron obtener los rails: {{status}}"
@@ -291,5 +318,8 @@
     "panelReached": "Se ha alcanzado el límite de {{limit}}. Decide una de estas (Crear PR, fusionar o descartar) para lanzar trabajo nuevo. Los cambios sobre estas entregas siguen permitidos.",
     "empty": "No hay nada esperando revisión.",
     "playBlocked": "Límite de revisión alcanzado ({{pending}}/{{limit}} en espera). Decide una entrega para lanzar trabajo nuevo."
+  },
+  "errors": {
+    "deleteFailed": "No se pudo eliminar la spec"
   }
 }

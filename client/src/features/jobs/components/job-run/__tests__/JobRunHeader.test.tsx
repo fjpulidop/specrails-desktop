@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '../../../../../test-utils'
+import { render, screen, fireEvent, act, waitFor, within } from '../../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { JobRunHeader } from '../JobRunHeader'
 import type { JobSummary, EventRow, PhaseDefinition } from '../../../../../types'
@@ -177,13 +177,13 @@ describe('JobRunHeader', () => {
     const startedAt = new Date(Date.now() - 5000).toISOString()
     const events = [assistantTool(1, 'Edit', { file_path: 'a.ts' })]
     const { rerender } = renderHeader({ ...runningJob, started_at: startedAt }, events)
-    expect(screen.queryByText('$0.4200')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.42')).not.toBeInTheDocument()
 
     const completed: JobSummary = { ...runningJob, started_at: startedAt, finished_at: new Date().toISOString(), status: 'completed', total_cost_usd: 0.42, tokens_in: 100, tokens_out: 100, num_turns: 1 }
     rerender(<JobRunHeader job={completed} events={events} phases={{}} phaseDefinitions={[]} variant="page" />)
     expect(screen.getByText('completed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('$0.4200')).toBeInTheDocument()
+    expect(screen.getAllByText('$0.42')).toHaveLength(2) // outcome header + Details tile
     expect(screen.getByText('Turns').nextElementSibling).toHaveTextContent('1')
     expect(screen.getByText('Tokens').nextElementSibling).toHaveTextContent('0.2k')
   })
@@ -191,7 +191,7 @@ describe('JobRunHeader', () => {
   it('prefixes ~ for an estimated (codex) cost and includes cache tokens in the total', () => {
     renderHeader({ ...completedJob, total_cost_usd_estimated: 1, tokens_cache_read: 90_000, tokens_cache_create: 2_000 })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('~$0.0234')).toBeInTheDocument()
+    expect(screen.getAllByText('~$0.02').length).toBeGreaterThan(0)
     expect(screen.getByText('100.0k')).toBeInTheDocument()
   })
 
@@ -222,7 +222,7 @@ describe('JobRunHeader', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByText('src/components/MyComponent.tsx')).toBeInTheDocument()
     expect(screen.getByText('Pipeline total (3 phases)')).toBeInTheDocument()
-    expect(screen.getByText('≥$28.0000')).toBeInTheDocument()
+    expect(screen.getByText('≥$28.00')).toBeInTheDocument()
     expect(screen.getByText('≥1.5k')).toBeInTheDocument()
     expect(screen.getByTestId('pipeline-partial-hint')).toBeInTheDocument()
     expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/1 phase/i)
@@ -234,7 +234,7 @@ describe('JobRunHeader', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
-    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
     expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
   })
 
@@ -312,5 +312,104 @@ describe('JobRunHeader', () => {
     fireEvent.click(screen.getByText('Usage and time'))
     expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
     expect(screen.getByText('Verification evidence')).toBeInTheDocument()
+  })
+})
+
+describe('JobRunHeader outcome peak', () => {
+  it('shows the final duration, cost and arrival mark only once completed', () => {
+    const done: JobSummary = { ...runningJob, started_at: '2026-07-27T10:00:00Z', finished_at: '2026-07-27T10:01:02Z', status: 'completed', total_cost_usd: 0.42 }
+    renderHeader(done, [])
+    const outcome = screen.getByTestId('job-run-outcome')
+    expect(outcome).toHaveTextContent('1m 2s')
+    expect(outcome).toHaveTextContent('$0.42')
+    expect(screen.getByTestId('rail-mark')).toHaveAttribute('data-state', 'arrive')
+  })
+
+  it('has no outcome block while running', () => {
+    renderHeader({ ...runningJob, started_at: new Date().toISOString() }, [])
+    expect(screen.queryByTestId('job-run-outcome')).toBeNull()
+  })
+})
+
+describe('JobRunHeader failure diagnosis', () => {
+  const diagnosed = (failureDiagnosis: unknown, status: JobSummary['status'] = 'failed'): JobSummary => ({ ...failedJob, status, finished_at: '2024-03-21T11:05:00Z', failureDiagnosis })
+  const tests = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core', remedies: ['resume', 'edit-spec', 'open-logs', 'retry'] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [] }))
+  })
+
+  it('starts a failed job\'s terminal state with the diagnosis card, in plain words', () => {
+    renderHeader(diagnosed(tests), [], { onOpenLogs: vi.fn() })
+    expect(screen.getByRole('region', { name: 'Tests failed in the Reviewer phase after 4 fix rounds' })).toBeInTheDocument()
+  })
+
+  it('shows nothing for a job that did not fail or carries no diagnosis', () => {
+    renderHeader({ ...completedJob, failureDiagnosis: tests })
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+    renderHeader(diagnosed(null))
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+    renderHeader({ ...failedJob, started_at: new Date().toISOString(), status: 'running', failureDiagnosis: tests })
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+  })
+
+  it('wires the surface\'s real actions: run again, edit spec and open logs', async () => {
+    const user = userEvent.setup()
+    const onRerun = vi.fn(), onEditSpec = vi.fn(), onOpenLogs = vi.fn()
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['edit-spec', 'open-logs', 'retry'] }), [], { onRerun, onEditSpec, onOpenLogs })
+    const card = screen.getByTestId('failure-diagnosis-card')
+    await user.click(within(card).getByRole('button', { name: 'Edit spec and relaunch' }))
+    await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
+    await user.click(within(card).getByRole('button', { name: 'Run again' }))
+    expect(onEditSpec).toHaveBeenCalledTimes(1)
+    expect(onOpenLogs).toHaveBeenCalledTimes(1)
+    expect(onRerun).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells the surface when the card already offers the retry, so it can drop its own duplicate button', () => {
+    const seen: boolean[] = []
+    const actions = ({ diagnosisOffersRetry }: { diagnosisOffersRetry: boolean }) => { seen.push(diagnosisOffersRetry); return null }
+    // retry is a ranked remedy and the surface can rerun -> offered by the card
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['retry', 'open-logs'] }), [], { onRerun: vi.fn(), onOpenLogs: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(true)
+    // the surface cannot rerun (the modal): the card does not offer it, so the surface keeps nothing to hide
+    seen.length = 0
+    renderHeader(diagnosed({ ...tests, resumablePhase: null, remedies: ['retry', 'open-logs'] }), [], { onOpenLogs: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(false)
+    // no diagnosis at all
+    seen.length = 0
+    renderHeader(diagnosed(null), [], { onRerun: vi.fn(), actions })
+    expect(seen[seen.length - 1]).toBe(false)
+  })
+
+  it('resumes through the runtime route only when the run can resume', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', nextStep: 'fixer' })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await user.click(await within(card).findByRole('button', { name: 'Resume from Fixer' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
+  it('offers no resume when the run cannot resume', async () => {
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', canResume: false })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(within(card).queryByRole('button', { name: /Resume/ })).toBeNull()
+  })
+
+  it('says "Unknown cause" with the raw tail of the log instead of inventing a diagnosis', () => {
+    const events: EventRow[] = [{ id: 1, job_id: 'job-2', seq: 1, event_type: 'log', payload: JSON.stringify({ line: 'boom: segfault in worker\nexit 139' }), timestamp: '' }]
+    renderHeader(diagnosed({ ...tests, kind: 'unknown', confidence: 'low', remedies: ['open-logs', 'retry'] }), events, { onOpenLogs: vi.fn() })
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Unknown cause')
+    expect(screen.getByTestId('failure-log-tail')).toHaveTextContent('boom: segfault in worker')
+  })
+
+  it('shows the card for a stalled (canceled) job such as a provider limit', () => {
+    renderHeader(diagnosed({ ...tests, kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] }, 'canceled'), [], { onOpenLogs: vi.fn() })
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid).')
   })
 })

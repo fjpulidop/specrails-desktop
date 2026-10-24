@@ -5,6 +5,7 @@ import { ShieldCheck, Unplug } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // ─── Agent environment mode (inherit | minimal) ───────────────────────────────
 // `inherit` (default) forwards the Desktop environment to agents unchanged.
@@ -30,7 +31,7 @@ function NameChips({ names, testId }: { names: string[]; testId: string }) {
   return (
     <div className="flex flex-wrap gap-1" data-testid={testId}>
       {names.map((name) => (
-        <span key={name} className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span key={name} data-chip className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 font-mono text-caption text-muted-foreground">
           {name}
         </span>
       ))}
@@ -97,7 +98,7 @@ export function ProjectAgentEnvModeSection() {
     }
   }
 
-  if (!loaded) return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
+  if (!loaded) return <Skeleton className="h-32 rounded-lg" data-testid="section-skeleton" />
 
   return (
     <Card>
@@ -122,8 +123,8 @@ export function ProjectAgentEnvModeSection() {
               >
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${selected ? 'text-primary' : 'text-muted-foreground'}`} aria-hidden />
                 <span className="space-y-0.5">
-                  <span className="block text-xs font-medium">{t(`agentEnv.modes.${id}.label`)}</span>
-                  <span className="block text-[11px] leading-relaxed text-muted-foreground">{t(`agentEnv.modes.${id}.description`)}</span>
+                  <span className="block text-label">{t(`agentEnv.modes.${id}.label`)}</span>
+                  <span className="block text-xs leading-relaxed text-muted-foreground">{t(`agentEnv.modes.${id}.description`)}</span>
                 </span>
               </button>
             )
@@ -131,34 +132,34 @@ export function ProjectAgentEnvModeSection() {
         </div>
 
         <div className="space-y-2.5 rounded-lg border border-border/40 bg-muted/20 p-3" data-testid="agent-env-names">
-          <p className="text-[11px] font-medium text-foreground">{t('agentEnv.namesTitle')}</p>
+          <p className="text-label text-foreground">{t('agentEnv.namesTitle')}</p>
           {statusError ? (
-            <p className="text-[11px] text-muted-foreground">{t('agentEnv.statusUnavailable')}</p>
+            <p className="text-xs text-muted-foreground">{t('agentEnv.statusUnavailable')}</p>
           ) : report ? (
             <>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('agentEnv.shared')}</p>
+                <p className="text-label text-muted-foreground">{t('agentEnv.shared')}</p>
                 <NameChips names={report.names} testId="agent-env-shared" />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('agentEnv.passthrough')}</p>
+                <p className="text-label text-muted-foreground">{t('agentEnv.passthrough')}</p>
                 {report.passthrough.length > 0
                   ? <NameChips names={report.passthrough} testId="agent-env-passthrough" />
-                  : <p className="text-[11px] text-muted-foreground">{t('agentEnv.noPassthrough')}</p>}
+                  : <p className="text-xs text-muted-foreground">{t('agentEnv.noPassthrough')}</p>}
               </div>
               {report.providers.map((provider) => (
                 <div key={provider.id} className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('agentEnv.provider', { provider: provider.displayName })}
                   </p>
                   {provider.names.length > 0
                     ? <NameChips names={provider.names} testId={`agent-env-provider-${provider.id}`} />
-                    : <p className="text-[11px] text-muted-foreground">{t('agentEnv.noProviderNames', { patterns: provider.patterns.join(', ') || '—' })}</p>}
+                    : <p className="text-xs text-muted-foreground">{t('agentEnv.noProviderNames', { patterns: provider.patterns.join(', ') || '—' })}</p>}
                 </div>
               ))}
             </>
           ) : null}
-          <p className="text-[10px] leading-relaxed text-muted-foreground">{t('agentEnv.namesHelp')}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('agentEnv.namesHelp')}</p>
         </div>
       </CardContent>
     </Card>

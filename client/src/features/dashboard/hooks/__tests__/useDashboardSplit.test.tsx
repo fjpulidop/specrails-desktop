@@ -90,4 +90,15 @@ describe('useDashboardSplit', () => {
     expect(MIN_RIGHT_PX).toBe(280)
     expect(DISABLE_BELOW_VIEWPORT_PX).toBe(900)
   })
+
+  it('nudges by a signed delta, clamps to the gutters and persists', () => {
+    const { result } = renderHook(() => useDashboardSplit('proj-1'))
+    act(() => { result.current.nudge(16) })
+    expect(result.current.leftWidth).toBe(996)
+    expect(localStorage.getItem('specrails-desktop:dashboard-split:proj-1')).toBe('996')
+    act(() => { result.current.nudge(-10_000) })
+    expect(result.current.leftWidth).toBe(MIN_LEFT_PX)
+    act(() => { result.current.nudge(10_000) })
+    expect(result.current.leftWidth).toBe(1400 - MIN_RIGHT_PX)
+  })
 })

@@ -21,6 +21,7 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [agent-sessions.md](agent-sessions.md) | Core resident agent sessions in Desktop: host per scope, runner seam, projection, rebuild, sub-agent UI and rollout flag |
 | [flow-mode.md](flow-mode.md) | Flow mode server side: lifecycle and sagas, worktree hand-off to a rail, Flow turns with interrupt delivery, capability gating, routes and events |
 | [spec-triage.md](spec-triage.md) | Spec triage: hashed deterministic inputs, the one cheap structured-output call, triggers, rail preselection and the recommended/chosen loop recorded per delivery |
+| [existing-project-anchoring.md](existing-project-anchoring.md) | Existing-project anchoring (feedback-2026-10 phase 3 + rules inventory): ticket non-goals, architect clarifications on Jira, requirements demonstrated, baseline on touch, project rules; every surface gated on its Core capability |
 | [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |
 | [programmatic-agent-runtime-validation.md](programmatic-agent-runtime-validation.md) | Paired implementation test results, packaging evidence and release limitations |
 | [openspec-workflow.md](openspec-workflow.md) | `opsx:*` change lifecycle — used by the app itself for structured change management |
@@ -31,6 +32,8 @@ Start with [the modular architecture decision](modular-architecture.md),
 | [interactive-jobs.md](interactive-jobs.md) | Interactive-by-default jobs: the persistent-stdin session model, `finalize` vs `auto` settle modes, loop-step turn routing, accounting reconciliation, kill-switch matrix |
 | [loop-step-log-explorer.md](loop-step-log-explorer.md) | The step-grouped log surface for loop runs: the `loop_graph` / `loop_step` / `loop_step_end` event contract and seq guarantees, grouping + status model (interrupted rule, legacy fallback), follow mode, perf notes |
 | [gemini-mcp-registration.md](gemini-mcp-registration.md) | How MCP servers actually reach gemini-cli (`.gemini/settings.json` + trust env, FQN tool prefix) and the deferred `.mcp.json` gap on non-agent-chat surfaces |
+| [../../DESIGN.md](../../DESIGN.md) | The design system record (Signal box at night): colour, type, radius, elevation, motion and component tokens derived from the shipped code; `visual-design-audit.md` stays the conventions log |
+| [modal-standard.md](modal-standard.md) | The client modal standard: Radix primitive, five sizes, sticky header/body/footer anatomy, button order, named z-index layers (`client/src/lib/layers.ts`), one scrim and entrance animation, workspace-only resizing, 12px type floor |
 | [browser-capture-performance.md](browser-capture-performance.md) | Embedded-browser fluidity: the CDP screencast → WS → canvas pipeline, the latency levers (non-blocking navigation, input coalescing, latest-frame-wins drawing, frame conflation), tuning knobs, and the OAuth popup design |
 
 **See also:** the app registers Claude Code, Codex CLI, Gemini CLI, and Kimi

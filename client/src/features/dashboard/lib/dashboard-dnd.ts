@@ -48,3 +48,30 @@ export function resolveDestContainer(
   }
   return null
 }
+
+/** The part of a rail the "remove from rail" undo needs. */
+interface RailLike {
+  id: string
+  status?: string
+  ticketIds: number[]
+}
+
+export type RailUndoResult<R extends RailLike> =
+  | { ok: true; rails: R[] }
+  | { ok: false; reason: 'rail_missing' | 'rail_running' }
+
+/**
+ * Undo of "remove from rail": put `ticketId` back on its rail at `index`
+ * (clamped). Refuses when the rail is gone or has started running meanwhile — a
+ * running rail never takes a spec back. Idempotent: a spec already on the rail
+ * leaves it untouched.
+ */
+export function restoreTicketToRail<R extends RailLike>(rails: readonly R[], railId: string, ticketId: number, index: number): RailUndoResult<R> {
+  const target = rails.find((r) => r.id === railId)
+  if (!target) return { ok: false, reason: 'rail_missing' }
+  if (target.status === 'running') return { ok: false, reason: 'rail_running' }
+  if (target.ticketIds.includes(ticketId)) return { ok: true, rails: [...rails] }
+  const ids = [...target.ticketIds]
+  ids.splice(Math.min(Math.max(index, 0), ids.length), 0, ticketId)
+  return { ok: true, rails: rails.map((r) => (r.id === railId ? { ...r, ticketIds: ids } : r)) }
+}

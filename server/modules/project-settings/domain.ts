@@ -51,6 +51,15 @@ export interface ProjectSettings {
   agentEnvMode: AgentEnvMode
   /** Days the agent actions audit log keeps rows (1-3650, default 30). */
   agentAuditRetentionDays: number
+  /** Post the architect's clarifications (questions when a run pauses, or the
+   *  assumptions it proceeded on) as a comment on the linked Jira issue, and
+   *  record a Jira reply as a `clarification` addendum. Off by default. */
+  jiraPostClarifications: boolean
+  /** Baseline on touch: a change that reaches code no capability describes
+   *  first adds characterization tests and a minimal as-built spec (Core
+   *  `baselineOnTouch: 1`). Off by default; forwarded to Core only when the
+   *  active Core announces the capability. */
+  baselineOnTouch: boolean
 }
 
 /** Upper bound for the review WIP limit; larger values are a typo, not a policy. */
@@ -169,6 +178,11 @@ export function parseProjectSettingsPatch(input: unknown): ProjectSettingsPatch 
   if (values.allowSubagents !== undefined) {
     if (typeof values.allowSubagents !== 'boolean') throw new SettingsValidationError('allowSubagents must be a boolean')
     patch.allowSubagents = values.allowSubagents
+  }
+  for (const key of ['jiraPostClarifications', 'baselineOnTouch'] as const) {
+    if (values[key] === undefined) continue
+    if (typeof values[key] !== 'boolean') throw new SettingsValidationError(`${key} must be a boolean`)
+    patch[key] = values[key] as boolean
   }
   if (values.reviewerFamilySuggestionDismissed !== undefined) {
     if (typeof values.reviewerFamilySuggestionDismissed !== 'boolean') throw new SettingsValidationError('reviewerFamilySuggestionDismissed must be a boolean')

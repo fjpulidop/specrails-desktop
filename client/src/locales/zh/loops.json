@@ -60,7 +60,8 @@
     "select": "选择 {{name}}",
     "exportLegacy": "导出原始图",
     "originalCopyName": "原始图：{{name}}",
-    "convert": "转换为Core"
+    "convert": "转换为Core",
+    "more": "更多操作"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -96,7 +97,8 @@
       "maxIterationsHint": "Loop Decider 迭代次数上限——达到后即使目标未达成也会停止循环。防止无限循环。",
       "timeoutHint": "整个运行的实际时间上限（分钟）。超过后运行将停止并标记为失败——与最大迭代次数一起作为安全网。 0 表示禁用此时间限制；其他预算和取消功能仍然有效。",
       "maxCost": "最大费用 ($)",
-      "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。"
+      "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。",
+      "title": "运行限制"
     },
     "nodes": {
       "start": "开始",
@@ -146,7 +148,10 @@
       "name": "名称",
       "value": "值",
       "add": "添加",
-      "builtinBadge": "内置"
+      "builtinBadge": "内置",
+      "deleteConfirmTitle": "删除常量 {{name}}？",
+      "deleteConfirmBody": "常量由所有循环共享。仍引用此常量的步骤将无法再解析它。",
+      "description": "所有循环共享的可复用值。以令牌形式插入步骤，运行时解析。"
     },
     "paste": {
       "done_one": "已粘贴 {{count}} 个步骤",
@@ -166,7 +171,11 @@
       "DEAD_END": "该步骤没有出向连接。",
       "MIXED_ENGINES": "不能混合旧版步骤与 Core 步骤。",
       "CORE_OUTCOMES": "请连接不同的有效结果。",
-      "CORE_PIECE": "请选择步骤及其参数。"
+      "CORE_PIECE": "请选择步骤及其参数。",
+      "severity": {
+        "error": "错误",
+        "warning": "警告"
+      }
     },
     "preview": {
       "label": "预览",
@@ -193,7 +202,7 @@
       "tooDeep": "值的嵌套层级过深。",
       "pieces": {
         "prompt": "提示词",
-        "role-turn": "Agent step",
+        "role-turn": "智能体步骤",
         "decider": "决策",
         "condition": "条件",
         "verify": "验证",
@@ -209,8 +218,8 @@
         "implementation": "实现",
         "end": "结束",
         "assign": "设置变量",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "实现步骤",
+        "artifact-contract": "检查工件",
         "derive-change": "推导变更"
       },
       "groups": {
@@ -228,10 +237,17 @@
         "increment": "调整计数器"
       },
       "requiredContinue": "满足此条件时继续",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "使用工作流上下文执行为此步骤定义的任务。",
+      "legacyImplementation": "此步骤保留了早期版本的阶段。添加一个智能体步骤来定义你自己的步骤。对于内置循环，“恢复原始版本”会加载新的工作流。"
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "高级设置",
+    "nameLabel": "循环名称",
+    "unsaved": {
+      "title": "离开前保存更改吗？",
+      "body": "此循环有未保存的编辑。若放弃，这些编辑将会丢失。",
+      "save": "保存并离开",
+      "discard": "放弃更改"
+    }
   },
   "preview": {
     "steps": "步骤",
@@ -294,12 +310,16 @@
       "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。仅限 Claude。"
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
+      "name": "OpenSpec 生命周期",
       "description": "从 ticket 到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
     },
     "factory_revision": {
       "name": "修订",
       "description": "在已交付的成果之上应用你要求的那一处修改，让审阅者重新评分，然后验证到通过。不会从头重新规划。"
+    },
+    "drift-sweep": {
+      "name": "偏差巡检",
+      "description": "只读：将每个能力的规格声明与代码实际行为进行比较，并以“文件:行”格式列出每处矛盾。不做任何更改；按需运行。"
     }
   },
   "import": {
@@ -360,6 +380,9 @@
     }
   },
   "window": {
-    "open": "Open in window"
-  }
+    "open": "在窗口中打开",
+    "openFailed": "无法打开循环窗口"
+  },
+  "confirmDeleteTitle": "删除“{{name}}”？",
+  "confirmDeleteAction": "删除循环"
 }

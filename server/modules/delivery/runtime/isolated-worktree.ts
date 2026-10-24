@@ -38,6 +38,36 @@ import type { ProjectContext } from '../../../project-registry'
 
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
+/** The repository has an unborn HEAD (no commits yet), so no isolated worktree
+ *  can be branched from it. Raised before anything is created. */
+export class RepositoryHasNoCommitsError extends Error {
+  readonly code = 'repository_has_no_commits'
+  constructor(readonly repoDir: string) {
+    super('This repository has no commits yet. Make an initial commit so Specrails can create an isolated worktree.')
+    this.name = 'RepositoryHasNoCommitsError'
+  }
+}
+
+/**
+ * Fail closed with `RepositoryHasNoCommitsError` when `repoDir` is a Git
+ * repository with an unborn HEAD, no local branch at all, and a `baseRef` that
+ * does not resolve to a commit. Any other Git failure (not a repository, a
+ * missing branch next to real commits) is left to the regular worktree path so
+ * its own error stays visible. Read-only: nothing is created.
+ */
+export async function assertRepositoryHasCommits(git: GitRunner, repoDir: string, baseRef: string): Promise<void> {
+  const base = await git.run(['rev-parse', '--verify', '--quiet', `${baseRef}^{commit}`], repoDir)
+  if (base.code === 0) return
+  const head = await git.run(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], repoDir)
+  if (head.code === 0) return
+  // An unborn HEAD is still a symbolic ref; a non-repository is not.
+  const symbolic = await git.run(['symbolic-ref', '-q', 'HEAD'], repoDir)
+  if (symbolic.code !== 0) return
+  const anyBranch = await git.run(['for-each-ref', '--count=1', '--format=%(refname)', 'refs/heads'], repoDir)
+  if (anyBranch.code !== 0 || anyBranch.stdout.trim() !== '') return
+  throw new RepositoryHasNoCommitsError(repoDir)
+}
+
 /** Injectable git/worktree IO for worktree preparation (defaults to the real
  *  implementations). `IsolatedLaunchIO` extends this shape. */
 export interface IsolatedWorktreeIO {
@@ -295,9 +325,35 @@ export async function materializeIsolatedWorktree(
   }
 }
 
+/**
+ * The checkout a repository-scoped worktree is cut from. Absent/null or the
+ * primary id ⇒ the project root with the project's integration setting and
+ * the shared mount root (unchanged single-repository behaviour); a non-primary
+ * Git member ⇒ its own checkout, its own integration branch and the
+ * per-repository mount root (`isolatedWorktreesRoot(slug, repositoryId)`), as
+ * the multi-repository rail children use.
+ */
+export function isolatedRepositoryTarget(
+  project: ProjectContext['project'],
+  repositoryId?: string | null,
+): { repositoryId: string | null; path: string; primary: boolean; integrationBranch: string | null; worktreesRoot: string } {
+  const members = getProjectRepositories(project)
+  const primary = members.find((repo) => repo.isPrimary)
+  if (!repositoryId || repositoryId === primary?.id) {
+    return { repositoryId: null, path: project.path, primary: true, integrationBranch: primary?.integrationBranch ?? null, worktreesRoot: isolatedWorktreesRoot(project.slug) }
+  }
+  const member = members.find((repo) => repo.id === repositoryId)
+  if (!member) throw new Error(`Unknown project repository: ${repositoryId}`)
+  if (member.kind !== 'git') throw new Error(`Repository ${member.name} is context-only; isolated worktrees need a Git repository`)
+  return { repositoryId: member.id, path: member.path, primary: false, integrationBranch: member.integrationBranch, worktreesRoot: isolatedWorktreesRoot(project.slug, member.id) }
+}
+
 export interface PrepareIsolatedWorktreeInput {
   ctx: ProjectContext
   ticketId: number
+  /** Project repository to cut the worktree from (see isolatedRepositoryTarget).
+   *  Omitted ⇒ the primary repository at the project root. */
+  repositoryId?: string | null
   /** Explicit base branch/ref. Omitted → the project's integration branch,
    *  preferring the freshly fetched `origin/<branch>`. */
   baseRef?: string | null
@@ -335,22 +391,27 @@ export async function prepareIsolatedWorktree(
 ): Promise<PreparedIsolatedWorktree> {
   const { ctx, ticketId } = input
   const git = io.git ?? defaultGitRunner
-  const baseRepo = ctx.project.path
+  const target = isolatedRepositoryTarget(ctx.project, input.repositoryId)
+  const baseRepo = target.path
   const slug = ctx.project.slug
   const runId = input.runId ?? newId()
   const onDegraded = input.onDegraded ?? ((warnings: string[]) => {
     console.error(`[isolated-worktree] worktree preparation degraded (ticket ${ticketId}): ${warnings.join('; ')}`)
   })
-  const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, io.resolveExecution)
+  // A non-primary member overlays the PROJECT's framework surface (the
+  // workspace when relocated), exactly like a multi-repository rail child.
+  const resolveExecution = io.resolveExecution ?? (target.primary ? undefined : () => resolveProjectExecution(ctx.project))
+  const overlaySources = resolveOverlaySources({ slug, baseRepo, provider: input.provider }, resolveExecution)
   return withRepoLock(baseRepo, async () => {
     const fetchResult = await fetchOrigin(git, baseRepo)
-    const primary = getProjectRepositories(ctx.project).find((repo) => repo.isPrimary)
     const integration = await resolveIntegrationBranch(git, {
       repoDir: baseRepo,
       explicit: input.baseRef ?? undefined,
-      projectSetting: primary?.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch,
+      projectSetting: target.primary ? target.integrationBranch ?? getProjectSettings(ctx.db).integrationBranch : target.integrationBranch ?? undefined,
     })
     const worktreeBaseRef = await resolveWorktreeBaseRef(git, { repoDir: baseRepo, integration, fetchOk: fetchResult.ok })
+    // Unborn HEAD: refuse before any branch, worktree or overlay exists.
+    await assertRepositoryHasCommits(git, baseRepo, worktreeBaseRef.baseRef)
     if (worktreeBaseRef.warning) onDegraded([worktreeBaseRef.warning])
     const frozen = await git.run(['rev-parse', '--verify', `${worktreeBaseRef.baseRef}^{commit}`], baseRepo)
     const frozenSha = frozen.code === 0 ? frozen.stdout.trim() : ''
@@ -366,7 +427,7 @@ export async function prepareIsolatedWorktree(
     }
     const prepared = await materializeIsolatedWorktree({
       repoDir: baseRepo,
-      worktreesRoot: path.join(isolatedWorktreesRoot(slug), runId),
+      worktreesRoot: path.join(target.worktreesRoot, runId),
       slug,
       ticketId,
       baseRef: worktreeBaseRef.baseRef,

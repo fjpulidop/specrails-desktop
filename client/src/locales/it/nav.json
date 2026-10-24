@@ -10,30 +10,36 @@
       "pinnedOpen": "Comprimi barra laterale destra (mantieni fissata)",
       "pinnedCollapsed": "Sblocca barra laterale destra",
       "unpinned": "Fissa aperta la barra laterale destra"
-    }
+    },
+    "resize": "Ridimensiona barra laterale"
   },
   "projects": {
     "addProject": "Aggiungi progetto",
     "remove": "Rimuovi {{name}}",
     "confirmRemove": "Conferma rimozione di {{name}}",
-    "confirmShort": "confermare?",
+    "confirmShort": "Rimuovere?",
     "added": "Progetto aggiunto: {{name}}",
     "removed": "Progetto rimosso",
     "expand": "Espandi {{name}}",
     "collapse": "Comprimi {{name}}",
     "settings": "Impostazioni di {{name}}",
     "assembling": "Preparazione del workspace…",
-    "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare"
+    "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare",
+    "retrySetup": "Riprova configurazione"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analytics",
+    "analytics": "Analytics di tutti i progetti",
     "companion": "Companion",
-    "settings": "Impostazioni",
+    "settings": "Impostazioni app",
     "plugins": "Plugin",
-    "review": "Revisione"
+    "review": "Revisione",
+    "landmark": "Progetti e missioni",
+    "resize": "Ridimensiona barra laterale",
+    "sectionTools": "Area di lavoro",
+    "sectionProjects": "Progetti"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops è aperto come modale Mission.",
@@ -48,7 +54,8 @@
     "agents": "Agenti",
     "code": "Codice",
     "integrations": "Integrazioni",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni progetto",
+    "landmark": "Navigazione del progetto"
   },
   "navbar": {
     "home": "Home",
@@ -72,7 +79,14 @@
     "minimizeWindow": "Riduci a icona",
     "maximizeWindow": "Ingrandisci finestra",
     "closeWindow": "Chiudi finestra",
-    "restoreWindow": "Ripristina finestra"
+    "restoreWindow": "Ripristina finestra",
+    "history": "Cronologia di navigazione",
+    "back": "Indietro",
+    "forward": "Avanti",
+    "backTo": "Indietro a {{place}}",
+    "forwardTo": "Avanti a {{place}}",
+    "backMenu": "Luoghi precedenti",
+    "forwardMenu": "Luoghi successivi"
   },
   "costAlerts": {
     "costAlertTitle": "Avviso di costo",
@@ -86,7 +100,9 @@
   },
   "errorBoundary": {
     "title": "Qualcosa è andato storto",
-    "occurredIn": "Si è verificato un errore in <strong>{{name}}</strong>"
+    "occurredIn": "Si è verificato un errore in <strong>{{name}}</strong>",
+    "description": "Questa vista ha smesso di funzionare. Riprova per ricaricarla; il resto del tuo lavoro non è interessato.",
+    "details": "Dettagli tecnici"
   },
   "healthWidget": {
     "healthLabel": "salute",
@@ -123,5 +139,41 @@
     "active": "Impedisce la sospensione automatica. Lo schermo può spegnersi.",
     "inactive": "Sospensione normale consentita.",
     "failed": "Impossibile modificare la sospensione."
+  },
+  "skipToContent": "Vai al contenuto principale",
+  "places": {
+    "routes": {
+      "dashboard": "Dashboard",
+      "jobs": "Job",
+      "analytics": "Analisi",
+      "activity": "Attività",
+      "agents": "Agenti",
+      "code": "Codice",
+      "integrations": "Integrazioni",
+      "settings": "Impostazioni del progetto",
+      "docs": "Documentazione",
+      "loops": "Loops",
+      "plugins": "Plugin"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Missione",
+    "missionTitled": "Missione · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Pacchetto di revisione",
+    "inbox": "Da gestire",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugin",
+      "docs": "Documentazione",
+      "analytics": "Analisi di tutti i progetti"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Quella spec non esiste più ed è stata saltata.",
+      "mission": "Quella missione non esiste più ed è stata saltata.",
+      "job": "Quel job non esiste più ed è stato saltato.",
+      "review": "Quel pacchetto di revisione non esiste più ed è stato saltato."
+    }
   }
 }

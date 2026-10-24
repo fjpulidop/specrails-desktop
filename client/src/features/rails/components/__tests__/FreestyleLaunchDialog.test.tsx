@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, waitFor } from '../../../../test-utils'
 import { FreestyleLaunchDialog } from '../FreestyleLaunchDialog'
 
 const base = {
@@ -18,6 +18,14 @@ describe('FreestyleLaunchDialog', () => {
     expect(screen.getByText(/Rail 1 · 2 specs · opus/)).toBeInTheDocument()
     expect(screen.getByText(/No OpenSpec pipeline/)).toBeInTheDocument()
     expect(screen.getByText(/Variable cost/)).toBeInTheDocument()
+  })
+
+  it('explains what Freestyle means in its description and focuses the primary', async () => {
+    render(<FreestyleLaunchDialog {...base} provider="codex" onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'confirm')
+    expect(dialog).toHaveAccessibleDescription(/hands each spec straight to Codex/)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Continue/ })).toHaveFocus())
   })
 
   it('singularises the spec count', () => {

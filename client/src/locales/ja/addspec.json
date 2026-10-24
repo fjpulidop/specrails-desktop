@@ -60,7 +60,10 @@
       "failedToStart": "{{projectName}} · 開始に失敗しました",
       "unsupportedFileType": "未対応のファイル形式: {{name}}",
       "uploadFailed": "{{name}} のアップロードに失敗しました: {{message}}"
-    }
+    },
+    "contextSummary": "コンテキスト: {{preset}} · {{cost}}",
+    "contextSummaryNoCost": "コンテキスト: {{preset}}",
+    "costEstimateTitle": "選択したモデルとコンテキストでこのスペックを生成する際の推定コスト"
   },
   "featureProposal": {
     "title": "機能を提案",
@@ -139,7 +142,8 @@
       "providerUnsupported": "{{provider}} では利用できません",
       "contractLabel": "Contract Layer で強化",
       "contractHint": "コミット後の改良 · SMASH を有効化"
-    }
+    },
+    "costTier": "コスト段階：{{tier}}"
   },
   "aiEngine": {
     "label": "AI エンジン",

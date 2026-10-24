@@ -1,16 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Déposer ici",
     "emptyNoSpecs": "Aucune spec pour l'instant",
     "emptyNoLabelMatch": "Aucune spec ne correspond aux labels actifs",
     "emptyNoActiveSpecs": "Aucune spec active",
-    "emptyHint": "Cliquez sur « + Ajouter » pour commencer",
+    "emptyHint": "Cliquez sur « Nouvelle spec » pour commencer",
     "dropToMarkDone": "Déposez pour marquer comme terminée",
     "emptyNoDoneLabelMatch": "Aucune spec terminée ne correspond aux labels actifs",
     "emptyNoCompleted": "Aucune spec terminée pour l'instant",
     "emptyNoStatusMatch": "Aucune spec ne correspond au statut sélectionné",
-    "untitledSpec": "Spec sans titre"
+    "untitledSpec": "Spec sans titre",
+    "doneHeading": "Terminées · {{count}}",
+    "clearFilters": "Effacer les filtres",
+    "emptyNoSearchMatch": "Aucune spec ne correspond à « {{query}} »"
   },
   "status": {
     "todo": "À faire",
@@ -45,7 +48,6 @@
   },
   "card": {
     "deleteSpec": "Supprimer la spec #{{id}}",
-    "deleteTicket": "Supprimer le ticket #{{id}}",
     "ticketFallbackLabel": "Ticket #{{id}}",
     "dependsOn": "Dépend de {{count}}",
     "continueEditing": "Continuer l'édition",
@@ -93,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "Filtrer par statut",
     "all": "Tous",
-    "active": "Actives"
+    "active": "Actives",
+    "more": "Plus",
+    "moreSelected": "Statut : {{status}}. Choisir un autre statut"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filtrer par statut Jira",
@@ -121,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filtrer par labels",
-    "all": "Tous",
+    "all": "Toutes les étiquettes",
     "empty": "Aucun label dans ce projet.",
     "selected_one": "{{count}} label",
     "selected_other": "{{count}} labels",
@@ -155,7 +159,6 @@
       "securitySurface": "Sécurité",
       "none": "Aucun impact sur l'API publique, les données ou la sécurité"
     },
-    "flowHint": "Flow suggéré",
     "filesLikely": "Fichiers probables",
     "moreFiles_one": "+{{count}} fichier de plus",
     "moreFiles_other": "+{{count}} fichiers de plus",
@@ -165,5 +168,47 @@
     "unavailableDetail": "Aucun modèle n'est disponible pour le triage ({{reason}}).",
     "failed": "Échec du triage",
     "failedDetail": "Le triage n'a pas pu aboutir : {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Nouvelle spec",
+    "newSpecTooltip": "Nouvelle spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Rechercher des specs",
+    "ariaLabel": "Rechercher des specs par titre, numéro, étiquette ou clé Jira",
+    "clear": "Effacer la recherche"
+  },
+  "filters": {
+    "trigger": "Filtres",
+    "triggerActive_one": "Filtres, {{count}} actif",
+    "triggerActive_other": "Filtres, {{count}} actifs",
+    "title": "Filtres",
+    "sections": {
+      "labels": "Étiquettes",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Statut Jira"
+    },
+    "clearSection": "Effacer",
+    "clearAll": "Tout effacer",
+    "done": "Terminé",
+    "findLabel": "Trouver une étiquette",
+    "removeChip": "Retirer le filtre : {{label}}",
+    "resultCount": "{{shown}} sur {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Recherche : « {{query}} »",
+      "label": "Étiquette : {{label}}",
+      "epic": "Epic : {{name}}",
+      "sprint": "Sprint : {{name}}",
+      "jiraStatus": "Jira : {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Tri et affichage",
+    "menuLabel": "Options de tri et d'affichage",
+    "sortBy": "Trier par",
+    "direction": "Ordre",
+    "view": "Affichage"
   }
 }

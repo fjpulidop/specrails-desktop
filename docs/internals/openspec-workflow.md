@@ -275,6 +275,38 @@ These are handy for tooling that wants to surface the artifact set without parsi
 
 ---
 
+## Requirement traceability in CI
+
+With a Core that announces `specTrace: 1` (contract 5.5), every OpenSpec requirement has a stable id `<capability>/<slug>` (from `### Requirement: <name>` in `openspec/specs/<capability>/spec.md`: accents removed, lowercase, every run of non-alphanumerics one `-`). A test claims a requirement with `[spec:<capability>/<slug>]` anywhere in its title, or a `// spec: <capability>/<slug>` comment (`# spec:` in Python and shell) on the line before it.
+
+Add the check after your test suite so CI fails when a requirement the change adds, modifies or renames has no passing tagged test:
+
+```jsonc
+// package.json
+{
+  "scripts": {
+    "test": "vitest run",
+    "spec:check": "specrails-core pipeline trace --check --tests-passed"
+  }
+}
+```
+
+```yaml
+# .github/workflows/ci.yml (job steps)
+- run: npm ci
+- run: npm test
+- run: npm run spec:check   # exits 1 and names each touched requirement that is not demonstrated
+```
+
+- `--tests-passed` tells the scanner the suite already passed in this job (CI has no Specrails verification receipt). Run it only after the tests.
+- Without `--check` the command only reports (exit 0, never fails), which is useful to see `Requirements demonstrated X/Y` locally: `npx specrails-core pipeline trace`.
+- `--change <name>` limits the check to one change; `--tests <glob>` restricts which files count as tests; `--json` prints the report. Inside an installed project the same scanner ships as `node .specrails/runtime/trace.mjs --check --tests-passed`.
+- `specrails-core` must be available to CI (a dev dependency or `npx specrails-core@<version>`).
+
+In a run, Core writes the same report as `spec-trace.json` after each passing verification; the review packet shows it as **Requirements demonstrated X/Y** and loop economics sums it per loop. See [existing-project anchoring](existing-project-anchoring.md#requirement-traceability).
+
+---
+
 ## Further reading
 
 - [CLI reference](../cli.md) — the `specrails-desktop` CLI and its verbs

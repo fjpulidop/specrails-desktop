@@ -11,7 +11,8 @@
     "partial": "{{total}} 项更改中有 {{succeeded}} 项已就绪",
     "noChanges": "无需改动",
     "failed": "未能完成",
-    "failedPartial": "仅完成了一部分"
+    "failedPartial": "仅完成了一部分",
+    "generic": "审查已交付的更改"
   },
   "confidence": {
     "pill": "AI 审阅者信心 {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "本次花费 {{amount}}",
-    "allVersions": "所有版本合计：{{amount}}"
+    "allVersions": "所有版本合计：{{amount}}",
+    "baselinePart": "（其中基线 {{amount}}）"
   },
   "accept": {
     "create-pr": "接受并创建 pull request",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "丢弃",
-    "stackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。"
+    "stackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。",
+    "confirmTitle": "丢弃这次交付？",
+    "confirmBody": "这次交付及其更改将被丢弃，且无法撤销。"
   },
   "watchOut": {
     "title": "接受前值得一看"
@@ -242,5 +246,49 @@
     "run": "运行 {{id}}",
     "download": "{{format}}",
     "downloadFailed": "无法下载智能体操作记录"
+  },
+  "requirements": {
+    "title": "已证明的需求 {{demonstrated}}/{{total}}",
+    "touched": "本次变更涉及：{{demonstrated}}/{{total}} 已证明",
+    "caveat": "由 Specrails 测量：当带有需求 id 标签的测试在通过的验证中运行时，该需求计为已证明。仅供参考，不改变评审结果。",
+    "caveatNoReceipt": "此追踪的一部分没有验证回执支撑，因此这些需求暂时不能计为已证明。",
+    "undemonstratedTitle_other": "{{count}} 项需求未证明",
+    "demonstratedTitle_other": "{{count}} 项需求已证明",
+    "reason": {
+      "no-test": "没有带标签的测试",
+      "not-executed": "带标签的测试未运行",
+      "failed": "带标签的测试失败"
+    },
+    "touchedBadge": "在此变更",
+    "untagged_other": "{{count}} 个测试标签未匹配任何需求（{{tags}}）：可能是笔误或需求已重命名。",
+    "showAll_other": "再显示 {{count}} 项",
+    "showLess": "收起",
+    "undemonstratedTitle_one": "{{count}} 项需求未证明",
+    "demonstratedTitle_one": "{{count}} 项需求已证明",
+    "untagged_one": "{{count}} 个测试标签未匹配任何需求（{{tags}}）：可能是笔误或需求已重命名。",
+    "showAll_one": "再显示 {{count}} 项"
+  },
+  "baseline": {
+    "title": "已为本次工作涉及的代码创建规格",
+    "status": {
+      "planned": "已规划基线：{{requirements}} 项现状需求，{{tests}} 个特征测试",
+      "passed": "基线已在未修改的代码上得到证明：{{requirements}} 项现状需求，{{tests}} 个特征测试",
+      "failed": "基线受阻：特征测试在未修改的代码上未通过，因此未编辑该模块",
+      "violated": "基线受阻：基线步骤修改了测试以外的代码，因此运行已停止",
+      "not-needed": "无需基线：现有规格已覆盖本次变更涉及的代码"
+    },
+    "module": "已描述的模块：",
+    "more_other": "以及另外 {{count}} 个文件",
+    "spec": "现状规格：",
+    "capability": "{{capability}}（{{demonstrated}}/{{requirements}} 已证明）",
+    "cost": "基线成本 {{amount}}，共 {{turns}} 轮，与本次变更分开计算",
+    "costUnknown": "提供方未报告基线成本",
+    "caveat": "特征测试描述当前行为；Core 在任何编辑之前于未修改的代码上运行了它们。",
+    "more_one": "以及另外 {{count}} 个文件"
+  },
+  "humanEyes": {
+    "title_other": "需要人工检查：{{count}} 条项目规则",
+    "caveat": "为本项目编写、但无法由自动检查强制执行的规则。请在接受前亲自检查。",
+    "title_one": "需要人工检查：{{count}} 条项目规则"
   }
 }

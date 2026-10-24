@@ -37,6 +37,14 @@ describe('SQLite Flow repository (migration 74)', () => {
     expect(() => projectB.save(flow())).toThrow(/does not exist/)
   })
 
+  it('round-trips the Flow repository (migration 80); the primary stays absent', () => {
+    const repository = createSqliteFlowRepository(db())
+    repository.insert(flow({ repositoryId: 'api' }))
+    expect(repository.get('flow-1')).toEqual(flow({ repositoryId: 'api' }))
+    repository.save(flow({ id: 'flow-1', repositoryId: null, state: 'paused' }))
+    expect(repository.get('flow-1')).not.toHaveProperty('repositoryId')
+  })
+
   it('allows a single active or paused Flow per conversation (partial unique index)', () => {
     const repository = createSqliteFlowRepository(db())
     repository.insert(flow({ ticketId: null, step: 'start:ticket' }))
@@ -55,6 +63,13 @@ describe('SQLite Flow repository (migration 74)', () => {
     repository.insert(flow({ id: 'b', conversationId: 'c2', state: 'handed_off' }))
     repository.insert(flow({ id: 'c', conversationId: 'c3', state: 'paused', step: 'handoff:launch' }))
     repository.insert(flow({ id: 'd', conversationId: 'c4', state: 'discarded' }))
+    // A closed Flow (migration 81) is terminal: stored, read back, never reconciled.
+    repository.insert(flow({ id: 'e', conversationId: 'c5', state: 'closed' }))
+    expect(repository.get('e')?.state).toBe('closed')
+    // A Flow from an existing spec keeps its origin (migration 82); a placeholder Flow has none.
+    repository.insert(flow({ id: 'g', conversationId: 'c6', state: 'delivered', specOrigin: 'existing' }))
+    expect(repository.get('g')?.specOrigin).toBe('existing')
+    expect(repository.get('a')?.specOrigin).toBeUndefined()
     expect(repository.listUnsettled().map((session) => session.id).sort()).toEqual(['a', 'c'])
   })
 

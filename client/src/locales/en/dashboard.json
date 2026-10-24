@@ -33,7 +33,10 @@
     "railWorktreesNoCommits": "Worktree isolation unavailable: the repository has no commits yet — make an initial commit, then relaunch.",
     "railWorktreesError": "Worktree isolation failed — this run continues WITHOUT the PR review flow (no implementation card). See the error detail below.",
     "onReviewCannotMoveToRail": "This spec is awaiting PR review — resolve the PR decision first",
-    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review — resolve the PR decision before launching"
+    "onReviewNotLaunchable": "A spec on this rail is awaiting PR review. Resolve the PR decision before launching.",
+    "launchRepositoryHasNoCommits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+    "railDeletePrPending": "{{rail}} has a pending PR decision — resolve it before removing the rail",
+    "railDeleteLastRail": "A project needs at least one rail — this one can't be removed"
   },
   "railPr": {
     "operation": {
@@ -86,6 +89,7 @@
     "publish": "Publish",
     "publishTooltip": "Open this draft PR for team review",
     "checkout": "Checkout",
+    "moreActions": "More actions",
     "checkoutTooltip": "Check out {{branch}} in the main project folder",
     "checkoutSuccess": "Checked out {{branch}}",
     "checkoutFailed": "Could not check out the implementation branch",
@@ -162,14 +166,30 @@
       "noChanges": "no changes",
       "succeeded": "ready"
     },
-    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
+    "reviewChangesRequested": "Changes requested",
+    "reviewChangesRequestedHint": "The Flow hand-off still needs changes. Open its mission card to go back to Flow or relaunch.",
+    "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
+    "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready."
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} running",
-    "runningCount_other": "{{count}} running",
     "launchAll": "Launch all",
-    "launchAllTitle": "Launch every ready rail in parallel — each run is isolated in its own git worktree"
+    "launchAllTitle": "Launch every ready rail in parallel — each run is isolated in its own git worktree",
+    "addRail": "Add rail",
+    "addRailLimit": "Rail limit reached ({{max}} max)",
+    "launchAllNoneReady": "No rail is ready. Drag specs onto a rail to launch it.",
+    "summary": {
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "ready_one": "{{count}} ready",
+      "ready_other": "{{count}} ready",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rails"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} already running",
@@ -238,7 +258,13 @@
     "deleteRail": "Delete {{label}}",
     "dropHere": "Drop here",
     "dropOnThisRail": "Drop on this rail",
-    "dragSpecsHere": "Drag specs here"
+    "dropHint": "Drop a spec onto this rail",
+    "dragHandle": "Reorder {{label}}",
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "failed": "Failed"
+    }
   },
   "freestyleDialog": {
     "title": "Launch in Freestyle mode",
@@ -250,7 +276,8 @@
     "autonomyBody": "{{provider}} works on its own using native agents and dynamic workflows.",
     "costTitle": "Variable cost.",
     "costBody": "Spend depends on what {{provider}} decides to do — it can be higher than expected.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "gloss": "Freestyle hands each spec straight to {{provider}}: one autonomous run per spec, without the OpenSpec plan-and-review pipeline."
   },
   "useRails": {
     "fetchFailed": "Failed to fetch rails: {{status}}"
@@ -291,5 +318,8 @@
     "panelReached": "The limit of {{limit}} is reached. Decide one of these (Create PR, merge or discard) to launch new work. Changes to these deliveries are still allowed.",
     "empty": "Nothing is waiting for review.",
     "playBlocked": "Review limit reached ({{pending}}/{{limit}} waiting). Decide a delivery to launch new work."
+  },
+  "errors": {
+    "deleteFailed": "Could not delete the spec"
   }
 }

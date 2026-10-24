@@ -21,7 +21,10 @@
   },
   "sidebar": {
     "rename": "Renommer {{name}}",
-    "close": "Fermer {{name}}"
+    "close": "Fermer {{name}}",
+    "label": "Sessions de terminal",
+    "closeRunningConfirm": "Fermer « {{name}} » alors qu’une commande est en cours ?",
+    "closeRunningBody": "La commande en cours sera arrêtée et sa sortie non enregistrée sera perdue."
   },
   "emptyState": {
     "noTerminals": "Aucun terminal pour ce projet pour l'instant.",

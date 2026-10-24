@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import { Bot, X, Plus, Maximize2, Minimize2 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../context/AgentChatContext'
+import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
 import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../components/ui/ResizeGrips'
 import { AgentConversationView } from './AgentConversationView'
@@ -21,9 +22,10 @@ import { BlueprintReadiness } from '../../builder/components/project-builder/Blu
 export function AgentChatPanel() {
   const { t } = useTranslation('agent')
   const { t: tBuilder } = useTranslation('builder')
-  const { minimize, startNewConversation, cycleTier, active, draftPinnedProjectId, setPinnedProject, builderMode } = useAgentChat()
+  const { minimize, startNewConversation, active, draftPinnedProjectId, setPinnedProject, builderMode } = useAgentChat()
   const [maximized, setMaximized] = useState(false)
   const builder = builderMode.active
+  const cycleTier = useGuardedTierCycle()
 
   // Shift+Tab anywhere in the panel chrome cycles the tier ladder. Presses inside
   // the conversation body are handled (and stopPropagation'd) by AgentConversationView,
@@ -32,7 +34,7 @@ export function AgentChatPanel() {
     if (builder) return
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
       e.preventDefault()
-      void cycleTier()
+      cycleTier()
     }
   }
 
@@ -58,7 +60,7 @@ export function AgentChatPanel() {
         role="dialog"
         aria-label={builder ? tBuilder('mode.title') : t('title')}
         onKeyDown={onPanelKeyDown}
-        className={`fixed z-[60] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-2xl backdrop-blur-xl ${
+        className={`fixed z-[60] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl ${
           maximized ? '' : `bottom-4 right-4 h-[78vh] max-h-[94vh] max-w-[92vw] ${builder ? 'w-[860px]' : 'w-[520px]'}`
         }`}
       >

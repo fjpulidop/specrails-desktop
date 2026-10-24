@@ -77,7 +77,7 @@ export function CoreParameterForm({
     )
     return (
       <fieldset className="space-y-2">
-        <legend className="text-xs font-medium">{label}</legend>
+        <legend className="text-label">{label}</legend>
         <label className="sr-only" htmlFor={id}>
           {t('builder.core.variant', { name: label })}
         </label>
@@ -383,7 +383,7 @@ export function CoreParameterForm({
         </datalist>
       ) : null}
       {typeof schema.description === 'string' && (
-        <span className="text-[10px] text-muted-foreground">{schema.description}</span>
+        <span className="text-caption text-muted-foreground">{schema.description}</span>
       )}
     </label>
   )

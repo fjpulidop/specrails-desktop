@@ -164,7 +164,7 @@ export function CoreNodeInspector({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{t(`builder.core.pieces.${data.coreKind}`)}</h3>
+        <h3 className="text-strong">{t(`builder.core.pieces.${data.coreKind}`)}</h3>
         <button
           type="button"
           onClick={onDelete}

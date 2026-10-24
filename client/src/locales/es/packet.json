@@ -11,7 +11,8 @@
     "partial": "{{succeeded}} de {{total}} cambios están listos",
     "noChanges": "No hacía falta cambiar nada",
     "failed": "Esto no se pudo completar",
-    "failedPartial": "Solo se pudo completar una parte"
+    "failedPartial": "Solo se pudo completar una parte",
+    "generic": "Revisa el cambio entregado"
   },
   "confidence": {
     "pill": "Confianza del revisor IA {{overall}}/100",
@@ -20,7 +21,8 @@
   },
   "cost": {
     "thisBuild": "Este trabajo costó {{amount}}",
-    "allVersions": "Todas las versiones juntas: {{amount}}"
+    "allVersions": "Todas las versiones juntas: {{amount}}",
+    "baselinePart": " · {{amount}} de baseline"
   },
   "accept": {
     "create-pr": "Aceptar y abrir un pull request",
@@ -41,7 +43,9 @@
   },
   "discard": {
     "label": "Tirar esto",
-    "stackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "stackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "confirmTitle": "¿Tirar esta entrega?",
+    "confirmBody": "La entrega y sus cambios se descartan. Esta acción no se puede deshacer."
   },
   "watchOut": {
     "title": "Merece un vistazo antes de aceptar"
@@ -239,8 +243,52 @@
       "network": "peticiones web"
     },
     "caveat": "Registrado a partir de los propios streams de los agentes: las lecturas son tan completas como las informe cada proveedor. Nunca se guardan contenidos ni valores de entorno.",
-    "run": "Run {{id}}",
+    "run": "Ejecución {{id}}",
     "download": "{{format}}",
     "downloadFailed": "No se pudieron descargar las acciones del agente"
+  },
+  "requirements": {
+    "title": "Requisitos demostrados {{demonstrated}}/{{total}}",
+    "touched": "Tocados por este cambio: {{demonstrated}}/{{total}} demostrados",
+    "caveat": "Medido por Specrails: un requisito cuenta cuando un test etiquetado con su id se ejecutó en una verificación que pasó. Es orientativo; no cambia la revisión.",
+    "caveatNoReceipt": "Parte de esta traza no tiene un recibo de verificación detrás, así que esos requisitos aún no pueden contar como demostrados.",
+    "undemonstratedTitle_one": "{{count}} requisito no demostrado",
+    "undemonstratedTitle_other": "{{count}} requisitos no demostrados",
+    "demonstratedTitle_one": "{{count}} requisito demostrado",
+    "demonstratedTitle_other": "{{count}} requisitos demostrados",
+    "reason": {
+      "no-test": "sin test etiquetado",
+      "not-executed": "el test etiquetado no se ejecutó",
+      "failed": "el test etiquetado falló"
+    },
+    "touchedBadge": "cambiado aquí",
+    "untagged_one": "{{count}} etiqueta de test no corresponde a ningún requisito ({{tags}}): una errata o un requisito renombrado.",
+    "untagged_other": "{{count}} etiquetas de test no corresponden a ningún requisito ({{tags}}): erratas o requisitos renombrados.",
+    "showAll_one": "Mostrar {{count}} más",
+    "showAll_other": "Mostrar {{count}} más",
+    "showLess": "Mostrar menos"
+  },
+  "baseline": {
+    "title": "Spec creada por donde pasa el trabajo",
+    "status": {
+      "planned": "Baseline planificado: {{requirements}} requisitos as-built, {{tests}} tests de caracterización",
+      "passed": "Baseline demostrado sobre el código sin cambios: {{requirements}} requisitos as-built, {{tests}} tests de caracterización",
+      "failed": "Baseline bloqueado: los tests de caracterización no pasaron sobre el código sin cambios, así que no se editó el módulo",
+      "violated": "Baseline bloqueado: el paso de baseline editó código que no era de test, así que el run se detuvo",
+      "not-needed": "No hace falta baseline: las specs ya cubren el código que toca este cambio"
+    },
+    "module": "Módulo descrito:",
+    "more_one": "y {{count}} fichero más",
+    "more_other": "y {{count}} ficheros más",
+    "spec": "Spec as-built:",
+    "capability": "{{capability}} ({{demonstrated}}/{{requirements}} demostrados)",
+    "cost": "Coste del baseline {{amount}} en {{turns}} turnos, contado aparte del cambio",
+    "costUnknown": "El proveedor no informó del coste del baseline",
+    "caveat": "Los tests de caracterización describen el comportamiento actual; Core los ejecutó sobre el código sin cambios antes de cualquier edición."
+  },
+  "humanEyes": {
+    "title_one": "Requiere ojo humano: {{count}} regla del proyecto",
+    "title_other": "Requiere ojo humano: {{count}} reglas del proyecto",
+    "caveat": "Reglas escritas para este proyecto que ningún check automático puede hacer cumplir. Revísalas tú antes de aceptar."
   }
 }

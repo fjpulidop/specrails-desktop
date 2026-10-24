@@ -7,6 +7,8 @@ const initial: ProjectSettings = {
   reviewWipLimit: null,
   agentEnvMode: 'inherit',
   agentAuditRetentionDays: 30,
+  jiraPostClarifications: false,
+  baselineOnTouch: false,
 }
 function setup() {
   const repository: ProjectSettingsRepository = {
@@ -140,5 +142,15 @@ describe('agentAuditRetentionDays', () => {
       expect(() => service.updateSettings({ agentAuditRetentionDays: value })).toThrow(SettingsValidationError)
     }
     expect(repository.update).toHaveBeenCalledOnce()
+  })
+})
+
+describe('phase-3 opt-in switches', () => {
+  it('accepts strict booleans and rejects anything else', () => {
+    const { service, repository } = setup()
+    service.updateSettings({ jiraPostClarifications: true, baselineOnTouch: false })
+    expect(repository.update).toHaveBeenCalledWith({ jiraPostClarifications: true, baselineOnTouch: false })
+    expect(() => service.updateSettings({ baselineOnTouch: 'yes' })).toThrow('baselineOnTouch must be a boolean')
+    expect(() => service.updateSettings({ jiraPostClarifications: 1 })).toThrow('jiraPostClarifications must be a boolean')
   })
 })

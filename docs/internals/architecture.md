@@ -137,7 +137,7 @@ Provider, terminal, profile, plugin, code-explorer, and explore subsystems each 
 client/src/
 ├── App.tsx                     # Mounts DesktopProvider + DesktopApp unconditionally
 ├── components/                 # App shell and shared primitives
-│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar (projects, Loops, Plugins, …)
+│   ├── ArcSidebar.tsx          # Collapsible Arc-style left sidebar (projects, Loops, Plugins, …) — see Sidebar shell
 │   ├── ProjectLayout.tsx       # Per-project three-panel wrapper
 │   ├── ProjectRightSidebar.tsx # Project nav (Jobs, Analytics, Agents, Code, …)
 │   ├── TitleBar.tsx            # Custom frameless titlebar (desktop)
@@ -177,6 +177,20 @@ On project switch:
 4. Never reset to empty state — always show the last-known data while loading.
 
 State-bearing hooks key off `activeProjectId` as a `useEffect` dependency. `useSpecGenTracker` (via `lib/pending-specs.ts`) and `lib/route-memory.ts` persist Quick-spec progress and the active URL route per project to `localStorage`, surviving refreshes and project switches.
+
+### Sidebar shell
+
+The left `ArcSidebar` and the right sidebar (`ProjectRightSidebar` on the board, `AgentWorkspaceSidebar` in Agent Mode) share one behaviour contract:
+
+- **Modes** live in `context/SidebarPinContext.tsx`: `pinned-open`, `pinned-collapsed`, `unpinned`, persisted per side in `localStorage`. A new user starts with the left sidebar **pinned open** and the right one **unpinned**. `effectiveLeftMode` / `effectiveRightMode` render a pinned-open sidebar as unpinned when the window is at most 1100px wide (`NARROW_WINDOW_QUERY`), without rewriting the stored choice. Sidebars read the effective mode; pin buttons show the stored one.
+- **Overlay, never reflow.** Each sidebar is an in-flow `<aside>` wrapper plus an absolutely positioned panel (`z-30`). The wrapper reserves the expanded width only when pinned open (`useResizableSidebar(..., { docked })` writes both widths imperatively, also during a drag); a hover- or focus-expanded unpinned panel grows over the content with `shadow-xl` while the wrapper stays at the 44px rail.
+- **Hover intent and focus** (`hooks/useSidebarHoverIntent.ts`): open after 150ms of hover, close 250ms after the pointer leaves, open while keyboard focus is inside, collapse on blur only when focus and pointer have both left. A portalled flyout that belongs to a sidebar (the Builder panel) carries `data-sidebar-flyout` so focus moving into it keeps the rail open. A resize drag never collapses the panel.
+- **Rows** are plain containers holding a real `<button>` (select) with the row actions as sibling buttons; actions reveal on hover *and* `focus-within`. Destructive confirmations ("Remove?" / "Delete?") stay armed for 5 s.
+- **Mission roll-up.** A project, Home ("Unassigned missions") or Favorites group whose tree is not on screen shows the attention mark of its missions (warning triangle for a failed run, dot for a waiting decision), an unread dot, and an accent icon while an agent works; on the collapsed rail the attention mark is a badge on the project's monogram tile.
+- **Right-side button.** `lib/sidebar-layout.ts` (`isGlobalRoute`, `hasRightSidebar`) decides whether a right sidebar is mounted; `App.tsx` and the title bar share it, so the title bar never shows a button for a sidebar that is not on screen.
+- **Shortcuts:** `⌘B` / `Ctrl+B` cycles the left sidebar, `⌥⌘B` / `Ctrl+Alt+B` the right one (`hooks/useKeyboardShortcuts.ts`).
+- **Places (Back / Forward / links).** Where the user is lives in the URL, so router history is the navigation history: `?spec=<id>` (spec modal), `?mission=<id>` (selected mission, Mission mode), `?overlay=loops|plugins|docs|analytics`, `?review=<id>` / `?job=<id>` (Mission-mode forms of `/review/:id`, `/jobs/:id`) and a `?p=<projectId>` marker on the entry a project switch pushes. Filters, sort, search, tabs, run-strip focus, the terminal and the Board/Mission toggle are not places. The model and the key rules (what counts as the same place in each mode) are `lib/places.ts`; `hooks/usePlaceHistory.tsx` mirrors the stack, labels targets, skips entries that are meaningless in the current mode or whose target was deleted, restores the project of an entry, and owns the mouse buttons; `hooks/usePlaceParam.ts` is the push-on-open / pop-on-close primitive. See [client features](../../client/src/features/README.md#places-back--forward--links).
+- **Workspace panes** (Agent Mode Jobs / Files / Analytics) are mutually exclusive (`AgentWorkspaceContext`); the conversation column keeps a 360px floor.
 
 ---
 

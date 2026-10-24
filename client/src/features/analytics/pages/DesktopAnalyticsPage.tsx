@@ -8,6 +8,10 @@ import type { DesktopAnalyticsResponse, AnalyticsPeriod } from '../../../types'
 import { PeriodSelector } from '../components/PeriodSelector'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { CostValue } from '../components/CostValue'
+import { formatUsd } from '../lib/format'
+import { DialogBody, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // Server now splits authoritative (claude, provider-billed) vs estimated
 // (codex/gemini rate-card) cost. These fields are populated by
@@ -27,7 +31,7 @@ type EstimatedTimelinePoint = DesktopAnalyticsResponse['costTimeline'][number] &
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
 
-function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel: string }) {
+function DesktopKpiCards({ kpi }: { kpi: EstimatedKpi }) {
   const { t } = useTranslation('analytics')
   const estimatedTotal = kpi.estimatedCostUsd ?? 0
   const estimatedToday = kpi.estimatedCostToday ?? 0
@@ -57,14 +61,13 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       label: t('desktop.totalCost'),
       value: costUnavailable
         ? '—'
-        : `${totalIsEstimated ? '~' : ''}$${kpi.totalCostUsd.toFixed(4)}`,
+        : <CostValue usd={kpi.totalCostUsd} estimated={totalIsEstimated} />,
       sub: todayCostUnavailable
         ? t('desktop.costTodayUnavailable')
-        : t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}$${kpi.costToday.toFixed(4)}` }),
+        : t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}${formatUsd(kpi.costToday)}` }),
+      // The KPI is windowed (default 7d): the window is stated once, in the
+      // page header next to the title (MED-10), not repeated per card.
       estimated: totalIsEstimated,
-      // The KPI is windowed (default 7d) but labelled "Total cost" — state the
-      // window explicitly so it is never read as a grand all-time total (MED-10).
-      window: windowLabel,
     },
     {
       key: 'totalJobs',
@@ -84,7 +87,7 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       key: 'avgCostPerJob',
       label: t('desktop.avgCostPerJob'),
       value: kpi.totalJobs > 0 && unpricedRuns === 0
-        ? `${totalIsEstimated ? '~' : ''}$${(kpi.totalCostUsd / kpi.totalJobs).toFixed(5)}`
+        ? <CostValue usd={kpi.totalCostUsd / kpi.totalJobs} estimated={totalIsEstimated} />
         : '—',
       sub: unpricedRuns > 0 ? t('desktop.averageUnavailable') : t('desktop.periodAverage'),
       estimated: totalIsEstimated && kpi.totalJobs > 0,
@@ -100,18 +103,8 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
             className="rounded-lg border border-border/40 bg-card/50 p-4"
             data-estimated={card.estimated ? 'true' : undefined}
           >
-            <div className="flex items-center justify-between gap-1 mb-1">
-              <p className="text-xs text-muted-foreground">{card.label}</p>
-              {'window' in card && card.window && (
-                <span
-                  data-testid="kpi-window-label"
-                  className="text-[10px] text-muted-foreground/70 whitespace-nowrap"
-                >
-                  {card.window}
-                </span>
-              )}
-            </div>
-            <p className="text-xl font-semibold font-mono">{card.value}</p>
+            <p className="text-xs text-muted-foreground mb-1">{card.label}</p>
+            <p className="text-xl font-semibold num">{card.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
           </div>
         ))}
@@ -119,16 +112,16 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       {includesEstimated && (
         <p
           data-testid="kpi-estimated-footnote"
-          className="text-[10px] text-muted-foreground/70 italic"
-          title={t('desktop.includesEstimatedTooltip', { amount: `$${estimatedTotal.toFixed(4)}` })}
+          className="text-xs text-muted-foreground italic"
+          title={t('desktop.includesEstimatedTooltip', { amount: formatUsd(estimatedTotal) })}
         >
-          {t('desktop.includesEstimated', { amount: `$${estimatedTotal.toFixed(4)}` })}
+          {t('desktop.includesEstimated', { amount: formatUsd(estimatedTotal) })}
         </p>
       )}
       {(costUnavailable || costPartiallyUnavailable) && (
         <p
           data-testid="kpi-cost-coverage-note"
-          className="text-[10px] text-muted-foreground/70 italic"
+          className="text-xs text-muted-foreground italic"
         >
           {costUnavailable
             ? t('desktop.costUnavailable')
@@ -158,18 +151,18 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium">{t('desktop.costOverTime')}</h3>
+        <h3 className="text-strong">{t('desktop.costOverTime')}</h3>
         {anyEstimated && (
           <span
             data-testid="timeline-estimated-note"
-            className="text-[10px] text-muted-foreground/70 italic"
+            className="text-xs text-muted-foreground italic"
             title={t('desktop.timelineEstimatedTooltip')}
           >
             {t('desktop.includesEstimatedShort')}
           </span>
         )}
         {costPartiallyUnavailable && (
-          <span className="text-[10px] text-muted-foreground/70 italic">
+          <span className="text-xs text-muted-foreground italic">
             {t('desktop.costPartiallyUnavailable', { count: unpricedCount })}
           </span>
         )}
@@ -193,16 +186,16 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
               dataKey="date"
               ticks={ticks}
               tickFormatter={(d: string) => { try { return format(new Date(d), 'MMM d', { locale: getDateFnsLocale() }) } catch { return d } }}
-              tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+              tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tickFormatter={(v: number) => `$${v.toFixed(2)}`}
-              tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+              tickFormatter={(v: number) => formatUsd(v)}
+              tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
               axisLine={false}
               tickLine={false}
-              width={55}
+              width={60}
             />
             <Tooltip
               content={({ active, payload, label }) => {
@@ -211,7 +204,7 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
                 return (
                   <div className="bg-popover border border-border/30 rounded-lg p-2 text-xs shadow-lg">
                     <p className="text-muted-foreground mb-1">{label}</p>
-                    <p className="font-medium">{dayEstimated ? '~' : ''}${(payload[0].value as number).toFixed(4)}</p>
+                    <p className="font-medium"><CostValue usd={payload[0].value as number} estimated={dayEstimated} /></p>
                   </div>
                 )
               }}
@@ -239,7 +232,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
   if (projects.length === 0) {
     return (
       <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-        <h3 className="text-sm font-medium mb-3">{t('desktop.projectComparison')}</h3>
+        <h3 className="text-strong mb-3">{t('desktop.projectComparison')}</h3>
         <p className="text-xs text-muted-foreground">{t('desktop.noProjects')}</p>
       </div>
     )
@@ -249,7 +242,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-      <h3 className="text-sm font-medium mb-4">{t('desktop.projectComparison')}</h3>
+      <h3 className="text-strong mb-4">{t('desktop.projectComparison')}</h3>
       <div className="space-y-3">
         {projects.map((p, idx) => {
           const estimated = p.estimatedCostUsd ?? 0
@@ -264,32 +257,23 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium truncate max-w-[160px] flex items-center gap-1" title={p.projectName}>
                 {p.projectName}
-                {isEstimated && (
-                  <span
-                    data-testid="project-estimated-badge"
-                    className="text-[9px] uppercase tracking-wide text-muted-foreground/70 not-italic border border-border/40 rounded px-1"
-                    title={t('desktop.projectEstimatedTooltip', { amount: `$${estimated.toFixed(4)}` })}
-                  >
-                    {t('desktop.estimatedBadge')}
-                  </span>
-                )}
               </span>
               <div className="flex items-center gap-4 text-muted-foreground">
                 <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
                 <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>
                 <span
-                  className="font-mono text-foreground"
+                  className="num text-foreground"
                   title={costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined}
                 >
                   {costUnavailable
                     ? t('desktop.costUnavailableShort')
-                    : `${isEstimated ? '~' : ''}$${p.totalCostUsd.toFixed(4)}`}
+                    : <CostValue usd={p.totalCostUsd} estimated={isEstimated} />}
                 </span>
               </div>
             </div>
             <div className="h-1.5 rounded-full bg-border/30 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full transition-all duration-200"
                 style={{
                   width: `${(p.totalCostUsd / maxCost) * 100}%`,
                   backgroundColor: theme.chart[idx % theme.chart.length],
@@ -316,7 +300,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-      <h3 className="text-sm font-medium mb-3">{t('desktop.costByProject')}</h3>
+      <h3 className="text-strong mb-3">{t('desktop.costByProject')}</h3>
       {!hasKnownCost && hasUnavailableCost ? (
         <div
           data-testid="desktop-project-cost-unavailable"
@@ -330,23 +314,23 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+            tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tickFormatter={(v: number) => `$${v.toFixed(2)}`}
-            tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+            tickFormatter={(v: number) => formatUsd(v)}
+            tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
             axisLine={false}
             tickLine={false}
-            width={55}
+            width={60}
           />
           <Tooltip
             content={({ active, payload, label }) =>
               active && payload?.length ? (
                 <div className="bg-popover border border-border/30 rounded-lg p-2 text-xs shadow-lg">
                   <p className="text-muted-foreground mb-1">{label}</p>
-                  <p className="font-medium">${(payload[0].value as number).toFixed(4)}</p>
+                  <p className="font-medium">{formatUsd(payload[0].value as number)}</p>
                 </div>
               ) : null
             }
@@ -361,7 +345,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function DesktopAnalyticsPage() {
+export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: boolean } = {}) {
   const { t } = useTranslation('analytics')
   const [period, setPeriod] = useState<AnalyticsPeriod>('7d')
   const [from, setFrom] = useState('')
@@ -416,43 +400,35 @@ export default function DesktopAnalyticsPage() {
     if (t !== undefined) setTo(t)
   }
 
-  return (
-    <div className="flex flex-col h-full overflow-auto bg-background">
-      <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            <h1 className="text-sm font-semibold">{t('desktop.title')}</h1>
-            {data && (
-              <span className="text-xs text-muted-foreground">{data.period.label}</span>
-            )}
-          </div>
-          {/* mr-8 clears the Dialog's absolute close X (right-4 top-4) — the
-              page only mounts inside the App-level analytics Dialog, where the
-              refresh button otherwise sits underneath it. */}
-          <div className="flex items-center gap-3 mr-8">
-            <PeriodSelector
-              period={period}
-              from={from}
-              to={to}
-              onChange={handlePeriodChange}
-            />
-            <button
-              onClick={() => load(period, from, to)}
-              disabled={loading}
-              className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-              aria-label={t('desktop.refreshAria')}
-            >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
+  // The window is stated once, next to the title (MED-10) — the KPI cards
+  // no longer repeat it.
+  const windowLabel = period === 'custom' ? (data?.period.label ?? t('windowLabels.custom')) : t(`windowLabels.${period}`)
 
+  const headerActions = (
+    <>
+      <PeriodSelector
+        period={period}
+        from={from}
+        to={to}
+        onChange={handlePeriodChange}
+      />
+      <button
+        onClick={() => load(period, from, to)}
+        disabled={loading}
+        className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+        aria-label={t('desktop.refreshAria')}
+      >
+        <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+      </button>
+    </>
+  )
+
+  const body = (
+    <>
         {/* Error */}
         {error && (
-          <div className="rounded-lg border border-red-400/30 aurora-light:border-destructive/30 bg-red-400/10 aurora-light:bg-destructive/10 p-3 text-xs text-red-400 aurora-light:text-destructive">
-            {t('desktop.failedToLoad', { error })}
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            {t('desktop.failedToLoad')}
           </div>
         )}
 
@@ -461,12 +437,12 @@ export default function DesktopAnalyticsPage() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg border border-border/40 bg-card/50 animate-pulse" />
+                <Skeleton key={i} className="h-20" />
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="h-[220px] rounded-lg border border-border/40 bg-card/50 animate-pulse" />
+                <Skeleton key={i} className="h-[220px]" />
               ))}
             </div>
           </div>
@@ -475,10 +451,7 @@ export default function DesktopAnalyticsPage() {
         {/* Content */}
         {data && (
           <div className="space-y-3">
-            <DesktopKpiCards
-              kpi={data.kpi}
-              windowLabel={period === 'custom' ? data.period.label : t(`windowLabels.${period}`)}
-            />
+            <DesktopKpiCards kpi={data.kpi} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <DesktopCostTimeline data={data.costTimeline} />
@@ -488,6 +461,36 @@ export default function DesktopAnalyticsPage() {
             <ProjectBreakdown projects={data.projectBreakdown} />
           </div>
         )}
+    </>
+  )
+
+  // Inside the App-level analytics dialog the visible heading IS the
+  // DialogTitle (one string for sighted and screen-reader users), and the
+  // period controls sit in the standard header row before the close button.
+  if (inDialog) {
+    return (
+      <>
+        <DialogHeader icon={<TrendingUp />} actions={headerActions}>
+          <DialogTitle>{t('desktop.title')}</DialogTitle>
+          <DialogDescription data-testid="analytics-window-label">{windowLabel}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-4 bg-background">{body}</DialogBody>
+      </>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-auto bg-background">
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            <h1 className="text-headline">{t('desktop.title')}</h1>
+            <span data-testid="analytics-window-label" className="text-xs text-muted-foreground">{windowLabel}</span>
+          </div>
+          <div className="flex items-center gap-3">{headerActions}</div>
+        </div>
+        {body}
       </div>
     </div>
   )

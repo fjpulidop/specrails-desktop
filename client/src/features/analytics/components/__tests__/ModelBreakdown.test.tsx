@@ -20,7 +20,7 @@ function emptyData(byModel: PartialModel[] = []): SpendingResponse {
 describe('ModelBreakdown', () => {
   it('renders skeleton when loading without data', () => {
     const { container } = render(<ModelBreakdown data={null} loading onSelectModel={() => {}} activeModel={undefined} />)
-    expect(container.querySelector('.animate-pulse')).toBeTruthy()
+    expect(container.querySelector('[data-skeleton]')).toBeTruthy()
   })
 
   it('renders empty state when no models', () => {

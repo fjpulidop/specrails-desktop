@@ -1,8 +1,10 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, act } from '../../../../test-utils'
+import { useLocation, useNavigate, type Location, type NavigateFunction } from 'react-router-dom'
 import DashboardPage from '../DashboardPage'
 import type { LocalTicket } from '../../../../types'
+import { getPaletteSurface, resetPaletteSurfaces } from '../../../../lib/palette-bridge'
 
 vi.mock('../../../../lib/api', () => ({
   getApiBase: () => '/api',
@@ -195,6 +197,96 @@ describe('DashboardPage', () => {
     expect(screen.getByTestId('ticket-detail-modal')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close'))
     expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+  })
+
+  describe('spec modal as a place (?spec=)', () => {
+    let loc: Location
+    let nav: NavigateFunction
+    function Probe() {
+      loc = useLocation()
+      nav = useNavigate()
+      return null
+    }
+    const renderWithProbe = (route = '/') => render(<><DashboardPage /><Probe /></>, { route })
+
+    it('opening a spec writes ?spec=<id> and closing pops back', () => {
+      renderWithProbe()
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      expect(loc.search).toBe('?spec=1')
+      fireEvent.click(screen.getByText('close'))
+      expect(loc.search).toBe('')
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+    })
+
+    it('the browser Back closes the modal and Forward reopens it', () => {
+      renderWithProbe()
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      act(() => nav(-1))
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+      act(() => nav(1))
+      expect(screen.getByTestId('ticket-detail-title')).toHaveTextContent('Spec ticket')
+    })
+
+    it('a link with ?spec= opens that spec', () => {
+      renderWithProbe('/?spec=1')
+      expect(screen.getByTestId('ticket-detail-title')).toHaveTextContent('Spec ticket')
+    })
+
+    it('a link to a spec that does not exist opens nothing', () => {
+      renderWithProbe('/?spec=404')
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+    })
+
+    it('filters and sorting do not add history entries', () => {
+      renderWithProbe()
+      act(() => nav('/?status=done', { replace: true }))
+      act(() => nav('/?status=failed&sort=cost', { replace: true }))
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      fireEvent.click(screen.getByText('close'))
+      expect(loc.search).toBe('?status=failed&sort=cost')
+    })
+  })
+
+  describe('⌘K board surface', () => {
+    beforeEach(() => resetPaletteSurfaces())
+
+    it('publishes specs, rails and the guards the buttons use', async () => {
+      const { unmount } = render(<DashboardPage />)
+      const board = getPaletteSurface('board')!
+      expect(board).not.toBeNull()
+      expect(board.specs()).toEqual([{ id: 1, title: 'Spec ticket', status: 'todo' }])
+      expect(board.rails(1).map((r) => r.label)).toEqual(['Rail 1', 'Rail 2', 'Rail 3'])
+      expect(board.launchBlocker(1)).toBeNull()
+      expect(board.reviewPath(1)).toBeNull()
+      // Local specs offer the manual targets, the current one flagged.
+      const options = await board.statusOptions(1)
+      expect(options.map((o) => [o.id, o.current])).toEqual([['todo', true], ['in_progress', false], ['done', false], ['cancelled', false]])
+      unmount()
+      expect(getPaletteSurface('board')).toBeNull()
+    })
+
+    it('freezes on-review specs exactly like the rail launch does', () => {
+      const original = mockTickets
+      mockTickets = [{ ...original[0], status: 'on_review' }]
+      try {
+        render(<DashboardPage />)
+        const board = getPaletteSurface('board')!
+        expect(board.launchBlocker(1)).not.toBeNull()
+        // A blocked launch neither moves the spec nor launches.
+        board.launchOnRail(1, board.rails(1)[0].id)
+        expect(board.rails(1)[0].hasSpec).toBe(false)
+      } finally {
+        mockTickets = original
+      }
+    })
+
+    it('launching a spec that is not on the rail moves it there first', async () => {
+      render(<DashboardPage />)
+      const board = getPaletteSurface('board')!
+      const railId = board.rails(1)[0].id
+      act(() => board.launchOnRail(1, railId))
+      expect(getPaletteSurface('board')!.rails(1)[0].hasSpec).toBe(true)
+    })
   })
 
   it('CreateTicketModal is not shown initially', () => {

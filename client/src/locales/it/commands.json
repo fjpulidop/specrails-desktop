@@ -10,7 +10,10 @@
       "missions": "Missioni",
       "spec": "Spec",
       "jobs": "Job",
-      "navigation": "Navigazione"
+      "navigation": "Navigazione",
+      "actions": "Azioni",
+      "recentActions": "Azioni recenti",
+      "recentPlaces": "Luoghi recenti"
     },
     "nav": {
       "dashboard": "Dashboard",
@@ -31,10 +34,75 @@
     "footer": {
       "navigate": "naviga",
       "select": "seleziona",
-      "close": "chiudi"
+      "close": "chiudi",
+      "actions": "azioni",
+      "back": "indietro"
     },
     "missions": {
       "home": "Home"
+    },
+    "dialogTitle": "Cerca missioni, progetti e job",
+    "dialogDescription": "Digita per filtrare, poi premi Invio per aprire il risultato evidenziato.",
+    "actions": {
+      "verbs": "nuovo,nuova,crea,aggiungi,avvia,esegui,sposta,apri,cambia,attiva,vai,consegna,pausa,riprendi,annulla,mostra,inizia,ripristina,new,launch,move,open,switch,run,toggle,go,undo",
+      "back": "Indietro",
+      "newSpec": "Nuova spec",
+      "newSpecExplore": "Nuova spec (Esplora)",
+      "launchSpec": "Avvia la spec su un rail",
+      "launchSpecN": "Avvia #{{id}} su un rail",
+      "moveSpec": "Sposta la spec in",
+      "moveSpecN": "Sposta #{{id}} in",
+      "openReview": "Apri la revisione",
+      "openReviewN": "Apri la revisione di #{{id}}",
+      "handOffFlow": "Consegna il Flow",
+      "pauseFlow": "Metti in pausa il Flow",
+      "resumeFlow": "Riprendi il Flow",
+      "newMission": "Nuova missione",
+      "switchTheme": "Cambia tema",
+      "switchToMission": "Passa alla modalità Missione",
+      "switchToBoard": "Passa alla modalità Board",
+      "openAppSettings": "Apri le impostazioni dell'app",
+      "openProjectSettings": "Apri le impostazioni del progetto",
+      "switchProject": "Cambia progetto",
+      "runLoop": "Esegui un loop",
+      "toggleLeftSidebar": "Mostra/nascondi barra laterale sinistra",
+      "toggleRightSidebar": "Mostra/nascondi barra laterale destra",
+      "goBack": "Torna indietro",
+      "goForward": "Vai avanti",
+      "undoLast": "Annulla: {{label}}",
+      "recentlyDeleted": "Eliminati di recente",
+      "pages": {
+        "railTitle": "Rail per #{{id}}",
+        "railPlaceholder": "Scegli un rail...",
+        "railRunning": "in esecuzione",
+        "railHasSpec": "già presente",
+        "noRails": "Nessun rail disponibile.",
+        "statusTitle": "Sposta #{{id}} in",
+        "statusPlaceholder": "Scegli uno stato...",
+        "noStatuses": "Nessuno stato disponibile.",
+        "current": "attuale",
+        "specTitle": "Scegli una spec",
+        "specPlaceholder": "Cerca spec...",
+        "noSpecs": "Nessuna spec corrispondente.",
+        "themeTitle": "Tema",
+        "themePlaceholder": "Scegli un tema...",
+        "noThemes": "Nessun tema disponibile.",
+        "appSettingsTitle": "Impostazioni dell'app",
+        "projectSettingsTitle": "Impostazioni del progetto",
+        "sectionPlaceholder": "Scegli una sezione...",
+        "noSections": "Nessuna sezione.",
+        "projectTitle": "Progetti",
+        "projectPlaceholder": "Scegli un progetto...",
+        "noProjects": "Nessun altro progetto.",
+        "loopTitle": "Loop eseguibili ora",
+        "loopPlaceholder": "Scegli un loop...",
+        "noLoops": "Nessun loop può essere eseguito senza una spec.",
+        "loading": "Caricamento...",
+        "loadFailed": "Impossibile caricare le opzioni."
+      },
+      "openInbox": "Apri Da gestire",
+      "openInboxCount": "Apri Da gestire ({{count}})",
+      "opensOptions": "apre le opzioni"
     }
   },
   "toasts": {
@@ -73,7 +141,8 @@
     "categories": {
       "general": "Generale",
       "navigation": "Navigazione",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "missions": "Missioni"
     },
     "items": {
       "showCheatsheet": "Mostra scorciatoie da tastiera",
@@ -90,8 +159,23 @@
       "goAnalytics": "Vai ad Analytics",
       "goSettings": "Vai alle Impostazioni",
       "nextItem": "Elemento successivo nell'elenco",
-      "prevItem": "Elemento precedente nell'elenco"
-    }
+      "prevItem": "Elemento precedente nell'elenco",
+      "runStripFocus": "Vai alla striscia delle esecuzioni della missione (premi di nuovo per mostrare o nascondere i dettagli)",
+      "runStripCycle": "Esecuzione precedente / successiva nella striscia (fuori dai campi di testo)",
+      "runStripBack": "Esci dalla striscia delle esecuzioni e torna dov'eri",
+      "flowPause": "Sospendi o riprendi il Flow (striscia delle esecuzioni attiva)",
+      "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
+      "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
+      "undoLast": "Annulla l'ultima modifica",
+      "openInbox": "Apri Da gestire"
+    },
+    "searchLabel": "Cerca scorciatoie e guide",
+    "searchPlaceholder": "Cerca scorciatoie e guide…",
+    "noShortcuts": "Nessuna scorciatoia corrisponde a “{{query}}”.",
+    "guidesHeading": "Dalla guida",
+    "openGuide": "Apri la guida: {{title}}",
+    "noGuides": "Nessuna guida corrisponde a “{{query}}”.",
+    "searching": "Ricerca nella guida…"
   },
   "update": {
     "title": {

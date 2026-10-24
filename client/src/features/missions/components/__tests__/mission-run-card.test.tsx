@@ -176,15 +176,19 @@ describe('run-only card (shared-cwd launch)', () => {
 
   it('submits only once for synchronous repeat clicks and stays disabled after acceptance', async () => {
     let resolve!: (value: Response) => void
-    global.fetch = vi.fn(() => new Promise<Response>(done => { resolve = done })) as unknown as typeof fetch
+    global.fetch = vi.fn((input: RequestInfo | URL) => String(input).endsWith('/relaunch')
+      ? new Promise<Response>(done => { resolve = done })
+      : Promise.resolve(new Response('{}', { status: 404 }))) as unknown as typeof fetch
+    // The card also reads the run's diagnosis; only relaunch submissions count here.
+    const relaunches = () => (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) => String(url).endsWith('/relaunch')).length
     render(<AgentPrDecisionCard envelope={env({ decision: 'implementation_failed', runtime: failed })} conversationId="c1" />)
     const button = screen.getByTestId('mission-run-relaunch')
     act(() => { fireEvent.click(button); fireEvent.click(button) })
-    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(relaunches()).toBe(1)
     expect(button).toBeDisabled()
     await act(async () => { resolve(new Response('{}', { status: 202 })) })
     fireEvent.click(button)
-    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(relaunches()).toBe(1)
     expect(button).toBeDisabled()
   })
 
@@ -219,5 +223,39 @@ describe('delivery card failure honesty', () => {
     render(<AgentPrDecisionCard envelope={env({ prDeliveryId: 'd1', hasDelivery: undefined, decision: 'building', railName: 'Auth' })} />)
     expect(screen.getByTestId('mission-run-status').getAttribute('data-status')).toBe('running')
     expect(screen.getByText('Auth')).toBeInTheDocument()
+  })
+})
+
+describe('failure diagnosis on a failed run', () => {
+  const diagnosis = { kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core', remedies: ['resume', 'retry', 'edit-spec', 'open-logs'] }
+  const answer = (failureDiagnosis: unknown) => vi.fn(async () => new Response(JSON.stringify({ loopRun: { id: 'r1', failureDiagnosis } }), { status: 200 })) as unknown as typeof fetch
+
+  it('replaces the bare failure block with the diagnosis, keeping the technical details one click away', async () => {
+    global.fetch = answer(diagnosis)
+    runtime.state.runs = [{ runId: 'r1', status: 'failed', nextStep: 'fixer', recoverableSteps: [], active: false, canResume: true, canCancel: false }]
+    render(<AgentPrDecisionCard envelope={env({ runtime: failed, decision: 'implementation_failed' })} conversationId="c1" />)
+    expect(await screen.findByTestId('failure-diagnosis-card')).toHaveAttribute('data-kind', 'tests_failed')
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1$/), expect.anything())
+    const card = screen.getByTestId('failure-diagnosis-card')
+    expect(card).toHaveTextContent('Tests failed in the Reviewer phase after 4 fix rounds')
+    expect(screen.getByText('Technical details')).toBeInTheDocument()
+  })
+
+  it('runs the card\'s real actions: resume and open the failing run\'s log', async () => {
+    global.fetch = answer(diagnosis)
+    runtime.state.runs = [{ runId: 'r1', status: 'failed', nextStep: 'fixer', recoverableSteps: [], active: false, canResume: true, canCancel: false }]
+    render(<AgentPrDecisionCard envelope={env({ runtime: { ...failed, recoverableSteps: [] }, decision: 'implementation_failed' })} conversationId="c1" />)
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    fireEvent.click(card.querySelector('[data-testid="failure-remedy-resume"]')!)
+    await act(async () => {})
+    expect(runtime.state.act).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r1' }), 'resume')
+  })
+
+  it('keeps the existing failure block when the run has no diagnosis', async () => {
+    global.fetch = answer(null)
+    render(<AgentPrDecisionCard envelope={env({ runtime: failed })} conversationId="c1" />)
+    await act(async () => {})
+    expect(screen.queryByTestId('failure-diagnosis-card')).toBeNull()
+    expect(screen.getByTestId('mission-run-failure')).toBeInTheDocument()
   })
 })

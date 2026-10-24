@@ -29,6 +29,7 @@ describe('AppearanceSection', () => {
     render(<ThemeProvider><AppearanceSection /></ThemeProvider>)
     for (const id of THEME_IDS) {
       expect(screen.getByTestId(`theme-card-${id}`)).toBeInTheDocument()
+      expect(screen.getByTestId(`theme-rail-${id}`)).toBeInTheDocument()
     }
   })
 

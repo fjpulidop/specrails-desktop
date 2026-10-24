@@ -4,7 +4,7 @@
     "quickSpec": "クイック",
     "exploreSpec": "Explore",
     "aiEdit": "リファイン",
-    "smash": "SMASH",
+    "smash": "分割",
     "fileSummary": "ファイル要約",
     "loop": "Loops",
     "chatSidebar": "チャット",
@@ -29,13 +29,15 @@
   "runs_other": "{{count}} 回の実行",
   "page": {
     "title": "アナリティクス",
+    "subtitle": "支出の内訳：モデル・スペック・エンジン別のコスト、トークン、アクティビティ。",
     "all": "すべて",
     "engine": "エンジン",
     "ticketChip": "チケット #{{id}} ·  ✕",
-    "failedToLoad": "読み込みに失敗しました: {{error}}",
+    "failedToLoad": "分析を読み込めませんでした。もう一度お試しください。",
     "modelChip": "モデル：{{model}}",
     "clearModelFilter": "モデルフィルターをクリア",
-    "localEngine": "ローカル"
+    "localEngine": "ローカル",
+    "moreBreakdowns": "その他の内訳"
   },
   "hero": {
     "spending": "支出",
@@ -46,22 +48,26 @@
     "tokensTooltip": "合計トークン = この期間の全呼び出しにおける新規入力 + 出力 + キャッシュ読み取り + キャッシュ作成の合計。",
     "usageUnavailable": "· トークン使用量は利用できません",
     "usageUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、トークンのテレメトリを提供しませんでした。",
-    "usagePartiallyUnavailable": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
+    "usagePartiallyUnavailable_one": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
+    "usagePartiallyUnavailable_other": "· 既知のトークン {{tokens}}；{{count}} 件はデータなし",
     "usagePartiallyUnavailableTooltip": "既知のトークン小計のみです。一部の呼び出しではトークンのテレメトリが提供されませんでした。",
     "costUnavailable": "コスト利用不可",
     "costUnavailableTooltip": "プロバイダーはこれらの呼び出しを完了しましたが、コストを特定するための十分なテレメトリを提供しませんでした。",
-    "costPartiallyUnavailable": "· 既知の小計；{{count}} 件はコスト不明",
+    "costPartiallyUnavailable_one": "· 既知の小計；{{count}} 件はコスト不明",
+    "costPartiallyUnavailable_other": "· 既知の小計；{{count}} 件はコスト不明",
     "costPartiallyUnavailableTooltip": "既知のコスト小計のみです。一部の呼び出しではコストを特定するための十分なテレメトリが提供されませんでした。",
     "includesEstimated": "· 約 {{amount}} の推定値を含む",
     "includesEstimatedTooltip": "ネイティブのコストフィールドを持たないプロバイダーからの推定コスト {{amount}} を含みます（例: ローカル料金表で算出する codex）。",
     "trackingStarted": "トラッキング開始: {{date}}",
     "trackingStartedFallback": "最初の呼び出しからトラッキングを開始",
     "emptyState": "このフィルター期間の呼び出しはまだありません。",
-    "segmentTitle": "{{label}}: {{value}}"
+    "segmentTitle": "{{label}}: {{value}}",
+    "legendBilled": "請求済み",
+    "legendEstimated": "推定"
   },
   "providerCard": {
     "title": "プロバイダー別",
-    "description": "このプロジェクトの AI CLI 間でのコストの内訳。<tilde>~</tilde> プレフィックスは、コストがローカル料金表からの推定値である行を示します（プロバイダーがネイティブに報告しない場合）。",
+    "description": "<tilde>~</tilde> = ローカル料金表からの推定値。",
     "noCost": "この期間に記録されたコストはまだありません。",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "コスト利用不可",
@@ -109,7 +115,8 @@
     "costLabel": "コスト",
     "truncated": "{{total}} 件中 {{shown}} 件を表示 — 最もコストの高いポイントは保持されますが、それ以前のポイントは非表示になります",
     "costUnavailable": "呼び出しは記録されていますが、プロットできるコストのテレメトリがありません。",
-    "costPartiallyUnavailable": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
+    "costPartiallyUnavailable_one": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。",
+    "costPartiallyUnavailable_other": "プロットにはコストが判明している実行のみ含まれます。{{count}} 件はコストを利用できません。"
   },
   "topTickets": {
     "title": "上位チケット",
@@ -170,7 +177,7 @@
   "desktop": {
     "title": "Desktop アナリティクス",
     "refreshAria": "アナリティクスを更新",
-    "failedToLoad": "アナリティクスの読み込みに失敗しました: {{error}}",
+    "failedToLoad": "Desktop の分析を読み込めませんでした。更新してください。",
     "totalCost": "合計コスト",
     "costToday": "本日 {{value}}",
     "costTodayUnavailable": "本日のコストは利用不可",
@@ -193,12 +200,11 @@
     "includesEstimatedTooltip": "料金表による推定コスト {{amount}} を含みます（codex/gemini）。プロバイダー請求ではありません。",
     "includesEstimatedShort": "推定含む",
     "timelineEstimatedTooltip": "一部の日には ~ で示された料金表による推定コスト（codex/gemini）が含まれます。",
-    "estimatedBadge": "推定",
-    "projectEstimatedTooltip": "このプロジェクトのコストのうち {{amount}} は料金表による推定値です（codex/gemini）。プロバイダー請求ではありません。",
     "statusBarEstimatedTooltip": "料金表による推定コスト（codex/gemini）を含みます。プロバイダー請求ではありません。",
     "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
     "costUnavailableShort": "利用不可",
-    "costPartiallyUnavailable": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
+    "costPartiallyUnavailable_one": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
+    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
   },
   "windowLabels": {
     "7d": "過去 7 日間",

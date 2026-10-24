@@ -15,7 +15,7 @@ export function AgentDeliveryReceipt({ receipt, status }: {
     : state === 'sent' ? Check : CheckCheck
   return (
     <span role="img" aria-label={label} title={label} data-testid="agent-delivery-receipt" data-receipt={state}
-      className={`inline-flex shrink-0 items-center align-middle ${state === 'read' ? 'text-emerald-500' : state === 'interrupted' ? 'text-accent-warning' : 'text-foreground/45'}`}>
+      className={`inline-flex shrink-0 items-center align-middle ${state === 'read' ? 'text-accent-success' : state === 'interrupted' ? 'text-accent-warning' : 'text-foreground/45'}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
     </span>
   )

@@ -30,9 +30,9 @@ import { getAdapter } from '../../../providers/registry'
 import { _resetAgentCapabilitiesForTest, revokeAgentCapability, verifyAgentCapability } from '../../../mcp/agent-capability'
 import { SessionRequestError, type InitializeResult, type SessionEvent, type SessionEventEnvelope, type SessionHostClient } from '../../agent-sessions'
 import { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
-import { createAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
+import { createAgentConversation, listAgentMessages, updateAgentConversation } from '../../agents/runtime/agent-store'
 import { AgentChatManager } from './agent-chat-manager'
-import { getSessionCursor, listSubagents } from './agent-session-store'
+import { getMissionCoreSession, getSessionCursor, listSubagents } from './agent-session-store'
 import { MissionCoreSessions } from './mission-core-sessions'
 
 const usage = (costUsd: number) => ({ inputTokens: 100, outputTokens: 10, cacheReadTokens: null, cacheWriteTokens: null, totalTokens: null, costUsd, costEstimated: false, model: 'haiku' })
@@ -47,6 +47,9 @@ class FakeCoreHost implements SessionHostClient {
   }
   requests: Array<{ method: string; params: Record<string, unknown> }> = []
   journals = new Map<string, SessionEventEnvelope[]>()
+  /** Driver each session was opened with (a Core session never changes driver). */
+  drivers = new Map<string, string>()
+  closedSessions = new Set<string>()
   turn = 0
   /** Provider behaviour for a user input. */
   script: (inputId: string, turnId: string) => Body[] = (inputId, turnId) => [
@@ -68,9 +71,10 @@ class FakeCoreHost implements SessionHostClient {
       case 'session.open': {
         if (params.resume) {
           if (!this.journals.has(sessionId)) throw new SessionRequestError('Unknown session', { code: 'session_not_found', retryable: false })
-          return { sessionId, snapshot: { lastSeq: this.journals.get(sessionId)!.length } } as T
+          return { sessionId, snapshot: { lastSeq: this.journals.get(sessionId)!.length, driver: this.drivers.get(sessionId), status: this.closedSessions.has(sessionId) ? 'closed' : 'open' } } as T
         }
         this.journals.set(sessionId, [])
+        this.drivers.set(sessionId, String(params.driver))
         this.emit(sessionId, [{ type: 'session.opened', driver: String(params.driver), model: String(params.model), resumed: false, providerSessionRef: null }, { type: 'session.process', state: 'started', generation: 1 }])
         return { sessionId, snapshot: { lastSeq: 2 } } as T
       }
@@ -78,7 +82,11 @@ class FakeCoreHost implements SessionHostClient {
         if (!this.journals.has(sessionId)) throw new SessionRequestError('Unknown session', { code: 'session_not_found', retryable: false })
         return { events: this.journals.get(sessionId)!.filter((envelope) => envelope.seq > Number(params.afterSeq)), hasMore: false } as T
       }
+      case 'session.close':
+        this.closedSessions.add(sessionId)
+        return {} as T
       case 'session.send': {
+        if (this.closedSessions.has(sessionId)) throw new SessionRequestError(`Session ${sessionId} is closed`, { code: 'session_closed', retryable: false })
         const input = params.input as { inputId: string; text: string; delivery: 'queue' | 'steer' }
         this.emit(sessionId, [{ type: 'input.accepted', inputId: input.inputId, delivery: input.delivery, text: input.text }])
         if (input.delivery === 'queue') {
@@ -495,6 +503,128 @@ describe('missions on Core agent sessions', () => {
       const policy = await openWith('claude', [driver('claude', true)])
       expect(policy).toMatchObject({ permissions: 'bypass' })
       expect(policy.tools).toBeUndefined()
+    })
+  })
+
+  describe('provider switch: a new Core session generation per driver', () => {
+    const codexDriver = () => ({ ...host.initialize.drivers[0]!, id: 'codex', displayName: 'Codex' })
+    const opens = () => host.requests.filter((request) => request.method === 'session.open' && !request.params.resume).map((request) => [request.params.sessionId, request.params.driver])
+    const sends = (sessionId: string) => host.requests.filter((request) => request.method === 'session.send' && request.params.sessionId === sessionId)
+    /** What the PATCH route does on a provider change. */
+    const switchProvider = (id: string, provider: string) => updateAgentConversation(db, id, { provider, session_id: null, model: null, reasoning_effort: null })
+    beforeEach(() => { host.initialize.drivers.push(codexDriver()) })
+
+    it('claude → codex continues in a new codex session seeded with the conversation, then back to claude', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'first question about the parser')
+      await waitFor(() => doneCount() === 1)
+
+      switchProvider(conversation.id, 'codex')
+      await manager.sendMessage(conversation.id, 'second question')
+      await waitFor(() => doneCount() === 2)
+      const g1 = `${conversation.id}:g1`
+      expect(opens()).toEqual([[conversation.id, 'claude'], [g1, 'codex']])
+      // The Claude session is closed and never receives the Codex turn.
+      expect(host.requests.some((request) => request.method === 'session.close' && request.params.sessionId === conversation.id)).toBe(true)
+      expect(sends(conversation.id)).toHaveLength(1)
+      // The new provider gets the conversation so far.
+      const seeded = String((sends(g1)[0]!.params.input as { text: string }).text)
+      expect(seeded).toContain('first question about the parser')
+      expect(seeded).toContain('second question')
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+      expect(getMissionCoreSession(db, conversation.id)).toEqual({ generation: 1, provider: 'codex' })
+      // Projection follows the new session id.
+      await waitFor(() => (getSessionCursor(db, conversation.id, g1)?.lastSeq ?? 0) > 0)
+
+      // A later codex turn stays in g1 (no new session).
+      await manager.sendMessage(conversation.id, 'third question')
+      await waitFor(() => doneCount() === 3)
+      expect(opens()).toHaveLength(2)
+      expect(sends(g1)).toHaveLength(2)
+
+      switchProvider(conversation.id, 'claude')
+      await manager.sendMessage(conversation.id, 'back on claude')
+      await waitFor(() => doneCount() === 4)
+      expect(opens()).toEqual([[conversation.id, 'claude'], [g1, 'codex'], [`${conversation.id}:g2`, 'claude']])
+    })
+
+    it('a model-only change stays in the same session (session.update)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'hello')
+      await waitFor(() => doneCount() === 1)
+      updateAgentConversation(db, conversation.id, { model: 'sonnet' })
+      await manager.sendMessage(conversation.id, 'again')
+      await waitFor(() => doneCount() === 2)
+      expect(opens()).toEqual([[conversation.id, 'claude']])
+      const updates = host.requests.filter((request) => request.method === 'session.update' && request.params.sessionId === conversation.id)
+      expect(updates.at(-1)?.params).toMatchObject({ model: 'sonnet' })
+      expect(getMissionCoreSession(db, conversation.id).generation).toBe(0)
+    })
+
+    it('after a restart, a pre-existing claude session the switch did not record is detected and replaced once', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'before the restart')
+      await waitFor(() => doneCount() === 1)
+      // A session from before generations existed: no recorded driver.
+      db.prepare('DELETE FROM agent_core_sessions').run()
+      switchProvider(conversation.id, 'codex')
+      // Restart: a new process knows nothing in memory.
+      await manager.shutdown()
+      manager = new AgentChatManager((message) => broadcasts.push(message as unknown as Record<string, unknown>), db, 4200, null)
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      manager.setCoreSessions(new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+        availability: async () => ({ enabled, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+      }))
+      await manager.sendMessage(conversation.id, 'after the restart')
+      await waitFor(() => doneCount() === 2)
+      const g1 = `${conversation.id}:g1`
+      // Nothing was sent to the Claude session with the Codex model; one retry in g1.
+      expect(sends(conversation.id)).toHaveLength(1)
+      expect(opens()).toEqual([[conversation.id, 'claude'], [g1, 'codex']])
+      expect(String((sends(g1)[0]!.params.input as { text: string }).text)).toContain('before the restart')
+      expect(broadcasts.some((message) => message.type === 'agent_error')).toBe(false)
+    })
+
+    it('the recorded generation survives a restart: the next turn resumes it, no new session', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'one')
+      await waitFor(() => doneCount() === 1)
+      switchProvider(conversation.id, 'codex')
+      await manager.sendMessage(conversation.id, 'two')
+      await waitFor(() => doneCount() === 2)
+      await manager.shutdown()
+      manager = new AgentChatManager((message) => broadcasts.push(message as unknown as Record<string, unknown>), db, 4200, null)
+      const registry = new SessionHostRegistry({ launcher: { launch: async () => host }, clock: { now: () => Date.now(), after: (ms, callback) => { const timer = setTimeout(callback, ms); return { cancel: () => clearTimeout(timer) } } } })
+      manager.setCoreSessions(new MissionCoreSessions({
+        db, registry, port: 4200, broadcast: (message) => broadcasts.push(message), adapterFor: getAdapter,
+        availability: async () => ({ enabled, flag: 'auto', reason: 'test' }), projectKey: () => null, revokeCapability: revokeAgentCapability,
+      }))
+      await manager.sendMessage(conversation.id, 'three')
+      await waitFor(() => doneCount() === 3)
+      expect(opens()).toHaveLength(2)
+      expect(sends(`${conversation.id}:g1`)).toHaveLength(2)
+    })
+
+    it('projects sub-agents of the new generation as the mission\'s own (untagged, keyed by its session)', async () => {
+      const conversation = createAgentConversation(db, { provider: 'claude', model: 'haiku' })
+      await manager.sendMessage(conversation.id, 'one')
+      await waitFor(() => doneCount() === 1)
+      switchProvider(conversation.id, 'codex')
+      host.script = (inputId, turnId) => [
+        { type: 'input.state', inputId, state: 'started' },
+        { type: 'session.phase', phase: 'turn' },
+        { type: 'turn.started', turnId, origin: 'user', inputIds: [inputId] },
+        { type: 'subagent.started', subagentId: 'a1', parentId: null, kind: 'background', agentType: 'general-purpose', description: 'Scan' },
+        { type: 'turn.completed', turnId, status: 'completed', text: 'ok', usage: usage(0.01) },
+        { type: 'session.phase', phase: 'background' },
+      ]
+      await manager.sendMessage(conversation.id, 'two')
+      await waitFor(() => listSubagents(db, conversation.id).length === 1)
+      expect(listSubagents(db, conversation.id)[0]).toMatchObject({ coreSessionId: `${conversation.id}:g1` })
+      const subagentMessage = broadcasts.find((message) => message.type === 'agent_subagent')
+      expect(subagentMessage).toBeDefined()
+      expect(subagentMessage).not.toHaveProperty('coreSessionId')
     })
   })
 })

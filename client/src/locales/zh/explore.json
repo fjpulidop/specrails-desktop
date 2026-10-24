@@ -2,8 +2,6 @@
   "shell": {
     "dialogAriaLabel": "Explore Spec · 交互式",
     "backAriaLabel": "返回 (Esc)",
-    "exploreEyebrow": "EXPLORE SPEC · 交互式",
-    "editingEyebrow": "编辑 SPEC · #{{id}}",
     "newSpecPlaceholder": "新建 Spec…",
     "contextPill": "上下文：{{scopes}}",
     "contextPillTitle": "当前 Explore 会话的上下文范围",
@@ -73,7 +71,13 @@
     "criterionAriaLabel": "验收标准 {{number}}",
     "removeCriterionAriaLabel": "移除标准 {{number}}",
     "addCriterion": "添加标准",
-    "addCriterionAriaLabel": "添加验收标准"
+    "addCriterionAriaLabel": "添加验收标准",
+    "nonGoalsLabel": "不在范围内",
+    "nonGoalPlaceholder": "此规格不涵盖的内容",
+    "nonGoalAriaLabel": "范围外条目 {{number}}",
+    "removeNonGoalAriaLabel": "删除范围外条目 {{number}}",
+    "addNonGoalAriaLabel": "添加范围外条目",
+    "addNonGoal": "添加条目"
   },
   "priority": {
     "low": "低",
@@ -83,7 +87,6 @@
   },
   "reviewOverlay": {
     "dialogAriaLabel": "审阅更改",
-    "eyebrow": "审阅更改 · explore-spec",
     "heading": "提交前确认",
     "titleLabel": "标题",
     "priorityLabel": "优先级",

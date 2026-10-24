@@ -51,7 +51,7 @@ export function ProviderTabs({ name, value, tabs, onChange, disabled, ariaLabel 
             />
             {tab.local ? <Server className="h-3 w-3 opacity-70" aria-hidden /> : tab.value ? <Cpu className="h-3 w-3 opacity-70" aria-hidden /> : null}
             <span className="font-medium">{tab.label}</span>
-            {tab.local && tab.detail && <span className="hidden max-w-[12rem] truncate text-[10px] opacity-60 sm:inline">{tab.detail}</span>}
+            {tab.local && tab.detail && <span className="hidden max-w-[12rem] truncate text-xs opacity-60 sm:inline">{tab.detail}</span>}
           </label>
         )
       })}

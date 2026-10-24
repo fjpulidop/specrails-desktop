@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
+import { Switch } from '../../../components/ui/switch'
 import { Input } from '../../../components/ui/input'
 import { useDesktop } from '../../../hooks/useDesktop'
 import {
@@ -14,6 +15,7 @@ import {
   type TerminalRenderMode,
 } from '../lib/terminal-settings-types'
 import { dispatchTerminalSettingsUpdated } from '../lib/terminal-settings-events'
+import { SettingsSelect } from './SettingsSelect'
 
 interface Props {
   /** Desktop mode edits desktop_settings; project mode edits a per-project override layer. */
@@ -159,7 +161,7 @@ export function TerminalSettingsSection({ mode }: Props) {
     return override[field] !== undefined
   }
 
-  if (loading) return <Card><CardContent>{t('common:states.loading')}</CardContent></Card>
+  if (loading) return <Card><CardContent className="p-4 text-xs text-muted-foreground" role="status">{t('common:states.loading')}</CardContent></Card>
 
   return (
     <Card>
@@ -190,13 +192,13 @@ export function TerminalSettingsSection({ mode }: Props) {
         </Field>
 
         <Field label={t('terminal.renderMode')} overridden={isOverridden('renderMode')} onClear={() => clearOverride('renderMode')} mode={mode}>
-          <select
+          <SettingsSelect
+            aria-label={t('terminal.renderMode')}
             value={draft.renderMode}
-            onChange={(e) => setField('renderMode', e.target.value as TerminalRenderMode)}
-            className="border rounded px-2 py-1 bg-transparent"
-          >
-            {RENDER_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+            onChange={(value) => setField('renderMode', value as TerminalRenderMode)}
+            options={RENDER_MODES.map((m) => ({ value: m, label: m }))}
+            className="w-40"
+          />
         </Field>
 
         <ToggleField
@@ -304,22 +306,11 @@ function ToggleField({ label, checked, overridden, onClear, onChange, mode }: { 
         {mode === 'project' && overridden && (
           <Button variant="ghost" size="sm" onClick={onClear}>{t('terminal.clear')}</Button>
         )}
-        <button
-          type="button"
-          role="switch"
+        <Switch
+          checked={checked}
+          onCheckedChange={onChange}
           aria-label={label}
-          aria-checked={checked}
-          onClick={() => onChange(!checked)}
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-            checked ? 'bg-primary' : 'bg-input'
-          }`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${
-              checked ? 'translate-x-4' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
+        />
       </div>
     </div>
   )

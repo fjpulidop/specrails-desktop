@@ -2,7 +2,6 @@
   "studio": {
     "loadingAgent": "Caricamento agente…",
     "modeCreate": "Nuovo agente personalizzato",
-    "modeEdit": "Modifica agente personalizzato",
     "create": "Crea",
     "unsaved": "● non salvato",
     "resumeAiEdit": "Riprendi AI Edit",
@@ -38,7 +37,7 @@
     "sampleTasks": {
       "pick": "— scegli un task di esempio —",
       "terraform": "Terraform: bucket S3 pubblico",
-      "sqlInjection": "Code review: SQL injection",
+      "sqlInjection": "Revisione del codice: SQL injection",
       "accessibility": "Frontend: accessibilità",
       "schemaChange": "Dati: modifica dello schema",
       "slowQuery": "Performance: query lenta"
@@ -59,7 +58,9 @@
       "header": "Cronologia versioni",
       "empty": "Nessuna versione precedente registrata per questo agente.",
       "restoreHint": "Clicca una versione per ripristinarne il corpo nell'editor (devi comunque salvare)."
-    }
+    },
+    "idLabel": "ID dell'agente",
+    "defaultDescription": "Breve descrizione di quando usare questo agente."
   },
   "refine": {
     "eyebrow": "AI Edit",

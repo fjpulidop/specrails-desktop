@@ -1,4 +1,4 @@
-# KI-Anbieter (Claude, Codex)
+# KI-Anbieter (Claude, Codex) {#ai-providers}
 
 ## Die zwei Anbieter
 

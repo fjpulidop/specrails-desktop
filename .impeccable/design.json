@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-24T12:33:24Z",
+  "title": "Design System: Specrails Desktop",
+  "extensions": {
+    "colorMeta": {
+      "signal-cyan": {
+        "role": "primary",
+        "displayName": "Signal Cyan",
+        "canonical": "hsl(187 100% 44%)",
+        "tonalRamp": [
+          "hsl(187 100% 15%)",
+          "hsl(187 100% 25%)",
+          "hsl(187 100% 35%)",
+          "hsl(187 100% 45%)",
+          "hsl(187 100% 55%)",
+          "hsl(187 100% 65%)",
+          "hsl(187 100% 80%)",
+          "hsl(187 100% 95%)"
+        ]
+      },
+      "rail-violet": {
+        "role": "secondary",
+        "displayName": "Rail Violet",
+        "canonical": "hsl(280 45% 62%)",
+        "tonalRamp": [
+          "hsl(280 45% 15%)",
+          "hsl(280 45% 25%)",
+          "hsl(280 45% 35%)",
+          "hsl(280 45% 45%)",
+          "hsl(280 45% 55%)",
+          "hsl(280 45% 65%)",
+          "hsl(280 45% 80%)",
+          "hsl(280 45% 95%)"
+        ]
+      },
+      "lamp-running": {
+        "role": "tertiary",
+        "displayName": "Running Periwinkle",
+        "canonical": "hsl(234 92% 76%)",
+        "tonalRamp": [
+          "hsl(234 92% 15%)",
+          "hsl(234 92% 25%)",
+          "hsl(234 92% 35%)",
+          "hsl(234 92% 45%)",
+          "hsl(234 92% 55%)",
+          "hsl(234 92% 65%)",
+          "hsl(234 92% 80%)",
+          "hsl(234 92% 95%)"
+        ]
+      },
+      "lamp-done": {
+        "role": "tertiary",
+        "displayName": "Done Emerald",
+        "canonical": "hsl(152 78% 48%)",
+        "tonalRamp": [
+          "hsl(152 78% 15%)",
+          "hsl(152 78% 25%)",
+          "hsl(152 78% 35%)",
+          "hsl(152 78% 45%)",
+          "hsl(152 78% 55%)",
+          "hsl(152 78% 65%)",
+          "hsl(152 78% 80%)",
+          "hsl(152 78% 95%)"
+        ]
+      },
+      "lamp-caution": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "hsl(42 92% 58%)",
+        "tonalRamp": [
+          "hsl(42 92% 15%)",
+          "hsl(42 92% 25%)",
+          "hsl(42 92% 35%)",
+          "hsl(42 92% 45%)",
+          "hsl(42 92% 55%)",
+          "hsl(42 92% 65%)",
+          "hsl(42 92% 80%)",
+          "hsl(42 92% 95%)"
+        ]
+      },
+      "lamp-failed": {
+        "role": "tertiary",
+        "displayName": "Failed Tomato",
+        "canonical": "hsl(12 80% 55%)",
+        "tonalRamp": [
+          "hsl(12 80% 15%)",
+          "hsl(12 80% 25%)",
+          "hsl(12 80% 35%)",
+          "hsl(12 80% 45%)",
+          "hsl(12 80% 55%)",
+          "hsl(12 80% 65%)",
+          "hsl(12 80% 80%)",
+          "hsl(12 80% 95%)"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "hsl(240 33% 4%)",
+        "tonalRamp": [
+          "hsl(240 33% 15%)",
+          "hsl(240 33% 25%)",
+          "hsl(240 33% 35%)",
+          "hsl(240 33% 45%)",
+          "hsl(240 33% 55%)",
+          "hsl(240 33% 65%)",
+          "hsl(240 33% 80%)",
+          "hsl(240 33% 95%)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "hsl(240 30% 8%)",
+        "tonalRamp": [
+          "hsl(240 30% 15%)",
+          "hsl(240 30% 25%)",
+          "hsl(240 30% 35%)",
+          "hsl(240 30% 45%)",
+          "hsl(240 30% 55%)",
+          "hsl(240 30% 65%)",
+          "hsl(240 30% 80%)",
+          "hsl(240 30% 95%)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display-xl": {
+        "displayName": "Display XL",
+        "purpose": "Hero numerals only."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Analytics figures, mission home."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section and card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Controls and form labels."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "Badge and lamp labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-1",
+        "value": "0 1px 2px var(--shadow-color), var(--edge-highlight)",
+        "purpose": "Cards and resting panels."
+      },
+      {
+        "name": "shadow-2",
+        "value": "0 6px 16px -4px var(--shadow-color), var(--edge-highlight)",
+        "purpose": "Menus, popovers, hovered cards."
+      },
+      {
+        "name": "shadow-3",
+        "value": "0 24px 64px -16px var(--shadow-color-strong), 0 0 0 1px var(--color-border)",
+        "purpose": "Dialogs and floating panels."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default state transitions."
+      },
+      {
+        "name": "ease-rail",
+        "value": "cubic-bezier(0.22, 0.9, 0.25, 1)",
+        "purpose": "Rail pill travel and arrival."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Hover and colour feedback."
+      },
+      {
+        "name": "duration-base",
+        "value": "200ms",
+        "purpose": "Panels and progress."
+      },
+      {
+        "name": "duration-peak",
+        "value": "640ms",
+        "purpose": "Arrival moments only."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action on a surface.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Launch rail</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:6px 12px;border-radius:6px;border:0;font:500 12px/16px system-ui;transition:background-color 150ms cubic-bezier(.16,1,.3,1),transform 100ms}.ds-btn:active{transform:scale(.98)}.ds-btn:focus-visible{outline:2px solid hsl(187 100% 44%);outline-offset:2px}.ds-btn-primary{background:hsl(187 100% 44%);color:hsl(240 33% 4%)}.ds-btn-primary:hover{background:hsl(187 100% 44% / .9)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Interactive chrome and secondary actions.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:6px 12px;border-radius:6px;border:0;font:500 12px/16px system-ui;transition:background-color 150ms cubic-bezier(.16,1,.3,1),transform 100ms}.ds-btn:active{transform:scale(.98)}.ds-btn:focus-visible{outline:2px solid hsl(187 100% 44%);outline-offset:2px}.ds-btn-secondary{background:hsl(238 22% 16%);color:hsl(240 20% 95%)}.ds-btn-secondary:hover{background:hsl(238 22% 16% / .8)}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pill with a lamp dot and a label; colour never carries state alone.",
+      "html": "<span class=\"ds-badge\">Completed</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:9999px;border:1px solid hsl(152 78% 48% / .3);color:hsl(152 78% 48%);font:500 10.5px/14px system-ui;letter-spacing:.01em}.ds-badge::before{content:'';width:6px;height:6px;border-radius:9999px;background:currentColor}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Resting panel: hairline plus shadow 1.",
+      "html": "<div class=\"ds-card\"><strong>Job 1042</strong><p>3 of 5 phases done</p></div>",
+      "css": ".ds-card{padding:16px;border-radius:10px;border:1px solid hsl(240 25% 100% / .14);background:hsl(240 30% 8%);color:hsl(240 20% 95%);box-shadow:0 1px 2px hsl(240 40% 2% / .55),inset 0 1px 0 hsl(0 0% 100% / .04);font:13px/20px system-ui}.ds-card strong{font:600 14px/20px system-ui}.ds-card p{margin:4px 0 0;color:hsl(240 13% 62%)}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "32 px field with a primary focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search specs\" />",
+      "css": ".ds-input{height:32px;padding:4px 12px;border-radius:6px;border:1px solid hsl(238 22% 15%);background:hsl(240 33% 4%);color:hsl(240 20% 95%);font:12px system-ui}.ds-input::placeholder{color:hsl(240 13% 62%)}.ds-input:focus-visible{outline:2px solid hsl(187 100% 44%);outline-offset:1px}"
+    },
+    {
+      "name": "Rail Track",
+      "kind": "custom",
+      "refersTo": "rail-track",
+      "description": "Hairline track with station lamps and the gradient pill; replaces spinners.",
+      "html": "<div class=\"ds-rail\"><i class=\"ds-line\"></i><i class=\"ds-pill\"></i><i class=\"ds-stn\" style=\"left:0;background:hsl(152 78% 48%)\"></i><i class=\"ds-stn\" style=\"left:50%;background:hsl(187 100% 44%)\"></i><i class=\"ds-stn\" style=\"left:100%;background:hsl(240 25% 100% / .14)\"></i></div>",
+      "css": ".ds-rail{position:relative;height:12px;width:240px}.ds-line{position:absolute;top:50%;left:0;right:0;height:1px;background:hsl(240 25% 100% / .14)}.ds-pill{position:absolute;top:50%;left:36%;width:32px;height:6px;margin-top:-3px;border-radius:9999px;background:linear-gradient(90deg,hsl(187 100% 44%),hsl(280 45% 62%))}.ds-stn{position:absolute;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:9999px;box-shadow:0 0 0 2px hsl(240 33% 4%)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Signal box at night",
+    "overview": "Specrails is a dispatch desk for specs travelling down rails to delivery. The chrome is quiet, dense and precise, like a railway signal panel: hairlines, tabular numerals, small status lamps. Colour is spent on lamps (state) and on the moving spec (the brand gradient). The one authored motion is rail travel.",
+    "keyCharacteristics": [
+      "Dark-first, six themes sharing one token contract.",
+      "Hierarchy from a role-based type scale and numerals.",
+      "Status is a lamp, never colour alone.",
+      "Hairline borders and edge highlights create depth.",
+      "System UI sans only; monospace for IDs, code and logs."
+    ],
+    "rules": [
+      {
+        "name": "The Lamp Rule",
+        "body": "Colour belongs to state. If a hue is not a lamp, the gradient, or the single primary action, it is not on the screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Rule",
+        "body": "Amber means caution or cost. Review has its own lamp.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gradient Reservation Rule",
+        "body": "The cyan-to-violet gradient appears only on the RailMark and the travelling pill.",
+        "section": "colors"
+      },
+      {
+        "name": "The Role Rule",
+        "body": "Pick a role token, never a raw text-[Npx].",
+        "section": "typography"
+      },
+      {
+        "name": "The Numerals Rule",
+        "body": "Counts, durations, costs and timestamps use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-At-Rest Rule",
+        "body": "Resting surfaces get hairline plus shadow 1 at most.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Halo Rule",
+        "body": "Shadows carry an offset and a soft blur; zero-offset halos are limited to code-rain.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the role tokens for type, radius and elevation.",
+      "Do express state as a lamp with a label, and reserve amber for caution and cost.",
+      "Do show running work as a travelling rail pill and finish with a proportionate arrival moment.",
+      "Do keep every text pair at 4.5:1 and every lamp at 3:1 in all six themes.",
+      "Do add new copy to all eight locales and new semantic tokens to every [data-theme] block."
+    ],
+    "donts": [
+      "Don't introduce spinners, bouncing dots or a second ping implementation.",
+      "Don't use gradient text, glass as decoration, hard offset shadows or coloured side-borders.",
+      "Don't pick random radii or shadow-sm to 2xl.",
+      "Don't use monospace to look technical or swap the system sans for a decorative face.",
+      "Don't colour a status by hue alone."
+    ]
+  }
+}

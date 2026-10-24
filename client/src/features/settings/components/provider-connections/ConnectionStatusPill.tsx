@@ -16,7 +16,7 @@ export function pillStateFor(status: RuntimeProviderStatus | undefined, probing 
 }
 
 const STYLES: Record<ConnectionPillState, { dot: string; pill: string }> = {
-  probing: { dot: 'bg-accent-info animate-pulse', pill: 'border-accent-info/30 bg-accent-info/10 text-accent-info' },
+  probing: { dot: 'bg-accent-info motion-safe:animate-pulse', pill: 'border-accent-info/30 bg-accent-info/10 text-accent-info' },
   reachable: { dot: 'bg-accent-success', pill: 'border-accent-success/30 bg-accent-success/10 text-accent-success' },
   unauthorized: { dot: 'bg-accent-warning', pill: 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning' },
   unreachable: { dot: 'bg-destructive', pill: 'border-destructive/30 bg-destructive/10 text-destructive' },
@@ -39,12 +39,12 @@ export function ConnectionStatusPill({ state, latencyMs, className }: Props) {
       data-testid="connection-status-pill"
       data-state={state}
       role="status"
-      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors', style.pill, className)}
+      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-label transition-colors', style.pill, className)}
     >
       <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
       {t(`providers.status.${state}`)}
       {state === 'reachable' && typeof latencyMs === 'number' && (
-        <span className="text-[10px] font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
+        <span className="text-xs font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
       )}
     </span>
   )

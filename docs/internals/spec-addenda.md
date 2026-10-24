@@ -195,6 +195,16 @@ continue the existing generation.
   user wants it kept, an explicit addendum).
 - Jira mirroring of addenda (a comment per addendum) — deliberately not done;
   addenda are local guidance for the run, not tracker content.
+- Importing Jira comment threads in general. **One case is implemented**
+  (feedback-2026-10 task 3.2): with the project setting
+  `jiraPostClarifications`, Desktop posts the architect's clarifications
+  (questions a run paused on, or the assumptions it proceeded with) as a
+  comment on the linked issue, and a human reply posted **after that comment**
+  is imported once as an addendum of kind `clarification` (`created_by:
+  'jira'`, title `Answer from Jira <KEY> (<author>)` or `Correction from …`).
+  Specrails' own comments and every other thread are ignored; replies are read
+  for 14 days after the comment. See
+  [existing-project anchoring](existing-project-anchoring.md#architect-clarifications-on-jira).
 
 ## Quick SDD scope and efficiency
 

@@ -21,7 +21,10 @@
   },
   "sidebar": {
     "rename": "{{name}} umbenennen",
-    "close": "{{name}} schließen"
+    "close": "{{name}} schließen",
+    "label": "Terminal-Sitzungen",
+    "closeRunningConfirm": "„{{name}}“ schließen, während ein Befehl läuft?",
+    "closeRunningBody": "Der laufende Befehl wird beendet und seine nicht gespeicherte Ausgabe geht verloren."
   },
   "emptyState": {
     "noTerminals": "Noch keine Terminals für dieses Projekt.",

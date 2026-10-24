@@ -16,7 +16,8 @@
     "cancelDownload": "Not now",
     "loading": "Preparing file…",
     "loadFailed": "Could not load attachment",
-    "loadError": "Could not load attachment: {{error}}"
+    "loadError": "Could not load attachment: {{error}}",
+    "remove": "Remove {{name}}"
   },
   "maximize": "Maximize",
   "restore": "Restore",
@@ -24,7 +25,7 @@
   "close": "Close",
   "newConversation": "New mission",
   "emptyTitle": "What's the mission?",
-  "emptyHint": "Pick a project, then ask. The board updates live as the agent works.",
+  "emptyHint": "Ask anything about this project — the agent can read, plan specs and launch rails.",
   "thinking": "Thinking…",
   "connecting": "Connecting…",
   "consultingCode": "Consulting the app…",
@@ -43,7 +44,7 @@
   },
   "queue": {
     "queued": "Queued",
-    "send": "Send message",
+    "send": "Queue message",
     "sendHint": "Queue for the next turn. Choose Steer on a queued message to submit it without interrupting the model.",
     "placeholder": "Add a message to the queue…",
     "delivered": "Delivered to agent",
@@ -56,7 +57,8 @@
     "more": "Message options",
     "edit": "Edit",
     "actionConflict": "This message is already being delivered or is no longer queued.",
-    "actionFailed": "Could not update the queued message. Try again."
+    "actionFailed": "Could not update the queued message. Try again.",
+    "removed": "Queued message deleted"
   },
   "receipt": {
     "sent": "Sent to agent",
@@ -70,7 +72,7 @@
     "hint": "↑↓ to navigate · Enter saves · Esc cancels",
     "save": "Save pending message",
     "cancel": "Cancel editing",
-    "dispatched": "That message was already delivered — your text is kept as a draft",
+    "dispatched": "That message was already delivered. Your text is kept as a draft",
     "saveFailed": "Couldn’t save the pending message"
   },
   "git": {
@@ -120,7 +122,10 @@
     },
     "lockedTitle": "Needs a higher level",
     "lockedBody": "That action needs the \"{{level}}\" level. You're on \"{{current}}\".",
-    "raiseHint": "⇧⇥ to raise the level, or ask another way."
+    "raiseHint": "⇧⇥ to raise the level, or ask another way.",
+    "confirmAutonomous": "Switch to Autonomous",
+    "autonomousWarning": "Autonomous can delete and kill processes.",
+    "skipAutonomousHint": "Press ⇧⇥ again to go back to Observe."
   },
   "approval": {
     "title": "Confirm action",
@@ -188,15 +193,15 @@
     "queuedBadge": "{{n}} queued",
     "delete": "Delete mission \"{{title}}\"",
     "deleteConfirm": "Delete?",
-    "deleteLiveConfirm": "Agent is working — delete anyway?",
+    "deleteLiveConfirm": "The agent is working. Delete anyway?",
     "confirmDelete": "Confirm delete",
     "cancelDelete": "Keep mission",
     "deleteFailed": "Couldn't delete the mission"
   },
   "noProvider": {
     "title": "No AI provider installed",
-    "body": "The agent needs Claude or Codex on your machine. Install one, then reopen the agent to start chatting.",
-    "placeholder": "Install an AI provider to use the agent…"
+    "body": "The agent needs an AI provider (Claude, Codex, Gemini or a local engine). Install or connect one, then reopen the agent.",
+    "placeholder": "Connect an AI provider to use the agent…"
   },
   "degraded": {
     "title": "Specrails MCP is off",
@@ -223,7 +228,7 @@
   "switchToAgent": "Switch to Mission Control",
   "switchToKanban": "Switch to Board",
   "search": "Search",
-  "home": "Home",
+  "home": "Unassigned missions",
   "favoriteMissions": "Favorite missions",
   "untitled": "Untitled",
   "workspace": {
@@ -252,8 +257,8 @@
   "confirmDeleteConversation": "Confirm delete \"{{title}}\"",
   "addFavoriteConversation": "Add \"{{title}}\" to favorites",
   "removeFavoriteConversation": "Remove \"{{title}}\" from favorites",
-  "confirmShort": "confirm?",
-  "imagesUnsupported": "This provider can't read images yet — attach text files instead",
+  "confirmShort": "Delete?",
+  "imagesUnsupported": "This provider can't read images yet. Attach text files instead",
   "effort": {
     "label": "Effort",
     "minimal": "Minimal",
@@ -294,15 +299,21 @@
       "pr_ready": "PR ready for merge",
       "no_changes": "No changes needed",
       "partial": "Partially implemented",
-      "delivery_blocked": "Implementation complete — delivery needs attention",
-      "update_failed": "Implementation complete — update failed",
+      "delivery_blocked": "Implementation complete: delivery needs attention",
+      "update_failed": "Implementation complete: update failed",
       "pr_closed": "PR closed without merge",
       "superseded": "Superseded by a newer run",
       "existing_pr_updated": "Existing PR updated",
       "implementation_failed": "Implementation failed",
       "pr_failed": "PR creation failed",
       "merged": "PR merged",
-      "discarded": "Discarded"
+      "discarded": "Discarded",
+      "review_changes_requested": "The reviewer requested changes",
+      "returned_to_flow": "Back in Flow",
+      "flowSpecChanges": "Not ready yet: the reviewer requested changes",
+      "flowSpecDelivered": "Your Flow is now a reviewed PR",
+      "flowSpecFailed": "The hand-off stopped",
+      "flowSpecBuilding": "Turning your Flow into a reviewed PR"
     },
     "buildingHint": "You'll be asked to create the PR when it settles.",
     "buildingExistingPrHint": "Specrails is working on the existing PR branch and will push the review changes back to that PR.",
@@ -361,10 +372,10 @@
     "reopen": "Reopen",
     "createPartialPr": "Create PR with {{count}}",
     "confirmDiscard": "Confirm discard?",
-    "mergedNote": "Merged — specs moved to Done",
-    "discardedNote": "Discarded — specs returned to the backlog",
+    "mergedNote": "Merged. Specs moved to Done",
+    "discardedNote": "Discarded. Specs returned to the backlog",
     "supersededNote": "A newer implementation run replaced this card.",
-    "completedNote": "Confirmed — specs moved to Done",
+    "completedNote": "Confirmed. Specs moved to Done",
     "noChangesExisting": "No new changes were needed; the existing PR is unchanged.",
     "noChangesNote": "No code changes were needed. Mark the specs done or return them to the backlog to refine.",
     "deliveryNeedsAttention": "Implementation complete; delivery needs attention",
@@ -377,8 +388,8 @@
     "safetyArchiveHint": "Temporary workspace files were preserved outside the PR as a precaution. You can inspect or remove them manually.",
     "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
     "degraded": {
-      "pushed": "The branch was pushed but the PR could not be created — retry to finish.",
-      "localOnly": "The changes were assembled locally but not pushed — retry to publish the PR."
+      "pushed": "The branch was pushed but the PR could not be created. Retry to finish.",
+      "localOnly": "The changes were assembled locally but not pushed. Retry to publish the PR."
     },
     "alreadyResolved": "Already resolved elsewhere",
     "actionFailed": "Action failed",
@@ -388,15 +399,8 @@
     "viewLog": "View run log for {{ref}}",
     "runElapsedAria": "{{elapsed}} elapsed",
     "runCostAria": "{{cost}} spent",
+    "focusRegion": "Implementation card · {{rail}} {{tickets}}",
     "pinned": {
-      "label": "Pinned",
-      "marker": "Implementation card — pinned above",
-      "collapse": "Minimize pinned card",
-      "expand": "Expand pinned card",
-      "expandCard": "Expand this card",
-      "collapseCard": "Minimize this card",
-      "collapsed_one": "Implementation card",
-      "collapsed_other": "{{count}} implementation cards",
       "state": {
         "building": "Building",
         "on_review": "Review",
@@ -439,7 +443,45 @@
     },
     "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work.",
     "resumeFromStep": "Resume from {{step}}",
-    "resumeFromStepHint": "The interrupted {{step}} step runs again from its start; the work already on disk is kept."
+    "resumeFromStepHint": "The interrupted {{step}} step runs again from its start; the work already on disk is kept.",
+    "retryDelivery": "Retry delivery",
+    "retryDeliveryHint": "Repeats only the final step (commit, push and PR) on this run's own branch. No AI work is redone.",
+    "retryDeliverySent": "Retrying the delivery…",
+    "retryDeliveryFailed": "Could not retry the delivery",
+    "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; Specrails is restoring them on a separate branch.",
+    "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready.",
+    "localStash": {
+      "title": "Your local changes are saved as a stash",
+      "conflictBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. Restore them to try again on a separate branch.",
+      "savedBody": "They have not been restored yet. Restore them while {{branch}} is checked out.",
+      "files": "Conflicting files",
+      "restore": "Restore my changes",
+      "restoring": "Restoring…",
+      "copy": "Copy stash name",
+      "copied": "Stash name copied",
+      "restoredToast": "Your local changes are back on {{branch}}.",
+      "stillConflicting": "Your local changes still conflict with {{branch}}; they stay safe in the stash.",
+      "released": "That stash is no longer there, so there is nothing left to restore.",
+      "blockedBranch": "Check out {{base}} first (you are on {{current}}), then restore.",
+      "blockedDirty": "Some of those files changed again since they were saved. Commit or move those edits, then restore.",
+      "failed": "Could not restore your local changes",
+      "restoringBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. Specrails is restoring them on {{restoreBranch}} in a separate worktree and resolving the conflicts there.",
+      "readyBodyClean": "Your changes are restored and committed on {{restoreBranch}}; they applied cleanly there. Review them, then bring them back to {{branch}}.",
+      "readyBodyResolved": "Your changes are restored and committed on {{restoreBranch}}, with the conflicts resolved automatically. Review them, then bring them back to {{branch}}.",
+      "failedBody": "Specrails could not finish restoring them on {{restoreBranch}}. They are still safe in the stash; discard that branch or restore again.",
+      "restoredFiles": "Restored on {{restoreBranch}}",
+      "binary": "binary",
+      "managedNote": "Specrails-managed generated files kept the integrated version: {{files}}",
+      "bringBack": "Bring them back to {{branch}}",
+      "bringingBack": "Bringing back…",
+      "discardBranch": "Discard the restored branch",
+      "discarding": "Discarding…",
+      "broughtBackToast": "Your local changes are back on {{branch}}.",
+      "discardedToast": "Restored branch discarded. Your changes are still safe in the stash.",
+      "blockedBringBack": "Could not bring the changes back to {{branch}} safely.",
+      "notReady": "The restored branch is not ready yet."
+    }
   },
   "specDraft": {
     "heading": "Spec draft",
@@ -465,12 +507,12 @@
     "openPullRequest": "Open PR #{{id}}",
     "openJob": "Open job {{id}}",
     "openLoop": "Open loop {{id}}",
-    "ticketNotFound": "Spec #{{id}} not found — it may have been deleted",
+    "ticketNotFound": "Spec #{{id}} not found. It may have been deleted",
     "pullRequestUrlMissing": "PR #{{id}} was referenced without a URL",
     "pullRequestNotFound": "PR #{{id}} could not be found in this project",
-    "jobNotFound": "Job not found — it may have been deleted",
-    "loopNotFound": "Loop not found — it may have been deleted",
-    "lookupFailed": "Couldn't verify the reference — try again"
+    "jobNotFound": "Job not found. It may have been deleted",
+    "loopNotFound": "Loop not found. It may have been deleted",
+    "lookupFailed": "Couldn't verify the reference. Try again"
   },
   "header": {
     "untitled": "Untitled mission",
@@ -508,7 +550,18 @@
     "copySuccess": "Log copied to clipboard",
     "copyFailed": "Could not copy the log",
     "openLog": "View execution log",
-    "close": "Close"
+    "close": "Close",
+    "tool": {
+      "terminal": "Terminal",
+      "reading": "Reading",
+      "searching": "Searching",
+      "editing": "Editing",
+      "web": "Web",
+      "agent": "Agent",
+      "agentNamed": "Agent · {{description}}",
+      "mcp": "MCP · {{name}}",
+      "mcpTool": "MCP tool"
+    }
   },
   "backgroundProcess": {
     "open": "View logs for {{command}}",
@@ -601,7 +654,6 @@
     "pending": "Preparing a launch proposal…",
     "unreadable_one": "The agent's launch proposal could not be read.",
     "unreadable_other": "{{count}} launch proposals could not be read.",
-    "pinnedMarker": "Launch proposal pinned above the composer",
     "effortDefault": "Default effort",
     "profileNone": "No profile",
     "status": {
@@ -631,12 +683,12 @@
       "baseBranch": "Base branch"
     },
     "notes": {
-      "railMissing": "Rail {{index}} no longer exists — pick another rail or create one.",
-      "railBusy": "Rail {{index}} is {{state}} — launching there is blocked.",
+      "railMissing": "Rail {{index}} no longer exists. Pick another rail or create one.",
+      "railBusy": "Rail {{index}} is {{state}}, so launching there is blocked.",
       "useFree": "Use Rail {{index}}",
       "specsDropped": "Not in this project any more: {{ids}}",
-      "engineStale": "{{engine}} is not detected on this machine — using {{fallback}}.",
-      "modelStale": "{{model}} is not available — using {{fallback}}."
+      "engineStale": "{{engine}} is not detected on this machine. Using {{fallback}}.",
+      "modelStale": "{{model}} is not available. Using {{fallback}}."
     },
     "block": {
       "noProject": "This mission is not pinned to a project.",
@@ -655,14 +707,15 @@
       "scope_save_failed": "Could not save the spec's repositories.",
       "repository_scope_incomplete": "The launch is missing a repository required by its specs. Check the assignments above.",
       "rail_not_empty": "That rail already has specs",
-      "flow_freeze_failed": "The Flow worktree could not be saved",
-      "flow_head_mismatch": "The Flow worktree changed during the hand-off",
+      "flow_freeze_failed": "Your Flow's changes could not be saved for the hand-off",
+      "flow_head_mismatch": "Your Flow changed during the hand-off. Try again",
       "flow_already_handed_off": "This Flow was already handed off",
-      "flow_handoff_not_adopted": "The rail did not take over the Flow worktree",
+      "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes",
       "illegal_transition": "The Flow changed state meanwhile",
       "feature_unavailable": "Flow is not available",
-      "daily_budget_exceeded": "Daily budget reached — nothing was launched.",
-      "review_wip_limit_reached": "Review limit reached — nothing was launched."
+      "daily_budget_exceeded": "Daily budget reached. Nothing was launched.",
+      "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",
@@ -676,7 +729,7 @@
       "title": "Resolve {{count}} review comment(s) on the PR",
       "excluded": "Do not change",
       "verification": "Verify",
-      "specUntouched": "The spec and its Jira description are not edited — the scope travels with the run.",
+      "specUntouched": "The spec and its Jira description are not edited. The scope travels with the run.",
       "source": {
         "pasted": "pasted",
         "github": "from GitHub"
@@ -703,7 +756,11 @@
       "retry": "Retry loading",
       "checkScope": "Review the repository selection before launching."
     },
-    "triageLabel": "Triage"
+    "triageLabel": "Triage",
+    "handOff": {
+      "newRail": "A new rail",
+      "changeHow": "Change how"
+    }
   },
   "runCard": {
     "status": {
@@ -713,7 +770,9 @@
       "failed": "Failed",
       "stalled": "Stalled",
       "cancelled": "Cancelled",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "changes_requested": "Changes requested",
+      "returned": "Back in Flow"
     },
     "title": {
       "running": "Implementing in the project checkout…",
@@ -722,10 +781,12 @@
       "failed": "Implementation failed",
       "stalled": "Implementation stalled",
       "cancelled": "Run cancelled",
-      "unknown": "Run state unknown"
+      "unknown": "Run state unknown",
+      "changes_requested": "The reviewer requested changes",
+      "returned": "Back in Flow"
     },
-    "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
-    "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
+    "noDeliveryNote": "No PR phase: this project has no git repository or commits, so the work landed directly in the project folder.",
+    "noDeliveryHint": "Running directly in the project folder (no git repository or commits, so no PR will be proposed).",
     "failure": {
       "title": "Why it stopped",
       "step": "step {{step}}",
@@ -737,13 +798,28 @@
       "recover": "Recover & retry",
       "relaunch": "Relaunch"
     },
-    "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
+    "relaunchSent": "Rail {{index}} relaunched. A new card will follow the run.",
     "relaunchFailed": "Could not relaunch the rail",
-    "relaunchBlockedActive": "The rail still has an active run"
+    "relaunchBlockedActive": "The rail still has an active run",
+    "review": {
+      "title": {
+        "review": "The reviewer requested changes",
+        "check": "The checks still fail"
+      },
+      "score": "score {{score}}",
+      "issues_one": "{{count}} issue",
+      "issues_other": "{{count}} issues",
+      "showAll": "Show all {{count}}",
+      "showLess": "Show less",
+      "omitted_one": "+{{count}} more in the run's review",
+      "omitted_other": "+{{count}} more in the run's review",
+      "failingChecks": "Failing",
+      "check": "{{command}} · exit {{code}}",
+      "next": "The automatic correction rounds did not resolve these. Go back to Flow to settle them with the agent, or relaunch from the same Flow branch.",
+      "returned": "Back in Flow: your changes returned to their Flow with the review. Continue in the Flow strip."
+    }
   },
   "runFailure": {
-    "marker": "Rail {{rail}} failed: {{code}}",
-    "openCard": "Open card",
     "briefing": {
       "title": "Automatic failure briefing"
     }
@@ -862,7 +938,6 @@
     "sendHint": "Stops the current step and gives the agent your message now"
   },
   "flow": {
-    "gitLabel": "Flow worktree",
     "missing": {
       "sessions": "Core agent sessions are turned off or unavailable",
       "flowSessions": "Your Specrails Core cannot interrupt a running agent yet",
@@ -874,41 +949,77 @@
       "feature_unavailable": "Flow is not available with the installed Specrails Core.",
       "flow_already_open": "This mission already has a Flow. Resume or discard it first.",
       "illegal_transition": "The Flow changed state meanwhile. Refresh and try again.",
-      "flow_worktree_missing": "The Flow worktree no longer exists. Review it before continuing.",
+      "flow_worktree_missing": "This Flow's copy of the project no longer exists. Check the Flow branch before continuing.",
+      "flow_repository_required": "Choose the repository this Flow runs in.",
+      "flow_repository_not_git": "Flow needs a Git repository for its branch; a plain folder can't hold one. Choose a Git repository.",
+      "flow_repository_unknown": "That repository is no longer part of this project. Choose another one.",
+      "flow_repository_missing": "The Flow’s repository is no longer available in this project.",
       "rail_not_empty": "That rail already has specs. Pick a free, empty rail.",
       "flow_already_handed_off": "This Flow was already handed to a rail.",
-      "flow_freeze_failed": "The Flow worktree could not be saved for the hand-off.",
-      "flow_head_mismatch": "The worktree changed during the hand-off. Try again.",
-      "flow_handoff_not_adopted": "The rail started without taking over the Flow worktree."
+      "flow_freeze_failed": "Your Flow's changes could not be saved for the hand-off.",
+      "flow_head_mismatch": "Your Flow changed during the hand-off. Try again.",
+      "flow_handoff_not_adopted": "The rail started without taking over your Flow's changes.",
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+      "flow_not_found": "This Flow no longer exists.",
+      "flow_failed": "Flow hit an unexpected error. Try again.",
+      "conversation_not_found": "This mission no longer exists.",
+      "conversation_not_pinned": "Pin this mission to the project before starting a Flow.",
+      "flow_not_handed_off": "This Flow is no longer waiting on that run.",
+      "flow_rail_unknown": "The rail of that run is unknown. Hand it off again from the Flow strip.",
+      "flow_return_busy": "The run is busy with another action. Try again in a moment.",
+      "flow_return_not_allowed": "Only a hand-off that stopped before delivery can go back to its Flow.",
+      "flow_return_not_found": "That run is not a Flow hand-off.",
+      "flow_return_worktree_mismatch": "That run did not take over this Flow's changes.",
+      "spec_in_flow": "This spec is already in Flow. Open its mission to continue.",
+      "spec_on_rail": "This spec is on a rail. Take it off the rail to start it in Flow.",
+      "spec_running": "This spec is running on a rail. Wait for the run to finish.",
+      "spec_closed": "This spec is done or cancelled. Reopen it to work on it in Flow.",
+      "spec_not_found": "This spec no longer exists.",
+      "invalid_ticket_id": "That spec could not be identified."
     },
     "entry": {
       "heading": "Start a Flow",
-      "body": "Specrails will create an isolated worktree where the agent can write code. Your main branch is not touched.",
-      "provider": "The agent works with {{provider}} and writes only inside the worktree.",
-      "providerUnknown": "The agent writes only inside the worktree.",
+      "body": "Specrails makes a separate copy of the project on its own Flow branch, where the agent can write code. Your main branch is not touched.",
+      "provider": "The agent works with {{provider}} and writes only in the Flow's copy.",
+      "providerUnknown": "The agent writes only in the Flow's copy.",
+      "repository": {
+        "label": "Repository",
+        "hint": "The Flow works in a separate copy of this repository.",
+        "choose": "Choose the repository this Flow runs in",
+        "loading": "Loading repositories…",
+        "loadFailed": "The project repositories could not be loaded. Try again.",
+        "suggested": "Suggested by the agent",
+        "noGit": "This project has no Git repository. Flow needs one for its branch."
+      },
       "blocked": {
         "noProject": "Pin this mission to a project to use Flow.",
         "open": "This mission already has a Flow.",
         "missing": "Flow needs a newer Specrails Core:",
-        "unavailable": "Flow is not available right now."
+        "unavailable": "Flow is not available right now.",
+        "goToFlow": "Go to that Flow"
       },
       "cancel": "Cancel",
       "start": "Start Flow",
-      "starting": "Starting…"
+      "starting": "Starting…",
+      "existingSpec": {
+        "label": "Spec #{{id}}",
+        "note": "The Flow works on this spec and the agent starts from it. When it is delivered, the spec is rewritten from what was built; its current text is kept as a comment."
+      }
     },
     "offer": {
       "heading": "How do you want to build it?",
-      "recommended": "Recommended",
       "notNow": "Not now",
       "implementReply": "Let's write the spec first and run Implement.",
       "mode": {
         "flow": {
           "title": "Flow",
-          "hint": "Build it together in an isolated worktree; the spec comes at the end."
+          "hint": "Build it together on a separate Flow branch; the spec comes at the end.",
+          "hintExisting": "Build this spec together on a separate Flow branch; the spec is rewritten from what you build."
         },
         "implement": {
           "title": "Spec + Implement",
-          "hint": "Agree on a spec first, then delegate it to a rail."
+          "hint": "Agree on a spec first, then delegate it to a rail.",
+          "hintExisting": "Delegate this spec, as written, to a rail."
         }
       },
       "stub": {
@@ -916,48 +1027,76 @@
         "implement": "You chose spec + Implement",
         "dismissed": "Offer dismissed",
         "handedOff": "Flow handed off to Rail {{rail}}",
-        "overrode": "recommended: {{mode}}",
         "state": {
           "active": "Flow in progress",
           "paused": "Flow paused",
           "handed_off": "Flow handed off to a rail",
           "delivered": "Flow delivered",
           "discarded": "Flow discarded",
-          "needs-review": "Flow needs review"
-        }
-      }
+          "needs-review": "Flow needs review",
+          "closed": "Flow closed (branch kept)"
+        },
+        "viewRun": "View run"
+      },
+      "why": "Why the agent asked",
+      "waitForReply": "You can choose once the agent finishes this reply.",
+      "implementExistingReply": "Let's implement spec #{{id}} on a rail."
     },
     "bar": {
-      "label": "Flow controls",
       "controls": "Flow actions",
       "viewChanges": "View changes",
       "resume": "Resume Flow",
-      "pause": "Pause",
+      "pause": "Pause Flow",
       "discard": "Discard",
-      "thisIsIt": "This is it",
       "discarded": "Flow discarded",
       "files_one": "{{count}} file",
       "files_other": "{{count}} files",
-      "filesTitle": "Files changed in the Flow worktree",
+      "filesTitle": "Files changed on the Flow branch",
       "costTitle": "Real cost of this Flow's turns, as billed by the provider",
       "costPartial_one": "{{count}} turn has no provider-reported cost and is not included",
       "costPartial_other": "{{count}} turns have no provider-reported cost and are not included",
-      "needsReview": "The Flow worktree is missing. Nothing was deleted; check the branch before continuing.",
-      "pausedNote": "Paused. The worktree and the spec are kept; resume whenever you like.",
+      "needsReview": "This Flow's copy of the project is missing. Nothing was deleted; check the Flow branch before continuing.",
+      "pausedNote": "Paused. Your changes and the spec are kept; resume whenever you like.",
       "state": {
         "active": "Flow",
         "paused": "Flow paused",
         "needs-review": "Flow needs review",
-        "handed_off": "Handed off",
+        "handed_off": "Handed off to a rail",
         "delivered": "Delivered",
-        "discarded": "Discarded"
-      }
+        "discarded": "Discarded",
+        "closed": "Closed"
+      },
+      "disabled": {
+        "settling": "Wait until the Flow finishes saving its state",
+        "busy": "Wait for the current action to finish",
+        "noSpec": "The Flow’s spec isn’t ready yet"
+      },
+      "viewChangesStats": "View changes · {{files}}, +{{additions}} −{{deletions}}",
+      "handOff": "Hand off",
+      "close": "Close this Flow",
+      "closed": "Flow closed. The branch is kept."
+    },
+    "preview": {
+      "open": "Preview",
+      "openTitle": "Open the app at {{url}} in your browser",
+      "stopping": "Stopping…",
+      "more": "App actions",
+      "local": "Open on this computer",
+      "network": "Open on the local network",
+      "localOnly": "Only reachable from this computer. Ask the agent to restart it exposed on the local network to open it from a phone.",
+      "stop": "Stop app",
+      "stopFailed": "Could not stop the app"
     },
     "discard": {
       "title": "Discard this Flow?",
-      "body": "The worktree, its branch and the placeholder spec are deleted. This cannot be undone.",
+      "body": "Discarding deletes all of this, and it cannot be undone:",
       "cancel": "Keep Flow",
-      "confirm": "Discard Flow"
+      "confirm": "Discard Flow",
+      "lossFiles_one": "{{count}} changed file",
+      "lossFiles_other": "{{count}} changed files",
+      "lossNoChanges": "No changed files yet",
+      "lossUnknown": "Every change on the Flow branch",
+      "lossSpec": "The placeholder spec on the board"
     },
     "changes": {
       "title": "Flow changes",
@@ -975,11 +1114,299 @@
       }
     },
     "handOff": {
-      "heading": "Flow → Spec",
-      "rationale": "A rail takes over the Flow worktree, derives the spec and runs verification and review.",
-      "loop": "Flow → Spec",
+      "heading": "Turn this Flow into a reviewed PR",
+      "loop": "Flow hand-off",
       "launch": "Launch",
-      "notYet": "Not yet"
+      "notYet": "Not yet",
+      "engineFallback": "{{provider}} can't run the Flow hand-off on this machine, so the rail's default engine is selected.",
+      "cost": "{{cost}} so far",
+      "costUnknown": "no billed cost yet",
+      "line_one": "{{rail}} will turn your changed file into a reviewed PR. If it fails, your work is safe.",
+      "line_other": "{{rail}} will turn your {{count}} changed files into a reviewed PR. If it fails, your work is safe.",
+      "lineNoCount": "{{rail}} will turn your changes into a reviewed PR. If it fails, your work is safe."
+    },
+    "review": {
+      "backToFlow": "Back to Flow",
+      "backToFlowHint": "Reopen this Flow with the same changes; the agent receives the review on its next turn",
+      "relaunch": "Relaunch",
+      "relaunchHint": "Try again from the same Flow branch, rail and engine",
+      "returned": "Back in Flow. The agent has the review.",
+      "relaunched": "Relaunched on Rail {{index}}",
+      "returnFailed": "Could not go back to Flow: {{detail}}",
+      "relaunchFailed": "Could not relaunch: {{detail}}",
+      "backToFlowFailureHint": "Reopen this Flow with the same changes; the agent receives the error on its next turn",
+      "returnedFailure": "Back in Flow. The agent has the error."
+    },
+    "failure": {
+      "step": {
+        "derive": "Couldn’t write the spec from your changes",
+        "verify": "Couldn’t verify your changes",
+        "review": "The review couldn’t finish",
+        "fix": "The automatic fixes couldn’t finish",
+        "archive": "Couldn’t file the finished spec",
+        "settle": "Couldn’t hand the result back",
+        "unknown": "The hand-off stopped before it finished"
+      },
+      "cause": "Cause:",
+      "next": "Your work is intact. Back in Flow, the agent gets the error.",
+      "nextReturned": "Your work is intact. Back in Flow, the agent has the error.",
+      "returned": "Returned to Flow",
+      "technical": {
+        "title": "Technical details",
+        "repository": "Repository",
+        "step": "Step",
+        "status": "Status",
+        "failure": "Failure",
+        "detail": "Detail"
+      }
+    },
+    "announce": {
+      "active": "Flow active: the agent writes on the Flow branch.",
+      "paused": "Flow paused.",
+      "needs-review": "The Flow needs review: its copy of the project is missing.",
+      "handed_off": "Flow handed off to a rail.",
+      "delivered": "Flow delivered.",
+      "discarded": "Flow discarded.",
+      "returned": "Back in Flow: the work returned with what the hand-off found.",
+      "closed": "Flow closed. Its branch was kept."
+    },
+    "strip": {
+      "label": "Flow",
+      "ready": "Ready to turn into a PR",
+      "launching": "Handing off to a rail…",
+      "launchingOn": "Handing off to {{rail}}…",
+      "stillHandingOff": "Still handing off to {{rail}}…",
+      "refresh": "Refresh",
+      "step": {
+        "derive": "Writing the spec from your changes",
+        "verify": "Verifying your changes",
+        "review": "Reviewing the change",
+        "fix": "Applying the review's fixes",
+        "archive": "Filing the finished spec",
+        "settle": "Handing the result back"
+      },
+      "headline": "{{state}} · {{files}}"
+    },
+    "mode": {
+      "chip": "Flow",
+      "description": "Flow mode: the agent writes on the Flow branch, not on your main branch",
+      "placeholder": "Tell the agent what to change in this Flow…"
+    },
+    "panel": {
+      "branch": "Branch",
+      "changes": "Changes",
+      "cost": "Cost so far",
+      "actions": "More Flow actions"
+    },
+    "close": {
+      "title": "Close this Flow?",
+      "body": "The conversation leaves Flow. Nothing is deleted:",
+      "keptBranch": "Branch kept:",
+      "keptSpec": "The spec stays on the board, without the In Flow label",
+      "cancel": "Not now",
+      "confirm": "Close Flow, keep branch"
+    },
+    "startFromSpec": {
+      "action": "Start in Flow",
+      "hint": "Build this spec with the agent on its own Flow branch, in a mission",
+      "starting": "Starting Flow…",
+      "failed": "Spec #{{id}} could not start in Flow",
+      "repository": {
+        "title": "Where should this Flow run?",
+        "body": "This project has several Git repositories. The Flow works on its own branch in a separate copy of the one you choose.",
+        "fromSpec": "Named in the spec"
+      },
+      "blocked": {
+        "noProject": "Open a project to use Flow",
+        "unavailable": "Flow is not available with the installed Specrails Core",
+        "inFlow": "Already in Flow",
+        "closed": "Done or cancelled specs can't start in Flow",
+        "running": "Running on a rail",
+        "onRail": "On a rail: take it off the rail first",
+        "missionInFlow": "This mission already has a Flow"
+      }
     }
+  },
+  "flowReturn": {
+    "title": "What the reviewer asked for",
+    "noFindings": "The hand-off stopped before delivery; your changes are back in this Flow, intact.",
+    "coverage": "The spec explains {{explained}} of {{files}} changed files",
+    "unexplained": "Not explained by any requirement",
+    "moreFiles_one": "+{{count}} more file",
+    "moreFiles_other": "+{{count}} more files",
+    "next": "The Flow agent starts on this now; you can steer or stop it at any time.",
+    "automaticTurn": "Automatic turn · Back to Flow",
+    "titleFailure": "Why the hand-off stopped"
+  },
+  "turnErrors": {
+    "providerInactivity": "The provider stopped responding for too long, so the turn ended. Send your message again to continue.",
+    "toolInactivity": "A tool ran too long without any provider activity, so the turn ended. Send your message again to continue, or ask the agent to split the step.",
+    "generic": "The agent turn failed."
+  },
+  "flowDelivered": {
+    "title": "Flow delivered",
+    "pr": "Open the pull request",
+    "prNumber": "Pull request #{{number}}",
+    "specRewritten": "Spec rewritten from what you built",
+    "specKept": "The spec rewrite did not complete; its draft is kept",
+    "change": "Spec change {{change}}",
+    "changeArchived": "Spec change {{change}} archived",
+    "jira": "Jira issue {{key}}",
+    "jiraPending": "Jira issue being created"
+  },
+  "runStrip": {
+    "launching": "Launching on {{rail}}…",
+    "running": "Working",
+    "paused": "Paused. Waiting for you",
+    "pausedReason": "Paused: {{reason}}",
+    "decision": {
+      "approval": "Waiting for your approval",
+      "changes": "The reviewer requested changes",
+      "on_review": "Ready for your review",
+      "pr_draft": "Draft PR ready to publish",
+      "no_changes": "Finished without changes",
+      "pr_closed": "PR closed without merging",
+      "generic": "Waiting for your decision"
+    },
+    "failed": {
+      "generic": "Stopped with an error",
+      "implementation_failed": "The implementation failed",
+      "stalled": "The run stalled",
+      "stuck": "The run got stuck",
+      "provider_limit": "The provider's usage limit stopped it",
+      "launch_failed": "The run could not start",
+      "delivery_failed": "The result could not be delivered",
+      "push_failed": "The branch could not be pushed",
+      "pr_failed": "The PR could not be created"
+    },
+    "progressAria": "{{done}} of {{total}} runs finished",
+    "costTitle": "Real cost billed by the provider so far",
+    "costPartial": "Some runs have no billed cost yet and are not included",
+    "costNone": "No billed cost yet",
+    "state": {
+      "launching": "Launching:",
+      "running": "Running:",
+      "decision": "Waiting for you:",
+      "failed": "Failed:",
+      "paused": "Paused:",
+      "info": "For your information:"
+    },
+    "proposal": "Launch proposed for {{tickets}}",
+    "proposalNoTickets": "Launch proposed",
+    "proposalLabel": "Proposal",
+    "panelLabel": "{{run}} details",
+    "showDetails": "Show details",
+    "withShortcut": "{{label}} ({{keys}})",
+    "cycleHint": "Switch runs: {{keys}}",
+    "hideDetails": "Hide details",
+    "switcher": "Live runs",
+    "more": "More runs ({{count}})",
+    "announce": {
+      "settled": "{{run}} finished",
+      "shown": "Showing {{run}}: {{state}}",
+      "needsYou": "{{run}} needs you"
+    },
+    "event": {
+      "launched": "Launched on {{run}}",
+      "failed": "{{run}} failed: {{reason}}",
+      "openRun": "Show the run",
+      "proposed": "Launch proposed. Waiting for you",
+      "backToFlow": "Back to Flow",
+      "flowReturned": "{{run}} sent the work back to Flow",
+      "delivered": "Delivered: PR {{pr}}",
+      "deliveredNoPr": "Delivered on {{run}}",
+      "superseded": "{{run}} was superseded by a newer run",
+      "discarded": "{{run}} was discarded",
+      "changes": "{{run}}: the reviewer requested changes"
+    },
+    "needsYou": "needs you",
+    "opensCard": "Opens the run's card so you can confirm there",
+    "open": {
+      "decision": "Open the decision",
+      "failed": "See what failed",
+      "paused": "See why it paused"
+    },
+    "attention": {
+      "failed": "Needs attention: a run failed"
+    }
+  },
+  "flowBoundary": {
+    "entered": "Entered Flow",
+    "left": "Left Flow",
+    "turnMark": "Flow",
+    "reason": {
+      "started": "started",
+      "returned": "back from a rail",
+      "handed_off": "handed off to a rail",
+      "discarded": "discarded",
+      "closed": "closed, branch kept"
+    }
+  },
+  "unread": "Unread",
+  "unreadCount": "{{count}} unread",
+  "live": "Agent working",
+  "deleteFailed": "Couldn't delete the mission. Try again.",
+  "modeSwitch": {
+    "label": "Interface mode",
+    "mission": "Mission",
+    "board": "Board",
+    "current": "Current mode: {{mode}}. Click to switch."
+  },
+  "errors": {
+    "sendFailed": "The message could not be sent.",
+    "stopFailed": "The agent could not be stopped.",
+    "mcpEnableFailed": "MCP could not be enabled.",
+    "removeAttachmentFailed": "The attachment could not be removed.",
+    "sendFailedHint": "Your text is back in the box — press Enter to retry.",
+    "providerSwitchFailed": "Couldn’t switch provider — the previous one is still active.",
+    "modelSwitchFailed": "Couldn’t switch model — the previous one is still active.",
+    "effortSwitchFailed": "Couldn’t switch effort — the previous one is still active."
+  },
+  "composer": {
+    "ariaLabel": "Message to the agent",
+    "dropFiles": "Drop files to attach",
+    "uploading": "Uploading…"
+  },
+  "conversation": {
+    "ariaLabel": "Mission conversation",
+    "agentWorking": "Agent is working…",
+    "agentReplied": "Agent replied",
+    "newMessages": "New messages"
+  },
+  "message": {
+    "you": "You",
+    "agent": "Agent"
+  },
+  "options": {
+    "groupLabel": "Suggested replies",
+    "shortcut": "Alt+{{n}}"
+  },
+  "copied": "Copied",
+  "copyCode": "Copy code",
+  "composerReplyPlaceholder": "Reply, or @ to reference…",
+  "sendHint": "Send (Enter) · New line (Shift+Enter)",
+  "undo": "Undo",
+  "imagesUnsupportedCount": "This provider can't read images yet — {{count}} images were not attached",
+  "starter": {
+    "reference": "Reference a spec",
+    "action": "Run an action",
+    "plan": "Plan a new spec",
+    "planSpec": "Help me plan a new spec: "
+  },
+  "emptyLegend": "⇧⇥ changes what the agent may do · ↑ recalls your last prompt",
+  "delivery": {
+    "arrived": "Arrived at review — PR #{{number}}",
+    "arrivedNoNumber": "Arrived at review",
+    "openPr": "Open PR"
+  },
+  "missionHome": {
+    "greeting": "What should ship next in {{project}}?",
+    "greetingNoProject": "What should ship next?",
+    "statusTodo_one": "{{count}} to do",
+    "statusTodo_other": "{{count}} to do",
+    "statusReview_one": "{{count}} waiting for review",
+    "statusReview_other": "{{count}} waiting for review",
+    "statusRunning_one": "{{count}} running",
+    "statusRunning_other": "{{count}} running"
   }
 }

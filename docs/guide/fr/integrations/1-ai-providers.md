@@ -1,4 +1,4 @@
-# Fournisseurs d'IA (Claude, Codex)
+# Fournisseurs d'IA (Claude, Codex) {#ai-providers}
 
 ## Les deux fournisseurs
 

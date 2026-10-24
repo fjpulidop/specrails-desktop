@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { CheckCircle2, XCircle, Ban, Loader2, Activity, Zap } from 'lucide-react'
+import { CheckCircle2, XCircle, Ban, Activity, Zap } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useActivity } from '../hooks/useActivity'
 import type { ActivityItem } from '../hooks/useActivity'
@@ -21,13 +22,13 @@ function formatRelativeTime(isoTimestamp: string, t: TFunction): string {
 function ActivityIcon({ type }: { type: ActivityItem['type'] }) {
   switch (type) {
     case 'job_completed':
-      return <CheckCircle2 className="w-4 h-4 text-green-500 aurora-light:text-accent-success flex-shrink-0" />
+      return <CheckCircle2 className="w-4 h-4 text-accent-success flex-shrink-0" />
     case 'job_failed':
-      return <XCircle className="w-4 h-4 text-red-500 aurora-light:text-destructive flex-shrink-0" />
+      return <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
     case 'job_canceled':
       return <Ban className="w-4 h-4 text-muted-foreground flex-shrink-0" />
     default:
-      return <Zap className="w-4 h-4 text-blue-500 aurora-light:text-accent-info flex-shrink-0" />
+      return <Zap className="w-4 h-4 text-accent-info flex-shrink-0" />
   }
 }
 
@@ -42,10 +43,10 @@ function typeLabel(type: ActivityItem['type'], t: TFunction): string {
 
 function typeLabelClass(type: ActivityItem['type']): string {
   switch (type) {
-    case 'job_completed': return 'text-green-500 aurora-light:text-accent-success'
-    case 'job_failed': return 'text-red-500 aurora-light:text-destructive'
+    case 'job_completed': return 'text-accent-success'
+    case 'job_failed': return 'text-destructive'
     case 'job_canceled': return 'text-muted-foreground'
-    default: return 'text-blue-500 aurora-light:text-accent-info'
+    default: return 'text-accent-info'
   }
 }
 
@@ -75,13 +76,13 @@ export default function ActivityFeedPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-background/50">
         <Activity className="w-4 h-4 text-muted-foreground" />
-        <h1 className="text-sm font-medium">{t('feed.title')}</h1>
+        <h1 className="text-headline">{t('feed.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {loading && items.length === 0 ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
@@ -99,7 +100,7 @@ export default function ActivityFeedPage() {
                     {item.jobCommand}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-xs font-medium ${typeLabelClass(item.type)}`}>
+                    <span className={`text-label ${typeLabelClass(item.type)}`}>
                       {typeLabel(item.type, t)}
                     </span>
                     {item.costUsd != null && (
@@ -109,7 +110,7 @@ export default function ActivityFeedPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground flex-shrink-0 tabular-nums">
+                <span className="text-xs text-muted-foreground flex-shrink-0 num">
                   {formatRelativeTime(item.timestamp, t)}
                 </span>
               </li>
@@ -122,7 +123,7 @@ export default function ActivityFeedPage() {
 
         {loading && items.length > 0 && (
           <div className="flex justify-center py-3">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         )}
 

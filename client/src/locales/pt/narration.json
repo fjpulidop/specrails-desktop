@@ -5,7 +5,8 @@
   "emptySettled": "Não foi registada atividade nesta execução.",
   "waiting": {
     "range": "Execuções como esta levaram {{low}}–{{high}} min (últimas {{count}})",
-    "elapsed": "A correr há {{minutes}} min"
+    "elapsed": "A correr há {{minutes}} min",
+    "took": "Levou {{minutes}} min"
   },
   "aiNote": "Construído a partir do que realmente aconteceu durante a execução.",
   "step": {
@@ -25,7 +26,33 @@
     "stalled": "O passo {{step}} travou — sem atividade durante {{idleMinutes}} min, por isso a app parou-o",
     "startResume": "Passo {{step}}: {{title}} — a retomar após travar",
     "providerLimit": "Passo {{step}} parado — o limite de utilização do fornecedor foi atingido",
-    "recovered": "Passo {{step}} concluído após retomar"
+    "recovered": "Passo {{step}} concluído após retomar",
+    "durationSec": "{{seconds}} s",
+    "durationMin": "{{minutes}} min"
+  },
+  "steps": {
+    "architect": "Desenhar a mudança",
+    "confidence": "Verificar a confiança",
+    "validate": "Validar o plano",
+    "freeze": "Fixar o plano",
+    "initialize-corrections": "Preparar correções",
+    "developer": "Implementar",
+    "developer-blocker": "Procurar bloqueios",
+    "tasks": "Percorrer as tarefas",
+    "verify": "Verificar",
+    "review": "Revisar",
+    "ship": "Entregar",
+    "reviewer": "Revisar a alteração",
+    "review-policy": "Aplicar a política de revisão",
+    "correction-context": "Reunir o que precisa de correção",
+    "capture-review": "Registrar a revisão",
+    "correction-budget": "Verificar o limite de novas tentativas",
+    "begin-correction": "Iniciar uma rodada de correção",
+    "fixer": "Corrigir o que foi reportado",
+    "correction-blocker": "Verificar bloqueios",
+    "correction-progress": "Acompanhar o progresso das correções",
+    "approval-policy": "Aplicar a decisão de aprovação",
+    "verify-archive": "Verificar a alteração arquivada"
   },
   "decision": {
     "another": "Ainda não está — outra volta",
@@ -82,5 +109,8 @@
       "invalidated": "Resultado anterior invalidado: {{target}}"
     }
   },
-  "repeats": "×{{count}}"
+  "repeats": "×{{count}}",
+  "round": "Rodada de correção {{round}} de {{total}}",
+  "checks_one": "+1 verificação",
+  "checks_other": "+{{count}} verificações"
 }

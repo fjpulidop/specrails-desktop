@@ -36,3 +36,18 @@ it('refuses a derive-change graph on a Core without deriveChange', async () => {
   vi.mocked(loadCoreAgentRuntime).mockResolvedValue({ api: { capabilities: { engineV2: 1, workflowDefinitions: 1, deriveChange: 1 } } } as never)
   await expect(executors.assertDefinitionSupport!(flowSpecGraph())).resolves.toBeUndefined()
 })
+
+it('names the derived change after the Flow spec title, never addenda, with no delta briefing', async () => {
+  const flowRequest: LoopRunRequest = {
+    ...request,
+    spec: { id: 8, title: 'Add more visual effects to ArkanoidEX', description: 'effects', status: 'in_progress' } as never,
+    addenda: { ids: ['0337c497'], briefing: 'Include all effects, each toggleable from Options' } as never,
+    ticketId: 8,
+  }
+  await createLoopExecutors({ env: {} }).runDefinition!({ onLine: vi.fn(), onRuntimeEvent: vi.fn(), onSpawn: vi.fn(), request: flowRequest, runId: 'run-2' })
+  const invocation = vi.mocked(runAgentRuntimeInvocation).mock.calls[0]![0] as { change: string }
+  expect(invocation.change).toBe('add-more-visual-effects-to-arkanoidex')
+  expect(invocation.change).not.toMatch(/addenda/)
+  const run = vi.mocked(prepareCoreExecution).mock.calls[0]![0] as { run: { spec?: { description?: string } } }
+  expect(run.run.spec?.description ?? '').not.toContain('DELTA OPENSPEC TARGET')
+})

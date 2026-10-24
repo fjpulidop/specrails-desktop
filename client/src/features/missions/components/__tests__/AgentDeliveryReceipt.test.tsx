@@ -13,13 +13,13 @@ describe('AgentDeliveryReceipt', () => {
     expect(element).toHaveAttribute('title', label)
     expect(element.textContent).toBe('')
     expect(element.querySelector('svg')).toHaveClass(icon)
-    expect(element.classList.contains('text-emerald-500')).toBe(receipt === 'read')
+    expect(element.classList.contains('text-accent-success')).toBe(receipt === 'read')
   })
 
   it('does not mark legacy delivered messages read without an explicit receipt', () => {
     const view = render(<AgentDeliveryReceipt status="delivered" />)
     expect(screen.getByTestId('agent-delivery-receipt')).toHaveAttribute('data-receipt', 'received')
-    expect(screen.getByTestId('agent-delivery-receipt')).not.toHaveClass('text-emerald-500')
+    expect(screen.getByTestId('agent-delivery-receipt')).not.toHaveClass('text-accent-success')
     view.rerender(<AgentDeliveryReceipt />)
     expect(screen.getByTestId('agent-delivery-receipt')).toHaveAttribute('data-receipt', 'sent')
   })
@@ -32,6 +32,6 @@ describe('AgentDeliveryReceipt', () => {
     const element = screen.getByRole('img', { name: label })
     expect(element.querySelector('svg')).toHaveClass(icon)
     expect(element.textContent).toBe('')
-    expect(element).not.toHaveClass('text-emerald-500')
+    expect(element).not.toHaveClass('text-accent-success')
   })
 })

@@ -87,24 +87,26 @@
     "corrupted": {
       "title": "App bundle corrupted",
       "description": "One or more bundled tools (Node.js, Git) could not be verified.",
-      "body": "This tool is bundled with the Specrails app and cannot be installed separately. If you see this message, the app bundle may be corrupted. Please reinstall Specrails."
+      "body": "This tool is bundled with the Specrails app and cannot be installed separately. If you see this message, the app bundle may be corrupted. Please reinstall Specrails.",
+      "download": "Download latest"
     }
   },
   "welcome": {
     "title": "Welcome to <spec>spec</spec><rails>rails</rails>",
+    "tagline": "Specs in, reviewed pull requests out.",
     "description": "Specrails manages multiple projects from a single interface. Add your first project to get started.",
     "addFirstProject": "Add your first project",
     "jiraHint": "Connect each project to its own Jira board — specs stay in sync, both ways.",
     "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — on by default, manage it in Settings → MCP.",
     "agentChatHint": "Operate Specrails by chatting — a built-in agent drives specs, rails and analytics for you through the local MCP. Open it from the bubble or ⌘⇧A.",
-    "localEnginesHint": "Only a local model? Add an OpenAI-compatible endpoint in Settings → Specrails Agents and every surface — rails, chat, missions — runs on it by default."
+    "localEnginesHint": "Only a local model? Add an OpenAI-compatible endpoint in Settings → Specrails Agents and every surface — rails, chat, missions — runs on it by default.",
+    "replayTour": "Replay tour"
   },
   "onboarding": {
     "productTour": "Product tour",
     "stepCount": "Step {{current}} of {{total}}",
     "goToStep": "Go to step {{step}}: {{label}}",
     "stepLabel": "Step {{step}}",
-    "dontShowAgain": "Don't show this again",
     "skipTour": "Skip tour",
     "getStarted": "Get Started",
     "flow": {
@@ -288,9 +290,6 @@
       "pairBody": "On your phone open specrails.dev/companion-app, then here go to Settings → Mobile companion → Pair web companion and follow the on-screen steps."
     },
     "moveFast": {
-      "nav": "Move fast",
-      "title": "Move at the speed of thought",
-      "subtitle": "Keyboard-first, everywhere",
       "paletteLabel": "Command palette",
       "paletteShortcut": "<f>Press</f> <mod>{{mod}}</mod> <m>+</m> <k>K</k> <m>anywhere</m>",
       "paletteBody": "Switch projects, run spec commands, jump to any page and find recent jobs — all with fuzzy search.",

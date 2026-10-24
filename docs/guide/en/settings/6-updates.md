@@ -1,4 +1,4 @@
-# Updates
+# Updates {#updates}
 
 Specrails keeps two things up to date: the **Specrails Desktop** app itself and the **specrails-core** framework your projects use. Both live in **Settings ▸ Updates**.
 

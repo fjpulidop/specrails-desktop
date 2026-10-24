@@ -2,6 +2,7 @@ import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, Loader2, MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { cn } from '../../../../lib/utils'
 import { isLocalEngineId } from '../../../providers/lib/provider-capabilities'
 import type { EventRow, JobSummary, PhaseDefinition } from '../../../../types'
@@ -9,11 +10,15 @@ import type { PhaseMap } from '../../hooks/usePipeline'
 import type { RuntimeRun } from '../../../settings/lib/agent-runtime'
 import { Badge } from '../../../../components/ui/badge'
 import { Button } from '../../../../components/ui/button'
+import { LiveDot } from '../../../../components/ui/live-dot'
+import { RailMark } from '../../../../components/brand/RailMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
 import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
+import { FailureDiagnosisCard } from '../../../recovery/components/FailureDiagnosisCard'
+import { availableRemedies, logTailLines, openLogsAtFailure, readFailureDiagnosis, type RemedyHandlers } from '../../../recovery/lib/failure-diagnosis'
 import { useRuntimeRuns } from './useRuntimeRuns'
 import {
   extractModifiedFiles,
@@ -53,9 +58,20 @@ export interface JobRunHeaderProps {
   /** Chrome only (border/background) — never content. */
   variant: JobRunSurface
   pipelineTotals?: PipelineTotals | null
-  /** Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. */
-  actions?: ReactNode
+  /**
+   * Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. A function receives
+   * `diagnosisOffersRetry`: true while the diagnosis card shows the retry remedy, so the surface
+   * does not repeat the same action next to it.
+   */
+  actions?: ReactNode | ((context: { diagnosisOffersRetry: boolean }) => ReactNode)
   onOpenRun?(runId: string): void
+  /** Existing "run again" of the surface; offered as the diagnosis' retry remedy. */
+  onRerun?(): void
+  rerunBusy?: boolean
+  /** Opens the job's spec (its addenda iterate on it); offered as "Edit spec and relaunch". */
+  onEditSpec?(): void
+  /** Brings the failure into view in the surface's log; defaults to the loop log's last failed step. */
+  onOpenLogs?(): void
 }
 
 /**
@@ -66,9 +82,10 @@ export interface JobRunHeaderProps {
  * authoritative totals after exit, the runtime continuation when it exists.
  * Nothing is ever a placeholder or an estimate.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun, onRerun, rerunBusy, onEditSpec, onOpenLogs }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
+  const { t: tRecovery } = useTranslation('recovery')
   const isRunning = job.status === 'running'
   const isQueued = job.status === 'queued'
   const isLoopJob = job.command.startsWith('loop:')
@@ -154,6 +171,19 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
     </>
   ) : null
 
+  // ── Failure diagnosis: what stopped the run, why, and the remedies this surface can really run ──
+  const diagnosis = useMemo(() => readFailureDiagnosis(job.failureDiagnosis), [job.failureDiagnosis])
+  const showDiagnosis = !!diagnosis && isTerminal && (job.status === 'failed' || job.status === 'canceled')
+  const diagnosisHandlers: RemedyHandlers = {}
+  if (run && projectId && run.canResume && !answerable && run.recoverableSteps.length === 0) {
+    diagnosisHandlers.resume = { run: () => void runtime.act(run, run.pendingApproval ? 'approve' : 'resume'), busy }
+  }
+  if (onRerun) diagnosisHandlers.retry = { run: onRerun, busy: !!rerunBusy }
+  if (onEditSpec) diagnosisHandlers['edit-spec'] = { run: onEditSpec }
+  diagnosisHandlers['open-logs'] = { run: () => { if (onOpenLogs) onOpenLogs(); else if (!openLogsAtFailure()) toast.info(tRecovery('logs.notFound')) } }
+  const diagnosisOffersRetry = showDiagnosis && !!diagnosis && availableRemedies(diagnosis, diagnosisHandlers).includes('retry')
+  const diagnosisTail = useMemo(() => (showDiagnosis && diagnosis?.kind === 'unknown' ? logTailLines(events) : []), [showDiagnosis, diagnosis?.kind, events])
+
   const frameClass = variant === 'glass'
     ? 'border-b border-border/30 bg-surface/30'
     : 'border-b border-border bg-background'
@@ -168,13 +198,25 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </TooltipTrigger>
           <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
         </Tooltip>
+        {job.status === 'completed' && elapsed !== '—' ? (
+          // Peak: the run arrived. Final, provider-reported numbers only —
+          // revealed at exit, never estimated while live. The mark's arrival
+          // plays once per mount (static under reduced motion).
+          <span data-testid="job-run-outcome" className="inline-flex items-center gap-2.5" title={t('statusPanel.duration')}>
+            <RailMark size={34} state="arrive" />
+            <LiveDot tone="success" pulsing={false} size="sm" aria-hidden />
+            <span className="text-display num leading-none text-foreground">{elapsed}</span>
+            {final.cost && <span className="text-label num text-muted-foreground">{final.cost}</span>}
+          </span>
+        ) : (
         <span
-          className={cn('inline-flex items-center gap-1.5 text-xs tabular-nums', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
+          className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
         >
-          {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info animate-pulse" aria-hidden />}
+          {isRunning && <LiveDot tone="info" size="xs" aria-hidden />}
           {elapsed}
         </span>
+        )}
         {liveLine && (
           <span className="flex items-center gap-1.5 min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
             {isRunning && <Loader2 className="w-3 h-3 shrink-0 text-accent-info animate-spin" aria-hidden />}
@@ -182,16 +224,16 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </span>
         )}
         {!liveLine && <span className="flex-1" />}
-        {stepsLabel && <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">{stepsLabel}</span>}
+        {stepsLabel && <span className="text-xs text-muted-foreground num shrink-0">{stepsLabel}</span>}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {runtimeActions}
-          {actions}
+          {typeof actions === 'function' ? actions({ diagnosisOffersRetry }) : actions}
           {hasDetails && (
             <button
               type="button"
               onClick={() => toggleDetails(!detailsOpen)}
               aria-expanded={detailsOpen}
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors"
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors"
             >
               {t('runHeader.details')}
               <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-150', detailsOpen && 'rotate-180')} aria-hidden />
@@ -207,6 +249,13 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
         </div>
       )}
 
+      {/* The terminal state of a failed or blocked run starts with its diagnosis. */}
+      {showDiagnosis && diagnosis && (
+        <div className="px-3 pb-3">
+          <FailureDiagnosisCard diagnosis={diagnosis} handlers={diagnosisHandlers} logTail={diagnosisTail} />
+        </div>
+      )}
+
       {/* Details — collapsed by default, remembered per surface */}
       {hasDetails && detailsOpen && (
         <div data-testid="job-run-details" className="px-3 pb-3 space-y-3 border-t border-border/20 pt-3 text-xs">
@@ -216,7 +265,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
                 <Metric label={t('statusPanel.turns')} value={String(activity.turns)} />
                 <Metric label={t('statusPanel.tokens')} value={formatTokens(activity.tokens)} />
               </div>
-              <p className="text-[10px] text-muted-foreground/60 mt-1">{t('runHeader.liveReported')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('runHeader.liveReported')}</p>
             </div>
           )}
 
@@ -225,7 +274,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               <Metric
                 label={t('statusPanel.cost')}
                 value={final.cost}
-                valueClass="text-yellow-400 aurora-light:text-accent-warning"
+                valueClass="text-accent-warning"
                 naCaption={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocal') : t('statusPanel.notAvailable')}
                 naTooltip={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocalTooltip') : undefined}
               />
@@ -236,23 +285,23 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
           {isTerminal && pipelineTotals && (
             <div>
-              <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-1.5">
+              <p className="text-xs text-muted-foreground mb-1.5">
                 {t('statusPanel.pipelineTotal', { count: pipelineTotals.jobCount })}
               </p>
               <div className="grid grid-cols-2 gap-2 max-w-sm">
-                <Metric label={t('statusPanel.totalCost')} value={formatPipelineCost(pipelineTotals)} valueClass="text-yellow-400 aurora-light:text-accent-warning" />
+                <Metric label={t('statusPanel.totalCost')} value={formatPipelineCost(pipelineTotals)} valueClass="text-accent-warning" />
                 <Metric label={t('statusPanel.totalTokens')} value={formatPipelineTokens(pipelineTotals)} />
               </div>
               {pipelineTotals.hasNullCost && !pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-partial-hint" className="text-[10px] text-muted-foreground/70 mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
+                <p data-testid="pipeline-partial-hint" className="text-xs text-muted-foreground mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
                   {t('statusPanel.pipelinePartial', { count: pipelineTotals.nullCostCount ?? 0 })}
                 </p>
               )}
               {pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-cost-unavailable" className="text-[10px] text-muted-foreground/70 mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
+                <p data-testid="pipeline-cost-unavailable" className="text-xs text-muted-foreground mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
               )}
               {(pipelineTotals.nullTokenCount ?? 0) > 0 && (
-                <p data-testid="pipeline-usage-coverage-hint" className="text-[10px] text-muted-foreground/70 mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
+                <p data-testid="pipeline-usage-coverage-hint" className="text-xs text-muted-foreground mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
                   {pipelineTotals.tokensUnavailable
                     ? t('statusPanel.pipelineUsageUnavailable')
                     : t('statusPanel.pipelineUsagePartial', { count: pipelineTotals.nullTokenCount ?? 0 })}
@@ -263,10 +312,10 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
           {modifiedFiles.length > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-1.5">{t('statusPanel.filesModified')}</p>
+              <p className="text-xs text-muted-foreground mb-1.5">{t('statusPanel.filesModified')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {modifiedFiles.map((f) => (
-                  <code key={f} className="text-[10px] font-mono bg-muted/30 px-2 py-0.5 rounded text-cyan-400/80 aurora-light:text-accent-info">{f}</code>
+                  <code key={f} className="text-xs font-mono bg-muted/30 px-2 py-0.5 rounded text-accent-info">{f}</code>
                 ))}
               </div>
             </div>
@@ -324,9 +373,9 @@ function Metric({ label, value, valueClass, naCaption, naTooltip }: {
 }) {
   return (
     <div className="bg-muted/20 rounded-lg px-2.5 py-1.5" title={value == null ? naTooltip : undefined}>
-      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">{label}</p>
-      <p className={cn('text-sm font-semibold tabular-nums', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
-      {value == null && naCaption && <p className="text-[10px] text-muted-foreground/40">{naCaption}</p>}
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn('text-strong num', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
+      {value == null && naCaption && <p className="text-xs text-muted-foreground">{naCaption}</p>}
     </div>
   )
 }

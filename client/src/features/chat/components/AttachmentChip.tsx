@@ -64,7 +64,7 @@ export function AttachmentChip({ attachment, uploading, onRemove, onClick, index
         mounted && !leaving ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-[0.85] translate-y-1',
         leaving && 'max-w-0 overflow-hidden pl-0 pr-0 py-0 border-transparent ml-0 mr-0',
         onClick && 'cursor-pointer hover:border-primary/50',
-        uploading && 'animate-pulse',
+        uploading && 'motion-safe:animate-pulse',
         className,
       )}
       style={leaving ? { maxWidth: 0 } : undefined}
@@ -74,7 +74,7 @@ export function AttachmentChip({ attachment, uploading, onRemove, onClick, index
       </span>
       <div className="flex flex-col min-w-0 mr-1">
         <span className="font-medium truncate max-w-[160px] text-foreground">{name}</span>
-        <span className="text-[10px] text-muted-foreground leading-tight">{subtitle}</span>
+        <span className="text-caption text-muted-foreground leading-tight">{subtitle}</span>
       </div>
       {onRemove && !uploading && (
         <button

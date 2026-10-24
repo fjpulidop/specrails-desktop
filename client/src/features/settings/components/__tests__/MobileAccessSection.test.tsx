@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -73,7 +73,6 @@ describe('MobileAccessSection', () => {
   })
 
   it('reset identity rotates the cert after confirm', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const ROT = { ...ON, certFingerprint: 'b'.repeat(64) }
     mockApi([
       { match: (u) => u.endsWith('/status'), body: ON },
@@ -83,7 +82,9 @@ describe('MobileAccessSection', () => {
     render(<MobileAccessSection />)
     const reset = await screen.findByRole('button', { name: 'Reset' })
     fireEvent.click(reset)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Reset mobile identity?')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }))
     await waitFor(() => expect(screen.getByText(/bbbbbbbb…bbbbbbbb/)).toBeInTheDocument())
-    confirmSpy.mockRestore()
   })
 })

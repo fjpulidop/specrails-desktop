@@ -32,7 +32,7 @@ describe('QuickVsExploreCard', () => {
   it('renders the per-spec cost as authoritative (no ~, no footnote) for a claude-only project', () => {
     const { container } = render(<QuickVsExploreCard data={data} loading={false} />)
     // claude-only: per-spec figure is the plain authoritative dollar amount
-    expect(screen.getByText('$0.080')).toBeInTheDocument()
+    expect(screen.getByText('$0.08')).toBeInTheDocument()
     expect(container.textContent).not.toContain('~')
     expect(screen.queryByTestId('quick-vs-explore-estimated-footnote')).not.toBeInTheDocument()
     expect(container.querySelector('[data-estimated="true"]')).toBeNull()
@@ -49,10 +49,10 @@ describe('QuickVsExploreCard', () => {
       ],
     }
     const { container } = render(<QuickVsExploreCard data={estimated} loading={false} />)
-    // Estimated explore figure carries the ~ prefix (fmtUsd → $0.710 for <1)
-    expect(screen.getByText('~$0.710')).toBeInTheDocument()
+    // Estimated explore figure carries the ~ prefix (formatUsd → $0.71)
+    expect(screen.getByText('~$0.71')).toBeInTheDocument()
     // Authoritative quick figure stays bare
-    expect(screen.getByText('$0.080')).toBeInTheDocument()
+    expect(screen.getByText('$0.08')).toBeInTheDocument()
     // The estimated column is flagged; the authoritative one is not
     const flagged = container.querySelectorAll('[data-estimated="true"]')
     expect(flagged.length).toBe(1)

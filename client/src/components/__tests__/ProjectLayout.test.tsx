@@ -94,6 +94,6 @@ describe('ProjectLayout', () => {
 
   it('renders a main content area', () => {
     render(<ProjectLayout project={mockProject} />)
-    expect(screen.getByRole('main')).toBeInTheDocument()
+    expect(screen.getByTestId('project-content')).toBeInTheDocument()
   })
 })

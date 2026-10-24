@@ -8,7 +8,7 @@ import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
-import { createDailyBudgetGate } from './modules/execution/runtime/daily-budget-gate'
+import { createDailyBudgetGate, createDailyBudgetHeadroom, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
 import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
@@ -28,7 +28,7 @@ import { BrowserCaptureManager } from './modules/browser/runtime/browser-capture
 import { SharedBrowserContextPool } from './modules/browser/runtime/browser-context-pool'
 import { removeExploreCwd } from './modules/conversations/runtime/explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
-import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
+import { killTransientChildren, purgeBackgroundProcessHistory, stopBackgroundProcessesForFlow } from './transient-children'
 import { dropBlobStatesForProject } from './modules/accounting/runtime/telemetry-receiver'
 import {
   mirrorProjectEntryWithPrevious,
@@ -43,6 +43,8 @@ import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolut
 import { applyWorktreeEnvPassthrough, resolveProjectAgentEnv, startProjectEnvWarmup, stopProjectEnvWarmup, worktreeEnvPassthroughWarning } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, isFlowHeldTicket, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { descriptionWithNonGoals } from './modules/specs/domain/non-goals'
+import { nodeRunRecordFs, readClarifications } from './modules/delivery/runtime/run-records'
 import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
@@ -56,12 +58,15 @@ import { getProjectSettings } from './db'
 import { createProjectAgentAudit, type ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { healLegacyFlowReviews } from './modules/delivery/runtime/flow-review-legacy'
 import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
 import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolation'
 import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtime/rail-pr-ticket-effects'
+import { recoverLocalStashes } from './modules/delivery/runtime/rail-pr-decision'
+import { defaultExec } from './modules/delivery/runtime/pr-publisher'
 import {
   getLoopTerminalRecovery,
   getLoopRun,
@@ -101,6 +106,10 @@ import { createFlowService, type FlowService } from './modules/flow'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from './modules/flow/adapters/sqlite'
 import { createFlowHandOffAuthority, createFlowPorts, flowConversationSummary, startFlowSettlementScheduler, systemClock } from './modules/flow/adapters/bindings'
 import { SpecTriageService } from './modules/specs/runtime/triage'
+import { startProjectTrashPurge } from './modules/specs/runtime/ticket-trash-service'
+import { attachmentManager } from './attachment-manager'
+import { rulesInventoryRuns } from './modules/project-rules/runtime/rules-inventory-runs'
+import { corePhase3Capabilities } from './modules/agent-runtime/runtime/core-capabilities'
 import { flowAvailability } from './modules/agent-sessions/runtime/core-sessions-availability'
 import type { FlowHandOffAuthority } from './modules/delivery/runtime/flow-worktree-handoff'
 import {
@@ -168,6 +177,9 @@ export interface ProjectContext {
    *  queue (rail launches, loop resumes): the 409 body while the project or
    *  app-wide daily budget is exhausted, else null. Absent in bare test contexts. */
   dailyBudgetRejection?: () => DailyBudgetRejection | null
+  /** Read-only headroom of the tightest daily budget, for warnings before a
+   *  launch (launch forecast). Absent in bare test contexts. */
+  dailyBudgetHeadroom?: () => DailyBudgetHeadroom | null
   /** Review WIP limit admission for rail launches (review-wip-limit): bound
    *  to this project's connection and `reviewWipLimit` setting. Absent in
    *  bare test contexts. */
@@ -189,6 +201,8 @@ export interface ProjectContext {
   flowSettlement?: { stop(): void }
   /** Spec triage (launch-triage): tapped from the bound broadcast; absent in bare test contexts. */
   specTriage?: SpecTriageService
+  /** Recently-deleted specs: purges entries older than 30 days (stopped on teardown). */
+  trashPurge?: { stop(): void }
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -397,6 +411,7 @@ export class ProjectRegistry {
 
   removeProject(id: string): void {
     this._clearLoadRetry(id)
+    rulesInventoryRuns.forget(id)
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
     // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
@@ -464,6 +479,7 @@ export class ProjectRegistry {
       // db.close() so a completing generation can't write to the closed handle.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
+      try { ctx.trashPurge?.stop() } catch { /* ignore */ }
       // Drop the app-managed Explore Spec cwd (CLAUDE.md + symlink to project)
       try { removeExploreCwd(ctx.project.slug) } catch { /* ignore — non-fatal */ }
       // Drop this project's per-project phase-tracking scope (avoid a leak).
@@ -666,6 +682,7 @@ export class ProjectRegistry {
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
       try { ctx.specTriage?.dispose() } catch { /* ignore */ }
+      try { ctx.trashPurge?.stop() } catch { /* ignore */ }
       try { stopProjectEnvWarmup(ctx.db) } catch { /* ignore */ }
       try { ctx.agentAudit?.dispose() } catch { /* ignore */ }
       ctx.ticketWatcher.close().catch(() => { /* ignore */ })
@@ -1099,6 +1116,17 @@ export class ProjectRegistry {
       // an `ai_invocations` row (surface='setup'). Returns null until the project
       // context exists, in which case nothing is recorded (best-effort).
       (pid) => this._contexts.get(pid)?.db ?? null,
+      // After a setup succeeded, run Core's rules inventory once in the
+      // background (gated on Core `rulesInventory`; idempotent; a failure is
+      // logged and shown in the project's rules panel). Never blocks setup.
+      (pid) => {
+        const target = this._contexts.get(pid)?.project
+        if (!target) return
+        void rulesInventoryRuns.runAfterSetup(
+          { id: target.id, slug: target.slug, path: target.path },
+          async () => (await corePhase3Capabilities()).rulesInventory,
+        )
+      },
     )
     const proposalManager = new ProposalManager(
       boundBroadcast,
@@ -1216,7 +1244,23 @@ export class ProjectRegistry {
     // Same budget state the queue auto-pause enforces; bound to THIS project's
     // connection (project budget) plus the app-wide snapshot.
     const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
+    const dailyBudgetHeadroom = createDailyBudgetHeadroom({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
     const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
+    // Architect clarifications (feedback-2026-10 task 3.2): after a Core
+    // invocation pauses or ends, post the run's clarifications record to the
+    // linked Jira issues when the project opted in. Core writes no record
+    // without `architectClarifications: 1`, so older Cores never post.
+    const publishRunClarifications = (runId: string, ticketIds: readonly number[]): void => {
+      if (ticketIds.length === 0 || !getProjectSettings(db).jiraPostClarifications || !jiraSyncManager.isActive()) return
+      try {
+        const runtimeDir = path.join(resolveProjectExecution(project).specrailsDir, 'pipeline', runId)
+        const record = readClarifications(runtimeDir, nodeRunRecordFs)
+        if (record) jiraSyncManager.onRunClarifications(runId, ticketIds, record)
+      } catch (err) {
+        console.error(`[jira-sync] clarifications for ${runId} failed:`, err)
+      }
+    }
+
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
@@ -1230,6 +1274,8 @@ export class ProjectRegistry {
       ),
       // One value-free run-log line when configured names are unresolved.
       environmentNotice: () => worktreeEnvPassthroughWarning(db, applyWorktreeEnvPassthrough(db, process.env)),
+      // Phase-3 project switches Core reads from its config (capability-gated in the bridge).
+      projectRuntime: () => ({ baselineOnTouch: getProjectSettings(db).baselineOnTouch }),
       // Named rail profiles and global per-agent defaults ride the same
       // SPECRAILS_PROFILE_PATH snapshot in both AI transports. An explicit null
       // rail selection opts out; omitted selections keep Core's default rules.
@@ -1238,7 +1284,7 @@ export class ProjectRegistry {
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
         supportsProfiles: projectSupportsProfiles,
       }),
-    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder })
+    }), undefined, { dailyBudget: dailyBudgetRejection, agentAudit: agentAudit.recorder, onDefinitionInvocationEnd: (runId, ticketIds) => publishRunClarifications(runId, ticketIds) })
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {
       try {
@@ -1250,7 +1296,8 @@ export class ProjectRegistry {
         return {
           id: t.id,
           title: t.title,
-          description: t.description,
+          // Non-goals (3.2) ride in the description every loop prompt sees.
+          description: descriptionWithNonGoals(t.description, t.nonGoals),
           status: t.status,
           priority: t.priority,
           labels: t.labels,
@@ -1321,6 +1368,8 @@ export class ProjectRegistry {
         }
       }
       const ticketIds = payload?.ticketIds ?? meta?.ticketIds ?? []
+      // Idempotent per record: a pause already posted is not posted again.
+      publishRunClarifications(runId, ticketIds)
       const railIndex = payload?.railIndex ?? meta?.railIndex ?? null
       const effectiveOutcome = payload?.outcome ?? outcome
       const status: JobOutcome =
@@ -1552,23 +1601,39 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate, agentAudit }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
     // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
     // now so the existing backlog is only triaged on edit or on demand.
     specTriage = new SpecTriageService({
       project, db, ticketsPath: ticketStorePath, broadcast: boundBroadcast,
       notifyDesktopWrite: (revision) => ticketWatcher.notifyDesktopWrite(revision),
-      flowAvailable: async () => (await flowAvailability()).available,
     })
     specTriage.start()
     ctx.specTriage = specTriage
+    // Recently deleted specs: purge past the 30-day window at startup and on a timer.
+    ctx.trashPurge = startProjectTrashPurge({
+      ticketStorePath,
+      db,
+      deleteAttachments: (ticketKey) => attachmentManager.deleteAll(project.slug, ticketKey),
+      forgetExploreConversation: (conversationId) => {
+        chatManager?.forgetSpecDraft(conversationId)
+        chatManager?.forgetExploreLifecycle(conversationId)
+      },
+    })
     // Flow mode: use cases bound to THIS project's connection; the mission host
     // is app-global and late-bound (agent chat starts after the registry).
     const flowRepository = createSqliteFlowRepository(db)
     const flowPorts = createFlowPorts({
       ctx, repository: flowRepository, effects: createSqliteFlowEffectsStore(db), internalApi, availability: () => flowAvailability(),
       agentHost: () => getAgentChatManager(),
+      // Dev servers the Flow agent started in the worktree stop with the Flow.
+      processes: {
+        async stop({ flowId }) {
+          const { unresolved } = await stopBackgroundProcessesForFlow(flowId, project.id)
+          if (unresolved.length) console.warn(`[flow] ${unresolved.length} background process(es) of Flow ${flowId} did not confirm exit`)
+        },
+      },
     })
     ctx.flow = createFlowService(flowPorts)
     flowService = ctx.flow
@@ -1634,8 +1699,26 @@ export class ProjectRegistry {
                 },
               })
               if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
+              // "Integrate locally" saved the person's uncommitted work as a
+              // stash and the app stopped before restoring it: re-apply now,
+              // before admission opens (never throws; conflicts keep the stash).
+              const restoredLocalChanges = await recoverLocalStashes({ ...effectDeps, git: defaultGitRunner, exec: defaultExec })
+              for (const deliveryId of restoredLocalChanges) emitRecoveredPrDelivery(ctx, deliveryId)
+              if (this._contexts.get(project.id) !== ctx) return
               reprojectActivePrDeliveries(ctx)
               openProjectProcessAdmission(project.id)
+              // Flow -> Spec deliveries settled as a generic failure before the
+              // review outcome existed: persist the reclassification once (the
+              // retained ledger is read-only here) and refresh their cards.
+              void healLegacyFlowReviews({
+                db,
+                pipelineDir: path.join(resolveProjectExecution({ slug: project.slug, path: project.path }).specrailsDir, 'pipeline'),
+                probe: (runIds) => probeDefinitionRuns({ db, cwd: project.path, env: process.env }, runIds, true),
+                isDefinitionRun: (runId) => getLoopRun(db, runId)?.engine_version === 2,
+              }).then((ids) => {
+                if (this._contexts.get(project.id) !== ctx) return
+                for (const deliveryId of ids) emitRecoveredPrDelivery(ctx, deliveryId)
+              })
             }
           })
           .catch((err) => {

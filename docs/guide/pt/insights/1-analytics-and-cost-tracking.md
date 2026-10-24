@@ -78,3 +78,11 @@ As exportações respeitam os filtros de período e superfície que tiver aplica
 ## Sempre em direto
 
 Não precisa de atualizar a página. Quando uma nova invocação é registada em qualquer ponto do projeto, o painel aberto volta a carregar-se discretamente pouco depois, para que o medidor de consumo acompanhe o trabalho à medida que vai terminando.
+
+## Orçamentos diários {#daily-budget}
+
+Defina um orçamento diário para limitar quanto um dia pode custar. O orçamento de todo o app fica em **Configurações → Avançado**; o de cada projeto, em **Configurações do projeto → Orçamento**.
+
+Quando o gasto registrado do dia atinge um orçamento, a fila se pausa sozinha, os rails e as execuções de loops se recusam a iniciar com *Orçamento diário atingido*, e uma execução de loop em andamento para entre etapas, pausada pelo orçamento. Aumente ou remova o orçamento, ou espere a redefinição diária, e depois retome.
+
+O orçamento do projeto conta o seu dia local; o de todo o app conta o dia UTC. O alerta de custo por job é uma configuração separada.
