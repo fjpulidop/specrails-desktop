@@ -47,6 +47,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [background](../background/README.md)
 - [browser](../browser/README.md)
 - [builder](../builder/README.md)
+- [chat](../chat/README.md)
 - [code](../code/README.md)
 - [delivery](../delivery/README.md)
 - [jobs](../jobs/README.md)

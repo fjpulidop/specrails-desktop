@@ -10,6 +10,7 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
+- [components/AttachmentPreviewLightbox.tsx](components/AttachmentPreviewLightbox.tsx)
 - [components/AttachmentsSection.tsx](components/AttachmentsSection.tsx)
 - [components/ChatPanel.tsx](components/ChatPanel.tsx)
 - [components/ContextScopeChecks.tsx](components/ContextScopeChecks.tsx)
