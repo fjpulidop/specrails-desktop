@@ -27,7 +27,8 @@
     "priority": "Prioridad",
     "labels": "Etiquetas",
     "markdownPlaceholder": "Descripción en Markdown...",
-    "supportsMarkdown": "Admite Markdown"
+    "supportsMarkdown": "Admite Markdown",
+    "removeLabel": "Quitar la etiqueta {{label}}"
   },
   "meta": {
     "createdAgo": "Creado {{time}}",
@@ -194,5 +195,9 @@
     "placeholder": "Lo que esta spec deliberadamente no cambia ni entrega. Un elemento por línea",
     "onePerLine": "Un elemento por línea",
     "add": "Añade lo que esta spec deja fuera"
+  },
+  "split": {
+    "label": "Comparar specs",
+    "resize": "Redimensionar paneles"
   }
 }

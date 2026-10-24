@@ -101,7 +101,9 @@
     "infoHeading": "Desktop 信息",
     "infoPort": "端口",
     "infoProjects": "项目",
-    "infoDb": "Desktop 数据库"
+    "infoDb": "Desktop 数据库",
+    "removeProjectConfirmTitle": "移除 {{name}}？",
+    "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。"
   },
   "notifications": {
     "heading": "系统通知",
@@ -136,7 +138,9 @@
     "removed": "Webhook 已移除",
     "removeFailed": "移除 Webhook 失败",
     "testPingSent": "测试 ping 已发送",
-    "testPingFailed": "发送测试 ping 失败"
+    "testPingFailed": "发送测试 ping 失败",
+    "removeConfirmTitle": "移除 Webhook？",
+    "removeConfirmBody": "{{url}} 将不再接收 Desktop 事件。"
   },
   "terminal": {
     "title": "终端面板",
@@ -198,7 +202,8 @@
     "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 SpecRails 服务器——请选择“允许在专用网络上”。",
     "pairedDevices": "已配对设备",
     "noDevices": "尚无已配对设备。",
-    "revokeDevice": "吊销 {{name}}"
+    "revokeDevice": "吊销 {{name}}",
+    "resetConfirmTitle": "重置移动端身份？"
   },
   "pairWeb": {
     "title": "配对网页伴侣",
@@ -286,7 +291,8 @@
       "telemetry": "遥测",
       "terminal": "终端",
       "agentRuntime": "验证命令",
-      "subagents": "子代理"
+      "subagents": "子代理",
+      "rules": "规则"
     }
   },
   "integrationBranch": {

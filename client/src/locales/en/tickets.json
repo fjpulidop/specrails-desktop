@@ -27,7 +27,8 @@
     "priority": "Priority",
     "labels": "Labels",
     "markdownPlaceholder": "Markdown description...",
-    "supportsMarkdown": "Supports markdown"
+    "supportsMarkdown": "Supports markdown",
+    "removeLabel": "Remove label {{label}}"
   },
   "meta": {
     "createdAgo": "Created {{time}}",
@@ -194,5 +195,9 @@
     "placeholder": "What this spec deliberately does not change or deliver. One item per line",
     "onePerLine": "One item per line",
     "add": "Add what this spec leaves out"
+  },
+  "split": {
+    "label": "Compare specs",
+    "resize": "Resize panels"
   }
 }

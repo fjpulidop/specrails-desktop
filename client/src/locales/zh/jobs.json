@@ -46,7 +46,8 @@
         "cancelled": "已取消",
         "unknown": "未知状态：{{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "无法删除提案，请重试。"
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
@@ -317,7 +318,8 @@
     "noOutput": "无输出",
     "completed": "已完成",
     "turns_one": "{{count}} 轮",
-    "turns_other": "{{count}} 轮"
+    "turns_other": "{{count}} 轮",
+    "copyAll": "复制所有日志行"
   },
   "completion": {
     "title": "运行结果",

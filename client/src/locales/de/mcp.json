@@ -47,7 +47,8 @@
     "regenerate": "Neu generieren",
     "regenerateConfirm": "Zugriffstoken neu generieren? Jeder Client, der das alte Token verwendet, funktioniert nicht mehr, bis Sie seine Konfiguration aktualisieren.",
     "regenerated": "Zugriffstoken neu generiert",
-    "regenerateFailed": "Token konnte nicht neu generiert werden: {{message}}"
+    "regenerateFailed": "Token konnte nicht neu generiert werden: {{message}}",
+    "regenerateConfirmTitle": "Zugriffstoken neu generieren?"
   },
   "tray": {
     "open": "Öffnen",
@@ -93,6 +94,8 @@
       "unknown_provider": "Unbekannter Provider in der Aktivierungsmatrix",
       "invalid_entry": "Fehlerhafter Servereintrag",
       "invalid_body": "Fehlerhafte Anfrage"
-    }
+    },
+    "removeConfirmTitle": "{{name}} entfernen?",
+    "removeConfirmBody": "Der Missions-Agent lädt diesen Server für keinen Anbieter mehr. Ein erkannter Server bleibt in der Konfiguration deines KI-Anbieters und kann wieder aktiviert werden."
   }
 }

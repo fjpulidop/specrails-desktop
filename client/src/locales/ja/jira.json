@@ -69,7 +69,8 @@
     "syncedToast": "Jira から {{count}} 件の課題を同期しました",
     "disconnect": "切断",
     "disconnectConfirm": "このプロジェクトを Jira から切断しますか？既存のスペックはボードに残り、同期は停止します。",
-    "disconnectedToast": "Jira から切断しました"
+    "disconnectedToast": "Jira から切断しました",
+    "disconnectConfirmTitle": "Jira との接続を解除しますか？"
   },
   "outbox": {
     "title": "保留中の Jira 更新",

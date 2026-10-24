@@ -101,7 +101,9 @@
     "infoHeading": "Desktop-Informationen",
     "infoPort": "Port",
     "infoProjects": "Projekte",
-    "infoDb": "Desktop-DB"
+    "infoDb": "Desktop-DB",
+    "removeProjectConfirmTitle": "{{name}} entfernen?",
+    "removeProjectConfirmBody": "{{name}} wird aus Specrails abgemeldet und laufende Arbeit wird gestoppt. Die Repository-Dateien auf der Festplatte werden nicht gelöscht; du kannst den Ordner später erneut hinzufügen."
   },
   "notifications": {
     "heading": "OS-Benachrichtigungen",
@@ -136,7 +138,9 @@
     "removed": "Webhook entfernt",
     "removeFailed": "Webhook konnte nicht entfernt werden",
     "testPingSent": "Test-Ping gesendet",
-    "testPingFailed": "Test-Ping konnte nicht gesendet werden"
+    "testPingFailed": "Test-Ping konnte nicht gesendet werden",
+    "removeConfirmTitle": "Webhook entfernen?",
+    "removeConfirmBody": "{{url}} erhält keine Desktop-Ereignisse mehr."
   },
   "terminal": {
     "title": "Terminal-Panel",
@@ -198,7 +202,8 @@
     "windowsFirewall": "Die Windows-Firewall fragt beim ersten Aktivieren, ob der SpecRails-Server zugelassen werden soll – wählen Sie „In privaten Netzwerken zulassen“.",
     "pairedDevices": "Gekoppelte Geräte",
     "noDevices": "Noch keine Geräte gekoppelt.",
-    "revokeDevice": "{{name}} widerrufen"
+    "revokeDevice": "{{name}} widerrufen",
+    "resetConfirmTitle": "Mobile Identität zurücksetzen?"
   },
   "pairWeb": {
     "title": "Web-Companion koppeln",
@@ -286,7 +291,8 @@
       "telemetry": "Telemetrie",
       "terminal": "Terminal",
       "agentRuntime": "Verifikationsbefehle",
-      "subagents": "Sub-Agenten"
+      "subagents": "Sub-Agenten",
+      "rules": "Regeln"
     }
   },
   "integrationBranch": {

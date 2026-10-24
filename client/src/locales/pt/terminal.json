@@ -22,7 +22,9 @@
   "sidebar": {
     "rename": "Renomear {{name}}",
     "close": "Fechar {{name}}",
-    "label": "Sessões de terminal"
+    "label": "Sessões de terminal",
+    "closeRunningConfirm": "Fechar “{{name}}” com um comando em execução?",
+    "closeRunningBody": "O comando em execução será interrompido e a saída não salva será perdida."
   },
   "emptyState": {
     "noTerminals": "Ainda não há terminais para este projeto.",

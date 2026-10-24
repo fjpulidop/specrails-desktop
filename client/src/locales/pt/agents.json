@@ -33,7 +33,22 @@
       "noMatch": "Nenhum template corresponde aos seus filtros.",
       "clearFilters": "Limpar filtros",
       "openInStudio": "Abrir no Studio →",
-      "tip": "Dica: clique numa tag em qualquer cartão para filtrar por essa tag."
+      "tip": "Dica: clique numa tag em qualquer cartão para filtrar por essa tag.",
+      "categories": {
+        "software-engineering": "Engenharia de software",
+        "testing-qa": "Testes e QA",
+        "data-analytics": "Dados e análise",
+        "security-compliance": "Segurança e conformidade",
+        "product-design": "Produto e design",
+        "business-operations": "Negócio e operações",
+        "marketing-growth": "Marketing e crescimento",
+        "science-research": "Ciência e investigação",
+        "education": "Educação",
+        "health-medicine": "Saúde e medicina",
+        "legal": "Jurídico",
+        "arts-creative": "Artes e criatividade",
+        "management-leadership": "Gestão e liderança"
+      }
     },
     "generate": {
       "title": "Gerar um agente personalizado",
@@ -135,7 +150,8 @@
     },
     "sidebar": {
       "title": "Perfis",
-      "teamDefault": "(predefinição da equipa)"
+      "teamDefault": "(predefinição da equipa)",
+      "new": "Novo perfil"
     },
     "editorFooter": {
       "fixValidationIssues": "Corrija os problemas de validação antes de guardar",

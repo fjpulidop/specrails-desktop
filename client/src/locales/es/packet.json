@@ -42,7 +42,9 @@
   },
   "discard": {
     "label": "Tirar esto",
-    "stackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
+    "stackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
+    "confirmTitle": "¿Tirar esta entrega?",
+    "confirmBody": "La entrega y sus cambios se descartan. Esta acción no se puede deshacer."
   },
   "watchOut": {
     "title": "Merece un vistazo antes de aceptar"

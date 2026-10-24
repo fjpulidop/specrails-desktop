@@ -42,7 +42,9 @@
   },
   "discard": {
     "label": "Descartar isto",
-    "stackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
+    "stackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
+    "confirmTitle": "Descartar esta entrega?",
+    "confirmBody": "A entrega e as suas alterações são descartadas. Esta ação não pode ser desfeita."
   },
   "watchOut": {
     "title": "Vale a pena ver antes de aceitar"

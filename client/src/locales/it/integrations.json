@@ -85,7 +85,7 @@
       "subtitle": "Strumenti globali e integrazioni di progetto, gestiti da un unico posto.",
       "readyCount_one": "{{count}} pronto",
       "readyCount_other": "{{count}} pronti",
-      "openWindow": "Open in window"
+      "openWindow": "Apri in una finestra"
     },
     "search": {
       "placeholder": "Cerca plugin"
@@ -293,7 +293,8 @@
       "description": "Seleziona il progetto in cui configurare questo plugin locale al progetto.",
       "chooseProject": "Scegli progetto",
       "requiresClaudeProvider": "Richiede provider Claude",
-      "selectProjectToContinue": "Seleziona un progetto per continuare."
+      "selectProjectToContinue": "Seleziona un progetto per continuare.",
+      "requiresSupportedProvider": "Richiede Claude o Codex"
     },
     "serena": {
       "loading": "Caricamento Serena…",
@@ -301,7 +302,8 @@
       "description": "Installa la configurazione MCP e lo stato del plugin localmente al progetto. Gli altri progetti non vengono modificati.",
       "status": "Stato: {{status}}",
       "files": "File",
-      "prerequisites": "Prerequisiti"
+      "prerequisites": "Prerequisiti",
+      "provider": "Provider IA"
     },
     "projectStatus": {
       "installed": "installato",
@@ -313,6 +315,13 @@
     "diagnostics": {
       "title": "Diagnostica Headroom",
       "description": "Stato tecnico dell’installazione Headroom gestita da Specrails e del proxy."
+    },
+    "jira": {
+      "loading": "Caricamento di Jira…",
+      "titleForProject": "Jira per {{name}}",
+      "configuredDescription": "Gestisci il progetto Jira, la mappatura degli stati, lo stato di scarto, la sincronizzazione e lo stato della connessione.",
+      "loadFailed": "Impossibile caricare la configurazione Jira attuale: {{message}}",
+      "notConfiguredDescription": "Collega questo progetto a Jira."
     }
   }
 }

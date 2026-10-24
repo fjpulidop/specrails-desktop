@@ -33,7 +33,22 @@
       "noMatch": "フィルターに一致するテンプレートはありません。",
       "clearFilters": "フィルターをクリア",
       "openInStudio": "Studio で開く →",
-      "tip": "ヒント: カードのタグをクリックすると、そのタグで絞り込めます。"
+      "tip": "ヒント: カードのタグをクリックすると、そのタグで絞り込めます。",
+      "categories": {
+        "software-engineering": "ソフトウェアエンジニアリング",
+        "testing-qa": "テストと QA",
+        "data-analytics": "データと分析",
+        "security-compliance": "セキュリティとコンプライアンス",
+        "product-design": "プロダクトとデザイン",
+        "business-operations": "ビジネスとオペレーション",
+        "marketing-growth": "マーケティングとグロース",
+        "science-research": "科学と研究",
+        "education": "教育",
+        "health-medicine": "健康と医療",
+        "legal": "法務",
+        "arts-creative": "アートとクリエイティブ",
+        "management-leadership": "マネジメントとリーダーシップ"
+      }
     },
     "generate": {
       "title": "カスタムエージェントを生成",
@@ -135,7 +150,8 @@
     },
     "sidebar": {
       "title": "プロファイル",
-      "teamDefault": "（チームデフォルト）"
+      "teamDefault": "（チームデフォルト）",
+      "new": "新しいプロファイル"
     },
     "editorFooter": {
       "fixValidationIssues": "保存する前に検証エラーを修正してください",

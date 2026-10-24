@@ -69,7 +69,8 @@
     "syncedToast": "{{count}} Vorgang/Vorgänge aus Jira synchronisiert",
     "disconnect": "Trennen",
     "disconnectConfirm": "Dieses Projekt von Jira trennen? Bestehende Specs bleiben auf dem Board; die Synchronisierung stoppt.",
-    "disconnectedToast": "Von Jira getrennt"
+    "disconnectedToast": "Von Jira getrennt",
+    "disconnectConfirmTitle": "Von Jira trennen?"
   },
   "outbox": {
     "title": "Ausstehende Jira-Updates",

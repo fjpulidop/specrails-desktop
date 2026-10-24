@@ -146,7 +146,7 @@
     "remove": "Retirer {{label}}",
     "addContextAction": "Ajouter un contexte ou une action",
     "filtering": "Filtrage de \"{{query}}\"",
-    "keyboard": "↑↓ Enter Esc",
+    "keyboard": "↑↓ Entrée Échap",
     "noMatches": "Aucun résultat",
     "noMatchesFor": "Aucun résultat pour \"{{query}}\"",
     "mode": {

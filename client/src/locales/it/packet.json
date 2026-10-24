@@ -42,7 +42,9 @@
   },
   "discard": {
     "label": "Butta via",
-    "stackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
+    "stackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro.",
+    "confirmTitle": "Buttare via questa consegna?",
+    "confirmBody": "La consegna e le sue modifiche vengono scartate. L'operazione non può essere annullata."
   },
   "watchOut": {
     "title": "Da guardare prima di accettare"

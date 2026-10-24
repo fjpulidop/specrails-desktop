@@ -47,7 +47,8 @@
     "regenerate": "Régénérer",
     "regenerateConfirm": "Régénérer le jeton d'accès ? Tout client utilisant l'ancien jeton cessera de fonctionner jusqu'à ce que vous mettiez à jour sa configuration.",
     "regenerated": "Jeton d'accès régénéré",
-    "regenerateFailed": "Impossible de régénérer le jeton : {{message}}"
+    "regenerateFailed": "Impossible de régénérer le jeton : {{message}}",
+    "regenerateConfirmTitle": "Régénérer le jeton d’accès ?"
   },
   "tray": {
     "open": "Ouvrir",
@@ -93,6 +94,8 @@
       "unknown_provider": "Fournisseur inconnu dans la matrice d'activation",
       "invalid_entry": "Entrée de serveur malformée",
       "invalid_body": "Requête malformée"
-    }
+    },
+    "removeConfirmTitle": "Supprimer {{name}} ?",
+    "removeConfirmBody": "L’agent de mission ne charge plus ce serveur pour aucun fournisseur. Un serveur détecté reste dans la configuration de votre fournisseur d’IA et peut être réactivé."
   }
 }

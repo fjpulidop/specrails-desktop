@@ -85,7 +85,7 @@
       "subtitle": "Globale Tools und Projektintegrationen, zentral verwaltet.",
       "readyCount_one": "{{count}} bereit",
       "readyCount_other": "{{count}} bereit",
-      "openWindow": "Open in window"
+      "openWindow": "In Fenster öffnen"
     },
     "search": {
       "placeholder": "Plugins suchen"
@@ -293,7 +293,8 @@
       "description": "Wähle das Projekt aus, in dem dieses projektbezogene Plugin konfiguriert werden soll.",
       "chooseProject": "Projekt wählen",
       "requiresClaudeProvider": "Erfordert Claude-Provider",
-      "selectProjectToContinue": "Wähle ein Projekt aus, um fortzufahren."
+      "selectProjectToContinue": "Wähle ein Projekt aus, um fortzufahren.",
+      "requiresSupportedProvider": "Erfordert Claude oder Codex"
     },
     "serena": {
       "loading": "Serena wird geladen…",
@@ -301,7 +302,8 @@
       "description": "Installiert projektlokale MCP-Konfiguration und Plugin-Status. Andere Projekte bleiben unverändert.",
       "status": "Status: {{status}}",
       "files": "Dateien",
-      "prerequisites": "Voraussetzungen"
+      "prerequisites": "Voraussetzungen",
+      "provider": "KI-Anbieter"
     },
     "projectStatus": {
       "installed": "installiert",
@@ -313,6 +315,13 @@
     "diagnostics": {
       "title": "Headroom-Diagnose",
       "description": "Technischer Status der von Specrails verwalteten Headroom-Installation und des Proxys."
+    },
+    "jira": {
+      "loading": "Jira wird geladen…",
+      "titleForProject": "Jira für {{name}}",
+      "configuredDescription": "Verwalte das Jira-Projekt, die Status-Zuordnung, den Verwerfen-Status, die Synchronisierung und den Verbindungsstatus.",
+      "loadFailed": "Die aktuelle Jira-Konfiguration konnte nicht geladen werden: {{message}}",
+      "notConfiguredDescription": "Verbinde dieses Projekt mit Jira."
     }
   }
 }

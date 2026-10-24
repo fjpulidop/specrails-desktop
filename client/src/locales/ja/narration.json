@@ -5,7 +5,8 @@
   "emptySettled": "この実行では活動が記録されませんでした。",
   "waiting": {
     "range": "同種の実行は {{low}}〜{{high}} 分かかっています（直近 {{count}} 件）",
-    "elapsed": "実行中 {{minutes}} 分"
+    "elapsed": "実行中 {{minutes}} 分",
+    "took": "所要時間 {{minutes}} 分"
   },
   "aiNote": "実行中に実際に起きたことから作成しています。",
   "step": {

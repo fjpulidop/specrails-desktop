@@ -146,7 +146,9 @@
       "name": "NOME",
       "value": "valore",
       "add": "Aggiungi",
-      "builtinBadge": "Integrate"
+      "builtinBadge": "Integrate",
+      "deleteConfirmTitle": "Eliminare la costante {{name}}?",
+      "deleteConfirmBody": "Le costanti sono condivise da tutti i loop. I passaggi che la usano ancora non potranno più risolverla."
     },
     "paste": {
       "done_one": "{{count}} passo incollato",
@@ -193,7 +195,7 @@
       "tooDeep": "Il valore contiene troppi livelli.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Agent step",
+        "role-turn": "Passo agente",
         "decider": "Decisione",
         "condition": "Condizione",
         "verify": "Verifica",
@@ -209,8 +211,8 @@
         "implementation": "Implementazione",
         "end": "Fine",
         "assign": "Impostare variabili",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "Passo di implementazione",
+        "artifact-contract": "Verifica artefatti",
         "derive-change": "Derivare la modifica"
       },
       "groups": {
@@ -228,10 +230,17 @@
         "increment": "Modificare contatori"
       },
       "requiredContinue": "Continua finché questa condizione è vera",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "Esegui il compito definito per questo passo usando il contesto del workflow.",
+      "legacyImplementation": "Questo passo conserva le fasi di una versione precedente. Aggiungi un passo agente per definire il tuo passo. Per i loop integrati, «Ripristina originale» carica il nuovo workflow."
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "Impostazioni avanzate",
+    "nameLabel": "Nome del loop",
+    "unsaved": {
+      "title": "Salvare le modifiche prima di uscire?",
+      "body": "Questo loop ha modifiche non salvate. Se le scarti, andranno perse.",
+      "save": "Salva ed esci",
+      "discard": "Scarta modifiche"
+    }
   },
   "preview": {
     "steps": "Passi",
@@ -294,7 +303,7 @@
       "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde. Solo Claude."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
+      "name": "Ciclo di vita OpenSpec",
       "description": "Ciclo OpenSpec dal ticket all'archivio: genera artefatti (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL torna indietro ed emenda lo stesso change, con PASS lo archivia senza intervento."
     },
     "factory_revision": {
@@ -364,6 +373,6 @@
     }
   },
   "window": {
-    "open": "Open in window"
+    "open": "Apri in una finestra"
   }
 }

@@ -33,7 +33,8 @@
     "expand": "Expandir",
     "collapse": "Contraer",
     "viewAll": "Ver todo",
-    "learnMore": "Más información"
+    "learnMore": "Más información",
+    "clear": "Borrar"
   },
   "states": {
     "loading": "Cargando…",
@@ -131,7 +132,8 @@
     "workspacePath": "Ruta del workspace de código",
     "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement, Quick SDD y Freestyle verifican cada workspace de código indicado.",
     "launchWorkspaces": "Workspaces de esta ejecución",
-    "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado."
+    "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado.",
+    "advanced": "Configuración multirrepositorio"
   },
   "repositoryDelivery": {
     "building": "Implementando",
@@ -181,5 +183,6 @@
     "flowSpec": "Paso de Flow a un rail",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
-  }
+  },
+  "estimated": "estimado"
 }

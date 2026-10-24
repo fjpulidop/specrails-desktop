@@ -10,7 +10,8 @@
     "emptyNoDoneLabelMatch": "アクティブなラベルに一致する完了スペックはありません",
     "emptyNoCompleted": "完了したスペックはまだありません",
     "emptyNoStatusMatch": "選択したステータスに一致するスペックはありません",
-    "untitledSpec": "無題のスペック"
+    "untitledSpec": "無題のスペック",
+    "doneHeading": "完了 · {{count}}"
   },
   "status": {
     "todo": "Todo",

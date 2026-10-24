@@ -10,7 +10,8 @@
     "emptyNoDoneLabelMatch": "Keine fertigen Specs entsprechen den aktiven Labels",
     "emptyNoCompleted": "Noch keine abgeschlossenen Specs",
     "emptyNoStatusMatch": "Keine Specs entsprechen dem ausgewählten Status",
-    "untitledSpec": "Unbenannte Spec"
+    "untitledSpec": "Unbenannte Spec",
+    "doneHeading": "Erledigt · {{count}}"
   },
   "status": {
     "todo": "To-do",

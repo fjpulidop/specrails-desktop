@@ -59,7 +59,8 @@
       "header": "Version history",
       "empty": "No prior versions recorded for this agent.",
       "restoreHint": "Click a version to restore its body into the editor (you still need to Save)."
-    }
+    },
+    "idLabel": "Agent ID"
   },
   "refine": {
     "eyebrow": "AI Edit",

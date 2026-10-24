@@ -46,7 +46,8 @@
         "cancelled": "Cancelada",
         "unknown": "Estado desconhecido: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Não foi possível excluir a proposta. Tente novamente."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
@@ -317,7 +318,8 @@
     "noOutput": "Sem saída",
     "completed": "Concluído",
     "turns_one": "{{count}} turno",
-    "turns_other": "{{count}} turnos"
+    "turns_other": "{{count}} turnos",
+    "copyAll": "Copiar todas as linhas do log"
   },
   "completion": {
     "title": "Resultado da execução",

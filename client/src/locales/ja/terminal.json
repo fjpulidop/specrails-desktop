@@ -22,7 +22,9 @@
   "sidebar": {
     "rename": "{{name}} の名前を変更",
     "close": "{{name}} を閉じる",
-    "label": "ターミナルセッション"
+    "label": "ターミナルセッション",
+    "closeRunningConfirm": "コマンドの実行中に「{{name}}」を閉じますか?",
+    "closeRunningBody": "実行中のコマンドは停止され、保存されていない出力は失われます。"
   },
   "emptyState": {
     "noTerminals": "このプロジェクトにはまだターミナルがありません。",

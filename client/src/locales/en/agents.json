@@ -33,7 +33,22 @@
       "noMatch": "No templates match your filters.",
       "clearFilters": "Clear filters",
       "openInStudio": "Open in Studio →",
-      "tip": "Tip: click a tag pill on any card to filter by that tag."
+      "tip": "Tip: click a tag pill on any card to filter by that tag.",
+      "categories": {
+        "software-engineering": "Software Engineering",
+        "testing-qa": "Testing & QA",
+        "data-analytics": "Data & Analytics",
+        "security-compliance": "Security & Compliance",
+        "product-design": "Product & Design",
+        "business-operations": "Business & Operations",
+        "marketing-growth": "Marketing & Growth",
+        "science-research": "Science & Research",
+        "education": "Education",
+        "health-medicine": "Health & Medicine",
+        "legal": "Legal",
+        "arts-creative": "Arts & Creative",
+        "management-leadership": "Management & Leadership"
+      }
     },
     "generate": {
       "title": "Generate a custom agent",
@@ -135,7 +150,8 @@
     },
     "sidebar": {
       "title": "Profiles",
-      "teamDefault": "(team default)"
+      "teamDefault": "(team default)",
+      "new": "New profile"
     },
     "editorFooter": {
       "fixValidationIssues": "Fix validation issues before saving",

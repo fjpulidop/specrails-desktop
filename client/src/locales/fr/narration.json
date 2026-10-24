@@ -5,7 +5,8 @@
   "emptySettled": "Aucune activité enregistrée pour cette exécution.",
   "waiting": {
     "range": "Les exécutions de ce type ont pris {{low}}–{{high}} min (dernières {{count}})",
-    "elapsed": "En cours depuis {{minutes}} min"
+    "elapsed": "En cours depuis {{minutes}} min",
+    "took": "A pris {{minutes}} min"
   },
   "aiNote": "Construit à partir de ce qui s'est réellement passé pendant l'exécution.",
   "step": {

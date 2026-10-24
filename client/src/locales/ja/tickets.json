@@ -27,7 +27,8 @@
     "priority": "優先度",
     "labels": "ラベル",
     "markdownPlaceholder": "Markdown で説明...",
-    "supportsMarkdown": "Markdown 対応"
+    "supportsMarkdown": "Markdown 対応",
+    "removeLabel": "ラベル {{label}} を削除"
   },
   "meta": {
     "createdAgo": "{{time}}に作成",
@@ -194,5 +195,9 @@
     "placeholder": "このスペックで意図的に変更・提供しないこと（1行に1項目）",
     "onePerLine": "1行に1項目",
     "add": "このスペックの対象外を追加"
+  },
+  "split": {
+    "label": "スペックを比較",
+    "resize": "パネルのサイズを変更"
   }
 }

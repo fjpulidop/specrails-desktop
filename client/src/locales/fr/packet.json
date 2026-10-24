@@ -42,7 +42,9 @@
   },
   "discard": {
     "label": "Jeter ceci",
-    "stackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail."
+    "stackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
+    "confirmTitle": "Jeter cette livraison ?",
+    "confirmBody": "La livraison et ses modifications sont supprimées. Cette action est irréversible."
   },
   "watchOut": {
     "title": "À regarder avant d'accepter"

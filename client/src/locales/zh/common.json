@@ -33,7 +33,8 @@
     "expand": "展开",
     "collapse": "收起",
     "viewAll": "查看全部",
-    "learnMore": "了解更多"
+    "learnMore": "了解更多",
+    "clear": "清除"
   },
   "states": {
     "loading": "加载中…",
@@ -131,7 +132,8 @@
     "workspacePath": "代码工作目录",
     "workspaceHint": "可选。每行一个目录，可为绝对路径或相对于仓库的路径。留空则使用仓库目录。Implement、Quick SDD 和 Freestyle 会验证每个列出的目录。",
     "launchWorkspaces": "本次运行的工作目录",
-    "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。"
+    "launchWorkspaceHint": "代码更改和测试仅限这些目录。请为每个受影响的仓库至少选择一个工作目录。",
+    "advanced": "多仓库设置"
   },
   "repositoryDelivery": {
     "building": "实现中",
@@ -181,5 +183,6 @@
     "flowSpec": "Flow 移交",
     "unknown": "循环",
     "title": "循环：{{name}}"
-  }
+  },
+  "estimated": "估算"
 }

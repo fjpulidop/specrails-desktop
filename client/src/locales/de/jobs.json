@@ -46,7 +46,8 @@
         "cancelled": "Abgebrochen",
         "unknown": "Unbekannter Status: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Der Vorschlag konnte nicht gelöscht werden. Versuche es erneut."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
@@ -317,7 +318,8 @@
     "noOutput": "Keine Ausgabe",
     "completed": "Abgeschlossen",
     "turns_one": "{{count}} Turn",
-    "turns_other": "{{count}} Turns"
+    "turns_other": "{{count}} Turns",
+    "copyAll": "Alle Logzeilen kopieren"
   },
   "completion": {
     "title": "Ausführungsergebnis",

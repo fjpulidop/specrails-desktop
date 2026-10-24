@@ -59,7 +59,8 @@
       "header": "Cronologia versioni",
       "empty": "Nessuna versione precedente registrata per questo agente.",
       "restoreHint": "Clicca una versione per ripristinarne il corpo nell'editor (devi comunque salvare)."
-    }
+    },
+    "idLabel": "ID dell'agente"
   },
   "refine": {
     "eyebrow": "AI Edit",

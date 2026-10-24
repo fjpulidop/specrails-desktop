@@ -293,7 +293,8 @@
       "description": "Select the project where this project-scoped plugin should be configured.",
       "chooseProject": "Choose project",
       "requiresClaudeProvider": "Requires Claude provider",
-      "selectProjectToContinue": "Select a project to continue."
+      "selectProjectToContinue": "Select a project to continue.",
+      "requiresSupportedProvider": "Requires Claude or Codex"
     },
     "serena": {
       "loading": "Loading Serena…",
@@ -301,7 +302,8 @@
       "description": "Installs project-local MCP configuration and plugin state. Other projects are untouched.",
       "status": "Status: {{status}}",
       "files": "Files",
-      "prerequisites": "Prerequisites"
+      "prerequisites": "Prerequisites",
+      "provider": "AI provider"
     },
     "projectStatus": {
       "installed": "installed",
@@ -313,6 +315,13 @@
     "diagnostics": {
       "title": "Headroom diagnostics",
       "description": "Technical status for the Specrails-managed Headroom installation and proxy."
+    },
+    "jira": {
+      "loading": "Loading Jira…",
+      "titleForProject": "Jira for {{name}}",
+      "configuredDescription": "Manage the Jira project, status mapping, discard status, sync, and connection state.",
+      "loadFailed": "Could not load the current Jira configuration: {{message}}",
+      "notConfiguredDescription": "Connect this project to Jira."
     }
   }
 }

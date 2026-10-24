@@ -241,7 +241,8 @@
     "deleteRail": "Eliminar {{label}}",
     "dropHere": "Largar aqui",
     "dropOnThisRail": "Largar neste rail",
-    "dragSpecsHere": "Arraste specs para aqui"
+    "dragSpecsHere": "Arraste specs para aqui",
+    "dragHandle": "Reordenar {{label}}"
   },
   "freestyleDialog": {
     "title": "Lançar em modo Freestyle",
@@ -294,5 +295,8 @@
     "panelReached": "O limite de {{limit}} foi atingido. Decida uma destas (Criar PR, mesclar ou descartar) para iniciar trabalho novo. Alterações nestas entregas continuam permitidas.",
     "empty": "Nada aguardando revisão.",
     "playBlocked": "Limite de revisão atingido ({{pending}}/{{limit}} aguardando). Decida uma entrega para iniciar trabalho novo."
+  },
+  "errors": {
+    "deleteFailed": "Não foi possível eliminar a spec"
   }
 }

@@ -33,7 +33,8 @@
     "expand": "Expandir",
     "collapse": "Recolher",
     "viewAll": "Ver tudo",
-    "learnMore": "Saber mais"
+    "learnMore": "Saber mais",
+    "clear": "Limpar"
   },
   "states": {
     "loading": "A carregar…",
@@ -131,7 +132,8 @@
     "workspacePath": "Pastas de código",
     "workspaceHint": "Opcional. Uma pasta por linha, absoluta ou relativa ao repositório. Vazio usa a pasta do repositório. Implement, Quick SDD e Freestyle verificam cada pasta indicada.",
     "launchWorkspaces": "Pastas para esta execução",
-    "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado."
+    "launchWorkspaceHint": "As alterações e os testes ficam limitados a estas pastas. Selecione pelo menos uma pasta para cada repositório afetado.",
+    "advanced": "Configuração multirrepositório"
   },
   "repositoryDelivery": {
     "building": "Implementação em andamento",
@@ -181,5 +183,6 @@
     "flowSpec": "Passagem do Flow a um rail",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
-  }
+  },
+  "estimated": "estimado"
 }

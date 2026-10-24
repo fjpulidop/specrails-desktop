@@ -241,7 +241,8 @@
     "deleteRail": "删除 {{label}}",
     "dropHere": "拖放到此处",
     "dropOnThisRail": "拖放到此 Rail",
-    "dragSpecsHere": "将 Spec 拖到此处"
+    "dragSpecsHere": "将 Spec 拖到此处",
+    "dragHandle": "调整 {{label}} 的顺序"
   },
   "freestyleDialog": {
     "title": "以 Freestyle 模式启动",
@@ -294,5 +295,8 @@
     "panelReached": "已达到 {{limit}} 的上限。处理其中一个(创建 PR、合并或丢弃)即可启动新工作。对这些交付的修改仍然允许。",
     "empty": "没有等待评审的内容。",
     "playBlocked": "已达到评审上限({{pending}}/{{limit}} 等待中)。处理一个交付后才能启动新工作。"
+  },
+  "errors": {
+    "deleteFailed": "无法删除该规格"
   }
 }

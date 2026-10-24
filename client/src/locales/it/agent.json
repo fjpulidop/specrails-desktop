@@ -146,7 +146,7 @@
     "remove": "Rimuovi {{label}}",
     "addContextAction": "Aggiungi contesto o azione",
     "filtering": "Filtro \"{{query}}\"",
-    "keyboard": "↑↓ Enter Esc",
+    "keyboard": "↑↓ Invio Esc",
     "noMatches": "Nessun risultato",
     "noMatchesFor": "Nessun risultato per \"{{query}}\"",
     "mode": {

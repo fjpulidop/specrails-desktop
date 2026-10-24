@@ -42,7 +42,9 @@
   },
   "discard": {
     "label": "Verwerfen",
-    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
+    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
+    "confirmTitle": "Diese Lieferung verwerfen?",
+    "confirmBody": "Die Lieferung und ihre Änderungen werden verworfen. Das lässt sich nicht rückgängig machen."
   },
   "watchOut": {
     "title": "Vor dem Annehmen ansehen"

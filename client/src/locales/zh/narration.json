@@ -5,7 +5,8 @@
   "emptySettled": "本次运行没有记录到活动。",
   "waiting": {
     "range": "同类运行耗时 {{low}}–{{high}} 分钟（最近 {{count}} 次）",
-    "elapsed": "已运行 {{minutes}} 分钟"
+    "elapsed": "已运行 {{minutes}} 分钟",
+    "took": "耗时 {{minutes}} 分钟"
   },
   "aiNote": "根据运行期间真实发生的事情生成。",
   "step": {

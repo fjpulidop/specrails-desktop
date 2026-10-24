@@ -33,7 +33,8 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "viewAll": "View all",
-    "learnMore": "Learn more"
+    "learnMore": "Learn more",
+    "clear": "Clear"
   },
   "states": {
     "loading": "Loading…",
@@ -131,7 +132,8 @@
     "workspacePath": "Code workspace path",
     "workspaceHint": "Optional. One directory per line, absolute or relative to this repository. Empty uses the repository folder. Implement, Quick SDD and Freestyle verify each listed code workspace.",
     "launchWorkspaces": "Workspaces for this run",
-    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository."
+    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository.",
+    "advanced": "Multi-repository setup"
   },
   "repositoryDelivery": {
     "building": "Building",
@@ -181,5 +183,6 @@
     "flowSpec": "Flow hand-off",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
-  }
+  },
+  "estimated": "estimated"
 }

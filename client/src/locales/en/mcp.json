@@ -47,7 +47,8 @@
     "regenerate": "Regenerate",
     "regenerateConfirm": "Regenerate the access token? Any client using the old token will stop working until you update its config.",
     "regenerated": "Access token regenerated",
-    "regenerateFailed": "Could not regenerate the token: {{message}}"
+    "regenerateFailed": "Could not regenerate the token: {{message}}",
+    "regenerateConfirmTitle": "Regenerate access token?"
   },
   "tray": {
     "open": "Open",
@@ -93,6 +94,8 @@
       "unknown_provider": "Unknown provider in the activation matrix",
       "invalid_entry": "Malformed server entry",
       "invalid_body": "Malformed request"
-    }
+    },
+    "removeConfirmTitle": "Remove {{name}}?",
+    "removeConfirmBody": "The mission agent stops loading this server for every provider. A discovered server stays in your AI provider config and can be enabled again."
   }
 }

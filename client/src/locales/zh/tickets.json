@@ -27,7 +27,8 @@
     "priority": "优先级",
     "labels": "标签",
     "markdownPlaceholder": "Markdown 描述…",
-    "supportsMarkdown": "支持 Markdown"
+    "supportsMarkdown": "支持 Markdown",
+    "removeLabel": "移除标签 {{label}}"
   },
   "meta": {
     "createdAgo": "创建于 {{time}}",
@@ -194,5 +195,9 @@
     "placeholder": "此规格有意不更改或不交付的内容，每行一项",
     "onePerLine": "每行一项",
     "add": "添加此规格不涵盖的内容"
+  },
+  "split": {
+    "label": "比较规格",
+    "resize": "调整面板大小"
   }
 }

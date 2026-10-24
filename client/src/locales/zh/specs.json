@@ -10,7 +10,8 @@
     "emptyNoDoneLabelMatch": "没有符合所选标签的已完成 spec",
     "emptyNoCompleted": "暂无已完成的 spec",
     "emptyNoStatusMatch": "没有符合所选状态的 spec",
-    "untitledSpec": "未命名 spec"
+    "untitledSpec": "未命名 spec",
+    "doneHeading": "已完成 · {{count}}"
   },
   "status": {
     "todo": "待办",

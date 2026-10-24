@@ -241,7 +241,8 @@
     "deleteRail": "{{label}} löschen",
     "dropHere": "Hier ablegen",
     "dropOnThisRail": "Auf diesem Rail ablegen",
-    "dragSpecsHere": "Specs hierher ziehen"
+    "dragSpecsHere": "Specs hierher ziehen",
+    "dragHandle": "{{label}} verschieben"
   },
   "freestyleDialog": {
     "title": "Im Freestyle-Modus starten",
@@ -294,5 +295,8 @@
     "panelReached": "Das Limit von {{limit}} ist erreicht. Entscheide über eine davon (PR erstellen, mergen oder verwerfen), um neue Arbeit zu starten. Änderungen an diesen Lieferungen bleiben erlaubt.",
     "empty": "Nichts wartet auf Review.",
     "playBlocked": "Review-Limit erreicht ({{pending}}/{{limit}} wartend). Entscheide über eine Lieferung, um neue Arbeit zu starten."
+  },
+  "errors": {
+    "deleteFailed": "Die Spec konnte nicht gelöscht werden"
   }
 }

@@ -85,7 +85,7 @@
       "subtitle": "在一个位置管理全局工具和项目集成。",
       "readyCount_one": "{{count}} 个就绪",
       "readyCount_other": "{{count}} 个就绪",
-      "openWindow": "Open in window"
+      "openWindow": "在窗口中打开"
     },
     "search": {
       "placeholder": "搜索插件"
@@ -293,7 +293,8 @@
       "description": "选择要配置此项目级插件的项目。",
       "chooseProject": "选择项目",
       "requiresClaudeProvider": "需要 Claude 提供商",
-      "selectProjectToContinue": "选择一个项目以继续。"
+      "selectProjectToContinue": "选择一个项目以继续。",
+      "requiresSupportedProvider": "需要 Claude 或 Codex"
     },
     "serena": {
       "loading": "正在加载 Serena…",
@@ -301,7 +302,8 @@
       "description": "安装项目本地 MCP 配置和插件状态。其他项目不会被修改。",
       "status": "状态：{{status}}",
       "files": "文件",
-      "prerequisites": "先决条件"
+      "prerequisites": "先决条件",
+      "provider": "AI 提供商"
     },
     "projectStatus": {
       "installed": "已安装",
@@ -313,6 +315,13 @@
     "diagnostics": {
       "title": "Headroom 诊断",
       "description": "Specrails 管理的 Headroom 安装和代理的技术状态。"
+    },
+    "jira": {
+      "loading": "正在加载 Jira…",
+      "titleForProject": "{{name}} 的 Jira",
+      "configuredDescription": "管理 Jira 项目、状态映射、丢弃状态、同步和连接状态。",
+      "loadFailed": "无法加载当前的 Jira 配置：{{message}}",
+      "notConfiguredDescription": "将此项目连接到 Jira。"
     }
   }
 }

@@ -69,7 +69,8 @@
     "syncedToast": "已从 Jira 同步 {{count}} 个事务",
     "disconnect": "断开连接",
     "disconnectConfirm": "要断开此项目与 Jira 的连接吗？现有规格仍保留在看板上；同步将停止。",
-    "disconnectedToast": "已断开与 Jira 的连接"
+    "disconnectedToast": "已断开与 Jira 的连接",
+    "disconnectConfirmTitle": "断开与 Jira 的连接？"
   },
   "outbox": {
     "title": "待处理的 Jira 更新",

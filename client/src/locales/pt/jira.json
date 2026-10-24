@@ -69,7 +69,8 @@
     "syncedToast": "{{count}} ticket(s) sincronizados do Jira",
     "disconnect": "Desligar",
     "disconnectConfirm": "Desligar este projeto do Jira? As specs existentes permanecem no quadro; a sincronização para.",
-    "disconnectedToast": "Desligado do Jira"
+    "disconnectedToast": "Desligado do Jira",
+    "disconnectConfirmTitle": "Desligar do Jira?"
   },
   "outbox": {
     "title": "Atualizações Jira pendentes",

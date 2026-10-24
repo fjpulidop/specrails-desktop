@@ -33,7 +33,8 @@
     "expand": "Espandi",
     "collapse": "Comprimi",
     "viewAll": "Vedi tutto",
-    "learnMore": "Scopri di più"
+    "learnMore": "Scopri di più",
+    "clear": "Cancella"
   },
   "states": {
     "loading": "Caricamento…",
@@ -131,7 +132,8 @@
     "workspacePath": "Cartelle di codice",
     "workspaceHint": "Facoltativo. Una cartella per riga, assoluta o relativa al repository. Vuoto usa la cartella del repository. Implement, Quick SDD e Freestyle verificano ogni cartella indicata.",
     "launchWorkspaces": "Cartelle per questa esecuzione",
-    "launchWorkspaceHint": "Modifiche e test sono limitati a queste cartelle. Seleziona almeno una cartella per ogni repository interessato."
+    "launchWorkspaceHint": "Modifiche e test sono limitati a queste cartelle. Seleziona almeno una cartella per ogni repository interessato.",
+    "advanced": "Configurazione multi-repository"
   },
   "repositoryDelivery": {
     "building": "Implementazione in corso",
@@ -181,5 +183,6 @@
     "flowSpec": "Affidamento del Flow",
     "unknown": "Loop",
     "title": "Loop: {{name}}"
-  }
+  },
+  "estimated": "stimato"
 }

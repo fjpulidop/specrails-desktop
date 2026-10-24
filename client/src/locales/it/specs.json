@@ -10,7 +10,8 @@
     "emptyNoDoneLabelMatch": "Nessuna spec completata corrisponde alle etichette attive",
     "emptyNoCompleted": "Ancora nessuna spec completata",
     "emptyNoStatusMatch": "Nessuna spec corrisponde allo stato selezionato",
-    "untitledSpec": "Spec senza titolo"
+    "untitledSpec": "Spec senza titolo",
+    "doneHeading": "Completate · {{count}}"
   },
   "status": {
     "todo": "Da fare",

@@ -146,7 +146,9 @@
       "name": "NAME",
       "value": "value",
       "add": "Add",
-      "builtinBadge": "Built-in"
+      "builtinBadge": "Built-in",
+      "deleteConfirmTitle": "Delete constant {{name}}?",
+      "deleteConfirmBody": "Constants are shared by every loop. Steps that still reference this one will no longer resolve it."
     },
     "paste": {
       "done_one": "Pasted {{count}} step",
@@ -231,7 +233,14 @@
       "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
       "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "Advanced settings",
+    "nameLabel": "Loop name",
+    "unsaved": {
+      "title": "Save changes before leaving?",
+      "body": "This loop has unsaved edits. If you discard them, they are lost.",
+      "save": "Save and leave",
+      "discard": "Discard changes"
+    }
   },
   "preview": {
     "steps": "Steps",

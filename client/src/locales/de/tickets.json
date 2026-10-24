@@ -27,7 +27,8 @@
     "priority": "Priorität",
     "labels": "Labels",
     "markdownPlaceholder": "Markdown-Beschreibung…",
-    "supportsMarkdown": "Unterstützt Markdown"
+    "supportsMarkdown": "Unterstützt Markdown",
+    "removeLabel": "Label {{label}} entfernen"
   },
   "meta": {
     "createdAgo": "Erstellt {{time}}",
@@ -194,5 +195,9 @@
     "placeholder": "Was diese Spec bewusst nicht ändert oder liefert. Ein Eintrag pro Zeile",
     "onePerLine": "Ein Eintrag pro Zeile",
     "add": "Festhalten, was diese Spec ausklammert"
+  },
+  "split": {
+    "label": "Specs vergleichen",
+    "resize": "Bereiche anpassen"
   }
 }

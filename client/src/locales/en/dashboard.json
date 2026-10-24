@@ -241,7 +241,8 @@
     "deleteRail": "Delete {{label}}",
     "dropHere": "Drop here",
     "dropOnThisRail": "Drop on this rail",
-    "dragSpecsHere": "Drag specs here"
+    "dragSpecsHere": "Drag specs here",
+    "dragHandle": "Reorder {{label}}"
   },
   "freestyleDialog": {
     "title": "Launch in Freestyle mode",
@@ -294,5 +295,8 @@
     "panelReached": "The limit of {{limit}} is reached. Decide one of these (Create PR, merge or discard) to launch new work. Changes to these deliveries are still allowed.",
     "empty": "Nothing is waiting for review.",
     "playBlocked": "Review limit reached ({{pending}}/{{limit}} waiting). Decide a delivery to launch new work."
+  },
+  "errors": {
+    "deleteFailed": "Could not delete the spec"
   }
 }

@@ -5,7 +5,8 @@
   "emptySettled": "Não foi registada atividade nesta execução.",
   "waiting": {
     "range": "Execuções como esta levaram {{low}}–{{high}} min (últimas {{count}})",
-    "elapsed": "A correr há {{minutes}} min"
+    "elapsed": "A correr há {{minutes}} min",
+    "took": "Levou {{minutes}} min"
   },
   "aiNote": "Construído a partir do que realmente aconteceu durante a execução.",
   "step": {

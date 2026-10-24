@@ -146,7 +146,9 @@
       "name": "NOMBRE",
       "value": "valor",
       "add": "Añadir",
-      "builtinBadge": "Integradas"
+      "builtinBadge": "Integradas",
+      "deleteConfirmTitle": "¿Eliminar la constante {{name}}?",
+      "deleteConfirmBody": "Las constantes se comparten entre todos los loops. Los pasos que aún la usen dejarán de resolverla."
     },
     "paste": {
       "done_one": "{{count}} paso pegado",
@@ -231,7 +233,14 @@
       "agentTaskDefault": "Ejecuta la tarea definida para este paso usando el contexto del workflow.",
       "legacyImplementation": "Este paso conserva las fases de una versión anterior. Para definir tu propio paso, añade un Paso agente. En los loops integrados, Restaurar original carga el nuevo flujo."
     },
-    "loopSettings": "Ajustes avanzados"
+    "loopSettings": "Ajustes avanzados",
+    "nameLabel": "Nombre del loop",
+    "unsaved": {
+      "title": "¿Guardar los cambios antes de salir?",
+      "body": "Este loop tiene cambios sin guardar. Si los descartas, se perderán.",
+      "save": "Guardar y salir",
+      "discard": "Descartar cambios"
+    }
   },
   "preview": {
     "steps": "Pasos",
@@ -294,7 +303,7 @@
       "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde. Solo Claude."
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
+      "name": "Ciclo de vida de OpenSpec",
       "description": "Ciclo OpenSpec de ticket a archivo: genera artefactos (opsx:ff) → implementa (opsx:apply) → verifica (opsx:verify); con FAIL vuelve atrás y enmienda el mismo change, con PASS lo archiva sin intervención."
     },
     "factory_revision": {

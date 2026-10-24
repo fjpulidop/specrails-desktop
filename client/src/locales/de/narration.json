@@ -5,7 +5,8 @@
   "emptySettled": "Für diesen Lauf wurde keine Aktivität erfasst.",
   "waiting": {
     "range": "Solche Läufe dauerten {{low}}–{{high}} min (letzte {{count}})",
-    "elapsed": "Läuft seit {{minutes}} min"
+    "elapsed": "Läuft seit {{minutes}} min",
+    "took": "Dauerte {{minutes}} min"
   },
   "aiNote": "Aus dem erstellt, was während des Laufs tatsächlich passiert ist.",
   "step": {

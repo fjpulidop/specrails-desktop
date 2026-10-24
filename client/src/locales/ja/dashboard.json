@@ -241,7 +241,8 @@
     "deleteRail": "{{label}} を削除",
     "dropHere": "ここにドロップ",
     "dropOnThisRail": "このレールにドロップ",
-    "dragSpecsHere": "ここにスペックをドラッグ"
+    "dragSpecsHere": "ここにスペックをドラッグ",
+    "dragHandle": "{{label}} を並べ替え"
   },
   "freestyleDialog": {
     "title": "Freestyle モードで起動",
@@ -294,5 +295,8 @@
     "panelReached": "上限 {{limit}} に達しています。新しい作業を起動するには、いずれか(PR 作成・マージ・破棄)を決定してください。これらの納品への変更は引き続き可能です。",
     "empty": "レビュー待ちはありません。",
     "playBlocked": "レビュー上限に達しました({{pending}}/{{limit}} 件待機中)。新しい作業を起動するには納品を決定してください。"
+  },
+  "errors": {
+    "deleteFailed": "スペックを削除できませんでした"
   }
 }

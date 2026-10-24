@@ -46,7 +46,8 @@
         "cancelled": "Cancelled",
         "unknown": "Unknown status: {{status}}"
       }
-    }
+    },
+    "proposalDeleteFailed": "Couldn't delete the proposal. Try again."
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
@@ -317,7 +318,8 @@
     "noOutput": "No output",
     "completed": "Completed",
     "turns_one": "{{count}} turn",
-    "turns_other": "{{count}} turns"
+    "turns_other": "{{count}} turns",
+    "copyAll": "Copy all log lines"
   },
   "completion": {
     "title": "Run result",

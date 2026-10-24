@@ -5,7 +5,8 @@
   "emptySettled": "No activity was recorded for this run.",
   "waiting": {
     "range": "Runs like this have taken {{low}}–{{high}} min (last {{count}})",
-    "elapsed": "Running for {{minutes}} min"
+    "elapsed": "Running for {{minutes}} min",
+    "took": "Took {{minutes}} min"
   },
   "aiNote": "Built from what actually happened during the run.",
   "step": {

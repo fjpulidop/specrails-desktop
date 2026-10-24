@@ -59,7 +59,8 @@
       "header": "Historique des versions",
       "empty": "Aucune version antérieure enregistrée pour cet agent.",
       "restoreHint": "Cliquez sur une version pour restaurer son corps dans l'éditeur (il faudra ensuite Enregistrer)."
-    }
+    },
+    "idLabel": "ID de l'agent"
   },
   "refine": {
     "eyebrow": "Édition IA",

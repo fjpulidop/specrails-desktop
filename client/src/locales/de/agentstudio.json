@@ -59,7 +59,8 @@
       "header": "Versionsverlauf",
       "empty": "Keine früheren Versionen für diesen Agent vorhanden.",
       "restoreHint": "Klicken Sie auf eine Version, um ihren Inhalt in den Editor zu übernehmen (Speichern ist weiterhin nötig)."
-    }
+    },
+    "idLabel": "Agenten-ID"
   },
   "refine": {
     "eyebrow": "AI Edit",

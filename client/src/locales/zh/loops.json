@@ -146,7 +146,9 @@
       "name": "名称",
       "value": "值",
       "add": "添加",
-      "builtinBadge": "内置"
+      "builtinBadge": "内置",
+      "deleteConfirmTitle": "删除常量 {{name}}？",
+      "deleteConfirmBody": "常量由所有循环共享。仍引用此常量的步骤将无法再解析它。"
     },
     "paste": {
       "done_one": "已粘贴 {{count}} 个步骤",
@@ -193,7 +195,7 @@
       "tooDeep": "值的嵌套层级过深。",
       "pieces": {
         "prompt": "提示词",
-        "role-turn": "Agent step",
+        "role-turn": "智能体步骤",
         "decider": "决策",
         "condition": "条件",
         "verify": "验证",
@@ -209,8 +211,8 @@
         "implementation": "实现",
         "end": "结束",
         "assign": "设置变量",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "实现步骤",
+        "artifact-contract": "检查工件",
         "derive-change": "推导变更"
       },
       "groups": {
@@ -228,10 +230,17 @@
         "increment": "调整计数器"
       },
       "requiredContinue": "满足此条件时继续",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "使用工作流上下文执行为此步骤定义的任务。",
+      "legacyImplementation": "此步骤保留了早期版本的阶段。添加一个智能体步骤来定义你自己的步骤。对于内置循环，“恢复原始版本”会加载新的工作流。"
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "高级设置",
+    "nameLabel": "循环名称",
+    "unsaved": {
+      "title": "离开前保存更改吗？",
+      "body": "此循环有未保存的编辑。若放弃，这些编辑将会丢失。",
+      "save": "保存并离开",
+      "discard": "放弃更改"
+    }
   },
   "preview": {
     "steps": "步骤",
@@ -294,7 +303,7 @@
       "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。仅限 Claude。"
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
+      "name": "OpenSpec 生命周期",
       "description": "从 ticket 到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
     },
     "factory_revision": {
@@ -364,6 +373,6 @@
     }
   },
   "window": {
-    "open": "Open in window"
+    "open": "在窗口中打开"
   }
 }

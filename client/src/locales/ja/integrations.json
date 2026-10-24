@@ -85,7 +85,7 @@
       "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
       "readyCount_one": "{{count}} 件準備完了",
       "readyCount_other": "{{count}} 件準備完了",
-      "openWindow": "Open in window"
+      "openWindow": "ウィンドウで開く"
     },
     "search": {
       "placeholder": "プラグインを検索"
@@ -293,7 +293,8 @@
       "description": "このプロジェクトスコープのプラグインを設定するプロジェクトを選択してください。",
       "chooseProject": "プロジェクトを選択",
       "requiresClaudeProvider": "Claude プロバイダーが必要",
-      "selectProjectToContinue": "続行するプロジェクトを選択してください。"
+      "selectProjectToContinue": "続行するプロジェクトを選択してください。",
+      "requiresSupportedProvider": "Claude または Codex が必要です"
     },
     "serena": {
       "loading": "Serena を読み込み中…",
@@ -301,7 +302,8 @@
       "description": "プロジェクトローカルの MCP 設定とプラグイン状態をインストールします。他のプロジェクトは変更されません。",
       "status": "ステータス: {{status}}",
       "files": "ファイル",
-      "prerequisites": "前提条件"
+      "prerequisites": "前提条件",
+      "provider": "AI プロバイダー"
     },
     "projectStatus": {
       "installed": "インストール済み",
@@ -313,6 +315,13 @@
     "diagnostics": {
       "title": "Headroom 診断",
       "description": "Specrails 管理の Headroom インストールとプロキシの技術ステータス。"
+    },
+    "jira": {
+      "loading": "Jira を読み込み中…",
+      "titleForProject": "{{name}} の Jira",
+      "configuredDescription": "Jira プロジェクト、ステータスのマッピング、破棄ステータス、同期、接続状態を管理します。",
+      "loadFailed": "現在の Jira 設定を読み込めませんでした: {{message}}",
+      "notConfiguredDescription": "このプロジェクトを Jira に接続します。"
     }
   }
 }

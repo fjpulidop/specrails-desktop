@@ -47,7 +47,8 @@
     "regenerate": "重新生成",
     "regenerateConfirm": "重新生成访问令牌？任何使用旧令牌的客户端都将停止工作，直到你更新其配置。",
     "regenerated": "访问令牌已重新生成",
-    "regenerateFailed": "无法重新生成令牌：{{message}}"
+    "regenerateFailed": "无法重新生成令牌：{{message}}",
+    "regenerateConfirmTitle": "重新生成访问令牌？"
   },
   "tray": {
     "open": "打开",
@@ -93,6 +94,8 @@
       "unknown_provider": "激活矩阵中存在未知提供商",
       "invalid_entry": "服务器条目格式错误",
       "invalid_body": "请求格式错误"
-    }
+    },
+    "removeConfirmTitle": "移除 {{name}}？",
+    "removeConfirmBody": "任务代理将不再为任何提供商加载此服务器。已发现的服务器仍保留在你的 AI 提供商配置中，可以再次启用。"
   }
 }

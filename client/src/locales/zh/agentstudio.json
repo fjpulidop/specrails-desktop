@@ -59,7 +59,8 @@
       "header": "版本历史",
       "empty": "此 Agent 暂无历史版本记录。",
       "restoreHint": "点击某个版本可将其内容恢复到编辑器中（仍需手动保存）。"
-    }
+    },
+    "idLabel": "Agent ID"
   },
   "refine": {
     "eyebrow": "AI 编辑",

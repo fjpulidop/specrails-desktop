@@ -146,7 +146,9 @@
       "name": "名前",
       "value": "値",
       "add": "追加",
-      "builtinBadge": "組み込み"
+      "builtinBadge": "組み込み",
+      "deleteConfirmTitle": "定数 {{name}} を削除しますか?",
+      "deleteConfirmBody": "定数はすべてのループで共有されます。この定数を参照しているステップでは解決できなくなります。"
     },
     "paste": {
       "done_one": "{{count}} 個のステップを貼り付けました",
@@ -193,7 +195,7 @@
       "tooDeep": "値の階層が深すぎます。",
       "pieces": {
         "prompt": "プロンプト",
-        "role-turn": "Agent step",
+        "role-turn": "エージェントステップ",
         "decider": "判断",
         "condition": "条件",
         "verify": "検証",
@@ -209,8 +211,8 @@
         "implementation": "実装",
         "end": "終了",
         "assign": "変数を設定",
-        "implementation-step": "Implementation step",
-        "artifact-contract": "Artifact contract",
+        "implementation-step": "実装ステップ",
+        "artifact-contract": "アーティファクトを確認",
         "derive-change": "変更を導出"
       },
       "groups": {
@@ -228,10 +230,17 @@
         "increment": "カウンターを調整"
       },
       "requiredContinue": "この条件が成立する間は続行",
-      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
-      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+      "agentTaskDefault": "ワークフローのコンテキストを使って、このステップに定義されたタスクを実行してください。",
+      "legacyImplementation": "このステップには以前のバージョンのフェーズが残っています。独自のステップを定義するには、エージェントステップを追加してください。組み込みループでは、「元に戻す」で新しいワークフローを読み込みます。"
     },
-    "loopSettings": "Advanced settings"
+    "loopSettings": "詳細設定",
+    "nameLabel": "ループ名",
+    "unsaved": {
+      "title": "終了する前に変更を保存しますか?",
+      "body": "このループには未保存の編集があります。破棄すると失われます。",
+      "save": "保存して終了",
+      "discard": "変更を破棄"
+    }
   },
   "preview": {
     "steps": "ステップ",
@@ -294,7 +303,7 @@
       "description": "スペックをそのままモデルに渡して完全な自由を与えます — パイプラインなしで通常のコーディングエージェントのように動作し、その後グリーンになるまで検証+改善します。Claude 専用。"
     },
     "factory_openspec": {
-      "name": "OpenSpec Lifecycle",
+      "name": "OpenSpec ライフサイクル",
       "description": "チケットからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
     },
     "factory_revision": {
@@ -364,6 +373,6 @@
     }
   },
   "window": {
-    "open": "Open in window"
+    "open": "ウィンドウで開く"
   }
 }

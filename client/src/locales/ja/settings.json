@@ -101,7 +101,9 @@
     "infoHeading": "Desktop 情報",
     "infoPort": "ポート",
     "infoProjects": "プロジェクト",
-    "infoDb": "Desktop DB"
+    "infoDb": "Desktop DB",
+    "removeProjectConfirmTitle": "{{name}} を削除しますか？",
+    "removeProjectConfirmBody": "{{name}} の Specrails への登録が解除され、実行中の作業は停止します。ディスク上のリポジトリのファイルは削除されません。後でフォルダーを再度追加できます。"
   },
   "notifications": {
     "heading": "OS 通知",
@@ -136,7 +138,9 @@
     "removed": "Webhook を削除しました",
     "removeFailed": "Webhook の削除に失敗しました",
     "testPingSent": "テスト ping を送信しました",
-    "testPingFailed": "テスト ping の送信に失敗しました"
+    "testPingFailed": "テスト ping の送信に失敗しました",
+    "removeConfirmTitle": "Webhook を削除しますか？",
+    "removeConfirmBody": "{{url}} は Desktop のイベントを受信しなくなります。"
   },
   "terminal": {
     "title": "ターミナルパネル",
@@ -198,7 +202,8 @@
     "windowsFirewall": "初回有効化時に Windows ファイアウォールが SpecRails サーバーの許可を求めます — 「プライベートネットワークで許可」を選択してください。",
     "pairedDevices": "ペアリング済みデバイス",
     "noDevices": "ペアリングされたデバイスはまだありません。",
-    "revokeDevice": "{{name}} を無効化"
+    "revokeDevice": "{{name}} を無効化",
+    "resetConfirmTitle": "モバイル ID をリセットしますか？"
   },
   "pairWeb": {
     "title": "Web コンパニオンをペアリング",
@@ -286,7 +291,8 @@
       "telemetry": "テレメトリ",
       "terminal": "ターミナル",
       "agentRuntime": "検証コマンド",
-      "subagents": "サブエージェント"
+      "subagents": "サブエージェント",
+      "rules": "ルール"
     }
   },
   "integrationBranch": {

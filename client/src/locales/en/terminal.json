@@ -22,7 +22,9 @@
   "sidebar": {
     "rename": "Rename {{name}}",
     "close": "Close {{name}}",
-    "label": "Terminal sessions"
+    "label": "Terminal sessions",
+    "closeRunningConfirm": "Close “{{name}}” while a command is running?",
+    "closeRunningBody": "The running command will be stopped and its unsaved output lost."
   },
   "emptyState": {
     "noTerminals": "No terminals yet for this project.",

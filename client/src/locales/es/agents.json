@@ -33,7 +33,22 @@
       "noMatch": "Ninguna plantilla coincide con tus filtros.",
       "clearFilters": "Limpiar filtros",
       "openInStudio": "Abrir en el Studio →",
-      "tip": "Consejo: haz clic en una etiqueta de cualquier tarjeta para filtrar por ella."
+      "tip": "Consejo: haz clic en una etiqueta de cualquier tarjeta para filtrar por ella.",
+      "categories": {
+        "software-engineering": "Ingeniería de software",
+        "testing-qa": "Pruebas y QA",
+        "data-analytics": "Datos y analítica",
+        "security-compliance": "Seguridad y cumplimiento",
+        "product-design": "Producto y diseño",
+        "business-operations": "Negocio y operaciones",
+        "marketing-growth": "Marketing y crecimiento",
+        "science-research": "Ciencia e investigación",
+        "education": "Educación",
+        "health-medicine": "Salud y medicina",
+        "legal": "Legal",
+        "arts-creative": "Arte y creatividad",
+        "management-leadership": "Gestión y liderazgo"
+      }
     },
     "generate": {
       "title": "Generar un agente personalizado",
@@ -135,7 +150,8 @@
     },
     "sidebar": {
       "title": "Perfiles",
-      "teamDefault": "(por defecto del equipo)"
+      "teamDefault": "(por defecto del equipo)",
+      "new": "Nuevo perfil"
     },
     "editorFooter": {
       "fixValidationIssues": "Corrige los problemas de validación antes de guardar",

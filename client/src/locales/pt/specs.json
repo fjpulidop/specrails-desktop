@@ -10,7 +10,8 @@
     "emptyNoDoneLabelMatch": "Nenhuma spec concluída corresponde às etiquetas ativas",
     "emptyNoCompleted": "Ainda não há specs concluídas",
     "emptyNoStatusMatch": "Nenhuma spec corresponde ao estado selecionado",
-    "untitledSpec": "Spec sem título"
+    "untitledSpec": "Spec sem título",
+    "doneHeading": "Concluídas · {{count}}"
   },
   "status": {
     "todo": "Por fazer",

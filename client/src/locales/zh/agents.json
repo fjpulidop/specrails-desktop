@@ -33,7 +33,22 @@
       "noMatch": "没有符合筛选条件的模板。",
       "clearFilters": "清除筛选",
       "openInStudio": "在 Studio 中打开 →",
-      "tip": "提示：点击任意卡片上的标签即可按该标签筛选。"
+      "tip": "提示：点击任意卡片上的标签即可按该标签筛选。",
+      "categories": {
+        "software-engineering": "软件工程",
+        "testing-qa": "测试与 QA",
+        "data-analytics": "数据与分析",
+        "security-compliance": "安全与合规",
+        "product-design": "产品与设计",
+        "business-operations": "业务与运营",
+        "marketing-growth": "营销与增长",
+        "science-research": "科学与研究",
+        "education": "教育",
+        "health-medicine": "健康与医疗",
+        "legal": "法律",
+        "arts-creative": "艺术与创意",
+        "management-leadership": "管理与领导力"
+      }
     },
     "generate": {
       "title": "生成自定义 Agent",
@@ -135,7 +150,8 @@
     },
     "sidebar": {
       "title": "Profile",
-      "teamDefault": "（团队默认）"
+      "teamDefault": "（团队默认）",
+      "new": "新建 Profile"
     },
     "editorFooter": {
       "fixValidationIssues": "保存前请先修复校验问题",

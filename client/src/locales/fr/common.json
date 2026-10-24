@@ -33,7 +33,8 @@
     "expand": "Déplier",
     "collapse": "Replier",
     "viewAll": "Tout voir",
-    "learnMore": "En savoir plus"
+    "learnMore": "En savoir plus",
+    "clear": "Effacer"
   },
   "states": {
     "loading": "Chargement…",
@@ -131,7 +132,8 @@
     "workspacePath": "Dossiers de code",
     "workspaceHint": "Facultatif. Un dossier par ligne, absolu ou relatif au dépôt. Vide utilise le dossier du dépôt. Implement, Quick SDD et Freestyle vérifient chaque dossier indiqué.",
     "launchWorkspaces": "Dossiers pour cette exécution",
-    "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné."
+    "launchWorkspaceHint": "Les modifications et les tests sont limités à ces dossiers. Sélectionnez au moins un dossier pour chaque dépôt concerné.",
+    "advanced": "Configuration multi-dépôts"
   },
   "repositoryDelivery": {
     "building": "Implémentation en cours",
@@ -181,5 +183,6 @@
     "flowSpec": "Remise du Flow",
     "unknown": "Boucle",
     "title": "Boucle : {{name}}"
-  }
+  },
+  "estimated": "estimé"
 }
