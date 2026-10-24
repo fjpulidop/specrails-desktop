@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { render } from '../../../../test-utils'
+import { Dialog, DialogContent } from '../../../../components/ui/dialog'
 
 /** Matches a CostValue estimate (`~` + amount + sr-only "estimated"). */
 const estimatedCost = (amount: string) => (_content: string, el: Element | null) =>
@@ -64,6 +65,10 @@ const mockAnalyticsData = {
 }
 
 describe('DesktopAnalyticsPage', () => {
+  // Warm the module once: the first dynamic import pays the whole transform
+  // (page + dialog primitives) and can exceed a single test's 5 s budget.
+  beforeAll(async () => { await import('../DesktopAnalyticsPage') }, 30_000)
+
   beforeEach(() => {
     vi.clearAllMocks()
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -326,11 +331,34 @@ describe('DesktopAnalyticsPage', () => {
 
   // ── MED-10 · window label on the "Total cost" KPI ────────────────────────────
 
-  it('MED-10: shows the active window next to the Total cost KPI (default 7d)', async () => {
+  it('MED-10: states the active window once, in the header (default 7d)', async () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
     await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
-    expect(screen.getByTestId('kpi-window-label')).toHaveTextContent('Last 7 days')
+    expect(screen.getByTestId('analytics-window-label')).toHaveTextContent('Last 7 days')
+    // No per-card duplicate of the window.
+    expect(screen.queryByTestId('kpi-window-label')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
+  })
+
+  it('inside the analytics dialog, the visible heading is the DialogTitle (one string, no sr-only twin)', async () => {
+    const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
+    render(
+      <Dialog open>
+        <DialogContent size="workspace">
+          <DesktopAnalyticsPage inDialog />
+        </DialogContent>
+      </Dialog>,
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Desktop Analytics' })
+    await waitFor(() => expect(screen.getByText('Total Cost')).toBeInTheDocument())
+    // The accessible name comes from the one visible heading — no sr-only twin.
+    expect(screen.getAllByText('Desktop Analytics')).toHaveLength(1)
+    expect(screen.getByText('Desktop Analytics')).not.toHaveClass('sr-only')
+    expect(dialog).toHaveAccessibleDescription('Last 7 days')
+    expect(screen.getAllByText('Last 7 days')).toHaveLength(1)
+    // One close button, in the header row next to the period controls.
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1)
   })
 
   // ── MED-11 · app-level auto-refresh on real broadcasts ───────────────────────

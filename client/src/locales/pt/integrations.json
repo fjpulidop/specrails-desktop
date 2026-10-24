@@ -53,7 +53,7 @@
   },
   "docs": {
     "title": "Documentação",
-    "dialogDescription": "Consulte a documentação incluída do Specrails. Use a barra lateral para alternar entre guias.",
+    "dialogDescription": "O guia do usuário do Specrails incluído nesta versão.",
     "sidebarEmpty": "Ainda não há docs",
     "indexEmpty": "A documentação aparecerá aqui. O guia do utilizador é incluído na app em docs/guide/; adicione ficheiros Markdown em ~/.specrails/docs/guide/ para o personalizar.",
     "categoryEmpty": "Ainda não há documentos nesta categoria.",
@@ -65,7 +65,11 @@
     "loadError": "Não foi possível carregar este documento.",
     "loading": "Carregando a documentação…",
     "errorDetails": "Detalhes",
-    "navLabel": "Seções da documentação"
+    "navLabel": "Seções da documentação",
+    "guideCount_one": "{{count}} guia incluído nesta versão",
+    "guideCount_other": "{{count}} guias incluídos nesta versão",
+    "filterPlaceholder": "Filtrar guias",
+    "filterNoResults": "Nenhum guia corresponde a “{{query}}”."
   },
   "jiraCard": {
     "title": "Jira",

@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "主页"
-    }
+    },
+    "dialogTitle": "搜索任务、项目和作业",
+    "dialogDescription": "输入以筛选，然后按 Enter 打开高亮的结果。"
   },
   "toasts": {
     "queued": "{{name}} 已加入队列",

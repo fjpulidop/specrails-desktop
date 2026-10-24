@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } fro
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Command } from 'cmdk'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import {
   Search,
@@ -22,6 +23,8 @@ import { useDesktop } from '../hooks/useDesktop'
 import { getApiBase } from '../lib/api'
 import type { CommandInfo, JobSummary } from '../types'
 import { cn } from '../lib/utils'
+import { DIALOG_PANEL_CLASS, DIALOG_SCRIM_CLASS, DIALOG_SIZE_CLASS } from './ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../lib/layers'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
 import { useAgentChat } from '../features/missions/context/AgentChatContext'
@@ -279,13 +282,13 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                     </span>
                   )}
                   <span
-                    className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground"
+                    className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
                     title={absoluteTime(conversation.updated_at)}
                   >
                     {compactRelativeTime(conversation.updated_at)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 min-w-0 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
                   <span className="shrink-0">{projectName ?? t('palette.missions.home')}</span>
                   {row.snippet && (
                     <>
@@ -315,7 +318,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{project.name}</span>
             {project.id === activeProjectId && (
-              <span className="text-[11px] text-accent-primary font-medium">{t('palette.activeBadge')}</span>
+              <span className="text-xs text-accent-primary font-medium">{t('palette.activeBadge')}</span>
             )}
           </Command.Item>
         ))}
@@ -335,7 +338,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <div className="flex-1 min-w-0">
               <span className="truncate">{cmd.name}</span>
               {cmd.description && (
-                <span className="text-[11px] text-muted-foreground ml-2 truncate">{cmd.description}</span>
+                <span className="text-xs text-muted-foreground ml-2 truncate">{cmd.description}</span>
               )}
             </div>
           </Command.Item>
@@ -355,7 +358,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
             <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{job.command}</span>
             <span className={cn(
-              'text-[11px] font-medium',
+              'text-xs font-medium',
               job.status === 'completed' && 'text-accent-success',
               job.status === 'failed' && 'text-destructive',
               job.status === 'running' && 'text-accent-info',
@@ -384,14 +387,18 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       open={open}
       onOpenChange={setOpen}
       shouldFilter={false}
-      label={t('palette.label')}
-      className={cn(
-        'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]',
-        'border border-border/30 bg-popover shadow-2xl rounded-xl overflow-hidden',
-      )}
+      label={t('palette.dialogTitle')}
+      // cmdk renders a Radix dialog: style its Content as a standard `form`
+      // panel and its Overlay with the shared scrim. `!` beats the unlayered
+      // `[cmdk-overlay]` rule in globals.css (Tailwind utilities are layered).
+      overlayClassName={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.base, 'bg-scrim!')}
+      contentClassName={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.base, DIALOG_SIZE_CLASS.form)}
+      className="flex min-h-0 flex-col"
     >
-      {/* Visually hidden title for accessibility */}
-      <span className="sr-only">{t('palette.label')}</span>
+      {/* Radix Title/Description: the dialog's aria-labelledby/-describedby
+          resolve to real elements (cmdk's Content only sets aria-label). */}
+      <DialogPrimitive.Title className="sr-only">{t('palette.dialogTitle')}</DialogPrimitive.Title>
+      <DialogPrimitive.Description className="sr-only">{t('palette.dialogDescription')}</DialogPrimitive.Description>
 
       {/* Search input */}
       <div className="flex items-center gap-2 px-3 border-b border-border/30">
@@ -402,13 +409,13 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
           placeholder={uiMode === 'agent' ? t('palette.searchPlaceholderAgent') : t('palette.searchPlaceholder')}
           className="flex-1 h-11 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground font-mono">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs text-muted-foreground font-mono">
           esc
         </kbd>
       </div>
 
       {/* Results list — group order follows the UI mode (D6) */}
-      <Command.List className="max-h-80 overflow-y-auto p-2">
+      <Command.List className="max-h-80 overflow-y-auto p-2 [&_[cmdk-group-heading]]:text-xs!">
         <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
           {t('palette.noResults')}
         </Command.Empty>
@@ -416,7 +423,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       </Command.List>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <span><kbd className="font-mono">↑↓</kbd> {t('palette.footer.navigate')}</span>
           <span><kbd className="font-mono">↵</kbd> {t('palette.footer.select')}</span>

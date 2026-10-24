@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "Accueil"
-    }
+    },
+    "dialogTitle": "Rechercher des missions, projets et tâches",
+    "dialogDescription": "Tapez pour filtrer, puis appuyez sur Entrée pour ouvrir le résultat mis en évidence."
   },
   "toasts": {
     "queued": "{{name}} ajouté à la file",

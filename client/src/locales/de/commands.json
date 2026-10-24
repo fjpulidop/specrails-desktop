@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "Start"
-    }
+    },
+    "dialogTitle": "Missionen, Projekte und Jobs durchsuchen",
+    "dialogDescription": "Tippe zum Filtern und drücke die Eingabetaste, um das markierte Ergebnis zu öffnen."
   },
   "toasts": {
     "queued": "{{name}} eingereiht",

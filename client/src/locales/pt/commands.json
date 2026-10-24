@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "Início"
-    }
+    },
+    "dialogTitle": "Pesquisar missões, projetos e jobs",
+    "dialogDescription": "Digite para filtrar e pressione Enter para abrir o resultado destacado."
   },
   "toasts": {
     "queued": "{{name}} em fila",

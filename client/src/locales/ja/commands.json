@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "ホーム"
-    }
+    },
+    "dialogTitle": "ミッション、プロジェクト、ジョブを検索",
+    "dialogDescription": "入力して絞り込み、Enter キーで選択中の結果を開きます。"
   },
   "toasts": {
     "queued": "{{name}} をキューに追加しました",

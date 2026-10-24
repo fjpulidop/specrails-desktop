@@ -53,7 +53,7 @@
   },
   "docs": {
     "title": "文档",
-    "dialogDescription": "浏览捆绑的 Specrails 文档。使用侧边栏在指南间切换。",
+    "dialogDescription": "此版本随附的 Specrails 用户指南。",
     "sidebarEmpty": "暂无文档",
     "indexEmpty": "文档将在此处显示。用户指南随应用提供，位于 docs/guide/；将 Markdown 文件放在 ~/.specrails/docs/guide/ 下即可自定义。",
     "categoryEmpty": "此分类下暂无文档。",
@@ -65,7 +65,11 @@
     "loadError": "无法加载此文档。",
     "loading": "正在加载文档…",
     "errorDetails": "详细信息",
-    "navLabel": "文档章节"
+    "navLabel": "文档章节",
+    "guideCount_one": "此版本随附 {{count}} 篇指南",
+    "guideCount_other": "此版本随附 {{count}} 篇指南",
+    "filterPlaceholder": "筛选指南",
+    "filterNoResults": "没有与“{{query}}”匹配的指南。"
   },
   "jiraCard": {
     "title": "Jira",

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act, fireEvent } from '../test-utils'
+import { render, screen, waitFor, act, fireEvent, within } from '../test-utils'
 import App from '../App'
 import { openAppSettings } from '../lib/app-settings-events'
 
@@ -18,7 +18,7 @@ vi.mock('sonner', () => ({
     error: vi.fn(),
     success: vi.fn(),
   },
-  Toaster: () => null,
+  Toaster: ({ position }: { position?: string }) => <div data-testid="toaster" data-position={position} />,
 }))
 
 vi.mock('../lib/api', () => ({
@@ -144,4 +144,30 @@ it('opens the app settings modal on the section a feature page requests', async 
   act(() => openAppSettings('updates'))
   await waitFor(() => expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-open', 'true'))
   expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-section', 'updates')
+})
+
+
+it('Loops over a mission: standard header with a visible close, focus returns to the sidebar trigger, toasts move clear of the footer', async () => {
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+  localStorage.setItem('specrails-desktop:uiMode', 'agent')
+  const popup = vi.spyOn(window, 'open').mockReturnValue(null)
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
+    const trigger = await screen.findByRole('button', { name: 'Loops' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const modal = await screen.findByTestId('loops-modal')
+    expect(modal).toHaveAttribute('data-dialog-size', 'fullscreen')
+    // The visible heading is the dialog's accessible name.
+    expect(screen.getByRole('dialog', { name: 'Loops' })).toBe(modal)
+    // While a modal is open, toasts render top-right (never over its footer).
+    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'top-right'))
+    const closes = within(modal).getAllByRole('button', { name: 'Close' })
+    expect(closes).toHaveLength(1)
+    fireEvent.click(closes[0])
+    await waitFor(() => expect(screen.queryByTestId('loops-modal')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Loops' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right'))
+  } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
 })

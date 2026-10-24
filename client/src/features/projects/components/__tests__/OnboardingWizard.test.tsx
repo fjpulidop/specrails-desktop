@@ -222,6 +222,37 @@ describe('OnboardingWizard interactive steps (with providers)', () => {
   })
 })
 
+describe('OnboardingWizard — modal standard', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('opens with focus on the selected language option, never on Close', async () => {
+    render(
+      <LanguageProvider>
+        <OnboardingWizard open={true} onClose={vi.fn()} />
+      </LanguageProvider>,
+    )
+    await waitFor(() => {
+      const active = document.activeElement as HTMLElement | null
+      expect(active).toHaveAttribute('role', 'radio')
+      expect(active).toHaveAttribute('aria-checked', 'true')
+    })
+    expect(document.activeElement).not.toBe(screen.getByTestId('onboarding-close'))
+    // Enter on the initial focus must not dismiss the tour.
+    expect(hasSeenOnboarding()).toBe(false)
+  })
+
+  it('uses the shared scrim token and a 28px standard close button', () => {
+    render(<OnboardingWizard open={true} onClose={vi.fn()} />)
+    const scrim = document.querySelector('.modal-scrim')
+    expect(scrim).not.toBeNull()
+    expect(scrim!.className).toContain('bg-scrim')
+    expect(scrim!.className).not.toMatch(/bg-black\//)
+    const close = screen.getByTestId('onboarding-close')
+    expect(close).toHaveAccessibleName('Close')
+    expect(close.className).toContain('h-7')
+  })
+})
+
 describe('hasSeenOnboarding / resetOnboarding', () => {
   beforeEach(() => {
     localStorage.clear()

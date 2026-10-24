@@ -456,4 +456,20 @@ describe('CommandPalette', () => {
       expect(screen.getByText('close')).toBeInTheDocument()
     })
   })
+
+  // ─── Accessibility (modal standard) ────────────────────────────────────────
+
+  it('names the dialog via a real Radix title (aria-labelledby is non-empty)', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    const dialog = await screen.findByRole('dialog', { name: 'Search missions, projects and jobs' })
+    const labelledBy = dialog.getAttribute('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+    expect(document.getElementById(labelledBy!)).toHaveTextContent('Search missions, projects and jobs')
+    expect(dialog).toHaveAccessibleDescription(/press Enter to open the highlighted result/)
+    // Standard form-size panel on the shared scrim.
+    expect(dialog).toHaveClass('max-w-lg')
+    expect(document.querySelector('[cmdk-overlay]')).toHaveClass('modal-scrim')
+  })
 })

@@ -10,13 +10,13 @@ import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
-import { Puzzle, Workflow, X, Eye } from 'lucide-react'
+import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
 import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from './components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
@@ -89,36 +89,25 @@ import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/glo
 
 const STATUSBAR_HEIGHT_PX = 28
 
-function GlobalSurfaceDialogChrome({
-  surface,
-  onClose,
-}: {
-  surface: GlobalModalSurface
-  onClose: () => void
-}) {
+/**
+ * Standard dialog header for the full-screen global surfaces (Loops, Plugins,
+ * Review packet) shown over a mission: icon + DialogTitle + the visible close
+ * button that `DialogHeader` renders, with a screen-reader description.
+ */
+function GlobalSurfaceDialogHeader({ surface }: { surface: GlobalModalSurface }) {
   const { t } = useTranslation('nav')
   const title = surface === 'loops' ? t('arcSidebar.loops') : surface === 'review' ? t('arcSidebar.review') : t('arcSidebar.plugins')
+  const description = surface === 'loops'
+    ? t('globalSurfaceModal.loopsDescription')
+    : surface === 'review'
+      ? t('globalSurfaceModal.reviewDescription')
+      : t('globalSurfaceModal.pluginsDescription')
   const Icon = surface === 'loops' ? Workflow : surface === 'review' ? Eye : Puzzle
-
   return (
-    <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-popover/95 px-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent-primary/20 bg-accent-primary/10 text-accent-primary">
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-        <span className="truncate text-xs font-medium text-foreground">{title}</span>
-      </div>
-      <div className="flex shrink-0 items-center">
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-popover"
-          aria-label={t('common:actions.close')}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+    <DialogHeader icon={<Icon />}>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogDescription className="sr-only">{description}</DialogDescription>
+    </DialogHeader>
   )
 }
 
@@ -516,38 +505,43 @@ function DesktopApp() {
       <SettingsDialog initialSection={settingsSection} open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.analytics')}</DialogTitle>
-          <div className="flex-1 overflow-auto">
-            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-              <DesktopAnalyticsPage />
-            </Suspense>
-          </div>
+        <DialogContent size="workspace" data-testid="analytics-modal">
+          {/* The analytics page renders the standard header itself, so its
+              visible heading is the DialogTitle (one string, no sr-only twin). */}
+          <Suspense
+            fallback={(
+              <>
+                <DialogHeader>
+                  <DialogTitle>{t('analytics:desktop.title')}</DialogTitle>
+                  <DialogDescription className="sr-only">{t('states.loading')}</DialogDescription>
+                </DialogHeader>
+                <DialogBody><p className="text-sm text-muted-foreground">{t('states.loading')}</p></DialogBody>
+              </>
+            )}
+          >
+            <DesktopAnalyticsPage inDialog />
+          </Suspense>
         </DialogContent>
       </Dialog>
 
 
       <Dialog open={loopsOpen} onOpenChange={open => { if (!open) closeLoops() }}>
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="loops-modal">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.loops')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.loopsDescription')}</DialogDescription>
-          <GlobalSurfaceDialogChrome surface="loops" onClose={closeLoops} />
-          <div className="flex-1 min-h-0 overflow-auto">
+        <DialogContent size="fullscreen" data-testid="loops-modal">
+          <GlobalSurfaceDialogHeader surface="loops" />
+          <DialogBody className="p-0 overflow-auto">
             <Suspense fallback={null}>
               {loopBuilderId ? <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} onWindowOpened={closeLoops} />
                 : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} />}
             </Suspense>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
       <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="plugins-modal">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.pluginsDescription')}</DialogDescription>
-          <GlobalSurfaceDialogChrome surface="plugins" onClose={() => setPluginsOpen(false)} />
-          <div className="flex-1 min-h-0 overflow-auto">
+        <DialogContent size="fullscreen" data-testid="plugins-modal">
+          <GlobalSurfaceDialogHeader surface="plugins" />
+          <DialogBody className="p-0 overflow-auto">
             <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} /></Suspense>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -556,17 +550,13 @@ function DesktopApp() {
           mode has no routed dashboard to render). */}
       {FEATURE_REVIEW_PACKET && (
         <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) setReviewDeliveryId(null) }}>
-          <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="review-packet-modal">
-            <DialogTitle className="sr-only">{t('nav:arcSidebar.review')}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('nav:globalSurfaceModal.reviewDescription')}
-            </DialogDescription>
-            <GlobalSurfaceDialogChrome surface="review" onClose={() => setReviewDeliveryId(null)} />
-            <div className="flex-1 overflow-auto">
+          <DialogContent size="fullscreen" data-testid="review-packet-modal">
+            <GlobalSurfaceDialogHeader surface="review" />
+            <DialogBody className="p-0 overflow-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
                 {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={() => setReviewDeliveryId(null)} />}
               </Suspense>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -629,8 +619,50 @@ function ToastLoadingSpinner() {
   return <span aria-hidden style={{ display: 'none' }} />
 }
 
+// Any open modal surface: a standard `DialogContent` (carries
+// `data-dialog-size`), a raw-Radix modal on the shared scrim (`.modal-scrim`),
+// or a hand-rolled `aria-modal` dialog. Non-modal popovers (`role=dialog`
+// without aria-modal, e.g. Move to rail) do not count.
+const OPEN_MODAL_SELECTOR = [
+  '[data-dialog-size][data-state="open"]',
+  '.modal-scrim[data-state="open"]',
+  '[role="dialog"][aria-modal="true"]',
+].join(', ')
+
+/**
+ * True while any modal dialog is open. Toasts move to the top-right then, so
+ * they never cover a modal's sticky footer (Next / Save / Delete live at the
+ * bottom-right of every dialog).
+ */
+function useAnyModalDialogOpen(): boolean {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      setOpen(document.querySelector(OPEN_MODAL_SELECTOR) !== null)
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-state', 'aria-modal'],
+    })
+    check()
+    return () => {
+      observer.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [])
+  return open
+}
+
 function ThemedToaster() {
   const { theme } = useTheme()
+  const modalOpen = useAnyModalDialogOpen()
   const accent = theme.previewSwatches.accents[0]
   const success = theme.status.completed
   const danger = theme.status.failed
@@ -642,10 +674,12 @@ function ThemedToaster() {
   // body-portalled modal layers (Radix dialogs z-50, JobDetailModal z-[65],
   // TicketDetailModal z-[68], browser-capture z-[80]) no matter its own
   // z-index. At body level its max z-index wins over every modal — toasts are
-  // always on top.
+  // always on top (globals.css pins [data-sonner-toaster] above the toast
+  // layer, LAYERS.toast). While a modal is open they move to the top-right,
+  // clear of the dialog footer.
   return createPortal(
     <Toaster
-      position="bottom-right"
+      position={modalOpen ? 'top-right' : 'bottom-right'}
       className="specrails-toaster"
       theme={theme.scheme}
       gap={8}

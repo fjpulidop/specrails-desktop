@@ -35,7 +35,9 @@
     },
     "missions": {
       "home": "Home"
-    }
+    },
+    "dialogTitle": "Search missions, projects and jobs",
+    "dialogDescription": "Type to filter, then press Enter to open the highlighted result."
   },
   "toasts": {
     "queued": "{{name}} queued",

@@ -154,18 +154,18 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
               <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-border/30" />
               <XAxis
                 type="number" dataKey="x" name="turns"
-                tick={{ fontSize: 10 }} stroke="currentColor" className="text-muted-foreground"
-                label={{ value: t('scatter.turnsLabel'), position: 'insideBottomRight', offset: -2, fontSize: 10, fill: 'currentColor' }}
+                tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground"
+                label={{ value: t('scatter.turnsLabel'), position: 'insideBottomRight', offset: -2, fontSize: 12, fill: 'currentColor' }}
               />
               <YAxis
                 type="number" dataKey="y" name="cost"
-                tick={{ fontSize: 10 }} stroke="currentColor" className="text-muted-foreground"
+                tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground"
                 tickFormatter={(v: number) => formatUsd(v)}
               />
               <ZAxis range={[40, 80]} />
               <Tooltip
                 cursor={{ strokeDasharray: '3 3' }}
-                contentStyle={{ backgroundColor: 'var(--color-popover)', border: '1px solid var(--color-border)', color: 'var(--color-popover-foreground)', fontSize: 11, borderRadius: 6 }}
+                contentStyle={{ backgroundColor: 'var(--color-popover)', border: '1px solid var(--color-border)', color: 'var(--color-popover-foreground)', fontSize: 12, borderRadius: 6 }}
                 formatter={(value: unknown, name: unknown) => {
                   const n = String(name)
                   if (n === 'cost' && typeof value === 'number') return [formatUsd(value), t('scatter.costLabel')]

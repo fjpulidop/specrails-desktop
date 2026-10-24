@@ -3,6 +3,7 @@ import { SHORTCUTS, type Shortcut } from '../hooks/useKeyboardShortcuts'
 import { keyboardLabel } from '../lib/keyboard-label'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -56,7 +57,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent movableResizable className="max-w-md" data-testid="shortcuts-cheatsheet">
+      <DialogContent size="form" data-testid="shortcuts-cheatsheet">
         <DialogHeader>
           <DialogTitle>{t('shortcuts.title')}</DialogTitle>
           <DialogDescription>
@@ -66,7 +67,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
+        <DialogBody className="space-y-4">
           {grouped.map((group) => (
             <div key={group.category}>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-accent-primary mb-2">
@@ -79,7 +80,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
               </div>
             </div>
           ))}
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

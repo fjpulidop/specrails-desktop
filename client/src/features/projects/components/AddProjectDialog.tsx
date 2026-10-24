@@ -9,6 +9,7 @@ import { Input } from '../../../components/ui/input'
 const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -124,15 +125,12 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   if (step === 'choose') {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" />
-              {t('addProject.title')}
-            </DialogTitle>
+        <DialogContent size="form">
+          <DialogHeader icon={<FolderOpen />}>
+            <DialogTitle>{t('addProject.title')}</DialogTitle>
             <DialogDescription>{t('addProject.chooser.description')}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
+          <DialogBody className="grid grid-cols-2 gap-3">
             <button
               type="button"
               data-testid="chooser-existing"
@@ -141,7 +139,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             >
               <FolderGit2 className="h-5 w-5 text-accent-info" />
               <span className="text-sm font-medium">{t('addProject.chooser.existingTitle')}</span>
-              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.existingDescription')}</span>
+              <span className="text-xs text-muted-foreground">{t('addProject.chooser.existingDescription')}</span>
             </button>
             <button
               type="button"
@@ -151,9 +149,9 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             >
               <Sparkles className="h-5 w-5 text-accent-highlight" />
               <span className="text-sm font-medium">{t('addProject.chooser.newTitle')}</span>
-              <span className="text-[11px] text-muted-foreground">{t('addProject.chooser.newDescription')}</span>
+              <span className="text-xs text-muted-foreground">{t('addProject.chooser.newDescription')}</span>
             </button>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     )
@@ -161,21 +159,15 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        movableResizable
-        className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-x-hidden"
-        data-testid="existing-project-dialog"
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FolderOpen className="w-4 h-4" />
-            {t('addProject.title')}
-          </DialogTitle>
+      <DialogContent size="wide" data-testid="existing-project-dialog">
+        <DialogHeader icon={<FolderOpen />}>
+          <DialogTitle>{t('addProject.title')}</DialogTitle>
           <DialogDescription>
             {t('addProject.description')}
           </DialogDescription>
         </DialogHeader>
 
+        <DialogBody className="space-y-4 overflow-x-hidden">
         {noProviderAvailable && (
           <p className="text-xs text-destructive bg-destructive/10 rounded-md p-2">
             {t('addProject.noProviderDetected')}{' '}
@@ -199,7 +191,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
           onRefresh={prereqRecheck}
         />
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="add-project-path" className="text-xs font-medium">
               {t('addProject.pathLabel')} <span className="text-destructive">*</span>
@@ -241,7 +233,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                 </Button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t('addProject.pathHint')}
             </p>
           </div>
@@ -257,7 +249,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
               onChange={(e) => setProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleAdd() }}
             />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t('addProject.nameHint')}
             </p>
           </div>
@@ -300,13 +292,13 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
           </details>
 
         </div>
+        </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={resetAndClose} disabled={isAdding}>
+          <Button variant="ghost" onClick={resetAndClose} disabled={isAdding}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={handleAdd}
             disabled={isAdding || !projectPath.trim() || prereqsBlock || prereqLoading}
             title={prereqsBlock ? missingToolsLabel ?? undefined : undefined}

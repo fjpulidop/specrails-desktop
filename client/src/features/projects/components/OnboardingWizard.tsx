@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -35,11 +35,13 @@ import {
   Hammer,
   Wand2,
   Eye,
-  X,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
+import { DIALOG_PANEL_CLASS, DIALOG_SCRIM_CLASS, DialogCloseButton, DialogLayerProvider } from '../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
+import { modalOverlayStyle } from '../../../lib/modal-safe-area'
 import { LanguagePickerGrid } from '../../settings/components/pickers/LanguagePickerGrid'
 import { ThemePickerGrid } from '../../settings/components/pickers/ThemePickerGrid'
 import { COMPANION_WEB_URL } from '../../integrations/lib/companion'
@@ -106,7 +108,7 @@ const ACCENTS = {
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-[11px] text-foreground shadow-sm">
+    <kbd data-chip="" className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded border border-border/60 bg-card/80 font-mono text-[11px] text-foreground shadow-sm">
       {children}
     </kbd>
   )
@@ -319,7 +321,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                 { label: t('onboarding.flow.review'), cls: 'text-accent-secondary' },
               ]}
             />
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-xs text-muted-foreground">
               <Trans t={t} i18nKey="onboarding.welcome.flowCaption" components={b} />
             </p>
           </Callout>
@@ -400,7 +402,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                       { label: t('onboarding.flow.milestones'), cls: 'text-accent-secondary' },
                     ]}
                   />
-                  <p className="mt-2 text-[11px] text-muted-foreground">{t('onboarding.builder.flowCaption')}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('onboarding.builder.flowCaption')}</p>
                 </Callout>
                 <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
                   <Feature icon={<Wand2 className="w-4 h-4" />} label={t('onboarding.builder.cardsLabel')} accent={ACCENTS.primary}>
@@ -482,7 +484,7 @@ function buildSteps(t: TFunction): StepConfig[] {
                 { label: t('onboarding.flow.yourReview'), cls: 'text-accent-secondary' },
               ]}
             />
-            <p className="mt-2 text-[11px] text-muted-foreground">{t('onboarding.rails.flowCaption')}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('onboarding.rails.flowCaption')}</p>
           </Callout>
           <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
             <Feature icon={<GitBranch className="w-4 h-4" />} label={t('onboarding.rails.reviewLabel')} accent={ACCENTS.primary}>
@@ -650,6 +652,8 @@ interface OnboardingWizardProps {
 export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardProps) {
   const { t } = useTranslation('setup')
   const [step, setStep] = useState(0)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const nextRef = useRef<HTMLButtonElement>(null)
 
   const steps = useMemo(() => buildSteps(t), [t])
   const current = steps[step]
@@ -681,26 +685,31 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose() }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay style={modalOverlayStyle()} className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.base)} />
         <DialogPrimitive.Content
+          ref={contentRef}
           // Fixed height (not just max-h) so EVERY step is exactly the same size —
           // the dialog never resizes between steps, which keeps the footer's
-          // Back / Next / Skip buttons pinned in the same place. Wider + taller
-          // than before for a roomier tour; the per-step body scrolls internally
-          // when it overflows instead of growing the dialog.
-          className="fixed left-[50%] top-[50%] z-50 flex flex-col w-[calc(100vw-2rem)] max-w-5xl h-[min(88vh,820px)] translate-x-[-50%] translate-y-[-50%] overflow-hidden border border-border/30 bg-popover shadow-2xl sm:rounded-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          // Back / Next / Skip buttons pinned in the same place. The tour's
+          // two-pane geometry is product-specific (not a size token); the
+          // per-step body scrolls internally instead of growing the dialog.
+          className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.base, 'w-[calc(100vw-2rem)] max-w-5xl h-[min(88vh,820px)]')}
           data-testid="onboarding-wizard"
           aria-describedby="onboarding-description"
+          // Start on the step's primary choice — the selected language on
+          // step 1, otherwise Next — never on Close (Enter would end the tour).
+          onOpenAutoFocus={(e) => {
+            const root = contentRef.current
+            const target = root?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? nextRef.current
+            if (!target) return
+            e.preventDefault()
+            target.focus()
+          }}
         >
+          <DialogLayerProvider layer="base">
           {/* Accent bar */}
           <div className="h-1 w-full shrink-0 bg-accent-primary" />
-          <DialogPrimitive.Close
-            aria-label={t('common:actions.close')}
-            data-testid="onboarding-close"
-            className="absolute right-4 top-4 z-20 rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </DialogPrimitive.Close>
+          <DialogCloseButton data-testid="onboarding-close" className="absolute right-3 top-3 z-20" />
 
           <div className="flex min-h-0 flex-1">
             {/* ── Left step navigation ── */}
@@ -710,7 +719,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                   <span className="text-accent-primary">spec</span>
                   <span className="text-accent-secondary">rails</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
               </div>
               <ol className="space-y-0.5 min-h-0 overflow-y-auto">
                 {steps.map((s, i) => {
@@ -729,6 +738,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                         )}
                       >
                         <span
+                          data-chip=""
                           className={cn(
                             'grid place-items-center w-5 h-5 shrink-0 rounded-full text-[11px] font-bold border',
                             isActive
@@ -746,7 +756,7 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
                   )
                 })}
               </ol>
-              <div className="mt-auto px-2.5 pt-4 text-[11px] text-muted-foreground">
+              <div className="mt-auto px-2.5 pt-4 text-xs text-muted-foreground">
                 {t('onboarding.stepCount', { current: step + 1, total: steps.length })}
               </div>
             </nav>
@@ -789,22 +799,23 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
 
               {/* Footer */}
               <div className="flex items-center justify-end gap-2 border-t border-border/30 px-6 sm:px-7 py-3.5">
-                <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-muted-foreground mr-auto" data-testid="onboarding-skip">
+                <Button variant="ghost" onClick={handleClose} className="text-muted-foreground mr-auto" data-testid="onboarding-skip">
                   {t('onboarding.skipTour')}
                 </Button>
                 {!isFirst && (
-                  <Button variant="ghost" size="sm" onClick={handleBack} className="text-xs" data-testid="onboarding-back">
+                  <Button variant="ghost" onClick={handleBack} data-testid="onboarding-back">
                     <ArrowLeft className="w-3.5 h-3.5 mr-1" />
                     {t('common:actions.back')}
                   </Button>
                 )}
-                <Button size="sm" onClick={handleNext} className="text-xs" data-testid="onboarding-next">
+                <Button ref={nextRef} onClick={handleNext} data-testid="onboarding-next">
                   {isLast ? t('onboarding.getStarted') : t('common:actions.next')}
                   {!isLast && <ArrowRight className="w-3.5 h-3.5 ml-1" />}
                 </Button>
               </div>
             </div>
           </div>
+          </DialogLayerProvider>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
