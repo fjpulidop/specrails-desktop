@@ -8,7 +8,6 @@ import type { TicketStatus } from '../../../types'
 interface StatusConfig {
   dotClass: string
   textClass: string
-  borderClass: string
   /** i18n key (resolved with the `specs` namespace as default). */
   labelKey: string
   pulsing: boolean
@@ -18,42 +17,36 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
   draft: {
     dotClass: 'bg-accent-secondary/60',
     textClass: 'text-accent-secondary',
-    borderClass: 'border-l-[3px] border-dashed border-accent-secondary/50 pl-3',
     labelKey: 'common:status.draft',
     pulsing: false,
   },
   todo: {
     dotClass: 'bg-slate-500/70',
     textClass: 'text-muted-foreground',
-    borderClass: 'border-l-[3px] border-dashed border-slate-500/40 pl-3',
     labelKey: 'status.todo',
     pulsing: false,
   },
   in_progress: {
     dotClass: 'bg-blue-400 aurora-light:bg-accent-info',
     textClass: 'text-foreground font-semibold',
-    borderClass: 'border-l-[3px] border-solid border-blue-500 pl-3',
     labelKey: 'status.inProgress',
     pulsing: true,
   },
   on_review: {
     dotClass: 'bg-accent-warning/80',
     textClass: 'text-accent-warning',
-    borderClass: 'border-l-[3px] border-solid border-accent-warning/60 pl-3',
     labelKey: 'status.onReview',
     pulsing: false,
   },
   done: {
     dotClass: 'text-emerald-400 aurora-light:text-accent-success',
     textClass: 'text-emerald-400/80 aurora-light:text-accent-success',
-    borderClass: 'border-l-[3px] border-solid border-emerald-500 pl-3',
     labelKey: 'status.done',
     pulsing: false,
   },
   cancelled: {
     dotClass: 'text-red-400/60 aurora-light:text-destructive/70',
     textClass: 'text-muted-foreground/50',
-    borderClass: 'pl-3',
     labelKey: 'status.cancelled',
     pulsing: false,
   },
@@ -152,36 +145,5 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
       <TicketStatusDot status={status} />
       {t(cfg.labelKey)}
     </span>
-  )
-}
-
-// ─── TicketStatusRow ──────────────────────────────────────────────────────────
-
-/**
- * Wrapper div that applies the left-border visual treatment based on status.
- * Wrap list rows, grid cards, or post-its with this to get consistent
- * status styling across all view modes. Accepts any HTMLDivElement attributes,
- * so it can be used as a clickable row (role="button", tabIndex, onClick).
- *
- * @example
- * <TicketStatusRow status="in_progress" role="button" tabIndex={0} onClick={open}>
- *   <TicketTitle>My ticket</TicketTitle>
- * </TicketStatusRow>
- */
-export interface TicketStatusRowProps extends React.HTMLAttributes<HTMLDivElement> {
-  status: TicketStatus
-}
-
-export function TicketStatusRow({ status, className, children, ...props }: TicketStatusRowProps) {
-  const cfg = STATUS_CONFIG[status]
-
-  return (
-    <div
-      className={cn(cfg.borderClass, className)}
-      data-ticket-status={status}
-      {...props}
-    >
-      {children}
-    </div>
   )
 }

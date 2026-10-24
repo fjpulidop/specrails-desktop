@@ -134,7 +134,7 @@ export function SpecCard({
 
   const isDraft = ticket.status === 'draft'
   const isOnReview = ticket.status === 'on_review'
-  const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none'
+  const baseClass = 'relative flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors group touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/60'
   // No grab cursor when the card cannot actually be dragged.
   const cursorClass = jiggleMode || (isOnReview && !allowOnReviewDrag) ? '' : 'cursor-grab active:cursor-grabbing'
   const variantClass = isDraft
@@ -167,7 +167,16 @@ export function SpecCard({
       onPointerCancel={handlePointerUpOrLeave}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && !jiggleMode && onClick(ticket)}
+      // Enter opens the spec; other keys (Space to lift) reach dnd-kit's
+      // keyboard sensor, which this explicit onKeyDown would otherwise shadow.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          if (!jiggleMode) onClick(ticket)
+          return
+        }
+        if (!dragFrozen) listeners?.onKeyDown?.(e)
+      }}
     >
       <span className="text-[10px] font-mono text-foreground shrink-0">#{ticket.id}</span>
       <span className="flex-1 text-sm truncate text-foreground">{ticket.title}</span>
@@ -306,7 +315,7 @@ export function SpecCard({
           type="button"
           onClick={handleDelete}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors z-10"
+          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-md hover:bg-destructive/90 transition-colors z-10"
           title={t('card.deleteSpec', { id: ticket.id })}
           aria-label={t('card.deleteSpec', { id: ticket.id })}
           data-testid={`spec-card-delete-${ticket.id}`}

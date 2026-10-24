@@ -191,6 +191,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                   <button
                     type="button"
                     onClick={() => setLabels((prev) => prev.filter((l) => l !== label))}
+                    aria-label={t('fields.removeLabel', { label })}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <XCircle className="w-2.5 h-2.5" />

@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation, Trans } from 'react-i18next'
 import { Split, Zap, X } from 'lucide-react'
 
 import { Button } from '../../../../components/ui/button'
-import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '../../../../components/ui/dialog'
 
 export type SmashMode = 'simple' | 'full'
 
@@ -56,48 +54,36 @@ export function SmashConfirmModal({
 }: SmashConfirmModalProps) {
   const { t } = useTranslation('activity')
   const [mode, setMode] = useState<SmashMode>('simple')
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } =
-    useMovableResizableModal()
 
-  if (!open) return null
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      data-testid="smash-confirm-modal"
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(onCancel)} />
-      <div
-        ref={panelRef}
-        className="relative w-full max-w-lg m-4 rounded-xl glass-card border border-border/30 animate-in fade-in zoom-in-95 duration-150"
-        style={panelStyle}
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onCancel() }}>
+      <DialogContent
+        movableResizable
+        showCloseButton={false}
+        overlayClassName="z-[60]"
+        data-testid="smash-confirm-modal"
+        className="z-[60] block max-w-lg gap-0 rounded-xl border-border/30 p-0"
       >
         {/* Header */}
-        <div
-          {...headerHandleProps}
-          className={`flex items-start justify-between gap-3 px-5 py-4 border-b border-border/30 ${isFloating ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        >
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border/30">
           <div className="flex items-start gap-2 min-w-0">
             <Split className="w-5 h-5 text-accent-highlight shrink-0 mt-0.5" aria-hidden />
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">
+              <DialogTitle className="text-sm font-semibold text-foreground">
                 {t('smashModal.title')}
-              </h2>
-              <p className="text-[11px] text-muted-foreground truncate" title={ticketTitle}>
+              </DialogTitle>
+              <DialogDescription className="text-[11px] text-muted-foreground truncate" title={ticketTitle}>
                 {ticketTitle}
-              </p>
+              </DialogDescription>
             </div>
           </div>
-          <button
+          <DialogClose
             type="button"
-            onClick={onCancel}
             className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors shrink-0"
             aria-label={t('common:actions.close')}
           >
             <X className="w-4 h-4" />
-          </button>
+          </DialogClose>
         </div>
 
         {/* Re-SMASH warning */}
@@ -176,9 +162,7 @@ export function SmashConfirmModal({
             {submitting ? t('smashModal.starting') : isReSmash ? t('smashModal.confirmReSmash') : t('smashModal.smash')}
           </Button>
         </div>
-      </div>
-      <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   )
 }

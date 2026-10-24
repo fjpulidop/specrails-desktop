@@ -207,11 +207,16 @@ export function TicketPostitCard({
         onPointerCancel={handlePointerUpOrLeave}
         role="button"
         tabIndex={0}
+        // Enter opens the spec; every other key (Space to lift, arrows to
+        // move) goes to dnd-kit's keyboard sensor, which the explicit
+        // onKeyDown would otherwise shadow.
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === 'Enter') {
             e.preventDefault()
-            handleCardClick(e as unknown as React.MouseEvent)
+            if (!jiggleMode) onClick(ticket)
+            return
           }
+          listeners?.onKeyDown?.(e)
         }}
         data-ticket-id={ticket.id}
         data-tier="postit"

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react'
 import React from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReviewPacket, ReviewPacketResponse } from '../../../../types'
@@ -104,6 +104,13 @@ function renderPage(entry = '/review/del-1') {
       </Routes>
     </MemoryRouter>,
   )
+}
+
+/** Discard is destructive: it asks first, then runs through the confirm. */
+async function discardThroughConfirm() {
+  fireEvent.click(await screen.findByTestId('packet-discard'))
+  const dialog = await screen.findByRole('dialog')
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Throw this away' }))
 }
 
 // The stubbed fetch is GLOBAL: without restoring it, a later test file sharing
@@ -344,7 +351,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 409, ok: false, error: 'stale_decision' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('Someone already answered this.')).toBeInTheDocument()
   })
 
@@ -352,7 +359,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 502, ok: false, error: 'gh failed' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('That action did not go through.')).toBeInTheDocument()
     expect(mockNotifyGitChanged).not.toHaveBeenCalled()
   })
@@ -361,7 +368,7 @@ describe('ReviewPacketPage — decision verbs', () => {
     respond({})
     mockAct.mockResolvedValue({ status: 409, ok: false, error: 'delivery_not_verified' })
     renderPage()
-    fireEvent.click(await screen.findByTestId('packet-discard'))
+    await discardThroughConfirm()
     expect(await screen.findByText('That action did not go through.')).toBeInTheDocument()
     expect(screen.queryByText('Someone already answered this.')).not.toBeInTheDocument()
   })
@@ -383,6 +390,17 @@ describe('ReviewPacketPage — decision verbs', () => {
     renderPage()
     expect(await screen.findByText('Still working on this…')).toBeInTheDocument()
     expect(screen.queryByTestId('packet-accept')).not.toBeInTheDocument()
+  })
+
+  it('asks before discarding and does nothing when the user backs out', async () => {
+    respond({})
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-discard'))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(mockAct).not.toHaveBeenCalled()
   })
 
   it('offers acknowledge-not-discard on a nothing-changed delivery', async () => {

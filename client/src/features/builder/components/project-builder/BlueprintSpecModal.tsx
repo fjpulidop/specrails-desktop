@@ -1,19 +1,18 @@
-import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CheckCircle2, FileText, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../../components/ui/dialog'
 import type { BlueprintM1Spec, BlueprintSpecPriority } from '../../lib/blueprint-draft'
 
 // Read-only preview of ONE blueprint spec (reskin follow-up). At day 0 the M1
 // specs are NOT tickets yet — they live only in the blueprint snapshot — so
 // this is a lightweight markdown preview, not the heavy TicketDetailModal.
 //
-// Hand-rolled portal (NOT ui/dialog): it must layer ABOVE the floating agent
-// panel (z-[60]/[61]) — same tier + pattern as LoopPreviewModal: portal to
-// document.body at z-[65], below the MinimizedChatsDock (z-[70]).
+// Built on ui/dialog (focus trap, Escape, dialog semantics) but raised to
+// z-[65]: it must layer ABOVE the floating agent panel (z-[60]/[61]) and stay
+// below the MinimizedChatsDock (z-[70]).
 
 // Token-based markdown prose (mirrors AgentMessage's MD — theme-safe, no
 // prose-invert). Renders the spec's five-section description cleanly.
@@ -52,26 +51,16 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
   const { t: tTickets } = useTranslation('tickets')
   const summaryId = `blueprint-spec-summary-${index}`
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const hasSummary = spec.shortSummary.trim().length > 0
 
-  return createPortal(
-    <div data-testid="blueprint-spec-modal" className="fixed inset-0 z-[65] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={spec.title}
-        aria-describedby={spec.shortSummary.trim() ? summaryId : undefined}
-        className="relative flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border/40 bg-popover shadow-2xl backdrop-blur-md"
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
+        data-testid="blueprint-spec-modal"
+        showCloseButton={false}
+        overlayClassName="z-[65]"
+        aria-describedby={hasSummary ? summaryId : undefined}
+        className="z-[65] flex max-h-[82vh] max-w-2xl flex-col gap-0 overflow-hidden rounded-xl border-border/40 p-0 shadow-2xl"
       >
         <div className="flex items-start gap-3 border-b border-border/40 px-5 py-4">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" />
@@ -79,12 +68,12 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               {t('specModal.eyebrow', { milestone: milestoneLabel, index: index + 1 })}
             </p>
-            <h2 className="mt-0.5 text-base font-semibold text-foreground">{spec.title}</h2>
-            {spec.shortSummary.trim() && (
-              <p id={summaryId} className="mt-1 text-xs leading-5 text-muted-foreground" data-testid="blueprint-spec-summary">
+            <DialogTitle className="mt-0.5 text-base font-semibold text-foreground">{spec.title}</DialogTitle>
+            {hasSummary && (
+              <DialogDescription id={summaryId} className="mt-1 text-xs leading-5 text-muted-foreground" data-testid="blueprint-spec-summary">
                 <span className="sr-only">{t('specModal.summary')}: </span>
                 {spec.shortSummary}
-              </p>
+              </DialogDescription>
             )}
             <div className="mt-1.5 flex flex-wrap gap-1">
               <span
@@ -160,8 +149,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
             )}
           </section>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   )
 }

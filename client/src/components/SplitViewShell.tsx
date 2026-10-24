@@ -1,6 +1,7 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { TicketDetailModal } from '../features/specs/components/TicketDetailModal'
 import { SpecComparePicker } from '../features/specs/components/SpecComparePicker'
 import type { LocalTicket } from '../types'
@@ -49,6 +50,7 @@ export function SplitViewShell({
   onSetRatio,
   onExitSplit: _onExitSplit,
 }: SplitViewShellProps) {
+  const { t } = useTranslation('tickets')
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; element: HTMLElement } | null>(null)
   const [animating, setAnimating] = useState(true)
@@ -166,6 +168,20 @@ export function SplitViewShell({
     )
   }
 
+  // Escape anywhere in the shell closes both panels — except while typing
+  // (the panels' inline editors own Escape to cancel an edit) and for portal
+  // content such as a nested confirm dialog, which handles its own Escape.
+  const handleShellKey = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const target = e.target as HTMLElement
+      if (!containerRef.current?.contains(target)) return
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return
+      onCloseAll()
+    },
+    [onCloseAll],
+  )
+
   const leftPct = (state.splitRatio * 100).toFixed(2)
   const rightPct = ((1 - state.splitRatio) * 100).toFixed(2)
 
@@ -173,9 +189,13 @@ export function SplitViewShell({
     <div
       ref={containerRef}
       data-testid="split-view-shell"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('split.label')}
       style={modalOverlayStyle()}
       className="fixed inset-0 z-[68] flex"
       onClick={handleBackdropClick}
+      onKeyDown={handleShellKey}
     >
       <div className="absolute inset-0 bg-black/70 pointer-events-none" aria-hidden />
       <div
@@ -205,6 +225,7 @@ export function SplitViewShell({
           data-testid="split-divider"
           role="separator"
           aria-orientation="vertical"
+          aria-label={t('split.resize')}
           aria-valuenow={Math.round(state.splitRatio * 100)}
           aria-valuemin={Math.round(MIN_RATIO * 100)}
           aria-valuemax={Math.round(MAX_RATIO * 100)}

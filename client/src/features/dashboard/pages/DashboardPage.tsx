@@ -1549,7 +1549,7 @@ export default function DashboardPage() {
   const activeTicket = activeId !== null ? ticketMap.get(activeId) : undefined
 
   const dashboardContainerRef = useRef<HTMLDivElement | null>(null)
-  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault } = useDashboardSplit(activeProjectId, dashboardContainerRef)
+  const { leftWidth, enabled: splitterEnabled, beginDrag, resetToDefault, nudge: nudgeSplit } = useDashboardSplit(activeProjectId, dashboardContainerRef)
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
 
   return (
@@ -1573,7 +1573,9 @@ export default function DashboardPage() {
             onRetry={() => { void refetch() }}
             onTicketClick={setDetailTicket}
             onTicketCreated={(ticket) => { setDetailTicket(ticket); refetch() }}
-            onTicketDelete={(id) => deleteTicket(id)}
+            onTicketDelete={(id) => {
+              void Promise.resolve(deleteTicket(id)).then((ok) => { if (!ok) toast.error(t('errors.deleteFailed')) })
+            }}
             onTicketStatusChange={(id, status) => { void updateTicketStatus(id, status) }}
             onTicketPriorityChange={(id, priority) => { void updateTicketPriority(id, priority) }}
             contractRefiningIds={contractRefiningIds}
@@ -1595,6 +1597,7 @@ export default function DashboardPage() {
             viewport={viewportWidth}
             onPointerDown={beginDrag}
             onReset={resetToDefault}
+            onNudge={nudgeSplit}
           />
         )}
 

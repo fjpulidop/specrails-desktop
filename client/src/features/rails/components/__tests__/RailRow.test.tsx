@@ -104,14 +104,10 @@ describe('RailRow', () => {
 
   it('delete button calls onDelete in jiggle mode', () => {
     const onDelete = vi.fn()
-    const { container } = renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
-    // Jiggle delete button has only a Trash2 icon, no text — find by svg
-    const svgs = container.querySelectorAll('button svg')
-    const deleteBtn = Array.from(svgs).map(s => s.closest('button')!).find(
-      b => b.classList.contains('bg-red-500')
-    )
-    expect(deleteBtn).toBeDefined()
-    fireEvent.click(deleteBtn!)
+    renderRailRow({ ...defaultProps, jiggleMode: true, onDelete })
+    // The icon-only jiggle delete is named for assistive tech.
+    const deleteBtn = screen.getByRole('button', { name: /^delete /i })
+    fireEvent.click(deleteBtn)
     expect(onDelete).toHaveBeenCalled()
   })
 

@@ -312,7 +312,7 @@ export function MilestoneGenerateShell({
               placeholder={t('milestone.inputPlaceholder')}
               className="min-h-[2.5rem] flex-1 resize-none rounded-md border border-border/40 bg-surface/50 px-3 py-2 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId}>
+            <Button size="sm" onClick={() => send(input)} disabled={busy || !input.trim() || !conversationId} aria-label={t('milestone.send')}>
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
           </div>

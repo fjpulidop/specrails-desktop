@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { FileText, Plus, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { SpecCard } from './SpecCard'
 import { TicketPostitCard } from './TicketPostitCard'
 import { TicketContextMenu } from './TicketContextMenu'
@@ -202,12 +203,16 @@ export function SpecsBoard({
     if (jiggleMode) setJiggleMode(false)
   }, [jiggleMode])
   const enterJiggle = useCallback(() => setJiggleMode(true), [])
-  const handleCardDelete = useCallback(
-    (t: LocalTicket) => {
-      if (onTicketDelete) onTicketDelete(t.id)
-    },
-    [onTicketDelete],
-  )
+  const { t: tTickets } = useTranslation('tickets')
+  // Jiggle-mode delete asks first, reusing the context-menu delete copy.
+  const [pendingDelete, setPendingDelete] = useState<LocalTicket | null>(null)
+  const handleCardDelete = useCallback((ticket: LocalTicket) => {
+    if (onTicketDelete) setPendingDelete(ticket)
+  }, [onTicketDelete])
+  const confirmCardDelete = useCallback(() => {
+    if (pendingDelete && onTicketDelete) onTicketDelete(pendingDelete.id)
+    setPendingDelete(null)
+  }, [pendingDelete, onTicketDelete])
   const [proposeOpen, setProposeOpen] = useState(false)
   const [explore, setExplore] = useState<ExploreState | null>(null)
   const { activeProjectId } = useDesktop()
@@ -686,7 +691,7 @@ export function SpecsBoard({
                 <p className="text-sm">
                   {isOver
                     ? t('board.dropHere')
-                    : tickets.length === 0
+                    : tickets.length + doneTickets.length === 0
                       ? t('board.emptyNoSpecs')
                       : filteredTickets.length === 0 && activeLabels.size > 0
                         ? t('board.emptyNoLabelMatch')
@@ -694,7 +699,7 @@ export function SpecsBoard({
                           ? t('board.emptyNoStatusMatch')
                           : t('board.emptyNoActiveSpecs')}
                 </p>
-                {!isOver && tickets.length === 0 && (
+                {!isOver && tickets.length + doneTickets.length === 0 && (
                   <p className="text-xs mt-1 opacity-60">{t('board.emptyHint')}</p>
                 )}
               </div>
@@ -778,8 +783,14 @@ export function SpecsBoard({
               isDoneOver ? 'bg-emerald-500/[0.04] aurora-light:bg-accent-success/10' : ''
             } ${showTodoBucket ? 'border-t border-border/30 mt-1' : ''}`}
           >
-            {/* No per-Done header: the Done CHIP labels this bucket and the board
-                toolbar's sort + list/postit toggle now drive it too. */}
+            {/* In the All view the Done bucket sits under the active list, so
+                it carries a small count header; the Done-only view is labelled
+                by its chip. */}
+            {statusFilter === 'all' && (
+              <p className="text-xs font-medium text-muted-foreground px-1 pb-1">
+                {t('board.doneHeading', { count: visibleDoneTickets.length })}
+              </p>
+            )}
             {visibleDoneTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
                 <CheckCircle2 className="w-6 h-6 mb-2 opacity-15" />
@@ -855,6 +866,25 @@ export function SpecsBoard({
             )}
           </div>
         )}
+      </div>
+
+      {/* Portal clicks bubble through the React tree: keep them from
+          reaching the board's background handler (which exits jiggle mode). */}
+      <div className="contents" onClick={(e) => e.stopPropagation()}>
+        <ConfirmDialog
+          open={pendingDelete !== null}
+          onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
+          title={tTickets('deleteDialog.title')}
+          description={pendingDelete ? (
+            <Trans
+              t={tTickets}
+              i18nKey="deleteDialog.body"
+              values={{ id: pendingDelete.id, title: pendingDelete.title }}
+              components={{ strong: <span className="font-semibold text-foreground" /> }}
+            />
+          ) : null}
+          onConfirm={confirmCardDelete}
+        />
       </div>
 
       <ProposeSpecModal

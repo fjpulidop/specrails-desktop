@@ -4,7 +4,7 @@
  */
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../test-utils'
 import JobsPage from '../../features/jobs/pages/JobsPage'
 
 vi.mock('../../hooks/useSharedWebSocket', () => ({
@@ -252,6 +252,14 @@ describe('JobsPage - proposal dialog content', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
 
+    // The detail dialog's Delete routes through a confirmation first.
+    const confirm = await screen.findByRole('dialog', { name: 'Delete proposal?' })
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/propose/prop-1'),
+      expect.objectContaining({ method: 'DELETE' })
+    )
+    fireEvent.click(within(confirm).getByRole('button', { name: /^delete$/i }))
+
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/propose/prop-1'),
@@ -261,6 +269,32 @@ describe('JobsPage - proposal dialog content', () => {
       expect(mockRefreshProposals).toHaveBeenCalledTimes(1)
       expect(mockRefreshJobs).not.toHaveBeenCalled()
     })
+  })
+
+  it('toasts proposalDeleteFailed when the confirmed DELETE is rejected', async () => {
+    const { toast } = await import('sonner')
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          proposal: {
+            id: 'prop-1', idea: 'Build amazing feature', status: 'created',
+            result_markdown: null, issue_url: null, created_at: '2024-01-01T00:00:00Z',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+
+    render(<JobsPage />)
+    await openProposalDialog()
+    fireEvent.click(await screen.findByRole('button', { name: /^delete$/i }))
+    const confirm = await screen.findByRole('dialog', { name: 'Delete proposal?' })
+    fireEvent.click(within(confirm).getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Couldn't delete the proposal. Try again.")
+    })
+    expect(mockRefreshProposals).not.toHaveBeenCalled()
   })
 
   it('shows status badge in proposal dialog', async () => {

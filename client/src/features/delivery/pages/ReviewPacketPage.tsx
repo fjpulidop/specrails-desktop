@@ -21,6 +21,8 @@ import {
   CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, SendHorizontal, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
+import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
@@ -159,6 +161,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const error = currentLoaded?.error ?? null
   const [pending, setPending] = useState<PacketVerb | null>(null)
   const [confirmIrreversible, setConfirmIrreversible] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [revisionNote, setRevisionNote] = useState('')
   const [revising, setRevising] = useState(false)
@@ -433,15 +436,16 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <div className="flex w-full flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                   <p className="text-xs text-foreground">{t('accept.irreversibleWarning')}</p>
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="destructive"
                       onClick={() => void runVerb('accept')}
                       disabled={operationBusy}
-                      className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      className="text-sm"
                       data-testid="packet-accept-confirm"
                     >
                       {t('accept.irreversibleConfirm')}
-                    </button>
+                    </Button>
                     <button
                       type="button"
                       onClick={() => setConfirmIrreversible(false)}
@@ -452,19 +456,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   </div>
                 </div>
               ) : (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     if (verbs.requiresIrreversibleConfirm) setConfirmIrreversible(true)
                     else void runVerb('accept')
                   }}
                   disabled={operationBusy}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-accent-success px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  className="gap-1.5 text-sm bg-accent-success text-background hover:bg-accent-success/90"
                   data-testid="packet-accept"
                 >
                   {pending === 'accept' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
                   {t(`accept.${verbs.acceptMeaning ?? 'generic'}`)}
-                </button>
+                </Button>
               )
             ) : null}
 
@@ -485,7 +489,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             {verbs.verbs.includes('discard') ? (
               <button
                 type="button"
-                onClick={() => void runVerb('discard')}
+                onClick={() => setConfirmDiscard(true)}
                 disabled={operationBusy}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface disabled:opacity-50"
                 data-testid="packet-discard"
@@ -506,6 +510,24 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           <p className="mt-3 text-xs text-accent-warning">{t(`error.${actionError}`)}</p>
         ) : null}
 
+        <ConfirmDialog
+          open={confirmDiscard}
+          onOpenChange={setConfirmDiscard}
+          title={t('discard.confirmTitle')}
+          description={
+            <>
+              {t('discard.confirmBody')}
+              {isStackedHead ? <span className="mt-2 block">{t('discard.stackedNote')}</span> : null}
+            </>
+          }
+          confirmLabel={t('discard.label')}
+          busy={operationBusy}
+          onConfirm={() => {
+            setConfirmDiscard(false)
+            void runVerb('discard')
+          }}
+        />
+
         {askingChanges ? (
           <div className="mt-4 flex flex-col gap-2 rounded-md border border-border/70 bg-background-deep/40 p-3">
             <label htmlFor="packet-revision-note" className="text-xs font-medium text-foreground">
@@ -521,16 +543,17 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               data-testid="packet-revision-input"
             />
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={() => void submitRevision()}
                 disabled={operationBusy || revisionNote.trim().length === 0}
-                className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="gap-1.5 text-sm"
                 data-testid="packet-revision-submit"
               >
                 {revising ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SendHorizontal className="size-4" aria-hidden />}
                 {t('requestChanges.submit')}
-              </button>
+              </Button>
               {/* No duration promise: nothing measured yet for revision runs. */}
               <span className="text-[11px] text-muted-foreground">{t('requestChanges.hint')}</span>
             </div>

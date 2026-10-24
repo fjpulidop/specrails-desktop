@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, act, within } from '../../../../test-utils'
 import { SpecsBoard } from '../SpecsBoard'
 import type { LocalTicket } from '../../../../types'
 
@@ -251,5 +251,46 @@ describe('SpecsBoard', () => {
     )
     fireEvent.click(screen.getByLabelText('Toggle sort direction'))
     expect(onSortChange).toHaveBeenCalledWith('ticket-id', 'asc')
+  })
+
+  it('does not show the "No specs yet" hint when only done specs exist', () => {
+    render(
+      <SpecsBoard
+        tickets={[]}
+        doneTickets={[makeTicket({ id: 9, title: 'Shipped', status: 'done' })]}
+        isLoading={false}
+        onTicketClick={onTicketClick}
+      />,
+      { route: '/?status=all' },
+    )
+    expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Click "\+ Add" to get started/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Done · 1')).toBeInTheDocument()
+  })
+
+  it('asks before deleting from jiggle mode', () => {
+    vi.useFakeTimers()
+    try {
+      const onTicketDelete = vi.fn()
+      const { container } = render(
+        <SpecsBoard
+          tickets={[makeTicket({ id: 1, title: 'Doomed' })]}
+          isLoading={false}
+          onTicketClick={onTicketClick}
+          onTicketDelete={onTicketDelete}
+        />,
+      )
+      const card = container.querySelector('[data-ticket-id="1"]') as HTMLElement
+      fireEvent.pointerDown(card)
+      act(() => { vi.advanceTimersByTime(800) })
+      fireEvent.click(screen.getByTestId('spec-card-delete-1'))
+      expect(onTicketDelete).not.toHaveBeenCalled()
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toHaveTextContent('Doomed')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+      expect(onTicketDelete).toHaveBeenCalledWith(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -46,7 +46,7 @@ const STATUS_PILL: Record<SpecAddendumStatus, string> = {
   dismissed: 'border-border bg-muted/30 text-muted-foreground',
 }
 
-const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs'
+const MARKDOWN_CLASS = 'prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-xs prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs'
 
 interface FormState { kind: SpecAddendumKind; title: string; body: string }
 const EMPTY_FORM: FormState = { kind: 'change-request', title: '', body: '' }

@@ -305,16 +305,16 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
   // ── shared bits ─────────────────────────────────────────────────────────────
   const pillBase = `inline-flex items-center gap-1 rounded-full font-medium border ${
-    compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
   }`
-  const primaryBtn = `inline-flex items-center gap-1 rounded-md font-medium bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+  const primaryBtn = `inline-flex items-center gap-1 rounded-md font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
+    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
   }`
   const secondaryBtn = `inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
   }`
   const ghostBtn = `inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
-    compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+    compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />

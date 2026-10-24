@@ -87,11 +87,11 @@ export function TargetPrLaunchDialog({ open, target, onConfirm, onCancel }: Prop
           </Button>
           <Button
             ref={confirmRef}
-            className="h-9 gap-2 bg-accent-info text-white hover:bg-accent-info/85 focus-visible:ring-accent-info"
+            className="h-9 gap-2 bg-accent-info text-background hover:bg-accent-info/85 focus-visible:ring-accent-info"
             onClick={onConfirm}
           >
             {t('targetPr.confirmLaunch', { number: target.number })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-[11px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

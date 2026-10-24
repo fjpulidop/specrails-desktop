@@ -1,5 +1,5 @@
 import { modalOverlayStyle } from '../../../lib/modal-safe-area'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, useId } from 'react'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -63,10 +63,10 @@ const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
 }
 
 const PRIORITY_OPTIONS: { value: TicketPriority; labelKey: string; className: string }[] = [
-  { value: 'critical', labelKey: 'priority.critical', className: 'text-red-400' },
-  { value: 'high', labelKey: 'priority.high', className: 'text-orange-400' },
-  { value: 'medium', labelKey: 'priority.medium', className: 'text-yellow-400' },
-  { value: 'low', labelKey: 'priority.low', className: 'text-slate-400' },
+  { value: 'critical', labelKey: 'priority.critical', className: 'text-destructive' },
+  { value: 'high', labelKey: 'priority.high', className: 'text-accent-warning' },
+  { value: 'medium', labelKey: 'priority.medium', className: 'text-accent-highlight' },
+  { value: 'low', labelKey: 'priority.low', className: 'text-muted-foreground' },
 ]
 
 /** Browser URL of a spec's parent Jira epic, derived from the issue's jira_url. */
@@ -417,6 +417,8 @@ export function TicketDetailModal({
   }, [canDrag, enterSplit, splitState.leftId, ticket.id, onClose])
 
   // ─── Resize-only floating (header stays the split gesture) ──────────────────
+  // Unique per instance: the split view renders two of these side by side.
+  const titleId = `ticket-detail-title-${useId()}`
   const { panelRef, panelStyle, resizeHandles, guardBackdrop } = useMovableResizableModal({
     enabled: !embedded,
     allowMove: false,
@@ -427,6 +429,11 @@ export function TicketDetailModal({
     <>
       <div
         ref={panelRef}
+        // Standalone it is the dialog; embedded in the split view the shell is
+        // the dialog and each pane is a labelled region.
+        role={embedded ? 'region' : 'dialog'}
+        aria-modal={embedded ? undefined : 'true'}
+        aria-labelledby={titleId}
         className={
           embedded
             ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
@@ -475,7 +482,7 @@ export function TicketDetailModal({
                 onClick={() => setEditingTitle(true)}
                 className="group flex items-center gap-1.5 text-left w-full"
               >
-                <h2 className="text-sm font-semibold text-foreground truncate">{title || t('untitled')}</h2>
+                <h2 id={titleId} className="text-sm font-semibold text-foreground truncate">{title || t('untitled')}</h2>
                 <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </button>
             )}
@@ -539,7 +546,9 @@ export function TicketDetailModal({
           )}
 
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('common:actions.close')}
             className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer shrink-0"
             data-testid="ticket-modal-close"
           >
@@ -758,7 +767,8 @@ export function TicketDetailModal({
                       <button
                         type="button"
                         onClick={() => removeLabel(label)}
-                        className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={t('fields.removeLabel', { label })}
+                        className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                       >
                         <XCircle className="w-2.5 h-2.5" />
                       </button>
@@ -1225,7 +1235,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+      <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1240,7 +1250,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+          <div className="mt-2 prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

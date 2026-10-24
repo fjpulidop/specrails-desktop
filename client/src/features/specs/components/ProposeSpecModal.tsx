@@ -744,7 +744,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                 onClick={handleSubmit}
                 disabled={!canSubmit}
                 title={!canSubmit ? t('proposeModal.submit.disabledTitle') : undefined}
-                className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-white hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
+                className={`gap-1.5 ${mode === 'free' ? 'bg-accent-info text-background hover:bg-accent-info/90' : submitAccentForTier(tier)}`}
                 data-testid="propose-submit"
               >
                 {mode === 'free' ? <PenLine className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
