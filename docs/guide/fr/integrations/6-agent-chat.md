@@ -33,6 +33,8 @@ L'agent peut toucher à toute l'application, c'est donc à vous de décider quel
 
 Commencez sur **Observer** et n'élevez le niveau que lorsque vous voulez que l'agent agisse. S'il tente quelque chose au-dessus du niveau actuel, il s'arrête et vous indique exactement quel niveau activer — il ne contourne jamais la limite. C'est distinct des niveaux de Réglages ▸ MCP, qui régissent les assistants *externes* ; le niveau ici ne concerne que cet agent intégré à l'application.
 
+Passer **en Autonome** ne se fait jamais sur une simple touche : Shift+Tab depuis Opérer affiche un avis avec **Passer en Autonome**, et un nouveau Shift+Tab revient plutôt à Observer. Baisser le niveau est toujours immédiat.
+
 ## Quelques exemples de demandes
 
 Une fois sur **Opérer**, essayez :
@@ -47,6 +49,8 @@ Une fois sur **Opérer**, essayez :
 
 Les réponses arrivent en flux fluide et s'affichent déjà mises en forme (titres, tableaux, listes), chacune avec un petit bouton **copier**. Une étiquette d'état en bas montre ce que fait l'agent en ce moment — *Réflexion…*, *MCP · jobs*, *Terminal* — pour que vous connaissiez toujours son état.
 
+Les blocs de code affichent leur langage et ont leur propre bouton **copier**. Si vous remontez pendant que l'agent écrit encore, une pastille **Nouveaux messages** apparaît au-dessus de la zone : cliquez-la pour revenir à la dernière réponse.
+
 ## Petits plus pratiques
 
 - **Des super specs depuis une conversation.** Demandez à l’agent de *façonner* une spec avec vous au lieu de la générer d’un coup : il lit d’abord le vrai code, vous pose quelques questions et affiche le brouillon qui évolue sous forme de carte en direct dans la conversation. Quand vous dites oui, il crée la spec et — par défaut — l’enrichit en arrière-plan d’une **Contract Layer** (chemins de fichiers exacts, formes de données, invariants) pour que les agents qui implémentent n’improvisent pas. Dites « sans contract layer » pour sauter l’enrichissement.
@@ -55,6 +59,8 @@ Les réponses arrivent en flux fluide et s'affichent déjà mises en forme (titr
 - **Le bandeau au clavier.** **⌥R** (**Alt+R** sous Windows/Linux) passe de la zone de message au bandeau de la mission où vous êtes ; appuyez à nouveau pour afficher ou masquer les détails de l’exécution, et **Échap** vous ramène où vous étiez. Hors d’un champ de texte, **⌥[** et **⌥]** passent d’une exécution à l’autre. Quand le bandeau a le focus, **P** suspend ou reprend un Flow et **H** le remet ; ces lettres n’agissent nulle part ailleurs. Appuyez sur **?** pour la liste complète.
 - **Historique des prompts.** Avec la zone vide, appuyez sur **↑**/**↓** pour parcourir ce que vous avez demandé auparavant (affiché en grisé pendant que vous défilez) ; commencez à taper pour le modifier, ou appuyez sur Entrée pour l'envoyer.
 - **Modifiez la file.** Vous en avez envoyé d'autres pendant que l'agent travaillait ? Tant que des messages sont en file, **↑**/**↓** parcourt *ceux-ci* : la zone affiche le message sélectionné, vous le modifiez sur place, et **Entrée l'enregistre dans la file** (Échap annule ; votre brouillon non envoyé revient tel quel).
+- **Répondez au clavier.** Quand l'agent propose des choix, chaque puce porte un numéro : appuyez sur **⌥1**…**⌥9** (**Alt+1**…**Alt+9** sous Windows/Linux), zone vide, pour en choisir un.
+- **Annulez la suppression d'un message en file.** Supprimer un message en file affiche **Annuler** quelques secondes ; il revient dans la file.
 - **Réduire sans rien perdre.** Cliquez sur la ✕ pour renvoyer le panneau dans la bulle — la conversation continue de tourner. Rouvrez-le et vous atterrissez sur le dernier message ; rien n'est à retaper.
 - **Nouvelle conversation.** Le bouton **+** démarre un fil vierge ; l'historique vit au niveau de l'application, au-dessus de tout projet individuel.
 - **Changez de mission.** Le sélecteur de missions, à côté du sélecteur de projet, liste vos conversations de la plus récente à la plus ancienne — un point clignotant signale celles où l'agent travaille encore, et un petit badge compte les messages en file. La recherche apparaît dès que la liste dépasse huit entrées, et l'icône corbeille de chaque ligne supprime une mission après une confirmation rapide en ligne — même une mission en cours (elle prévient d'abord, puis arrête l'agent).

@@ -33,6 +33,8 @@ The agent can touch the whole app, so you decide how much freedom it has with a 
 
 Start on **Observe** and raise the level only when you want the agent to act. If it tries something above the current level it stops and tells you exactly which level to switch on — it never works around the limit. This is separate from the Settings ▸ MCP tiers, which govern *external* assistants; the level here is just for this in-app agent.
 
+Raising the level **to Autonomous** never happens on a keystroke alone: Shift+Tab from Operate shows a notice with **Switch to Autonomous**, and pressing Shift+Tab again instead skips back to Observe. Lowering the level is always immediate.
+
 ## A few things you can ask
 
 Once you're on **Operate**, try:
@@ -47,6 +49,8 @@ Once you're on **Operate**, try:
 
 Replies stream in smoothly and land formatted (headings, tables, lists), each with a small **copy** button. A status chip at the bottom shows what the agent is doing right now — *Thinking…*, *MCP · jobs*, *Terminal* — so you always know its state.
 
+Code blocks show their language and have their own **copy** button. If you scroll up while the agent is still writing, a **New messages** pill appears above the box — click it to jump back to the latest reply.
+
 ## Handy touches
 
 - **Click what it mentions.** In a project-pinned mission, spec numbers (`#12`) and job/run ids in the agent's replies are clickable chips — a spec opens the board's detail modal, a job id opens the live job view. If the reference no longer exists you get a quiet "not found" note.
@@ -54,6 +58,8 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 - **The strip from the keyboard.** **⌥R** (**Alt+R** on Windows/Linux) jumps from the message box to the strip of the mission you are in; press it again to show or hide the run's details, and **Esc** takes you back to where you were. Outside a text field, **⌥[** and **⌥]** switch between runs. While the strip has focus, **P** pauses or resumes a Flow and **H** hands it off; these letters never act from anywhere else. Press **?** for the full list.
 - **Prompt history.** With the box empty, press **↑**/**↓** to browse what you asked before (shown dimmed while you scroll); start typing to edit it, or hit Enter to send.
 - **Edit the queue.** Sent more while the agent was busy? While messages are queued, **↑**/**↓** moves through *them* instead — the box shows the selected one, you edit it in place, and **Enter saves it back to the queue** (Esc cancels; your unsent draft comes right back).
+- **Answer with a key.** When the agent offers choices, each chip carries a number: press **⌥1**…**⌥9** (**Alt+1**…**Alt+9** on Windows/Linux) with the box empty to pick one.
+- **Undo a deleted queued message.** Deleting a queued message shows **Undo** for a few seconds; it puts the message back in the queue.
 - **Minimize, don't lose.** Click the ✕ to drop the panel back to the bubble — the conversation keeps running. Reopen and you land at the latest message; nothing is re-typed.
 - **New conversation.** The **+** button starts a clean thread; the history lives app-wide, above any single project.
 - **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission after a quick inline confirm — even a running one (it warns first, then stops the agent).

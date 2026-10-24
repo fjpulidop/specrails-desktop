@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Children, isValidElement, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AlertCircle, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { format } from 'date-fns'
+import { format, isToday } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { toDate } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
@@ -53,47 +53,96 @@ const MD = cn(
   '[&_tr:nth-child(even)]:bg-surface/40',
 )
 
-function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
-  const { t } = useTranslation('agent')
+/** Clipboard write with a short-lived "copied" flag (announced, not just drawn). */
+function useCopyFeedback(): { copied: boolean; copy: (text: string) => Promise<void> } {
   const [copied, setCopied] = useState(false)
-  const onCopy = async () => {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const copy = async (text: string): Promise<void> => {
     try {
-      // Include the same `yyyy-MM-dd HH:mm:ss` shown under the bubble as a header
-      // line, so a copied message carries its timestamp.
-      let payload = text
-      if (timestampIso) {
-        const d = toDate(timestampIso)
-        if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
-      }
-      await navigator.clipboard.writeText(payload)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => setCopied(false), 1500)
     } catch {
       /* clipboard unavailable */
     }
   }
+  return { copied, copy }
+}
+
+function CopyButton({ text, timestampIso }: { text: string; timestampIso?: string }) {
+  const { t } = useTranslation('agent')
+  const { copied, copy } = useCopyFeedback()
+  const onCopy = () => {
+    // Include the full `yyyy-MM-dd HH:mm:ss` as a header line, so a copied
+    // message carries its timestamp (the bubble shows a compact form).
+    let payload = text
+    if (timestampIso) {
+      const d = toDate(timestampIso)
+      if (d) payload = `[${format(d, 'yyyy-MM-dd HH:mm:ss')}]\n${text}`
+    }
+    void copy(payload)
+  }
+  const label = copied ? t('copied') : t('copy')
   return (
     <button
       type="button"
       onClick={onCopy}
-      aria-label={t('copy')}
-      title={t('copy')}
-      className="rounded-md p-1 text-foreground/40 opacity-0 transition-opacity hover:bg-surface hover:text-foreground group-hover:opacity-100"
+      aria-label={label}
+      title={label}
+      className="rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-surface hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover:opacity-100"
       data-agent-interactive
     >
-      {copied ? <Check className="h-3 w-3 text-accent-success" /> : <Copy className="h-3 w-3" />}
+      {copied ? <Check className="h-3 w-3 text-accent-success" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
+      <span className="sr-only" role="status">{copied ? t('copied') : ''}</span>
     </button>
   )
 }
 
 /**
- * Whisper-subtle per-bubble timestamp (messaging-app convention). Always present
- * so the time is visually recorded + consultable, but at 10px / 25% opacity it
- * never competes with the message; it brightens slightly on hover of the bubble
- * group and carries the full locale date+time as a tooltip. Shows the absolute
- * `yyyy-MM-dd HH:mm:ss` (24h, ISO-ish, sortable at a glance). Renders nothing
- * without a valid timestamp (streaming buffer / optimistic rows) so it can't
- * flicker.
+ * Fenced code block: the language as a quiet label and a copy button, both in
+ * a top band so neither covers the code. The copy reads the rendered text, so
+ * it matches exactly what the reader sees.
+ */
+function AgentCodeBlock({ children }: { children?: ReactNode }) {
+  const { t } = useTranslation('agent')
+  const preRef = useRef<HTMLPreElement>(null)
+  const { copied, copy } = useCopyFeedback()
+  const child = Children.toArray(children)[0]
+  const codeClass = isValidElement<{ className?: string }>(child) ? child.props.className ?? '' : ''
+  const language = /language-([\w+#.-]+)/.exec(codeClass)?.[1] ?? null
+  const label = copied ? t('copied') : t('copyCode')
+  return (
+    <div className="group/code relative" data-testid="agent-code-block">
+      {language && (
+        <span className="pointer-events-none absolute left-3 top-1.5 select-none font-mono text-xs text-foreground/60" data-testid="agent-code-language">
+          {language}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={() => void copy(preRef.current?.textContent ?? '')}
+        aria-label={label}
+        title={label}
+        className="absolute right-1.5 top-1 rounded-md p-1 text-foreground/60 opacity-0 transition-opacity hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary group-hover/code:opacity-100"
+        data-agent-interactive
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-accent-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+        <span className="sr-only" role="status">{copied ? t('copied') : ''}</span>
+      </button>
+      <pre ref={preRef} style={{ paddingTop: '1.75rem' }}>{children}</pre>
+    </div>
+  )
+}
+
+/**
+ * Quiet per-bubble timestamp (messaging-app convention). 12px at 60% (75% on
+ * hover of the bubble group) — readable without competing with the message.
+ * Today shows `HH:mm`, older messages `MMM d, HH:mm` (locale-aware); the full
+ * locale date+time is the tooltip and the copy payload keeps the sortable
+ * `yyyy-MM-dd HH:mm:ss`. Renders nothing without a valid timestamp (streaming
+ * buffer / optimistic rows) so it can't flicker.
  */
 function MessageTime({ iso }: { iso?: string }) {
   if (!iso) return null
@@ -104,9 +153,9 @@ function MessageTime({ iso }: { iso?: string }) {
     <time
       dateTime={d.toISOString()}
       title={format(d, 'PPpp', { locale })}
-      className="shrink-0 select-none font-mono text-[11px] leading-none tabular-nums tracking-tight text-foreground/25 transition-colors duration-200 group-hover:text-foreground/50"
+      className="shrink-0 select-none text-xs leading-none tabular-nums text-foreground/60 transition-colors duration-200 group-hover:text-foreground/75"
     >
-      {format(d, 'yyyy-MM-dd HH:mm:ss')}
+      {format(d, isToday(d) ? 'HH:mm' : 'MMM d, HH:mm', { locale })}
     </time>
   )
 }
@@ -247,12 +296,12 @@ export function AgentAttachmentChips({
               onClick={() => setSelected(attachment)}
               title={attachment.filename}
               aria-label={image ? t('attachment.openPreview', { name: attachment.filename }) : t('attachment.openDownload', { name: attachment.filename })}
-              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-[11px] text-foreground/75 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
+              className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-border/60 bg-background/45 px-2 py-1 text-left text-xs text-foreground/75 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-foreground"
               data-agent-interactive
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-accent-primary" />
               <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
-              {attachment.size > 0 && <span className="shrink-0 text-[11px] text-foreground/35">{formatBytes(attachment.size)}</span>}
+              {attachment.size > 0 && <span className="shrink-0 text-xs text-foreground/60">{formatBytes(attachment.size)}</span>}
             </button>
           )
         })}
@@ -343,8 +392,8 @@ export function AgentContextInlineTokens({
 function AgentExtensionPending() {
   const { t } = useTranslation('agent')
   return (
-    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-[11px] text-accent-primary">
-      <Loader2 className="h-3 w-3 animate-spin" />
+    <div data-testid="agent-extension-card-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary">
+      <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
       {t('cardPending')}
     </div>
   )
@@ -402,6 +451,7 @@ interface Props {
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
 export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+  const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
   const extensionTags = extensionFenceTags(extensions).join(',')
@@ -420,6 +470,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
   // descriptions) instead of navigating the whole webview away. When the
   // embedded browser can't open (no project / feature off), keep target=_blank.
   const markdownComponents = useMemo(() => ({
+    pre: AgentCodeBlock,
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
       // `#agentref:` fragments are emitted by remarkAgentRefs (settled renders
       // only) — render them as clickable ticket/job chips instead of anchors.
@@ -453,7 +504,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
 
   if (isUser) {
     return (
-      <div className="group flex flex-col items-end gap-0.5">
+      <article aria-label={t('message.you')} className="group flex flex-col items-end gap-0.5">
         <div className="flex items-start justify-end gap-1">
           <CopyButton text={content} timestampIso={createdAt} />
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
@@ -467,7 +518,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
             <MessageTime iso={createdAt} />
           </div>
         )}
-      </div>
+      </article>
     )
   }
 
@@ -519,7 +570,7 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
   const railUnreadable = !streaming && rail.rejected.length > 0 ? rail.rejected.map((r) => r.excerpt) : []
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
-    <div className="group flex flex-col gap-1">
+    <article aria-label={t('message.agent')} aria-busy={streaming || undefined} className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
@@ -577,15 +628,18 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
       {extensionPending && <AgentExtensionPending />}
       {railUnreadable.length > 0 && <AgentRailLaunchUnreadable excerpts={railUnreadable} />}
       {showChips && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
+        <div role="group" aria-label={t('options.groupLabel')} className="flex flex-wrap gap-1.5 pt-1" data-testid="agent-option-chips">
           {options.map((option, i) => (
             <button
               key={`${i}-${option}`}
               type="button"
               onClick={() => onPickOption?.(option)}
-              className="rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground"
+              title={i < 9 ? t('options.shortcut', { n: i + 1 }) : undefined}
+              aria-keyshortcuts={i < 9 ? `Alt+${i + 1}` : undefined}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-foreground/80 transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/15 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
               data-agent-interactive
             >
+              {i < 9 && <span aria-hidden className="text-xs tabular-nums text-foreground/60">{i + 1}</span>}
               {option}
             </button>
           ))}
@@ -603,6 +657,6 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
           )}
         </div>
       )}
-    </div>
+    </article>
   )
 }

@@ -117,12 +117,38 @@ slot — "Launched on Rail 1", "Rail 1 failed: …", "Back to Flow", "Entered /
 Left Flow" — that opens the run. A settled Implement run keeps its card in the
 history; a settled Flow → Spec run is an outcome line that expands its card
 (the Flow's closing summary is the full card of that story). Extension modes
-(Flow) are named on the composer (chip and placeholder) in the
+(Flow) are named on the composer (placeholder always; the chip on the empty
+composer and in the floating panel — the inline dock leaves it to the mission
+header) in the
 mode's own color (`MissionModeBadge.accent`; Flow: `--color-accent-flow`),
 on its agent turns (`useTurnMark`) and on the strip mark (`MissionLiveRun.mode`), next to the
 mission title and on the mission list ([`MissionModeBadge`](components/MissionModeBadge.tsx)),
 where a dot with words also marks missions waiting for a decision
 (`attentionConversationIds`).
+
+## Conversation and composer
+
+The transcript is a `role="log"` (additions only, never `aria-live`, so streamed
+frames stay silent); a separate polite status next to it says only the turn
+boundaries ("Agent is working…" / "Agent replied"). Run announcements stay with
+the strip. Messages are `article`s named by author. Scrolled up while something
+arrives, the view offers a "New messages" pill that returns to the bottom; a
+mission that opened at the bottom keeps landing there through late layout.
+
+The composer editor has a stable accessible name (`composer.ariaLabel`; the
+placeholder is visual only and follows the state: no provider › interrupt ›
+queue › extension mode › reply in a mission › new-mission invitation). The
+`@ # /` palette is the editor's listbox (`aria-controls`,
+`aria-activedescendant`) and, like the `+` menu, flips below its anchor when
+there is less than 240px above it (`useComposerPopoverPlacement`). The `+` menu
+is a keyboard menu (arrows, Home/End, Esc back to the trigger); the git strip's
+branch list walks with the arrows and Enter checks out the first match.
+Entering Autonomous from the tier ladder never happens on ⇧⇥ alone:
+[`useGuardedTierCycle`](hooks/useGuardedTierCycle.ts) asks with a toast, and a
+second ⇧⇥ while it is pending skips back to Observe. Alt+1…9 picks the newest
+message's suggested reply while the box is empty. On-accent glyphs use
+`text-background` (`text-destructive-foreground` on Stop) so they read in every
+theme.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/missions`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

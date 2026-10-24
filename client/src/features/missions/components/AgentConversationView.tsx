@@ -2,7 +2,7 @@ import { useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
-import { ExternalLink } from 'lucide-react'
+import { ArrowDown, ExternalLink } from 'lucide-react'
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
@@ -37,7 +37,10 @@ import { AgentSubagentsCard } from './AgentSubagentsCard'
 import { AgentBackgroundTurn, AgentDeferredChangeNotice, AgentSessionNotices, AgentTurnOriginLabel } from './AgentSessionIndicators'
 import { useMissionSession, useMissionSessions } from '../context/MissionSessionsContext'
 import { placeUnanchoredSubagents, subagentsForTurn, unanchoredSubagents } from '../lib/mission-sessions'
-import { writeComposerDraft } from '../lib/agent-composer-drafts'
+import { composerDrafts, writeComposerDraft } from '../lib/agent-composer-drafts'
+import { useGuardedTierCycle } from '../hooks/useGuardedTierCycle'
+import { extractAgentOptions } from './agent-options'
+import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import type { AgentSubagent } from '../lib/agent-api'
 import { useMissionConversationMode, useMissionTurnMark, type MissionModeBadge } from '../context/MissionExtensionsContext'
 
@@ -90,7 +93,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <ExternalLink className="h-8 w-8 text-accent-primary" />
         <p className="text-sm text-muted-foreground">{t('window.detached')}</p>
-        <button type="button" onClick={() => { void windows.focus(active.id) }} className="rounded-md bg-accent-primary px-4 py-2 text-sm text-white">{t('window.focus')}</button>
+        <button type="button" onClick={() => { void windows.focus(active.id) }} className="rounded-md bg-accent-primary px-4 py-2 text-sm text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background">{t('window.focus')}</button>
       </div>
     </div>
   )
@@ -106,8 +109,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   const { t } = useTranslation('agent')
   const {
     active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
-    mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
+    mcpEnabled, enablingMcp, enableMcpServer, providersReady, send,
   } = useAgentChat()
+  const cycleTier = useGuardedTierCycle()
   // Execution-log modal (opened from the activity chip). While streaming it
   // shows the LIVE turn's tools; after settle it keeps showing the finished
   // turn's activity (turnTools) so an open modal never blanks at agent_done.
@@ -199,10 +203,32 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
   const savedScroll = active ? readMissionScroll(active.id) : null
   const pinnedRef = useRef(savedScroll?.atBottom ?? true)
+  // Rendered mirror of pinnedRef (scrolled up ⇒ the jump-to-latest pill can show)
+  // and whether something arrived below the fold since the user scrolled away.
+  const [detached, setDetached] = useState(!(savedScroll?.atBottom ?? true))
+  const [unseen, setUnseen] = useState(false)
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el && savedScroll) el.scrollTop = savedScroll.atBottom ? el.scrollHeight : savedScroll.top
+    // Late layout (the run strip mounting, sub-agent cards, markdown images)
+    // must not leave a mission that opened at the bottom a few pixels short.
+    let frame = 0
+    let observer: ResizeObserver | null = null
+    let settle: ReturnType<typeof setTimeout> | null = null
+    if (el && (savedScroll?.atBottom ?? true)) {
+      const toBottom = (): void => { if (pinnedRef.current) el.scrollTop = el.scrollHeight }
+      frame = requestAnimationFrame(toBottom)
+      if (typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(toBottom)
+        observer.observe(el)
+        for (const child of Array.from(el.children)) observer.observe(child)
+        settle = setTimeout(() => { observer?.disconnect(); observer = null }, 500)
+      }
+    }
     return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+      if (settle) clearTimeout(settle)
       if (el && active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
     }
   }, [active?.id])
@@ -210,19 +236,69 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     const el = scrollRef.current
     if (!el) return
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    setDetached(!pinnedRef.current)
+    if (pinnedRef.current) setUnseen(false)
     if (active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
   }
+  const contentMounted = useRef(false)
   useEffect(() => {
-    if (!pinnedRef.current) return
+    if (!contentMounted.current) {
+      contentMounted.current = true
+      if (!pinnedRef.current) return
+    }
+    if (!pinnedRef.current) {
+      setUnseen(true)
+      return
+    }
     scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight, behavior: 'auto' })
-  }, [messages.length, smoothed, liveTools.length, queuedMessages.length])
+  }, [messages.length, smoothed, liveTools.length, queuedMessages.length, liveSubagentCards.length, session?.notices.length])
+  const jumpToLatest = () => {
+    const el = scrollRef.current
+    if (!el) return
+    pinnedRef.current = true
+    setDetached(false)
+    setUnseen(false)
+    el.scrollTo?.({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' })
+    if (!el.scrollTo) el.scrollTop = el.scrollHeight
+  }
+  const showJumpPill = detached && (isStreaming || unseen)
+
+  // Screen readers hear the turn boundaries, never every streamed frame.
+  const [liveAnnouncement, setLiveAnnouncement] = useState('')
+  const wasStreamingRef = useRef(isStreaming)
+  useEffect(() => {
+    const was = wasStreamingRef.current
+    wasStreamingRef.current = isStreaming
+    if (isStreaming && !was) setLiveAnnouncement(t('conversation.agentWorking'))
+    else if (!isStreaming && was && messages[messages.length - 1]?.role === 'assistant') setLiveAnnouncement(t('conversation.agentReplied'))
+  }, [isStreaming, messages, t])
+
+  // Alt+1…9 answers the newest message's suggested replies (the numbered
+  // chips) while the composer is empty — same gating as the chips themselves.
+  const lastMessage = messages[messages.length - 1]
+  const pickableOptions = useMemo(() => {
+    if (!lastMessage || lastMessage.role !== 'assistant') return null
+    const content = isLocalEngineId(active?.provider) ? promoteAgentProtocolFences(lastMessage.content) : lastMessage.content
+    return extractAgentOptions(content).options ?? null
+  }, [lastMessage, active?.provider])
 
   // Shift+Tab anywhere in the view (incl. the composer) cycles the tier ladder.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
       e.preventDefault()
       e.stopPropagation()
-      void cycleTier()
+      cycleTier()
+      return
+    }
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[1-9]$/.test(e.code)) {
+      const options = pickableOptions
+      const canPick = !!options && (!isStreaming || !!conversationMode?.interruptWhileBusy)
+      const draftEmpty = !active || !(composerDrafts.get(active.id) ?? '').trim()
+      const option = canPick && draftEmpty ? options[Number(e.code.slice(5)) - 1] : undefined
+      if (option === undefined) return
+      e.preventDefault()
+      e.stopPropagation()
+      void send(option, isStreaming && conversationMode?.interruptWhileBusy ? { deliveryMode: 'interrupt' } : undefined)
     }
   }
 
@@ -237,7 +313,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     : 'flex min-h-0 flex-1 flex-col overflow-hidden'
 
   return (
-    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown} data-mission-surface {...conversationMode?.attributes}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden" onKeyDown={onKeyDown} data-mission-surface {...conversationMode?.attributes}>
       {providersReady === false && (
         <div className="flex items-start gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
@@ -251,7 +327,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         <div className="flex items-center gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <ShieldAlert className="h-4 w-4 shrink-0 text-accent-warning" />
           <span className="flex-1">{t('degraded.body')}</span>
-          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-xs font-medium text-white disabled:opacity-60">
+          <button type="button" onClick={() => void enableMcpServer()} disabled={enablingMcp} className="rounded-md bg-accent-primary px-2 py-1 text-xs font-medium text-background hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-60">
             {enablingMcp ? t('degraded.enabling') : t('degraded.enable')}
           </button>
         </div>
@@ -265,12 +341,16 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
       <div className={threadClass}>
         {/* Inline: the thread eases in once while the composer card morphs into
             place below — conversation switches keep it mounted (no re-fade). */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <motion.div
           ref={scrollRef}
           onScroll={onMessagesScroll}
           initial={inline ? { opacity: 0, y: 8 } : false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
+          role="log"
+          aria-label={t('conversation.ariaLabel')}
+          aria-relevant="additions"
           className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4"
         >
           {messages.length === 0 && !isStreaming && (
@@ -413,6 +493,26 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             </div>
           )}
         </motion.div>
+        <div className="sr-only" role="status" aria-live="polite" data-testid="agent-conversation-live">{liveAnnouncement}</div>
+        <AnimatePresence>
+          {showJumpPill && (
+            <motion.button
+              key="jump-to-latest"
+              type="button"
+              onClick={jumpToLatest}
+              data-testid="agent-jump-to-latest"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute bottom-2 left-1/2 z-10 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-medium text-foreground shadow-md shadow-black/10 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            >
+              <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+              {t('conversation.newMessages')}
+            </motion.button>
+          )}
+        </AnimatePresence>
+        </div>
 
         {/* The run strip: the ONE live view of this mission's runs (launch
             proposals, deliveries, the extension's Flow). Its panel opens the
@@ -449,7 +549,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               className="relative mx-auto w-full max-w-[960px]"
               data-testid="agent-composer-dock"
             >
-              <AgentComposer queueEditRequest={queueEditRequest} />
+              <AgentComposer showModeBadge={false} queueEditRequest={queueEditRequest} />
             </motion.div>
           </div>
         ) : (

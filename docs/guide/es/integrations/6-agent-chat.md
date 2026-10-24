@@ -33,6 +33,8 @@ El agente puede tocar toda la app, así que tú decides cuánta libertad tiene c
 
 Empieza en **Observa** y sube el nivel solo cuando quieras que el agente actúe. Si intenta algo por encima del nivel actual, se detiene y te dice exactamente qué nivel activar; nunca sortea el límite. Esto es independiente de los niveles de Ajustes ▸ MCP, que rigen a los asistentes *externos*; el nivel de aquí es solo para este agente interno de la app.
 
+Subir el nivel **a Autónomo** nunca ocurre solo con una tecla: Shift+Tab desde Opera muestra un aviso con **Cambiar a Autónomo**, y si vuelves a pulsar Shift+Tab, se salta y regresa a Observa. Bajar el nivel siempre es inmediato.
+
 ## Algunas cosas que puedes pedir
 
 Cuando estés en **Opera**, prueba con:
@@ -47,6 +49,8 @@ Cuando estés en **Opera**, prueba con:
 
 Las respuestas llegan fluidas y ya formateadas (encabezados, tablas, listas), cada una con un pequeño botón de **copiar**. Una etiqueta de estado abajo muestra lo que el agente está haciendo ahora mismo —*Pensando…*, *MCP · jobs*, *Terminal*— para que siempre sepas en qué estado está.
 
+Los bloques de código muestran su lenguaje y tienen su propio botón de **copiar**. Si te desplazas hacia arriba mientras el agente sigue escribiendo, aparece la píldora **Mensajes nuevos** sobre el cuadro: púlsala para volver a la última respuesta.
+
 ## Detalles prácticos
 
 - **Súper specs desde una conversación.** Pide al agente *dar forma* a una spec contigo en vez de generarla de una sola vez: primero lee el código real, te entrevista brevemente y muestra el borrador en evolución como una tarjeta en vivo dentro de la conversación. Cuando dices que sí, crea la spec y — por defecto — la enriquece en segundo plano con una **Contract Layer** (rutas de archivo exactas, formas de datos, invariantes) para que los agentes que implementan no improvisen. Di «sin contract layer» para omitir el enriquecimiento.
@@ -55,6 +59,8 @@ Las respuestas llegan fluidas y ya formateadas (encabezados, tablas, listas), ca
 - **La franja desde el teclado.** **⌥R** (**Alt+R** en Windows/Linux) salta del cuadro de mensaje a la franja de la misión en la que estás; vuelve a pulsarlo para ver u ocultar los detalles de la ejecución, y **Esc** te devuelve a donde estabas. Fuera de un campo de texto, **⌥[** y **⌥]** cambian de ejecución. Con la franja enfocada, **P** pausa o reanuda un Flow y **H** lo pasa a un rail; estas letras no hacen nada desde ningún otro sitio. Pulsa **?** para ver la lista completa.
 - **Historial de prompts.** Con el cuadro vacío, pulsa **↑**/**↓** para recorrer lo que preguntaste antes (se muestra atenuado mientras te desplazas); empieza a escribir para editarlo, o pulsa Intro para enviarlo.
 - **Edita la cola.** ¿Enviaste más mientras el agente estaba ocupado? Mientras haya mensajes en cola, **↑**/**↓** recorre *esos* mensajes: el cuadro muestra el seleccionado, lo editas en el sitio y **Intro lo guarda de vuelta en la cola** (Esc cancela; tu borrador sin enviar vuelve tal cual).
+- **Responde con una tecla.** Cuando el agente ofrece opciones, cada chip lleva un número: pulsa **⌥1**…**⌥9** (**Alt+1**…**Alt+9** en Windows/Linux) con el cuadro vacío para elegir una.
+- **Deshaz un mensaje en cola borrado.** Al borrar un mensaje en cola aparece **Deshacer** unos segundos; lo devuelve a la cola.
 - **Minimiza sin perder nada.** Haz clic en la ✕ para devolver el panel a la burbuja: la conversación sigue en marcha. Vuelve a abrirlo y aterrizas en el último mensaje; no hay que reescribir nada.
 - **Nueva conversación.** El botón **+** inicia un hilo limpio; el historial vive a nivel de app, por encima de cualquier proyecto concreto.
 - **Cambia de misión.** El selector de misiones junto al selector de proyecto lista tus conversaciones de más reciente a más antigua — un punto pulsante marca aquellas donde el agente sigue trabajando, y una pequeña insignia cuenta los mensajes en cola. La búsqueda aparece cuando la lista supera las ocho, y el icono de papelera de cada fila elimina una misión tras una confirmación rápida en línea — incluso una en marcha (avisa primero y luego detiene al agente).

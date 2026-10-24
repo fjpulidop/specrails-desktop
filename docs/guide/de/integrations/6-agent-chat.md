@@ -33,6 +33,8 @@ Der Agent kann die ganze App anfassen, also entscheidest du, wie viel Freiheit e
 
 Beginne bei **Beobachten** und erhöhe die Stufe erst, wenn der Agent handeln soll. Versucht er etwas oberhalb der aktuellen Stufe, hält er an und sagt dir genau, welche Stufe du einschalten musst — er umgeht die Grenze nie. Das ist getrennt von den Einstellungen ▸ MCP-Stufen, die *externe* Assistenten regeln; die Stufe hier gilt nur für diesen app-internen Agenten.
 
+Die Stufe **auf Autonom** zu erhöhen passiert nie mit einem bloßen Tastendruck: Shift+Tab von Ausführen aus zeigt einen Hinweis mit **Zu Autonom wechseln**, und ein weiteres Shift+Tab springt stattdessen zurück zu Beobachten. Senken geht immer sofort.
+
 ## Ein paar Dinge, die du fragen kannst
 
 Sobald du auf **Ausführen** bist, probier:
@@ -47,6 +49,8 @@ Sobald du auf **Ausführen** bist, probier:
 
 Antworten strömen flüssig herein und landen bereits formatiert (Überschriften, Tabellen, Listen), jede mit einem kleinen **Kopieren**-Button. Ein Status-Chip unten zeigt, was der Agent gerade tut — *Denkt nach…*, *MCP · jobs*, *Terminal* — sodass du seinen Zustand immer kennst.
 
+Codeblöcke zeigen ihre Sprache und haben einen eigenen **Kopieren**-Button. Scrollst du nach oben, während der Agent noch schreibt, erscheint über dem Feld die Pille **Neue Nachrichten** – ein Klick bringt dich zur neuesten Antwort zurück.
+
 ## Praktische Feinheiten
 
 - **Super-Specs aus einem Gespräch.** Bitte den Agenten, eine Spec mit dir zu *formen*, statt sie in einem Schuss zu erzeugen: Er liest zuerst den echten Code, stellt dir kurz Fragen und zeigt den wachsenden Entwurf als Live-Karte direkt im Gespräch. Auf dein Ja erstellt er die Spec und reichert sie — standardmäßig — im Hintergrund mit einem **Contract Layer** an (exakte Dateipfade, Datenformen, Invarianten), damit die implementierenden Agenten nicht improvisieren. Sage „ohne Contract Layer“, um die Anreicherung zu überspringen.
@@ -55,6 +59,8 @@ Antworten strömen flüssig herein und landen bereits formatiert (Überschriften
 - **Der Streifen per Tastatur.** **⌥R** (**Alt+R** unter Windows/Linux) springt vom Nachrichtenfeld zum Streifen der Mission, in der du bist; erneut gedrückt blendet es die Details des Laufs ein oder aus, und **Esc** bringt dich dorthin zurück, wo du warst. Außerhalb eines Textfelds wechseln **⌥[** und **⌥]** zwischen den Läufen. Solange der Streifen den Fokus hat, pausiert oder setzt **P** einen Flow fort und **H** übergibt ihn; anderswo bewirken diese Buchstaben nichts. Drücke **?** für die vollständige Liste.
 - **Prompt-Verlauf.** Ist das Feld leer, drücke **↑**/**↓**, um durch deine früheren Fragen zu blättern (beim Scrollen abgedunkelt dargestellt); tippe los, um sie zu bearbeiten, oder drücke Enter zum Senden.
 - **Warteschlange bearbeiten.** Mehr geschickt, während der Agent beschäftigt war? Solange Nachrichten eingereiht sind, blättert **↑**/**↓** durch *diese*: Das Feld zeigt die ausgewählte, du bearbeitest sie an Ort und Stelle, und **Enter speichert sie zurück in die Warteschlange** (Esc bricht ab; dein ungesendeter Entwurf kommt unverändert zurück).
+- **Antworte per Taste.** Bietet der Agent Optionen an, trägt jeder Chip eine Zahl: Drücke bei leerem Feld **⌥1**…**⌥9** (**Alt+1**…**Alt+9** unter Windows/Linux), um eine zu wählen.
+- **Gelöschte Nachricht in der Warteschlange zurückholen.** Nach dem Löschen erscheint ein paar Sekunden lang **Rückgängig**; damit kommt die Nachricht zurück in die Warteschlange.
 - **Minimieren, nicht verlieren.** Klicke auf das ✕, um das Panel zurück in die Blase abzulegen — die Unterhaltung läuft weiter. Öffne es wieder und du landest bei der neuesten Nachricht; nichts muss neu getippt werden.
 - **Neue Unterhaltung.** Der **+**-Button startet einen sauberen Thread; der Verlauf lebt app-weit, oberhalb jedes einzelnen Projekts.
 - **Missionen wechseln.** Der Missions-Selektor neben dem Projekt-Selektor listet deine Unterhaltungen von neu nach alt — ein pulsierender Punkt markiert die, an denen der Agent noch arbeitet, und ein kleines Badge zählt die Nachrichten in der Warteschlange. Die Suche erscheint, sobald die Liste mehr als acht Einträge hat, und das Papierkorb-Symbol jeder Zeile löscht eine Mission nach einer kurzen Inline-Bestätigung — auch eine laufende (es warnt zuerst und stoppt dann den Agenten).

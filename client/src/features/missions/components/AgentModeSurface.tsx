@@ -4,6 +4,7 @@ import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useMissionViewRevision } from '../lib/mission-view-state'
 import { Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { composerDrafts, composerReferenceDrafts, writeComposerDraft, NEW_MISSION_DRAFT_KEY } from '../lib/agent-composer-drafts'
 import { useTranslation } from 'react-i18next'
 import { motion, MotionConfig } from 'motion/react'
 import { useAgentChat } from '../context/AgentChatContext'
@@ -36,6 +37,51 @@ function EmptyPaneClose() {
   return closePane ? <button type="button" aria-label={t('split.close')} title={t('split.close')} onClick={closePane} className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button> : null
 }
 
+/**
+ * The empty state teaches the composer's three moves (reference, act, plan)
+ * and its two shortcuts, in one quiet row under the card. A starter appends
+ * its trigger to the new-mission draft and returns focus to the editor, so
+ * `@` and `/` open their palette exactly as if typed.
+ */
+function AgentEmptyStarters() {
+  const { t } = useTranslation('agent')
+  const insert = (text: string, event: React.MouseEvent<HTMLButtonElement>): void => {
+    const draft = composerDrafts.get(NEW_MISSION_DRAFT_KEY) ?? ''
+    const next = `${draft}${draft && !/\s$/.test(draft) ? ' ' : ''}${text}`
+    writeComposerDraft(NEW_MISSION_DRAFT_KEY, next, composerReferenceDrafts.get(NEW_MISSION_DRAFT_KEY) ?? [])
+    const scope = event.currentTarget.closest('[data-agent-empty-composer]')
+    requestAnimationFrame(() => {
+      const editor = scope?.querySelector<HTMLElement>('[data-mission-composer] [role="textbox"]')
+      if (!editor) return
+      editor.focus()
+      const selection = editor.ownerDocument.getSelection()
+      if (!selection) return
+      const range = editor.ownerDocument.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    })
+  }
+  const chip = 'inline-flex h-8 items-center gap-1.5 rounded-full border border-border/60 px-3 text-xs text-foreground/80 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  return (
+    <div className="mt-3 flex flex-col items-center gap-2" data-testid="agent-empty-starters">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button type="button" className={chip} onClick={(e) => insert('@', e)}>
+          <span aria-hidden className="font-mono text-accent-primary">@</span>{t('starter.reference')}
+        </button>
+        <button type="button" className={chip} onClick={(e) => insert('/', e)}>
+          <span aria-hidden className="font-mono text-accent-highlight">/</span>{t('starter.action')}
+        </button>
+        <button type="button" className={chip} onClick={(e) => insert(t('starter.planSpec'), e)}>
+          {t('starter.plan')}
+        </button>
+      </div>
+      <p className="text-center text-xs text-foreground/70">{t('emptyLegend')}</p>
+    </div>
+  )
+}
+
 function ConversationLayout({ splitPane, children }: { splitPane: boolean; children: ReactNode }) {
   return splitPane ? <>{children}</> : <MissionSplitLayout>{children}</MissionSplitLayout>
 }
@@ -43,7 +89,7 @@ function ConversationLayout({ splitPane, children }: { splitPane: boolean; child
 export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } = {}) {
   const composerLayoutId = useMissionPaneLayoutId()
   const { active, refreshConversations, builderMode } = useAgentChat()
- const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
+  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const windows = useMissionWindows()
   const revision = useMissionViewRevision(active?.id ?? '__new-mission__')
@@ -101,13 +147,15 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
-                duration: 0.28,
-                ease: [0.34, 1.56, 0.64, 1],
+                duration: 0.24,
+                ease: [0.16, 1, 0.3, 1],
                 layout: { type: 'spring', stiffness: 350, damping: 34 },
               }}
               className="w-full max-w-[960px]"
+              data-agent-empty-composer
             >
               <AgentComposer autoFocus />
+              <AgentEmptyStarters />
             </motion.div>
           </div>
         ) : (

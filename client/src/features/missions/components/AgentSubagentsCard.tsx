@@ -37,7 +37,7 @@ export function PhaseGlyph({ node }: { node: AgentSubagent }) {
   }
   if (node.phase === 'idle') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />
   if (node.phase === 'failed') return <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
-  return <CircleSlash className="h-3.5 w-3.5 shrink-0 text-foreground/45" aria-hidden />
+  return <CircleSlash className="h-3.5 w-3.5 shrink-0 text-foreground/65" aria-hidden />
 }
 
 function lastSeqOf(events: AgentSubagentEvent[] | null): number {
@@ -77,25 +77,25 @@ export function SubagentActivity({ conversationId, node, liveEvents }: { convers
     return [...(history ?? []), ...liveEvents.filter((event) => !seen.has(event.seq) && (hasMore ? false : event.seq > lastSeq))]
   }, [history, liveEvents, hasMore])
 
-  if (failed) return <p className="px-3 py-2 text-[11px] text-destructive">{t('subagents.activityFailed')}</p>
-  if (!history) return <p className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-foreground/50"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t('subagents.loadingActivity')}</p>
-  if (events.length === 0) return <p className="px-3 py-2 text-[11px] text-foreground/50">{t('subagents.noActivity')}</p>
+  if (failed) return <p className="px-3 py-2 text-xs text-destructive">{t('subagents.activityFailed')}</p>
+  if (!history) return <p className="flex items-center gap-1.5 px-3 py-2 text-xs text-foreground/65"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t('subagents.loadingActivity')}</p>
+  if (events.length === 0) return <p className="px-3 py-2 text-xs text-foreground/65">{t('subagents.noActivity')}</p>
 
   return (
-    <div className="max-h-72 space-y-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed" data-testid="agent-subagent-activity">
+    <div className="max-h-72 space-y-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-relaxed" data-testid="agent-subagent-activity">
       {events.map((event) => event.channel === 'tool' && event.tool ? (
         <div key={event.seq} className={cn('flex items-start gap-1.5 text-foreground/55', event.tool.isError && 'text-destructive')}>
           <Terminal className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
           <span className="min-w-0 break-words">
             <span className="font-semibold">{event.tool.name}</span>
-            {event.tool.phase === 'completed' && event.tool.output ? <span className="text-foreground/40"> → {event.tool.output.slice(0, 300)}</span> : null}
+            {event.tool.phase === 'completed' && event.tool.output ? <span className="text-foreground/65"> → {event.tool.output.slice(0, 300)}</span> : null}
           </span>
         </div>
       ) : (
         <p key={event.seq} className="whitespace-pre-wrap break-words font-sans text-foreground/75">{event.delta}</p>
       ))}
       {hasMore && (
-        <button type="button" onClick={loadMore} className="text-[11px] font-sans text-accent-primary hover:underline">{t('subagents.moreActivity')}</button>
+        <button type="button" onClick={loadMore} className="text-xs font-sans text-accent-primary hover:underline">{t('subagents.moreActivity')}</button>
       )}
     </div>
   )
@@ -130,9 +130,9 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           title={node.resultSummary && !open ? resultPreview(node.resultSummary).slice(0, 280) : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
         >
-          <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-foreground/40 transition-transform', open && 'rotate-90')} aria-hidden />
+          <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-foreground/65 transition-transform', open && 'rotate-90')} aria-hidden />
           <PhaseGlyph node={node} />
-          {shell ? <Terminal className="h-3.5 w-3.5 shrink-0 text-foreground/45" aria-hidden /> : <Bot className="h-3.5 w-3.5 shrink-0 text-foreground/45" aria-hidden />}
+          {shell ? <Terminal className="h-3.5 w-3.5 shrink-0 text-foreground/65" aria-hidden /> : <Bot className="h-3.5 w-3.5 shrink-0 text-foreground/65" aria-hidden />}
           <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
           <span className="sr-only">{phaseLabel}{reason ? ` — ${reason}` : ''}</span>
           {node.delegated ? (
@@ -140,18 +140,18 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
               title={t('subagents.delegatedHint', { provider: providerLabel(node.delegated.driver), model: node.delegated.model })} data-testid="agent-subagent-delegated">
               {providerLabel(node.delegated.driver)} · {node.delegated.model}
             </span>
-          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/50 sm:inline">{node.agentType}</span>}
-          <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/45" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
+          ) : node.agentType && !shell && <span className="hidden shrink-0 rounded-full border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/70 sm:inline">{node.agentType}</span>}
+          <span className="shrink-0 font-mono text-xs tabular-nums text-foreground/65" aria-label={t('subagents.elapsedAria', { elapsed })}>{elapsed}</span>
         </button>
         {live && (
           <button type="button" onClick={() => onStop(node)} aria-label={t('subagents.stopOne', { name: node.description })} title={t('subagents.stop')}
-            className="shrink-0 rounded p-1 text-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
+            className="shrink-0 rounded p-1 text-foreground/65 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
             <Square className="h-3 w-3" aria-hidden />
           </button>
         )}
         {isInterruptedSubagent(node) && !shell && (
           <button type="button" onClick={() => onRelaunch(node)} title={t('subagents.relaunchHint')}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/60 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-[11px] text-foreground/70 transition-colors hover:border-accent-primary/50 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
             <RotateCcw className="h-3 w-3" aria-hidden />{t('subagents.relaunch')}
           </button>
         )}
@@ -166,7 +166,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             className="overflow-hidden border-t border-border/20 bg-background/40"
           >
             {(reason || tokens !== null) && (
-              <p className="border-b border-border/20 px-3 py-1.5 font-mono text-[11px] text-foreground/45" data-testid="agent-subagent-meta">
+              <p className="border-b border-border/20 px-3 py-1.5 font-mono text-xs text-foreground/65" data-testid="agent-subagent-meta">
                 {[
                   reason && `${phaseLabel} · ${reason}`,
                   // Usage is revealed once the sub-agent finished (no approximate live numbers).
@@ -178,7 +178,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             )}
             {node.resultSummary && (
               <section className="border-b border-border/20 px-3 py-2.5" aria-label={t('subagents.result')} data-testid="agent-subagent-result">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/40">{t('subagents.result')}</p>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-foreground/65">{t('subagents.result')}</p>
                 <SubagentResultMarkdown text={node.resultSummary} />
               </section>
             )}
@@ -207,7 +207,7 @@ function SubagentResultMarkdown({ text }: { text: string }) {
       'prose prose-invert prose-sm max-w-none text-[12px] leading-relaxed text-foreground/80',
       'prose-p:my-1 prose-headings:mb-1 prose-headings:mt-2 prose-headings:text-[12.5px] prose-headings:font-semibold',
       'prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-li:marker:text-accent-primary/70',
-      'prose-pre:my-1.5 prose-pre:rounded-md prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-[11px]',
+      'prose-pre:my-1.5 prose-pre:rounded-md prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-xs',
     )}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={RESULT_MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
     </div>
@@ -304,19 +304,19 @@ export function AgentSubagentsCard({ conversationId, subagents, liveEvents, onSt
             working > 0 ? 'border-accent-primary/40 bg-accent-primary/[0.07] text-foreground/85' : 'border-border/50 bg-surface/60 text-foreground/70 hover:border-border hover:text-foreground/85',
           )}
         >
-          {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/50" aria-hidden />}
+          {working > 0 ? <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent-primary motion-reduce:animate-none" aria-hidden /> : <Bot className="h-3 w-3 shrink-0 text-foreground/65" aria-hidden />}
           <span className="shrink-0 font-medium">{t('subagents.count', { count: subagents.length })}</span>
           <span className="min-w-0 truncate text-foreground/55" aria-live="polite">{status}</span>
-          {working > 0 && <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/45">{elapsed}</span>}
-          <ChevronRight className={cn('h-3 w-3 shrink-0 text-foreground/40 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
+          {working > 0 && <span className="shrink-0 font-mono text-xs tabular-nums text-foreground/65">{elapsed}</span>}
+          <ChevronRight className={cn('h-3 w-3 shrink-0 text-foreground/65 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
         </button>
         {working > 1 && (
-          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-full px-2 py-1 text-[11px] text-foreground/45 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
+          <button type="button" onClick={() => void stop()} className="shrink-0 rounded-full px-2 py-1 text-xs text-foreground/65 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive">
             {t('subagents.stopAll')}
           </button>
         )}
       </div>
-      {stopError && <p role="alert" className="mt-1 px-1 text-[11px] text-destructive">{t('subagents.stopFailed')}</p>}
+      {stopError && <p role="alert" className="mt-1 px-1 text-xs text-destructive">{t('subagents.stopFailed')}</p>}
       <AnimatePresence initial={false}>
         {open && (
           <motion.ul

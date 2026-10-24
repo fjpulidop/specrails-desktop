@@ -15,7 +15,7 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
   onEdit: (queueId: string) => void
 }) {
   const { t } = useTranslation('agent')
-  const { steerQueuedMessage, removeQueuedMessage } = useAgentChat()
+  const { steerQueuedMessage, removeQueuedMessage, send } = useAgentChat()
   const [menuOpen, setMenuOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -45,6 +45,22 @@ export function AgentQueuedMessage({ item, conversationId, attachments, onEdit }
     try {
       const result = await (action === 'steer' ? steerQueuedMessage(item.queueId) : removeQueuedMessage(item.queueId))
       if (result === 'conflict') toast.info(t('queue.actionConflict'))
+      else if (action === 'remove') {
+        // Deleting is one click — give it one click back. Undo re-sends the
+        // same text and metadata; while a turn streams that re-queues it.
+        const { text, contextRefs, attachmentIds } = item
+        toast.success(t('queue.removed'), {
+          action: {
+            label: t('undo'),
+            onClick: () => {
+              void send(text, {
+                ...(contextRefs?.length ? { contextRefs } : {}),
+                ...(attachmentIds?.length ? { attachmentIds } : {}),
+              })
+            },
+          },
+        })
+      }
     } catch {
       // Failed actions retain the queued text, metadata and any unsaved edit.
       toast.error(t('queue.actionFailed'))

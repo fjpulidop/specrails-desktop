@@ -33,6 +33,8 @@ L'agente può toccare tutta l'app, quindi decidi tu quanta libertà ha tramite u
 
 Inizia da **Osserva** e alza il livello solo quando vuoi che l'agente agisca. Se prova qualcosa oltre il livello attuale, si ferma e ti dice esattamente quale livello attivare — non aggira mai il limite. Questo è distinto dai livelli di Impostazioni ▸ MCP, che regolano gli assistenti *esterni*; il livello qui riguarda solo questo agente interno all'app.
 
+Alzare il livello **ad Autonomo** non avviene mai con un solo tasto: Shift+Tab da Opera mostra un avviso con **Passa ad Autonomo**, e un altro Shift+Tab torna invece a Osserva. Abbassare il livello è sempre immediato.
+
 ## Alcune cose che puoi chiedere
 
 Una volta su **Opera**, prova:
@@ -47,6 +49,8 @@ Una volta su **Opera**, prova:
 
 Le risposte arrivano fluide e già formattate (titoli, tabelle, elenchi), ciascuna con un piccolo pulsante **copia**. Un'etichetta di stato in basso mostra cosa sta facendo l'agente in questo momento — *Sto pensando…*, *MCP · jobs*, *Terminal* — così conosci sempre il suo stato.
 
+I blocchi di codice mostrano il linguaggio e hanno il proprio pulsante **copia**. Se scorri verso l'alto mentre l'agente sta ancora scrivendo, sopra la casella compare la pillola **Nuovi messaggi**: cliccala per tornare all'ultima risposta.
+
 ## Dettagli pratici
 
 - **Super spec da una conversazione.** Chiedi all’agente di *dare forma* a una spec insieme a te invece di generarla in un colpo solo: prima legge il codice reale, ti fa qualche domanda e mostra la bozza che evolve come una card dal vivo nella conversazione. Al tuo sì crea la spec e — per impostazione predefinita — la arricchisce in background con un **Contract Layer** (percorsi file esatti, forme dei dati, invarianti) perché gli agenti che implementano non improvvisino. Di’ "senza contract layer" per saltare l’arricchimento.
@@ -55,6 +59,8 @@ Le risposte arrivano fluide e già formattate (titoli, tabelle, elenchi), ciascu
 - **La striscia da tastiera.** **⌥R** (**Alt+R** su Windows/Linux) passa dalla casella del messaggio alla striscia della missione in cui ti trovi; premilo di nuovo per mostrare o nascondere i dettagli dell’esecuzione, e **Esc** ti riporta dov’eri. Fuori da un campo di testo, **⌥[** e **⌥]** passano da un’esecuzione all’altra. Con la striscia attiva, **P** sospende o riprende un Flow e **H** lo affida; queste lettere non fanno nulla altrove. Premi **?** per l’elenco completo.
 - **Cronologia dei prompt.** Con la casella vuota, premi **↑**/**↓** per scorrere ciò che hai chiesto prima (mostrato attenuato mentre scorri); inizia a scrivere per modificarlo, oppure premi Invio per inviarlo.
 - **Modifica la coda.** Hai inviato altro mentre l'agente era occupato? Finché ci sono messaggi in coda, **↑**/**↓** scorre *quelli*: la casella mostra il selezionato, lo modifichi sul posto e **Invio lo salva di nuovo in coda** (Esc annulla; la tua bozza non inviata torna com'era).
+- **Rispondi con un tasto.** Quando l'agente propone delle scelte, ogni chip ha un numero: premi **⌥1**…**⌥9** (**Alt+1**…**Alt+9** su Windows/Linux) con la casella vuota per sceglierne una.
+- **Annulla l'eliminazione di un messaggio in coda.** Eliminando un messaggio in coda compare **Annulla** per qualche secondo; lo rimette in coda.
 - **Riduci a icona, senza perdere nulla.** Clicca la ✕ per rimettere il pannello nella bolla — la conversazione continua a girare. Riaprilo e atterri sull'ultimo messaggio; nulla viene riscritto.
 - **Nuova conversazione.** Il pulsante **+** avvia un thread pulito; la cronologia vive a livello di app, sopra qualunque singolo progetto.
 - **Cambia missione.** Il selettore di missioni accanto al selettore di progetto elenca le conversazioni dalla più recente alla più vecchia — un punto pulsante segnala quelle in cui l'agente sta ancora lavorando, e un piccolo badge conta i messaggi in coda. La ricerca compare quando la lista supera le otto voci, e l'icona del cestino su ogni riga elimina una missione dopo una rapida conferma in linea — anche una in corso (prima avvisa, poi ferma l'agente).

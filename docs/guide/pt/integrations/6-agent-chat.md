@@ -33,6 +33,8 @@ O agente pode mexer na aplicação inteira, então você decide quanta liberdade
 
 Comece em **Observa** e suba o nível apenas quando quiser que o agente aja. Se ele tentar algo acima do nível atual, ele para e diz exatamente qual nível ativar — nunca contorna o limite. Isso é separado dos níveis de Ajustes ▸ MCP, que regem os assistentes *externos*; o nível aqui é só para este agente interno da aplicação.
 
+Subir o nível **para Autônomo** nunca acontece com um só toque: Shift+Tab a partir de Opera mostra um aviso com **Mudar para Autônomo**, e um novo Shift+Tab volta para Observa. Baixar o nível é sempre imediato.
+
 ## Algumas coisas que você pode pedir
 
 Quando estiver em **Opera**, experimente:
@@ -47,6 +49,8 @@ Quando estiver em **Opera**, experimente:
 
 As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas), cada uma com um pequeno botão de **copiar**. Uma etiqueta de status embaixo mostra o que o agente está fazendo agora — *Pensando…*, *MCP · jobs*, *Terminal* — para que você sempre saiba o estado dele.
 
+Os blocos de código mostram a linguagem e têm o próprio botão de **copiar**. Se você rolar para cima enquanto o agente ainda escreve, a pílula **Novas mensagens** aparece acima da caixa — clique nela para voltar à resposta mais recente.
+
 ## Detalhes práticos
 
 - **Super specs a partir de uma conversa.** Peça ao agente para *moldar* uma spec com você em vez de gerá-la de uma vez: ele lê primeiro o código real, faz algumas perguntas e mostra o rascunho em evolução como um cartão ao vivo dentro da conversa. Quando você diz sim, ele cria a spec e — por padrão — a enriquece em segundo plano com uma **Contract Layer** (caminhos de arquivo exatos, formas de dados, invariantes) para que os agentes que implementam não improvisem. Diga "sem contract layer" para pular o enriquecimento.
@@ -55,6 +59,8 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 - **A faixa pelo teclado.** **⌥R** (**Alt+R** no Windows/Linux) pula da caixa de mensagem para a faixa da missão em que você está; pressione de novo para mostrar ou ocultar os detalhes da execução, e **Esc** leva você de volta para onde estava. Fora de um campo de texto, **⌥[** e **⌥]** alternam entre execuções. Com a faixa em foco, **P** pausa ou retoma um Flow e **H** o passa a um rail; essas letras não fazem nada em outro lugar. Pressione **?** para ver a lista completa.
 - **Histórico de prompts.** Com a caixa vazia, pressione **↑**/**↓** para percorrer o que você perguntou antes (mostrado esmaecido enquanto rola); comece a digitar para editar, ou pressione Enter para enviar.
 - **Edite a fila.** Enviou mais enquanto o agente estava ocupado? Enquanto houver mensagens na fila, **↑**/**↓** percorre *essas* mensagens: a caixa mostra a selecionada, você a edita ali mesmo e **Enter a salva de volta na fila** (Esc cancela; seu rascunho não enviado volta intacto).
+- **Responda com uma tecla.** Quando o agente oferece opções, cada chip tem um número: pressione **⌥1**…**⌥9** (**Alt+1**…**Alt+9** no Windows/Linux) com a caixa vazia para escolher uma.
+- **Desfaça a exclusão de uma mensagem na fila.** Ao excluir uma mensagem da fila, **Desfazer** aparece por alguns segundos e a devolve à fila.
 - **Minimize sem perder nada.** Clique no ✕ para devolver o painel à bolha — a conversa continua rodando. Reabra e você chega na mensagem mais recente; nada é redigitado.
 - **Nova conversa.** O botão **+** inicia um fio limpo; o histórico vive no nível da aplicação, acima de qualquer projeto individual.
 - **Troque de missão.** O seletor de missões ao lado do seletor de projeto lista suas conversas da mais recente para a mais antiga — um ponto pulsante marca aquelas em que o agente ainda está trabalhando, e um pequeno selo conta as mensagens na fila. A busca aparece quando a lista passa de oito, e o ícone de lixeira de cada linha exclui uma missão após uma confirmação rápida em linha — mesmo uma em andamento (ele avisa primeiro e depois para o agente).
