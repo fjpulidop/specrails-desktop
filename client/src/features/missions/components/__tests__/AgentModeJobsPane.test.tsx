@@ -87,10 +87,10 @@ describe('AgentModeJobsPane', () => {
     expect(screen.getByText('No jobs yet — ask the agent to launch one')).toBeInTheDocument()
   })
 
-  it('shows a spinner during the first load', () => {
+  it('shows the rail track during the first load', () => {
     mockFirstLoad = true
     const { container } = renderPane()
-    expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+    expect(container.querySelector('[data-testid="rail-track"]')).toBeInTheDocument()
   })
 
   it('maximize covers the whole surface (absolute inset-0), restore returns to the split', () => {
