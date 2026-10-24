@@ -101,6 +101,25 @@ describe('Run sub-agents with', () => {
     expect(screen.getByText(/Claude's own sub-agents ignore effort/)).toBeInTheDocument()
   })
 
+  it('renders the warning with the shared ConfirmDialog anatomy (non-destructive, confirm focused)', async () => {
+    respond({ allowSubagents: true, subagentRuntime: null })
+    render(<ProjectSubagentsSection />)
+    fireEvent.keyDown(await screen.findByTestId('subagent-runtime-provider'), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('option', { name: 'Codex' }))
+    const dialog = await screen.findByTestId('subagent-runtime-confirm')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'confirm')
+    // The trade-off list lives in the dialog body, at the 12px floor.
+    const body = dialog.querySelector('[data-dialog-body]')
+    expect(body?.querySelector('ul')).toHaveClass('text-xs')
+    const accept = screen.getByTestId('subagent-runtime-confirm-accept')
+    // tone="default": switching runtimes is not destructive.
+    expect(accept.className).not.toMatch(/destructive/)
+    // Cancel (ghost) comes before the primary, and the primary takes focus.
+    const footerButtons = Array.from(dialog.querySelectorAll('[data-dialog-footer] button'))
+    expect(footerButtons.map((b) => b.textContent)).toEqual(['Keep same as mission', accept.textContent])
+    await waitFor(() => expect(document.activeElement).toBe(accept))
+  })
+
   it('saves nothing when the warning is dismissed', async () => {
     const calls = respond({ allowSubagents: true, subagentRuntime: null })
     render(<ProjectSubagentsSection />)

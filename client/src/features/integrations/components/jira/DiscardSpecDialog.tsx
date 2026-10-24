@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../../components/ui/dialog'
-import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { jiraApi } from '../../lib/jira-api'
 
 export interface DiscardSpecDialogProps {
@@ -21,7 +20,9 @@ export interface DiscardSpecDialogProps {
  * "Move to <status>" confirmation for a Jira-backed spec. Replaces the
  * destructive delete in Jira-synced projects: it transitions the linked issue to
  * the user-configured discard status and optionally posts a reason comment.
- * Reused by the spec detail modal and the right-click context menu.
+ * Reused by the spec detail modal and the right-click context menu. Built on
+ * the shared `ConfirmDialog` (non-destructive tone: the issue is moved, not
+ * deleted); the optional reason comment renders in its body.
  */
 export function DiscardSpecDialog({ open, onOpenChange, ticket, discardStatus, onDiscarded }: DiscardSpecDialogProps) {
   const { t } = useTranslation('jira')
@@ -44,35 +45,35 @@ export function DiscardSpecDialog({ open, onOpenChange, ticket, discardStatus, o
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o) }}>
-      <DialogContent movableResizable className="max-w-md" data-testid="jira-discard-dialog">
-        <DialogHeader>
-          <DialogTitle>{t('discard.title', { status: discardStatus })}</DialogTitle>
-          <DialogDescription>
-            {t('discard.body', { status: discardStatus, key: ticket.jira_key ?? `#${ticket.id}` })}
-          </DialogDescription>
-        </DialogHeader>
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-foreground">{t('discard.commentLabel')}</span>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder={t('discard.commentPlaceholder')}
-            rows={3}
-            className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground resize-none"
-            data-testid="jira-discard-comment"
-          />
-        </label>
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={busy}>
-            {t('wizard.cancel')}
-          </Button>
-          <Button size="sm" onClick={confirm} disabled={busy} data-testid="jira-discard-confirm">
-            <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
-            {busy ? t('discard.moving') : t('discard.confirm', { status: discardStatus })}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tone="default"
+      busy={busy}
+      testId="jira-discard-dialog"
+      confirmTestId="jira-discard-confirm"
+      title={t('discard.title', { status: discardStatus })}
+      description={t('discard.body', { status: discardStatus, key: ticket.jira_key ?? `#${ticket.id}` })}
+      cancelLabel={t('wizard.cancel')}
+      confirmLabel={busy ? t('discard.moving') : (
+        <>
+          <ArrowRight className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          {t('discard.confirm', { status: discardStatus })}
+        </>
+      )}
+      onConfirm={confirm}
+    >
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-foreground">{t('discard.commentLabel')}</span>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder={t('discard.commentPlaceholder')}
+          rows={3}
+          className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground resize-none"
+          data-testid="jira-discard-comment"
+        />
+      </label>
+    </ConfirmDialog>
   )
 }

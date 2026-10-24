@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "ex. Relire les modifications Terraform/IaC et signaler les erreurs de configuration de sécurité, les permissions IAM excessives et les buckets S3 publics avant le merge. Conservateur et concis.",
       "note": "Claude rédigera un corps <code>.md</code> complet. Vous le relirez dans le Studio et pourrez le modifier avant d'enregistrer. Cela lance une invocation claude unique et peut prendre jusqu'à 90 secondes.",
       "generating": "Génération…",
-      "generateButton": "Générer"
+      "generateButton": "Générer",
+      "dialogDescription": "Décrivez l'agent dont vous avez besoin : Claude en rédige un brouillon que vous relisez dans le Studio avant de l'enregistrer."
     },
     "empty": {
       "title": "Aucun agent personnalisé pour l'instant",

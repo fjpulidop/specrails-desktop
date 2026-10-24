@@ -4,7 +4,7 @@ import { Plus, Pencil, Copy, Sparkles, Loader2, FileText, Search, X, Tag, Wand2 
 import { getApiBase } from '../../../lib/api'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
 import { AgentStudio, customRoleDisplayPath } from './AgentStudio'
 import { AiRefineOverlay } from './AiRefineOverlay'
 import { ShellErrorBoundary } from '../../../components/ShellErrorBoundary'
@@ -290,26 +290,26 @@ export function AgentsCatalogTab() {
 
   const renderTemplatesDialog = () => (
     <Dialog open={templatesOpen} onOpenChange={(o) => { if (!o) closeTemplates() }}>
-      <DialogContent className="max-w-4xl p-0 h-[85vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex-shrink-0 px-6 pt-5 pb-3 border-b border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <FileText className="w-4 h-4 text-accent-primary" /> {t('catalog.templates.title')}
-              <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                {t('catalog.templates.countOf', {
-                  shown: templateResults.length,
-                  total: AGENT_TEMPLATES.length,
-                })}
-              </span>
-            </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('catalog.templates.description')}
-            </p>
-          </DialogHeader>
+      <DialogContent size="workspace">
+        <DialogHeader
+          icon={<FileText />}
+          actions={
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {t('catalog.templates.countOf', {
+                shown: templateResults.length,
+                total: AGENT_TEMPLATES.length,
+              })}
+            </span>
+          }
+        >
+          <DialogTitle>{t('catalog.templates.title')}</DialogTitle>
+          <DialogDescription>{t('catalog.templates.description')}</DialogDescription>
+        </DialogHeader>
 
+        {/* Filters — pinned above the scrolling card list */}
+        <div className="shrink-0 border-b border-border/40 px-5 py-3">
           {/* Search */}
-          <div className="mt-3 relative">
+          <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={templateSearch}
@@ -353,11 +353,11 @@ export function AgentsCatalogTab() {
           {/* Active tag filter */}
           {templateTag && (
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] text-muted-foreground">{t('catalog.templates.tagFilter')}</span>
+              <span className="text-xs text-muted-foreground">{t('catalog.templates.tagFilter')}</span>
               <button
                 type="button"
                 onClick={() => setTemplateTag(null)}
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30"
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30"
               >
                 <Tag className="w-3 h-3" /> {templateTag}
                 <X className="w-3 h-3" />
@@ -367,7 +367,7 @@ export function AgentsCatalogTab() {
         </div>
 
         {/* Card list */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <DialogBody>
           {templateResults.length === 0 ? (
             <div className="h-full flex items-center justify-center text-center">
               <div className="max-w-sm">
@@ -407,7 +407,7 @@ export function AgentsCatalogTab() {
                       >
                         {templateLabel(tpl)}
                       </button>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">{categoryLabel(tpl.category)}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{categoryLabel(tpl.category)}</div>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 min-h-[2lh]">
@@ -421,7 +421,7 @@ export function AgentsCatalogTab() {
                         aria-pressed={templateTag === tag}
                         onClick={() => setTemplateTag(tag)}
                         className={
-                          'relative z-10 text-[11px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground hover:bg-accent-primary/20 hover:text-accent-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
+                          'relative z-10 text-xs px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground hover:bg-accent-primary/20 hover:text-accent-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
                           (templateTag === tag ? 'bg-accent-primary/20 text-accent-primary' : '')
                         }
                       >
@@ -430,10 +430,10 @@ export function AgentsCatalogTab() {
                     ))}
                   </div>
                   <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
-                    <code className="text-[11px] font-mono text-muted-foreground/70 truncate">
+                    <code className="text-xs font-mono text-muted-foreground/70 truncate">
                       {tpl.nameHint}
                     </code>
-                    <span aria-hidden className="text-[11px] text-accent-primary opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                    <span aria-hidden className="text-xs text-accent-primary opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                       {t('catalog.templates.openInStudio')}
                     </span>
                   </div>
@@ -442,17 +442,13 @@ export function AgentsCatalogTab() {
               })}
             </div>
           )}
-        </div>
+        </DialogBody>
 
-        {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-3 border-t border-border flex items-center justify-between">
-          <span className="text-[11px] text-muted-foreground">
-            {t('catalog.templates.tip')}
-          </span>
-          <Button variant="ghost" size="sm" onClick={closeTemplates}>
+        <DialogFooter start={<span className="text-xs text-muted-foreground">{t('catalog.templates.tip')}</span>}>
+          <Button variant="ghost" onClick={closeTemplates}>
             {t('common:actions.cancel')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -467,13 +463,12 @@ export function AgentsCatalogTab() {
         }
       }}
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-accent-primary" /> {t('catalog.generate.title')}
-          </DialogTitle>
+      <DialogContent size="form">
+        <DialogHeader icon={<Sparkles />}>
+          <DialogTitle>{t('catalog.generate.title')}</DialogTitle>
+          <DialogDescription>{t('catalog.generate.dialogDescription')}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 py-2">
+        <DialogBody className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
               {t('catalog.generate.agentIdLabel')}
@@ -485,7 +480,7 @@ export function AgentsCatalogTab() {
               className="text-sm font-mono"
               disabled={generating}
             />
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               <Trans t={t} i18nKey="catalog.generate.agentIdHint" components={{ code: <code /> }} />
             </p>
           </div>
@@ -506,21 +501,19 @@ export function AgentsCatalogTab() {
               {genError}
             </div>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             <Trans t={t} i18nKey="catalog.generate.note" components={{ code: <code /> }} />
           </p>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => setGenerateOpen(false)}
             disabled={generating}
           >
             {t('common:actions.cancel')}
           </Button>
           <Button
-            size="sm"
             onClick={runGenerate}
             disabled={generating || !genName.trim() || !genDescription.trim()}
           >
@@ -798,7 +791,7 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       className={
-        'flex-shrink-0 inline-flex items-center gap-1 h-7 px-2.5 text-[11px] rounded-full border transition-colors whitespace-nowrap ' +
+        'flex-shrink-0 inline-flex items-center gap-1 h-7 px-2.5 text-xs rounded-full border transition-colors whitespace-nowrap ' +
         (active
           ? 'bg-accent-primary/20 border-accent-primary/50 text-accent-primary'
           : 'bg-transparent border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground')
@@ -807,7 +800,7 @@ function CategoryChip({
       {label}
       <span
         className={
-          'text-[11px] px-1 rounded ' +
+          'text-xs px-1 rounded ' +
           (active ? 'bg-accent-primary/30' : 'bg-muted/60')
         }
       >

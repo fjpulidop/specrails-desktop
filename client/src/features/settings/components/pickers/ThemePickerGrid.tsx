@@ -87,7 +87,7 @@ export function ThemePickerGrid() {
                   />
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground leading-tight">
+              <p className="text-xs text-muted-foreground leading-tight">
                 {tr(`appearance.taglines.${id}`, { defaultValue: t.tagline })}
               </p>
             </div>

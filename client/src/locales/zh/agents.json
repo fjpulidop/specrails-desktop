@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "例如：审查 Terraform/IaC 变更，在合并前标记安全配置错误、过度的 IAM 权限和公开的 S3 存储桶。风格保守、简洁。",
       "note": "Claude 会起草完整的 <code>.md</code> 正文。你将在 Studio 中审阅，并可在保存前编辑。此操作会启动一次性的 claude 调用，最长可能需要 90 秒。",
       "generating": "正在生成…",
-      "generateButton": "生成"
+      "generateButton": "生成",
+      "dialogDescription": "描述你需要的代理，Claude 会起草一份，供你在保存前于 Studio 中审阅。"
     },
     "empty": {
       "title": "尚无自定义 Agent",

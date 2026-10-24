@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import jsQR from 'jsqr'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { encodeOffer, decodeAnswer } from '../../integrations/lib/companion-signal'
 
@@ -154,43 +154,45 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) close() }}>
-      <DialogContent movableResizable className="max-w-md">
+      <DialogContent size="form">
         <DialogHeader>
           <DialogTitle>{t('pairWeb.title')}</DialogTitle>
           <DialogDescription>{t('pairWeb.description')}</DialogDescription>
         </DialogHeader>
 
-        {error && <p className="text-sm text-destructive">{t('pairWeb.startFailed', { error })}</p>}
+        <DialogBody>
+          {error && <p className="text-sm text-destructive">{t('pairWeb.startFailed', { error })}</p>}
 
-        {phase === 'loading' && <div className="h-56 bg-muted/30 rounded-lg animate-pulse" />}
+          {phase === 'loading' && <div className="h-56 bg-muted/30 rounded-lg animate-pulse" />}
 
-        {phase === 'offer' && offerToken && (
-          <div className="flex flex-col items-center gap-3 py-2">
-            <div className="bg-white p-3 rounded-lg">
-              <QRCodeSVG value={offerToken} size={220} />
+          {phase === 'offer' && offerToken && (
+            <div className="flex flex-col items-center gap-3 py-2">
+              <div className="bg-white p-3 rounded-lg">
+                <QRCodeSVG value={offerToken} size={220} />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">{t('pairWeb.showThenScan')}</p>
+              <Button onClick={() => void startScan()} className="gap-2">{t('pairWeb.scanAnswer')}</Button>
+              <button
+                type="button"
+                className="text-xs text-accent-info underline"
+                onClick={() => { void navigator.clipboard?.writeText(offerToken); toast.success(t('pairWeb.codeCopied')) }}
+              >
+                {t('pairWeb.copyCode')}
+              </button>
             </div>
-            <p className="text-xs text-muted-foreground text-center">{t('pairWeb.showThenScan')}</p>
-            <Button onClick={() => void startScan()} className="gap-2">{t('pairWeb.scanAnswer')}</Button>
-            <button
-              type="button"
-              className="text-xs text-accent-info underline"
-              onClick={() => { void navigator.clipboard?.writeText(offerToken); toast.success(t('pairWeb.codeCopied')) }}
-            >
-              {t('pairWeb.copyCode')}
-            </button>
-          </div>
-        )}
+          )}
 
-        {phase === 'scanning' && (
-          <div className="flex flex-col items-center gap-3 py-2">
-            <video ref={videoRef} playsInline className="w-full max-h-72 rounded-lg bg-black" />
-            <p className="text-xs text-muted-foreground text-center">{t('pairWeb.scanning')}</p>
-            <Button variant="outline" onClick={() => { stopCamera(); setPhase('offer') }}>{t('pairWeb.cancel')}</Button>
-          </div>
-        )}
+          {phase === 'scanning' && (
+            <div className="flex flex-col items-center gap-3 py-2">
+              <video ref={videoRef} playsInline className="w-full max-h-72 rounded-lg bg-black" />
+              <p className="text-xs text-muted-foreground text-center">{t('pairWeb.scanning')}</p>
+              <Button variant="outline" onClick={() => { stopCamera(); setPhase('offer') }}>{t('pairWeb.cancel')}</Button>
+            </div>
+          )}
 
-        {phase === 'connecting' && <p className="py-6 text-center text-muted-foreground">{t('pairWeb.connecting')}</p>}
-        {phase === 'paired' && <p className="py-6 text-center text-accent-success font-medium">{t('pairWeb.paired')}</p>}
+          {phase === 'connecting' && <p className="py-6 text-center text-muted-foreground">{t('pairWeb.connecting')}</p>}
+          {phase === 'paired' && <p className="py-6 text-center text-accent-success font-medium">{t('pairWeb.paired')}</p>}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

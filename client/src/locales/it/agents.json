@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "es. Revisiona le modifiche Terraform/IaC e segnala configurazioni di sicurezza errate, permessi IAM eccessivi e bucket S3 pubblici prima del merge. Conservativo e conciso.",
       "note": "Claude redigerà un corpo <code>.md</code> completo. Lo revisionerai nello Studio e potrai modificarlo prima di salvare. Questo avvia un'invocazione claude one-shot e può richiedere fino a 90 secondi.",
       "generating": "Generazione…",
-      "generateButton": "Genera"
+      "generateButton": "Genera",
+      "dialogDescription": "Descrivi l'agente che ti serve e Claude ne prepara una bozza da rivedere nello Studio prima di salvarla."
     },
     "empty": {
       "title": "Nessun agente custom ancora",

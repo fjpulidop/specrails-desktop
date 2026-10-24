@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "z. B. Terraform-/IaC-Änderungen reviewen und Sicherheits-Fehlkonfigurationen, übermäßige IAM-Berechtigungen und öffentliche S3-Buckets vor dem Merge markieren. Konservativ und knapp.",
       "note": "Claude entwirft einen vollständigen <code>.md</code>-Inhalt. Du prüfst ihn im Studio und kannst ihn vor dem Speichern bearbeiten. Dabei wird ein einmaliger claude-Aufruf gestartet, der bis zu 90 Sekunden dauern kann.",
       "generating": "Wird generiert…",
-      "generateButton": "Generieren"
+      "generateButton": "Generieren",
+      "dialogDescription": "Beschreibe den Agenten, den du brauchst, und Claude entwirft ihn, damit du ihn vor dem Speichern im Studio prüfen kannst."
     },
     "empty": {
       "title": "Noch keine Custom-Agents",

@@ -27,6 +27,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog'
@@ -372,23 +373,26 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent movableResizable className="flex max-w-5xl w-[92vw] h-[82vh] flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-4 h-4" aria-hidden />
-            {t('desktop.title')}
-          </DialogTitle>
+      <DialogContent size="workspace" movableResizable persistKey="specrails.modal.settings">
+        <DialogHeader icon={<Settings />}>
+          <DialogTitle>{t('desktop.title')}</DialogTitle>
           <DialogDescription>
             {t('desktop.description')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 gap-5 py-2">
+        {/* Split pane: the nav and the section content scroll independently. */}
+        <DialogBody className="flex gap-5 overflow-hidden py-3 pr-2">
           {/* Left section nav, grouped Personal · Agents · System */}
           <nav aria-label={t('desktop.navLabel')} className="w-40 shrink-0 overflow-y-auto border-r border-border pr-2">
-            {SETTINGS_GROUPS.map((group) => (
+            {SETTINGS_GROUPS.map((group, groupIndex) => (
               <div key={group.id} role="group" aria-labelledby={`settings-nav-group-${group.id}`} className="space-y-0.5">
-                <p id={`settings-nav-group-${group.id}`} className="px-2.5 pt-3 pb-1 text-[11px] font-medium text-muted-foreground first:pt-0">
+                {/* More space above a group label than below it (mt-4 / mb-1). */}
+                <p
+                  id={`settings-nav-group-${group.id}`}
+                  data-testid={`settings-nav-group-label-${group.id}`}
+                  className={cn('mb-1 px-2.5 text-xs font-medium text-muted-foreground', groupIndex === 0 ? 'mt-0' : 'mt-4')}
+                >
                   {t(group.labelKey)}
                 </p>
                 {group.items.map((s) => {
@@ -571,7 +575,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                 data-sticky={advancedDirty}
               >
                 {advancedDirty && (
-                  <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-[11px] font-medium text-accent-warning" role="status">
+                  <span className="mr-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-accent-warning/30 bg-accent-warning/10 px-2.5 text-xs font-medium text-accent-warning" role="status">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-warning" />
                     {t('desktop.unsavedChanges')}
                   </span>
@@ -705,7 +709,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
               </SettingsCard>
             </div>
           </div>{/* /section content */}
-        </div>
+        </DialogBody>
         <ConfirmDialog
           open={pendingRemoveProject !== null}
           onOpenChange={(next) => { if (!next) setPendingRemoveProject(null) }}

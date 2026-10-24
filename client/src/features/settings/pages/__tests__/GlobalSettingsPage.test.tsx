@@ -108,6 +108,60 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     expect(within(nav).getByRole('button', { name: 'Appearance' })).not.toHaveAttribute('aria-current')
   })
 
+  it('spaces nav group labels more above than below (mt-4 / mb-1), first group flush', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    await screen.findByRole('navigation', { name: 'Settings sections' })
+    const labels = screen.getAllByTestId(/^settings-nav-group-label-/)
+    expect(labels.length).toBeGreaterThan(1)
+    expect(labels[0]).toHaveClass('mt-0', 'mb-1', 'text-xs')
+    for (const label of labels.slice(1)) {
+      expect(label).toHaveClass('mt-4', 'mb-1', 'text-xs')
+      expect(label.className).not.toMatch(/text-\[11px\]/)
+    }
+  })
+
+  it('is a workspace modal with a single scrolling body', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'workspace')
+    expect(dialog.querySelector('[data-dialog-body]')).not.toBeNull()
+    expect(within(dialog).getAllByRole('button', { name: 'Close' })).toHaveLength(1)
+  })
+
+  it('returns focus to the remounted Settings trigger (found by aria-label) on close', async () => {
+    const user = userEvent.setup()
+    // The sidebar trigger re-renders with a new key while the modal is open —
+    // the original node is gone when the modal closes.
+    function Harness() {
+      const [open, setOpen] = React.useState(false)
+      const [generation, setGeneration] = React.useState(0)
+      // Re-key the trigger shortly after the modal mounted (like the sidebar re-render).
+      React.useEffect(() => {
+        if (!open) return
+        const id = setTimeout(() => setGeneration((g) => g + 1), 20)
+        return () => clearTimeout(id)
+      }, [open])
+      return (
+        <>
+          <button key={generation} type="button" aria-label="App settings" onClick={() => setOpen(true)}>
+            gear
+          </button>
+          <GlobalSettingsPage open={open} onClose={() => setOpen(false)} />
+        </>
+      )
+    }
+    render(<Harness />)
+    const original = screen.getByRole('button', { name: 'App settings' })
+    await user.click(original)
+    await screen.findByRole('dialog')
+    await waitFor(() => expect(original.isConnected).toBe(false))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'App settings', hidden: true }))
+    })
+  })
+
   it('shows the replay tour action in the Appearance pane', async () => {
     const onOpenOnboarding = vi.fn()
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} onOpenOnboarding={onOpenOnboarding} />)

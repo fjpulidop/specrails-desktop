@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "p. ej. Revisar cambios de Terraform/IaC y señalar errores de configuración de seguridad, permisos IAM excesivos y buckets S3 públicos antes del merge. Conservador y conciso.",
       "note": "Claude redactará un cuerpo <code>.md</code> completo. Lo revisarás en el Studio y podrás editarlo antes de guardar. Esto lanza una invocación puntual de claude y puede tardar hasta 90 segundos.",
       "generating": "Generando…",
-      "generateButton": "Generar"
+      "generateButton": "Generar",
+      "dialogDescription": "Describe el agente que necesitas y Claude lo redactará para que lo revises en el Studio antes de guardarlo."
     },
     "empty": {
       "title": "Aún no hay agentes personalizados",

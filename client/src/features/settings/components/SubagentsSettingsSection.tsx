@@ -7,8 +7,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Switch } from '../../../components/ui/switch'
 import { useProviderDetection } from '../../providers/hooks/useProviderDetection'
 import { providerLabel, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
@@ -145,7 +144,7 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
     <div className="space-y-3 rounded-lg border border-border/40 p-3" data-testid="subagent-runtime">
       <div className="space-y-0.5">
         <p className="text-xs font-medium">{t('subagents.runtime.label')}</p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {runtime ? t('subagents.runtime.chosenHint', { provider: providerLabel(runtime.provider) }) : t('subagents.runtime.sameHint')}
         </p>
       </div>
@@ -181,28 +180,27 @@ function SubagentRuntimePicker({ runtime, saving, onChange }: {
         )}
       </div>
       {runtime?.provider === 'claude' && efforts.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('subagents.runtime.claudeEffortHint')}</p>
       )}
 
-      <Dialog open={confirming !== null} onOpenChange={(open) => { if (!open) setConfirming(null) }}>
-        <DialogContent className="max-w-md" data-testid="subagent-runtime-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('subagents.runtime.confirm.title', { provider: confirmLabel })}</DialogTitle>
-            <DialogDescription>{t('subagents.runtime.confirm.body', { provider: confirmLabel })}</DialogDescription>
-          </DialogHeader>
-          <ul className="space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-            <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
-            <li className="flex gap-2"><Shuffle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />{t('subagents.runtime.confirm.control')}</li>
-            <li className="flex gap-2"><Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.runtime.confirm.native', { provider: confirmLabel })}</li>
-          </ul>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirming(null)}>{t('subagents.runtime.confirm.cancel')}</Button>
-            <Button size="sm" data-testid="subagent-runtime-confirm-accept" onClick={() => { const provider = confirming!; setConfirming(null); onChange(choose(provider)) }}>
-              {t('subagents.runtime.confirm.accept', { provider: confirmLabel })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => { if (!open) setConfirming(null) }}
+        tone="default"
+        testId="subagent-runtime-confirm"
+        confirmTestId="subagent-runtime-confirm-accept"
+        title={t('subagents.runtime.confirm.title', { provider: confirmLabel })}
+        description={t('subagents.runtime.confirm.body', { provider: confirmLabel })}
+        cancelLabel={t('subagents.runtime.confirm.cancel')}
+        confirmLabel={t('subagents.runtime.confirm.accept', { provider: confirmLabel })}
+        onConfirm={() => { const provider = confirming!; setConfirming(null); onChange(choose(provider)) }}
+      >
+        <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+          <li className="flex gap-2"><Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />{t('subagents.runtime.confirm.cost')}</li>
+          <li className="flex gap-2"><Shuffle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden />{t('subagents.runtime.confirm.control')}</li>
+          <li className="flex gap-2"><Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.runtime.confirm.native', { provider: confirmLabel })}</li>
+        </ul>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -225,7 +223,7 @@ function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: S
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
             <p className="text-xs font-medium">{label}</p>
-            <p className="text-[11px] text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
+            <p className="text-xs text-muted-foreground">{enabled ? t('subagents.stateOn') : t('subagents.stateOff')}</p>
           </div>
           <Switch
             checked={enabled}
@@ -235,7 +233,7 @@ function SubagentsCard({ scope, state }: { scope: 'project' | 'global'; state: S
           />
         </div>
         {enabled && <SubagentRuntimePicker runtime={runtime} saving={saving} onChange={state.setRuntime} />}
-        <ul className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+        <ul className="space-y-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
           <li className="flex gap-2"><Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.explainParallel')}</li>
           <li className="flex gap-2"><Coins className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t('subagents.explainCost')}</li>
           <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{t(`subagents.${scope}.explainScope`)}</li>

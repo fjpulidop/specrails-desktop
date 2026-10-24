@@ -298,7 +298,7 @@ export function McpSettingsSection() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">{t('config.description')}</p>
-              <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed text-foreground">
+              <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-foreground">
                 {buildClientConfig(config)}
               </pre>
             </div>
@@ -309,7 +309,7 @@ export function McpSettingsSection() {
             <div className="text-xs font-semibold text-foreground">{t('token.heading')}</div>
             <p className="text-xs text-muted-foreground">{t('token.description')}</p>
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
                 {t('token.hint', { hint: status.tokenHint })}
               </span>
               <div className="flex items-center gap-1.5">

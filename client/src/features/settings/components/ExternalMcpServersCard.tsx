@@ -61,7 +61,7 @@ interface Row {
 
 /** Shared look for the provider toggle pills (matrix rows + the custom form). */
 function providerPillClass(active: boolean): string {
-  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all duration-150 disabled:opacity-50 ${
+  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-150 disabled:opacity-50 ${
     active
       ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary shadow-[0_0_8px_-2px] shadow-accent-primary/30'
       : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
@@ -294,7 +294,7 @@ export function ExternalMcpServersCard() {
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-[11px]"
+          className="h-7 text-xs"
           disabled={busy}
           onClick={() => (showForm && !editingId ? setShowForm(false) : openCreateForm())}
           data-testid="external-mcp-add"
@@ -302,8 +302,8 @@ export function ExternalMcpServersCard() {
           <Plus className="h-3 w-3" /> {t('external.addCustom')}
         </Button>
       </div>
-      <p className="text-[11px] text-muted-foreground">{t('external.description')}</p>
-      <p className="flex items-start gap-1.5 text-[11px] text-accent-warning">
+      <p className="text-xs text-muted-foreground">{t('external.description')}</p>
+      <p className="flex items-start gap-1.5 text-xs text-accent-warning">
         <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-px" />
         {t('external.warning')}
       </p>
@@ -326,7 +326,7 @@ export function ExternalMcpServersCard() {
                 }`}
               />
               {(nameInvalid || nameTaken) && (
-                <p className="text-[11px] text-destructive" data-testid="external-mcp-name-hint">
+                <p className="text-xs text-destructive" data-testid="external-mcp-name-hint">
                   {nameInvalid ? t('external.form.nameInvalid') : t('external.form.nameTaken')}
                 </p>
               )}
@@ -366,7 +366,7 @@ export function ExternalMcpServersCard() {
               <button
                 type="button"
                 onClick={() => setFormEnvPairs((p) => [...p, { key: '', value: '' }])}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="external-mcp-env-add"
               >
                 <Plus className="h-2.5 w-2.5" /> {t('external.form.addVar')}
@@ -383,7 +383,7 @@ export function ExternalMcpServersCard() {
                   aria-label={`${t('external.form.envKey')} ${i + 1}`}
                   className="w-2/5 rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
                 />
-                <span className="text-[11px] text-muted-foreground">=</span>
+                <span className="text-xs text-muted-foreground">=</span>
                 <input
                   value={pair.value}
                   onChange={(e) =>
@@ -432,12 +432,12 @@ export function ExternalMcpServersCard() {
           </div>
 
           <div className="flex justify-end gap-1.5 pt-0.5">
-            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={resetForm}>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetForm}>
               {t('external.form.cancel')}
             </Button>
             <Button
               size="sm"
-              className="h-7 text-[11px]"
+              className="h-7 text-xs"
               disabled={busy || !formValid}
               onClick={() => void saveCustom()}
               data-testid="external-mcp-form-save"
@@ -449,7 +449,7 @@ export function ExternalMcpServersCard() {
       )}
 
       {rows.length === 0 && payload.discovered.codexNative.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground py-1">{t('external.empty')}</p>
+        <p className="text-xs text-muted-foreground py-1">{t('external.empty')}</p>
       ) : (
         <div className="space-y-1.5">
           {rows.map((row) => (
@@ -459,13 +459,13 @@ export function ExternalMcpServersCard() {
               data-testid={`external-mcp-row-${row.id}`}
             >
               <span className="text-xs font-medium text-foreground min-w-0 truncate">{row.name}</span>
-              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[11px] text-muted-foreground">
+              <span className="rounded-full bg-muted/60 px-1.5 py-px text-xs text-muted-foreground">
                 {row.source === 'custom'
                   ? t('external.sourceCustom')
                   : t('external.sourceDiscovered', { provider: row.sourceProvider })}
               </span>
               {row.orphan && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-1.5 py-px text-[11px] text-accent-warning" data-testid="external-mcp-orphan">
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-1.5 py-px text-xs text-accent-warning" data-testid="external-mcp-orphan">
                   <TriangleAlert className="h-2.5 w-2.5" /> {t('external.orphan')}
                 </span>
               )}
@@ -525,7 +525,7 @@ export function ExternalMcpServersCard() {
               data-testid={`external-mcp-codex-${name}`}
             >
               <span className="text-xs font-medium text-foreground min-w-0 truncate">{name}</span>
-              <span className="rounded-full bg-muted/60 px-1.5 py-px text-[11px] text-muted-foreground">
+              <span className="rounded-full bg-muted/60 px-1.5 py-px text-xs text-muted-foreground">
                 {t('external.codexNative')}
               </span>
             </div>

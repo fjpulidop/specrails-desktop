@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "e.g. Review Terraform/IaC changes and flag security misconfigurations, excessive IAM permissions, and public S3 buckets before merging. Conservative and terse.",
       "note": "Claude will draft a full <code>.md</code> body. You'll review it in the Studio and can edit before saving. This spawns a one-shot claude invocation and can take up to 90 seconds.",
       "generating": "Generating…",
-      "generateButton": "Generate"
+      "generateButton": "Generate",
+      "dialogDescription": "Describe the agent you need and Claude drafts it for you to review in the Studio before saving."
     },
     "empty": {
       "title": "No custom agents yet",

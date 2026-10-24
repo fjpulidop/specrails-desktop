@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog'
@@ -17,7 +18,7 @@ type SectionId = ProjectSettingsSectionId
 /**
  * Project settings as a MODAL (Agent Mode — the /settings route belongs to the
  * Kanban surface). Mirrors the Global Settings / Docs dialogs exactly: same
- * movable-resizable DialogContent proportions (max-w-5xl · 92vw · 82vh), same
+ * resizable `workspace` DialogContent, same
  * left section nav + scrollable content, all panes mounted and toggled with
  * `hidden` so switching sections never refetches or resizes.
  */
@@ -30,16 +31,16 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent movableResizable className="flex max-w-5xl w-[92vw] h-[82vh] flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-4 h-4" aria-hidden />
+      <DialogContent size="workspace" movableResizable persistKey="specrails.modal.project-settings">
+        <DialogHeader icon={<Settings />}>
+          <DialogTitle>
             {project ? t('projectDialog.title', { name: project.name }) : t('page.title')}
           </DialogTitle>
           <DialogDescription>{t('projectDialog.description')}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 gap-5 py-2">
+        {/* Split pane: the nav and the section content scroll independently. */}
+        <DialogBody className="flex gap-5 overflow-hidden py-3 pr-2">
           {/* Left section nav — same chrome as the Global Settings dialog */}
           <nav aria-label={t('projectDialog.navLabel')} className="w-40 shrink-0 space-y-0.5 overflow-y-auto border-r border-border pr-2">
             {PROJECT_SETTINGS_SECTIONS.map((s) => {
@@ -73,7 +74,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
               </div>
             ))}
           </div>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

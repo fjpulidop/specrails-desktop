@@ -58,7 +58,8 @@
       "descriptionPlaceholder": "例: Terraform/IaC の変更をレビューし、マージ前にセキュリティ設定ミス、過剰な IAM 権限、公開 S3 バケットを指摘する。保守的かつ簡潔に。",
       "note": "Claude が完全な <code>.md</code> 本文をドラフトします。Studio で確認し、保存前に編集できます。ワンショットの claude 呼び出しが起動され、最大 90 秒かかることがあります。",
       "generating": "生成中…",
-      "generateButton": "生成"
+      "generateButton": "生成",
+      "dialogDescription": "必要なエージェントを説明すると、Claude が下書きを作成します。保存する前に Studio で確認できます。"
     },
     "empty": {
       "title": "カスタムエージェントはまだありません",
