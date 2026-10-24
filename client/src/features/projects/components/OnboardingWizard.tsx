@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { cn } from '../../../lib/utils'
+import { RailMark } from '../../../components/brand/RailMark'
 import { Button } from '../../../components/ui/button'
 import { DIALOG_PANEL_CLASS, DIALOG_SCRIM_CLASS, DialogCloseButton, DialogLayerProvider } from '../../../components/ui/dialog'
 import { DIALOG_LAYER_CLASS } from '../../../lib/layers'
@@ -83,7 +84,6 @@ const ALT = isMac ? '⌥' : 'Alt'
 interface Accent {
   text: string
   bar: string
-  glow: string
   btn: string
   softBorder: string
   softBg: string
@@ -96,7 +96,6 @@ const ACCENTS = {
   primary: {
     text: 'text-accent-primary',
     bar: 'bg-accent-primary',
-    glow: 'glow-primary',
     btn: 'bg-primary hover:bg-primary/90 text-primary-foreground',
     softBorder: 'border-accent-primary/30',
     softBg: 'bg-accent-primary/5',
@@ -131,7 +130,7 @@ function Feature({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-foreground leading-tight">{label}</p>
+        <p className="text-strong text-foreground leading-tight">{label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{children}</p>
       </div>
     </div>
@@ -149,7 +148,7 @@ function Callout({ accent, label, children }: { accent: Accent; label?: string; 
 
 function FlowStrip({ steps }: { steps: { label: string; cls: string }[] }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap text-[13px] font-medium">
+    <div className="flex items-center gap-2 flex-wrap text-body font-medium">
       {steps.map((s, i) => (
         <span key={s.label} className="flex items-center gap-2">
           <span className={s.cls}>{s.label}</span>
@@ -223,7 +222,7 @@ function CompanionDownloadCard({
         <QRCodeSVG value={url} size={72} />
       </div>
       <div className="min-w-0 space-y-1">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground leading-tight">
+        <p className="flex items-center gap-1.5 text-strong text-foreground leading-tight">
           {icon}
           {label}
         </p>
@@ -254,7 +253,7 @@ function CompanionStepBody() {
         {t('onboarding.companion.localBody')}
       </Callout>
       <div className="space-y-2">
-        <p className="text-[13px] font-semibold text-foreground">{t('onboarding.companion.downloadLabel')}</p>
+        <p className="text-strong text-foreground">{t('onboarding.companion.downloadLabel')}</p>
         <p className="text-xs text-muted-foreground">{t('onboarding.companion.downloadHint')}</p>
         <CompanionDownloadCard
           icon={<Smartphone className="w-4 h-4 shrink-0" aria-hidden="true" />}
@@ -707,17 +706,15 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
           }}
         >
           <DialogLayerProvider layer="base">
-          {/* Accent bar */}
-          <div className="h-1 w-full shrink-0 bg-accent-primary" />
           <DialogCloseButton data-testid="onboarding-close" className="absolute right-3 top-3 z-20" />
 
           <div className="flex min-h-0 flex-1">
             {/* ── Left step navigation ── */}
             <nav className="hidden md:flex w-60 shrink-0 flex-col border-r border-border/30 bg-card/20 p-4">
               <div className="px-2 mb-5">
-                <p className="text-sm font-bold tracking-tight">
-                  <span className="text-accent-primary">spec</span>
-                  <span className="text-accent-secondary">rails</span>
+                <p className="flex items-center gap-2 text-strong text-foreground">
+                  <RailMark size={20} />
+                  Specrails
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">{t('onboarding.productTour')}</p>
               </div>
@@ -766,11 +763,11 @@ export function OnboardingWizard({ open, onClose, onFinish }: OnboardingWizardPr
               <div className="flex-1 overflow-y-auto p-6 sm:p-7">
                 {/* Header */}
                 <div className={cn('flex items-center gap-3.5 mb-5 pr-8', ACCENTS.primary.text)}>
-                  <div className={cn('grid place-items-center w-12 h-12 shrink-0 rounded-xl border border-border/30 bg-card/40', ACCENTS.primary.glow)}>
+                  <div className={cn('grid place-items-center w-12 h-12 shrink-0 rounded-card border border-border/30 bg-card/40 shadow-1')}>
                     {current.icon}
                   </div>
                   <div className="min-w-0">
-                    <DialogPrimitive.Title className="text-lg font-bold leading-tight text-foreground">
+                    <DialogPrimitive.Title className="text-headline text-foreground">
                       {current.title}
                     </DialogPrimitive.Title>
                     <p id="onboarding-description" className="text-xs text-muted-foreground mt-0.5">
