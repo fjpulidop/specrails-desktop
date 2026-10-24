@@ -213,17 +213,17 @@ const AURORA_LIGHT: ThemeDescriptor = {
 // ─── Obsidian Dark ─────────────────────────────────────────────────────────
 
 const OBSIDIAN_PALETTE = {
-  bg:        'hsl(222 18% 8%)',
-  fg:        'hsl(220 18% 92%)',
-  surface:   'hsl(222 16% 12%)',
-  muted:     'hsl(220 12% 60%)',
-  primary:   'hsl(265 80% 72%)',
-  info:      'hsl(192 90% 62%)',
-  success:   'hsl(150 70% 55%)',
-  secondary: 'hsl(330 80% 68%)',
-  warning:   'hsl(35 95% 62%)',
-  destructive: 'hsl(0 78% 62%)',
-  highlight: 'hsl(50 95% 65%)',
+  bg:        'hsl(220 8% 8%)',
+  fg:        'hsl(220 8% 92%)',
+  surface:   'hsl(220 7% 12%)',
+  muted:     'hsl(220 6% 60%)',
+  primary:   'hsl(258 55% 70%)',
+  info:      'hsl(192 76% 62%)',
+  success:   'hsl(150 60% 55%)',
+  secondary: 'hsl(330 68% 68%)',
+  warning:   'hsl(35 81% 62%)',
+  destructive: 'hsl(0 66% 62%)',
+  highlight: 'hsl(50 81% 65%)',
 } as const
 
 const OBSIDIAN_DARK: ThemeDescriptor = {

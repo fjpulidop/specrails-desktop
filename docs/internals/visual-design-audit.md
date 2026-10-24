@@ -144,6 +144,19 @@ Deferred to a dedicated bulk change (mechanical but broad): the remaining ~40-fi
 
 # PART 3 — RAILS REDESIGN PROPOSAL
 
+## 1.7 Premium tokens (Signal box at night)
+Defined once in `client/src/globals.css` `@theme`; every theme block may override the ones marked per-theme. Components adopt them in later batches; nothing here changes a component by itself.
+| Role | Tokens / utilities | Notes |
+|---|---|---|
+| Type scale | `text-micro` 10.5 · `text-caption` 11 · `text-label` 12 · `text-body` 13 · `text-strong` 14 · `text-title` 16 · `text-headline` 20 (page H1) · `text-display` 28 · `text-display-xl` 40 | Each carries line-height, weight and tracking sub-keys. `font-display` inherits; code-rain sets mono. |
+| Numerals | `num` utility | `tabular-nums slashed-zero`; use for every cost, token, duration and count. |
+| Radius roles | `rounded-control` 6 · `rounded-card` 10 · `rounded-panel` 14 · `rounded-pill` | Per-theme: code-rain sharp (2/3/4), aurora-light panel 12. |
+| Elevation | `shadow-1` card · `shadow-2` raised (menus, composer) · `shadow-3` overlay | Built from `--shadow-color`, `--shadow-color-strong`, `--edge-highlight` (per theme; aurora-light has no edge light). |
+| Motion | `--ease-out/in/rail`, `--duration-instant/fast/base/slow/peak` (100/150/200/300/640 ms) | Rail travel is the one authored motion: `animate-rail-travel`, `animate-rail-arrive` (static under reduced motion). |
+| Rail gradient end | `--color-rail-end` | Defaults to `accent-secondary`; galaxy uses its gold highlight. |
+| Native surfaces | `color-scheme` | Set per theme (`light` only for aurora-light) so date inputs, selects and scrollbars follow the theme. |
+Obsidian Dark is retuned as graphite: neutral hue 220, saturation at most 8%, one desaturated violet primary. `themes.ts` `OBSIDIAN_PALETTE` mirrors it for terminal and charts.
+
 ## 3.1 Diagnosis (one sentence)
 A single idle rail exposes **13 controls, six of them 10px native `<select>`s explained only by icon+`title`**, the primary action is the smallest target on the card (20px), a running rail is a **black box** (all config unmounts → layout jump; no loop/engine/model/phase shown), failure is **invisible after a 4s toast** (`RailStatus 'failed'` is dead code), and rail identity is three disagreeing coordinate systems (id-number vs array-index vs server-index) sitting on a localStorage/server split-brain.
 
