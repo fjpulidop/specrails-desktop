@@ -898,8 +898,9 @@ describe('AgentChatProvider', () => {
     const box = screen.getByRole('textbox')
     inputEditor(box, 'Keep this unsent instruction')
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'View process history' })) })
-    expect(screen.getByTestId('background-process-history-modal')).toBeInTheDocument()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close process history' })) })
+    const historyModal = screen.getByTestId('background-process-history-modal')
+    // Modal standard: one header close button named "Close".
+    await act(async () => { fireEvent.click(within(historyModal).getByRole('button', { name: 'Close' })) })
     expect(screen.queryByTestId('background-process-history-modal')).not.toBeInTheDocument()
     expect(editorText(screen.getByRole('textbox'))).toBe('Keep this unsent instruction')
     expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
