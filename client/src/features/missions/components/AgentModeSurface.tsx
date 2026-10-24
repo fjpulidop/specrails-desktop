@@ -14,6 +14,7 @@ import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Starfield } from '../../settings/components/theme-effects/Starfield'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentComposer } from './AgentComposer'
+import { MissionHomeHeader } from './MissionHomeHeader'
 import { BuilderConversation } from '../../builder/components/project-builder/BuilderConversation'
 
 const AgentModeCodePane = lazy(() =>
@@ -63,17 +64,17 @@ function AgentEmptyStarters() {
       selection.addRange(range)
     })
   }
-  const chip = 'inline-flex h-8 items-center gap-1.5 rounded-full border border-border/60 px-3 text-xs text-foreground/80 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+  const chip = 'u-enter inline-flex h-8 items-center gap-1.5 rounded-control border border-border/60 px-3 text-label text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
   return (
     <div className="mt-3 flex flex-col items-center gap-2" data-testid="agent-empty-starters">
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <button type="button" className={chip} onClick={(e) => insert('@', e)}>
+        <button type="button" className={chip} style={{ animationDelay: '0ms' }} onClick={(e) => insert('@', e)}>
           <span aria-hidden className="font-mono text-accent-primary">@</span>{t('starter.reference')}
         </button>
-        <button type="button" className={chip} onClick={(e) => insert('/', e)}>
+        <button type="button" className={chip} style={{ animationDelay: '24ms' }} onClick={(e) => insert('/', e)}>
           <span aria-hidden className="font-mono text-accent-highlight">/</span>{t('starter.action')}
         </button>
-        <button type="button" className={chip} onClick={(e) => insert(t('starter.planSpec'), e)}>
+        <button type="button" className={chip} style={{ animationDelay: '48ms' }} onClick={(e) => insert(t('starter.planSpec'), e)}>
           {t('starter.plan')}
         </button>
       </div>
@@ -154,6 +155,7 @@ export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } 
               className="w-full max-w-[960px]"
               data-agent-empty-composer
             >
+              <MissionHomeHeader />
               <AgentComposer autoFocus />
               <AgentEmptyStarters />
             </motion.div>

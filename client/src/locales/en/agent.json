@@ -1364,5 +1364,10 @@
     "arrived": "Arrived at review — PR #{{number}}",
     "arrivedNoNumber": "Arrived at review",
     "openPr": "Open PR"
+  },
+  "missionHome": {
+    "greeting": "What should ship next in {{project}}?",
+    "greetingNoProject": "What should ship next?",
+    "status": "{{ready}} specs ready · {{running}} running"
   }
 }

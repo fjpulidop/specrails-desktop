@@ -1364,5 +1364,10 @@
     "arrived": "Llegó a revisión — PR #{{number}}",
     "arrivedNoNumber": "Llegó a revisión",
     "openPr": "Abrir PR"
+  },
+  "missionHome": {
+    "greeting": "¿Qué debería salir a continuación en {{project}}?",
+    "greetingNoProject": "¿Qué debería salir a continuación?",
+    "status": "{{ready}} specs listas · {{running}} en curso"
   }
 }

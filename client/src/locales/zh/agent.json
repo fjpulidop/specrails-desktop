@@ -1364,5 +1364,10 @@
     "arrived": "已送达评审 — PR #{{number}}",
     "arrivedNoNumber": "已送达评审",
     "openPr": "打开 PR"
+  },
+  "missionHome": {
+    "greeting": "{{project}} 接下来要交付什么?",
+    "greetingNoProject": "接下来要交付什么?",
+    "status": "{{ready}} 个规格就绪 · {{running}} 个运行中"
   }
 }

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1200 source/build files. Nearby tests are linked where names
+Includes 1201 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -541,6 +541,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
 - [AgentWorkspaceSidebar.tsx](../../client/src/features/missions/components/AgentWorkspaceSidebar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx)
 - [MissionConversationMenu.tsx](../../client/src/features/missions/components/MissionConversationMenu.tsx)
+- [MissionHomeHeader.tsx](../../client/src/features/missions/components/MissionHomeHeader.tsx)
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
 - [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
 - [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)

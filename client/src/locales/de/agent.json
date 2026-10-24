@@ -1364,5 +1364,10 @@
     "arrived": "Zur Prüfung angekommen — PR #{{number}}",
     "arrivedNoNumber": "Zur Prüfung angekommen",
     "openPr": "PR öffnen"
+  },
+  "missionHome": {
+    "greeting": "Was soll als Nächstes in {{project}} ausgeliefert werden?",
+    "greetingNoProject": "Was soll als Nächstes ausgeliefert werden?",
+    "status": "{{ready}} Specs bereit · {{running}} laufen"
   }
 }

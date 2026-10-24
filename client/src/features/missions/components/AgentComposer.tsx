@@ -763,7 +763,7 @@ export function AgentComposer({
         data-mission-composer
         data-composer-mode={composerMode ? 'extension' : undefined}
         data-drag-over={dragOver || undefined}
-        className={`relative flex flex-col gap-2 rounded-3xl border bg-card px-3 py-3 transition-colors ${
+        className={`relative flex flex-col gap-2 rounded-panel border bg-surface px-3 py-3 shadow-2 transition-colors ${
           dragOver
             ? 'border-dashed border-accent-primary bg-accent-primary/5'
             : inQueueEdit ? 'border-accent-highlight/50' : inHistory ? 'border-dashed border-foreground/35'

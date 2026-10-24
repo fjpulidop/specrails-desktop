@@ -1364,5 +1364,10 @@
     "arrived": "レビューに到着 — PR #{{number}}",
     "arrivedNoNumber": "レビューに到着",
     "openPr": "PR を開く"
+  },
+  "missionHome": {
+    "greeting": "{{project}} で次に出荷するものは何ですか?",
+    "greetingNoProject": "次に出荷するものは何ですか?",
+    "status": "{{ready}} 件のスペックが準備完了 · {{running}} 件実行中"
   }
 }
