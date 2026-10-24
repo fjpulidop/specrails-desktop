@@ -90,8 +90,8 @@ describe('DesktopAnalyticsPage', () => {
 
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
-    // Loading skeleton uses animate-pulse
-    const skeletons = document.querySelectorAll('[class*="animate-pulse"]')
+    // Loading skeleton uses data-skeleton
+    const skeletons = document.querySelectorAll('[data-skeleton]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import type { SpendingResponse } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -11,7 +12,7 @@ interface Props {
 export function SpendingTimeline({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-[220px]" />
   }
   if (!data) return null
 

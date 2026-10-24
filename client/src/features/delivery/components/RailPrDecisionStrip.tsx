@@ -783,7 +783,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     <div
       data-testid="rail-pr-strip"
       data-decision={d}
-      className={`flex items-center flex-wrap animate-in fade-in slide-in-from-top-1 duration-200 ${compact ? 'gap-1' : 'gap-1.5'}`}
+      className={`flex items-center flex-wrap u-enter-down ${compact ? 'gap-1' : 'gap-1.5'}`}
       onClick={(e) => e.stopPropagation()}
     >
       {announcement && <span role="status" aria-live="polite" aria-label={announcement} className="sr-only" />}

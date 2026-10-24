@@ -5,6 +5,7 @@ import type { InvocationRow, Surface } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
 import { formatUsd } from '../lib/format'
 import { CostValue } from './CostValue'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface TableFilters {
   model?: string
@@ -126,7 +127,7 @@ export function InvocationsTable({
       </div>
 
       {loading ? (
-        <div className="h-32 rounded bg-card/30 motion-safe:animate-pulse" />
+        <Skeleton className="h-32" />
       ) : rows.length === 0 ? (
         <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('table.empty')}</div>
       ) : (

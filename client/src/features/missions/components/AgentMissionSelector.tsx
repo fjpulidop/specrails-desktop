@@ -7,6 +7,7 @@ import { compactRelativeTime, absoluteTime } from '../../../lib/relative-time'
 import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
 import type { AgentConversation } from '../lib/agent-api'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** Search only earns its row once the list is big enough to need it. */
 const SEARCH_THRESHOLD = 8
@@ -351,14 +352,11 @@ function MissionRow({
         {compactRelativeTime(conversation.updated_at)}
       </span>
       {streaming && (
-        <span
+        <LiveDot
+          size="xs"
           data-testid={`mission-live-${conversation.id}`}
           aria-label={t('mission.working')}
-          className="relative flex h-1.5 w-1.5 shrink-0"
-        >
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-primary opacity-60" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-primary" />
-        </span>
+        />
       )}
       {queuedCount > 0 && (
         <span

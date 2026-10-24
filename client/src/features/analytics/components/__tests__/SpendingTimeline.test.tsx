@@ -44,7 +44,7 @@ function emptyData(daily: SpendingResponse['dailyTimeline'] = []): SpendingRespo
 describe('SpendingTimeline', () => {
   it('renders skeleton when loading without data', () => {
     const { container } = render(<SpendingTimeline data={null} loading />)
-    expect(container.querySelector('[class*="animate-pulse"]')).toBeTruthy()
+    expect(container.querySelector('[data-skeleton]')).toBeTruthy()
   })
 
   it('returns null when no data and not loading', () => {

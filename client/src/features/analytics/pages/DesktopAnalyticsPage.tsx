@@ -11,6 +11,7 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { CostValue } from '../components/CostValue'
 import { formatUsd } from '../lib/format'
 import { DialogBody, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 // Server now splits authoritative (claude, provider-billed) vs estimated
 // (codex/gemini rate-card) cost. These fields are populated by
@@ -436,12 +437,12 @@ export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: 
           <div className="space-y-3">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg border border-border/40 bg-card/50 motion-safe:animate-pulse" />
+                <Skeleton key={i} className="h-20" />
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="h-[220px] rounded-lg border border-border/40 bg-card/50 motion-safe:animate-pulse" />
+                <Skeleton key={i} className="h-[220px]" />
               ))}
             </div>
           </div>

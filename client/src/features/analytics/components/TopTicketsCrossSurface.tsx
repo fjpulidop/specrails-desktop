@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -12,7 +13,7 @@ interface Props {
 export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-40 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-40" />
   }
   if (!data) return null
   const list = data.topTickets

@@ -48,7 +48,7 @@ export const DIALOG_SIZE_CLASS: Record<DialogSize, string> = {
 
 /** Shared panel chrome (surface, border, radius, shadow, entrance motion). */
 export const DIALOG_PANEL_CLASS =
-  'modal-panel fixed left-[50%] top-[50%] flex flex-col overflow-hidden translate-x-[-50%] translate-y-[-50%] border border-border/30 bg-popover text-popover-foreground shadow-xl outline-none sm:rounded-xl'
+  'modal-panel fixed left-[50%] top-[50%] flex flex-col overflow-hidden translate-x-[-50%] translate-y-[-50%] border border-border/30 bg-popover text-popover-foreground shadow-3 outline-none sm:rounded-panel'
 
 /** Shared scrim (one token per theme, see `--color-scrim` in globals.css). */
 export const DIALOG_SCRIM_CLASS = 'modal-scrim fixed inset-0 bg-scrim backdrop-blur-sm'

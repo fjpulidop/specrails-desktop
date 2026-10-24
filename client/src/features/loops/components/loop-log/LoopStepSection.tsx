@@ -10,15 +10,13 @@ import {
   type SegmentStatus,
 } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT } from './loop-node-visuals'
+import { LiveDot } from '../../../../components/ui/live-dot'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
 function PulseDot({ className }: { className?: string }) {
   return (
-    <span className={cn('relative flex h-2 w-2 shrink-0', className)}>
-      <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-primary opacity-60" />
-      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-primary" />
-    </span>
+    <LiveDot size="sm" className={className} />
   )
 }
 
@@ -129,7 +127,7 @@ function LoopStepSectionInner({
       data-status={status}
       data-step-index={meta.index}
       className={cn(
-        'mt-3 rounded-md overflow-hidden border animate-in fade-in duration-200',
+        'mt-3 rounded-md overflow-hidden border u-fade',
         status === 'running' && 'border-accent-primary/40',
         status === 'failed' && 'border-destructive/30',
         status === 'stalled' && 'border-dashed border-destructive/40',
@@ -262,7 +260,7 @@ function LoopStepSectionInner({
         <div
           data-testid="loop-step-detail"
           className={cn(
-            'px-4 py-2.5 space-y-2.5 bg-muted/10 border-b animate-in fade-in duration-150',
+            'px-4 py-2.5 space-y-2.5 bg-muted/10 border-b u-fade',
             status === 'failed' ? 'border-destructive/20' : 'border-primary/10',
           )}
         >

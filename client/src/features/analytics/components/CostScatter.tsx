@@ -3,6 +3,7 @@ import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid
 import type { SpendingResponse, ScatterPoint, Surface } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -77,7 +78,7 @@ const SURFACES = Object.keys(SURFACE_LABEL) as Surface[]
 export function CostScatter({ data, loading, onSelectPoint }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[260px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-[260px]" />
   }
   if (!data) return null
 

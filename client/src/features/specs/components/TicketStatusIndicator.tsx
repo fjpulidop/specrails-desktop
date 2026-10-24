@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { TicketStatus } from '../../../types'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -87,23 +88,12 @@ export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
 
   if (cfg.pulsing) {
     return (
-      <span
-        className={cn('relative flex shrink-0 h-2.5 w-2.5', className)}
+      <LiveDot
+        size="md"
+        dotClassName={cfg.dotClass}
+        className={className}
         aria-label={t('status.inProgress')}
-      >
-        <span
-          className={cn(
-            'motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-60',
-            cfg.dotClass
-          )}
-        />
-        <span
-          className={cn(
-            'relative inline-flex rounded-full h-2.5 w-2.5',
-            cfg.dotClass
-          )}
-        />
-      </span>
+      />
     )
   }
 

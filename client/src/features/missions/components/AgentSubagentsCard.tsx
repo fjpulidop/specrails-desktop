@@ -12,6 +12,7 @@ import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
 import { resultPreview } from '../lib/subagent-result'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { formatUsd } from '../../analytics/lib/format'
+import { LiveDot } from '../../../components/ui/live-dot'
 
 /** Live elapsed time while running; the final duration once it ended. */
 export function useElapsed(node: AgentSubagent): string {
@@ -29,10 +30,7 @@ export function useElapsed(node: AgentSubagent): string {
 export function PhaseGlyph({ node }: { node: AgentSubagent }) {
   if (isLiveSubagent(node)) {
     return (
-      <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-        <span className="absolute inline-flex h-full w-full rounded-full bg-accent-primary opacity-60 motion-safe:animate-ping" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-primary" />
-      </span>
+      <LiveDot size="sm" aria-hidden />
     )
   }
   if (node.phase === 'idle') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent-success" aria-hidden />

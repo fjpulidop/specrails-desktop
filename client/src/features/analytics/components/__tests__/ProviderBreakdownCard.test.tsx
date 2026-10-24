@@ -41,7 +41,7 @@ function makeData(byProvider: ByProviderEntry[]): SpendingResponse {
 describe('ProviderBreakdownCard', () => {
   it('renders a pulse skeleton while loading without data', () => {
     const { container } = render(<ProviderBreakdownCard data={null} loading={true} />)
-    expect(container.querySelector('[class*="animate-pulse"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-skeleton]')).toBeInTheDocument()
     expect(screen.queryByText('By provider')).not.toBeInTheDocument()
   })
 

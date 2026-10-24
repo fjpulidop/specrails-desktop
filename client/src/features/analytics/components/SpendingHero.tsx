@@ -5,6 +5,7 @@ import type { SpendingResponse, Surface, Period } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
 import { formatUsd as fmtUsd } from '../lib/format'
 import { CostValue } from './CostValue'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -79,7 +80,7 @@ export function SpendingHero({ data, loading, period }: Props) {
   }, [data])
 
   if (loading && !data) {
-    return <div className="h-44 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-44" />
   }
   if (!data) return null
 

@@ -34,7 +34,7 @@ function emptyData(
 describe('CostScatter', () => {
   it('renders skeleton when loading without data', () => {
     const { container } = render(<CostScatter data={null} loading onSelectPoint={() => {}} />)
-    expect(container.querySelector('[class*="animate-pulse"]')).toBeTruthy()
+    expect(container.querySelector('[data-skeleton]')).toBeTruthy()
   })
 
   it('returns null when no data', () => {

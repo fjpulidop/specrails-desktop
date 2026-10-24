@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -17,7 +18,7 @@ interface Props {
 export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-[220px]" />
   }
   if (!data) return null
 

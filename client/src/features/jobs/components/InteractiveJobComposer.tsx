@@ -263,7 +263,7 @@ export function InteractiveJobComposer({
       data-testid="interactive-job-composer"
       className={cn(
         'shrink-0 border-t px-3 py-2 space-y-1.5',
-        'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200',
+        'u-enter',
         variant === 'glass' ? 'border-border/30 bg-surface/30' : 'border-border/40 bg-surface/40',
       )}
     >
@@ -292,7 +292,7 @@ export function InteractiveJobComposer({
             </span>
           )}
           {state.queued > 0 && (
-            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[11px] tabular-nums text-accent-info motion-safe:animate-in motion-safe:fade-in">
+            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[11px] tabular-nums text-accent-info u-fade">
               {t('detail.interactive.queued', { count: state.queued })}
             </span>
           )}

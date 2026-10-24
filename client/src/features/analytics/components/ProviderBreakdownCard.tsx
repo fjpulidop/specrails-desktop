@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { ByProviderEntry, SpendingResponse } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { Skeleton } from '../../../components/ui/skeleton'
 
 interface Props {
   data: SpendingResponse | null
@@ -36,7 +37,7 @@ function providerAccent(id: string): string {
 export function ProviderBreakdownCard({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-32 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
+    return <Skeleton className="h-32" />
   }
   if (!data || data.byProvider.length === 0) {
     // Single-provider projects (or empty datasets) skip this widget — the

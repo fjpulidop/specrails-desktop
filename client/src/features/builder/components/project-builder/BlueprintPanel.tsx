@@ -131,7 +131,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                 key={`${i}-${spec.title}`}
                 onClick={() => setSelectedSpec(i)}
                 data-agent-interactive
-                className="w-full rounded-lg border border-border/40 bg-surface/50 p-2.5 text-left shadow-sm transition-colors animate-in fade-in slide-in-from-bottom-1 hover:border-accent-primary/50 hover:bg-surface/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-lg border border-border/40 bg-surface/50 p-2.5 text-left shadow-sm transition-colors u-enter hover:border-accent-primary/50 hover:bg-surface/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 data-testid={`m1-spec-card-${i}`}
                 title={t('specModal.open')}
               >

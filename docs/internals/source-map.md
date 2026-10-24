@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1193 source/build files. Nearby tests are linked where names
+Includes 1196 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -55,8 +55,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [confirm-dialog.tsx](../../client/src/components/ui/confirm-dialog.tsx)
 - [dialog.tsx](../../client/src/components/ui/dialog.tsx)
 - [dropdown-menu.tsx](../../client/src/components/ui/dropdown-menu.tsx) · [test](../../client/src/components/ui/__tests__/dropdown-menu.test.tsx)
+- [empty-state.tsx](../../client/src/components/ui/empty-state.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
+- [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
+- [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
 - [tooltip.tsx](../../client/src/components/ui/tooltip.tsx)
 

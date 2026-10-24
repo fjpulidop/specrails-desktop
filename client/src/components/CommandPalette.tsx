@@ -41,6 +41,7 @@ import {
   type PaletteGroup,
 } from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
+import { LiveDot } from './ui/live-dot'
 
 interface CommandPaletteProps {
   onOpenSettings?: () => void
@@ -272,14 +273,11 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{conversation.title?.trim() || untitledMission}</span>
                   {streaming && (
-                    <span
+                    <LiveDot
+                      size="xs"
                       aria-label={tAgent('mission.working')}
                       data-testid={`palette-mission-live-${conversation.id}`}
-                      className="relative flex h-1.5 w-1.5 shrink-0"
-                    >
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-primary opacity-60" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-primary" />
-                    </span>
+                    />
                   )}
                   <span
                     className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"

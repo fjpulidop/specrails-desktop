@@ -22,7 +22,7 @@ const baseData: SpendingResponse = {
 describe('SpendingHero', () => {
   it('renders skeleton when loading and no data', () => {
     const { container } = render(<SpendingHero data={null} loading />)
-    expect(container.querySelector('[class*="animate-pulse"]')).toBeTruthy()
+    expect(container.querySelector('[data-skeleton]')).toBeTruthy()
   })
 
   it('renders empty state when no runs', () => {

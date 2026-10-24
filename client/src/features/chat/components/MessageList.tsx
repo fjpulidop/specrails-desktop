@@ -111,9 +111,9 @@ export function MessageList({
       {isStreaming && !streamingText && (
         <div className="flex justify-start px-3 py-1" data-testid="thinking-indicator">
           <div className="rounded-2xl rounded-bl-sm bg-surface/30 px-3 py-2 flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:0ms]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:150ms]" />
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-none [animation-delay:300ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground u-dot-wave [animation-delay:0ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground u-dot-wave [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground u-dot-wave [animation-delay:300ms]" />
           </div>
         </div>
       )}

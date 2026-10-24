@@ -33,6 +33,7 @@ import { projectProviders, useDesktop, type DesktopProject } from '../../../hook
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { ConnectionState } from '../../integrations/lib/jira-api'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
+import { EmptyState } from '../../../components/ui/empty-state'
 
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
@@ -637,9 +638,7 @@ function PluginSectionGroups({
 
 function PluginEmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-[74px] max-w-[320px] items-center rounded-lg border border-dashed border-border bg-card/35 px-3 text-xs text-muted-foreground">
-      {text}
-    </div>
+    <EmptyState title={text} className="max-w-[320px] py-5 bg-card/35" />
   )
 }
 
