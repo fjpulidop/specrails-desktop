@@ -92,6 +92,8 @@
       "subtitle": "在一个位置管理全局工具和项目集成。",
       "readyCount_one": "{{count}} 个就绪",
       "readyCount_other": "{{count}} 个就绪",
+      "attentionCount_one": "{{count}} 个需要关注",
+      "attentionCount_other": "{{count}} 个需要关注",
       "openWindow": "在窗口中打开",
       "openWindowFailed": "无法打开插件窗口"
     },

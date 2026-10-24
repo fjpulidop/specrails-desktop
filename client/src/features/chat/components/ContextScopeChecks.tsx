@@ -104,7 +104,7 @@ export function ContextScopeChecks({
         aria-controls="ctx-scope-body"
         data-testid="context-scope-toggle"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between gap-2 text-xs uppercase tracking-wider text-muted-foreground font-semibold hover:text-foreground transition-colors"
+        className="flex items-center justify-between gap-2 text-label text-muted-foreground font-semibold hover:text-foreground transition-colors"
       >
         <span className="flex items-center gap-1.5">
           {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}

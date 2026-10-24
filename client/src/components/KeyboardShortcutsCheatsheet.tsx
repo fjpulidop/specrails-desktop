@@ -70,7 +70,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
         <DialogBody className="space-y-4">
           {grouped.map((group) => (
             <div key={group.category}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-accent-primary mb-2">
+              <h3 className="text-label font-semibold text-accent-primary mb-2">
                 {group.label}
               </h3>
               <div className="divide-y divide-border/30">

@@ -65,7 +65,7 @@ export function WhatToLookAt({ brief, multiTicket }: { brief: PacketWhatToLookAt
             {brief.risks.map((risk, index) => (
               <li key={`risk-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="brief-risk">
                 <SeverityChip severity={risk.severity} />
-                {risk.area ? <span className="text-caption uppercase tracking-wide text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
+                {risk.area ? <span className="text-caption text-muted-foreground">{t(`brief.area.${risk.area}`, { defaultValue: risk.area })}</span> : null}
                 <span className="min-w-0 flex-1 text-foreground">{risk.whatToLookAt}</span>
                 <Ref value={risk.ref} />
                 <TicketTag ticketId={risk.ticketId} show={multiTicket} />

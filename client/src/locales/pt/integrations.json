@@ -92,6 +92,8 @@
       "subtitle": "Ferramentas globais e integrações de projeto, geridas num só lugar.",
       "readyCount_one": "{{count}} pronto",
       "readyCount_other": "{{count}} prontos",
+      "attentionCount_one": "{{count}} requer atenção",
+      "attentionCount_other": "{{count}} requerem atenção",
       "openWindow": "Abrir numa janela",
       "openWindowFailed": "Não foi possível abrir a janela de plugins"
     },

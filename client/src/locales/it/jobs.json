@@ -29,6 +29,7 @@
   },
   "page": {
     "title": "Job",
+    "subtitle": "Ogni esecuzione di questo progetto, con costo, durata ed esito.",
     "exportJobs": "Esporta job",
     "proposalDeleted": "Proposta eliminata",
     "proposal": {
@@ -212,7 +213,7 @@
     "readyToCompare": "Pronto — clicca Confronta",
     "compareAction": "Confronta →",
     "colStatus": "Stato",
-    "colCommand": "Comando",
+    "colCommand": "Attività",
     "colDuration": "Durata",
     "colTokens": "Token",
     "colCost": "Costo",

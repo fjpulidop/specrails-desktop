@@ -29,6 +29,7 @@
   "runs_other": "{{count}} runs",
   "page": {
     "title": "Analytics",
+    "subtitle": "Where the spend goes: cost, tokens and activity by model, spec and engine.",
     "all": "All",
     "engine": "Engine",
     "ticketChip": "ticket #{{id}} ·  ✕",

@@ -429,7 +429,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
 
   if (viewMode === 'source' && loading && !file) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground animate-pulse">
+      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground motion-safe:animate-pulse">
         {t('viewer.loadingFile')}
       </div>
     )
@@ -548,7 +548,7 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
             title={historyCollapsed ? undefined : t('resizer.hint')}
             data-testid="code-history-resizer"
           >
-            <span className="text-caption font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-caption font-medium text-muted-foreground">
               {historyMode === 'story'
                 ? t('story.title', { count: provenance.length })
                 : t('history.title', { count: provenance.length })}

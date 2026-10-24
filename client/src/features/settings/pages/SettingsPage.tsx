@@ -78,7 +78,7 @@ export default function SettingsPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-32 bg-muted/30 rounded-lg animate-pulse" />
+          <div key={i} className="h-32 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
         ))}
       </div>
     )

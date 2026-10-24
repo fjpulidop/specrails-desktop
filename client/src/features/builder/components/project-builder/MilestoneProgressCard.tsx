@@ -30,7 +30,7 @@ import {
 const SEGMENT_TONE: Record<SegmentKey, string> = {
   done: 'bg-accent-success',
   onReview: 'bg-accent-warning',
-  inProgress: 'bg-accent-info animate-pulse',
+  inProgress: 'bg-accent-info motion-safe:animate-pulse',
   failed: 'bg-destructive',
   todo: 'bg-muted-foreground/25',
 }
@@ -72,7 +72,7 @@ export function MilestoneStatePill({ state }: { state: MilestoneState }) {
     <span
       data-testid="milestone-state-pill"
       data-state={state}
-      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-semibold uppercase tracking-wide', STATE_TONE[state])}
+      className={cn('inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-micro font-semibold', STATE_TONE[state])}
     >
       {t(`milestoneProgress.state.${state}`)}
     </span>

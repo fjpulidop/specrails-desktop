@@ -29,6 +29,7 @@
   },
   "page": {
     "title": "ジョブ",
+    "subtitle": "このプロジェクトのすべての実行を、コスト・所要時間・結果とともに表示します。",
     "exportJobs": "ジョブをエクスポート",
     "proposalDeleted": "提案を削除しました",
     "proposal": {
@@ -212,7 +213,7 @@
     "readyToCompare": "準備完了 — 比較をクリック",
     "compareAction": "比較 →",
     "colStatus": "ステータス",
-    "colCommand": "コマンド",
+    "colCommand": "タスク",
     "colDuration": "実行時間",
     "colTokens": "トークン",
     "colCost": "コスト",

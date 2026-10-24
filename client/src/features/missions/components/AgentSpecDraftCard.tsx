@@ -135,7 +135,7 @@ export function AgentSpecDraftPending() {
       data-testid="agent-spec-draft-pending"
       className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-xs text-accent-primary/90"
     >
-      <Sparkles className="h-3 w-3 animate-pulse" />
+      <Sparkles className="h-3 w-3 motion-safe:animate-pulse" />
       {t('specDraft.drafting')}
     </span>
   )

@@ -571,7 +571,7 @@ export const RichAttachmentEditor = forwardRef<RichAttachmentEditorHandle, RichA
             {footerExtra}
           </div>
           {uploads.length > 0 && (
-            <span className="animate-pulse">{t('editor.uploadingFiles', { count: uploads.length })}</span>
+            <span className="motion-safe:animate-pulse">{t('editor.uploadingFiles', { count: uploads.length })}</span>
           )}
         </div>
 

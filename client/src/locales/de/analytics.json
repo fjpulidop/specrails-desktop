@@ -29,6 +29,7 @@
   "runs_other": "{{count}} Läufe",
   "page": {
     "title": "Analytics",
+    "subtitle": "Wohin das Budget fließt: Kosten, Tokens und Aktivität nach Modell, Spec und Engine.",
     "all": "Alle",
     "engine": "Engine",
     "ticketChip": "Ticket #{{id}} ·  ✕",

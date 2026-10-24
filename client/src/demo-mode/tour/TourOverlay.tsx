@@ -540,7 +540,7 @@ function TourFullscreenLogPage() {
                 }}
               >
                 <RotateCcw width={12} height={12} />
-                Re-execute
+                Run again
               </div>
             )}
           </div>

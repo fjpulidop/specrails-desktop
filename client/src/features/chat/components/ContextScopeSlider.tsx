@@ -211,7 +211,7 @@ export function ContextScopeSlider({
     <div className="space-y-2 select-none" data-testid="context-scope-slider">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+          <span className="text-label text-muted-foreground font-semibold">
             {t('contextScope.heading')}
           </span>
           {isCustom ? (

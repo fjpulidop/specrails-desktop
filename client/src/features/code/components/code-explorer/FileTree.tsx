@@ -328,7 +328,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
       {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-accent-warning">{t('tree.partial')}</p>}
       {isEmpty && error ? null : isEmpty && isFirstLoad ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center" data-testid="file-tree-loading">
-          <p className="text-xs text-muted-foreground animate-pulse">{t('tree.loadingFiles')}</p>
+          <p className="text-xs text-muted-foreground motion-safe:animate-pulse">{t('tree.loadingFiles')}</p>
         </div>
       ) : isEmpty && filter === 'touched-by-ai' ? (
         <div className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-3">

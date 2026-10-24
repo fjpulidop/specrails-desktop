@@ -150,7 +150,7 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       <span
                         className={cn(
-                          'rounded-full border px-1.5 py-px text-caption font-medium uppercase tracking-wide',
+                          'rounded-full border px-1.5 py-px text-micro font-medium',
                           PRIORITY_PILL[spec.priority],
                         )}
                         data-testid={`m1-spec-priority-${i}`}

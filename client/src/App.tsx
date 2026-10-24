@@ -443,7 +443,7 @@ function DesktopApp() {
         {/* Project switching progress bar */}
         {isSwitchingProject && (
           <div
-            className="h-0.5 w-full bg-accent-primary/70 animate-pulse shrink-0"
+            className="h-0.5 w-full bg-accent-primary/70 motion-safe:animate-pulse shrink-0"
             data-testid="project-switching-bar"
           />
         )}

@@ -316,6 +316,7 @@ export default function AnalyticsPage() {
       <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border/40">
         <PageHeader
           title={t('page.title')}
+          description={t('page.subtitle')}
           titleExtra={<>
             {filters.ticketId && (
               <button

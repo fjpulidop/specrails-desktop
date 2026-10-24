@@ -163,7 +163,7 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
         <DialogBody>
           {error && <p className="text-sm text-destructive">{t('pairWeb.startFailed', { error })}</p>}
 
-          {phase === 'loading' && <div className="h-56 bg-muted/30 rounded-lg animate-pulse" />}
+          {phase === 'loading' && <div className="h-56 bg-muted/30 rounded-lg motion-safe:animate-pulse" />}
 
           {phase === 'offer' && offerToken && (
             <div className="flex flex-col items-center gap-3 py-2">

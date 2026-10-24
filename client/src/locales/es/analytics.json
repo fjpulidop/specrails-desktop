@@ -29,6 +29,7 @@
   "runs_other": "{{count}} ejecuciones",
   "page": {
     "title": "Analíticas",
+    "subtitle": "En qué se va el gasto: coste, tokens y actividad por modelo, spec y motor.",
     "all": "Todo",
     "engine": "Motor",
     "ticketChip": "ticket #{{id}} ·  ✕",

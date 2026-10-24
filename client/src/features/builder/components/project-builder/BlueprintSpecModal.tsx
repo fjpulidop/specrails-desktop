@@ -76,7 +76,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
             <span
               data-chip=""
               className={cn(
-                'inline-flex h-5 items-center rounded-full border px-1.5 text-caption font-medium uppercase tracking-wide',
+                'inline-flex h-5 items-center rounded-full border px-1.5 text-micro font-medium',
                 PRIORITY_PILL[spec.priority],
               )}
               data-testid="blueprint-spec-priority"

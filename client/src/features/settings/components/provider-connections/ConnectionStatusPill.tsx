@@ -16,7 +16,7 @@ export function pillStateFor(status: RuntimeProviderStatus | undefined, probing 
 }
 
 const STYLES: Record<ConnectionPillState, { dot: string; pill: string }> = {
-  probing: { dot: 'bg-accent-info animate-pulse', pill: 'border-accent-info/30 bg-accent-info/10 text-accent-info' },
+  probing: { dot: 'bg-accent-info motion-safe:animate-pulse', pill: 'border-accent-info/30 bg-accent-info/10 text-accent-info' },
   reachable: { dot: 'bg-accent-success', pill: 'border-accent-success/30 bg-accent-success/10 text-accent-success' },
   unauthorized: { dot: 'bg-accent-warning', pill: 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning' },
   unreachable: { dot: 'bg-destructive', pill: 'border-destructive/30 bg-destructive/10 text-destructive' },

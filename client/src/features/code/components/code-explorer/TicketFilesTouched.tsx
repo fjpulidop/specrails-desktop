@@ -80,7 +80,7 @@ export function TicketFilesTouched({ ticketId, onClose }: Props) {
 
   return (
     <div>
-      <span className="text-caption font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+      <span className="text-caption font-medium text-muted-foreground block mb-1.5">
         {t('ticketFiles.title')}
       </span>
       {loading && !visible && <p className="text-xs text-muted-foreground" role="status">{t('ticketFiles.loading')}</p>}
@@ -110,7 +110,7 @@ export function TicketFilesTouched({ ticketId, onClose }: Props) {
                   <GitCommitHorizontal className="h-3 w-3" />
                   {row.jobId.length > 10 ? row.jobId.slice(0, 10) : row.jobId}
                 </span>}
-                <span className="text-caption text-muted-foreground uppercase tracking-wider shrink-0">{t(`kind.${row.kind}`)}</span>
+                <span className="text-caption text-muted-foreground shrink-0">{t(`kind.${row.kind}`)}</span>
               </button>
             </li>
           )

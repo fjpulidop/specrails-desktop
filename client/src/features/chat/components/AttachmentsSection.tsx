@@ -98,7 +98,7 @@ export function AttachmentsSection({ ticketKey, attachments, onChange, className
   return (
     <section className={cn('mt-4', className)} aria-label={t('section.ariaLabel')}>
       <header className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('section.title')}</h3>
+        <h3 className="text-label font-semibold text-muted-foreground">{t('section.title')}</h3>
         <span className="text-caption text-muted-foreground">{t('section.fileCount', { count: sorted.length })}</span>
       </header>
       <ul className="flex flex-col gap-1">

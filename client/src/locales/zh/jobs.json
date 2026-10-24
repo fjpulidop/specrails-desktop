@@ -29,6 +29,7 @@
   },
   "page": {
     "title": "任务",
+    "subtitle": "此项目的每次运行，包含成本、时长和结果。",
     "exportJobs": "导出任务",
     "proposalDeleted": "提案已删除",
     "proposal": {
@@ -212,7 +213,7 @@
     "readyToCompare": "就绪——点击对比",
     "compareAction": "对比 →",
     "colStatus": "状态",
-    "colCommand": "命令",
+    "colCommand": "任务",
     "colDuration": "时长",
     "colTokens": "Token",
     "colCost": "成本",

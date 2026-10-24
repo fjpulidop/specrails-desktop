@@ -49,7 +49,7 @@ function NavRailIndicator() {
 
 const ROW_FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2'
 /** Expanded-sidebar group label ("Workspace", "Projects"). 12px per the app's text floor. */
-const SECTION_LABEL = 'px-2 pt-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground'
+const SECTION_LABEL = 'px-2 pt-2 pb-1 text-label font-medium text-muted-foreground'
 
 function loadExpanded(): Set<string> {
   try {

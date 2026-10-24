@@ -92,6 +92,8 @@
       "subtitle": "Globale Tools und Projektintegrationen, zentral verwaltet.",
       "readyCount_one": "{{count}} bereit",
       "readyCount_other": "{{count}} bereit",
+      "attentionCount_one": "{{count}} braucht Aufmerksamkeit",
+      "attentionCount_other": "{{count}} brauchen Aufmerksamkeit",
       "openWindow": "In Fenster öffnen",
       "openWindowFailed": "Plugin-Fenster konnte nicht geöffnet werden"
     },

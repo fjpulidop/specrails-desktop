@@ -92,6 +92,8 @@
       "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
       "readyCount_one": "{{count}} 件準備完了",
       "readyCount_other": "{{count}} 件準備完了",
+      "attentionCount_one": "{{count}} 件は要確認",
+      "attentionCount_other": "{{count}} 件は要確認",
       "openWindow": "ウィンドウで開く",
       "openWindowFailed": "プラグインウィンドウを開けませんでした"
     },

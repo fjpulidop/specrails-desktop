@@ -428,6 +428,9 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
     projectSummary.jira > 0,
     projectSummary.serena > 0,
   ].filter(Boolean).length
+  // A plugin with an open issue is counted as needing attention, not as ready.
+  const attentionCount = headroom.installed && headroom.lastIssue ? 1 : 0
+  const readyCount = Math.max(0, installedCount - attentionCount)
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -442,8 +445,14 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
           </button>}
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
-            <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: installedCount })}</span>
+            <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: readyCount })}</span>
           </div>
+          {attentionCount > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-2 text-xs" data-testid="plugins-attention-count">
+              <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" aria-hidden />
+              <span className="text-muted-foreground">{t('plugins.page.attentionCount', { count: attentionCount })}</span>
+            </div>
+          )}
           </>}
         />
 

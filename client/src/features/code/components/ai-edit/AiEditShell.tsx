@@ -302,7 +302,7 @@ function Header({
       >
         <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         <div className="text-left min-w-0">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground/70 leading-none">
+          <div className="text-label text-muted-foreground/70 leading-none">
             {eyebrow}
           </div>
           {targetLabelMono ? (
@@ -451,7 +451,7 @@ function SuggestionChips({
   const { t } = useTranslation('aiedit')
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-label text-muted-foreground/70">
         {t('shell.quickPrompts')}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -494,7 +494,7 @@ function ConversationHistory({ history }: { history: AiEditHistoryTurn[] }) {
   if (history.length === 0) return null
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-label text-muted-foreground/70">
         {t('shell.history')}
       </div>
       <div className="space-y-2">

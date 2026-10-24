@@ -92,6 +92,8 @@
       "subtitle": "Global tools and project integrations, managed from one place.",
       "readyCount_one": "{{count}} ready",
       "readyCount_other": "{{count}} ready",
+      "attentionCount_one": "{{count}} needs attention",
+      "attentionCount_other": "{{count}} need attention",
       "openWindow": "Open in window",
       "openWindowFailed": "Couldn't open the plugins window"
     },

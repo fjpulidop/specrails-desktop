@@ -169,6 +169,7 @@ export default function JobsPage() {
       <PageHeader
         className="mb-4"
         title={t('page.title')}
+        description={t('page.subtitle')}
         actions={
           <ExportDropdown
             baseUrl={`${getApiBase()}/jobs/export`}

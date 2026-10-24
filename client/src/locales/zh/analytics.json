@@ -29,6 +29,7 @@
   "runs_other": "{{count}} 次运行",
   "page": {
     "title": "分析",
+    "subtitle": "开销去向：按模型、规格和引擎统计成本、token 与活动。",
     "all": "全部",
     "engine": "引擎",
     "ticketChip": "工单 #{{id}} ·  ✕",

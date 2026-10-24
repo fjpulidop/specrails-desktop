@@ -203,7 +203,7 @@ export function AgentProblemFramePending() {
       data-testid="agent-problem-frame-pending"
       className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-info/25 bg-accent-info/10 px-2.5 py-1 text-xs text-accent-info/90"
     >
-      <Compass className="h-3 w-3 animate-pulse" />
+      <Compass className="h-3 w-3 motion-safe:animate-pulse" />
       {t('problemFrame.framing')}
     </span>
   )

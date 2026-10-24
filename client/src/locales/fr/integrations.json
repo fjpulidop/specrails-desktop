@@ -92,6 +92,8 @@
       "subtitle": "Outils globaux et intégrations de projet, gérés au même endroit.",
       "readyCount_one": "{{count}} prêt",
       "readyCount_other": "{{count}} prêts",
+      "attentionCount_one": "{{count}} à vérifier",
+      "attentionCount_other": "{{count}} à vérifier",
       "openWindow": "Ouvrir dans une fenêtre",
       "openWindowFailed": "Impossible d’ouvrir la fenêtre des plugins"
     },

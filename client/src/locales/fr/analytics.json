@@ -29,6 +29,7 @@
   "runs_other": "{{count}} exécutions",
   "page": {
     "title": "Analytics",
+    "subtitle": "Où va la dépense : coût, tokens et activité par modèle, spec et moteur.",
     "all": "Tout",
     "engine": "Moteur",
     "ticketChip": "ticket #{{id}} ·  ✕",

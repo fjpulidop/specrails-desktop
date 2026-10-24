@@ -359,7 +359,7 @@
   --color-accent-success:    hsl(152 78% 48%);   /* emerald */
   --color-accent-secondary:  hsl(280 45% 62%);   /* violet */
   --color-accent-warning:    hsl(42 92% 58%);    /* amber */
-  --color-accent-review:     hsl(322 55% 72%);  /* review lamp — violet, keeps amber for caution/cost */
+  --color-accent-review:     hsl(322 55% 72%);  /* review lamp — orchid pink, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(248 75% 67%);   /* indigo */
   --color-surface:           hsl(238 28% 11%);   /* bg3 #131324 — elevated cards-on-card */
   --color-background-deep:   hsl(240 40% 2%);
@@ -407,7 +407,7 @@
   --color-accent-success:    hsl(140 65% 50%);   /* core green */
   --color-accent-secondary:  hsl(210 12% 65%);   /* steel steel-gray/silver */
   --color-accent-warning:    hsl(28 95% 56%);    /* pulse orange */
-  --color-accent-review:     hsl(300 40% 72%);  /* review lamp — violet, keeps amber for caution/cost */
+  --color-accent-review:     hsl(300 40% 72%);  /* review lamp — orchid, keeps amber for caution/cost */
   --color-accent-highlight:  hsl(55 90% 56%);    /* signal gold */
   --color-surface:           hsl(220 18% 10%);
   --color-background-deep:   hsl(220 24% 2%);
