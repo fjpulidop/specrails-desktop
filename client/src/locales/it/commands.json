@@ -166,7 +166,14 @@
       "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
       "undoLast": "Annulla l'ultima modifica",
       "openInbox": "Apri la posta «Serve il tuo intervento»"
-    }
+    },
+    "searchLabel": "Cerca scorciatoie e guide",
+    "searchPlaceholder": "Cerca scorciatoie e guide…",
+    "noShortcuts": "Nessuna scorciatoia corrisponde a “{{query}}”.",
+    "guidesHeading": "Dalla guida",
+    "openGuide": "Apri la guida: {{title}}",
+    "noGuides": "Nessuna guida corrisponde a “{{query}}”.",
+    "searching": "Ricerca nella guida…"
   },
   "update": {
     "title": {

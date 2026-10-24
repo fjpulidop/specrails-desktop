@@ -14,6 +14,7 @@ import { Toaster } from 'sonner'
 import { UndoProvider } from './hooks/useUndo'
 import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
+import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { OPEN_APP_SETTINGS_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
 import DashboardPage from './features/dashboard/pages/DashboardPage'
 import SettingsPage from './features/settings/pages/SettingsPage'
@@ -320,7 +321,25 @@ function DesktopApp() {
     else setReviewDeliveryId(null)
   }, [closeReviewParam])
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
-  const closeDocs = useCallback(() => closeOverlay('docs'), [closeOverlay])
+  // A "Learn more" hint asks for the guide at a section (`lib/docs-events.ts`).
+  // The target is not part of the place (`?overlay=docs` is); it is dropped on close.
+  const [docsTarget, setDocsTarget] = useState<(DocsTarget & { nonce: number }) | null>(null)
+  const docsNonceRef = useRef(0)
+  const closeDocs = useCallback(() => {
+    setDocsTarget(null)
+    closeOverlay('docs')
+  }, [closeOverlay])
+  // Closed by Back/Forward or a place change: the next plain open must not replay it.
+  useEffect(() => { if (!docsOpen) setDocsTarget(null) }, [docsOpen])
+  useEffect(() => {
+    const onOpenDocs = (event: Event) => {
+      const target = (event as CustomEvent<OpenDocsDetail>).detail?.target ?? null
+      setDocsTarget(target ? { ...target, nonce: ++docsNonceRef.current } : null)
+      if (overlayValueRef.current !== 'docs') openOverlay('docs')
+    }
+    window.addEventListener(OPEN_DOCS_EVENT, onOpenDocs)
+    return () => window.removeEventListener(OPEN_DOCS_EVENT, onOpenDocs)
+  }, [openOverlay])
 
   // URL → modal flags, edge-triggered on the param changing (Back/Forward,
   // reload, an open that already wrote the URL). Opening never reads the flag
@@ -708,7 +727,7 @@ function DesktopApp() {
 
 
       <Suspense fallback={null}>
-        <DocsDialog open={docsOpen} onClose={closeDocs} />
+        <DocsDialog open={docsOpen} onClose={closeDocs} target={docsTarget} />
       </Suspense>
 
       <CommandPalette

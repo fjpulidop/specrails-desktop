@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from 'react'
+import { useState, useEffect, useRef, memo, Children, type ReactNode } from 'react'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
@@ -8,7 +8,7 @@ import { RefreshCw } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { API_ORIGIN } from '../../../lib/origin'
 import { Button } from '../../../components/ui/button'
-import { resolveDocHref } from '../lib/docs-links'
+import { DOC_ANCHOR_PREFIX, findDocAnchor, parseHeadingAnchor, resolveDocHref } from '../lib/docs-links'
 import 'highlight.js/styles/atom-one-dark.css'
 
 // ─── Shared types ───────────────────────────────────────────────────────────────
@@ -44,6 +44,37 @@ export function docsUrl(path = ''): string {
   return `${API_ORIGIN}/api/docs${path}`
 }
 
+/** Where to land in a page: an explicit anchor or heading text; `nonce` re-fires the same target. */
+export interface DocScrollRequest {
+  category: string
+  slug: string
+  anchor?: string | null
+  heading?: string | null
+  nonce: number
+}
+
+/**
+ * A heading with an optional trailing `{#anchor}`: the anchor becomes the id
+ * (prefixed) and never shows in the title.
+ */
+function stripAnchorFromChildren(children: ReactNode): { children: ReactNode; anchor: string | null } {
+  const items = Children.toArray(children)
+  const last = items[items.length - 1]
+  if (typeof last !== 'string') return { children, anchor: null }
+  const parsed = parseHeadingAnchor(last)
+  if (!parsed.anchor) return { children, anchor: null }
+  return { children: [...items.slice(0, -1), parsed.text], anchor: parsed.anchor }
+}
+
+function headingComponent(Tag: 'h1' | 'h2' | 'h3' | 'h4') {
+  return function Heading({ children, node: _node, ...props }: React.ComponentPropsWithoutRef<'h1'> & { node?: unknown }) {
+    const { children: visible, anchor } = stripAnchorFromChildren(children)
+    return <Tag id={anchor ? `${DOC_ANCHOR_PREFIX}${anchor}` : undefined} {...props}>{visible}</Tag>
+  }
+}
+
+const HEADINGS = { h1: headingComponent('h1'), h2: headingComponent('h2'), h3: headingComponent('h3'), h4: headingComponent('h4') }
+
 // ─── Markdown ───────────────────────────────────────────────────────────────────
 
 // Memoized markdown renderer — only re-renders when the content (or the current
@@ -63,6 +94,7 @@ const MemoMarkdown = memo(function MemoMarkdown({
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
       components={{
+        ...HEADINGS,
         a({ href, children, ...props }) {
           const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
             if (!href) return
@@ -101,6 +133,7 @@ export function DocView({
   onNotFound,
   onNavigate,
   scrollContainerRef,
+  scrollRequest,
   className,
 }: {
   category: string
@@ -109,6 +142,8 @@ export function DocView({
   onNotFound: () => void
   onNavigate: (category: string, slug: string) => void
   scrollContainerRef: React.RefObject<HTMLElement | null>
+  /** Scroll to a section once this page has rendered (hint or search result). */
+  scrollRequest?: DocScrollRequest | null
   /** Padding/measure of the article (page vs dialog). */
   className?: string
 }) {
@@ -147,6 +182,20 @@ export function DocView({
         setError(err instanceof Error ? err.message : '')
       })
   }, [category, slug, lang, onNotFound, scrollContainerRef, attempt])
+
+  // Land on the requested section once the matching page is on screen. Runs
+  // after the render that follows `setDoc`, i.e. after the scroll reset above.
+  const handledRequestRef = useRef(0)
+  useEffect(() => {
+    if (!scrollRequest || !doc || handledRequestRef.current === scrollRequest.nonce) return
+    if (doc.category !== scrollRequest.category || doc.slug !== scrollRequest.slug) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    handledRequestRef.current = scrollRequest.nonce
+    const element = findDocAnchor(container, scrollRequest)
+    if (!element) return
+    element.scrollIntoView?.({ block: 'start', behavior: 'auto' })
+  }, [doc, scrollRequest, scrollContainerRef])
 
   // Full-pane spinner only on the very first load (no previous content).
   if (!doc && error === null) {

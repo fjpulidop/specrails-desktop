@@ -1,4 +1,4 @@
-# Code explorer
+# Code explorer {#code-explorer}
 
 La sezione **Code** ti offre una finestra amichevole e in sola lettura sul tuo repository — pensata in particolare per chi vuole capire cosa ha costruito l'AI senza dover vivere in un editor. Hai un albero dei file a sinistra, un visualizzatore di codice a destra e, sopra il codice, un riepilogo in linguaggio semplice di cosa fa davvero ogni file.
 

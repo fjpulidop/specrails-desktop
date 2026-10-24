@@ -1,4 +1,4 @@
-# Trabalhar em um projeto existente
+# Trabalhar em um projeto existente {#existing-projects}
 
 Estes recursos ajudam as execuções a respeitar um projeto que já existe: o que uma spec deixa de fora, as perguntas do arquiteto antes de planejar, quais requisitos um teste realmente comprova, como descrever o código antigo antes de mudá-lo e as regras que sua equipe já escreveu. Cada um precisa de uma versão do specrails-core que o suporte; até lá, o interruptor fica desativado com um aviso para atualizar o Core.
 
@@ -20,7 +20,7 @@ A biblioteca de loops também oferece **Varredura de drift**, um loop somente le
 
 Ative **Baseline ao tocar** para que uma mudança que alcança código que nenhuma spec descreve comece descrevendo-o: testes de como o código se comporta hoje, comprovados no código inalterado, e uma spec curta do que existe. A página de revisão mostra **Spec criada por onde o trabalho passou** com o módulo, os requisitos e os testes, e o custo aparece à parte. Se esses testes falharem no código inalterado, a execução para antes de editar o módulo e informa isso.
 
-## Regras do projeto
+## Regras do projeto {#project-rules}
 
 **Configurações ▸ Regras do projeto** lista as verificações que seu projeto já executa (lint, tipos, testes, CI) e cada regra escrita em arquivos como `CLAUDE.md` ou `AGENTS.md`, classificadas em:
 

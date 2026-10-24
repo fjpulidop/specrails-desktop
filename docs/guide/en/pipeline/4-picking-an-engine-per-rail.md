@@ -1,6 +1,6 @@
 <!-- guide-revision: mission-first-v1 -->
 
-# Choose a provider and its capabilities
+# Choose a provider and its capabilities {#provider-capabilities}
 
 Execution settings belong to the chosen provider. A familiar model name does not imply that every provider supports the same reasoning, structured output or approval controls.
 

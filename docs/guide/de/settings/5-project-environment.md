@@ -1,4 +1,4 @@
-# Projektumgebung
+# Projektumgebung {#project-environment}
 
 Manche Projekte brauchen zur Laufzeit ein Zugangsdatum, etwa `NODE_AUTH_TOKEN` für private npm-Pakete. Füge unter **Projekteinstellungen → Umgebung** die **Namen** der Variablen hinzu, die deine Rails und Loops brauchen. Specrails speichert nur die Namen, nie die Werte.
 

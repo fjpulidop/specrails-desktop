@@ -124,7 +124,7 @@ export function InboxDialog() {
               />
             )}
             {empty && inbox.status === 'ready' && (
-              <EmptyState icon={<CircleCheck className="h-4 w-4" />} title={t('empty.title')} description={t('empty.description')} data-testid="inbox-empty" />
+              <EmptyState icon={<CircleCheck className="h-4 w-4" />} title={t('empty.title')} description={t('empty.description')} learnMore="inbox" data-testid="inbox-empty" />
             )}
             {inbox.groups.map((group) => (
               <section key={group.projectId} aria-labelledby={`inbox-group-${group.projectId}`} data-testid="inbox-group" data-project-id={group.projectId}>

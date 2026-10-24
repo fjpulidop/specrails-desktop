@@ -185,5 +185,36 @@
     "unknown": "ループ",
     "title": "ループ: {{name}}"
   },
-  "estimated": "推定"
+  "estimated": "推定",
+  "help": {
+    "learnMore": "詳しく見る",
+    "learnMoreAbout": "{{topic}}について詳しく見る",
+    "topics": {
+      "themes": "テーマと外観",
+      "codeExplorer": "コードエクスプローラー",
+      "integratedTerminal": "統合ターミナル",
+      "agents": "エージェント",
+      "aiProviders": "AI プロバイダー",
+      "mcpServer": "MCP サーバー",
+      "mobileCompanion": "モバイルコンパニオン",
+      "plugins": "プラグイン",
+      "existingProjects": "既存プロジェクトでの作業",
+      "projectRules": "プロジェクトルール",
+      "updates": "アップデート",
+      "providerCapabilities": "プロバイダーの機能",
+      "projectEnvironment": "プロジェクト環境",
+      "telemetry": "パイプラインのテレメトリ",
+      "dailyBudget": "1 日の予算",
+      "recentlyDeleted": "最近削除した項目",
+      "railLoops": "レールが実行する内容",
+      "flowMode": "Flow",
+      "flowHandOff": "Flow の引き渡し",
+      "contextScope": "コンテキストスライダー",
+      "launchForecast": "起動時の見込み",
+      "loopBuilder": "Loop Builder",
+      "shortcuts": "キーボードショートカット",
+      "inbox": "「対応が必要」受信箱",
+      "specsBoard": "スペックとバックログ"
+    }
+  }
 }

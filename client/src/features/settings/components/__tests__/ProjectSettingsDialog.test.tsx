@@ -49,6 +49,19 @@ describe('ProjectSettingsDialog', () => {
     await waitForSelfFetchingSections()
   })
 
+  it('offers a Learn more link for the active section, and the budget field carries its own', async () => {
+    render(<ProjectSettingsDialog open onClose={vi.fn()} />)
+    expect(screen.queryByTestId('settings-section-help')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Environment' }))
+    expect(screen.getByTestId('settings-section-help')).toContainElement(
+      screen.getByRole('button', { name: 'Learn more about the project environment' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Budget' }))
+    expect(screen.queryByTestId('settings-section-help')).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Learn more about daily budgets' })).toBeInTheDocument()
+    await waitForSelfFetchingSections()
+  })
+
   it('falls back to General for an unknown section', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} initialSection="nope" />)
     expect(screen.getByRole('button', { name: 'General' })).toHaveAttribute('aria-current', 'page')

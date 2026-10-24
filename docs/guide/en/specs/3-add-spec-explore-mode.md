@@ -22,7 +22,7 @@ As you converse, a draft pane shows the spec as it currently stands — title, d
 
 This is the heart of Explore mode: you're never staring at a blank form. You're always looking at a real, evolving spec.
 
-## How much the AI sees: the context slider
+## How much the AI sees: the context slider {#context-scope}
 
 Before the AI answers, you decide how much of your project it can see. A context preset slider lets you trade speed for depth:
 

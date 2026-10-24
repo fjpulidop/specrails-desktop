@@ -22,7 +22,7 @@ Au fil de l'échange, un volet de brouillon affiche la spec dans son état actue
 
 C'est tout le cœur du mode Explore : vous n'êtes jamais face à un formulaire vide. Vous regardez toujours une spec réelle, qui évolue.
 
-## Ce que l'IA voit : le curseur de contexte
+## Ce que l'IA voit : le curseur de contexte {#context-scope}
 
 Avant que l'IA ne réponde, vous décidez quelle part de votre projet elle peut voir. Un curseur de préréglages de contexte vous laisse arbitrer entre vitesse et profondeur :
 

@@ -185,5 +185,36 @@
     "unknown": "Boucle",
     "title": "Boucle : {{name}}"
   },
-  "estimated": "estimé"
+  "estimated": "estimé",
+  "help": {
+    "learnMore": "En savoir plus",
+    "learnMoreAbout": "En savoir plus sur {{topic}}",
+    "topics": {
+      "themes": "les thèmes et l’apparence",
+      "codeExplorer": "l’explorateur de code",
+      "integratedTerminal": "le terminal intégré",
+      "agents": "les agents",
+      "aiProviders": "les fournisseurs d’IA",
+      "mcpServer": "le serveur MCP",
+      "mobileCompanion": "l’application mobile compagnon",
+      "plugins": "les plugins",
+      "existingProjects": "travailler dans un projet existant",
+      "projectRules": "les règles du projet",
+      "updates": "les mises à jour",
+      "providerCapabilities": "les capacités des fournisseurs",
+      "projectEnvironment": "l’environnement du projet",
+      "telemetry": "la télémétrie du pipeline",
+      "dailyBudget": "les budgets quotidiens",
+      "recentlyDeleted": "les éléments supprimés récemment",
+      "railLoops": "ce qu’un rail exécute",
+      "flowMode": "Flow",
+      "flowHandOff": "la remise d’un Flow",
+      "contextScope": "le curseur de contexte",
+      "launchForecast": "la prévision de lancement",
+      "loopBuilder": "le Loop Builder",
+      "shortcuts": "les raccourcis clavier",
+      "inbox": "la boîte On a besoin de vous",
+      "specsBoard": "les specs et le backlog"
+    }
+  }
 }

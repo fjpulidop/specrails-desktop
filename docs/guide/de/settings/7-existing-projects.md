@@ -1,4 +1,4 @@
-# In einem bestehenden Projekt arbeiten
+# In einem bestehenden Projekt arbeiten {#existing-projects}
 
 Diese Funktionen helfen Läufen, ein bestehendes Projekt zu respektieren: was eine Spec ausklammert, welche Fragen der Architekt vor der Planung hat, welche Anforderungen ein Test wirklich nachweist, wie alter Code vor einer Änderung beschrieben wird und welche Regeln dein Team bereits aufgeschrieben hat. Jede braucht eine specrails-core-Version, die sie unterstützt; bis dahin ist ihr Schalter ausgegraut, mit einem Hinweis, Core zu aktualisieren.
 
@@ -20,7 +20,7 @@ Die Loop-Bibliothek bietet außerdem **Drift-Prüfung**, einen nur lesenden Loop
 
 Aktiviere **Baseline bei Berührung**, damit eine Änderung, die Code ohne beschreibende Spec erreicht, ihn zuerst beschreibt: Tests des heutigen Verhaltens, am unveränderten Code bestätigt, und eine kurze Spec des Bestehenden. Die Review-Seite zeigt **Spec für den Code erstellt, den die Arbeit berührt hat** mit Modul, Anforderungen und Tests; die Kosten werden getrennt ausgewiesen. Schlagen diese Tests am unveränderten Code fehl, stoppt der Lauf vor jeder Änderung am Modul und sagt das.
 
-## Projektregeln
+## Projektregeln {#project-rules}
 
 **Einstellungen ▸ Projektregeln** listet die Prüfungen, die dein Projekt bereits ausführt (Lint, Typen, Tests, CI), und jede Regel aus Dateien wie `CLAUDE.md` oder `AGENTS.md`, eingeteilt in:
 

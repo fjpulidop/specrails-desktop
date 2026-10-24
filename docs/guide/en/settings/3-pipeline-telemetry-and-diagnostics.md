@@ -1,4 +1,4 @@
-# Pipeline telemetry & diagnostics
+# Pipeline telemetry & diagnostics {#telemetry}
 
 Telemetry records pipeline diagnostics locally. It is **on by default** for projects without a saved preference. You can turn it off per project; an explicitly saved choice is preserved.
 

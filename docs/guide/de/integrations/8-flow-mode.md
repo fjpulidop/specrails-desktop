@@ -1,4 +1,4 @@
-# Flow: erst bauen, dann die Spec
+# Flow: erst bauen, dann die Spec {#flow-mode}
 
 Flow ist eine Art, mit einem Agenten zu bauen, wenn du noch nicht genau weißt, was du willst. Du sprichst in deiner Mission mit dem Agenten, er schreibt und startet echten Code auf seinem eigenen Flow-Branch (einer separaten Kopie deines Projekts), und wenn das Ergebnis stimmt, drückst du **Übergeben**: Ein Rail übernimmt deine Änderungen, leitet die Spec ab und führt die übliche Prüfung, Review und Auslieferung aus.
 
@@ -49,7 +49,7 @@ Der Flow-Agent führt Typecheck und Tests selbst aus, um seine Arbeit zu prüfen
 
 Sobald die App lauscht, gibt dir der Agent ihre Adressen als Links, und das Panel des Flows zeigt **Vorschau** mit einem grünen Punkt: Sie öffnet die App in deinem Browser. Ihr Menü hat die Netzwerkadresse und **App beenden**. Die App läuft aus der Kopie des Flows, nie aus deinem Haupt-Checkout, und Specrails beendet sie, wenn du den Flow pausierst, verwirfst oder übergibst.
 
-## Übergeben
+## Übergeben {#flow-hand-off}
 
 Wenn dir das Ergebnis gefällt, drücke **Übergeben**. Die Zeile zeigt **Bereit, ein PR zu werden** und öffnet darüber eine einzige Zeile: *Rail 2 macht aus deinen 7 geänderten Dateien einen geprüften PR. Wenn etwas schiefgeht, bleibt deine Arbeit erhalten.* Drücke **Starten** oder **Noch nicht**, um zum Flow zurückzukehren; **Esc** ist dasselbe wie **Noch nicht**; ein Klick daneben klappt die Zeile nur ein, und die Zeile bleibt bei **Bereit, ein PR zu werden** mit **Starten**. Kann die Engine deines Gesprächs die Übergabe auf diesem Rechner nicht ausführen, sagt das ein Hinweis direkt unter der Zeile, und die Standard-Engine des Rails wird verwendet.
 

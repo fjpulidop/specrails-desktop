@@ -1,4 +1,4 @@
-# L'application compagnon mobile
+# L'application compagnon mobile {#mobile-companion}
 
 Specrails dispose d'une application compagnon pour téléphone afin de garder un œil sur vos rails quand vous êtes loin de votre bureau — regardez les jobs s'exécuter, voyez-les se terminer et restez dans la boucle sans rester assis devant le tableau de bord.
 

@@ -12,6 +12,7 @@ import { Input } from '../../../components/ui/input'
 import { Badge, type BadgeProps } from '../../../components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { Skeleton } from '../../../components/ui/skeleton'
+import { HelpHint } from '../../../components/HelpHint'
 
 // ─── Project settings sections ────────────────────────────────────────────────
 // Self-contained cards (own fetch + save against the ACTIVE project's API base)
@@ -759,7 +760,10 @@ export function ProjectBudgetSection() {
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
             <div>
-              <label className="text-label">{t('budget.dailyLabel')}</label>
+              <div className="flex items-center gap-1">
+                <label className="text-label">{t('budget.dailyLabel')}</label>
+                <HelpHint topic="dailyBudget" />
+              </div>
               <p className="text-xs text-muted-foreground">{t('budget.dailyHelper')}</p>
             </div>
             <Input

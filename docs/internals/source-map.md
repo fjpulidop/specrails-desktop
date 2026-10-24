@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1242 source/build files. Nearby tests are linked where names
+Includes 1245 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -33,6 +33,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
+- [HelpHint.tsx](../../client/src/components/HelpHint.tsx) · [test](../../client/src/components/__tests__/HelpHint.test.tsx)
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)
 - [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
@@ -939,11 +940,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
+- [docs-events.ts](../../client/src/lib/docs-events.ts)
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
 - [format-duration.ts](../../client/src/lib/format-duration.ts) · [test](../../client/src/lib/__tests__/format-duration.test.ts)
 - [format-usd.ts](../../client/src/lib/format-usd.ts) · [test](../../client/src/lib/__tests__/format-usd.test.ts)
 - [global-route-mode-transition.ts](../../client/src/lib/global-route-mode-transition.ts) · [test](../../client/src/lib/__tests__/global-route-mode-transition.test.ts)
+- [help-topics.ts](../../client/src/lib/help-topics.ts) · [test](../../client/src/lib/__tests__/help-topics.test.ts)
 - [html-highlight.ts](../../client/src/lib/html-highlight.ts) · [test](../../client/src/lib/html-highlight.test.ts)
 - [i18n.ts](../../client/src/lib/i18n.ts) · [test](../../client/src/lib/__tests__/i18n.test.ts)
 - [inbox-events.ts](../../client/src/lib/inbox-events.ts)

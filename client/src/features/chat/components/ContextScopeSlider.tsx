@@ -18,6 +18,7 @@ import {
   type ContextBudget, type ContextScope,
 } from '../types/context-scope'
 import { formatUsd } from '../../../lib/format-usd'
+import { HelpHint } from '../../../components/HelpHint'
 
 interface Preset {
   id: 'minimal' | 'light' | 'standard' | 'rich' | 'max' | 'desktop'
@@ -214,6 +215,7 @@ export function ContextScopeSlider({
           <span className="text-label text-muted-foreground font-semibold">
             {t('contextScope.heading')}
           </span>
+          <HelpHint topic="contextScope" />
           {isCustom ? (
             <span
               className="inline-flex h-5 items-center rounded-full bg-accent-warning/15 px-2 text-caption font-semibold text-accent-warning"

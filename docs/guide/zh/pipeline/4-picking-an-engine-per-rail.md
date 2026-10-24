@@ -1,4 +1,4 @@
-# 为每条 rail 选择引擎
+# 为每条 rail 选择引擎 {#provider-capabilities}
 
 ## 选择器何时出现
 

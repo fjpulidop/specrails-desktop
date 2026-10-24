@@ -166,7 +166,14 @@
       "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
       "undoLast": "Annuler la dernière modification",
       "openInbox": "Ouvrir la boîte « On a besoin de vous »"
-    }
+    },
+    "searchLabel": "Rechercher des raccourcis et des guides",
+    "searchPlaceholder": "Rechercher des raccourcis et des guides…",
+    "noShortcuts": "Aucun raccourci ne correspond à « {{query}} ».",
+    "guidesHeading": "Dans le guide",
+    "openGuide": "Ouvrir le guide : {{title}}",
+    "noGuides": "Aucun guide ne correspond à « {{query}} ».",
+    "searching": "Recherche dans le guide…"
   },
   "update": {
     "title": {

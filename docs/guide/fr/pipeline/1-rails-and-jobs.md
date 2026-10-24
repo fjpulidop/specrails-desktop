@@ -37,7 +37,7 @@ Voilà. Le rail démarre un processus AI CLI dans le bon contexte d'exécution e
 | **Sélecteur de Loop** | Le Loop que ce rail exécute — un intégré (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) ou un loop personnalisé. Voir le tableau ci-dessous. Persisté par rail. |
 | **▶ Play / ■ Stop** | Démarrer ou annuler. |
 
-### Ce qu'un rail exécute : les Loops
+### Ce qu'un rail exécute : les Loops {#rail-loops}
 
 Un rail exécute un **Loop** — la recette du travail. Deux loops sont **intégrés** et couvrent les cas courants :
 
@@ -95,6 +95,15 @@ Si quelque chose semble anormal :
 - Si la réapplication entre en conflit avec le code intégré, Specrails laisse la branche exactement telle qu'intégrée et **conserve le stash** : rien n'est perdu. La carte affiche *Vos modifications locales sont enregistrées dans un stash* avec les fichiers en conflit, **Restaurer mes modifications** (nouvel essai, par exemple après avoir modifié le code) et le nom du stash à copier. Specrails les restaure ensuite lui-même sur une nouvelle branche `specrails/restore-local-<id>` dans un worktree séparé : si elles s'y appliquent sans conflit, il les commite ; sinon un résolveur de conflits IA travaille uniquement dans ce worktree, en gardant votre intention et le code intégré, et Specrails commite le résultat. La carte liste les fichiers restaurés ; **Les ramener sur <branche>** les place sur votre branche (le stash n'est supprimé qu'à ce moment) et **Supprimer la branche restaurée** retire la branche et conserve le stash. Une mission est seulement informée ; elle n'a jamais rien à exécuter. Les skills et commandes OpenSpec générées par Specrails (par exemple `.claude/skills/openspec-*/SKILL.md`) ne comptent pas comme vos modifications : en cas de conflit, elles gardent la version intégrée.
 - Les fichiers ignorés ne sont jamais mis dans le stash : si l'un d'eux entre en collision avec la livraison, Specrails vous demande de le déplacer d'abord.
 - Si l'application s'arrête entre la mise de côté et la restauration, elle restaure vos modifications à la prochaine ouverture du projet (uniquement si la même branche est extraite).
+
+## Prévision de durée et de coût {#launch-forecast}
+
+Avant d’appuyer sur Lancer, un rail peut afficher la durée habituelle des exécutions de ce type et, quand c’est pertinent, leur coût habituel, par exemple *En général 6–9 min · 2–4 $ pour ce type d’exécution*.
+
+La fourchette correspond à la moitié centrale de votre propre historique : du 25e au 75e centile des exécutions terminées de ce projet avec le même loop ou la même commande et le même moteur. Il faut au moins 5 exécutions comparables. D’ici là, la ligne indique *Pas encore assez d’historique* plutôt que de deviner. Seuls les coûts communiqués par le fournisseur sont utilisés ; les coûts estimés sont exclus. C’est une estimation, jamais une facture.
+
+Avec un abonnement, le montant en dollars est masqué et seule la durée s’affiche. Si la dépense du jour plus le haut de la fourchette pouvait atteindre votre budget quotidien, la ligne ajoute *Peut se mettre en pause au budget* avec un lien vers les réglages du budget.
+
 
 ## Où aller ensuite
 

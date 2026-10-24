@@ -37,13 +37,14 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 - **Total spend** (right) — a running total of what you've spent, so cost is always one glance away.
 - **Terminal toggle** (far right) — open the built-in terminal panel. Press **Cmd+J** (macOS) or **Ctrl+J** (Windows/Linux) to toggle it any time. It's a full shell, opened right in your project folder.
 
-## A few handy shortcuts
+## A few handy shortcuts {#shortcuts}
 
 - **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.
 - **Cmd/Ctrl+J** — toggle the terminal panel.
 - **Cmd/Ctrl+K** — the command palette: search missions, projects and jobs, and **run actions**. Type a verb ("new", "launch", "move", "switch") or start with **>** to list actions: New spec (also in Explore), Launch or Move a spec, Open its review, Hand off or Pause a Flow, New mission, Switch theme, Switch between Mission and Board mode, Open app or project settings on a section, Run a loop, toggle the sidebars, Go back or forward, Undo the last change, and Recently deleted. Actions that need a choice (a rail, a status, a theme, a section) open a second page; **Backspace** on an empty search returns. Each action shows its keyboard shortcut, so the palette teaches the keys. It only offers what works where you are, and it respects the same rules as the buttons (a spec that cannot launch is not offered). With an empty search it lists your **Recent actions** and **Recent places**.
 - **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** on Windows/Linux) or the **←  →** buttons in the title bar, or your mouse's back/forward buttons — go back or forward through the places you have been: specs, missions, jobs, projects and full-page panels. Right-click (or long-press) a button to see the last few places.
 - **Cmd+Shift+I** (**Ctrl+Shift+I**) or the **Inbox** button in the title bar — the **Needs you** inbox: everything across all your projects that waits for you, in one list grouped by project. It collects reviews ready to decide, questions an agent is waiting on, runs that failed or got blocked, runs paused at the daily budget and Jira updates that could not sync. Each row has its main action right there (**Open review**, **Answer**, **Resume**, **Retry**) plus **Snooze** (1 hour or until tomorrow) and **Done**. A snoozed or done item comes back by itself if its state changes. The button shows how many items wait, and a provider-limit notification opens the inbox. The inbox is also a link (`?inbox=1`) and an action in the command palette.
+- **?** — the shortcuts cheatsheet. Type in its search box to filter the shortcuts and to find matching pages and sections of this guide, which open in the guide without leaving your screen. The small **ⓘ** icons and **Learn more** links next to settings, rails, Flow, the context slider and budgets open the guide at the matching section the same way.
 
 ## Where to go next
 

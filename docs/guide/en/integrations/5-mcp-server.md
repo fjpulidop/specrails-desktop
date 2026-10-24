@@ -1,4 +1,4 @@
-# Control Specrails from any AI (MCP server)
+# Control Specrails from any AI (MCP server) {#mcp-server}
 
 Specrails can expose **itself** to any AI assistant that speaks the [Model Context Protocol](https://modelcontextprotocol.io) — Claude Desktop, Claude Code, Cursor, Cline, or your own agent. Turn it on, point your assistant at Specrails, and you can drive the whole app by chatting: *"list my projects", "create a spec for social login in the API project", "launch rail 0 and tell me when it's done", "how much did I spend this week?"*. Your assistant calls Specrails' tools under the hood instead of you clicking around.
 

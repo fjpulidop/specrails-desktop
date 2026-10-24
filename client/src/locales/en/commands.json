@@ -166,7 +166,14 @@
       "historyBackForward": "Go back / forward to the previous place",
       "undoLast": "Undo the last change",
       "openInbox": "Open the Needs you inbox"
-    }
+    },
+    "searchLabel": "Search shortcuts and guides",
+    "searchPlaceholder": "Search shortcuts and guides…",
+    "noShortcuts": "No shortcut matches “{{query}}”.",
+    "guidesHeading": "From the guide",
+    "openGuide": "Open guide: {{title}}",
+    "noGuides": "No guide matches “{{query}}”.",
+    "searching": "Searching the guide…"
   },
   "update": {
     "title": {

@@ -78,3 +78,11 @@ Exports respect whatever period and surface filters you currently have applied, 
 ## Staying live
 
 You don't need to refresh. When a new invocation is recorded anywhere in the project, the open dashboard quietly refetches itself a moment later, so the burn meter keeps pace with work as it finishes.
+
+## Daily budgets {#daily-budget}
+
+Set a daily budget to cap what a day can cost. The app-wide budget lives in **Settings → Advanced**; a per-project budget lives in **Project settings → Budget**.
+
+When the day's recorded spend reaches a budget, the queue pauses itself, rails and loop runs refuse to launch with *Daily budget reached*, and a loop run already in progress parks between steps, paused at the budget. Raise or clear the budget, or wait for the daily reset, and then resume.
+
+The project budget counts your local day; the app-wide budget counts the UTC day. The per-job cost alert is a separate setting.

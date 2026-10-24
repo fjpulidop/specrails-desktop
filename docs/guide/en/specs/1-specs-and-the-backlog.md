@@ -1,4 +1,4 @@
-# Specs & the backlog
+# Specs & the backlog {#specs-backlog}
 
 A **spec** is the unit of work the AI pipeline implements. Think of it as a ticket: a title, a description of what you want done, a priority, and optional labels. When you launch the pipeline, the AI agents read the spec and act on it — so a clear spec is the single most important input to a good result.
 
@@ -54,7 +54,7 @@ When a spec already has work behind it — a PR under review, a merged feature �
 
 When a run finishes, its review packet opens with **What to look at**: the AI reviewer's short brief listing the riskiest spots first (high, then medium, then low, each with a file and line), the behaviour that changes, the rules the change leans on, the code paths no test exercises and the checks only a person can do. The same risks, untested paths and checks appear in a short block at the top of the pull request, and the mission card shows the top risk in one line. The brief is advice for your review, not a verification result: it never blocks Accept. Runs made with an older Specrails Core have no brief, and their packet looks as before.
 
-## Undo, and Recently deleted
+## Undo, and Recently deleted {#recently-deleted}
 
 Deleting a spec, moving it to another status, changing its labels or taking it off a rail all happen at once — there is no "Are you sure?" first. Instead a toast offers **Undo** for about eight seconds, and **⌘Z** (**Ctrl+Z** on Windows and Linux) does the same while you are not typing in a field. Undo is per project: switching project closes the window.
 

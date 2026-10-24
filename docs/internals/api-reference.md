@@ -712,7 +712,10 @@ The bundled documentation portal (served by `docs-router`, loopback-only — mou
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/` | List categories. Top-level `.md` files → a synthetic `guides` category; each subdirectory becomes its own category |
+| `GET` | `/search?q=&lang=` | Search page titles and headings (levels 2–4) in one language, English fallback per page. `{ results: [{ category, categoryName, slug, title, heading, anchor }] }`, titles first, at most 8; `heading`/`anchor` are null on a title match, `anchor` is null for a heading without an explicit anchor. Empty `[]` for a query that is blank or longer than 80 chars |
 | `GET` | `/:category/:slug` | Fetch one document (`{ title, content, category, slug }`) |
+
+Headings may carry an explicit, locale-independent anchor, `## Title {#anchor}`. The server removes it from page titles; the client renders it as the heading id (`doc-<anchor>`) and never shows it. In-app "Learn more" hints address a section by `category/slug#anchor` (see [`client/src/features/README.md`](../../client/src/features/README.md#contextual-help-learn-more)).
 
 Source resolution: `~/.specrails/docs/` (user-editable) wins if present; otherwise the bundled `docs/` from the install.
 

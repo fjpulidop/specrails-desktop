@@ -72,6 +72,29 @@ Rules:
   off macOS), mouse buttons 4/5 in `PlaceHistoryProvider`, the title-bar buttons in
   `components/PlaceNavButtons.tsx`.
 
+## Contextual help (Learn more)
+
+`components/HelpHint.tsx` is the one way to link a screen to the guide: an `ⓘ` icon button
+(`variant="icon"`, beside a heading or control) or a "Learn more →" link (`variant="link"`). It
+asks the shell for the guide through `openDocs()` ([`lib/docs-events.ts`](../lib/docs-events.ts),
+same window-event pattern as `openAppSettings`); `App.tsx` opens `?overlay=docs` (a place) and
+`DocsDialog` selects the page and scrolls to the heading, over the current screen (`stacked`
+layer, so it also opens over the floating chat). The accessible name always names the topic
+("Learn more about daily budgets").
+
+- **Topics** live in [`lib/help-topics.ts`](../lib/help-topics.ts): `topic → { category, slug, anchor }`.
+  The anchor is an explicit `## Title {#anchor}` on a heading of `docs/guide/<locale>/<category>/<n>-<slug>.md`,
+  identical in all 8 locales (never a translated slug). `lib/__tests__/help-topics.test.ts` fails on a dead
+  anchor in any locale or a topic without `help.topics.<id>` (`common.json`).
+- **Adding a hint:** add the topic (and its anchor in all 8 guides, plus the topic name in all 8
+  `common.json`), then render `<HelpHint topic="…" />`. Do not hard-code guide URLs.
+- **Where they are:** section links in app/project settings (`APP_SETTINGS_HELP`, `PROJECT_SETTINGS_HELP`),
+  the daily budget fields, the rail loop selector (what a rail runs), Flow entry and hand-off cards, the
+  Run-a-loop dialog, the context-scope slider, and empty states (`EmptyState learnMore="…"`: one sentence of
+  what will appear, the primary action, then Learn more).
+- **Cheatsheet search:** the `?` cheatsheet filters shortcuts and asks `GET /api/docs/search` (current
+  locale titles/headings) for guide matches that open in the guide at the heading.
+
 ## Undo instead of confirm
 
 Reversible actions (delete a spec or mission, remove a spec from a rail, move a

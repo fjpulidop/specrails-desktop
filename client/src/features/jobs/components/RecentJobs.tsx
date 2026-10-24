@@ -8,6 +8,7 @@ import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'l
 import { toast } from 'sonner'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
+import { EmptyState } from '../../../components/ui/empty-state'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobComparisonModal } from './JobComparisonModal'
@@ -226,16 +227,14 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border/40 bg-card/50 p-8 text-center space-y-2">
-        <ClipboardList className="w-8 h-8 text-muted-foreground mx-auto" aria-hidden />
-        <p className="text-sm font-medium text-foreground">{t('recent.emptyTitle')}</p>
-        <p className="text-xs text-muted-foreground">
-          {t('recent.emptyDescription')}
-        </p>
-        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => navigate('/')}>
-          {t('recent.emptyCta')}
-        </Button>
-      </div>
+      <EmptyState
+        icon={<ClipboardList className="h-4 w-4" />}
+        title={t('recent.emptyTitle')}
+        description={t('recent.emptyDescription')}
+        action={<Button type="button" variant="outline" size="sm" onClick={() => navigate('/')}>{t('recent.emptyCta')}</Button>}
+        learnMore="railLoops"
+        data-testid="recent-jobs-empty"
+      />
     )
   }
 

@@ -33,6 +33,8 @@ import {
 } from '../../../components/ui/dialog'
 import { useDesktop } from '../../../hooks/useDesktop'
 import type { DesktopProject } from '../../../hooks/useDesktop'
+import { HelpHint } from '../../../components/HelpHint'
+import { APP_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
 import {
   getOsNotificationPrefs,
   setOsNotificationPrefs,
@@ -146,6 +148,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
     if (open) setActiveSection(initialSection)
   }, [open, initialSection])
   const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
+  const sectionHelp = (APP_SETTINGS_HELP as Record<string, HelpTopicId | undefined>)[activeSection]
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
   // Advanced pane: draft vs last-saved values feed one dirty save bar.
   const [costAlertThreshold, setCostAlertThreshold] = useState('')
@@ -424,6 +427,11 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
           {/* Active section content — fills the fixed-height dialog and scrolls,
               so switching sections never resizes the modal. */}
           <div className="min-w-0 flex-1 overflow-y-auto pr-1 pb-4">
+            {sectionHelp && (
+              <div className="mb-2 flex justify-end" data-testid="settings-section-help">
+                <HelpHint topic={sectionHelp} variant="link" />
+              </div>
+            )}
             <div className={paneCls('appearance')}>
               <AppearanceSection />
               <LanguageSection />
@@ -499,7 +507,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             <div className={paneCls('advanced')}>
               <SettingsCard title={t('desktop.budgetAlertsHeading')} contentClassName="space-y-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="settings-daily-budget" className="text-label">{t('desktop.dailyBudgetLabel')}</label>
+                  <div className="flex items-center gap-1">
+                    <label htmlFor="settings-daily-budget" className="text-label">{t('desktop.dailyBudgetLabel')}</label>
+                    <HelpHint topic="dailyBudget" />
+                  </div>
                   <p className="text-xs text-muted-foreground">{t('desktop.dailyBudgetHelper')}</p>
                   <Input
                     id="settings-daily-budget"

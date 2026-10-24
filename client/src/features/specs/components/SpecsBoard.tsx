@@ -52,6 +52,7 @@ import {
   clearActiveExploreSpec,
 } from '../lib/active-explore-spec'
 import type { LocalTicket } from '../../../types'
+import { HelpHint } from '../../../components/HelpHint'
 
 interface SpecsBoardProps {
   /** Pre-ordered, pre-filtered active tickets (ordering + filtering owned by parent). */
@@ -778,7 +779,10 @@ export function SpecsBoard({
                           : t('board.emptyNoActiveSpecs')}
                 </p>
                 {!isOver && tickets.length + doneTickets.length === 0 && (
-                  <p className="text-xs mt-1">{t('board.emptyHint')}</p>
+                  <>
+                    <p className="text-xs mt-1">{t('board.emptyHint')}</p>
+                    <HelpHint topic="specsBoard" variant="link" className="mt-2" />
+                  </>
                 )}
                 {!isOver && tickets.length + doneTickets.length > 0 && (!noFilters || statusNarrowed) && (
                   <Button

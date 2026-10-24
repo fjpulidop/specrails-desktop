@@ -1,4 +1,4 @@
-# Pipeline-Telemetrie & Diagnose
+# Pipeline-Telemetrie & Diagnose {#telemetry}
 
 Die Telemetrie zeichnet Pipeline-Diagnosen lokal auf. Sie ist für Projekte ohne gespeicherte Einstellung **standardmäßig aktiviert**. Du kannst sie pro Projekt deaktivieren; ausdrücklich gespeicherte Einstellungen bleiben erhalten.
 

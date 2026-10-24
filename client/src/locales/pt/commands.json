@@ -166,7 +166,14 @@
       "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte",
       "undoLast": "Desfazer a última alteração",
       "openInbox": "Abrir a caixa «Precisam de você»"
-    }
+    },
+    "searchLabel": "Pesquisar atalhos e guias",
+    "searchPlaceholder": "Pesquisar atalhos e guias…",
+    "noShortcuts": "Nenhum atalho corresponde a “{{query}}”.",
+    "guidesHeading": "No guia",
+    "openGuide": "Abrir guia: {{title}}",
+    "noGuides": "Nenhum guia corresponde a “{{query}}”.",
+    "searching": "Pesquisando no guia…"
   },
   "update": {
     "title": {

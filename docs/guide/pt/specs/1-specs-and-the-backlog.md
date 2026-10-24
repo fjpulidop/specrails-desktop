@@ -1,4 +1,4 @@
-# Specs e o backlog
+# Specs e o backlog {#specs-backlog}
 
 Uma **spec** é a unidade de trabalho que o pipeline de IA implementa. Pense nela como um ticket: um título, uma descrição do que quer fazer, uma prioridade e, opcionalmente, etiquetas. Quando lança o pipeline, os agentes de IA leem a spec e agem sobre ela — por isso, uma spec clara é o input mais importante para um bom resultado.
 
@@ -54,7 +54,7 @@ Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcional
 
 Quando uma execução termina, o pacote de revisão abre com **O que olhar**: o resumo curto do revisor de IA com os pontos mais arriscados primeiro (alto, depois médio, depois baixo, cada um com arquivo e linha), o comportamento que muda, as regras em que a mudança se apoia, os caminhos de código que nenhum teste exercita e as verificações que só uma pessoa pode fazer. Os mesmos riscos, caminhos sem teste e verificações aparecem num bloco curto no topo da pull request, e o card da missão mostra o principal risco em uma linha. O resumo orienta a revisão, não é um resultado de verificação: nunca bloqueia Aceitar. Execuções feitas com um Specrails Core anterior não têm resumo e o pacote continua igual.
 
-## Desfazer e Excluídos recentemente
+## Desfazer e Excluídos recentemente {#recently-deleted}
 
 Excluir uma spec, movê-la para outro estado, mudar suas etiquetas ou tirá-la de um rail acontece na hora — sem um "Tem certeza?" antes. Em vez disso, um aviso oferece **Desfazer** por cerca de oito segundos, e **⌘Z** (**Ctrl+Z** no Windows e no Linux) faz o mesmo enquanto você não estiver digitando em um campo. Desfazer é por projeto: trocar de projeto encerra a janela.
 

@@ -2,6 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent, within } from '../test-utils'
 import App from '../App'
+import { openDocs } from '../lib/docs-events'
+import { helpTarget } from '../lib/help-topics'
 import { openAppSettings } from '../lib/app-settings-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
@@ -144,6 +146,30 @@ it('opens the app settings modal on the section a feature page requests', async 
   act(() => openAppSettings('updates'))
   await waitFor(() => expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-open', 'true'))
   expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-section', 'updates')
+})
+
+
+it('a Learn more hint opens the guide over the current screen at the hinted section', async () => {
+  const guide = {
+    title: 'Analytics & cost tracking', category: 'insights', slug: 'analytics-and-cost-tracking',
+    content: '# Analytics & cost tracking\n\n## Daily budgets {#daily-budget}\n\nCap a day.\n',
+  }
+  global.fetch = vi.fn().mockImplementation(async (url: string) => {
+    const u = String(url)
+    if (u.includes('/api/docs/insights/analytics-and-cost-tracking')) return { ok: true, status: 200, json: async () => guide }
+    if (u.includes('/api/docs')) return { ok: true, status: 200, json: async () => ({ categories: [{ name: 'Insights', slug: 'insights', docs: [{ title: guide.title, slug: guide.slug }] }] }) }
+    return { ok: true, status: 200, json: async () => ({ projects: [] }) }
+  })
+  render(<App />)
+  await screen.findByTestId('settings-dialog')
+  expect(screen.queryByTestId('docs-modal')).not.toBeInTheDocument()
+  act(() => openDocs(helpTarget('dailyBudget')))
+  expect(await screen.findByTestId('docs-modal')).toBeInTheDocument()
+  const heading = await screen.findByRole('heading', { name: 'Daily budgets' })
+  expect(heading.id).toBe('doc-daily-budget')
+  // Closing drops the place.
+  fireEvent.click(within(screen.getByTestId('docs-modal')).getByRole('button', { name: 'Close' }))
+  await waitFor(() => expect(screen.queryByTestId('docs-modal')).not.toBeInTheDocument())
 })
 
 

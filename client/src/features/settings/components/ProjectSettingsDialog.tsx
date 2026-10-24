@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog'
+import { HelpHint } from '../../../components/HelpHint'
+import { PROJECT_SETTINGS_HELP, type HelpTopicId } from '../../../lib/help-topics'
 import { PROJECT_SETTINGS_SECTIONS, type ProjectSettingsSectionId } from './project-settings-sections'
 
 type SectionId = ProjectSettingsSectionId
@@ -30,6 +32,7 @@ export function ProjectSettingsDialog({ open, onClose, initialSection }: { open:
     () => PROJECT_SETTINGS_SECTIONS.find((s) => s.id === initialSection)?.id ?? 'general',
   )
   const paneCls = (id: SectionId) => cn('space-y-5', activeSection === id ? '' : 'hidden')
+  const sectionHelp = (PROJECT_SETTINGS_HELP as Record<string, HelpTopicId | undefined>)[activeSection]
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
@@ -70,6 +73,11 @@ export function ProjectSettingsDialog({ open, onClose, initialSection }: { open:
           {/* Active section content — fills the fixed-height dialog and scrolls,
               so switching sections never resizes the modal. */}
           <div className="min-w-0 flex-1 overflow-y-auto pr-1 pb-4">
+            {sectionHelp && (
+              <div className="mb-2 flex justify-end" data-testid="settings-section-help">
+                <HelpHint topic={sectionHelp} variant="link" />
+              </div>
+            )}
             {PROJECT_SETTINGS_SECTIONS.map((section) => (
               <div key={section.id} className={paneCls(section.id)}>
                 {section.panes.map((Pane, i) => <Pane key={i} />)}

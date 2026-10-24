@@ -1,4 +1,4 @@
-# Controla Specrails desde cualquier IA (servidor MCP)
+# Controla Specrails desde cualquier IA (servidor MCP) {#mcp-server}
 
 Specrails puede exponerse **a sí mismo** a cualquier asistente de IA que hable el [Model Context Protocol](https://modelcontextprotocol.io) — Claude Desktop, Claude Code, Cursor, Cline o tu propio agente. Actívalo, apunta tu asistente a Specrails y podrás manejar toda la app conversando: *"lista mis proyectos", "crea una spec para login social en el proyecto de la API", "lanza el rail 0 y avísame cuando termine", "¿cuánto he gastado esta semana?"*. Tu asistente llama por debajo a las herramientas de Specrails en lugar de que tú andes haciendo clics.
 

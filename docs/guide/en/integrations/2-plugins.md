@@ -1,4 +1,4 @@
-# Plugins (Integrations)
+# Plugins (Integrations) {#plugins}
 
 The **Integrations** section is a per-project marketplace of optional add-ons that extend what the AI can do. Each project decides independently which plugins it wants — installing a plugin in one project never touches another.
 

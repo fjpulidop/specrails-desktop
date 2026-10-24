@@ -1,4 +1,4 @@
-# Conoce a los agentes
+# Conoce a los agentes {#agents}
 
 Cuando lanzas un rail de **Implement**, Specrails no le entrega tu spec a una sola IA con la esperanza de que salga bien. En su lugar, pone a trabajar a un pequeño equipo de *agentes* especializados, cada uno con una única tarea, en un orden deliberado. Esta página te presenta a quiénes forman ese equipo y qué hace cada uno.
 

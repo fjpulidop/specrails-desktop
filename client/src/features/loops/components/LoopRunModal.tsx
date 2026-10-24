@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Play } from 'lucide-react'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { HelpHint } from '../../../components/HelpHint'
 import {
   defaultReasoningEffortForProvider,
   providerLabel,
@@ -85,6 +86,7 @@ export function LoopRunModal({
             <DialogHeader>
               <DialogTitle>{t('run.title', { name: loop.name })}</DialogTitle>
               <DialogDescription>{t('run.subtitle')}</DialogDescription>
+              <HelpHint topic="loopBuilder" variant="link" className="mt-1" />
             </DialogHeader>
 
             <DialogBody className="space-y-2">

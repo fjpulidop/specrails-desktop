@@ -30,3 +30,10 @@ Validate navigation with `node scripts/audit-client-features.mjs --check`.
 and the dialog (markdown, internal-link routing, loading/error/Retry states).
 `/api/docs` is a Desktop-level route, so fetches go through `docsUrl()`
 (`API_ORIGIN` prefix), never the project-scoped `getApiBase()`.
+
+Headings can declare an explicit anchor, `## Title {#anchor}` (identical in every locale). `DocView`
+renders it as the id `doc-<anchor>` and hides the suffix; the server strips it from page titles.
+`DocsDialog` takes a `target` (`lib/docs-events.ts` `DocsTarget` plus a `nonce`), selects that page and
+scrolls to the anchor, or to a heading by its text for search results. The target is not part of the
+place (`?overlay=docs` is): `App.tsx` drops it on close. See "Contextual help" in
+[`features/README.md`](../README.md#contextual-help-learn-more).

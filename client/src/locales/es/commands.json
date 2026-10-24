@@ -166,7 +166,14 @@
       "historyBackForward": "Ir atrás / adelante al lugar anterior o siguiente",
       "undoLast": "Deshacer el último cambio",
       "openInbox": "Abrir la bandeja «Te necesitan»"
-    }
+    },
+    "searchLabel": "Buscar atajos y guías",
+    "searchPlaceholder": "Buscar atajos y guías…",
+    "noShortcuts": "Ningún atajo coincide con «{{query}}».",
+    "guidesHeading": "De la guía",
+    "openGuide": "Abrir guía: {{title}}",
+    "noGuides": "Ninguna guía coincide con «{{query}}».",
+    "searching": "Buscando en la guía…"
   },
   "update": {
     "title": {

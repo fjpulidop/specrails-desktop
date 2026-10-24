@@ -1,15 +1,20 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
+import type { HelpTopicId } from '../../lib/help-topics'
+import { HelpHint } from '../HelpHint'
 
 export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   icon?: React.ReactNode
   title: React.ReactNode
   description?: React.ReactNode
   action?: React.ReactNode
+  /** Guide topic: shows "Learn more" after the action. Pair it with a `description`
+   *  that says what will appear here, and a primary `action`. */
+  learnMore?: HelpTopicId
 }
 
-/** Shared empty state: icon, title, one-line description and one action. */
-function EmptyState({ icon, title, description, action, className, ...props }: EmptyStateProps) {
+/** Shared empty state: icon, title, one-line description, one action and an optional Learn more. */
+function EmptyState({ icon, title, description, action, learnMore, className, ...props }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -28,6 +33,7 @@ function EmptyState({ icon, title, description, action, className, ...props }: E
         {description && <p className="mx-auto max-w-[44ch] text-caption text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-1">{action}</div>}
+      {learnMore && <HelpHint topic={learnMore} variant="link" />}
     </div>
   )
 }

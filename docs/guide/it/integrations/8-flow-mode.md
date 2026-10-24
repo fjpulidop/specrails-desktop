@@ -1,4 +1,4 @@
-# Flow: prima costruisci, poi la spec
+# Flow: prima costruisci, poi la spec {#flow-mode}
 
 Flow è un modo di costruire con un agente quando non sai ancora esattamente cosa vuoi. Parli con l’agente nella tua missione, lui scrive ed esegue codice reale sul suo branch del Flow (una copia separata del tuo progetto) e, quando il risultato è quello giusto, premi **Affida**: un rail prende le tue modifiche, ricava la spec ed esegue la verifica, la revisione e la consegna di sempre.
 
@@ -49,7 +49,7 @@ L’agente di Flow esegue da solo il typecheck e i test per controllare il suo l
 
 Quando l’app è in ascolto, l’agente ti dà i suoi indirizzi come link e il pannello del Flow mostra **Anteprima** con un punto verde: apre l’app nel browser. Il suo menu ha l’indirizzo di rete e **Arresta app**. L’app gira dalla copia del Flow, mai dal tuo checkout principale, e Specrails la arresta quando metti in pausa, scarti o consegni il Flow.
 
-## Affida
+## Affida {#flow-hand-off}
 
 Quando il risultato ti convince, premi **Affida**. La riga indica **Pronto a diventare una PR** e apre una sola riga sopra: *Rail 2 trasformerà i tuoi 7 file modificati in una PR revisionata. Se fallisce, il tuo lavoro è al sicuro.* Premi **Lancia**, oppure **Non ancora** per tornare al Flow; **Esc** equivale a **Non ancora**; un clic altrove si limita a ripiegare la riga, che resta su **Pronto a diventare una PR** con **Lancia**. Se il motore della conversazione non può eseguire l’affidamento su questo computer, una nota subito sotto la riga lo dice e si usa il motore predefinito del rail.
 

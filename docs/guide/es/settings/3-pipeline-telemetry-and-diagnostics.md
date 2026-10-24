@@ -1,4 +1,4 @@
-# Telemetría del pipeline y diagnósticos
+# Telemetría del pipeline y diagnósticos {#telemetry}
 
 La telemetría registra los diagnósticos del pipeline en local. Está **activada por defecto** en los proyectos sin una preferencia guardada. Puedes desactivarla por proyecto; se respeta cualquier elección guardada explícitamente.
 

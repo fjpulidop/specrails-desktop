@@ -1,4 +1,4 @@
-# Travailler dans un projet existant
+# Travailler dans un projet existant {#existing-projects}
 
 Ces fonctions aident les runs à respecter un projet qui existe déjà : ce qu'une spec laisse de côté, les questions de l'architecte avant de planifier, les exigences qu'un test prouve vraiment, la façon de décrire l'ancien code avant de le modifier et les règles que votre équipe a déjà écrites. Chacune nécessite une version de specrails-core qui la prend en charge ; en attendant, son interrupteur est grisé avec une note pour mettre Core à jour.
 
@@ -20,7 +20,7 @@ La bibliothèque de loops propose aussi **Balayage de dérive**, un loop en lect
 
 Activez **Baseline au contact** pour qu'un changement qui atteint du code qu'aucune spec ne décrit commence par le décrire : des tests du comportement actuel, prouvés sur le code inchangé, et une courte spec de l'existant. La page de revue affiche **Spec créée là où le travail est passé** avec le module, les exigences et les tests, et son coût est affiché à part. Si ces tests échouent sur le code inchangé, le run s'arrête avant de modifier le module et le signale.
 
-## Règles du projet
+## Règles du projet {#project-rules}
 
 **Réglages ▸ Règles du projet** liste les contrôles que votre projet exécute déjà (lint, types, tests, CI) et chaque règle écrite dans des fichiers comme `CLAUDE.md` ou `AGENTS.md`, classées en :
 

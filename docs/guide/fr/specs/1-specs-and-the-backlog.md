@@ -1,4 +1,4 @@
-# Les specs et le backlog
+# Les specs et le backlog {#specs-backlog}
 
 Une **spec** est l'unité de travail que le pipeline IA met en œuvre. Voyez-la comme un ticket : un titre, une description de ce que vous voulez réaliser, une priorité et, en option, des labels. Quand vous lancez le pipeline, les agents IA lisent la spec et agissent à partir d'elle — une spec claire est donc l'élément le plus important pour obtenir un bon résultat.
 
@@ -54,7 +54,7 @@ Quand une spec a déjà du travail derrière elle — une PR en revue, une fonct
 
 À la fin d'une exécution, son dossier de revue s'ouvre sur **Points à examiner** : la courte note du relecteur IA qui liste d'abord les endroits les plus risqués (élevé, puis moyen, puis faible, chacun avec un fichier et une ligne), le comportement qui change, les règles sur lesquelles le changement s'appuie, les chemins de code qu'aucun test n'exerce et les vérifications que seul un humain peut faire. Les mêmes risques, chemins non testés et vérifications figurent dans un court bloc en haut de la pull request, et la carte de mission affiche le risque principal sur une ligne. La note guide votre relecture, ce n'est pas un résultat de vérification : elle ne bloque jamais Accepter. Les exécutions faites avec un Specrails Core plus ancien n'ont pas de note et leur dossier reste identique.
 
-## Annuler, et Supprimés récemment
+## Annuler, et Supprimés récemment {#recently-deleted}
 
 Supprimer une spec, la déplacer vers un autre statut, modifier ses étiquettes ou la retirer d'un rail se fait aussitôt : pas de « Êtes-vous sûr ? » au préalable. À la place, une notification propose **Annuler** pendant environ huit secondes, et **⌘Z** (**Ctrl+Z** sous Windows et Linux) fait de même tant que vous ne tapez pas dans un champ. L'annulation est propre à chaque projet : changer de projet ferme la fenêtre.
 

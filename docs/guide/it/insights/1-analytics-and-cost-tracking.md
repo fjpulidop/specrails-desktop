@@ -78,3 +78,11 @@ Le esportazioni rispettano i filtri di periodo e origine che hai attualmente app
 ## Sempre aggiornato
 
 Non devi ricaricare. Quando una nuova invocazione viene registrata in qualsiasi punto del progetto, la dashboard aperta si aggiorna in silenzio un istante dopo, così il meter di consumo tiene il passo con il lavoro man mano che si completa.
+
+## Budget giornalieri {#daily-budget}
+
+Imposta un budget giornaliero per limitare quanto può costare una giornata. Il budget dell’intera app si trova in **Impostazioni → Avanzate**; quello di un progetto in **Impostazioni del progetto → Budget**.
+
+Quando la spesa registrata della giornata raggiunge un budget, la coda si mette in pausa da sola, i rail e le esecuzioni dei loop non partono e mostrano *Budget giornaliero raggiunto*, e un’esecuzione di loop in corso si ferma tra un passo e l’altro, in pausa per il budget. Aumenta o rimuovi il budget, oppure attendi il reset giornaliero, poi riprendi.
+
+Il budget del progetto conta la tua giornata locale; quello dell’intera app conta la giornata UTC. L’avviso di costo per job è un’impostazione separata.

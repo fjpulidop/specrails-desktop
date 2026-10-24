@@ -1,4 +1,4 @@
-# Working in an existing project
+# Working in an existing project {#existing-projects}
 
 These features help runs respect a project that already exists: what a spec leaves out, the questions the architect has before planning, which requirements a test actually proves, how to describe old code before changing it, and the rules your team already writes down. Each one needs a specrails-core version that supports it; until then its switch is greyed out with an "update Core" note.
 
@@ -20,7 +20,7 @@ The loop library also offers **Drift sweep**, a read-only loop that compares wha
 
 Turn on **Baseline on touch** to make a change that reaches code no spec describes start by describing it: tests of how the code behaves today, proven on the unchanged code, and a short spec of what exists. The review page shows **Spec created where the work passed** with the module, the requirements and the tests, and its cost is shown apart from the change. If those tests fail on the unchanged code, the run stops before editing the module and says so.
 
-## Project rules
+## Project rules {#project-rules}
 
 **Settings ▸ Project rules** lists the checks your project already runs (lint, type checks, tests, CI) and every rule written in files like `CLAUDE.md` or `AGENTS.md`, sorted into:
 

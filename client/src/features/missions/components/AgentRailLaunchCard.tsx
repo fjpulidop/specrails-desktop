@@ -48,6 +48,7 @@ import type { ProfileListEntry } from '../../agents/components/types'
 import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRejection } from '../../../lib/daily-budget'
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
+import { HelpHint } from '../../../components/HelpHint'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -720,6 +721,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none', howOpen && 'rotate-90')} aria-hidden />
             {t('railCard.handOff.changeHow')}
           </button>
+          <HelpHint topic="flowHandOff" />
           <span className="min-w-0 flex-1 text-label text-foreground/70" data-testid="rail-card-hand-off-status">
             {blockReason && !inlineError ? blockReason : null}
           </span>

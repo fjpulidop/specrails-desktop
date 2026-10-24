@@ -39,7 +39,7 @@ Eso es todo. El rail arranca un proceso de la CLI de IA en el contexto de ejecuc
 | **Selector de motor** | Qué proveedor ejecuta el rail — Claude o Codex. |
 | **▶ Play / ■ Stop** | Iniciar o cancelar. |
 
-### Qué ejecuta un rail: Loops
+### Qué ejecuta un rail: Loops {#rail-loops}
 
 Un rail ejecuta un **Loop** — la receta del trabajo. Dos loops están **integrados** y cubren los casos comunes:
 
@@ -97,6 +97,15 @@ Si algo parece ir mal:
 - Si al volver a ponerlos hay conflictos con el código integrado, Specrails deja la rama exactamente como se integró y **conserva el stash**: no se pierde nada. La tarjeta muestra *Tus cambios locales están guardados en un stash* con los archivos en conflicto, **Restaurar mis cambios** (reintenta, por ejemplo después de cambiar el código) y el nombre del stash para copiarlo. Después Specrails los restaura por sí mismo en una rama nueva `specrails/restore-local-<id>`, en un worktree aparte: si allí se aplican sin conflictos, hace commit; si no, un resolvedor de conflictos con IA trabaja solo dentro de ese worktree, conservando tu intención y el código integrado, y Specrails hace commit del resultado. La tarjeta lista los archivos restaurados; **Traerlos de vuelta a <rama>** los pasa a tu rama (solo entonces se descarta el stash) y **Descartar la rama restaurada** elimina la rama y conserva el stash. A una misión solo se le informa de lo ocurrido; nunca tiene que ejecutar nada. Las skills y comandos de OpenSpec que genera Specrails (por ejemplo `.claude/skills/openspec-*/SKILL.md`) no cuentan como cambios tuyos: ante un conflicto conservan la versión integrada.
 - Los archivos ignorados nunca se guardan en el stash: si alguno choca con la entrega, Specrails te pide que lo muevas antes.
 - Si la app se detiene entre guardar y restaurar, restaura tus cambios la próxima vez que se abra el proyecto (solo si sigue en la misma rama).
+
+## Previsión de tiempo y coste {#launch-forecast}
+
+Antes de pulsar Lanzar, un rail puede mostrar cuánto suelen tardar las ejecuciones como esta y, cuando tiene sentido, cuánto suelen costar, por ejemplo *Normalmente 6–9 min · $2–4 en ejecuciones como esta*.
+
+El rango es la mitad central de tu propio historial: del percentil 25 al 75 de las ejecuciones completadas en este proyecto con el mismo loop o comando y el mismo motor. Necesita al menos 5 ejecuciones comparables. Hasta entonces la línea dice *Aún no hay suficiente historial* en lugar de adivinar. Solo se usan costes que informó el proveedor; los costes estimados se dejan fuera. Es una estimación, nunca una factura.
+
+Con un plan de suscripción se oculta la cifra en dólares y solo se muestra el tiempo. Si el gasto de hoy más el extremo alto del rango pudiera alcanzar tu presupuesto diario, la línea añade *Puede pausarse por presupuesto* con un enlace a los ajustes de presupuesto.
+
 
 ## A dónde ir después
 

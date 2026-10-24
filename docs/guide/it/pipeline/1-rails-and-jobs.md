@@ -38,7 +38,7 @@ Tutto qui. Il rail avvia un processo CLI AI nel contesto di esecuzione corretto 
 | **Selettore engine** | Quale provider esegue il rail — Claude o Codex. |
 | **▶ Play / ■ Stop** | Avvia o annulla. |
 
-### Cosa esegue un rail: i Loop
+### Cosa esegue un rail: i Loop {#rail-loops}
 
 Un rail esegue un **Loop** — la ricetta del lavoro. Due loop sono **integrati** e coprono i casi più comuni:
 
@@ -96,6 +96,15 @@ Se qualcosa sembra non andare:
 - Se rimetterle va in conflitto con il codice integrato, Specrails lascia il branch esattamente come integrato e **conserva lo stash**: non si perde nulla. La scheda mostra *Le tue modifiche locali sono salvate in uno stash* con i file in conflitto, **Ripristina le mie modifiche** (nuovo tentativo, ad esempio dopo aver cambiato il codice) e il nome dello stash da copiare. Poi Specrails le ripristina da solo su un nuovo branch `specrails/restore-local-<id>` in un worktree separato: se lì si applicano senza conflitti, fa commit; altrimenti un risolutore di conflitti IA lavora solo dentro quel worktree, mantenendo la tua intenzione e il codice integrato, e Specrails fa commit del risultato. La scheda elenca i file ripristinati; **Riportale su <branch>** le porta sul tuo branch (solo allora lo stash viene eliminato) e **Scarta il branch ripristinato** rimuove il branch e conserva lo stash. Una missione viene solo informata; non deve mai eseguire nulla. Le skill e i comandi OpenSpec generati da Specrails (ad esempio `.claude/skills/openspec-*/SKILL.md`) non contano come tue modifiche: in caso di conflitto mantengono la versione integrata.
 - I file ignorati non vengono mai messi nello stash: se uno di essi entra in conflitto con la consegna, Specrails ti chiede di spostarlo prima.
 - Se l'app si ferma tra il salvataggio e il ripristino, ripristina le tue modifiche alla successiva apertura del progetto (solo se è ancora attivo lo stesso branch).
+
+## Previsione di tempo e costo {#launch-forecast}
+
+Prima di premere Avvia, un rail può mostrare quanto durano di solito le esecuzioni come questa e, quando ha senso, quanto costano di solito, ad esempio *Di solito 6–9 min · $2–4 per esecuzioni come questa*.
+
+L’intervallo è la metà centrale della tua cronologia: dal 25º al 75º percentile delle esecuzioni completate in questo progetto con lo stesso loop o comando e lo stesso motore. Servono almeno 5 esecuzioni confrontabili. Fino ad allora la riga dice *Cronologia ancora insufficiente* invece di tirare a indovinare. Contano solo i costi comunicati dal provider; i costi stimati restano fuori. È una stima, mai un addebito.
+
+Con un piano in abbonamento l’importo in dollari è nascosto e compare solo il tempo. Se la spesa di oggi più il limite alto dell’intervallo potesse raggiungere il tuo budget giornaliero, la riga aggiunge *Potrebbe fermarsi al budget* con un link alle impostazioni del budget.
+
 
 ## Dove andare ora
 

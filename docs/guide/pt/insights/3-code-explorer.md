@@ -1,4 +1,4 @@
-# Code explorer
+# Code explorer {#code-explorer}
 
 A secção **Code** dá-lhe uma janela amigável e só de leitura para o seu repositório — pensada especialmente para quem quer perceber o que a IA tem andado a construir sem viver dentro de um editor. Tem uma árvore de ficheiros à esquerda, um visualizador de código à direita e, por cima do código, um resumo em linguagem simples do que cada ficheiro faz na prática.
 

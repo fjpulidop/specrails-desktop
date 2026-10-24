@@ -126,6 +126,7 @@ function RecentlyDeleted({ projectId }: { projectId: string }) {
           icon={<Trash2 className="h-4 w-4" />}
           title={t('recent.emptyTitle')}
           description={t('recent.emptyBody', { days })}
+          learnMore="recentlyDeleted"
           data-testid="recently-deleted-empty"
         />
       )}

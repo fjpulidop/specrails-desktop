@@ -18,6 +18,7 @@ import { missingCapabilityKeys } from '../lib/flow-offer'
 import { flowErrorMessage } from '../lib/flow-failure'
 import { FlowRepositoryPicker } from './FlowRepositoryPicker'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
+import { HelpHint } from '../../../components/HelpHint'
 import { PRIMARY_ACTION_SHAPE } from '../../missions/components/run-primary'
 
 interface Props {
@@ -150,6 +151,7 @@ export function FlowEntryCard({ idea, title, repositoryId: suggestedRepositoryId
         <p className="flex items-center gap-1.5 text-xs text-foreground/70">
           <GitBranch className="h-3 w-3 shrink-0" aria-hidden />
           {provider ? t('flow.entry.provider', { provider: providerLabel(provider) }) : t('flow.entry.providerUnknown')}
+          <HelpHint topic="flowMode" variant="link" className="ml-auto" />
         </p>
         {choice?.show && choice.candidates.length > 0 && (
           <FlowRepositoryPicker

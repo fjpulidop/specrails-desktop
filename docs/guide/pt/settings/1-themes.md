@@ -1,4 +1,4 @@
-# Temas
+# Temas {#themes}
 
 Deixe o Specrails com a cara que mais gosta. A aplicação já vem com cinco temas cuidadosamente afinados, entre os quais pode alternar num instante — sem reiniciar, sem recompilar, sem nada para configurar.
 

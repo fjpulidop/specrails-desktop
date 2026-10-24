@@ -1,4 +1,4 @@
-# Flow : construire d’abord, la spec ensuite
+# Flow : construire d’abord, la spec ensuite {#flow-mode}
 
 Flow est une façon de construire avec un agent quand vous ne savez pas encore exactement ce que vous voulez. Vous parlez à l’agent dans votre mission, il écrit et exécute du vrai code sur sa propre branche de Flow (une copie séparée de votre projet), et quand le résultat est le bon, vous appuyez sur **Remettre** : un rail reprend vos modifications, dérive la spec et lance la vérification, la revue et la livraison habituelles.
 
@@ -49,7 +49,7 @@ L’agent Flow lance lui-même le typecheck et les tests pour vérifier son trav
 
 Une fois l’app à l’écoute, l’agent vous donne ses adresses en liens et le panneau du Flow affiche **Aperçu** avec un point vert : il ouvre l’app dans votre navigateur. Son menu propose l’adresse réseau et **Arrêter l’app**. L’app tourne depuis la copie du Flow, jamais depuis votre checkout principal, et Specrails l’arrête quand vous mettez en pause, abandonnez ou remettez le Flow.
 
-## Remettre
+## Remettre {#flow-hand-off}
 
 Quand le résultat vous convient, appuyez sur **Remettre**. La ligne indique **Prêt à devenir une PR** et ouvre une seule ligne au-dessus : *Rail 2 transformera vos 7 fichiers modifiés en PR relue. En cas d’échec, votre travail est en sécurité.* Appuyez sur **Lancer**, ou sur **Pas encore** pour revenir au Flow ; **Échap** revient à **Pas encore** ; un clic ailleurs replie seulement la ligne, et le bandeau garde **Prêt à devenir une PR** avec **Lancer**. Si le moteur de votre conversation ne peut pas exécuter la remise sur cette machine, une note juste sous la ligne le dit et le moteur par défaut du rail est utilisé.
 

@@ -1,4 +1,4 @@
-# La app complementaria para el móvil
+# La app complementaria para el móvil {#mobile-companion}
 
 Specrails tiene una app complementaria para el teléfono para que puedas vigilar tus rails mientras estás lejos del escritorio: ver los trabajos en marcha, verlos terminar y mantenerte al tanto sin estar sentado frente al panel.
 

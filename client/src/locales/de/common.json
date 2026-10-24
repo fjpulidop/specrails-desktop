@@ -185,5 +185,36 @@
     "unknown": "Loop",
     "title": "Loop: {{name}}"
   },
-  "estimated": "geschätzt"
+  "estimated": "geschätzt",
+  "help": {
+    "learnMore": "Mehr erfahren",
+    "learnMoreAbout": "Mehr erfahren über {{topic}}",
+    "topics": {
+      "themes": "Designs und Erscheinungsbild",
+      "codeExplorer": "den Code-Explorer",
+      "integratedTerminal": "das integrierte Terminal",
+      "agents": "Agenten",
+      "aiProviders": "KI-Anbieter",
+      "mcpServer": "den MCP-Server",
+      "mobileCompanion": "die mobile Begleit-App",
+      "plugins": "Plugins",
+      "existingProjects": "die Arbeit in einem bestehenden Projekt",
+      "projectRules": "Projektregeln",
+      "updates": "Updates",
+      "providerCapabilities": "die Fähigkeiten der Anbieter",
+      "projectEnvironment": "die Projektumgebung",
+      "telemetry": "die Pipeline-Telemetrie",
+      "dailyBudget": "Tagesbudgets",
+      "recentlyDeleted": "kürzlich gelöschte Elemente",
+      "railLoops": "was ein Rail ausführt",
+      "flowMode": "Flow",
+      "flowHandOff": "die Übergabe eines Flows",
+      "contextScope": "den Kontext-Schieberegler",
+      "launchForecast": "die Startprognose",
+      "loopBuilder": "den Loop Builder",
+      "shortcuts": "Tastaturkürzel",
+      "inbox": "den Eingang „Braucht dich“",
+      "specsBoard": "Specs und das Backlog"
+    }
+  }
 }

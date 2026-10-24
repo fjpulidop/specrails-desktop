@@ -4,6 +4,7 @@ import { Workflow } from 'lucide-react'
 import { loopsApi, type LoopDefinition } from '../../loops/lib/loops-api'
 import { loopNeedsTicket } from '../../loops/lib/loop-ticket-need'
 import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
+import { HelpHint } from '../../../components/HelpHint'
 
 /**
  * Unified Loop picker for the rail header (rails-as-loops). Lists the built-in
@@ -67,6 +68,7 @@ export function RailLoopSelector({
       onClick={(e) => e.stopPropagation()}
     >
       <Workflow className="w-3 h-3 text-muted-foreground mr-1" />
+      <HelpHint topic="railLoops" className="mr-0.5 size-5" />
       <select
         value={value ?? ''}
         disabled={disabled}

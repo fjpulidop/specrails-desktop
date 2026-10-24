@@ -185,5 +185,36 @@
     "unknown": "循环",
     "title": "循环：{{name}}"
   },
-  "estimated": "估算"
+  "estimated": "估算",
+  "help": {
+    "learnMore": "了解更多",
+    "learnMoreAbout": "了解更多：{{topic}}",
+    "topics": {
+      "themes": "主题与外观",
+      "codeExplorer": "代码浏览器",
+      "integratedTerminal": "集成终端",
+      "agents": "代理",
+      "aiProviders": "AI 提供方",
+      "mcpServer": "MCP 服务器",
+      "mobileCompanion": "手机伴侣应用",
+      "plugins": "插件",
+      "existingProjects": "在现有项目中工作",
+      "projectRules": "项目规则",
+      "updates": "更新",
+      "providerCapabilities": "提供方能力",
+      "projectEnvironment": "项目环境",
+      "telemetry": "流水线遥测",
+      "dailyBudget": "每日预算",
+      "recentlyDeleted": "最近删除的项目",
+      "railLoops": "轨道运行的内容",
+      "flowMode": "Flow",
+      "flowHandOff": "交接 Flow",
+      "contextScope": "上下文滑块",
+      "launchForecast": "启动预估",
+      "loopBuilder": "Loop Builder",
+      "shortcuts": "键盘快捷键",
+      "inbox": "“待你处理”收件箱",
+      "specsBoard": "规格与待办列表"
+    }
+  }
 }

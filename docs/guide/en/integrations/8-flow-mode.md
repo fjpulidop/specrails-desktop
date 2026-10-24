@@ -1,4 +1,4 @@
-# Flow: build first, spec later
+# Flow: build first, spec later {#flow-mode}
 
 Flow is a way to build with an agent when you do not know yet exactly what you want. You talk to the agent in your mission, it writes and runs real code on its own Flow branch (a separate copy of your project), and when the result is right you press **Hand off**: a rail takes your changes, derives the spec and runs the usual verification, review and delivery.
 
@@ -49,7 +49,7 @@ The Flow agent runs the typecheck and the tests itself to check its work. When t
 
 Once the app is listening, the agent gives you its addresses as links and the Flow's panel shows **Preview** with a green dot: it opens the app in your browser. Its menu has the network address and **Stop app**. The app runs from the Flow's copy, never from your main checkout, and Specrails stops it when you pause, discard or hand off the Flow.
 
-## Hand off
+## Hand off {#flow-hand-off}
 
 When you are happy with the result, press **Hand off**. The row reads **Ready to turn into a PR** and opens one line above it: *Rail 2 will turn your 7 changed files into a reviewed PR. If it fails, your work is safe.* Press **Launch**, or **Not yet** to go back to the Flow; **Esc** is the same as **Not yet**; a click elsewhere only folds the line away, and the row keeps **Ready to turn into a PR** with **Launch**. If your conversation's engine cannot run the hand-off on this machine, a note right under the line says so and the rail's default engine is used.
 

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render } from '../../test-utils'
 import { KeyboardShortcutsCheatsheet } from '../KeyboardShortcutsCheatsheet'
+import { OPEN_DOCS_EVENT, type OpenDocsDetail } from '../../lib/docs-events'
 
 describe('KeyboardShortcutsCheatsheet', () => {
   it('renders the cheatsheet when open', () => {
@@ -70,5 +71,63 @@ describe('KeyboardShortcutsCheatsheet', () => {
     } finally {
       if (platform) Object.defineProperty(navigator, 'platform', platform)
     }
+  })
+
+  describe('search', () => {
+    afterEach(() => { (global.fetch as ReturnType<typeof vi.fn>).mockReset() })
+
+    function mockGuide(results: unknown[]) {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: async () => ({ results }) })
+    }
+
+    it('filters the shortcuts by description and keys', async () => {
+      mockGuide([])
+      render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      await userEvent.type(screen.getByTestId('shortcuts-search'), 'analytics')
+      expect(screen.getByText('Go to Analytics')).toBeInTheDocument()
+      expect(screen.queryByText('Go to Dashboard')).not.toBeInTheDocument()
+      expect(screen.queryByText('Navigation')).toBeInTheDocument()
+      expect(screen.queryByText('Missions')).not.toBeInTheDocument()
+    })
+
+    it('says so when no shortcut matches and no guide does either', async () => {
+      mockGuide([])
+      render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      await userEvent.type(screen.getByTestId('shortcuts-search'), 'zzzqq')
+      expect(screen.getByTestId('shortcuts-no-match')).toHaveTextContent('No shortcut matches “zzzqq”.')
+      expect(await screen.findByText('No guide matches “zzzqq”.')).toBeInTheDocument()
+    })
+
+    it('lists matching guide pages in the current language and opens one at its section', async () => {
+      mockGuide([
+        { category: 'insights', categoryName: 'Insights', slug: 'analytics-and-cost-tracking', title: 'Analytics & cost tracking', heading: 'Daily budgets', anchor: 'daily-budget' },
+        { category: 'pipeline', categoryName: 'Pipeline', slug: 'rails-and-jobs', title: 'Rails & jobs', heading: null, anchor: null },
+      ])
+      const onOpenChange = vi.fn()
+      const seen: OpenDocsDetail[] = []
+      const handler = (event: Event) => seen.push((event as CustomEvent<OpenDocsDetail>).detail)
+      window.addEventListener(OPEN_DOCS_EVENT, handler)
+      try {
+        render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={onOpenChange} />)
+        await userEvent.type(screen.getByTestId('shortcuts-search'), 'budget')
+        const entry = await screen.findByRole('button', { name: 'Open guide: Analytics & cost tracking › Daily budgets' })
+        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatch(/\/api\/docs\/search\?lang=en&q=budget$/)
+        expect(screen.getByText('From the guide')).toBeInTheDocument()
+        await userEvent.click(entry)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(seen).toEqual([{ target: { category: 'insights', slug: 'analytics-and-cost-tracking', anchor: 'daily-budget', heading: 'Daily budgets' } }])
+      } finally {
+        window.removeEventListener(OPEN_DOCS_EVENT, handler)
+      }
+    })
+
+    it('does not search the guide for a single character or an empty query', async () => {
+      mockGuide([])
+      render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      await userEvent.type(screen.getByTestId('shortcuts-search'), 'a')
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      expect(global.fetch).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByTestId('shortcuts-guides')).toBeNull())
+    })
   })
 })

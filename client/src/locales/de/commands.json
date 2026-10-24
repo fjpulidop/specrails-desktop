@@ -166,7 +166,14 @@
       "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
       "undoLast": "Letzte Änderung rückgängig machen",
       "openInbox": "Posteingang „Braucht dich“ öffnen"
-    }
+    },
+    "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
+    "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",
+    "noShortcuts": "Kein Tastaturkürzel passt zu „{{query}}“.",
+    "guidesHeading": "Aus der Anleitung",
+    "openGuide": "Anleitung öffnen: {{title}}",
+    "noGuides": "Keine Anleitung passt zu „{{query}}“.",
+    "searching": "Anleitung wird durchsucht…"
   },
   "update": {
     "title": {

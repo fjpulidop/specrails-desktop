@@ -166,7 +166,14 @@
       "historyBackForward": "后退 / 前进到上一个或下一个位置",
       "undoLast": "撤销上一次更改",
       "openInbox": "打开“待你处理”收件箱"
-    }
+    },
+    "searchLabel": "搜索快捷键和指南",
+    "searchPlaceholder": "搜索快捷键和指南…",
+    "noShortcuts": "没有与“{{query}}”匹配的快捷键。",
+    "guidesHeading": "来自指南",
+    "openGuide": "打开指南：{{title}}",
+    "noGuides": "没有与“{{query}}”匹配的指南。",
+    "searching": "正在搜索指南…"
   },
   "update": {
     "title": {

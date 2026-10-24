@@ -4,7 +4,8 @@ import { BookOpen, FileText, Search } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Input } from '../../../components/ui/input'
-import { DocView, docsUrl, type DocCategory, type DocsIndex } from './DocView'
+import { DocView, docsUrl, type DocCategory, type DocScrollRequest, type DocsIndex } from './DocView'
+import type { DocsTarget } from '../../../lib/docs-events'
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -130,9 +131,11 @@ function DocsSidebarSkeleton({ label }: { label: string }) {
 interface DocsDialogProps {
   open: boolean
   onClose: () => void
+  /** Land on this page/section (a "Learn more" hint or a cheatsheet result). `nonce` re-fires the same target. */
+  target?: (DocsTarget & { nonce: number }) | null
 }
 
-function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
+function DocsDialogImpl({ open, onClose, target = null }: DocsDialogProps) {
   const { t, i18n } = useTranslation('integrations')
   const lang = i18n.language || 'en'
   const [index, setIndex] = useState<DocsIndex | null>(null)
@@ -145,6 +148,20 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
   // Land on the first guide once per index load (no index page that repeats
   // the sidebar). A 404 clears the selection without re-landing (no loop).
   const landedRef = useRef(false)
+  const [scrollRequest, setScrollRequest] = useState<DocScrollRequest | null>(null)
+
+  // A hint asked for a specific page/section: select it (even before the index
+  // has loaded, so the first-guide landing below stands down) and scroll there.
+  useEffect(() => {
+    if (!open) {
+      setScrollRequest(null)
+      return
+    }
+    if (!target) return
+    setActiveCategory(target.category)
+    setActiveSlug(target.slug)
+    setScrollRequest({ category: target.category, slug: target.slug, anchor: target.anchor, heading: target.heading, nonce: target.nonce })
+  }, [open, target])
 
   useEffect(() => {
     if (!open) return
@@ -197,6 +214,9 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent
         size="workspace"
+        // Reachable from hints inside floating panels (chat, Flow), which sit
+        // above the base layer: the guide must open over them, not behind.
+        layer="stacked"
         movableResizable
         persistKey="specrails.modal.docs"
         data-testid="docs-modal"
@@ -249,6 +269,7 @@ function DocsDialogImpl({ open, onClose }: DocsDialogProps) {
                 onNotFound={handleNotFound}
                 onNavigate={handleSelect}
                 scrollContainerRef={scrollRef}
+                scrollRequest={scrollRequest}
                 className="py-2 px-1"
               />
             ) : indexLoading ? null : total === 0 ? (

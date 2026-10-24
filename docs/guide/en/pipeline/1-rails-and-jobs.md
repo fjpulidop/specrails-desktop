@@ -38,7 +38,7 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 | **Profile picker** | Which provider-scoped agent profile runs (Claude rails). Only appears once the effective provider has at least one profile. |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
-### What a rail runs: Loops
+### What a rail runs: Loops {#rail-loops}
 
 A rail runs a **Loop** — the recipe for the work. Two loops are **built in** and cover the common cases:
 
@@ -94,6 +94,15 @@ If something looks wrong:
 - If putting them back conflicts with the integrated code, Specrails leaves the branch exactly as integrated and **keeps the stash** — nothing is lost. The card shows *Your local changes are saved as a stash* with the conflicting files, **Restore my changes** (try again, for example after you changed the code) and the stash name to copy. Specrails then restores them itself on a new branch `specrails/restore-local-<id>` in a separate worktree: if they apply cleanly there it commits them; otherwise an AI conflict resolver works only inside that worktree, keeping both your intent and the integrated code, and Specrails commits the result. The card lists the restored files; **Bring them back to <branch>** moves them onto your branch (only then is the stash dropped) and **Discard the restored branch** removes the branch and keeps the stash. A mission is only told what happened; it never has to run anything. OpenSpec skills and commands that Specrails generates (for example `.claude/skills/openspec-*/SKILL.md`) are not treated as your changes: on a conflict they keep the integrated version.
 - Ignored files are never stashed: if one of them collides with the delivery, Specrails asks you to move it first.
 - If the app stops between saving and restoring, it restores your changes the next time the project opens (only while the same branch is checked out).
+
+## Time and cost forecast {#launch-forecast}
+
+Before you press Launch, a rail can show how long runs like this usually take and, where it is meaningful, what they usually cost, for example *Usually 6–9 min · $2–4 for runs like this*.
+
+The range is the middle half of your own history: the 25th to 75th percentile of completed runs in this project that used the same loop or command and the same engine. It needs at least 5 comparable runs. Until then the line reads *Not enough history yet* instead of a guess. Only costs the provider reported are used; estimated costs are left out. It is an estimate, never a bill.
+
+On a subscription plan the dollar figure is hidden and only the time shows. If today's spend plus the top of the range could reach your daily budget, the line adds *May pause at budget* with a link to the budget settings.
+
 
 ## Where to go next
 
