@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1251 source/build files. Nearby tests are linked where names
+Includes 1262 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -321,6 +321,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/delivery/components/review-packet
 
 - [AgentActionsSummary.tsx](../../client/src/features/delivery/components/review-packet/AgentActionsSummary.tsx)
+- [ChangesTab.tsx](../../client/src/features/delivery/components/review-packet/ChangesTab.tsx) · [test](../../client/src/features/delivery/components/review-packet/__tests__/ChangesTab.test.tsx)
 - [NeedsHumanEyes.tsx](../../client/src/features/delivery/components/review-packet/NeedsHumanEyes.tsx)
 - [PacketBaseline.tsx](../../client/src/features/delivery/components/review-packet/PacketBaseline.tsx)
 - [PacketDerivation.tsx](../../client/src/features/delivery/components/review-packet/PacketDerivation.tsx) · [test](../../client/src/features/delivery/components/review-packet/PacketDerivation.test.tsx)
@@ -328,15 +329,28 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RequirementsDemonstrated.tsx](../../client/src/features/delivery/components/review-packet/RequirementsDemonstrated.tsx)
 - [WhatToLookAt.tsx](../../client/src/features/delivery/components/review-packet/WhatToLookAt.tsx)
 
+## client/src/features/delivery/components/review-packet/changes
+
+- [AnnotationCard.tsx](../../client/src/features/delivery/components/review-packet/changes/AnnotationCard.tsx)
+- [AskAgentForm.tsx](../../client/src/features/delivery/components/review-packet/changes/AskAgentForm.tsx)
+- [ChangesFileTree.tsx](../../client/src/features/delivery/components/review-packet/changes/ChangesFileTree.tsx)
+- [DiffView.tsx](../../client/src/features/delivery/components/review-packet/changes/DiffView.tsx)
+
 ## client/src/features/delivery/context
 
 - [RailPrDecisionContext.tsx](../../client/src/features/delivery/context/RailPrDecisionContext.tsx) · [test](../../client/src/features/delivery/context/__tests__/RailPrDecisionContext.test.tsx)
 
+## client/src/features/delivery/hooks
+
+- [useRowVirtualizer.ts](../../client/src/features/delivery/hooks/useRowVirtualizer.ts)
+
 ## client/src/features/delivery/lib
 
+- [changes-model.ts](../../client/src/features/delivery/lib/changes-model.ts) · [test](../../client/src/features/delivery/lib/__tests__/changes-model.test.ts)
 - [packet-verbs.ts](../../client/src/features/delivery/lib/packet-verbs.ts) · [test](../../client/src/features/delivery/lib/__tests__/packet-verbs.test.ts)
 - [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
 - [pr-follow-up-scope.ts](../../client/src/features/delivery/lib/pr-follow-up-scope.ts)
+- [viewed-files.ts](../../client/src/features/delivery/lib/viewed-files.ts) · [test](../../client/src/features/delivery/lib/__tests__/viewed-files.test.ts)
 
 ## client/src/features/delivery/pages
 
@@ -715,6 +729,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
 - [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
 - [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
+- [EditorSection.tsx](../../client/src/features/settings/components/EditorSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EditorSection.test.tsx)
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
@@ -962,6 +977,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
+- [open-in-editor.ts](../../client/src/lib/open-in-editor.ts) · [test](../../client/src/lib/__tests__/open-in-editor.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
 - [palette-bridge.ts](../../client/src/lib/palette-bridge.ts)
 - [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
@@ -1435,6 +1451,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
 - [definition-fork.ts](../../server/modules/delivery/runtime/definition-fork.ts) · [test](../../server/modules/delivery/runtime/definition-fork.test.ts)
+- [delivery-changes.ts](../../server/modules/delivery/runtime/delivery-changes.ts) · [test](../../server/modules/delivery/runtime/delivery-changes.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
 - [flow-review-legacy.ts](../../server/modules/delivery/runtime/flow-review-legacy.ts) · [test](../../server/modules/delivery/runtime/flow-review-legacy.test.ts)
 - [flow-review-outcome.ts](../../server/modules/delivery/runtime/flow-review-outcome.ts)

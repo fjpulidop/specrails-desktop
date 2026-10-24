@@ -167,7 +167,10 @@
       "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
       "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen",
       "undoLast": "Letzte Änderung rückgängig machen",
-      "openInbox": "Offen öffnen"
+      "openInbox": "Offen öffnen",
+      "reviewFiles": "Prüfung: nächste / vorherige geänderte Datei",
+      "reviewAnnotations": "Prüfung: nächste / vorherige Anmerkung",
+      "reviewViewed": "Prüfung: Datei als angesehen markieren"
     },
     "searchLabel": "Tastaturkürzel und Anleitungen durchsuchen",
     "searchPlaceholder": "Tastaturkürzel und Anleitungen durchsuchen…",

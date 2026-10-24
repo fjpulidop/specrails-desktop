@@ -512,5 +512,15 @@
       "retryHint": "Correggi la causa indicata sopra, poi riesegui l’inventario.",
       "setupDone": "Inventariato automaticamente dopo la configurazione."
     }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "L'editor usato da «Apri nell'editor» nel pacchetto di revisione. Salvato su questo computer.",
+    "label": "Apri i file in",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "IDE JetBrains"
+    }
   }
 }

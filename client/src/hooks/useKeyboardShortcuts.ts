@@ -49,6 +49,10 @@ export const SHORTCUTS: Shortcut[] = [
   // Actions (contextual)
   { keys: 'J', descriptionKey: 'shortcuts.items.nextItem', category: 'actions' },
   { keys: 'K', descriptionKey: 'shortcuts.items.prevItem', category: 'actions' },
+  // Review packet ▸ Changes tab (delivery/components/review-packet/ChangesTab.tsx)
+  { keys: 'J K', descriptionKey: 'shortcuts.items.reviewFiles', category: 'actions' },
+  { keys: 'N P', descriptionKey: 'shortcuts.items.reviewAnnotations', category: 'actions' },
+  { keys: 'V', descriptionKey: 'shortcuts.items.reviewViewed', category: 'actions' },
 
   // Missions: the run strip of the mission you are in (missions/components/run-strip-keys.ts)
   ...(FEATURE_AGENT_CHAT

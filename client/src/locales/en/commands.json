@@ -167,7 +167,10 @@
       "flowHandOff": "Hand off the Flow (run strip focused)",
       "historyBackForward": "Go back / forward to the previous place",
       "undoLast": "Undo the last change",
-      "openInbox": "Open the Needs you inbox"
+      "openInbox": "Open the Needs you inbox",
+      "reviewFiles": "Review: next / previous changed file",
+      "reviewAnnotations": "Review: next / previous annotation",
+      "reviewViewed": "Review: mark the file viewed"
     },
     "searchLabel": "Search shortcuts and guides",
     "searchPlaceholder": "Search shortcuts and guides…",

@@ -167,7 +167,10 @@
       "flowHandOff": "Remettre le Flow (bandeau des exécutions actif)",
       "historyBackForward": "Revenir / avancer vers le lieu précédent ou suivant",
       "undoLast": "Annuler la dernière modification",
-      "openInbox": "Ouvrir À traiter"
+      "openInbox": "Ouvrir À traiter",
+      "reviewFiles": "Revue : fichier modifié suivant / précédent",
+      "reviewAnnotations": "Revue : annotation suivante / précédente",
+      "reviewViewed": "Revue : marquer le fichier comme vu"
     },
     "searchLabel": "Rechercher des raccourcis et des guides",
     "searchPlaceholder": "Rechercher des raccourcis et des guides…",

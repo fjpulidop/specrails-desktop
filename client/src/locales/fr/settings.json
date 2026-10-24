@@ -512,5 +512,15 @@
       "retryHint": "Corrigez la cause indiquée ci-dessus, puis relancez l’inventaire.",
       "setupDone": "Inventorié automatiquement après la configuration."
     }
+  },
+  "editorSection": {
+    "heading": "Éditeur",
+    "description": "L'éditeur utilisé par « Ouvrir dans l'éditeur » dans le dossier de revue. Enregistré sur cet ordinateur.",
+    "label": "Ouvrir les fichiers dans",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "IDE JetBrains"
+    }
   }
 }

@@ -35,6 +35,7 @@ import { PacketDerivation } from '../components/review-packet/PacketDerivation'
 import { RequirementsDemonstrated } from '../components/review-packet/RequirementsDemonstrated'
 import { PacketBaseline } from '../components/review-packet/PacketBaseline'
 import { NeedsHumanEyes } from '../components/review-packet/NeedsHumanEyes'
+import { ChangesTab } from '../components/review-packet/ChangesTab'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
@@ -142,6 +143,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const repositoryId = searchParams.get('repositoryId')
+  const tab: 'overview' | 'changes' = searchParams.get('tab') === 'changes' ? 'changes' : 'overview'
   const requestRevision = useRef(0)
   const goBack = props.onClose ?? (() => navigate('/'))
   const { activeProjectId } = useDesktop()
@@ -340,7 +342,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   // Rendered inside the App shell's <main> (route) or a modal, so the page is a
   // labelled <article> rather than a second <main> landmark.
   return (
-    <article aria-labelledby="review-packet-headline" className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+    <article aria-labelledby="review-packet-headline" className={`mx-auto flex w-full flex-col gap-4 p-6 ${tab === 'changes' ? 'max-w-7xl' : 'max-w-3xl'}`}>
       <button
         type="button"
         onClick={goBack}
@@ -586,6 +588,47 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         ) : null}
       </div>
 
+      {/* ── Overview / Changes: the packet's two views of the same delivery ─── */}
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60" data-testid="packet-tabs">
+        {(['overview', 'changes'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            id={`packet-tab-${value}`}
+            aria-selected={tab === value}
+            aria-controls={`packet-panel-${value}`}
+            tabIndex={tab === value ? 0 : -1}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams)
+              if (value === 'changes') next.set('tab', 'changes'); else next.delete('tab')
+              setSearchParams(next, { replace: true })
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+              event.preventDefault()
+              const next = new URLSearchParams(searchParams)
+              if (value === 'overview') next.set('tab', 'changes'); else next.delete('tab')
+              setSearchParams(next, { replace: true })
+              requestAnimationFrame(() => document.getElementById(`packet-tab-${value === 'overview' ? 'changes' : 'overview'}`)?.focus())
+            }}
+            className={`-mb-px border-b-2 px-3 py-2 text-label ${tab === value ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            {t(`tabs.${value}`)}
+          </button>
+        ))}
+      </div>
+
+      <div id="packet-panel-changes" role="tabpanel" aria-labelledby="packet-tab-changes" hidden={tab !== 'changes'}>
+        <ChangesTab
+          prDeliveryId={delivery?.prDeliveryId ?? packet.prDeliveryId}
+          repositoryId={repositoryId}
+          active={tab === 'changes'}
+          tickets={packet.ticketIds.map((ticketId) => { const title = packet.sections.find((section) => section.ticketId === ticketId)?.title; return { ticketId, label: title ? `#${ticketId} ${title}` : `#${ticketId}` } })}
+        />
+      </div>
+
+      <div id="packet-panel-overview" role="tabpanel" aria-labelledby="packet-tab-overview" className={tab === 'changes' ? 'hidden' : 'contents'}>
       {/* ── What to look at: the reviewer's risk brief, first after the verdict.
           Absent for runs without a brief, so older packets read as before. */}
       {packet.whatToLookAt ? (
@@ -845,6 +888,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           })}
         </div>
       </Section>
+      </div>
     </article>
   )
 }

@@ -9,6 +9,7 @@ import { EffectsSection } from '../components/EffectsSection'
 import { AppearanceSection } from '../components/AppearanceSection'
 import { LanguageSection } from '../components/LanguageSection'
 import { CodeSectionSettings } from '../components/CodeSectionSettings'
+import { EditorSection } from '../components/EditorSection'
 import { ProviderConnectionsCard } from '../components/provider-connections'
 import { CoreUpdateSection } from '../components/CoreUpdateSection'
 import { AppUpdateSection } from '../components/AppUpdateSection'
@@ -469,6 +470,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             {activeSection === 'subscriptionUsage' && <SubscriptionUsagePanel showDataDetails />}
 
             <div className={paneCls('code')}>
+              <EditorSection />
               <CodeSectionSettings />
             </div>
 

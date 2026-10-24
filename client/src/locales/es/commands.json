@@ -167,7 +167,10 @@
       "flowHandOff": "Pasar el Flow a un rail (con la franja de ejecuciones enfocada)",
       "historyBackForward": "Volver al lugar anterior o avanzar al siguiente",
       "undoLast": "Deshacer el último cambio",
-      "openInbox": "Abrir Pendientes"
+      "openInbox": "Abrir Pendientes",
+      "reviewFiles": "Revisión: archivo cambiado siguiente / anterior",
+      "reviewAnnotations": "Revisión: anotación siguiente / anterior",
+      "reviewViewed": "Revisión: marcar el archivo como visto"
     },
     "searchLabel": "Buscar atajos y guías",
     "searchPlaceholder": "Buscar atajos y guías…",

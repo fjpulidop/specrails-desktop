@@ -290,5 +290,108 @@
     "title_other": "人の目による確認が必要：プロジェクトルール {{count}} 件",
     "caveat": "このプロジェクト向けに書かれた、自動チェックでは強制できないルールです。承認する前にご自身で確認してください。",
     "title_one": "人の目による確認が必要：プロジェクトルール {{count}} 件"
+  },
+  "tabs": {
+    "label": "レビューの表示",
+    "overview": "概要",
+    "changes": "変更"
+  },
+  "changes": {
+    "tab": "変更",
+    "loading": "変更を読み込み中…",
+    "error": "変更を読み込めませんでした。",
+    "refresh": "変更を再読み込み",
+    "empty": "この納品ではファイルが変更されていません。",
+    "unavailable": {
+      "not_a_repository": "プロジェクトフォルダーが Git リポジトリではないため、比較できるものがありません。",
+      "no_branch": "この納品には、まだ比較するブランチがありません。",
+      "head_missing": "この納品のブランチはこのリポジトリにもう存在しません。",
+      "base_missing": "この納品の基点となったブランチがもう存在しないため、変更を測定できません。",
+      "git_failed": "Git がこの納品の変更を取得できませんでした。"
+    },
+    "summary": "変更されたファイル: {{count}}",
+    "viewedCount": "{{total}} 件中 {{viewed}} 件を確認済み",
+    "truncatedList": "最初の {{count}} ファイルのみ表示しています。",
+    "source": "変更の対象",
+    "sourceDelivery": "納品全体",
+    "sourceTicket": "スペック #{{id}}",
+    "tree": {
+      "label": "変更されたファイル"
+    },
+    "status": {
+      "added": "追加",
+      "modified": "変更",
+      "deleted": "削除",
+      "renamed": "名前変更",
+      "copied": "コピー",
+      "typechange": "種類の変更"
+    },
+    "renamedFrom": "{{path}} から名前変更",
+    "binaryShort": "バイナリ",
+    "binary": "バイナリファイル: 表示できるテキスト差分はありません。",
+    "noTextChanges": "行の変更はありません（ファイル名またはモードのみ変更）。",
+    "fileError": "このファイルの差分を読み込めませんでした。",
+    "largeDiff": "変更された {{total}} 行のうち最初の {{shown}} 行を表示しています。",
+    "loadFull": "ファイル全体の差分を読み込む",
+    "viewed": {
+      "mark": "確認済みにする",
+      "unmark": "確認済み",
+      "changedSince": "確認後に変更されました"
+    },
+    "mode": {
+      "label": "差分のレイアウト",
+      "unified": "統合",
+      "split": "並べて表示"
+    },
+    "diff": {
+      "region": "{{path}} の差分"
+    },
+    "line": {
+      "select": "{{n}} 行目を選択",
+      "selectOld": "元の {{n}} 行目を選択"
+    },
+    "selection": {
+      "clear": "選択を解除"
+    },
+    "ask": {
+      "button": "エージェントにここの変更を依頼",
+      "title": "変更してほしい内容:",
+      "placeholder": "希望する変更を書いてください…",
+      "ticket": "追加先のスペック",
+      "submit": "スペックに追加",
+      "hint": "レビューフィードバックとしてスペックに保存され、次回の実行に反映されます。",
+      "created": "レビューフィードバックとしてスペック #{{id}} に追加しました。",
+      "open": "スペックを開く",
+      "failed": "メモをスペックに追加できませんでした。"
+    },
+    "editor": {
+      "open": "{{editor}} で開く",
+      "rootRepository": "お使いのプロジェクトのチェックアウトでファイルを開きます。レビュー対象のブランチがそこでチェックアウトされていない場合があります。",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "行に紐づかないもの（{{count}}）",
+      "ask": "エージェントに修正を依頼",
+      "source": {
+        "reviewer-finding": "レビュアーの指摘",
+        "review-risk": "確認すべきリスク",
+        "review-untested": "テストの対象外",
+        "follow-up-comment": "レビューコメント"
+      },
+      "severity": {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      }
+    },
+    "keys": {
+      "files": "ファイル",
+      "annotations": "注釈",
+      "viewed": "確認済みにする"
+    }
   }
 }

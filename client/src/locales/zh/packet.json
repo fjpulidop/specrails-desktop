@@ -290,5 +290,108 @@
     "title_other": "需要人工检查：{{count}} 条项目规则",
     "caveat": "为本项目编写、但无法由自动检查强制执行的规则。请在接受前亲自检查。",
     "title_one": "需要人工检查：{{count}} 条项目规则"
+  },
+  "tabs": {
+    "label": "评审视图",
+    "overview": "概览",
+    "changes": "变更"
+  },
+  "changes": {
+    "tab": "变更",
+    "loading": "正在加载变更…",
+    "error": "无法加载变更。",
+    "refresh": "重新加载变更",
+    "empty": "此次交付没有更改任何文件。",
+    "unavailable": {
+      "not_a_repository": "项目文件夹不是 Git 仓库，因此没有可比较的内容。",
+      "no_branch": "此次交付还没有可比较的分支。",
+      "head_missing": "此次交付的分支已不在该仓库中。",
+      "base_missing": "此次交付所基于的分支已不存在，因此无法衡量变更。",
+      "git_failed": "Git 无法生成此次交付的变更。"
+    },
+    "summary": "变更文件：{{count}}",
+    "viewedCount": "已查看 {{viewed}}/{{total}}",
+    "truncatedList": "仅显示前 {{count}} 个文件。",
+    "source": "变更来源",
+    "sourceDelivery": "整个交付",
+    "sourceTicket": "规格 #{{id}}",
+    "tree": {
+      "label": "变更的文件"
+    },
+    "status": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "删除",
+      "renamed": "重命名",
+      "copied": "复制",
+      "typechange": "类型变更"
+    },
+    "renamedFrom": "重命名自 {{path}}",
+    "binaryShort": "二进制",
+    "binary": "二进制文件：没有可显示的文本差异。",
+    "noTextChanges": "没有行变更（仅文件名或模式发生了变化）。",
+    "fileError": "无法加载此文件的差异。",
+    "largeDiff": "显示 {{total}} 个变更行中的前 {{shown}} 行。",
+    "loadFull": "加载完整的文件差异",
+    "viewed": {
+      "mark": "标记为已查看",
+      "unmark": "已查看",
+      "changedSince": "自你查看后已更改"
+    },
+    "mode": {
+      "label": "差异布局",
+      "unified": "统一",
+      "split": "分栏"
+    },
+    "diff": {
+      "region": "{{path}} 的差异"
+    },
+    "line": {
+      "select": "选择第 {{n}} 行",
+      "selectOld": "选择原第 {{n}} 行"
+    },
+    "selection": {
+      "clear": "清除选择"
+    },
+    "ask": {
+      "button": "让智能体修改这里",
+      "title": "需要修改什么：",
+      "placeholder": "描述你想要的修改…",
+      "ticket": "添加到规格",
+      "submit": "添加到规格",
+      "hint": "将作为评审反馈保存到规格中；之后针对该规格的运行会收到它。",
+      "created": "已作为评审反馈添加到规格 #{{id}}。",
+      "open": "打开规格",
+      "failed": "无法将该备注添加到规格。"
+    },
+    "editor": {
+      "open": "在 {{editor}} 中打开",
+      "rootRepository": "在你本地的项目副本中打开该文件；评审分支可能没有在那里检出。",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "未关联到具体行（{{count}}）",
+      "ask": "让智能体修复这个问题",
+      "source": {
+        "reviewer-finding": "评审员发现",
+        "review-risk": "需要检查的风险",
+        "review-untested": "未被测试覆盖",
+        "follow-up-comment": "评审评论"
+      },
+      "severity": {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      }
+    },
+    "keys": {
+      "files": "文件",
+      "annotations": "批注",
+      "viewed": "标记已查看"
+    }
   }
 }

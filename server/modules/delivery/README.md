@@ -53,6 +53,19 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 `review WIP limit` block in `runtime/rails-router.test.ts`. See the
 [safe PR guide](../../../docs/internals/safe-pr-review-flow.md#review-wip-limit).
 
+## In-app changes review
+
+[`runtime/delivery-changes.ts`](runtime/delivery-changes.ts) is the read model
+behind the review packet's Changes tab: delivery head against its merge-base
+(file list, counts, per-file content hash, lazily parsed hunks) plus the
+annotations the delivery already holds. Read-only; git runs through the hardened
+`gitExecEnv` reader and the file endpoint only accepts listed paths. Routes
+`GET /rails/pr-deliveries/:id/changes[/file]` are in `rails-router.ts`. Reviewer
+finding anchors come from Core contract 5.9 (`readFindingLocations` in
+`delivery-evidence.ts`); older evidence stays unanchored. Real-Git tests:
+[`runtime/delivery-changes.test.ts`](runtime/delivery-changes.test.ts). See the
+[review packet guide](../../../docs/internals/review-packet.md#changes-tab-in-app-diff-review).
+
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)

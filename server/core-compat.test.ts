@@ -171,7 +171,7 @@ describe('checkCoreCompat', () => {
   })
 
   it('keeps schema 5.1 engine metadata informational and preserves the Desktop command surface', async () => {
-    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.8')
+    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.9')
     setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, schemaVersion: '5.1', coreVersion: '6.0.1',
       agentRuntime: { engine: { version: 2, nodeKindsVersion: 0 }, nodeKinds: [], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }] },
     }, tmpDir)

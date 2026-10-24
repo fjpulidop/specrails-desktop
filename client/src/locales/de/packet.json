@@ -290,5 +290,108 @@
     "title_one": "Menschliche Prüfung nötig: {{count}} Projektregel",
     "title_other": "Menschliche Prüfung nötig: {{count}} Projektregeln",
     "caveat": "Für dieses Projekt geschriebene Regeln, die keine automatische Prüfung durchsetzen kann. Prüfe sie selbst, bevor du annimmst."
+  },
+  "tabs": {
+    "label": "Ansichten der Prüfung",
+    "overview": "Übersicht",
+    "changes": "Änderungen"
+  },
+  "changes": {
+    "tab": "Änderungen",
+    "loading": "Änderungen werden geladen…",
+    "error": "Die Änderungen konnten nicht geladen werden.",
+    "refresh": "Änderungen neu laden",
+    "empty": "Diese Lieferung hat keine Dateien geändert.",
+    "unavailable": {
+      "not_a_repository": "Der Projektordner ist kein Git-Repository, daher gibt es nichts zu vergleichen.",
+      "no_branch": "Diese Lieferung hat noch keinen Branch zum Vergleichen.",
+      "head_missing": "Der Branch der Lieferung existiert in diesem Repository nicht mehr.",
+      "base_missing": "Der Branch, auf dem diese Lieferung basierte, existiert nicht mehr; die Änderungen lassen sich nicht messen.",
+      "git_failed": "Git konnte die Änderungen dieser Lieferung nicht ermitteln."
+    },
+    "summary": "Geänderte Dateien: {{count}}",
+    "viewedCount": "{{viewed}} von {{total}} angesehen",
+    "truncatedList": "Es werden nur die ersten {{count}} Dateien angezeigt.",
+    "source": "Änderungen von",
+    "sourceDelivery": "Gesamte Lieferung",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Geänderte Dateien"
+    },
+    "status": {
+      "added": "Hinzugefügt",
+      "modified": "Geändert",
+      "deleted": "Gelöscht",
+      "renamed": "Umbenannt",
+      "copied": "Kopiert",
+      "typechange": "Typ geändert"
+    },
+    "renamedFrom": "Umbenannt von {{path}}",
+    "binaryShort": "binär",
+    "binary": "Binärdatei: Es gibt keinen Text-Diff.",
+    "noTextChanges": "Keine Zeilenänderungen (nur Name oder Modus der Datei wurden geändert).",
+    "fileError": "Der Diff dieser Datei konnte nicht geladen werden.",
+    "largeDiff": "Angezeigt werden die ersten {{shown}} von {{total}} geänderten Zeilen.",
+    "loadFull": "Vollständigen Datei-Diff laden",
+    "viewed": {
+      "mark": "Als angesehen markieren",
+      "unmark": "Angesehen",
+      "changedSince": "Seit dem Ansehen geändert"
+    },
+    "mode": {
+      "label": "Diff-Darstellung",
+      "unified": "Vereint",
+      "split": "Geteilt"
+    },
+    "diff": {
+      "region": "Diff von {{path}}"
+    },
+    "line": {
+      "select": "Zeile {{n}} auswählen",
+      "selectOld": "Ursprüngliche Zeile {{n}} auswählen"
+    },
+    "selection": {
+      "clear": "Auswahl aufheben"
+    },
+    "ask": {
+      "button": "Agent bitten, das zu ändern",
+      "title": "Was soll sich ändern in",
+      "placeholder": "Beschreibe die gewünschte Änderung…",
+      "ticket": "Zur Spec hinzufügen",
+      "submit": "Zur Spec hinzufügen",
+      "hint": "Wird als Review-Feedback an der Spec gespeichert; der nächste Lauf dazu erhält es.",
+      "created": "Als Review-Feedback zu Spec #{{id}} hinzugefügt.",
+      "open": "Spec öffnen",
+      "failed": "Die Notiz konnte nicht zur Spec hinzugefügt werden."
+    },
+    "editor": {
+      "open": "In {{editor}} öffnen",
+      "rootRepository": "Öffnet die Datei in deinem Checkout des Projekts; der Review-Branch ist dort womöglich nicht ausgecheckt.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "Keiner Zeile zugeordnet ({{count}})",
+      "ask": "Agent bitten, das zu beheben",
+      "source": {
+        "reviewer-finding": "Befund des Reviewers",
+        "review-risk": "Zu prüfendes Risiko",
+        "review-untested": "Nicht durch Tests abgedeckt",
+        "follow-up-comment": "Review-Kommentar"
+      },
+      "severity": {
+        "high": "Hoch",
+        "medium": "Mittel",
+        "low": "Niedrig"
+      }
+    },
+    "keys": {
+      "files": "Dateien",
+      "annotations": "Anmerkungen",
+      "viewed": "als angesehen markieren"
+    }
   }
 }

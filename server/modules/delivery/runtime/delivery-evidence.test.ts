@@ -9,6 +9,8 @@ import {
   parseConfidenceScore,
   parseVerificationSentinel,
   readSettleEvidence,
+  readRuntimeEvidence,
+  readFindingLocations,
   type EvidenceHarvestIO,
 } from './delivery-evidence'
 import type { EventRow } from '../../../types'
@@ -749,5 +751,33 @@ describe('phase-3 run records harvest (Core specTrace / baselineOnTouch / rulesI
     const out = harvestDeliveryEvidence(io({ specTrace: true, fileExists: () => true, readFile: () => { throw new Error('EACCES') }, listDir: () => { throw new Error('EACCES') } }), [unit, { ...unit, ticketId: 9, runtimeDir: null }])
     expect(out.units[0].specTrace).toBeUndefined()
     expect(out.harvest).not.toBe('failed')
+  })
+})
+
+describe('reviewer finding locations (Core contract 5.9)', () => {
+  const findings = ['Null deref', 'Style nit', 'Third']
+  it('re-validates anchors and drops malformed, duplicate or out-of-range ones', () => {
+    expect(readFindingLocations(findings, [
+      { finding: 0, path: './src/a.ts', line: 4, endLine: 9 },
+      { finding: 0, path: 'src/dup.ts' },
+      { finding: 1, path: '/abs/x.ts' },
+      { finding: 2, path: '../up.ts' },
+      { finding: 7, path: 'src/z.ts' },
+      { finding: 2, path: 'src/c.ts', line: 0 },
+    ], 6)).toEqual([{ finding: 0, path: 'src/a.ts', line: 4, endLine: 9 }, { finding: 2, path: 'src/c.ts' }])
+    expect(readFindingLocations(findings, undefined, 6)).toEqual([])
+    expect(readFindingLocations(undefined, [{ finding: 0, path: 'a.ts' }], 6)).toEqual([])
+  })
+
+  it('reads them from state.json next to the findings, and old state stays unanchored', () => {
+    const files: Record<string, string> = {
+      'dir/state.json': JSON.stringify({ acceptance: { checks: [], findings, findingLocations: [{ finding: 1, path: 'src/b.ts', line: 3 }] } }),
+    }
+    const io = { readFile: (p: string) => files[p], listDir: () => [], fileExists: (p: string) => p in files, fileMtimeMs: () => 0 }
+    expect(readRuntimeEvidence('dir', 'run', io)?.findingLocations).toEqual([{ finding: 1, path: 'src/b.ts', line: 3 }])
+    files['dir/state.json'] = JSON.stringify({ acceptance: { checks: [], findings } })
+    const old = readRuntimeEvidence('dir', 'run', io)
+    expect(old?.findings).toEqual(findings)
+    expect(old && 'findingLocations' in old).toBe(false)
   })
 })

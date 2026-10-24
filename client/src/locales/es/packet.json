@@ -290,5 +290,108 @@
     "title_one": "Requiere ojo humano: {{count}} regla del proyecto",
     "title_other": "Requiere ojo humano: {{count}} reglas del proyecto",
     "caveat": "Reglas escritas para este proyecto que ningún check automático puede hacer cumplir. Revísalas tú antes de aceptar."
+  },
+  "tabs": {
+    "label": "Vistas de la revisión",
+    "overview": "Resumen",
+    "changes": "Cambios"
+  },
+  "changes": {
+    "tab": "Cambios",
+    "loading": "Cargando los cambios…",
+    "error": "No se pudieron cargar los cambios.",
+    "refresh": "Recargar los cambios",
+    "empty": "Esta entrega no cambió ningún archivo.",
+    "unavailable": {
+      "not_a_repository": "La carpeta del proyecto no es un repositorio Git, así que no hay nada que comparar.",
+      "no_branch": "Esta entrega todavía no tiene una rama que comparar.",
+      "head_missing": "La rama de la entrega ya no existe en este repositorio.",
+      "base_missing": "La rama en la que se basó esta entrega ya no existe, así que no se pueden medir los cambios.",
+      "git_failed": "Git no pudo generar los cambios de esta entrega."
+    },
+    "summary": "Archivos cambiados: {{count}}",
+    "viewedCount": "{{viewed}} de {{total}} vistos",
+    "truncatedList": "Solo se muestran los primeros {{count}} archivos.",
+    "source": "Cambios de",
+    "sourceDelivery": "Toda la entrega",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Archivos cambiados"
+    },
+    "status": {
+      "added": "Añadido",
+      "modified": "Modificado",
+      "deleted": "Eliminado",
+      "renamed": "Renombrado",
+      "copied": "Copiado",
+      "typechange": "Tipo cambiado"
+    },
+    "renamedFrom": "Renombrado desde {{path}}",
+    "binaryShort": "binario",
+    "binary": "Archivo binario: no hay diff de texto que mostrar.",
+    "noTextChanges": "Sin cambios de líneas (solo cambió el nombre o el modo del archivo).",
+    "fileError": "No se pudo cargar el diff de este archivo.",
+    "largeDiff": "Se muestran las primeras {{shown}} de {{total}} líneas cambiadas.",
+    "loadFull": "Cargar el diff completo del archivo",
+    "viewed": {
+      "mark": "Marcar como visto",
+      "unmark": "Visto",
+      "changedSince": "Cambió desde que lo viste"
+    },
+    "mode": {
+      "label": "Disposición del diff",
+      "unified": "Unificado",
+      "split": "Dividido"
+    },
+    "diff": {
+      "region": "Diff de {{path}}"
+    },
+    "line": {
+      "select": "Seleccionar la línea {{n}}",
+      "selectOld": "Seleccionar la línea original {{n}}"
+    },
+    "selection": {
+      "clear": "Borrar la selección"
+    },
+    "ask": {
+      "button": "Pedir al agente que cambie esto",
+      "title": "¿Qué debería cambiar en",
+      "placeholder": "Describe el cambio que quieres…",
+      "ticket": "Añadir a la spec",
+      "submit": "Añadir a la spec",
+      "hint": "Se guarda como feedback de revisión en la spec; la próxima ejecución sobre ella lo recibirá.",
+      "created": "Añadido a la spec #{{id}} como feedback de revisión.",
+      "open": "Abrir spec",
+      "failed": "No se pudo añadir la nota a la spec."
+    },
+    "editor": {
+      "open": "Abrir en {{editor}}",
+      "rootRepository": "Abre el archivo en tu copia del proyecto; puede que la rama de la revisión no esté activa allí.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "Sin línea asociada ({{count}})",
+      "ask": "Pedir al agente que lo arregle",
+      "source": {
+        "reviewer-finding": "Hallazgo del revisor",
+        "review-risk": "Riesgo a comprobar",
+        "review-untested": "Sin cobertura de tests",
+        "follow-up-comment": "Comentario de revisión"
+      },
+      "severity": {
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja"
+      }
+    },
+    "keys": {
+      "files": "archivos",
+      "annotations": "anotaciones",
+      "viewed": "marcar visto"
+    }
   }
 }

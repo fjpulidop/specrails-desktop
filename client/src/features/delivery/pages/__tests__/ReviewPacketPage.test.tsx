@@ -130,6 +130,33 @@ beforeEach(() => {
 })
 afterEach(() => { globalThis.fetch = realFetch })
 
+describe('ReviewPacketPage — Overview / Changes tabs', () => {
+  it('keeps Overview as the default and loads the changes only when the tab is opened', async () => {
+    respond({})
+    renderPage()
+    const overview = await screen.findByRole('tab', { name: 'Overview' })
+    expect(overview).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'false')
+    expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]).includes('/changes'))).toBe(false)
+    expect(document.getElementById('packet-panel-changes')).toHaveAttribute('hidden')
+  })
+
+  it('opens the Changes tab from ?tab=changes and asks the server for the delivery changes', async () => {
+    respond({})
+    renderPage('/review/del-1?tab=changes')
+    expect(await screen.findByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]) === '/api/projects/proj-1/rails/pr-deliveries/del-1/changes')).toBe(true))
+  })
+
+  it('switches tabs with the arrow keys', async () => {
+    respond({})
+    renderPage()
+    const overview = await screen.findByRole('tab', { name: 'Overview' })
+    fireEvent.keyDown(overview, { key: 'ArrowRight' })
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true'))
+  })
+})
+
 describe('ReviewPacketPage — above the fold', () => {
   it('requests a revision of the grouped generation while reviewing an individual repository', async () => {
     respond({ packet: packet({ prDeliveryId: 'child-api' }), snapshot: {

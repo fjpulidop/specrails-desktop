@@ -115,7 +115,7 @@ fn add_capability(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
         "core:window:allow-maximize", "core:window:allow-toggle-maximize", "core:window:allow-unmaximize", "core:window:allow-start-dragging",
         "core:window:allow-show", "core:window:allow-unminimize", "core:window:allow-set-title", "dialog:allow-open", "dialog:allow-message", "dialog:allow-confirm",
         "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"] { capability = capability.permission(permission); }
-    capability = capability.permission_scoped("shell:allow-open", vec![serde_json::json!({"url":"https://**"}), serde_json::json!({"url":"http://**"})], Vec::<Value>::new());
+    capability = capability.permission_scoped("shell:allow-open", vec![serde_json::json!({"url":"https://**"}), serde_json::json!({"url":"http://**"}), serde_json::json!({"url":"vscode://file/**"}), serde_json::json!({"url":"cursor://file/**"}), serde_json::json!({"url":"idea://open**"})], Vec::<Value>::new());
     app.add_capability(capability).map_err(|_| "The mission window permissions could not be initialized.".into())
 }
 

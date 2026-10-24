@@ -512,5 +512,15 @@
       "retryHint": "修复上面显示的原因，然后重新运行清单。",
       "setupDone": "已在设置后自动生成清单。"
     }
+  },
+  "editorSection": {
+    "heading": "编辑器",
+    "description": "评审包中“在编辑器中打开”所使用的编辑器。保存在这台电脑上。",
+    "label": "打开文件的编辑器",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
   }
 }

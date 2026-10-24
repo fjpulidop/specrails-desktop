@@ -290,5 +290,108 @@
     "title_one": "Regard humain requis : {{count}} règle du projet",
     "title_other": "Regard humain requis : {{count}} règles du projet",
     "caveat": "Règles écrites pour ce projet qu'aucun contrôle automatique ne peut faire respecter. Vérifiez-les vous-même avant d'accepter."
+  },
+  "tabs": {
+    "label": "Vues de la revue",
+    "overview": "Aperçu",
+    "changes": "Modifications"
+  },
+  "changes": {
+    "tab": "Modifications",
+    "loading": "Chargement des modifications…",
+    "error": "Impossible de charger les modifications.",
+    "refresh": "Recharger les modifications",
+    "empty": "Cette livraison n'a modifié aucun fichier.",
+    "unavailable": {
+      "not_a_repository": "Le dossier du projet n'est pas un dépôt Git : il n'y a rien à comparer.",
+      "no_branch": "Cette livraison n'a pas encore de branche à comparer.",
+      "head_missing": "La branche de la livraison n'existe plus dans ce dépôt.",
+      "base_missing": "La branche sur laquelle cette livraison s'appuyait n'existe plus ; les modifications ne peuvent pas être mesurées.",
+      "git_failed": "Git n'a pas pu produire les modifications de cette livraison."
+    },
+    "summary": "Fichiers modifiés : {{count}}",
+    "viewedCount": "{{viewed}} sur {{total}} vus",
+    "truncatedList": "Seuls les {{count}} premiers fichiers sont affichés.",
+    "source": "Modifications de",
+    "sourceDelivery": "Toute la livraison",
+    "sourceTicket": "Spec n° {{id}}",
+    "tree": {
+      "label": "Fichiers modifiés"
+    },
+    "status": {
+      "added": "Ajouté",
+      "modified": "Modifié",
+      "deleted": "Supprimé",
+      "renamed": "Renommé",
+      "copied": "Copié",
+      "typechange": "Type modifié"
+    },
+    "renamedFrom": "Renommé depuis {{path}}",
+    "binaryShort": "binaire",
+    "binary": "Fichier binaire : aucun diff texte à afficher.",
+    "noTextChanges": "Aucune ligne modifiée (seuls le nom ou le mode du fichier ont changé).",
+    "fileError": "Impossible de charger le diff de ce fichier.",
+    "largeDiff": "Affichage des {{shown}} premières lignes modifiées sur {{total}}.",
+    "loadFull": "Charger le diff complet du fichier",
+    "viewed": {
+      "mark": "Marquer comme vu",
+      "unmark": "Vu",
+      "changedSince": "Modifié depuis votre lecture"
+    },
+    "mode": {
+      "label": "Disposition du diff",
+      "unified": "Unifié",
+      "split": "Côte à côte"
+    },
+    "diff": {
+      "region": "Diff de {{path}}"
+    },
+    "line": {
+      "select": "Sélectionner la ligne {{n}}",
+      "selectOld": "Sélectionner la ligne d'origine {{n}}"
+    },
+    "selection": {
+      "clear": "Effacer la sélection"
+    },
+    "ask": {
+      "button": "Demander à l'agent de modifier ceci",
+      "title": "Que faut-il changer dans",
+      "placeholder": "Décrivez la modification souhaitée…",
+      "ticket": "Ajouter à la spec",
+      "submit": "Ajouter à la spec",
+      "hint": "Enregistré comme retour de revue sur la spec ; la prochaine exécution en tiendra compte.",
+      "created": "Ajouté à la spec n° {{id}} comme retour de revue.",
+      "open": "Ouvrir la spec",
+      "failed": "Impossible d'ajouter la note à la spec."
+    },
+    "editor": {
+      "open": "Ouvrir dans {{editor}}",
+      "rootRepository": "Ouvre le fichier dans votre copie du projet ; la branche de la revue n'y est peut-être pas extraite.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "Sans ligne associée ({{count}})",
+      "ask": "Demander à l'agent de corriger",
+      "source": {
+        "reviewer-finding": "Constat du relecteur",
+        "review-risk": "Risque à vérifier",
+        "review-untested": "Non couvert par les tests",
+        "follow-up-comment": "Commentaire de revue"
+      },
+      "severity": {
+        "high": "Élevée",
+        "medium": "Moyenne",
+        "low": "Faible"
+      }
+    },
+    "keys": {
+      "files": "fichiers",
+      "annotations": "annotations",
+      "viewed": "marquer comme vu"
+    }
   }
 }

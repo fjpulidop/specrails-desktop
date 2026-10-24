@@ -512,5 +512,15 @@
       "retryHint": "Behebe die oben gezeigte Ursache und starte das Inventar erneut.",
       "setupDone": "Nach der Einrichtung automatisch inventarisiert."
     }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "Der Editor, den „Im Editor öffnen“ im Prüfpaket verwendet. Wird auf diesem Computer gespeichert.",
+    "label": "Dateien öffnen in",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains-IDE"
+    }
   }
 }

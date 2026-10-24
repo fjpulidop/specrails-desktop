@@ -167,7 +167,10 @@
       "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）",
       "historyBackForward": "后退 / 前进到上一个或下一个位置",
       "undoLast": "撤销上一次更改",
-      "openInbox": "打开待处理"
+      "openInbox": "打开待处理",
+      "reviewFiles": "评审：下一个 / 上一个变更文件",
+      "reviewAnnotations": "评审：下一条 / 上一条批注",
+      "reviewViewed": "评审：将文件标记为已查看"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",

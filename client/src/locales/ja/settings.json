@@ -512,5 +512,15 @@
       "retryHint": "上記の原因を解決してから、インベントリを再実行してください。",
       "setupDone": "セットアップ後に自動でインベントリを作成しました。"
     }
+  },
+  "editorSection": {
+    "heading": "エディター",
+    "description": "レビューパケットの「エディターで開く」で使うエディターです。このコンピューターに保存されます。",
+    "label": "ファイルを開くエディター",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
   }
 }

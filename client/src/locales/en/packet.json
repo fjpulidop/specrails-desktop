@@ -290,5 +290,108 @@
     "title_one": "Needs human eyes: {{count}} project rule",
     "title_other": "Needs human eyes: {{count}} project rules",
     "caveat": "Rules written for this project that no automated check can enforce. Check them yourself before accepting."
+  },
+  "tabs": {
+    "label": "Review views",
+    "overview": "Overview",
+    "changes": "Changes"
+  },
+  "changes": {
+    "tab": "Changes",
+    "loading": "Loading the changes…",
+    "error": "The changes could not be loaded.",
+    "refresh": "Reload the changes",
+    "empty": "This delivery changed no files.",
+    "unavailable": {
+      "not_a_repository": "The project folder is not a Git repository, so there is nothing to compare.",
+      "no_branch": "This delivery has no branch to compare yet.",
+      "head_missing": "The delivery's branch no longer exists in this repository.",
+      "base_missing": "The branch this delivery was based on no longer exists, so the changes cannot be measured.",
+      "git_failed": "Git could not produce the changes for this delivery."
+    },
+    "summary": "Files changed: {{count}}",
+    "viewedCount": "{{viewed}} of {{total}} viewed",
+    "truncatedList": "Showing the first {{count}} files only.",
+    "source": "Changes from",
+    "sourceDelivery": "Whole delivery",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "Changed files"
+    },
+    "status": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "copied": "Copied",
+      "typechange": "Type changed"
+    },
+    "renamedFrom": "Renamed from {{path}}",
+    "binaryShort": "binary",
+    "binary": "Binary file: there is no text diff to show.",
+    "noTextChanges": "No line changes (only the file's name or mode changed).",
+    "fileError": "This file's diff could not be loaded.",
+    "largeDiff": "Showing the first {{shown}} of {{total}} changed lines.",
+    "loadFull": "Load full file diff",
+    "viewed": {
+      "mark": "Mark as viewed",
+      "unmark": "Viewed",
+      "changedSince": "Changed since you viewed it"
+    },
+    "mode": {
+      "label": "Diff layout",
+      "unified": "Unified",
+      "split": "Split"
+    },
+    "diff": {
+      "region": "Diff of {{path}}"
+    },
+    "line": {
+      "select": "Select line {{n}}",
+      "selectOld": "Select original line {{n}}"
+    },
+    "selection": {
+      "clear": "Clear the selection"
+    },
+    "ask": {
+      "button": "Ask agent to change this",
+      "title": "What should change in",
+      "placeholder": "Describe the change you want…",
+      "ticket": "Add to spec",
+      "submit": "Add to spec",
+      "hint": "Saved as review feedback on the spec; the next run on it is briefed with it.",
+      "created": "Added to spec #{{id}} as review feedback.",
+      "open": "Open spec",
+      "failed": "The note could not be added to the spec."
+    },
+    "editor": {
+      "open": "Open in {{editor}}",
+      "rootRepository": "Opens the file in your checkout of the project; the review branch may not be checked out there.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "Not tied to a line ({{count}})",
+      "ask": "Ask agent to fix this",
+      "source": {
+        "reviewer-finding": "Reviewer finding",
+        "review-risk": "Risk to check",
+        "review-untested": "Not covered by tests",
+        "follow-up-comment": "Review comment"
+      },
+      "severity": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
+    },
+    "keys": {
+      "files": "files",
+      "annotations": "annotations",
+      "viewed": "mark viewed"
+    }
   }
 }

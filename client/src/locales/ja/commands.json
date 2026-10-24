@@ -167,7 +167,10 @@
       "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）",
       "historyBackForward": "前の場所 / 次の場所へ戻る・進む",
       "undoLast": "直前の変更を元に戻す",
-      "openInbox": "対応待ちを開く"
+      "openInbox": "対応待ちを開く",
+      "reviewFiles": "レビュー: 次 / 前の変更ファイル",
+      "reviewAnnotations": "レビュー: 次 / 前の注釈",
+      "reviewViewed": "レビュー: ファイルを確認済みにする"
     },
     "searchLabel": "ショートカットとガイドを検索",
     "searchPlaceholder": "ショートカットとガイドを検索…",

@@ -44,6 +44,7 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from '../../loops/runtime/loop-effect'
 import { composeReviewPacket } from './review-packet'
+import { composeDeliveryChanges, composeFileDiff } from './delivery-changes'
 import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
@@ -1661,6 +1662,59 @@ export function createRailsRouter(): Router {
     } catch (err) {
       console.error('[rails-router] packet composition failed:', err)
       res.status(500).json({ error: 'packet composition failed', detail: (err as Error).message })
+    }
+  })
+
+  // GET /rails/pr-deliveries/:id/changes[?repositoryId=&source=] — the review
+  // packet's Changes tab: the delivery's head vs its merge-base with the base
+  // branch (file list + counts + hashes) and the annotations the delivery already
+  // holds. GET .../changes/file?path=&full=1 parses ONE file lazily. Read-only;
+  // `path` is a lookup key against the diff's own listing, never a pathspec.
+  const changesScope = (req: Request, res: Response): { c: ProjectContext; row: NonNullable<ReturnType<typeof getPrDelivery>>; repoDir: string; repositoryId: string | null; source: string | null } | null => {
+    if (!isReviewPacketEnabled()) { res.status(404).json({ error: 'Not Found' }); return null }
+    const c = ctx(req)
+    let row = getPrDelivery(c.db, req.params.prDeliveryId as string)
+    if (!row) { res.status(404).json({ error: 'Delivery not found' }); return null }
+    const parent = row.parent_delivery_id ? getPrDelivery(c.db, row.parent_delivery_id) : row
+    if (!parent) { res.status(404).json({ error: 'Delivery group not found' }); return null }
+    const repositoryId = req.query.repositoryId
+    if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId)) { res.status(400).json({ error: 'Invalid repositoryId' }); return null }
+    const source = req.query.source
+    if (source !== undefined && (typeof source !== 'string' || !/^(delivery|ticket:\d+)$/.test(source))) { res.status(400).json({ error: 'Invalid source' }); return null }
+    if (repositoryId) {
+      row = listRepositoryDeliveries(c.db, parent.id).find((child) => child.repository_id === repositoryId)
+      if (!row) { res.status(404).json({ error: 'Repository not in this delivery' }); return null }
+    }
+    const manifest = readExecutionManifest(parent.execution_manifest)
+    const frozen = row.repository_id ? manifest?.repositories.find((repository) => repository.repositoryId === row!.repository_id && repository.sourcePath === row!.repository_path) : undefined
+    if (row.parent_delivery_id && !frozen) { res.status(409).json({ error: 'Repository delivery has no frozen source path' }); return null }
+    return { c, row, repoDir: frozen?.sourcePath ?? c.project.path, repositoryId: frozen?.repositoryId ?? null, source: source ?? null }
+  }
+
+  router.get('/pr-deliveries/:prDeliveryId/changes', async (req: Request, res: Response) => {
+    const scope = changesScope(req, res)
+    if (!scope) return
+    try {
+      const changes = await composeDeliveryChanges({ row: scope.row, repoDir: scope.repoDir, sourceId: scope.source, repositoryId: scope.repositoryId })
+      res.json({ prDeliveryId: scope.row.id, repositoryId: scope.repositoryId, changes })
+    } catch (err) {
+      console.error('[rails-router] changes composition failed:', err)
+      res.status(500).json({ error: 'changes composition failed' })
+    }
+  })
+
+  router.get('/pr-deliveries/:prDeliveryId/changes/file', async (req: Request, res: Response) => {
+    const scope = changesScope(req, res)
+    if (!scope) return
+    const filePath = req.query.path
+    if (typeof filePath !== 'string' || !filePath || filePath.length > 1000 || filePath.includes('\0')) { res.status(400).json({ error: 'Invalid path' }); return }
+    try {
+      const result = await composeFileDiff({ row: scope.row, repoDir: scope.repoDir, sourceId: scope.source, repositoryId: scope.repositoryId, path: filePath, full: req.query.full === '1' })
+      if (!result.ok) { res.status(result.status).json({ error: result.error }); return }
+      res.json({ prDeliveryId: scope.row.id, diff: result.diff })
+    } catch (err) {
+      console.error('[rails-router] file diff failed:', err)
+      res.status(500).json({ error: 'file diff failed' })
     }
   })
 

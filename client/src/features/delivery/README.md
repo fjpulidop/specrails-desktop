@@ -34,6 +34,13 @@ independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 <!-- audit-client-features:end -->
 
+The review packet's **Changes** tab lives in
+[components/review-packet/ChangesTab.tsx](components/review-packet/ChangesTab.tsx) (tree, virtualised
+diff, annotations, ask-the-agent addendum, viewed marks, `j k n p v` keys) over the pure
+[lib/changes-model.ts](lib/changes-model.ts) and [lib/viewed-files.ts](lib/viewed-files.ts). The editor
+URL builder and preference are shared in `client/src/lib/open-in-editor.ts`. See
+[the review packet guide](../../../../docs/internals/review-packet.md#changes-tab-in-app-diff-review).
+
 Run the adjacent tests with `npm run test --prefix client -- src/features/delivery`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.

@@ -290,5 +290,108 @@
     "title_one": "Serve un occhio umano: {{count}} regola del progetto",
     "title_other": "Serve un occhio umano: {{count}} regole del progetto",
     "caveat": "Regole scritte per questo progetto che nessun controllo automatico può far rispettare. Verificale tu prima di accettare."
+  },
+  "tabs": {
+    "label": "Viste della revisione",
+    "overview": "Panoramica",
+    "changes": "Modifiche"
+  },
+  "changes": {
+    "tab": "Modifiche",
+    "loading": "Caricamento delle modifiche…",
+    "error": "Impossibile caricare le modifiche.",
+    "refresh": "Ricarica le modifiche",
+    "empty": "Questa consegna non ha modificato alcun file.",
+    "unavailable": {
+      "not_a_repository": "La cartella del progetto non è un repository Git, quindi non c'è nulla da confrontare.",
+      "no_branch": "Questa consegna non ha ancora un branch da confrontare.",
+      "head_missing": "Il branch della consegna non esiste più in questo repository.",
+      "base_missing": "Il branch su cui si basava questa consegna non esiste più, quindi le modifiche non si possono misurare.",
+      "git_failed": "Git non è riuscito a produrre le modifiche di questa consegna."
+    },
+    "summary": "File modificati: {{count}}",
+    "viewedCount": "{{viewed}} di {{total}} visti",
+    "truncatedList": "Vengono mostrati solo i primi {{count}} file.",
+    "source": "Modifiche da",
+    "sourceDelivery": "Intera consegna",
+    "sourceTicket": "Spec #{{id}}",
+    "tree": {
+      "label": "File modificati"
+    },
+    "status": {
+      "added": "Aggiunto",
+      "modified": "Modificato",
+      "deleted": "Eliminato",
+      "renamed": "Rinominato",
+      "copied": "Copiato",
+      "typechange": "Tipo modificato"
+    },
+    "renamedFrom": "Rinominato da {{path}}",
+    "binaryShort": "binario",
+    "binary": "File binario: non c'è un diff di testo da mostrare.",
+    "noTextChanges": "Nessuna modifica di riga (sono cambiati solo il nome o la modalità del file).",
+    "fileError": "Impossibile caricare il diff di questo file.",
+    "largeDiff": "Vengono mostrate le prime {{shown}} di {{total}} righe modificate.",
+    "loadFull": "Carica il diff completo del file",
+    "viewed": {
+      "mark": "Segna come visto",
+      "unmark": "Visto",
+      "changedSince": "Modificato da quando l'hai visto"
+    },
+    "mode": {
+      "label": "Layout del diff",
+      "unified": "Unificato",
+      "split": "Affiancato"
+    },
+    "diff": {
+      "region": "Diff di {{path}}"
+    },
+    "line": {
+      "select": "Seleziona la riga {{n}}",
+      "selectOld": "Seleziona la riga originale {{n}}"
+    },
+    "selection": {
+      "clear": "Cancella la selezione"
+    },
+    "ask": {
+      "button": "Chiedi all'agente di cambiare questo",
+      "title": "Cosa deve cambiare in",
+      "placeholder": "Descrivi la modifica che vuoi…",
+      "ticket": "Aggiungi alla spec",
+      "submit": "Aggiungi alla spec",
+      "hint": "Salvato come feedback di revisione sulla spec; la prossima esecuzione su di essa lo riceverà.",
+      "created": "Aggiunto alla spec #{{id}} come feedback di revisione.",
+      "open": "Apri la spec",
+      "failed": "Impossibile aggiungere la nota alla spec."
+    },
+    "editor": {
+      "open": "Apri in {{editor}}",
+      "rootRepository": "Apre il file nella tua copia del progetto; il branch della revisione potrebbe non essere attivo lì.",
+      "names": {
+        "vscode": "VS Code",
+        "cursor": "Cursor",
+        "jetbrains": "JetBrains"
+      }
+    },
+    "annotations": {
+      "title": "Non legate a una riga ({{count}})",
+      "ask": "Chiedi all'agente di correggere",
+      "source": {
+        "reviewer-finding": "Rilievo del revisore",
+        "review-risk": "Rischio da verificare",
+        "review-untested": "Non coperto dai test",
+        "follow-up-comment": "Commento di revisione"
+      },
+      "severity": {
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Bassa"
+      }
+    },
+    "keys": {
+      "files": "file",
+      "annotations": "annotazioni",
+      "viewed": "segna come visto"
+    }
   }
 }

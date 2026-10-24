@@ -167,7 +167,10 @@
       "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)",
       "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte",
       "undoLast": "Desfazer a última alteração",
-      "openInbox": "Abrir Pendências"
+      "openInbox": "Abrir Pendências",
+      "reviewFiles": "Revisão: arquivo alterado seguinte / anterior",
+      "reviewAnnotations": "Revisão: anotação seguinte / anterior",
+      "reviewViewed": "Revisão: marcar o arquivo como visto"
     },
     "searchLabel": "Pesquisar atalhos e guias",
     "searchPlaceholder": "Pesquisar atalhos e guias…",

@@ -512,5 +512,15 @@
       "retryHint": "Fix the cause shown above, then re-run the inventory.",
       "setupDone": "Inventoried automatically after setup."
     }
+  },
+  "editorSection": {
+    "heading": "Editor",
+    "description": "The editor that “Open in editor” uses in the review packet. Stored on this computer.",
+    "label": "Open files in",
+    "names": {
+      "vscode": "VS Code",
+      "cursor": "Cursor",
+      "jetbrains": "JetBrains IDE"
+    }
   }
 }

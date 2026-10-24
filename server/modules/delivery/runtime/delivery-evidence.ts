@@ -90,6 +90,9 @@ export interface DeliveryDerivation {
   transcriptTurnsUsed: number
 }
 
+/** One reviewer finding's anchor in the change (repository-relative path, 1-based lines). */
+export interface DeliveryFindingLocation { finding: number; path: string; line?: number; endLine?: number }
+
 /** Evidence read from the programmatic runtime's pipeline dir
  *  (`<workspace>/.specrails/pipeline/<runId>/`). Absent for legacy loops. */
 export interface DeliveryRuntimeEvidence {
@@ -98,6 +101,8 @@ export interface DeliveryRuntimeEvidence {
   commands: DeliveryRuntimeCommand[]
   checks: DeliveryRuntimeCheck[]
   findings: string[]
+  /** Where reviewer findings apply (Core contract 5.9 `acceptance.findingLocations`); `finding` indexes `findings`. Absent when Core named none. */
+  findingLocations?: DeliveryFindingLocation[]
   review: DeliveryRuntimeReview | null
   /** Flow -> Spec derivation coverage (absent for every other loop). */
   derivation?: DeliveryDerivation | null
@@ -629,13 +634,39 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
     checks.push({ name, status: str(raw.status, 40) ?? 'unknown', required: raw.required === true, hostRun, evidence, scope: str(raw.scope), limitations: str(raw.limitations) })
   }
   const findings = strList(acceptance?.findings, 6)
+  const findingLocations = readFindingLocations(acceptance?.findings, acceptance?.findingLocations, 6)
   const checkpoint = readJson(fsIo, path.join(runtimeDir, 'agent-workflow', runId, 'checkpoint.json'))
   const steps = isRecord(checkpoint) && isRecord(checkpoint.state) && isRecord(checkpoint.state.steps) ? checkpoint.state.steps : null
   const reviewer = steps && isRecord(steps.reviewer) ? steps.reviewer : null
   const output = reviewer && isRecord(reviewer.output) ? reviewer.output : null
   const review = parseRuntimeReview(output)
   if (commands.length === 0 && checks.length === 0 && findings.length === 0 && !review) return null
-  return { commands, checks, findings, review }
+  return { commands, checks, findings, ...(findingLocations.length ? { findingLocations } : {}), review }
+}
+
+/**
+ * Core's `acceptance.findingLocations` (contract 5.9), re-indexed onto the kept
+ * findings and re-validated: an anchor is advisory, so a malformed one (or one
+ * for a finding the cap dropped) disappears instead of failing the harvest.
+ * Older Core never writes the field, so older runs read as unanchored.
+ */
+export function readFindingLocations(rawFindings: unknown, rawLocations: unknown, cap: number): DeliveryFindingLocation[] {
+  if (!Array.isArray(rawFindings) || !Array.isArray(rawLocations)) return []
+  const kept: number[] = []
+  rawFindings.forEach((entry, index) => { if (typeof entry === 'string' && entry.trim() && kept.length < cap) kept.push(index) })
+  const seen = new Set<number>()
+  const out: DeliveryFindingLocation[] = []
+  for (const raw of rawLocations) {
+    if (!isRecord(raw)) continue
+    const position = typeof raw.finding === 'number' ? kept.indexOf(raw.finding) : -1
+    const filePath = typeof raw.path === 'string' ? raw.path.trim().replace(/\\/g, '/').replace(/^\.\//, '') : ''
+    if (position < 0 || seen.has(position) || !filePath || filePath.length > 500 || filePath.startsWith('/') || /^[A-Za-z]:/.test(filePath) || filePath.includes('\0') || filePath.split('/').includes('..')) continue
+    const line = typeof raw.line === 'number' && Number.isInteger(raw.line) && raw.line >= 1 ? raw.line : undefined
+    const endLine = line !== undefined && typeof raw.endLine === 'number' && Number.isInteger(raw.endLine) && raw.endLine > line ? raw.endLine : undefined
+    seen.add(position)
+    out.push({ finding: position, path: filePath, ...(line !== undefined ? { line } : {}), ...(endLine !== undefined ? { endLine } : {}) })
+  }
+  return out
 }
 
 /** A reviewer verdict stays AI-reported; it cannot create host verification. */

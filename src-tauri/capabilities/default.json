@@ -28,7 +28,10 @@
       "identifier": "shell:allow-open",
       "allow": [
         { "url": "https://**" },
-        { "url": "http://**" }
+        { "url": "http://**" },
+        { "url": "vscode://file/**" },
+        { "url": "cursor://file/**" },
+        { "url": "idea://open**" }
       ]
     },
     "dialog:allow-message",

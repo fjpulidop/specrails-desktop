@@ -167,7 +167,10 @@
       "flowHandOff": "Affida il Flow (striscia delle esecuzioni attiva)",
       "historyBackForward": "Torna indietro / vai avanti al luogo precedente o successivo",
       "undoLast": "Annulla l'ultima modifica",
-      "openInbox": "Apri Da gestire"
+      "openInbox": "Apri Da gestire",
+      "reviewFiles": "Revisione: file modificato successivo / precedente",
+      "reviewAnnotations": "Revisione: annotazione successiva / precedente",
+      "reviewViewed": "Revisione: segna il file come visto"
     },
     "searchLabel": "Cerca scorciatoie e guide",
     "searchPlaceholder": "Cerca scorciatoie e guide…",

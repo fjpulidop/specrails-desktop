@@ -1092,6 +1092,14 @@
         "node:fs",
         "node:path"
       ],
+      "runtime/delivery-changes.ts": [
+        "../../code/runtime/file-provenance",
+        "./delivery-evidence",
+        "./pr-follow-up",
+        "./rail-pr-store",
+        "child_process",
+        "fs"
+      ],
       "runtime/delivery-evidence.ts": [
         "../../../types",
         "../../agent-runtime/runtime/agent-runtime-loader",
@@ -1428,6 +1436,7 @@
         "../../specs/runtime/spec-models",
         "../../specs/runtime/ticket-store",
         "./active-pr-continuation",
+        "./delivery-changes",
         "./delivery-evidence",
         "./flow-worktree-handoff",
         "./isolated-worktree",
