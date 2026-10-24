@@ -267,7 +267,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
         role="dialog"
         aria-modal="true"
         {...(job ? { 'aria-labelledby': 'job-modal-title' } : { 'aria-label': t('common:states.loading') })}
-        className="relative w-full min-w-0 rounded-xl bg-popover border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        className="relative w-full min-w-0 rounded-xl bg-popover border border-border/30 flex flex-col motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200 overflow-hidden"
         style={panelStyle}
       >
         {/* Header */}
@@ -278,8 +278,8 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           <div className="flex items-center gap-3 min-w-0">
             {job && (
               <>
-                <code id="job-modal-title" className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
-                <span className="text-[10px] text-muted-foreground shrink-0">
+                <code id="job-modal-title" className="text-xs font-mono text-foreground truncate">{job.command}</code>
+                <span className="text-[11px] text-muted-foreground shrink-0">
                   {activityTime
                     ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
                     : '—'}
@@ -428,7 +428,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowCancelConfirm(false)}
           />
-          <div className="relative w-full max-w-sm rounded-xl glass-card border border-border/30 p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-sm rounded-xl glass-card border border-border/30 p-5 shadow-xl motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-150">
             <h3 className="text-base font-semibold text-foreground">
               {isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
             </h3>

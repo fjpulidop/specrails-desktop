@@ -274,7 +274,7 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={expandAll}
           aria-label={t('loopExplorer.expandAll')}
           title={t('loopExplorer.expandAll')}
@@ -284,7 +284,7 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={collapseAll}
           aria-label={t('loopExplorer.collapseAll')}
           title={t('loopExplorer.collapseAll')}
@@ -292,7 +292,7 @@ export function LoopStepExplorer({
           <ChevronsDownUp className="w-3.5 h-3.5" />
         </Button>
         {mode === 'follow' && isJobRunning && (
-          <span className="flex items-center gap-1.5 text-[10px] text-accent-primary shrink-0">
+          <span className="flex items-center gap-1.5 text-[11px] text-accent-primary shrink-0">
             <PulseDot />
             {t('loopExplorer.follow')}
           </span>
@@ -301,13 +301,13 @@ export function LoopStepExplorer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={handleCopyAll}
           aria-label={t('logViewer.copySuccess')}
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[11px] text-muted-foreground">
           {t('logViewer.lineCount', { filtered: filteredCount, total: model.totalLines })}
         </span>
       </div>
@@ -362,7 +362,7 @@ export function LoopStepExplorer({
         {waiting && (
           <div
             data-testid="loop-waiting-row"
-            className="mt-3 flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground/70 italic"
+            className="mt-3 flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground italic"
           >
             <PulseDot />
             {t('loopExplorer.waiting')}

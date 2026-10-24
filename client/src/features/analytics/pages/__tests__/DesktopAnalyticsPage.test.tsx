@@ -86,7 +86,7 @@ describe('DesktopAnalyticsPage', () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
     // Loading skeleton uses animate-pulse
-    const skeletons = document.querySelectorAll('.animate-pulse')
+    const skeletons = document.querySelectorAll('[class*="animate-pulse"]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 
@@ -121,7 +121,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load analytics/i)).toBeInTheDocument()
+      expect(screen.getByText(/analytics couldn’t be loaded/i)).toBeInTheDocument()
     })
   })
 

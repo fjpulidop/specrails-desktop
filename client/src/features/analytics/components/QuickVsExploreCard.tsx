@@ -48,7 +48,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
     <div className="flex-1 p-4 first:pr-2 last:pl-2">
       <div className="flex items-center gap-2 mb-2">
         <span className={`w-1.5 h-1.5 rounded-full ${accentClass}`} />
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
       {sparseExplore ? (
         <div className="py-3">
@@ -98,7 +98,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
 export function QuickVsExploreCard({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
 
@@ -118,7 +118,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40">
       <div className="px-4 pt-3 pb-1">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('quickVsExplore.title')}</h2>
+        <h2 className="text-xs font-medium text-muted-foreground">{t('quickVsExplore.title')}</h2>
       </div>
       <div className="flex divide-x divide-border/40">
         <ModeColumn mode={quick} label={t('quickVsExplore.quick')} accentClass="bg-accent-secondary" />
@@ -133,7 +133,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
       )}
       {hasEstimated && (
         <div className="px-4 pb-3 -mt-1" data-testid="quick-vs-explore-estimated-footnote">
-          <p className="text-[10px] text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
+          <p className="text-[11px] text-muted-foreground">{t('quickVsExplore.estimatedFootnote')}</p>
         </div>
       )}
     </div>

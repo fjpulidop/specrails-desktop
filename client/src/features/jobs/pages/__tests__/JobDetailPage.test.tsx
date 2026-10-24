@@ -110,7 +110,7 @@ describe('JobDetailPage', () => {
   it('shows loading state initially', () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
     const { container } = render(<JobDetailPage />)
-    const pulseElements = container.querySelectorAll('.animate-pulse')
+    const pulseElements = container.querySelectorAll('[class*="animate-pulse"]')
     expect(pulseElements.length).toBeGreaterThan(0)
   })
 

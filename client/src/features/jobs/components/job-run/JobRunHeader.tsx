@@ -172,7 +172,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           className={cn('inline-flex items-center gap-1.5 text-xs tabular-nums', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
         >
-          {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info animate-pulse" aria-hidden />}
+          {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info motion-safe:animate-pulse" aria-hidden />}
           {elapsed}
         </span>
         {liveLine && (
@@ -182,7 +182,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </span>
         )}
         {!liveLine && <span className="flex-1" />}
-        {stepsLabel && <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">{stepsLabel}</span>}
+        {stepsLabel && <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{stepsLabel}</span>}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {runtimeActions}
           {actions}
@@ -216,7 +216,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
                 <Metric label={t('statusPanel.turns')} value={String(activity.turns)} />
                 <Metric label={t('statusPanel.tokens')} value={formatTokens(activity.tokens)} />
               </div>
-              <p className="text-[10px] text-muted-foreground/60 mt-1">{t('runHeader.liveReported')}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{t('runHeader.liveReported')}</p>
             </div>
           )}
 
@@ -225,7 +225,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               <Metric
                 label={t('statusPanel.cost')}
                 value={final.cost}
-                valueClass="text-yellow-400 aurora-light:text-accent-warning"
+                valueClass="text-accent-warning"
                 naCaption={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocal') : t('statusPanel.notAvailable')}
                 naTooltip={isLocalEngineId(job.provider) ? t('statusPanel.costUnknownLocalTooltip') : undefined}
               />
@@ -236,23 +236,23 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
           {isTerminal && pipelineTotals && (
             <div>
-              <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-1.5">
+              <p className="text-xs text-muted-foreground mb-1.5">
                 {t('statusPanel.pipelineTotal', { count: pipelineTotals.jobCount })}
               </p>
               <div className="grid grid-cols-2 gap-2 max-w-sm">
-                <Metric label={t('statusPanel.totalCost')} value={formatPipelineCost(pipelineTotals)} valueClass="text-yellow-400 aurora-light:text-accent-warning" />
+                <Metric label={t('statusPanel.totalCost')} value={formatPipelineCost(pipelineTotals)} valueClass="text-accent-warning" />
                 <Metric label={t('statusPanel.totalTokens')} value={formatPipelineTokens(pipelineTotals)} />
               </div>
               {pipelineTotals.hasNullCost && !pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-partial-hint" className="text-[10px] text-muted-foreground/70 mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
+                <p data-testid="pipeline-partial-hint" className="text-[11px] text-muted-foreground mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
                   {t('statusPanel.pipelinePartial', { count: pipelineTotals.nullCostCount ?? 0 })}
                 </p>
               )}
               {pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-cost-unavailable" className="text-[10px] text-muted-foreground/70 mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
+                <p data-testid="pipeline-cost-unavailable" className="text-[11px] text-muted-foreground mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
               )}
               {(pipelineTotals.nullTokenCount ?? 0) > 0 && (
-                <p data-testid="pipeline-usage-coverage-hint" className="text-[10px] text-muted-foreground/70 mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
+                <p data-testid="pipeline-usage-coverage-hint" className="text-[11px] text-muted-foreground mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
                   {pipelineTotals.tokensUnavailable
                     ? t('statusPanel.pipelineUsageUnavailable')
                     : t('statusPanel.pipelineUsagePartial', { count: pipelineTotals.nullTokenCount ?? 0 })}
@@ -263,10 +263,10 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
 
           {modifiedFiles.length > 0 && (
             <div>
-              <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-1.5">{t('statusPanel.filesModified')}</p>
+              <p className="text-xs text-muted-foreground mb-1.5">{t('statusPanel.filesModified')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {modifiedFiles.map((f) => (
-                  <code key={f} className="text-[10px] font-mono bg-muted/30 px-2 py-0.5 rounded text-cyan-400/80 aurora-light:text-accent-info">{f}</code>
+                  <code key={f} className="text-[11px] font-mono bg-muted/30 px-2 py-0.5 rounded text-accent-info">{f}</code>
                 ))}
               </div>
             </div>
@@ -324,9 +324,9 @@ function Metric({ label, value, valueClass, naCaption, naTooltip }: {
 }) {
   return (
     <div className="bg-muted/20 rounded-lg px-2.5 py-1.5" title={value == null ? naTooltip : undefined}>
-      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn('text-sm font-semibold tabular-nums', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
-      {value == null && naCaption && <p className="text-[10px] text-muted-foreground/40">{naCaption}</p>}
+      {value == null && naCaption && <p className="text-[11px] text-muted-foreground">{naCaption}</p>}
     </div>
   )
 }

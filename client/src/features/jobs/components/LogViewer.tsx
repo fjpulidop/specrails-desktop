@@ -284,7 +284,7 @@ export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-muted-foreground/50 hover:text-foreground"
+          className="h-7 px-2 text-muted-foreground hover:text-foreground"
           aria-label={t('logViewer.copyAll')}
           title={t('logViewer.copyAll')}
           onClick={() => {
@@ -298,7 +298,7 @@ export function LogViewer({ events, isLoading, projectId }: LogViewerProps) {
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[11px] text-muted-foreground">
           {t('logViewer.lineCount', { filtered: filteredCount, total: totalLines })}
         </span>
       </div>
@@ -355,7 +355,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
   onToggle,
   onOpenTicket,
 }: PhaseGroupSectionProps) {
-  const { t } = useTranslation('jobs')
+  const { t, i18n } = useTranslation('jobs')
   const visibleLines = filter
     ? group.lines.filter((l) => l.content.toLowerCase().includes(filter.toLowerCase()))
     : group.lines
@@ -396,8 +396,8 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
           {phaseContent}
         </span>
         {group.header.timestamp && (
-          <span className="text-[10px] text-muted-foreground/40 font-mono tabular-nums shrink-0">
-            {new Date(group.header.timestamp).toLocaleTimeString('en', {
+          <span className="text-[11px] text-muted-foreground font-mono tabular-nums shrink-0">
+            {new Date(group.header.timestamp).toLocaleTimeString(i18n.language, {
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit',
@@ -405,7 +405,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
             })}
           </span>
         )}
-        <span className="text-[10px] text-muted-foreground/40 shrink-0">
+        <span className="text-[11px] text-muted-foreground shrink-0">
           {t('logViewer.phaseLines', { count: group.lines.length })}
         </span>
       </button>
@@ -414,7 +414,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
       {!collapsed && (
         <div className="bg-muted/5">
           {visibleLines.length === 0 ? (
-            <p className="px-4 py-2 text-[10px] text-muted-foreground/40 italic">
+            <p className="px-4 py-2 text-[11px] text-muted-foreground italic">
               {filter ? t('logViewer.noMatchingLines') : t('logViewer.noOutput')}
             </p>
           ) : (
@@ -444,6 +444,7 @@ export const LogLine = memo(function LogLine({
   /** When set, `#N` ticket refs in prose lines linkify (log-ticket-refs). */
   onOpenTicket?: (ticketId: number) => void
 }) {
+  const { i18n } = useTranslation('jobs')
   const isMarkdown = line.type === 'assistant'
   const isDiffAdd = line.type === 'diff-add'
   const isDiffRemove = line.type === 'diff-remove'
@@ -504,8 +505,8 @@ export const LogLine = memo(function LogLine({
       )}
     >
       {line.timestamp && (
-        <span className="text-[10px] text-muted-foreground/40 shrink-0 mt-0.5 w-[52px] font-mono tabular-nums">
-          {new Date(line.timestamp).toLocaleTimeString('en', {
+        <span className="text-[11px] text-muted-foreground shrink-0 mt-0.5 w-[52px] font-mono tabular-nums">
+          {new Date(line.timestamp).toLocaleTimeString(i18n.language, {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
@@ -555,12 +556,12 @@ export const LogLine = memo(function LogLine({
         <span
           className={cn(
             'flex-1 break-all leading-relaxed whitespace-pre-wrap font-mono',
-            line.type === 'tool-use'    && 'text-cyan-400/80 aurora-light:text-accent-info text-[11px]',
-            line.type === 'stderr'      && 'text-orange-400 aurora-light:text-accent-warning',
-            line.type === 'result'      && 'text-emerald-400 aurora-light:text-accent-success font-medium',
+            line.type === 'tool-use'    && 'text-accent-info text-[11px]',
+            line.type === 'stderr'      && 'text-accent-warning',
+            line.type === 'result'      && 'text-accent-success font-medium',
             line.type === 'log'         && 'text-foreground/60',
             line.type === 'plain'       && 'text-foreground/70',
-            line.type === 'tool-result' && 'text-muted-foreground/50',
+            line.type === 'tool-result' && 'text-muted-foreground',
             isDiffAdd    && 'text-accent-success',
             isDiffRemove && 'text-destructive',
             isDiffMeta   && 'text-accent-primary/80',

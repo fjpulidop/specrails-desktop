@@ -46,10 +46,14 @@ export function SpendingHero({ data, loading, period }: Props) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    // Count up only on first non-zero arrival, not on filter changes.
-    if (lastValueRef.current === 0 && target > 0) {
+    // Count up only on first non-zero arrival, not on filter changes, and never
+    // when the viewer asked the OS for reduced motion.
+    const reduceMotion = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (lastValueRef.current === 0 && target > 0 && !reduceMotion) {
       const start = performance.now()
-      const duration = 600
+      const duration = 300
       const from = 0
       const animate = (now: number) => {
         // A newer arrival took over while this frame was queued — abandon it so
@@ -75,7 +79,7 @@ export function SpendingHero({ data, loading, period }: Props) {
   }, [data])
 
   if (loading && !data) {
-    return <div className="h-44 rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-44 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
 
@@ -122,23 +126,16 @@ export function SpendingHero({ data, loading, period }: Props) {
   const windowLabel = period ? t(`windowLabels.${period}`) : null
 
   return (
-    <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40 p-5">
+    <section aria-labelledby="spending-hero-title" className="rounded-xl border border-border/50 bg-card/60 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
-            <span>{t('hero.spending')}</span>
-            {windowLabel && (
-              <span
-                data-testid="hero-window-label"
-                className="normal-case tracking-normal text-muted-foreground/70 font-normal"
-              >
-                · {windowLabel}
-              </span>
-            )}
-          </div>
+          <h2 id="spending-hero-title" className="text-sm font-medium text-foreground mb-1">
+            {t('hero.spending')}
+            {windowLabel && <span data-testid="hero-window-label"> · {windowLabel}</span>}
+          </h2>
           <div className="flex items-baseline gap-3">
             <div
-              className="text-5xl font-semibold tabular-nums tracking-tight"
+              className="text-4xl font-semibold tabular-nums tracking-tight"
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
@@ -158,14 +155,14 @@ export function SpendingHero({ data, loading, period }: Props) {
             {usageUnavailable ? (
               <span
                 data-testid="hero-usage-unavailable"
-                className="text-muted-foreground/80 italic"
+                className="text-muted-foreground italic"
                 title={t('hero.usageUnavailableTooltip')}
               >
                 {t('hero.usageUnavailable')}
               </span>
             ) : usagePartiallyUnavailable && totalTokens != null ? (
               <span
-                className="text-muted-foreground/80 italic"
+                className="text-muted-foreground italic"
                 title={t('hero.usagePartiallyUnavailableTooltip')}
               >
                 {t('hero.usagePartiallyUnavailable', {
@@ -175,7 +172,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               </span>
             ) : totalTokens != null && totalTokens > 0 ? (
               <span
-                className="text-muted-foreground/80"
+                className="text-muted-foreground"
                 title={t('hero.tokensTooltip')}
               >
                 {t('hero.tokens', { tokens: fmtTokens(totalTokens) })}
@@ -183,7 +180,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             ) : null}
             {costUnavailable && (
               <span
-                className="text-muted-foreground/80 italic"
+                className="text-muted-foreground italic"
                 title={t('hero.costUnavailableTooltip')}
               >
                 {t('hero.costUnavailable')}
@@ -192,7 +189,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             {costPartiallyUnavailable && (
               <span
                 data-testid="hero-cost-partial"
-                className="text-muted-foreground/80 italic"
+                className="text-muted-foreground italic"
                 title={t('hero.costPartiallyUnavailableTooltip')}
               >
                 {t('hero.costPartiallyUnavailable', { count: unpricedRuns })}
@@ -200,7 +197,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             )}
             {hasEstimatedCost && (
               <span
-                className="text-[10px] text-muted-foreground/70 italic"
+                className="text-[11px] text-muted-foreground italic"
                 title={t('hero.includesEstimatedTooltip', { amount: fmtUsd(totalEstimated) })}
               >
                 {t('hero.includesEstimated', { amount: fmtUsd(totalEstimated) })}
@@ -220,7 +217,7 @@ export function SpendingHero({ data, loading, period }: Props) {
           <p className="text-sm text-muted-foreground">
             {t('hero.emptyState')}
           </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {trackingStartedAt
               ? t('hero.trackingStarted', { date: trackingStartedAt.slice(0, 10) })
               : t('hero.trackingStartedFallback')}
@@ -228,7 +225,7 @@ export function SpendingHero({ data, loading, period }: Props) {
         </div>
       ) : (
         costUnavailable ? (
-          <div className="rounded-lg border border-dashed border-border/40 p-4 text-xs text-muted-foreground/80">
+          <div className="rounded-lg border border-dashed border-border/40 p-4 text-xs text-muted-foreground">
             {t('hero.costUnavailableTooltip')}
           </div>
         ) : (
@@ -253,14 +250,14 @@ export function SpendingHero({ data, loading, period }: Props) {
                 <span className={`w-2 h-2 rounded-full ${SURFACE_ACCENT[seg.surface].dot}`} />
                 <span className="text-muted-foreground">{SURFACE_LABEL[seg.surface]}</span>
                 <span className="text-foreground font-medium">{fmtUsd(seg.costUsd)}</span>
-                <span className="text-muted-foreground/60">·</span>
-                <span className="text-muted-foreground/80">{seg.count}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{seg.count}</span>
               </span>
             ))}
           </div>
         </>
         )
       )}
-    </div>
+    </section>
   )
 }

@@ -360,7 +360,7 @@ export default function JobDetailPage() {
       toast.success(t('detail.toast.jobRequeued'))
       navigate(`/jobs/${data.jobId}`)
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(t('detail.actionFailed'), { description: err instanceof Error ? err.message : undefined })
     } finally {
       rerunInFlightRef.current = false
       setIsRerunning(false)
@@ -370,10 +370,10 @@ export default function JobDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="space-y-3">
-          <div className="h-4 w-48 bg-muted/30 rounded animate-pulse" />
-          <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
-          <div className="h-64 bg-muted/30 rounded-lg animate-pulse" />
+        <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3">
+          <div className="h-4 w-48 bg-muted/30 rounded motion-safe:animate-pulse" />
+          <div className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
+          <div className="h-64 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
         </div>
       </div>
     )
@@ -413,14 +413,14 @@ export default function JobDetailPage() {
       {/* Header */}
       <div className="px-4 pt-3 pb-2 space-y-2">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <nav aria-label={t('detail.breadcrumbAria')} className="flex items-center gap-1 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors flex items-center gap-1">
-            <Home className="w-3 h-3" />
+            <Home className="w-3 h-3" aria-hidden />
             {t('detail.breadcrumbDashboard')}
           </Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-foreground font-mono">{t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}</span>
-        </div>
+          <ChevronRight className="w-3 h-3" aria-hidden />
+          <span aria-current="page" className="text-foreground font-mono">{t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}</span>
+        </nav>
 
         {/* Ticket identity card — premium header when the job references tickets */}
         {hasTicketHeader && (
@@ -432,20 +432,22 @@ export default function JobDetailPage() {
 
         {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
-          <code
-            className={cn(
-              'font-mono text-foreground/90 truncate',
-              hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
-            )}
-          >
-            {formatCommandForProvider(job.command, activeProvider)}
-          </code>
+          <h1 className="contents">
+            <code
+              className={cn(
+                'font-mono text-foreground truncate',
+                hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
+              )}
+            >
+              {formatCommandForProvider(job.command, activeProvider)}
+            </code>
+          </h1>
           <span>
             {job.started_at
               ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
               : t('detail.queuedWaiting')}
           </span>
-          {job.model && <span className="text-muted-foreground/40">{job.model}</span>}
+          {job.model && <span className="text-muted-foreground">{job.model}</span>}
         </div>
       </div>
 

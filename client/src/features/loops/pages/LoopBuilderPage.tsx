@@ -25,7 +25,7 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Save, Upload, Trash2, Play, Terminal, Brain, GitBranch, Flag, Square, Plus, Info, MoveVertical, MoveHorizontal, Grid3x3, RotateCcw, Settings, AlertTriangle, Eye } from 'lucide-react'
+import { ArrowLeft, Save, Upload, Trash2, Play, Terminal, Brain, GitBranch, Flag, Square, Plus, MoveVertical, MoveHorizontal, Grid3x3, RotateCcw, Settings, AlertTriangle, Eye, Info, Zap, Lock, MoreHorizontal, type LucideIcon } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { getApiBase } from '../../../lib/api'
 import { type ParameterChoices } from '../components/CoreParameterForm'
@@ -37,6 +37,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import { layoutLoop, type LayoutMode } from '../lib/loop-layout'
 import { cn } from '../../../lib/utils'
 import { loopsApi, LoopPublishError, type LoopDefinition, type LoopNodeType, type LoopConstant, type LoopPreviewStep, type LoopGraph, type WorkflowPieceDescriptor, type GraphValidationError } from '../lib/loops-api'
@@ -119,18 +120,19 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
       <div className="flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5 text-foreground flex-shrink-0" />
         <span className="text-xs font-semibold text-foreground truncate max-w-[150px]">{label || t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>
-        {label && <span className="text-[9px] text-muted-foreground/70 flex-shrink-0">{t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>}
+        {label && <span className="text-[11px] text-muted-foreground flex-shrink-0">{t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>}
+        {severity && <AlertTriangle role="img" aria-label={t(`builder.problems.severity.${severity}`)} className={cn('w-3 h-3 flex-shrink-0', severity === 'error' ? 'text-destructive' : 'text-accent-warning')} />}
       </div>
-      {summary && <p className="text-[10px] text-muted-foreground mt-1 truncate max-w-[160px]">{summary}</p>}
+      {summary && <p className="text-[11px] text-muted-foreground mt-1 truncate max-w-[160px]">{summary}</p>}
       {kind === 'core' ? (<>
-        <div className="flex justify-around gap-2 mt-2 text-[9px] text-accent-primary">{outcomes.map(outcome => <span key={outcome}>{outcome}</span>)}</div>
+        <div className="flex justify-around gap-2 mt-2 text-[11px] text-accent-primary">{outcomes.map(outcome => <span key={outcome}>{outcome}</span>)}</div>
         {outcomes.map((outcome, index) => <Handle key={outcome} id={outcome} type="source" position={Position.Bottom} style={{ left: `${(index + 1) * 100 / (outcomes.length + 1)}%` }} aria-label={outcome} />)}
       </>) : kind === 'decider' ? (
         <>
           {/* Two named, colour-coded outputs at the bottom (layout-agnostic): the
               continue branch loops back, the stop branch exits. The edges route
               orthogonally (smoothstep) to whichever node the layout places them. */}
-          <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] font-medium">
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] font-medium">
             <span className="text-accent-highlight">{t('builder.branch.continue')}</span>
             <span className="text-accent-success">{t('builder.branch.stop')}</span>
           </div>
@@ -267,7 +269,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       setPublicationErrors([])
       toast.success(t('builder.builtin.restored'))
     } catch (err) {
-      toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
+      toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
     }
   }, [id, applyLoop, t])
 
@@ -458,7 +460,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     } catch (err) {
       // Surface the server reason (e.g. "Loop is running; stop the run before
       // editing") instead of an opaque generic — far easier to diagnose.
-      toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
+      toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
       return false
     } finally {
       setSaving(false)
@@ -478,7 +480,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
         setPublicationErrors(err.errors); setShowProblems(true)
         toast.error(t('errors.publishInvalid'))
       } else {
-        toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
+        toast.error(t('errors.save'), { description: err instanceof Error ? err.message : undefined })
       }
     }
   }, [id, save, leaveBuilder, t])
@@ -517,80 +519,41 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
           />
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider delayDuration={150}>
-            <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {t('builder.config.maxIterations')}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" onClick={(e) => e.preventDefault()} className="text-muted-foreground/60 hover:text-foreground" aria-label={t('builder.config.maxIterations')}>
-                    <Info className="w-3 h-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.maxIterationsHint')}</TooltipContent>
-              </Tooltip>
-              <input type="number" min={1} value={maxIterations} onChange={(e) => { setMaxIterations(Math.max(1, Number(e.target.value) || 1)); markDirty() }} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
-            </label>
-            <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {t('builder.config.timeout')}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" onClick={(e) => e.preventDefault()} className="text-muted-foreground/60 hover:text-foreground" aria-label={t('builder.config.timeout')}>
-                    <Info className="w-3 h-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.timeoutHint')}</TooltipContent>
-              </Tooltip>
-              <input type="number" min={0} aria-label={t('builder.config.timeout')} value={timeoutMinutes} onChange={(e) => { setTimeoutMinutes(Math.max(0, Number(e.target.value) || 0)); markDirty() }} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
-            </label>
-            <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {t('builder.config.maxCost')}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" onClick={(e) => e.preventDefault()} className="text-muted-foreground/60 hover:text-foreground" aria-label={t('builder.config.maxCost')}>
-                    <Info className="w-3 h-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.maxCostHint')}</TooltipContent>
-              </Tooltip>
-              <input
-                type="number"
-                min={0}
-                step={0.5}
-                placeholder="∞"
-                value={maxCostUsd ?? ''}
-                onChange={(e) => {
-                  const v = Number(e.target.value)
-                  setMaxCostUsd(e.target.value === '' || !(v > 0) ? null : v)
-                  markDirty()
-                }}
-                className="w-16 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground"
-              />
-            </label>
-          </TooltipProvider>
-          {coreMode && <button type="button" aria-pressed={showLoopSettings} onClick={() => setShowLoopSettings(value => !value)} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground">
-            {t('builder.loopSettings')}
-          </button>}
-          {builtin && (
-            <button type="button" onClick={() => setConfirmRestore(true)} disabled={saving} data-testid="builder-restore-builtin" className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
-              <RotateCcw className="w-3 h-3" /> {t('actions.restoreBuiltin')}
-            </button>
-          )}
-          <button type="button" onClick={() => void runPreview()} disabled={previewing} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
-            <Eye className="w-3 h-3" /> {t('builder.preview.label')}
+          <button type="button" aria-pressed={showLoopSettings} onClick={() => setShowLoopSettings(value => !value)} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground aria-pressed:bg-muted">
+            <Settings className="w-3 h-3" aria-hidden /> {t('builder.loopSettings')}
           </button>
-          {!isLoopWindowRoute() && <button type="button" disabled={saving} onClick={() => void save().then(async ok => {
-            if (!ok || !id) return
-            try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
-            catch (error) { toast.error(String(error)) }
-          })} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted disabled:opacity-50">
-            <ExternalLink className="w-3 h-3" />{t('window.open')}
-          </button>}
+          <button type="button" onClick={() => void runPreview()} disabled={previewing} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
+            <Eye className="w-3 h-3" aria-hidden /> {t('builder.preview.label')}
+          </button>
           <button type="button" onClick={() => saveRef.current()} disabled={saving} title={`${t('builder.save')} (${/Mac/i.test(navigator.platform || '') ? '⌘S' : 'Ctrl+S'})`} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
             <Save className="w-3 h-3" /> {t('builder.save')}
           </button>
           <button type="button" onClick={() => void publish()} disabled={saving} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             <Upload className="w-3 h-3" /> {t('builder.publish')}
           </button>
+          {(builtin || !isLoopWindowRoute()) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger aria-label={t('actions.more')} title={t('actions.more')} className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground">
+                <MoreHorizontal className="w-3.5 h-3.5" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!isLoopWindowRoute() && (
+                  <DropdownMenuItem disabled={saving} onSelect={() => void save().then(async ok => {
+                    if (!ok || !id) return
+                    try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
+                    catch (error) { toast.error(t('window.openFailed'), { description: error instanceof Error ? error.message : undefined }) }
+                  })}>
+                    <ExternalLink className="w-3.5 h-3.5" aria-hidden />{t('window.open')}
+                  </DropdownMenuItem>
+                )}
+                {builtin && (
+                  <DropdownMenuItem disabled={saving} data-testid="builder-restore-builtin" onSelect={() => setConfirmRestore(true)}>
+                    <RotateCcw className="w-3.5 h-3.5" aria-hidden />{t('actions.restoreBuiltin')}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -636,10 +599,10 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       <div className="flex-1 flex min-h-0">
         {/* Palette */}
         <div className="w-44 border-r border-border p-2 space-y-1 flex-shrink-0 overflow-y-auto">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1 mb-1">{t('builder.addNode')}</p>
+          <p className="text-xs font-medium text-muted-foreground px-1 mb-1">{t('builder.addNode')}</p>
           {coreMode && catalogUnavailable && <p role="status" className="text-xs text-muted-foreground px-1">{t('builder.core.unavailable')}</p>}
           {coreMode && catalog.length > 0 && (['ai', 'verification', 'openspec', 'control'] as const).map(group => <div key={group} className="pt-2">
-            <p className="text-[10px] uppercase text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
+            <p className="text-xs font-medium text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
             {catalog.filter(piece => !['implementation', 'implementation-step'].includes(piece.kind) && pieceGroup(piece.kind) === group).map(piece => <button key={piece.kind} type="button" draggable onDragStart={event => { event.dataTransfer.setData('application/specrails-core-piece', piece.kind); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => addPiece(piece)} className="flex items-center gap-2 w-full min-h-8 px-2 rounded text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-accent-primary"><Plus className="h-3 w-3 flex-shrink-0" />{t(`builder.core.pieces.${piece.kind}`)}</button>)}
           </div>)}
           {(coreMode ? ['start'] as LoopNodeType[] : NODE_KINDS).map((kind) => {
@@ -657,7 +620,11 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
         {/* Canvas */}
         <div className="flex-1 min-w-0 relative" onDragOver={event => { if (event.dataTransfer.types.includes('application/specrails-core-piece')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const piece = catalog.find(piece => piece.kind === event.dataTransfer.getData('application/specrails-core-piece')); if (!piece || !coreMode) return; event.preventDefault(); addPiece(piece, screenToFlowPosition({ x: event.clientX, y: event.clientY })) }}>
           {loading ? (
-            <div className="flex items-center justify-center h-full"><p className="text-sm text-muted-foreground">…</p></div>
+            <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="h-full p-6 space-y-4" data-testid="builder-loading">
+              <div className="h-14 w-44 rounded-md border border-border bg-card motion-safe:animate-pulse" />
+              <div className="ml-24 h-14 w-44 rounded-md border border-border bg-card motion-safe:animate-pulse" />
+              <div className="ml-48 h-14 w-44 rounded-md border border-border bg-card motion-safe:animate-pulse" />
+            </div>
           ) : (
             <ReactFlow
               nodes={nodes}
@@ -683,7 +650,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
               {/* Auto-arrange the steps: vertical / horizontal layering, grid snap,
                   or restore the layout the loop loaded with. */}
               <Panel position="top-left">
-                <div className="flex items-center gap-0.5 rounded-md border border-border bg-card/90 backdrop-blur p-0.5" role="group" aria-label={t('builder.arrange.label')}>
+                <div className="flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5" role="group" aria-label={t('builder.arrange.label')}>
                   {([['vertical', MoveVertical], ['horizontal', MoveHorizontal], ['grid', Grid3x3], ['default', RotateCcw]] as const).map(([mode, Icon]) => {
                     const key = mode === 'default' ? 'reset' : mode
                     const active = mode === 'default' ? layoutMode === 'manual' : layoutMode === mode
@@ -711,7 +678,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] border border-border bg-card/90 text-muted-foreground hover:text-foreground backdrop-blur">
+                      <button type="button" className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] border border-border bg-card text-muted-foreground hover:text-foreground">
                         <Info className="w-3 h-3" />
                         {t('builder.edgesHelp.label')}
                       </button>
@@ -725,7 +692,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
               {/* Live problems — errors (red) + warnings (amber); click to select. */}
               {issues.length > 0 && (
                 <Panel position="bottom-center">
-                  <div className="rounded-md border border-border bg-card/95 backdrop-blur text-xs overflow-hidden max-w-md mb-2">
+                  <div className="rounded-md border border-border bg-card text-xs overflow-hidden max-w-md mb-2">
                     <button
                       type="button"
                       onClick={() => setShowProblems((v) => !v)}
@@ -744,7 +711,8 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                               onClick={() => { if (issue.nodeId) { setShowLoopSettings(false); setSelectedId(issue.nodeId) } }}
                               className="flex items-start gap-1.5 w-full text-left px-2.5 py-1 hover:bg-muted disabled:cursor-default"
                             >
-                              <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', issue.severity === 'error' ? 'bg-destructive' : 'bg-accent-warning')} />
+                              <span aria-hidden className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', issue.severity === 'error' ? 'bg-destructive' : 'bg-accent-warning')} />
+                              <span className="sr-only">{t(`builder.problems.severity.${issue.severity}`)}:</span>
                               <span className="text-foreground">{'message' in issue ? String(issue.message) : t(`builder.problems.${issue.code}`)}</span>
                             </button>
                           </li>
@@ -774,6 +742,16 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
             />
           ))}
           {!showLoopSettings && coreMode && document && selected && (nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {}).length > 0 || selected.data.coreKind === 'implementation-step' && selected.data.params?.phase === 'archive') && <LoopAgentsEditor mode={selected.data.coreKind === 'implementation' ? 'all' : 'step'} key={`${id}:${selected.id}`} graph={snapshot()} value={document.config.agents} selectedRole={String(selected.data.params?.phase ?? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] ?? '')} onChange={agents => { setDocument({ ...document, config: { ...document.config, agents } }); markDirty() }} />}
+          {showLoopSettings && (
+            <LoopLimitsSection
+              maxIterations={maxIterations}
+              timeoutMinutes={timeoutMinutes}
+              maxCostUsd={maxCostUsd}
+              onMaxIterations={(value) => { setMaxIterations(value); markDirty() }}
+              onTimeout={(value) => { setTimeoutMinutes(value); markDirty() }}
+              onMaxCost={(value) => { setMaxCostUsd(value); markDirty() }}
+            />
+          )}
           {showLoopSettings && coreMode && document && <LoopAgentsEditor mode="workflow" key={id} graph={snapshot()} value={document.config.agents} selectedRole={selected ? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] : undefined} onChange={agents => { setDocument({ ...document, config: { ...document.config, agents } }); markDirty() }} />}
           {showLoopSettings && coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={value => { setDocument(value); markDirty() }} onOpenCanvas={openCanvas} />}
         </div>
@@ -789,6 +767,43 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     </div>
     </PieceCatalogContext.Provider>
     </NodeValidationContext.Provider>
+  )
+}
+
+// Run limits (max iterations / timeout / cost cap) live in the Advanced settings
+// inspector rather than the toolbar, each with its explanation in plain view.
+function LoopLimitsSection({ maxIterations, timeoutMinutes, maxCostUsd, onMaxIterations, onTimeout, onMaxCost }: {
+  maxIterations: number
+  timeoutMinutes: number
+  maxCostUsd: number | null
+  onMaxIterations: (value: number) => void
+  onTimeout: (value: number) => void
+  onMaxCost: (value: number | null) => void
+}) {
+  const { t } = useTranslation('loops')
+  const input = 'w-24 h-7 text-xs rounded border border-border bg-transparent px-2 text-foreground tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  const row = (id: string, label: string, hint: string, control: React.ReactNode) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={id} className="text-xs font-medium text-foreground">{label}</label>
+        {control}
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+    </div>
+  )
+  return (
+    <section aria-labelledby="loop-limits-title" className="space-y-3 pb-4 border-b border-border">
+      <h3 id="loop-limits-title" className="text-xs font-semibold text-foreground">{t('builder.config.title')}</h3>
+      {row('loop-max-iterations', t('builder.config.maxIterations'), t('builder.config.maxIterationsHint'),
+        <input id="loop-max-iterations" type="number" min={1} value={maxIterations} onChange={(e) => onMaxIterations(Math.max(1, Number(e.target.value) || 1))} className={input} />)}
+      {row('loop-timeout', t('builder.config.timeout'), t('builder.config.timeoutHint'),
+        <input id="loop-timeout" type="number" min={0} value={timeoutMinutes} onChange={(e) => onTimeout(Math.max(0, Number(e.target.value) || 0))} className={input} />)}
+      {row('loop-max-cost', t('builder.config.maxCost'), t('builder.config.maxCostHint'),
+        <input id="loop-max-cost" type="number" min={0} step={0.5} placeholder="∞" value={maxCostUsd ?? ''} onChange={(e) => {
+          const v = Number(e.target.value)
+          onMaxCost(e.target.value === '' || !(v > 0) ? null : v)
+        }} className={input} />)}
+    </section>
   )
 }
 
@@ -816,7 +831,7 @@ const TOKEN_GROUPS: { labelKey: string; tokens: { token: string; label: string }
   },
 ]
 
-function TokenChip({ token, label, description, onInsert }: { token: string; label: string; description?: string; onInsert: (token: string) => void }) {
+function TokenChip({ token, label, description, icon: Icon, onInsert }: { token: string; label: string; description?: string; icon?: LucideIcon; onInsert: (token: string) => void }) {
   return (
     <button
       type="button"
@@ -824,8 +839,9 @@ function TokenChip({ token, label, description, onInsert }: { token: string; lab
       onDragStart={(e) => e.dataTransfer.setData('text/plain', token)}
       onClick={() => onInsert(token)}
       title={description ? `${token} — ${description}` : token}
-      className="px-1.5 py-0.5 rounded border border-border bg-surface/40 text-[10px] font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-surface/40 text-[11px] font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
     >
+      {Icon && <Icon className="w-3 h-3 flex-shrink-0" aria-hidden />}
       {label}
     </button>
   )
@@ -847,7 +863,7 @@ function TokenPalette({ t, onInsert }: { t: (key: string) => string; onInsert: (
     <div className="mb-2 space-y-1.5">
       {TOKEN_GROUPS.map((group) => (
         <div key={group.labelKey}>
-          <span className="block text-[9px] uppercase tracking-wide text-muted-foreground/70 mb-0.5">{t(group.labelKey)}</span>
+          <span className="block text-xs font-medium text-muted-foreground mb-0.5">{t(group.labelKey)}</span>
           <div className="flex flex-wrap gap-1">
             {group.tokens.map((tok) => (
               <TokenChip key={tok.token} token={tok.token} label={tok.label} onInsert={onInsert} />
@@ -857,10 +873,10 @@ function TokenPalette({ t, onInsert }: { t: (key: string) => string; onInsert: (
       ))}
       {commands.length > 0 && (
         <div>
-          <span className="block text-[9px] uppercase tracking-wide text-muted-foreground/70 mb-0.5">{t('builder.inspector.tokensCommands')}</span>
+          <span className="block text-xs font-medium text-muted-foreground mb-0.5">{t('builder.inspector.tokensCommands')}</span>
           <div className="flex flex-wrap gap-1">
             {commands.map((c) => (
-              <TokenChip key={c.name} token={`{{cmd:${c.name}}}`} label={`⚡ ${c.label}`} description={c.description} onInsert={onInsert} />
+              <TokenChip key={c.name} token={`{{cmd:${c.name}}}`} label={c.label} icon={Zap} description={c.description} onInsert={onInsert} />
             ))}
           </div>
         </div>
@@ -880,14 +896,14 @@ function ConstantPalette({ t, constants, onInsert, onManage }: {
   return (
     <div className="mb-2">
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">{t('builder.constants.label')}</span>
+        <span className="text-xs font-medium text-muted-foreground">{t('builder.constants.label')}</span>
         <button type="button" onClick={onManage} title={t('builder.constants.manage')} aria-label={t('builder.constants.manage')} className="text-muted-foreground hover:text-foreground">
           <Settings className="w-3 h-3" />
         </button>
       </div>
       <div className="flex flex-wrap gap-1">
         {constants.map((c) => (
-          <TokenChip key={c.id} token={`{{const:${c.name}}}`} label={c.builtin ? `🔒 ${c.name}` : c.name} description={c.value} onInsert={onInsert} />
+          <TokenChip key={c.id} token={`{{const:${c.name}}}`} label={c.name} icon={c.builtin ? Lock : undefined} description={c.value} onInsert={onInsert} />
         ))}
       </div>
     </div>
@@ -901,7 +917,7 @@ function ConstantRow({ c, onSave, onDelete }: { c: LoopConstant; onSave: (v: str
   const [v, setV] = useState(c.value)
   return (
     <div className="flex items-center gap-1.5">
-      <code className="text-[10px] font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
+      <code className="text-[11px] font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
       <input className="flex-1 text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground" value={v} onChange={(e) => setV(e.target.value)} aria-label={c.name} />
       <button type="button" disabled={v === c.value || !v} onClick={() => onSave(v)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={t('common:actions.save')} title={t('common:actions.save')}><Save className="w-3.5 h-3.5" aria-hidden /></button>
       <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label={t('common:actions.delete')} title={t('common:actions.delete')}><Trash2 className="w-3.5 h-3.5" aria-hidden /></button>
@@ -972,13 +988,13 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
             <input className={`${input} flex-1`} placeholder={t('builder.constants.value')} value={value} onChange={(e) => setValue(e.target.value)} />
             <Button size="sm" disabled={busy || !name.trim() || !value} onClick={() => void add()}>{t('builder.constants.add')}</Button>
           </div>
-          {err && <p className="text-[10px] text-destructive">{err}</p>}
+          {err && <p role="alert" className="text-xs text-destructive">{err}</p>}
           {/* Built-ins (read-only) */}
           {builtins.length > 0 && (
             <div className="border-t border-border pt-2 space-y-1">
-              <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">{t('builder.constants.builtinBadge')}</span>
+              <span className="block text-xs font-medium text-muted-foreground">{t('builder.constants.builtinBadge')}</span>
               {builtins.map((c) => (
-                <div key={c.id} className="flex items-center gap-1.5 text-[10px]">
+                <div key={c.id} className="flex items-center gap-1.5 text-[11px]">
                   <code className="font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
                   <span className="text-muted-foreground truncate">{c.value}</span>
                 </div>
@@ -1020,7 +1036,7 @@ function LoopPreviewModal({ steps, onClose, t }: {
           {steps && steps.length === 0 && <p className="text-xs text-muted-foreground">{t('builder.preview.empty')}</p>}
           {steps?.map((s, i) => (
             <div key={`${s.nodeId}-${i}`} className="rounded-md border border-border">
-              <div className="px-2.5 py-1 text-[10px] border-b border-border flex items-center gap-1.5">
+              <div className="px-2.5 py-1 text-[11px] border-b border-border flex items-center gap-1.5">
                 <span className="font-medium text-foreground">{s.label || t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
                 <span className="text-muted-foreground">· {t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
               </div>
@@ -1053,7 +1069,7 @@ function NodeInspector({
   const { activeProjectId, projects } = useDesktop()
   const repositories = projectRepositories(projects.find((project) => project.id === activeProjectId))
   const kind = data.kind
-  const field = 'block text-[10px] font-medium text-muted-foreground mb-1'
+  const field = 'block text-xs font-medium text-muted-foreground mb-1'
   const input = 'w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40'
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const goalRef = useRef<HTMLTextAreaElement>(null)
@@ -1110,7 +1126,7 @@ function NodeInspector({
             value={String(data.prompt ?? '')}
             onChange={(e) => onChange({ prompt: e.target.value })}
           />
-          <p className="text-[10px] text-muted-foreground mt-1">{t('builder.inspector.promptHint')}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{t('builder.inspector.promptHint')}</p>
         </div>
       )}
 
@@ -1158,7 +1174,7 @@ function NodeInspector({
         </div>
       )}
 
-      {kind === 'start' && <p className="text-[10px] text-muted-foreground">{t('builder.inspector.startNote')}</p>}
+      {kind === 'start' && <p className="text-[11px] text-muted-foreground">{t('builder.inspector.startNote')}</p>}
     </div>
   )
 }

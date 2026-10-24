@@ -58,21 +58,21 @@ export function TemplatePreviewModal({
 
             <div className="flex flex-wrap gap-1.5">
               {loopNeedsTicket(template.graph) ? (
-                <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
                   {t('gallery.needsSpec')}
                 </span>
               ) : (
-                <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
                   {t('gallery.standalone')}
                 </span>
               )}
               {template.category && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info">
+                <span className="px-1.5 py-0.5 rounded text-[11px] bg-accent-info/15 text-accent-info">
                   {t(`categories.${template.category}`, { defaultValue: template.category })}
                 </span>
               )}
               {template.tags.map((tag) => (
-                <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground">
                   {tag}
                 </span>
               ))}
@@ -90,7 +90,7 @@ export function TemplatePreviewModal({
             </p>
 
             <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">
-              <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="block text-xs font-medium text-muted-foreground">
                 {t('preview.steps')}
               </span>
               {template.graph.nodes.map((node, i) => {
@@ -99,7 +99,7 @@ export function TemplatePreviewModal({
                 return (
                   <div key={node.id} className="rounded border border-border bg-surface/30 p-2">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <span className="text-[10px] text-muted-foreground tabular-nums">{i + 1}.</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{i + 1}.</span>
                       <Icon className="w-3.5 h-3.5 text-accent-primary" />
                       {t(node.type === 'core' ? `builder.core.pieces.${node.data?.kind}` : `builder.nodes.${node.type}`)}
                     </div>

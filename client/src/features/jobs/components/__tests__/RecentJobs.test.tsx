@@ -80,7 +80,7 @@ describe('RecentJobs', () => {
 
   it('shows loading skeleton when isLoading is true', () => {
     const { container } = render(<RecentJobs jobs={[]} isLoading={true} />)
-    const skeletons = container.querySelectorAll('.animate-pulse')
+    const skeletons = container.querySelectorAll('[class*="animate-pulse"]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 

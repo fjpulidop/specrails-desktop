@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw } from 'lucide-react'
+import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw, MoreHorizontal } from 'lucide-react'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/TemplatePreviewModal'
@@ -16,6 +16,7 @@ import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import {
   loopsApi,
   LoopPublishError,
@@ -33,7 +34,7 @@ function StatusBadge({ status }: { status: LoopDefinition['status'] }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset',
+        'inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ring-1 ring-inset',
         STATUS_BADGE[status]
       )}
     >
@@ -293,7 +294,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
+            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(t('window.openFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
               <ExternalLink className="w-3.5 h-3.5" />{t('window.open')}
             </button>}
             {selectedIds.size > 0 && (
@@ -337,7 +338,12 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">…</p>
+          <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3" data-testid="loops-loading">
+            <div className="h-3 w-24 rounded bg-muted/40 motion-safe:animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-lg border border-border bg-card motion-safe:animate-pulse" />)}
+            </div>
+          </div>
         ) : (
           <div className="space-y-8">
             {drafts.length === 0 && published.length === 0 && (
@@ -412,7 +418,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             {templates.length > 0 && (
               <section>
                 <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('sections.templates')}</h2>
+                  <h2 className="text-xs font-semibold text-muted-foreground">{t('sections.templates')}</h2>
                   <input
                     type="search"
                     value={templateQuery}
@@ -476,7 +482,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                           <Sparkles className="w-3.5 h-3.5 text-accent-highlight flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate">{locName(tmpl.id, tmpl.name)}</span>
                           {tmpl.category && (
-                            <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-accent-info/15 text-accent-info flex-shrink-0">
+                            <span className="ml-auto px-1.5 py-0.5 rounded text-[11px] bg-accent-info/15 text-accent-info flex-shrink-0">
                               {t(`categories.${tmpl.category}`, { defaultValue: tmpl.category })}
                             </span>
                           )}
@@ -484,16 +490,16 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
                         <div className="flex flex-wrap items-center gap-1">
                           {loopNeedsTicket(tmpl.graph) ? (
-                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-secondary/15 text-accent-secondary">
+                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
                               {t('gallery.needsSpec')}
                             </span>
                           ) : (
-                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[10px] bg-accent-success/15 text-accent-success">
+                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
                               {t('gallery.standalone')}
                             </span>
                           )}
                           {tmpl.tags.map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{tag}</span>
+                            <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground">{tag}</span>
                           ))}
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -595,7 +601,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</h2>
+      <h2 className="text-xs font-semibold text-muted-foreground mb-2">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{children}</div>
     </section>
   )
@@ -652,7 +658,7 @@ function LoopCard({
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {builtIn && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground" data-testid="builtin-badge">
+            <span className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground" data-testid="builtin-badge">
               {t('builtInBadge')}
             </span>
           )}
@@ -663,17 +669,31 @@ function LoopCard({
         {t('card.nodes', { count: nodeCount })}
         {builtIn && loop.builtinModified && <span className="ml-1.5 text-accent-secondary">· {t('card.builtinModified')}</span>}
       </p>
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1">
         {onRun && <CardButton icon={Play} label={t('actions.run')} onClick={onRun} />}
         <CardButton icon={Pencil} label={t('actions.edit')} onClick={onEdit} />
-        {onPublish && <CardButton icon={Upload} label={t('actions.publish')} onClick={onPublish} />}
-        {onUnpublish && <CardButton icon={Download} label={t('actions.unpublish')} onClick={onUnpublish} />}
-        <CardButton icon={Copy} label={t('actions.duplicate')} onClick={onDuplicate} />
-        <CardButton icon={FileDown} label={t('actions.export')} onClick={onExport} />
-        {onExportLegacy && <CardButton icon={FileDown} label={t('actions.exportLegacy')} onClick={onExportLegacy} />}
-        {onConvert && <CardButton icon={Workflow} label={t('actions.convert')} onClick={onConvert} />}
-        {onRestore && <CardButton icon={RotateCcw} label={t('actions.restoreBuiltin')} onClick={onRestore} />}
-        {onDelete && <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t('actions.more')}
+            title={t('actions.more')}
+            className="ml-auto inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onPublish && <DropdownMenuItem onSelect={onPublish}><Upload className="w-3.5 h-3.5" aria-hidden />{t('actions.publish')}</DropdownMenuItem>}
+            {onUnpublish && <DropdownMenuItem onSelect={onUnpublish}><Download className="w-3.5 h-3.5" aria-hidden />{t('actions.unpublish')}</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={onDuplicate}><Copy className="w-3.5 h-3.5" aria-hidden />{t('actions.duplicate')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onExport}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.export')}</DropdownMenuItem>
+            {onExportLegacy && <DropdownMenuItem onSelect={onExportLegacy}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.exportLegacy')}</DropdownMenuItem>}
+            {onConvert && <DropdownMenuItem onSelect={onConvert}><Workflow className="w-3.5 h-3.5" aria-hidden />{t('actions.convert')}</DropdownMenuItem>}
+            {onRestore && <DropdownMenuItem onSelect={onRestore}><RotateCcw className="w-3.5 h-3.5" aria-hidden />{t('actions.restoreBuiltin')}</DropdownMenuItem>}
+            {onDelete && <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem destructive onSelect={onDelete}><Trash2 className="w-3.5 h-3.5" aria-hidden />{t('actions.delete')}</DropdownMenuItem>
+            </>}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )
@@ -683,27 +703,15 @@ function CardButton({
   icon: Icon,
   label,
   onClick,
-  danger,
 }: {
   icon: typeof Pencil
   label: string
   onClick: () => void
-  danger?: boolean
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={cn(
-        'inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-        danger
-          ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-      )}
-    >
-      <Icon className="w-3.5 h-3.5" />
-    </button>
+    <Button type="button" variant="ghost" size="sm" onClick={onClick} className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
+      <Icon className="w-3.5 h-3.5" aria-hidden />
+      {label}
+    </Button>
   )
 }

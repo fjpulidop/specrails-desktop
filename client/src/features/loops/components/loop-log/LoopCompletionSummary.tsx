@@ -21,18 +21,18 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
     <p className="flex items-center gap-1.5 font-medium text-accent-warning">
       <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span>{t('core.hostBlocked')}</span>
-      <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
+      <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-xs font-semibold">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
     </p>
     {blocker.reason && <p className="text-foreground/80">{blocker.reason}</p>}
     {command && <div className="min-w-0">
       <div className="flex items-center gap-1.5">
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">{t('core.failingCommand')}</span>
-        <button type="button" onClick={() => void copy()} aria-label={t('core.copyCommand')} title={t('core.copyCommand')} className="p-0.5 text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer">
+        <span className="text-xs font-semibold text-muted-foreground">{t('core.failingCommand')}</span>
+        <button type="button" onClick={() => void copy()} aria-label={t('core.copyCommand')} title={t('core.copyCommand')} className="p-0.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
           {copied ? <Check className="h-2.5 w-2.5 text-accent-success" /> : <Copy className="h-2.5 w-2.5" />}
         </button>
-        {copied && <span className="text-[9px] text-accent-success">{t('core.copiedCommand')}</span>}
+        {copied && <span className="text-[11px] text-accent-success">{t('core.copiedCommand')}</span>}
       </div>
-      <pre className="mt-0.5 font-mono text-[10px] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+      <pre className="mt-0.5 font-mono text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap break-words">{command}{blocker.cwd ? `  # ${t('core.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
     </div>}
     <p><span className="font-medium">{t('core.requiredAction')}:</span> {blocker.requiredAction}</p>
   </div>

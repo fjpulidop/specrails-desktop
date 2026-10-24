@@ -23,6 +23,7 @@ function formatDuration(ms: number | null): string {
 
 function formatTokens(n: number | null): string {
   if (n == null) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
@@ -38,8 +39,8 @@ function CompareRow({ label, a, b, highlight }: RowProps) {
   return (
     <div className="grid grid-cols-3 gap-2 py-2 border-b border-border/20 last:border-0 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`font-mono text-right ${highlight === 'a' ? 'text-accent-success font-semibold' : ''}`}>{a}</span>
-      <span className={`font-mono text-right ${highlight === 'b' ? 'text-accent-success font-semibold' : ''}`}>{b}</span>
+      <span className={`tabular-nums text-right ${highlight === 'a' ? 'text-accent-success font-semibold' : ''}`}>{a}</span>
+      <span className={`tabular-nums text-right ${highlight === 'b' ? 'text-accent-success font-semibold' : ''}`}>{b}</span>
     </div>
   )
 }
@@ -75,18 +76,18 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
   function header(job: JobCompareEntry, idx: number) {
     return (
       <div className="text-center space-y-1">
-        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{t('comparison.jobN', { n: idx + 1 })}</p>
-        <code className="text-[10px] text-foreground/70 block truncate max-w-[160px] mx-auto">
+        <p className="text-xs font-medium text-muted-foreground">{t('comparison.jobN', { n: idx + 1 })}</p>
+        <code className="text-[11px] text-foreground block truncate max-w-[160px] mx-auto">
           {job.command}
         </code>
-        <div className="flex items-center justify-center gap-1 text-[10px]">
+        <div className="flex items-center justify-center gap-1 text-[11px]">
           {job.status === 'completed'
-            ? <CheckCircle2 className="w-3 h-3 text-accent-success" />
-            : <XCircle className="w-3 h-3 text-destructive" />
+            ? <CheckCircle2 className="w-3 h-3 text-accent-success" aria-hidden />
+            : <XCircle className="w-3 h-3 text-destructive" aria-hidden />
           }
-          <span className="capitalize text-muted-foreground">{t(`statusLabel.${job.status}`, { defaultValue: job.status })}</span>
+          <span className="text-muted-foreground">{t(`statusLabel.${job.status}`, { defaultValue: job.status })}</span>
         </div>
-        <p className="text-[10px] text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
+        <p className="text-[11px] text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
       </div>
     )
   }
@@ -99,15 +100,15 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
         </DialogHeader>
 
         {loading && (
-          <div className="space-y-2">
+          <div role="status" aria-busy="true" aria-label={t('comparison.loading')} className="space-y-2">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-muted/20 rounded animate-pulse" />
+              <div key={i} className="h-8 bg-muted/20 rounded motion-safe:animate-pulse" />
             ))}
           </div>
         )}
 
         {error && (
-          <p role="alert" className="text-xs text-destructive">{t('comparison.loadFailed', { error })}</p>
+          <p role="alert" className="text-xs text-destructive" title={error}>{t('comparison.loadFailed')}</p>
         )}
 
         {data && (() => {
@@ -183,7 +184,7 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
         })()}
 
         {data && (
-          <p className="text-[10px] text-muted-foreground/60 text-center">
+          <p className="text-[11px] text-muted-foreground text-center">
             {t('comparison.betterValueHint')}
           </p>
         )}

@@ -21,13 +21,13 @@ function formatRelativeTime(isoTimestamp: string, t: TFunction): string {
 function ActivityIcon({ type }: { type: ActivityItem['type'] }) {
   switch (type) {
     case 'job_completed':
-      return <CheckCircle2 className="w-4 h-4 text-green-500 aurora-light:text-accent-success flex-shrink-0" />
+      return <CheckCircle2 className="w-4 h-4 text-accent-success flex-shrink-0" />
     case 'job_failed':
-      return <XCircle className="w-4 h-4 text-red-500 aurora-light:text-destructive flex-shrink-0" />
+      return <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
     case 'job_canceled':
       return <Ban className="w-4 h-4 text-muted-foreground flex-shrink-0" />
     default:
-      return <Zap className="w-4 h-4 text-blue-500 aurora-light:text-accent-info flex-shrink-0" />
+      return <Zap className="w-4 h-4 text-accent-info flex-shrink-0" />
   }
 }
 
@@ -42,10 +42,10 @@ function typeLabel(type: ActivityItem['type'], t: TFunction): string {
 
 function typeLabelClass(type: ActivityItem['type']): string {
   switch (type) {
-    case 'job_completed': return 'text-green-500 aurora-light:text-accent-success'
-    case 'job_failed': return 'text-red-500 aurora-light:text-destructive'
+    case 'job_completed': return 'text-accent-success'
+    case 'job_failed': return 'text-destructive'
     case 'job_canceled': return 'text-muted-foreground'
-    default: return 'text-blue-500 aurora-light:text-accent-info'
+    default: return 'text-accent-info'
   }
 }
 

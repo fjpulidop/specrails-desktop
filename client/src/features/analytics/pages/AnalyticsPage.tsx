@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { RefreshCw } from 'lucide-react'
+import { ChevronRight, RefreshCw } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-capabilities'
@@ -311,7 +311,7 @@ export default function AnalyticsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 pb-12">
       {/* Sticky filter header */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/40">
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border/40">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-semibold tracking-tight">{t('page.title')}</h1>
@@ -343,6 +343,7 @@ export default function AnalyticsPage() {
                 <button
                   key={p.value}
                   type="button"
+                  aria-pressed={filters.period === p.value}
                   onClick={() => setFilters((f) => ({ ...f, period: p.value }))}
                   className={`px-2.5 h-6 rounded text-[11px] font-medium transition-colors ${
                     filters.period === p.value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -372,6 +373,7 @@ export default function AnalyticsPage() {
               <button
                 key={c.value}
                 type="button"
+                aria-pressed={active}
                 onClick={() => toggleSurface(c.value)}
                 className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
                   active
@@ -385,9 +387,10 @@ export default function AnalyticsPage() {
         {/* Provider chips — only when the project has more than one engine */}
         {multiProvider && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="analytics-provider-chips">
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">{t('page.engine')}</span>
+            <span className="text-xs text-muted-foreground mr-1">{t('page.engine')}</span>
             <button
               type="button"
+              aria-pressed={isAllProviders}
               onClick={() => toggleProvider('all')}
               className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
                 isAllProviders
@@ -401,13 +404,14 @@ export default function AnalyticsPage() {
                 <button
                   key={p}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => toggleProvider(p)}
                   className={`h-7 px-3 rounded-full text-[11px] font-medium transition-all ${
                     active
                       ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
                   }`}
-                >{providerLabel(p)}{isLocalEngineId(p) && <span className="ml-1 rounded-full bg-accent-secondary/15 px-1.5 text-[9px] uppercase tracking-wide text-accent-secondary">{t('page.localEngine')}</span>}</button>
+                >{providerLabel(p)}{isLocalEngineId(p) && <span className="ml-1 rounded-full bg-accent-secondary/15 px-1.5 text-xs text-accent-secondary">{t('page.localEngine')}</span>}</button>
               )
             })}
           </div>
@@ -415,9 +419,10 @@ export default function AnalyticsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-accent-warning/30 bg-accent-warning/10 p-4 flex items-center justify-between">
-          <p className="text-sm text-accent-warning">{t('page.failedToLoad', { error })}</p>
+        <div role="alert" className="rounded-lg border border-accent-warning/30 bg-accent-warning/10 p-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-accent-warning">{t('page.failedToLoad')}</p>
           <button
+            type="button"
             onClick={() => fetchSpending()}
             className="flex items-center gap-1.5 h-7 px-3 rounded-md text-xs text-accent-warning border border-accent-warning/30 hover:bg-accent-warning/10"
           ><RefreshCw className="w-3 h-3" />{t('common:actions.retry')}</button>
@@ -435,19 +440,6 @@ export default function AnalyticsPage() {
       {/* Block 2: Timeline */}
       <SpendingTimeline data={data} loading={loading} />
 
-      {/* Block 2b: Agent-mission spend (pinned Agent Chat turns — hidden when empty) */}
-      <AgentMissionsCard data={data} loading={loading} />
-
-      {/* Block 2c: Time to decision / merge per delivery (period-scoped only) */}
-      {activeProjectId && (
-        <DecisionTimesCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
-      )}
-
-      {/* Block 2d: Loop economics — per-loop delivery, cost, rework and escaped defects */}
-      {activeProjectId && (
-        <LoopEconomicsCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
-      )}
-
       {/* Blocks 3 + 4 side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <QuickVsExploreCard data={data} loading={loading} />
@@ -458,16 +450,6 @@ export default function AnalyticsPage() {
           activeModel={filters.model?.[0]}
         />
       </div>
-
-      {/* Block 5: Scatter */}
-      <CostScatter
-        data={data}
-        loading={loading}
-        onSelectPoint={(point) => {
-          setTableFilters((tf) => ({ ...tf }))
-          setFilters((f) => ({ ...f, ticketId: point.ticketId ?? undefined }))
-        }}
-      />
 
       {/* Block 6: Top tickets */}
       <TopTicketsCrossSurface
@@ -481,7 +463,7 @@ export default function AnalyticsPage() {
         {/* BUG-ANALYTICS-35: cost/recency ordering toggle for the raw table so the
             costliest rows can be surfaced on page 1, not just the most recent. */}
         <div className="flex items-center justify-end gap-1.5" data-testid="analytics-table-sort">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">{t('table.sortLabel')}</span>
+          <span className="text-xs text-muted-foreground mr-1">{t('table.sortLabel')}</span>
           {(['recency', 'cost'] as const).map((s) => (
             <button
               key={s}
@@ -512,6 +494,34 @@ export default function AnalyticsPage() {
           onTableFiltersChange={setTableFilters}
         />
       </div>
+      {/* Secondary breakdowns: collapsed by default so the primary story
+          (hero → timeline → models → table) reads first. */}
+      <details className="group rounded-lg border border-border/40" data-testid="analytics-more-breakdowns">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 group-open:rotate-90" aria-hidden />
+          {t('page.moreBreakdowns')}
+        </summary>
+        <div className="flex flex-col gap-6 px-4 pb-4 pt-2">
+          {/* Agent-mission spend (pinned Agent Chat turns — hidden when empty) */}
+          <AgentMissionsCard data={data} loading={loading} />
+          {/* Time to decision / merge per delivery (period-scoped only) */}
+          {activeProjectId && (
+            <DecisionTimesCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
+          )}
+          {/* Loop economics — per-loop delivery, cost, rework and escaped defects */}
+          {activeProjectId && (
+            <LoopEconomicsCard projectId={activeProjectId} period={filters.period} from={filters.from} to={filters.to} />
+          )}
+          <CostScatter
+            data={data}
+            loading={loading}
+            onSelectPoint={(point) => {
+              setTableFilters((tf) => ({ ...tf }))
+              setFilters((f) => ({ ...f, ticketId: point.ticketId ?? undefined }))
+            }}
+          />
+        </div>
+      </details>
     </div>
   )
 }

@@ -107,13 +107,13 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
               {'window' in card && card.window && (
                 <span
                   data-testid="kpi-window-label"
-                  className="text-[10px] text-muted-foreground/70 whitespace-nowrap"
+                  className="text-[11px] text-muted-foreground whitespace-nowrap"
                 >
                   {card.window}
                 </span>
               )}
             </div>
-            <p className="text-xl font-semibold font-mono">{card.value}</p>
+            <p className="text-xl font-semibold tabular-nums">{card.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
           </div>
         ))}
@@ -121,7 +121,7 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       {includesEstimated && (
         <p
           data-testid="kpi-estimated-footnote"
-          className="text-[10px] text-muted-foreground/70 italic"
+          className="text-[11px] text-muted-foreground italic"
           title={t('desktop.includesEstimatedTooltip', { amount: formatUsd(estimatedTotal) })}
         >
           {t('desktop.includesEstimated', { amount: formatUsd(estimatedTotal) })}
@@ -130,7 +130,7 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       {(costUnavailable || costPartiallyUnavailable) && (
         <p
           data-testid="kpi-cost-coverage-note"
-          className="text-[10px] text-muted-foreground/70 italic"
+          className="text-[11px] text-muted-foreground italic"
         >
           {costUnavailable
             ? t('desktop.costUnavailable')
@@ -164,14 +164,14 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
         {anyEstimated && (
           <span
             data-testid="timeline-estimated-note"
-            className="text-[10px] text-muted-foreground/70 italic"
+            className="text-[11px] text-muted-foreground italic"
             title={t('desktop.timelineEstimatedTooltip')}
           >
             {t('desktop.includesEstimatedShort')}
           </span>
         )}
         {costPartiallyUnavailable && (
-          <span className="text-[10px] text-muted-foreground/70 italic">
+          <span className="text-[11px] text-muted-foreground italic">
             {t('desktop.costPartiallyUnavailable', { count: unpricedCount })}
           </span>
         )}
@@ -271,7 +271,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
                 <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
                 <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>
                 <span
-                  className="font-mono text-foreground"
+                  className="tabular-nums text-foreground"
                   title={costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined}
                 >
                   {costUnavailable
@@ -282,7 +282,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
             </div>
             <div className="h-1.5 rounded-full bg-border/30 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full transition-all duration-200"
                 style={{
                   width: `${(p.totalCostUsd / maxCost) * 100}%`,
                   backgroundColor: theme.chart[idx % theme.chart.length],
@@ -444,8 +444,8 @@ export default function DesktopAnalyticsPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-lg border border-red-400/30 aurora-light:border-destructive/30 bg-red-400/10 aurora-light:bg-destructive/10 p-3 text-xs text-red-400 aurora-light:text-destructive">
-            {t('desktop.failedToLoad', { error })}
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            {t('desktop.failedToLoad')}
           </div>
         )}
 
@@ -454,12 +454,12 @@ export default function DesktopAnalyticsPage() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg border border-border/40 bg-card/50 animate-pulse" />
+                <div key={i} className="h-20 rounded-lg border border-border/40 bg-card/50 motion-safe:animate-pulse" />
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="h-[220px] rounded-lg border border-border/40 bg-card/50 animate-pulse" />
+                <div key={i} className="h-[220px] rounded-lg border border-border/40 bg-card/50 motion-safe:animate-pulse" />
               ))}
             </div>
           </div>

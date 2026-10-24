@@ -17,7 +17,7 @@ export function BackgroundProcessHistoryModal({ processes, loading, error, onRef
   onClose: () => void
   onKill: (process: BackgroundProcess) => Promise<void> | void
 }) {
-  const { t } = useTranslation('agent')
+  const { t, i18n } = useTranslation('agent')
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(100)
   const [selected, setSelected] = useState<BackgroundProcessView | null>(null)
@@ -56,16 +56,16 @@ export function BackgroundProcessHistoryModal({ processes, loading, error, onRef
             <Terminal className={`h-4 w-4 shrink-0 ${isBackgroundProcessFinished(process) ? 'text-muted-foreground' : 'text-accent-info'}`} aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-mono text-xs text-foreground">{sanitizeBackgroundLog(process.command)}</span>
-              <span className="mt-1 block truncate text-[11px] text-muted-foreground">{sanitizeBackgroundLog(process.repositoryName ?? process.cwd)} · {new Date(process.startedAt).toLocaleString()} · PID {process.pid}</span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">{sanitizeBackgroundLog(process.repositoryName ?? process.cwd)} · {new Date(process.startedAt).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })} · PID {process.pid}</span>
             </span>
-            <span className={`max-w-[35%] shrink-0 rounded-full px-2 py-0.5 text-[10px] ${process.status === 'failed' ? 'bg-destructive/10 text-destructive' : isBackgroundProcessFinished(process) ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>{t(`backgroundProcess.status.${process.status}`)}</span>
+            <span className={`max-w-[35%] shrink-0 rounded-full px-2 py-0.5 text-[11px] ${process.status === 'failed' ? 'bg-destructive/10 text-destructive' : isBackgroundProcessFinished(process) ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>{t(`backgroundProcess.status.${process.status}`)}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </button>)}
           {loading && !processes.length ? <p role="status" className="flex justify-center gap-2 py-12 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.history.loading')}</p>
             : !error && !filtered.length && <p className="px-4 py-12 text-center text-xs text-muted-foreground">{t(query.trim() ? 'backgroundProcess.history.noMatches' : 'backgroundProcess.history.empty')}</p>}
           {filtered.length > limit && <div className="py-2 text-center"><button type="button" className={control} onClick={() => setLimit(value => value + 100)}>{t('backgroundProcess.history.showMore')}</button></div>}
         </div>
-        <footer className="border-t border-border/50 px-4 py-2 text-[10px] text-muted-foreground">{t('backgroundProcess.history.count', { count: filtered.length })}</footer>
+        <footer className="border-t border-border/50 px-4 py-2 text-[11px] text-muted-foreground">{t('backgroundProcess.history.count', { count: filtered.length })}</footer>
       </DialogContent>
     </DialogPortal>
   </Dialog>

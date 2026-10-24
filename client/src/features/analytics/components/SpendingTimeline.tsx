@@ -11,7 +11,7 @@ interface Props {
 export function SpendingTimeline({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
 
@@ -67,8 +67,8 @@ export function SpendingTimeline({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('timeline.title')}</h2>
-        <span className="text-[10px] text-muted-foreground/70">
+        <h2 className="text-xs font-medium text-muted-foreground">{t('timeline.title')}</h2>
+        <span className="text-[11px] text-muted-foreground">
           {costPartiallyUnavailable
             ? t('timeline.costPartiallyUnavailable', { count: unpricedCount })
             : t('timeline.subtitle')}
@@ -77,12 +77,12 @@ export function SpendingTimeline({ data, loading }: Props) {
       {costUnavailable ? (
         <div
           data-testid="timeline-cost-unavailable"
-          className="h-40 flex items-center justify-center text-xs text-muted-foreground/70"
+          className="h-40 flex items-center justify-center text-xs text-muted-foreground"
         >
           {t('timeline.costUnavailable')}
         </div>
       ) : isEmpty ? (
-        <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/70">
+        <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
           {t('timeline.empty')}
         </div>
       ) : (

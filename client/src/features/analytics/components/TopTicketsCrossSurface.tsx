@@ -12,16 +12,16 @@ interface Props {
 export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-40 rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-40 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
   const list = data.topTickets
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{t('topTickets.title')}</h2>
+      <h2 className="text-xs font-medium text-muted-foreground mb-3">{t('topTickets.title')}</h2>
       {list.length === 0 ? (
-        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground/70">{t('topTickets.empty')}</div>
+        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('topTickets.empty')}</div>
       ) : (
         <ul className="divide-y divide-border/30">
           {list.map((tk, i) => {
@@ -67,11 +67,11 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                         : formatUsd(tk.totalCostUsd)}
                     </div>
                     {costPartiallyUnavailable && (
-                      <div className="text-[10px] text-muted-foreground italic">
+                      <div className="text-[11px] text-muted-foreground italic">
                         {t('topTickets.costPartiallyUnavailable', { count: unpricedCount })}
                       </div>
                     )}
-                    <div className="text-[10px] text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
+                    <div className="text-[11px] text-muted-foreground">{t('runs', { count: tk.totalRuns })}</div>
                   </div>
                 </button>
               </li>

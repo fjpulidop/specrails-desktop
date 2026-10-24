@@ -32,10 +32,10 @@ const STATUS_BADGE: Record<JobStatus, { variant: BadgeVariant; labelKey: string;
 const ALL_STATUSES: JobStatus[] = ['running', 'completed', 'failed', 'canceled', 'zombie_terminated', 'queued', 'skipped']
 
 const PRIORITY_STYLES: Record<JobPriority, { className: string; labelKey: string }> = {
-  critical: { className: 'bg-red-500/15 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30', labelKey: 'recent.priority.critical' },
-  high: { className: 'bg-orange-500/15 aurora-light:bg-accent-warning/10 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30', labelKey: 'recent.priority.high' },
+  critical: { className: 'bg-destructive/10 text-destructive border-destructive/30', labelKey: 'recent.priority.critical' },
+  high: { className: 'bg-accent-warning/10 text-accent-warning border-accent-warning/30', labelKey: 'recent.priority.high' },
   normal: { className: '', labelKey: 'recent.priority.normal' },
-  low: { className: 'bg-gray-500/15 aurora-light:bg-muted text-gray-400 aurora-light:text-muted-foreground border-gray-500/30 aurora-light:border-border', labelKey: 'recent.priority.low' },
+  low: { className: 'bg-muted text-muted-foreground border-border', labelKey: 'recent.priority.low' },
 }
 
 /** Wall-clock duration from started_at / finished_at timestamps */
@@ -57,6 +57,7 @@ function formatWallDuration(startedAt: string | null, finishedAt: string | null 
 
 function formatTokens(n: number | null | undefined): string | null {
   if (n == null || n === 0) return null
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
@@ -212,9 +213,9 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
   if (isLoading && jobs.length === 0) {
     return (
-      <div className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
+      <div role="status" aria-busy="true" aria-label={t('recent.loading')} className="rounded-lg border border-border/40 bg-card/50 p-4 space-y-1">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-9 bg-muted/30 rounded-md animate-pulse" />
+          <div key={i} className="h-9 bg-muted/30 rounded-md motion-safe:animate-pulse" />
         ))}
       </div>
     )
@@ -223,11 +224,14 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
   if (jobs.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/40 bg-card/50 p-8 text-center space-y-2">
-        <ClipboardList className="w-8 h-8 text-muted-foreground/30 mx-auto" />
-        <p className="text-sm font-medium text-muted-foreground">{t('recent.emptyTitle')}</p>
-        <p className="text-xs text-muted-foreground/60">
+        <ClipboardList className="w-8 h-8 text-muted-foreground mx-auto" aria-hidden />
+        <p className="text-sm font-medium text-foreground">{t('recent.emptyTitle')}</p>
+        <p className="text-xs text-muted-foreground">
           {t('recent.emptyDescription')}
         </p>
+        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => navigate('/')}>
+          {t('recent.emptyCta')}
+        </Button>
       </div>
     )
   }
@@ -241,7 +245,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           <button
             type="button"
             onClick={() => setStatusFilter(null)}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+            aria-pressed={statusFilter === null}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               statusFilter === null
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -257,7 +262,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 key={s}
                 type="button"
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-                className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-colors ${
+                aria-pressed={statusFilter === s}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                   statusFilter === s
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -274,21 +280,23 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[10px] text-foreground"
+            className="h-6 rounded border border-border bg-input px-1.5 text-[11px] text-foreground"
             title={t('recent.fromDate')}
+            aria-label={t('recent.fromDate')}
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-[10px] text-foreground"
+            className="h-6 rounded border border-border bg-input px-1.5 text-[11px] text-foreground"
             title={t('recent.toDate')}
+            aria-label={t('recent.toDate')}
           />
           {(dateFrom || dateTo) && (
             <button
               type="button"
               onClick={() => { setDateFrom(''); setDateTo('') }}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('recent.clear')}
             </button>
@@ -327,7 +335,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
       {/* Compare mode banner */}
       {compareMode && (
-        <div className="flex items-center justify-between rounded-md bg-accent/40 px-3 py-1.5 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-between rounded-md bg-accent/40 px-3 py-1.5 text-xs text-muted-foreground">
           <span>
             {compareSelection.length === 0 && t('recent.selectTwoToCompare')}
             {compareSelection.length === 1 && t('recent.selectOneMore')}
@@ -336,7 +344,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           {compareSelection.length === 2 && (
             <button
               type="button"
-              className="text-[10px] font-medium text-foreground hover:underline"
+              className="text-xs font-medium text-foreground hover:underline"
               onClick={() => setCompareJobIds(compareSelection as [string, string])}
             >
               {t('recent.compareAction')}
@@ -346,7 +354,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       )}
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center gap-3 px-3 py-1 text-[11px] font-medium text-muted-foreground">
         <span className="w-14">{t('recent.colStatus')}</span>
         <span className="flex-1 min-w-0">{t('recent.colCommand')}</span>
         <div className="flex items-center gap-3 shrink-0">
@@ -419,7 +427,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
 
               {/* Priority badge (only for non-normal) */}
               {job.priority && job.priority !== 'normal' && (
-                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
+                <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border ${PRIORITY_STYLES[job.priority].className}`}>
                   {t(PRIORITY_STYLES[job.priority].labelKey)}
                 </span>
               )}
@@ -428,7 +436,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               {job.profile_name && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary/90">
+                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary">
                       {job.profile_name}
                     </span>
                   </TooltipTrigger>
@@ -456,15 +464,16 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               </div>
 
               {/* Meta */}
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground shrink-0">
-                <span className="w-14 text-right">{duration ?? '—'}</span>
-                <span className="w-12 text-right">{tokens ? `${tokens}` : '—'}</span>
-                <CostValue
-                  className="w-12 text-right"
-                  usd={job.total_cost_usd || null}
-                  estimated={Boolean(job.total_cost_usd_estimated)}
-                />
-                <span className="w-20 text-right">
+              <div className="flex items-center gap-3 text-[11px] tabular-nums text-muted-foreground shrink-0">
+                <span className="w-14 text-right" title={t('recent.colDuration')}>{duration ?? '—'}</span>
+                <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}</span>
+                <span className="w-12 text-right" title={t('recent.colCost')}>
+                  <CostValue
+                    usd={job.total_cost_usd || null}
+                    estimated={Boolean(job.total_cost_usd_estimated)}
+                  />
+                </span>
+                <span className="w-20 text-right" title={t('recent.colStarted')}>
                   {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
                 </span>
                 {isProposal && proposalId && (
@@ -490,7 +499,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
           <button
             type="button"
             onClick={() => setDisplayLimit((prev) => prev + PAGE_SIZE)}
-            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded hover:bg-accent/50"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded hover:bg-accent/50"
           >
             {t('recent.loadMore', { count: filteredJobs.length - displayLimit })}
           </button>

@@ -36,7 +36,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
         const clickable = chip.latestSegmentKey != null
         return (
           <Fragment key={chip.key}>
-            {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/30 shrink-0" />}
+            {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
             <button
               type="button"
               role="listitem"
@@ -87,7 +87,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
       {iteration && (
         <span
           data-testid="loop-iteration-chip"
-          className="ml-auto flex items-center gap-1.5 shrink-0 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-2.5 py-1 text-[10px] font-medium text-accent-highlight tabular-nums"
+          className="ml-auto flex items-center gap-1.5 shrink-0 rounded-full border border-accent-highlight/40 bg-accent-highlight/10 px-2.5 py-1 text-[11px] font-medium text-accent-highlight tabular-nums"
         >
           <Repeat className="w-3 h-3" />
           {iteration.limit != null

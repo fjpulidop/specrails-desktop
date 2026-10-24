@@ -44,9 +44,9 @@ export function boundedBackgroundLogs(lines: readonly LogLine[]): { lines: LogLi
   return { lines: retained.reverse(), truncated }
 }
 
-function formatLogLine(entry: LogLine): string {
+function formatLogLine(entry: LogLine, locale?: string): string {
   const at = new Date(entry.at)
-  return `[${Number.isNaN(at.getTime()) ? '—' : at.toLocaleTimeString(undefined, { hour12: false })}] [${entry.source}] ${entry.line}`
+  return `[${Number.isNaN(at.getTime()) ? '—' : at.toLocaleTimeString(locale, { hour12: false })}] [${entry.source}] ${entry.line}`
 }
 
 export function BackgroundProcessLogsModal({ process, onClose, onKill, onBack }: {
@@ -65,7 +65,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
   onKill: (process: BackgroundProcess) => Promise<void> | void
   onBack?: () => void
 }) {
-  const { t } = useTranslation('agent')
+  const { t, i18n } = useTranslation('agent')
   const scope = backgroundProcessKey(process)
   const processRef = useRef(process)
   processRef.current = process
@@ -132,7 +132,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
     const needle = query.toLocaleLowerCase()
     return lines.filter(entry => (source === 'all' || source === entry.source) && (!needle || entry.line.toLocaleLowerCase().includes(needle)))
   }, [lines, query, source])
-  const visibleText = useMemo(() => filtered.map(formatLogLine).join('\n'), [filtered])
+  const visibleText = useMemo(() => filtered.map(entry => formatLogLine(entry, i18n.language)).join('\n'), [filtered, i18n.language])
   useEffect(() => {
     if (follow && !paused && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
   }, [filtered, follow, paused])
@@ -214,12 +214,12 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
           onScroll={event => { const node = event.currentTarget; if (node.scrollHeight - node.clientHeight - node.scrollTop > 40) setFollow(false) }}
           className="min-h-0 flex-1 overflow-auto bg-background/80 px-3 py-3 font-mono text-[11px] leading-5 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50">
           {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
-            <span className="select-none whitespace-nowrap text-[10px] text-muted-foreground/70">{new Date(entry.at).toLocaleTimeString(undefined, { hour12: false })}</span>
-            <span className={`select-none text-[10px] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground/60'}`}>{entry.source}</span>
+            <span className="select-none whitespace-nowrap tabular-nums text-muted-foreground">{new Date(entry.at).toLocaleTimeString(i18n.language, { hour12: false })}</span>
+            <span className={`select-none ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground'}`}>{entry.source}</span>
             <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>
           </div>) : !failed && <p className="py-12 text-center font-sans text-xs text-muted-foreground">{t(lines.length ? 'backgroundProcess.noMatches' : 'backgroundProcess.empty')}</p>}
         </div>
-        <footer className="flex flex-wrap justify-between gap-1 border-t border-border/50 px-4 py-2 text-[10px] text-muted-foreground"><span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span><span>{t('backgroundProcess.exportHint')}</span></footer>
+        <footer className="flex flex-wrap justify-between gap-1 border-t border-border/50 px-4 py-2 text-[11px] text-muted-foreground"><span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span><span>{t('backgroundProcess.exportHint')}</span></footer>
       </DialogContent>
     </DialogPortal>
   </Dialog>

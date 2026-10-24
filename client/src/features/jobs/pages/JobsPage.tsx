@@ -4,6 +4,7 @@ import { AgentRuntimeRuns } from '../../settings/components/AgentRuntimeRuns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { toast } from 'sonner'
+import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { usePipeline } from '../hooks/usePipeline'
 import { useProjectCache } from '../../../hooks/useProjectCache'
@@ -152,8 +153,11 @@ export default function JobsPage() {
         />
       </div>
 
-      {activeProjectId && <details className="mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
-        <summary className="cursor-pointer p-3 text-sm">{t('agentRuntime:runs.title')}</summary>
+      {activeProjectId && <details className="group mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 group-open:rotate-90" aria-hidden />
+          {t('agentRuntime:runs.title')}
+        </summary>
         {showRuntimeHistory && <AgentRuntimeRuns projectId={activeProjectId} />}
       </details>}
       <RecentJobs

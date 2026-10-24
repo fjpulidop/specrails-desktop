@@ -108,7 +108,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
 
   const tile = (label: string, stats: DurationStats, testId: string) => (
     <div className="rounded-lg border border-border/40 bg-background/40 p-3" data-testid={testId}>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-baseline gap-3">
         <span className="text-2xl font-semibold tabular-nums tracking-tight">{fmt(stats.medianMs)}</span>
         <span className="text-xs text-muted-foreground">{t('decisionTimes.median')}</span>
@@ -127,7 +127,7 @@ export function DecisionTimesCard({ projectId, period, from, to }: Props) {
       <div className="flex items-center gap-2">
         <Timer className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
         <h3 className="text-sm font-medium">{t('decisionTimes.title')}</h3>
-        <span className="text-[10px] text-muted-foreground">{t('decisionTimes.subtitle')}</span>
+        <span className="text-[11px] text-muted-foreground">{t('decisionTimes.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('decisionTimes.unavailable')}</p>}
       {!data && loading && <p role="status" className="text-xs text-muted-foreground">{t('decisionTimes.loading')}</p>}

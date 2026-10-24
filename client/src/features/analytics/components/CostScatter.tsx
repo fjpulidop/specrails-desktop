@@ -77,7 +77,7 @@ const SURFACES = Object.keys(SURFACE_LABEL) as Surface[]
 export function CostScatter({ data, loading, onSelectPoint }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[260px] rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-[260px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
 
@@ -110,7 +110,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('scatter.title')}</h2>
+        <h2 className="text-xs font-medium text-muted-foreground">{t('scatter.title')}</h2>
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           {datasets.filter((d) => d.points.length > 0).map((d) => (
             <span key={d.surface} className="inline-flex items-center gap-1">
@@ -123,7 +123,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {truncated && !isEmpty && (
         <div
           data-testid="scatter-truncation-notice"
-          className="mb-2 text-[10px] text-accent-warning"
+          className="mb-2 text-[11px] text-accent-warning"
         >
           {t('scatter.truncated', { shown: data.scatter.length, total: scatterTotal })}
         </div>
@@ -131,7 +131,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {costPartiallyUnavailable && (
         <div
           data-testid="scatter-cost-partial-notice"
-          className="mb-2 text-[10px] text-muted-foreground/80 italic"
+          className="mb-2 text-[11px] text-muted-foreground/80 italic"
         >
           {t('scatter.costPartiallyUnavailable', { count: unpricedRuns })}
         </div>
@@ -139,12 +139,12 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       {costUnavailable ? (
         <div
           data-testid="scatter-cost-unavailable"
-          className="h-40 flex items-center justify-center text-xs text-muted-foreground/70"
+          className="h-40 flex items-center justify-center text-xs text-muted-foreground"
         >
           {t('scatter.costUnavailable')}
         </div>
       ) : isEmpty ? (
-        <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/70">
+        <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
           {t('scatter.empty')}
         </div>
       ) : (

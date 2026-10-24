@@ -61,7 +61,7 @@ describe('JobComparisonModal', () => {
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
     render(<JobComparisonModal jobIds={jobIds} onClose={onClose} />)
     // ui/dialog portals the content to document.body.
-    const skeleton = document.body.querySelector('.animate-pulse')
+    const skeleton = document.body.querySelector('[aria-busy="true"]')
     expect(skeleton).toBeInTheDocument()
   })
 

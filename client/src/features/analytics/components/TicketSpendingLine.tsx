@@ -86,7 +86,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
           ? '—'
           : `${(summary.estimatedCostUsd ?? 0) > 0 ? '~' : ''}${costPartiallyUnavailable ? '≥' : ''}${fmtCost(summary.totalCostUsd)}`}
       </span>
-      <span className="text-muted-foreground/60">·</span>
+      <span className="text-muted-foreground">·</span>
       <span
         className="tabular-nums"
         data-testid={turnsUnavailable ? 'ticket-turns-unavailable' : undefined}
@@ -102,11 +102,11 @@ export function TicketSpendingLine({ ticketId }: Props) {
           ? '—'
           : `${turnsPartiallyUnavailable ? '≥' : ''}${t('spendingLine.turns', { count: summary.totalTurns })}`}
       </span>
-      <span className="text-muted-foreground/60">·</span>
+      <span className="text-muted-foreground">·</span>
       <span className="tabular-nums">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
       {breakdown && (
         <>
-          <span className="text-muted-foreground/60">·</span>
+          <span className="text-muted-foreground">·</span>
           <span>{breakdown}</span>
         </>
       )}

@@ -18,7 +18,7 @@ const PROVIDER_ACCENT: Record<string, string> = {
   claude: 'bg-accent-info',
   codex: 'bg-accent-highlight',
   gemini: 'bg-accent-success',
-  kimi: 'bg-purple-400',
+  kimi: 'bg-accent-secondary',
 }
 
 function fmtUsd(v: number): string {
@@ -36,7 +36,7 @@ function providerAccent(id: string): string {
 export function ProviderBreakdownCard({ data, loading }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-32 rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-32 rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data || data.byProvider.length === 0) {
     // Single-provider projects (or empty datasets) skip this widget — the
@@ -63,10 +63,10 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-baseline justify-between mb-3">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="text-[11px] text-muted-foreground">
             {t('providerCard.title')}
           </div>
-          <div className="text-xs text-muted-foreground/70 mt-0.5">
+          <div className="text-xs text-muted-foreground mt-0.5">
             <Trans
               ns="analytics"
               i18nKey="providerCard.description"
@@ -128,7 +128,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
       <span className="text-xs font-medium">{providerLabel(entry.provider)}</span>
-      <span className="text-[10px] text-muted-foreground tabular-nums">
+      <span className="text-[11px] text-muted-foreground tabular-nums">
         {t('runs', { count: entry.count })}
       </span>
       {costUnavailable ? (

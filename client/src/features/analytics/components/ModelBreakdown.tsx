@@ -17,7 +17,7 @@ interface Props {
 export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
-    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 animate-pulse" />
+    return <div className="h-[220px] rounded-xl border border-border/40 bg-card/40 motion-safe:animate-pulse" />
   }
   if (!data) return null
 
@@ -35,9 +35,9 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{t('models.title')}</h2>
+      <h2 className="text-xs font-medium text-muted-foreground mb-3">{t('models.title')}</h2>
       {top.length === 0 ? (
-        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground/70">{t('models.empty')}</div>
+        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('models.empty')}</div>
       ) : (
         <ul className="space-y-1.5">
           {top.map((m) => {
@@ -55,6 +55,7 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
               <li key={`${m.provider ?? 'claude'}:${m.model}`}>
                 <button
                   type="button"
+                  aria-pressed={isActive}
                   onClick={() => onSelectModel(m.model, m.provider)}
                   className={`w-full text-left group rounded-md px-2 py-1.5 transition-colors ${
                     isActive ? 'bg-accent-highlight/10 ring-1 ring-accent-highlight/30' : 'hover:bg-accent/30'
