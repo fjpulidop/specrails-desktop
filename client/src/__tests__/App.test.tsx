@@ -171,3 +171,43 @@ it('Loops over a mission: standard header with a visible close, focus returns to
     await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right'))
   } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
 })
+
+
+describe('full-page modals are places (Back / Forward)', () => {
+  const pressHistory = (code: 'BracketLeft' | 'BracketRight') => {
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, ctrlKey: true, bubbles: true, cancelable: true }))
+    })
+  }
+
+  it('Back closes the Loops modal opened over a mission and Forward reopens it, without leaving Mission mode', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+    localStorage.setItem('specrails-desktop:uiMode', 'agent')
+    try {
+      render(<App />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Loops' }))
+      expect(await screen.findByTestId('loops-modal')).toBeInTheDocument()
+      pressHistory('BracketLeft')
+      await waitFor(() => expect(screen.queryByTestId('loops-modal')).not.toBeInTheDocument())
+      expect(localStorage.getItem('specrails-desktop:uiMode')).toBe('agent')
+      pressHistory('BracketRight')
+      expect(await screen.findByTestId('loops-modal')).toBeInTheDocument()
+      expect(localStorage.getItem('specrails-desktop:uiMode')).toBe('agent')
+    } finally { localStorage.removeItem('specrails-desktop:uiMode') }
+  })
+
+  it('closing a modal from its own close button leaves nothing to go back to', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
+    localStorage.setItem('specrails-desktop:uiMode', 'agent')
+    try {
+      render(<App />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Plugins' }))
+      const modal = await screen.findByTestId('plugins-modal')
+      fireEvent.click(within(modal).getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(screen.queryByTestId('plugins-modal')).not.toBeInTheDocument())
+      // Back from the plain mission now has no stop: the modal does not come back.
+      pressHistory('BracketLeft')
+      expect(screen.queryByTestId('plugins-modal')).not.toBeInTheDocument()
+    } finally { localStorage.removeItem('specrails-desktop:uiMode') }
+  })
+})

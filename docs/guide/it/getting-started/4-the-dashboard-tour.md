@@ -42,6 +42,7 @@ Una sottile striscia corre lungo il bordo inferiore della finestra. È piccola m
 - **Cmd/Ctrl+B** — fissa o comprimi la barra laterale sinistra; **Option+Cmd+B** (**Ctrl+Alt+B**) fa lo stesso con quella destra.
 - **Cmd/Ctrl+J** — apri o chiudi il pannello del terminale.
 - **Cmd/Ctrl+K** — apri la ricerca.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** su Windows/Linux), i pulsanti **←  →** nella barra del titolo o i pulsanti indietro/avanti del mouse — tornano indietro o avanti tra i luoghi visitati: spec, missioni, job, progetti e pannelli a schermo intero. Clic destro (o pressione prolungata) su un pulsante mostra gli ultimi luoghi.
 
 ## Dove andare adesso
 

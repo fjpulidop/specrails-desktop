@@ -27,11 +27,27 @@ function useDropdownMenu(): DropdownMenuContextValue {
   return ctx
 }
 
-export function DropdownMenu({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = React.useState(false)
+export function DropdownMenu({
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  children: React.ReactNode
+  /** Controlled open state (a menu opened by something other than a click on its trigger). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
+  const onOpenChangeRef = React.useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  const setOpen = React.useCallback((next: boolean) => {
+    setUncontrolledOpen(next)
+    onOpenChangeRef.current?.(next)
+  }, [])
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
   const menuId = React.useId()
-  const value = React.useMemo(() => ({ open, setOpen, triggerRef, menuId }), [open, menuId])
+  const value = React.useMemo(() => ({ open, setOpen, triggerRef, menuId }), [open, setOpen, menuId])
   return <DropdownMenuContext.Provider value={value}>{children}</DropdownMenuContext.Provider>
 }
 

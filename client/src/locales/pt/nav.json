@@ -79,7 +79,14 @@
     "minimizeWindow": "Minimizar janela",
     "maximizeWindow": "Maximizar janela",
     "closeWindow": "Fechar janela",
-    "restoreWindow": "Restaurar janela"
+    "restoreWindow": "Restaurar janela",
+    "history": "Histórico de navegação",
+    "back": "Voltar",
+    "forward": "Avançar",
+    "backTo": "Voltar para {{place}}",
+    "forwardTo": "Avançar para {{place}}",
+    "backMenu": "Lugares anteriores",
+    "forwardMenu": "Próximos lugares"
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de custo",
@@ -133,5 +140,39 @@
     "inactive": "Suspensão normal permitida.",
     "failed": "Não foi possível alterar a suspensão."
   },
-  "skipToContent": "Pular para o conteúdo principal"
+  "skipToContent": "Pular para o conteúdo principal",
+  "places": {
+    "routes": {
+      "dashboard": "Painel",
+      "jobs": "Jobs",
+      "analytics": "Análises",
+      "activity": "Atividade",
+      "agents": "Agentes",
+      "code": "Código",
+      "integrations": "Integrações",
+      "settings": "Configurações do projeto",
+      "docs": "Documentação",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Missão",
+    "missionTitled": "Missão · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Pacote de revisão",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentação",
+      "analytics": "Análises de todos os projetos"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Essa spec não existe mais e foi ignorada.",
+      "mission": "Essa missão não existe mais e foi ignorada.",
+      "job": "Esse job não existe mais e foi ignorado.",
+      "review": "Esse pacote de revisão não existe mais e foi ignorado."
+    }
+  }
 }

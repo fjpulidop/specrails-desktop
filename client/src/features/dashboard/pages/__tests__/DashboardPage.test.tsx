@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '../../../../test-utils'
+import { render, screen, fireEvent, act } from '../../../../test-utils'
+import { useLocation, useNavigate, type Location, type NavigateFunction } from 'react-router-dom'
 import DashboardPage from '../DashboardPage'
 import type { LocalTicket } from '../../../../types'
 
@@ -195,6 +196,54 @@ describe('DashboardPage', () => {
     expect(screen.getByTestId('ticket-detail-modal')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close'))
     expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+  })
+
+  describe('spec modal as a place (?spec=)', () => {
+    let loc: Location
+    let nav: NavigateFunction
+    function Probe() {
+      loc = useLocation()
+      nav = useNavigate()
+      return null
+    }
+    const renderWithProbe = (route = '/') => render(<><DashboardPage /><Probe /></>, { route })
+
+    it('opening a spec writes ?spec=<id> and closing pops back', () => {
+      renderWithProbe()
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      expect(loc.search).toBe('?spec=1')
+      fireEvent.click(screen.getByText('close'))
+      expect(loc.search).toBe('')
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+    })
+
+    it('the browser Back closes the modal and Forward reopens it', () => {
+      renderWithProbe()
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      act(() => nav(-1))
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+      act(() => nav(1))
+      expect(screen.getByTestId('ticket-detail-title')).toHaveTextContent('Spec ticket')
+    })
+
+    it('a link with ?spec= opens that spec', () => {
+      renderWithProbe('/?spec=1')
+      expect(screen.getByTestId('ticket-detail-title')).toHaveTextContent('Spec ticket')
+    })
+
+    it('a link to a spec that does not exist opens nothing', () => {
+      renderWithProbe('/?spec=404')
+      expect(screen.queryByTestId('ticket-detail-modal')).not.toBeInTheDocument()
+    })
+
+    it('filters and sorting do not add history entries', () => {
+      renderWithProbe()
+      act(() => nav('/?status=done', { replace: true }))
+      act(() => nav('/?status=failed&sort=cost', { replace: true }))
+      fireEvent.click(screen.getByTestId('specs-board-open-ticket'))
+      fireEvent.click(screen.getByText('close'))
+      expect(loc.search).toBe('?status=failed&sort=cost')
+    })
   })
 
   it('CreateTicketModal is not shown initially', () => {

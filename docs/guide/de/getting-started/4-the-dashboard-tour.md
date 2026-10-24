@@ -42,6 +42,7 @@ Ein schmaler Streifen verläuft ganz unten am Fenster. Klein, aber praktisch:
 - **Cmd/Ctrl+B** – linke Seitenleiste anpinnen oder einklappen; **Option+Cmd+B** (**Ctrl+Alt+B**) macht dasselbe mit der rechten.
 - **Cmd/Ctrl+J** – Terminal-Panel ein-/ausblenden.
 - **Cmd/Ctrl+K** – Suche öffnen.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** unter Windows/Linux), die Schaltflächen **←  →** in der Titelleiste oder die Zurück-/Vor-Tasten der Maus – gehen durch die besuchten Orte: Specs, Missionen, Jobs, Projekte und Vollbild-Panels. Rechtsklick (oder langes Drücken) auf eine Schaltfläche zeigt die letzten Orte.
 
 ## Wie es weitergeht
 

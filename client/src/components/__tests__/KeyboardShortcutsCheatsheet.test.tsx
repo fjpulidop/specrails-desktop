@@ -51,4 +51,24 @@ describe('KeyboardShortcutsCheatsheet', () => {
     expect(screen.getByText('Pause or resume the Flow (run strip focused)')).toBeInTheDocument()
     expect(screen.getByText('Hand off the Flow (run strip focused)')).toBeInTheDocument()
   })
+
+  it('lists Back / Forward with the keyboard family of the platform', () => {
+    const platform = Object.getOwnPropertyDescriptor(navigator, 'platform')
+    try {
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+      const { unmount } = render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      expect(screen.getAllByText('Go back / forward to the previous place')).toHaveLength(1)
+      expect(screen.getByText('⌘[')).toBeInTheDocument()
+      expect(screen.queryByText('Alt+←')).not.toBeInTheDocument()
+      unmount()
+
+      Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+      render(<KeyboardShortcutsCheatsheet open={true} onOpenChange={vi.fn()} />)
+      expect(screen.getAllByText('Go back / forward to the previous place')).toHaveLength(2)
+      expect(screen.getByText('Ctrl+[')).toBeInTheDocument()
+      expect(screen.getByText('Alt+←')).toBeInTheDocument()
+    } finally {
+      if (platform) Object.defineProperty(navigator, 'platform', platform)
+    }
+  })
 })

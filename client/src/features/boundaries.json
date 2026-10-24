@@ -253,6 +253,7 @@
       "context/MissionSplitViewsContext.tsx",
       "context/MissionWindowsContext.tsx",
       "hooks/useAgentRefActions.ts",
+      "hooks/useMissionPlaceSync.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",
       "lib/mission-search.ts",

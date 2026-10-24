@@ -45,6 +45,7 @@ Keyboard shortcuts (the VS Code / Cursor convention):
 |----------|--------|
 | `Cmd+B` / `Ctrl+B` | Cycle the **left** sidebar (projects and missions) |
 | `⌥⌘B` / `Ctrl+Alt+B` | Cycle the **right** sidebar (project sections, or **On workspace** in Mission mode) |
+| `⌘[` `⌘]` / `Ctrl+[` `Ctrl+]` or `Alt+←` `Alt+→` | **Back / Forward** through the places you have visited (also the title-bar **← →** buttons and the mouse back/forward buttons; ignored while typing) |
 
 State is per-machine (local UI preference, not synced).
 

@@ -79,7 +79,14 @@
     "minimizeWindow": "Minimize window",
     "maximizeWindow": "Maximize window",
     "closeWindow": "Close window",
-    "restoreWindow": "Restore window"
+    "restoreWindow": "Restore window",
+    "history": "Navigation history",
+    "back": "Back",
+    "forward": "Forward",
+    "backTo": "Back to {{place}}",
+    "forwardTo": "Forward to {{place}}",
+    "backMenu": "Previous places",
+    "forwardMenu": "Next places"
   },
   "costAlerts": {
     "costAlertTitle": "Cost alert",
@@ -133,5 +140,39 @@
     "inactive": "Normal sleep allowed.",
     "failed": "Could not change sleep prevention."
   },
-  "skipToContent": "Skip to main content"
+  "skipToContent": "Skip to main content",
+  "places": {
+    "routes": {
+      "dashboard": "Dashboard",
+      "jobs": "Jobs",
+      "analytics": "Analytics",
+      "activity": "Activity",
+      "agents": "Agents",
+      "code": "Code",
+      "integrations": "Integrations",
+      "settings": "Project settings",
+      "docs": "Docs",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Mission",
+    "missionTitled": "Mission · {{title}}",
+    "job": "Job {{id}}",
+    "review": "Review packet",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Docs",
+      "analytics": "All-projects analytics"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "That spec no longer exists, so it was skipped.",
+      "mission": "That mission no longer exists, so it was skipped.",
+      "job": "That job no longer exists, so it was skipped.",
+      "review": "That review packet no longer exists, so it was skipped."
+    }
+  }
 }

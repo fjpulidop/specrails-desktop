@@ -67,7 +67,7 @@ import { BottomPanel } from './features/terminals/components/terminal/BottomPane
 import { StatusBar } from './components/StatusBar'
 import { PanelChevronButton } from './features/terminals/components/terminal/PanelChevronButton'
 import { useUiMode } from './context/UiModeContext'
-import { AgentWorkspaceProvider } from './features/missions/context/AgentWorkspaceContext'
+import { AgentWorkspaceProvider, useAgentWorkspace } from './features/missions/context/AgentWorkspaceContext'
 import { AgentWorkspaceSidebar } from './features/missions/components/AgentWorkspaceSidebar'
 import { AgentModeSurface } from './features/missions/components/AgentModeSurface'
 import { AgentBrowserCaptureHost } from './features/missions/components/AgentBrowserCaptureHost'
@@ -88,6 +88,10 @@ import { ThemeProvider, useTheme } from './features/settings/context/ThemeContex
 import { LanguageProvider } from './features/settings/context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
+import { PlaceHistoryProvider, usePlaceHistory } from './hooks/usePlaceHistory'
+import { usePlaceParam } from './hooks/usePlaceParam'
+import { useMissionPlaceSync } from './features/missions/hooks/useMissionPlaceSync'
+import { JOB_PARAM, MISSION_PARAM, OVERLAY_PARAM, PLACE_PUSH_STATE, PROJECT_PARAM, REVIEW_PARAM, jobIdFromPath, type OverlayKind } from './lib/places'
 
 const STATUSBAR_HEIGHT_PX = 28
 
@@ -144,9 +148,12 @@ const RESTORED_BY_RELOAD = (() => {
   }
 })()
 
-function useProjectRouteMemory(activeProjectId: string | null) {
+export function useProjectRouteMemory(activeProjectId: string | null) {
   const location = useLocation()
   const navigate = useNavigate()
+  const places = usePlaceHistory()
+  const placesRef = useRef(places)
+  placesRef.current = places
 
   // Map of projectId → last visited path. In-memory only: deliberately not
   // persisted, so a cold start always lands on Dashboard ('/') for every
@@ -176,12 +183,19 @@ function useProjectRouteMemory(activeProjectId: string | null) {
   }, [])
 
   useEffect(() => {
+    // The history entry we are on may belong to ANOTHER project (Back/Forward
+    // just restored it, the project switch follows): its route is not the
+    // outgoing project's route and must not be saved as such.
+    const entryProject = placesRef.current?.getCurrentEntryProjectId() ?? null
+    const entryIsOutgoing = !entryProject || entryProject === prevProjectId.current
+
     // Save the current route for the outgoing project — but never a global
     // (non-project) route like /loops or /docs, which would otherwise be
     // restored as that project's surface on the next switch.
     if (
       prevProjectId.current &&
       prevProjectId.current !== activeProjectId &&
+      entryIsOutgoing &&
       !isNonProjectRoute(location.pathname)
     ) {
       routeMemory.current.set(prevProjectId.current, location.pathname)
@@ -190,22 +204,36 @@ function useProjectRouteMemory(activeProjectId: string | null) {
     // Restore route for the incoming project (defaults to Dashboard '/' when
     // no in-session memory exists, or when the remembered route is a global one).
     if (activeProjectId && activeProjectId !== prevProjectId.current) {
-      const savedRoute = routeMemory.current.get(activeProjectId)
-      const keepReloadedRoute = RESTORED_BY_RELOAD && prevProjectId.current === null && !savedRoute
-      const targetRoute = savedRoute && !isNonProjectRoute(savedRoute)
-        ? savedRoute
-        : keepReloadedRoute ? location.pathname : '/'
-      if (location.pathname !== targetRoute) {
-        navigate(targetRoute, { replace: true })
+      const restoredByHistory = placesRef.current?.consumeProjectRestore(activeProjectId) ?? false
+      if (!restoredByHistory) {
+        const savedRoute = routeMemory.current.get(activeProjectId)
+        const firstResolution = prevProjectId.current === null
+        const keepReloadedRoute = RESTORED_BY_RELOAD && firstResolution && !savedRoute
+        const targetRoute = savedRoute && !isNonProjectRoute(savedRoute)
+          ? savedRoute
+          : keepReloadedRoute ? location.pathname : '/'
+        if (firstResolution) {
+          if (location.pathname !== targetRoute) navigate(targetRoute, { replace: true })
+        } else {
+          // A project switch is a place: PUSH an entry carrying `?p=<project>`
+          // (and the selected mission) so Back returns to the previous project.
+          const params = new URLSearchParams()
+          const mission = new URLSearchParams(location.search).get(MISSION_PARAM)
+          if (mission) params.set(MISSION_PARAM, mission)
+          params.set(PROJECT_PARAM, activeProjectId)
+          navigate({ pathname: targetRoute, search: `?${params.toString()}` }, { state: { [PLACE_PUSH_STATE]: PROJECT_PARAM } })
+        }
       }
     }
 
     prevProjectId.current = activeProjectId
-  }, [activeProjectId, location.pathname, navigate])
+  }, [activeProjectId, location.pathname, location.search, navigate])
 
   // Continuously update the in-memory map for the active project so a project
   // switch restores precisely the last surface the user was on.
   useEffect(() => {
+    const entryProject = placesRef.current?.getCurrentEntryProjectId() ?? null
+    if (entryProject && entryProject !== activeProjectId) return // a restored entry of another project
     if (activeProjectId && location.pathname !== '/' && !isNonProjectRoute(location.pathname)) {
       routeMemory.current.set(activeProjectId, location.pathname)
     }
@@ -241,16 +269,102 @@ function DesktopApp() {
     window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
   }, [])
-  const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  // Full-page modals are PLACES: `?overlay=loops|plugins|docs|analytics` (and
+  // `?review=<id>` / `?job=<id>`), pushed on open so Back closes them. Analytics
+  // and Docs are URL-driven in both modes; Loops/Plugins/Review are modals only
+  // in Mission mode (Board mode shows them as routes) so their open flags stay
+  // state, kept in step with the URL below.
+  const places = usePlaceHistory()
+  const overlay = usePlaceParam(OVERLAY_PARAM)
+  const reviewParam = usePlaceParam(REVIEW_PARAM)
+  const jobParam = usePlaceParam(JOB_PARAM)
+  const uiModeRef = useRef(uiMode)
+  uiModeRef.current = uiMode
+  const overlayValueRef = useRef(overlay.value)
+  overlayValueRef.current = overlay.value
+  const reviewValueRef = useRef(reviewParam.value)
+  reviewValueRef.current = reviewParam.value
+  const { open: openOverlay, close: closeOverlayParam } = overlay
+  const { close: closeReviewParam } = reviewParam
+  const closeOverlay = useCallback((kind: OverlayKind) => {
+    if (overlayValueRef.current === kind) closeOverlayParam()
+  }, [closeOverlayParam])
+  const analyticsOpen = overlay.value === 'analytics'
+  const setAnalyticsOpen = useCallback((open: boolean) => {
+    if (open) openOverlay('analytics')
+    else closeOverlay('analytics')
+  }, [openOverlay, closeOverlay])
+  const docsOpen = overlay.value === 'docs'
   const [loopsOpen, setLoopsOpen] = useState(false)
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
   const [pluginsOpen, setPluginsOpen] = useState(false)
-  const closeLoops = useCallback(() => { setLoopsOpen(false); setLoopBuilderId(null) }, [])
+  const resetLoops = useCallback(() => { setLoopsOpen(false); setLoopBuilderId(null) }, [])
+  const closeLoops = useCallback(() => {
+    if (uiModeRef.current === 'agent' && overlayValueRef.current === 'loops') {
+      setLoopBuilderId(null)
+      closeOverlayParam()
+    } else resetLoops()
+  }, [closeOverlayParam, resetLoops])
+  const closePlugins = useCallback(() => {
+    if (uiModeRef.current === 'agent' && overlayValueRef.current === 'plugins') closeOverlayParam()
+    else setPluginsOpen(false)
+  }, [closeOverlayParam])
   // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
   const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
-  const [docsOpen, setDocsOpen] = useState(false)
+  const closeReview = useCallback(() => {
+    if (reviewValueRef.current) closeReviewParam()
+    else setReviewDeliveryId(null)
+  }, [closeReviewParam])
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
-  const closeDocs = useCallback(() => setDocsOpen(false), [])
+  const closeDocs = useCallback(() => closeOverlay('docs'), [closeOverlay])
+
+  // URL → modal flags, edge-triggered on the param changing (Back/Forward,
+  // reload, an open that already wrote the URL). Opening never reads the flag
+  // back, so the two sides cannot fight.
+  const prevOverlayRef = useRef<string | null>(null)
+  useEffect(() => {
+    const value = overlay.value
+    if (prevOverlayRef.current === value) return
+    prevOverlayRef.current = value
+    if (uiMode !== 'agent') return
+    if (value === 'loops') { setPluginsOpen(false); setLoopsOpen(true) }
+    else if (value === 'plugins') { resetLoops(); setPluginsOpen(true) }
+    else { resetLoops(); setPluginsOpen(false) }
+  }, [overlay.value, uiMode, resetLoops])
+  const prevReviewRef = useRef<string | null>(null)
+  useEffect(() => {
+    const value = reviewParam.value
+    if (prevReviewRef.current === value) return
+    prevReviewRef.current = value
+    setReviewDeliveryId(value)
+  }, [reviewParam.value])
+
+  // Restoring an entry in the OTHER mode's form: a place is never lost, but
+  // Back/Forward must not flip the mode. Board mode shows jobs/loops/plugins as
+  // routes; Mission mode shows `/jobs/:id` as the job modal.
+  useEffect(() => {
+    if (uiMode === 'kanban') {
+      if (jobParam.value) navigate(`/jobs/${encodeURIComponent(jobParam.value)}`, { replace: true })
+      else if (overlay.value === 'loops') navigate('/loops', { replace: true })
+      else if (overlay.value === 'plugins') navigate('/plugins', { replace: true })
+    } else {
+      const id = jobIdFromPath(location.pathname)
+      if (id) {
+        const params = new URLSearchParams(location.search)
+        params.set(JOB_PARAM, id)
+        navigate({ pathname: '/', search: `?${params.toString()}` }, { replace: true })
+      }
+    }
+  }, [uiMode, jobParam.value, overlay.value, location.pathname, location.search, navigate])
+  const workspace = useAgentWorkspace()
+  const workspaceRef = useRef(workspace)
+  workspaceRef.current = workspace
+  useEffect(() => {
+    if (uiMode === 'agent' && jobParam.value && !workspaceRef.current.jobsPaneOpen) workspaceRef.current.openJobsPane()
+  }, [uiMode, jobParam.value])
+
+  // Selected mission ⇄ ?mission=<id>.
+  useMissionPlaceSync()
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasSeenOnboarding())
 
   // Remember which page each project was on
@@ -297,6 +411,8 @@ function DesktopApp() {
     // In Agent Mode the floating panel/bubble are suppressed — toggling would
     // invisibly mutate state (ensureActive clobbers the EMPTY compose screen).
     onToggleAgentChat: FEATURE_AGENT_CHAT && uiMode !== 'agent' ? () => agentChat.toggle() : undefined,
+    onNavigateBack: places ? places.back : undefined,
+    onNavigateForward: places ? places.forward : undefined,
   })
 
   // OS notifications for job completions/failures
@@ -328,11 +444,20 @@ function DesktopApp() {
     if (!transition) return
 
     if (transition.kind === 'modalize') {
+      // The route entry the user just pushed (/review/x, /loops, /plugins) is
+      // rewritten in place to its modal form, so it stays ONE place in history.
+      const modalUrl = (param: string, value: string) => {
+        const params = new URLSearchParams(location.search)
+        params.set(param, value)
+        return { pathname: transition.backgroundPath, search: `?${params.toString()}` }
+      }
       if (transition.surface === 'review') {
         // The review packet opens OVER the mission — the conversation the user
         // is in stays exactly where it is (no New Mission reset).
-        if (transition.reviewDeliveryId) setReviewDeliveryId(transition.reviewDeliveryId)
-        if (location.pathname !== transition.backgroundPath) {
+        if (transition.reviewDeliveryId) {
+          setReviewDeliveryId(transition.reviewDeliveryId)
+          navigate(modalUrl(REVIEW_PARAM, transition.reviewDeliveryId), { replace: true })
+        } else if (location.pathname !== transition.backgroundPath) {
           navigate(transition.backgroundPath, { replace: true })
         }
         return
@@ -341,19 +466,17 @@ function DesktopApp() {
         setPluginsOpen(false)
         setLoopsOpen(true)
         setLoopBuilderId(transition.loopBuilderId ?? null)
-        if (location.pathname !== transition.backgroundPath) navigate(transition.backgroundPath, { replace: true })
+        navigate(modalUrl(OVERLAY_PARAM, 'loops'), { replace: true })
         return
       } else {
-        closeLoops()
+        resetLoops()
         setPluginsOpen(true)
       }
-      if (location.pathname !== transition.backgroundPath) {
-        navigate(transition.backgroundPath, { replace: true })
-      }
+      navigate(modalUrl(OVERLAY_PARAM, 'plugins'), { replace: true })
       return
     }
 
-    closeLoops()
+    resetLoops()
     setPluginsOpen(false)
     setReviewDeliveryId(null)
     if (location.pathname !== transition.path) {
@@ -363,7 +486,7 @@ function DesktopApp() {
     activeProjectId,
     location.pathname,
     navigate,
-    closeLoops,
+    resetLoops,
     loopsOpen,
     pluginsOpen,
     reviewDeliveryId,
@@ -431,10 +554,10 @@ function DesktopApp() {
       <ArcSidebar
         onOpenCompanion={() => { setSettingsSection('mobile'); setSettingsOpen(true) }}
         onAddProject={() => setAddDialogOpen(true)}
-        onOpenLoops={() => { if (uiMode === 'agent') setLoopsOpen(true); else navigate('/loops') }}
-        onOpenPlugins={() => { if (uiMode === 'agent') setPluginsOpen(true); else navigate('/plugins') }}
+        onOpenLoops={() => { if (uiMode === 'agent') openOverlay('loops'); else navigate('/loops') }}
+        onOpenPlugins={() => { if (uiMode === 'agent') openOverlay('plugins'); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        onOpenDocs={() => setDocsOpen(true)}
+        onOpenDocs={() => openOverlay('docs')}
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
       />
 
@@ -552,11 +675,11 @@ function DesktopApp() {
           </DialogBody>
         </DialogContent>
       </Dialog>
-      <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
+      <Dialog open={pluginsOpen} onOpenChange={(open) => { if (!open) closePlugins() }}>
         <DialogContent size="fullscreen" data-testid="plugins-modal">
           <GlobalSurfaceDialogHeader surface="plugins" />
           <DialogBody className="p-0 overflow-auto">
-            <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} inDialog /></Suspense>
+            <Suspense fallback={null}><PluginsPage onWindowOpened={closePlugins} inDialog /></Suspense>
           </DialogBody>
         </DialogContent>
       </Dialog>
@@ -565,12 +688,12 @@ function DesktopApp() {
           the mission (the Review buttons navigate to /review/:id, which Mission
           mode has no routed dashboard to render). */}
       {FEATURE_REVIEW_PACKET && (
-        <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) setReviewDeliveryId(null) }}>
+        <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) closeReview() }}>
           <DialogContent size="fullscreen" data-testid="review-packet-modal">
             <GlobalSurfaceDialogHeader surface="review" />
             <DialogBody className="p-0 overflow-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-                {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={() => setReviewDeliveryId(null)} />}
+                {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={closeReview} />}
               </Suspense>
             </DialogBody>
           </DialogContent>
@@ -586,7 +709,7 @@ function DesktopApp() {
       <CommandPalette
         onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
-        onOpenDocs={() => setDocsOpen(true)}
+        onOpenDocs={() => openOverlay('docs')}
       />
       <KeyboardShortcutsCheatsheet open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
       <OnboardingWizard
@@ -744,6 +867,11 @@ function MainDesktopUpdateNotifier() {
   return null
 }
 
+/** Back/Forward place history for the main window (mission windows have their own fixed surface). */
+function PlaceHistoryOwner({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  return enabled ? <PlaceHistoryProvider>{children}</PlaceHistoryProvider> : <>{children}</>
+}
+
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
@@ -786,6 +914,7 @@ function AppRoutes() {
             <ThemeEffectLayer />
             <DesktopProvider isolated={secondary}>
               <UiModeProvider initialMode={secondary ? 'agent' : undefined} persist={!secondary}>
+              <PlaceHistoryOwner enabled={!secondary}>
               {!secondary && <MainDesktopUpdateNotifier />}
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
               <SpecGenTrackerProvider>
@@ -832,6 +961,7 @@ function AppRoutes() {
                 </SmashTrackerProvider>
                 </ContractRefineTrackerProvider>
               </SpecGenTrackerProvider>
+              </PlaceHistoryOwner>
               </UiModeProvider>
             </DesktopProvider>
             </LanguageProvider>

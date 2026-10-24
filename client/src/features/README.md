@@ -39,3 +39,34 @@ than a modal. `components/ui/__tests__/modal-standard-guard.test.ts` rejects
 hand-rolled `aria-modal` dialogs outside `components/ui` and sub-12px text in
 modal files.
 
+## Places (Back / Forward / links)
+
+A *place* is where the person is, written to the URL so router history is the
+navigation history and every place is a link. Do not invent a second history.
+
+| Place | URL | Owner |
+| --- | --- | --- |
+| Spec detail modal | `?spec=<ticketId>` | `DashboardPage` (richer modal, claims it) / `TicketDetailModalProvider` |
+| Selected mission (Mission mode) | `?mission=<conversationId>` | `missions/hooks/useMissionPlaceSync.ts` |
+| Loops / Plugins / Docs / Analytics modal | `?overlay=loops\|plugins\|docs\|analytics` | `App.tsx` (Board mode shows Loops/Plugins as routes) |
+| Review packet over a mission | `?review=<prDeliveryId>` (Board mode: `/review/:id`) | `App.tsx` |
+| Job detail over a mission | `?job=<jobId>` (Board mode: `/jobs/:id`) | `missions/components/AgentModeJobsPane.tsx` |
+| Project switch | `?p=<projectId>` on the pushed entry | `useProjectRouteMemory` in `App.tsx` |
+
+Rules:
+
+- Open a place with `usePlaceParam(name).open(value)` (pushes) and close it with
+  `.close()` (pops the entry it pushed, otherwise removes the param in place).
+  Never `navigate()` a place param by hand.
+- **Not places** (use `replace`, or no navigation): filters, sort, search, tabs inside
+  a modal, sidebar pins, run-strip focus (`⌥[ ⌥]`), terminal toggle, scroll, composer
+  state and the Board/Mission toggle. Writing them with `setSearchParams` must pass
+  `{ replace: true }`.
+- Back/Forward (`usePlaceHistory`) never flips `uiMode`: `placeKey(entry, mode)` decides
+  what is the same place in the current mode, and entries that mean nothing there are
+  skipped. Restoring re-runs no side effect (no launch, no new-mission draft).
+- A surface that discovers its target is gone calls `usePlaceHistory().reportMissing(kind)`;
+  after Back/Forward the entry is skipped with a quiet toast, otherwise the param is dropped.
+- Shortcuts live in `hooks/useKeyboardShortcuts.ts` (`⌘[` `⌘]`; `Ctrl+[` `Ctrl+]` / `Alt+←` `Alt+→`
+  off macOS), mouse buttons 4/5 in `PlaceHistoryProvider`, the title-bar buttons in
+  `components/PlaceNavButtons.tsx`.

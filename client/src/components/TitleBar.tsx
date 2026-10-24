@@ -9,6 +9,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import { useUiMode } from '../context/UiModeContext'
 import { hasRightSidebar } from '../lib/sidebar-layout'
 import { cn } from '../lib/utils'
+import { PlaceNavButtons } from './PlaceNavButtons'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ function MacTitleBar() {
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /></div>
+      <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
       {showRight && <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>}
     </header>
@@ -300,7 +301,7 @@ function DefaultTitleBar() {
           both modes keeps the in-flow children identical. */}
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
 
-      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /></div>
+      <div className="flex items-center gap-2"><SidebarWindowButton side="left" /><PlaceNavButtons /></div>
 
       {/* Right: native-feeling window controls for frameless Windows/Linux */}
       <div

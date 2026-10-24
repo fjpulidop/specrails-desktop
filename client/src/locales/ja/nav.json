@@ -79,7 +79,14 @@
     "minimizeWindow": "ウィンドウを最小化",
     "maximizeWindow": "ウィンドウを最大化",
     "closeWindow": "ウィンドウを閉じる",
-    "restoreWindow": "ウィンドウを元のサイズに戻す"
+    "restoreWindow": "ウィンドウを元のサイズに戻す",
+    "history": "ナビゲーション履歴",
+    "back": "戻る",
+    "forward": "進む",
+    "backTo": "{{place}} に戻る",
+    "forwardTo": "{{place}} に進む",
+    "backMenu": "以前の場所",
+    "forwardMenu": "次の場所"
   },
   "costAlerts": {
     "costAlertTitle": "コストアラート",
@@ -133,5 +140,39 @@
     "inactive": "通常のスリープを許可します。",
     "failed": "スリープ設定を変更できませんでした。"
   },
-  "skipToContent": "メインコンテンツへスキップ"
+  "skipToContent": "メインコンテンツへスキップ",
+  "places": {
+    "routes": {
+      "dashboard": "ダッシュボード",
+      "jobs": "ジョブ",
+      "analytics": "分析",
+      "activity": "アクティビティ",
+      "agents": "エージェント",
+      "code": "コード",
+      "integrations": "連携",
+      "settings": "プロジェクト設定",
+      "docs": "ドキュメント",
+      "loops": "ループ",
+      "plugins": "プラグイン"
+    },
+    "spec": "スペック #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "ミッション",
+    "missionTitled": "ミッション · {{title}}",
+    "job": "ジョブ {{id}}",
+    "review": "レビューパッケージ",
+    "overlays": {
+      "loops": "ループ",
+      "plugins": "プラグイン",
+      "docs": "ドキュメント",
+      "analytics": "全プロジェクトの分析"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "そのスペックは存在しないため、スキップしました。",
+      "mission": "そのミッションは存在しないため、スキップしました。",
+      "job": "そのジョブは存在しないため、スキップしました。",
+      "review": "そのレビューパッケージは存在しないため、スキップしました。"
+    }
+  }
 }

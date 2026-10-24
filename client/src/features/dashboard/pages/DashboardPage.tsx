@@ -27,6 +27,9 @@ import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext
 import { DashboardSplitter } from '../components/DashboardSplitter'
 import { useDashboardSplit } from '../hooks/useDashboardSplit'
 import { TicketDetailModal } from '../../specs/components/TicketDetailModal'
+import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { SPEC_PARAM } from '../../../lib/places'
 import { CreateTicketModal } from '../../specs/components/CreateTicketModal'
 import { FreestyleLaunchDialog } from '../../rails/components/FreestyleLaunchDialog'
 import { LaunchAllDialog } from '../../rails/components/LaunchAllDialog'
@@ -170,7 +173,23 @@ export default function DashboardPage() {
   const { tickets, isLoading, error: ticketsError, updateTicket, updateTicketStatus, updateTicketPriority, deleteTicket, createTicket, refetch, contractRefiningIds } = useTickets()
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { specToOpen, clearSpecToOpen } = useSpecGenTracker()
-  const [detailTicket, setDetailTicket] = useState<LocalTicket | null>(null)
+  // The spec detail modal is a place: `?spec=<id>` (Back closes it, a link reopens it).
+  // The ticket object seeds a spec created a moment ago, before the list refetch lands.
+  const specParam = usePlaceParam(SPEC_PARAM)
+  const { claimSpecHost } = useTicketDetailModal()
+  useEffect(() => claimSpecHost(), [claimSpecHost])
+  const [detailSeed, setDetailSeed] = useState<LocalTicket | null>(null)
+  const specId = specParam.value !== null && /^\d+$/.test(specParam.value) ? Number(specParam.value) : null
+  const detailTicket = specId === null
+    ? null
+    : tickets.find((ticket) => ticket.id === specId) ?? (detailSeed?.id === specId ? detailSeed : null)
+  const { open: openSpecParam, close: closeSpecParam } = specParam
+  const setDetailTicket = useCallback((ticket: LocalTicket | null) => {
+    if (ticket) {
+      setDetailSeed(ticket)
+      openSpecParam(String(ticket.id))
+    } else closeSpecParam()
+  }, [openSpecParam, closeSpecParam])
   const [createTicketOpen, setCreateTicketOpen] = useState(false)
   // Rail pending an freestyle-launch confirmation (variable-cost warning modal).
   const [freestyleConfirm, setFreestyleConfirm] = useState<{ railId: string } | null>(null)

@@ -7,6 +7,8 @@ import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { cn } from '../../../lib/utils'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
+import { usePlaceParam } from '../../../hooks/usePlaceParam'
+import { JOB_PARAM } from '../../../lib/places'
 import { useProjectCache } from '../../../hooks/useProjectCache'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -41,14 +43,17 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
   const provider = projects.find((p) => p.id === projectId)?.provider
   const [width, setWidth] = useState(DEFAULT_PANE)
   const [maximized, setMaximized] = useState(false)
-  const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  // The open job is a place: `?job=<id>` (Back closes it, a link reopens it).
+  const jobParam = usePlaceParam(JOB_PARAM)
+  const detailJobId = jobParam.value
+  const { open: openJobParam, close: closeJobParam } = jobParam
   // A Mission-mode notification click asked for a run (mission-rail-cards):
   // open it here instead of leaving the mission for the routed jobs page.
   useEffect(() => {
     if (!requestedJobId) return
-    setDetailJobId(requestedJobId)
+    openJobParam(requestedJobId)
     clearRequestedJob()
-  }, [requestedJobId, clearRequestedJob])
+  }, [requestedJobId, clearRequestedJob, openJobParam])
 
   const { data: jobs, isFirstLoad, refresh } = useProjectCache<JobSummary[]>({
     namespace: 'agent-jobs',
@@ -135,7 +140,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
           </button>
           <button
             type="button"
-            onClick={closeJobsPane}
+            onClick={() => { closeJobParam(); closeJobsPane() }}
             aria-label={t('workspace.closeJobs')}
             title={t('workspace.closeJobs')}
             className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground"
@@ -161,7 +166,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
               <li key={job.id}>
                 <button
                   type="button"
-                  onClick={() => setDetailJobId(job.id)}
+                  onClick={() => openJobParam(job.id)}
                   className={cn(
                     'flex w-full flex-col gap-1 rounded-lg border border-border/50 bg-surface/30 px-2.5 py-2 text-left transition-colors',
                     'hover:border-accent-primary/40 hover:bg-surface/60',
@@ -192,7 +197,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       </div>
 
       {detailJobId && (
-        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={() => setDetailJobId(null)} />
+        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
       )}
     </div>
   )

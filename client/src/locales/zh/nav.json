@@ -79,7 +79,14 @@
     "minimizeWindow": "最小化窗口",
     "maximizeWindow": "最大化窗口",
     "closeWindow": "关闭窗口",
-    "restoreWindow": "还原窗口"
+    "restoreWindow": "还原窗口",
+    "history": "导航历史",
+    "back": "后退",
+    "forward": "前进",
+    "backTo": "后退到 {{place}}",
+    "forwardTo": "前进到 {{place}}",
+    "backMenu": "之前的位置",
+    "forwardMenu": "之后的位置"
   },
   "costAlerts": {
     "costAlertTitle": "成本警报",
@@ -133,5 +140,39 @@
     "inactive": "允许正常睡眠。",
     "failed": "无法更改睡眠状态。"
   },
-  "skipToContent": "跳到主要内容"
+  "skipToContent": "跳到主要内容",
+  "places": {
+    "routes": {
+      "dashboard": "仪表板",
+      "jobs": "作业",
+      "analytics": "分析",
+      "activity": "活动",
+      "agents": "智能体",
+      "code": "代码",
+      "integrations": "集成",
+      "settings": "项目设置",
+      "docs": "文档",
+      "loops": "循环",
+      "plugins": "插件"
+    },
+    "spec": "规格 #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "任务",
+    "missionTitled": "任务 · {{title}}",
+    "job": "作业 {{id}}",
+    "review": "评审包",
+    "overlays": {
+      "loops": "循环",
+      "plugins": "插件",
+      "docs": "文档",
+      "analytics": "所有项目的分析"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "该规格已不存在，已跳过。",
+      "mission": "该任务已不存在，已跳过。",
+      "job": "该作业已不存在，已跳过。",
+      "review": "该评审包已不存在，已跳过。"
+    }
+  }
 }

@@ -98,7 +98,8 @@
       "runStripCycle": "Execução anterior / próxima na faixa (fora dos campos de texto)",
       "runStripBack": "Sair da faixa de execuções e voltar para onde você estava",
       "flowPause": "Pausar ou retomar o Flow (com a faixa de execuções em foco)",
-      "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)"
+      "flowHandOff": "Passar o Flow a um rail (com a faixa de execuções em foco)",
+      "historyBackForward": "Voltar / avançar para o lugar anterior ou seguinte"
     }
   },
   "update": {

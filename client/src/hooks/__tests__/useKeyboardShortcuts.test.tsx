@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useKeyboardShortcuts, useCheatsheetState } from '../useKeyboardShortcuts'
+import { useKeyboardShortcuts, useCheatsheetState, historyDirection } from '../useKeyboardShortcuts'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -163,6 +163,91 @@ describe('useKeyboardShortcuts', () => {
 
     fireKey('k')
     expect(onNav).toHaveBeenCalledWith('up')
+  })
+})
+
+describe('Back / Forward shortcuts', () => {
+  function chord(init: KeyboardEventInit, target: EventTarget = window): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+    target.dispatchEvent(event)
+    return event
+  }
+
+  function mountHistory() {
+    const onBack = vi.fn()
+    const onForward = vi.fn()
+    renderHook(
+      () => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn(), onNavigateBack: onBack, onNavigateForward: onForward }),
+      { wrapper },
+    )
+    return { onBack, onForward }
+  }
+
+  it('classifies the chords per platform', () => {
+    const key = (init: KeyboardEventInit) => new KeyboardEvent('keydown', init)
+    expect(historyDirection(key({ metaKey: true, code: 'BracketLeft' }), true)).toBe('back')
+    expect(historyDirection(key({ metaKey: true, code: 'BracketRight' }), true)).toBe('forward')
+    // Ctrl+[ is not a macOS history chord, ⌘[ is not a Windows/Linux one.
+    expect(historyDirection(key({ ctrlKey: true, code: 'BracketLeft' }), true)).toBeNull()
+    expect(historyDirection(key({ metaKey: true, code: 'BracketLeft' }), false)).toBeNull()
+    expect(historyDirection(key({ ctrlKey: true, code: 'BracketLeft' }), false)).toBe('back')
+    expect(historyDirection(key({ ctrlKey: true, code: 'BracketRight' }), false)).toBe('forward')
+    expect(historyDirection(key({ altKey: true, key: 'ArrowLeft' }), false)).toBe('back')
+    expect(historyDirection(key({ altKey: true, key: 'ArrowRight' }), false)).toBe('forward')
+    // ⌥[ ⌥] stay the run-strip cycle, never history.
+    expect(historyDirection(key({ altKey: true, code: 'BracketLeft' }), true)).toBeNull()
+    expect(historyDirection(key({ altKey: true, code: 'BracketLeft' }), false)).toBeNull()
+    expect(historyDirection(key({ metaKey: true, shiftKey: true, code: 'BracketLeft' }), true)).toBeNull()
+  })
+
+  it('goes back / forward with Ctrl+[ ] and prevents the browser default', () => {
+    const { onBack, onForward } = mountHistory()
+    expect(chord({ ctrlKey: true, code: 'BracketLeft' }).defaultPrevented).toBe(true)
+    expect(onBack).toHaveBeenCalledOnce()
+    chord({ ctrlKey: true, code: 'BracketRight' })
+    expect(onForward).toHaveBeenCalledOnce()
+    chord({ altKey: true, key: 'ArrowLeft' })
+    expect(onBack).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['input', 'textarea', 'select'])('is ignored while typing in a <%s>', (tag) => {
+    const { onBack, onForward } = mountHistory()
+    const el = document.body.appendChild(document.createElement(tag))
+    chord({ ctrlKey: true, code: 'BracketLeft' }, el)
+    chord({ altKey: true, key: 'ArrowRight' }, el)
+    expect(onBack).not.toHaveBeenCalled()
+    expect(onForward).not.toHaveBeenCalled()
+    el.remove()
+  })
+
+  it('is ignored in contenteditable composers, the terminal and code editors', () => {
+    const { onBack } = mountHistory()
+    const editable = document.body.appendChild(document.createElement('div'))
+    Object.defineProperty(editable, 'isContentEditable', { value: true })
+    const xterm = document.body.appendChild(document.createElement('div'))
+    xterm.className = 'xterm'
+    const xtermChild = xterm.appendChild(document.createElement('textarea'))
+    const monaco = document.body.appendChild(document.createElement('div'))
+    monaco.className = 'monaco-editor'
+    const monacoChild = monaco.appendChild(document.createElement('div'))
+    for (const target of [editable, xtermChild, monacoChild]) chord({ ctrlKey: true, code: 'BracketLeft' }, target)
+    expect(onBack).not.toHaveBeenCalled()
+    for (const el of [editable, xterm, monaco]) el.remove()
+  })
+
+  it('works from inside a dialog, so Back closes a modal opened as a place', () => {
+    const { onBack } = mountHistory()
+    const dialog = document.body.appendChild(document.createElement('div'))
+    dialog.setAttribute('role', 'dialog')
+    const button = dialog.appendChild(document.createElement('button'))
+    chord({ ctrlKey: true, code: 'BracketLeft' }, button)
+    expect(onBack).toHaveBeenCalledOnce()
+    dialog.remove()
+  })
+
+  it('does nothing (and does not swallow the key) when no history handler is wired', () => {
+    renderHook(() => useKeyboardShortcuts({ onOpenCheatsheet: vi.fn() }), { wrapper })
+    expect(chord({ ctrlKey: true, code: 'BracketLeft' }).defaultPrevented).toBe(false)
   })
 })
 

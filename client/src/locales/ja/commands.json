@@ -98,7 +98,8 @@
       "runStripCycle": "実行ストリップで前 / 次の実行へ（テキスト入力欄の外で）",
       "runStripBack": "実行ストリップを離れ、元の場所に戻る",
       "flowPause": "Flow を一時停止 / 再開（実行ストリップにフォーカス中）",
-      "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）"
+      "flowHandOff": "Flow を引き渡す（実行ストリップにフォーカス中）",
+      "historyBackForward": "前の場所 / 次の場所へ戻る・進む"
     }
   },
   "update": {

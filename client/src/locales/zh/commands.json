@@ -98,7 +98,8 @@
       "runStripCycle": "运行条中的上一个 / 下一个运行（在文本框之外）",
       "runStripBack": "离开运行条，回到原来的位置",
       "flowPause": "暂停或继续 Flow（运行条获得焦点时）",
-      "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）"
+      "flowHandOff": "将 Flow 交给 Rail（运行条获得焦点时）",
+      "historyBackForward": "后退 / 前进到上一个或下一个位置"
     }
   },
   "update": {

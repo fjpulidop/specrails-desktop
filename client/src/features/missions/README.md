@@ -35,6 +35,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [context/MissionSplitViewsContext.tsx](context/MissionSplitViewsContext.tsx)
 - [context/MissionWindowsContext.tsx](context/MissionWindowsContext.tsx)
 - [hooks/useAgentRefActions.ts](hooks/useAgentRefActions.ts)
+- [hooks/useMissionPlaceSync.ts](hooks/useMissionPlaceSync.ts)
 - [lib/agent-api.ts](lib/agent-api.ts)
 - [lib/agent-refs.ts](lib/agent-refs.ts)
 - [lib/mission-search.ts](lib/mission-search.ts)

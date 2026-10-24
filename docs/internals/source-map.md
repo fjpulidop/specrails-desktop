@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1209 source/build files. Nearby tests are linked where names
+Includes 1214 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -36,6 +36,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)
 - [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
+- [PlaceNavButtons.tsx](../../client/src/components/PlaceNavButtons.tsx) · [test](../../client/src/components/__tests__/PlaceNavButtons.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
 - [ShellErrorBoundary.tsx](../../client/src/components/ShellErrorBoundary.tsx) · [test](../../client/src/components/__tests__/ShellErrorBoundary.test.tsx)
@@ -584,6 +585,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [useAgentRefActions.ts](../../client/src/features/missions/hooks/useAgentRefActions.ts)
 - [useGuardedTierCycle.ts](../../client/src/features/missions/hooks/useGuardedTierCycle.ts)
+- [useMissionPlaceSync.ts](../../client/src/features/missions/hooks/useMissionPlaceSync.ts)
 
 ## client/src/features/missions/lib
 
@@ -881,6 +883,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
 - [useOsNotifications.ts](../../client/src/hooks/useOsNotifications.ts) · [test](../../client/src/hooks/__tests__/useOsNotifications.test.ts)
+- [usePlaceHistory.tsx](../../client/src/hooks/usePlaceHistory.tsx) · [test](../../client/src/hooks/__tests__/usePlaceHistory.test.tsx)
+- [usePlaceParam.ts](../../client/src/hooks/usePlaceParam.ts)
 - [useProjectCache.ts](../../client/src/hooks/useProjectCache.ts) · [test](../../client/src/hooks/__tests__/useProjectCache.test.ts)
 - [useResizableSidebar.ts](../../client/src/hooks/useResizableSidebar.ts)
 - [useSharedWebSocket.tsx](../../client/src/hooks/useSharedWebSocket.tsx) · [test](../../client/src/hooks/__tests__/useSharedWebSocket.test.tsx)
@@ -914,6 +918,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
+- [places.ts](../../client/src/lib/places.ts) · [test](../../client/src/lib/__tests__/places.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)

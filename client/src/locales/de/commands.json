@@ -98,7 +98,8 @@
       "runStripCycle": "Vorheriger / nächster Lauf im Laufstreifen (außerhalb von Textfeldern)",
       "runStripBack": "Laufstreifen verlassen und dorthin zurückkehren, wo du warst",
       "flowPause": "Flow pausieren oder fortsetzen (Laufstreifen fokussiert)",
-      "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)"
+      "flowHandOff": "Flow übergeben (Laufstreifen fokussiert)",
+      "historyBackForward": "Zum vorherigen / nächsten Ort zurück- bzw. vorgehen"
     }
   },
   "update": {

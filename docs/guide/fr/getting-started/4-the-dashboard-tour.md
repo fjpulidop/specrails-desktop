@@ -42,6 +42,7 @@ Un fin bandeau court tout en bas de la fenêtre. Discret mais bien pratique :
 - **Cmd/Ctrl+B** — épingler ou replier la barre latérale gauche ; **Option+Cmd+B** (**Ctrl+Alt+B**) fait de même pour la droite.
 - **Cmd/Ctrl+J** — afficher ou masquer le panneau de terminal.
 - **Cmd/Ctrl+K** — ouvrir la recherche.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** sous Windows/Linux), les boutons **←  →** de la barre de titre ou les boutons précédent/suivant de la souris — reculent ou avancent parmi les lieux visités : specs, missions, tâches, projets et panneaux plein écran. Un clic droit (ou un appui long) sur un bouton affiche les derniers lieux.
 
 ## Et maintenant ?
 

@@ -42,6 +42,7 @@ Uma faixa fina percorre o fundo da janela. É pequena, mas prática:
 - **Cmd/Ctrl+B** — afixar ou recolher a barra lateral esquerda; **Option+Cmd+B** (**Ctrl+Alt+B**) faz o mesmo com a direita.
 - **Cmd/Ctrl+J** — alternar o painel de terminal.
 - **Cmd/Ctrl+K** — abrir a pesquisa.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** no Windows/Linux), os botões **←  →** da barra de título ou os botões voltar/avançar do mouse — voltam ou avançam pelos lugares onde você esteve: specs, missões, jobs, projetos e painéis em tela cheia. Clique com o botão direito (ou pressione e segure) um botão para ver os últimos lugares.
 
 ## Para onde ir a seguir
 

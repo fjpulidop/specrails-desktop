@@ -49,6 +49,7 @@ import { useBuilderSession, type BuilderSession } from '../../builder/hooks/useB
 import { useUiMode } from '../../../context/UiModeContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../../delivery/lib/pr-delivery'
+import { markUserPlaceIntent } from '../../../lib/places'
 import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
 import { derivePrCards } from '../components/agent-pr-pinning'
 import { deliveryAttention, mergeAttention, type MissionAttentionKind } from '../components/mission-run-strip'
@@ -408,7 +409,7 @@ export interface AgentChatContextValue {
   draftTierLevel: AgentTierLevel
   draftEffort: string | null
   setEffort: (effort: string | null) => Promise<void>
-  selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => Promise<void>
+  selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -1627,6 +1628,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const startNewConversation = useCallback((projectId?: string | null) => {
     if (secondaryWindow || fixedConversationId) return
+    markUserPlaceIntent()
     // An explicit mission action while the Builder skin is up is a clear
     // intent to leave it — exit (abort + reset) so the normal compose screen
     // is actually visible, not hidden behind the builder branch.
@@ -1643,6 +1645,7 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
 
   const newConversation = useCallback(async (projectId?: string | null) => {
     if (secondaryWindow || fixedConversationId) return
+    markUserPlaceIntent()
     exitBuilderMode() // same intent-to-leave as startNewConversation
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
@@ -1653,8 +1656,10 @@ export function AgentChatProvider({ children, fixedConversationId }: { children:
     setMessages([])
   }, [active, exitBuilderMode, secondaryWindow, fixedConversationId])
 
-  const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => {
+  const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal; placeRestore?: boolean }) => {
     if (fixedConversationId && id !== fixedConversationId) return
+    // A mission the person picked is a navigable place; a Back/Forward restore is not a new one.
+    if (!options?.placeRestore && !options?.windowRestore && id !== activeIdRef.current) markUserPlaceIntent()
     if (secondaryWindow && !fixedConversationId && !options?.windowRestore && windowsRef.current.current?.conversationId !== id) return
     if (!fixedConversationId && !secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
     if (options?.signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')

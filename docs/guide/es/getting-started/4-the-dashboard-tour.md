@@ -42,6 +42,7 @@ Una fina franja recorre la parte inferior de la ventana. Es pequeña, pero útil
 - **Cmd/Ctrl+B** — ancla o contrae la barra lateral izquierda; **Option+Cmd+B** (**Ctrl+Alt+B**) hace lo mismo con la derecha.
 - **Cmd/Ctrl+J** — alterna el panel de terminal.
 - **Cmd/Ctrl+K** — abre la búsqueda.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** en Windows/Linux), los botones **←  →** de la barra de título o los botones atrás/adelante del ratón — vuelven o avanzan por los lugares donde has estado: specs, misiones, trabajos, proyectos y paneles a pantalla completa. Clic derecho (o pulsación larga) en un botón muestra los últimos lugares.
 
 ## A dónde ir después
 

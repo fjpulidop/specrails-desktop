@@ -3,3 +3,8 @@ export function keyboardLabel(keys: string, platform = typeof navigator === 'und
   if (/Mac|iPhone|iPad/i.test(platform)) return keys
   return keys.replace(/⌥/g, 'Alt+').replace(/⌘/g, 'Ctrl+').replace(/⇧/g, 'Shift+').replace(/[⏎↵]/g, 'Enter')
 }
+
+/** True on Apple keyboards (⌘ shortcuts); false on Windows/Linux (Ctrl / Alt shortcuts). */
+export function isMacKeyboard(platform = typeof navigator === 'undefined' ? '' : navigator.platform): boolean {
+  return /Mac|iPhone|iPad/i.test(platform)
+}

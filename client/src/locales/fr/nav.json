@@ -79,7 +79,14 @@
     "minimizeWindow": "Réduire la fenêtre",
     "maximizeWindow": "Agrandir la fenêtre",
     "closeWindow": "Fermer la fenêtre",
-    "restoreWindow": "Restaurer la fenêtre"
+    "restoreWindow": "Restaurer la fenêtre",
+    "history": "Historique de navigation",
+    "back": "Précédent",
+    "forward": "Suivant",
+    "backTo": "Retour à {{place}}",
+    "forwardTo": "Avancer vers {{place}}",
+    "backMenu": "Lieux précédents",
+    "forwardMenu": "Lieux suivants"
   },
   "costAlerts": {
     "costAlertTitle": "Alerte de coût",
@@ -133,5 +140,39 @@
     "inactive": "Veille normale autorisée.",
     "failed": "Impossible de modifier la veille."
   },
-  "skipToContent": "Aller au contenu principal"
+  "skipToContent": "Aller au contenu principal",
+  "places": {
+    "routes": {
+      "dashboard": "Tableau de bord",
+      "jobs": "Tâches",
+      "analytics": "Analytique",
+      "activity": "Activité",
+      "agents": "Agents",
+      "code": "Code",
+      "integrations": "Intégrations",
+      "settings": "Paramètres du projet",
+      "docs": "Documentation",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Mission",
+    "missionTitled": "Mission · {{title}}",
+    "job": "Tâche {{id}}",
+    "review": "Paquet de revue",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentation",
+      "analytics": "Analytique de tous les projets"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Cette spec n'existe plus, elle a été ignorée.",
+      "mission": "Cette mission n'existe plus, elle a été ignorée.",
+      "job": "Cette tâche n'existe plus, elle a été ignorée.",
+      "review": "Ce paquet de revue n'existe plus, il a été ignoré."
+    }
+  }
 }

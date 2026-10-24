@@ -1,6 +1,6 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { SHORTCUTS, type Shortcut } from '../hooks/useKeyboardShortcuts'
-import { keyboardLabel } from '../lib/keyboard-label'
+import { isMacKeyboard, keyboardLabel } from '../lib/keyboard-label'
 import {
   Dialog,
   DialogBody,
@@ -52,7 +52,7 @@ export function KeyboardShortcutsCheatsheet({ open, onOpenChange }: KeyboardShor
   const grouped = CATEGORY_ORDER.map((cat) => ({
     category: cat,
     label: t(CATEGORY_LABEL_KEYS[cat]),
-    shortcuts: SHORTCUTS.filter((s) => s.category === cat),
+    shortcuts: SHORTCUTS.filter((s) => s.category === cat && (!s.platform || s.platform === (isMacKeyboard() ? 'mac' : 'other'))),
   })).filter((g) => g.shortcuts.length > 0)
 
   return (

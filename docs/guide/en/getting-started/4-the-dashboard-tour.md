@@ -42,6 +42,7 @@ A thin strip runs along the very bottom of the window. It's small but handy:
 - **Cmd/Ctrl+B** — pin or collapse the left sidebar; **Option+Cmd+B** (**Ctrl+Alt+B**) does the same for the right sidebar.
 - **Cmd/Ctrl+J** — toggle the terminal panel.
 - **Cmd/Ctrl+K** — open search.
+- **Cmd+[ / Cmd+]** (**Alt+← / Alt+→** on Windows/Linux) or the **←  →** buttons in the title bar, or your mouse's back/forward buttons — go back or forward through the places you have been: specs, missions, jobs, projects and full-page panels. Right-click (or long-press) a button to see the last few places.
 
 ## Where to go next
 

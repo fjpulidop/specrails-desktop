@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FEATURE_AGENTS_SECTION, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
+import { isMacKeyboard } from '../lib/keyboard-label'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,8 @@ export interface Shortcut {
   /** i18n key in the `commands` namespace — translated at render time by the cheatsheet. */
   descriptionKey: string
   category: 'navigation' | 'actions' | 'general' | 'missions'
+  /** Only listed on this keyboard family (⌘ shortcuts differ on Windows/Linux). */
+  platform?: 'mac' | 'other'
 }
 
 // All registered shortcuts for the cheatsheet
@@ -30,6 +33,8 @@ export const SHORTCUTS: Shortcut[] = [
     category: 'general',
   },
   { keys: '⌥⌘1–9', descriptionKey: 'shortcuts.items.switchProject', category: 'general' },
+  { keys: '⌘[ ⌘]', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general' },
+  { keys: 'Alt+← Alt+→', descriptionKey: 'shortcuts.items.historyBackForward', category: 'general', platform: 'other' },
 
   // Navigation
   { keys: 'G D', descriptionKey: 'shortcuts.items.goDashboard', category: 'navigation' },
@@ -64,6 +69,36 @@ function isEditableTarget(e: KeyboardEvent): boolean {
   return false
 }
 
+/** Monaco / CodeMirror style code editors: ⌘[ means outdent there. */
+function isInsideCodeEditor(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null
+  if (!el || typeof (el as { closest?: unknown }).closest !== 'function') return false
+  return !!el.closest('.monaco-editor, .cm-editor, [data-code-editor]')
+}
+
+/**
+ * Back / Forward: ⌘[ / ⌘] on macOS; Ctrl+[ / Ctrl+] or Alt+← / Alt+→ on
+ * Windows and Linux. Returns the direction, or null for any other chord.
+ */
+export function historyDirection(e: KeyboardEvent, mac = isMacKeyboard()): 'back' | 'forward' | null {
+  if (e.shiftKey) return null
+  if (mac) {
+    if (!e.metaKey || e.ctrlKey || e.altKey) return null
+    if (e.code === 'BracketLeft') return 'back'
+    if (e.code === 'BracketRight') return 'forward'
+    return null
+  }
+  if (e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (e.code === 'BracketLeft') return 'back'
+    if (e.code === 'BracketRight') return 'forward'
+  }
+  if (e.altKey && !e.ctrlKey && !e.metaKey) {
+    if (e.key === 'ArrowLeft') return 'back'
+    if (e.key === 'ArrowRight') return 'forward'
+  }
+  return null
+}
+
 function isInsideDialog(e: KeyboardEvent): boolean {
   const el = e.target as HTMLElement | null
   if (!el || typeof (el as { closest?: unknown }).closest !== 'function') return false
@@ -94,6 +129,9 @@ interface UseKeyboardShortcutsOptions {
   onToggleTerminalPanel?: () => void
   /** Toggle the global agent chat (Cmd+Shift+A / Ctrl+Shift+A) */
   onToggleAgentChat?: () => void
+  /** Back / Forward through places (⌘[ ⌘] · Ctrl+[ ⌘] · Alt+← Alt+→). */
+  onNavigateBack?: () => void
+  onNavigateForward?: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -105,6 +143,8 @@ export function useKeyboardShortcuts({
   onSwitchProjectPage,
   onToggleTerminalPanel,
   onToggleAgentChat,
+  onNavigateBack,
+  onNavigateForward,
 }: UseKeyboardShortcutsOptions) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -128,6 +168,10 @@ export function useKeyboardShortcuts({
   onToggleTerminalPanelRef.current = onToggleTerminalPanel
   const onToggleAgentChatRef = useRef(onToggleAgentChat)
   onToggleAgentChatRef.current = onToggleAgentChat
+  const onNavigateBackRef = useRef(onNavigateBack)
+  onNavigateBackRef.current = onNavigateBack
+  const onNavigateForwardRef = useRef(onNavigateForward)
+  onNavigateForwardRef.current = onNavigateForward
   const locationRef = useRef(location)
   locationRef.current = location
 
@@ -155,6 +199,20 @@ export function useKeyboardShortcuts({
       // Never intercept when typing in inputs or when an xterm has focus
       if (isEditableTarget(e)) return
       if (isInsideXterm(e)) return
+
+      // Back / Forward. Allowed inside a dialog (a modal opened as a place is
+      // closed by Back) but never while typing or in a code editor, where
+      // ⌘[ ⌘] outdent / indent and Alt+← ↦ moves by word.
+      const direction = historyDirection(e)
+      if (direction) {
+        if (isInsideCodeEditor(e)) return
+        const handler = direction === 'back' ? onNavigateBackRef.current : onNavigateForwardRef.current
+        if (!handler) return
+        e.preventDefault()
+        handler()
+        return
+      }
+
       if (isInsideDialog(e)) return
 
       // ⌘B → toggle LEFT sidebar, ⌥⌘B → toggle RIGHT sidebar (the VS Code /

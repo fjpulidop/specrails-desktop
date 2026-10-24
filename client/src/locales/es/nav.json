@@ -79,7 +79,14 @@
     "minimizeWindow": "Minimizar ventana",
     "maximizeWindow": "Maximizar ventana",
     "closeWindow": "Cerrar ventana",
-    "restoreWindow": "Restaurar ventana"
+    "restoreWindow": "Restaurar ventana",
+    "history": "Historial de navegación",
+    "back": "Atrás",
+    "forward": "Adelante",
+    "backTo": "Atrás a {{place}}",
+    "forwardTo": "Adelante a {{place}}",
+    "backMenu": "Lugares anteriores",
+    "forwardMenu": "Lugares siguientes"
   },
   "costAlerts": {
     "costAlertTitle": "Alerta de coste",
@@ -133,5 +140,39 @@
     "inactive": "Reposo normal permitido.",
     "failed": "No se pudo cambiar el estado de reposo."
   },
-  "skipToContent": "Saltar al contenido principal"
+  "skipToContent": "Saltar al contenido principal",
+  "places": {
+    "routes": {
+      "dashboard": "Panel",
+      "jobs": "Trabajos",
+      "analytics": "Analíticas",
+      "activity": "Actividad",
+      "agents": "Agentes",
+      "code": "Código",
+      "integrations": "Integraciones",
+      "settings": "Ajustes del proyecto",
+      "docs": "Documentación",
+      "loops": "Loops",
+      "plugins": "Plugins"
+    },
+    "spec": "Spec #{{id}}",
+    "specTitled": "#{{id}} · {{title}}",
+    "mission": "Misión",
+    "missionTitled": "Misión · {{title}}",
+    "job": "Trabajo {{id}}",
+    "review": "Paquete de revisión",
+    "overlays": {
+      "loops": "Loops",
+      "plugins": "Plugins",
+      "docs": "Documentación",
+      "analytics": "Analíticas de todos los proyectos"
+    },
+    "inProject": "{{place}} — {{project}}",
+    "skipped": {
+      "spec": "Esa spec ya no existe, así que se omitió.",
+      "mission": "Esa misión ya no existe, así que se omitió.",
+      "job": "Ese trabajo ya no existe, así que se omitió.",
+      "review": "Ese paquete de revisión ya no existe, así que se omitió."
+    }
+  }
 }
