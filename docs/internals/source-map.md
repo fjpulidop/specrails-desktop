@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1172 source/build files. Nearby tests are linked where names
+Includes 1178 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -40,7 +40,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
 - [ShellErrorBoundary.tsx](../../client/src/components/ShellErrorBoundary.tsx) · [test](../../client/src/components/__tests__/ShellErrorBoundary.test.tsx)
 - [SidebarResizeGrip.tsx](../../client/src/components/SidebarResizeGrip.tsx)
-- [SplitViewShell.tsx](../../client/src/components/SplitViewShell.tsx)
+- [SplitViewShell.tsx](../../client/src/components/SplitViewShell.tsx) · [test](../../client/src/components/__tests__/SplitViewShell.test.tsx)
 - [StatusBar.tsx](../../client/src/components/StatusBar.tsx) · [test](../../client/src/components/__tests__/StatusBar.test.tsx)
 - [TitleBar.tsx](../../client/src/components/TitleBar.tsx) · [test](../../client/src/components/__tests__/TitleBar.test.tsx)
 - [WelcomeScreen.tsx](../../client/src/components/WelcomeScreen.tsx) · [test](../../client/src/components/__tests__/WelcomeScreen.test.tsx)
@@ -51,9 +51,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [badge.tsx](../../client/src/components/ui/badge.tsx)
 - [button.tsx](../../client/src/components/ui/button.tsx)
 - [card.tsx](../../client/src/components/ui/card.tsx)
+- [confirm-dialog.tsx](../../client/src/components/ui/confirm-dialog.tsx)
 - [dialog.tsx](../../client/src/components/ui/dialog.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
+- [switch.tsx](../../client/src/components/ui/switch.tsx)
 - [tooltip.tsx](../../client/src/components/ui/tooltip.tsx)
 
 ## client/src/context
@@ -111,6 +113,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
+- [CostValue.tsx](../../client/src/features/analytics/components/CostValue.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostValue.test.tsx)
 - [DecisionTimesCard.tsx](../../client/src/features/analytics/components/DecisionTimesCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/DecisionTimesCard.test.tsx)
 - [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
 - [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
@@ -128,6 +131,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/analytics/hooks
 
 - [useActivity.ts](../../client/src/features/analytics/hooks/useActivity.ts) · [test](../../client/src/features/analytics/hooks/__tests__/useActivity.test.ts)
+
+## client/src/features/analytics/lib
+
+- [format.ts](../../client/src/features/analytics/lib/format.ts) · [test](../../client/src/features/analytics/lib/__tests__/format.test.ts)
 
 ## client/src/features/analytics/pages
 
@@ -266,7 +273,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/dashboard/components
 
-- [DashboardSplitter.tsx](../../client/src/features/dashboard/components/DashboardSplitter.tsx)
+- [DashboardSplitter.tsx](../../client/src/features/dashboard/components/DashboardSplitter.tsx) · [test](../../client/src/features/dashboard/components/__tests__/DashboardSplitter.test.tsx)
 
 ## client/src/features/dashboard/hooks
 
@@ -675,6 +682,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
 - [TriageEngineSection.tsx](../../client/src/features/settings/components/TriageEngineSection.tsx) · [test](../../client/src/features/settings/components/__tests__/TriageEngineSection.test.tsx)
 - [UpdateChannelSection.tsx](../../client/src/features/settings/components/UpdateChannelSection.tsx) · [test](../../client/src/features/settings/components/__tests__/UpdateChannelSection.test.tsx)
+- [project-settings-sections.tsx](../../client/src/features/settings/components/project-settings-sections.tsx)
 
 ## client/src/features/settings/components/pickers
 
@@ -834,6 +842,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/terminals/lib
 
 - [save-scrollback.ts](../../client/src/features/terminals/lib/save-scrollback.ts)
+- [search-decorations.ts](../../client/src/features/terminals/lib/search-decorations.ts) · [test](../../client/src/features/terminals/lib/__tests__/search-decorations.test.ts)
 - [terminal-notifications.ts](../../client/src/features/terminals/lib/terminal-notifications.ts)
 
 ## client/src/hooks
