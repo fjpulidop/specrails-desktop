@@ -62,18 +62,18 @@ describe('SpecsBoard', () => {
 
   it('renders the Specs heading', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByText('Spec')).toBeInTheDocument()
+    expect(screen.getByText('Specs')).toBeInTheDocument()
   })
 
   it('renders Add Spec button', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.getByRole('button', { name: /^Add$/i })).toBeInTheDocument()
+    expect(screen.getByTestId('specs-new-spec')).toBeInTheDocument()
   })
 
   it('shows empty state when no tickets', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.getByText('No specs yet')).toBeInTheDocument()
-    expect(screen.getByText(/Click "\+ Add" to get started/i)).toBeInTheDocument()
+    expect(screen.getByText(/Click "New spec" to get started/i)).toBeInTheDocument()
   })
 
   it('shows load error with Retry instead of the empty state', () => {
@@ -176,27 +176,24 @@ describe('SpecsBoard', () => {
     expect(screen.getByText('Spec Two')).toBeInTheDocument()
   })
 
-  it('shows ticket count badge when there are tickets', () => {
+  it('announces the spec count on the All status segment (no duplicate header pill)', () => {
     const tickets = [makeTicket({ id: 1 }), makeTicket({ id: 2 }), makeTicket({ id: 3 })]
     render(<SpecsBoard tickets={tickets} isLoading={false} onTicketClick={onTicketClick} />)
-    // Scope to the header count badge (the ToDo/Done tabs also render counts).
-    const heading = screen.getByText('Spec')
-    const headerDiv = heading.closest('div.flex')!
-    expect(headerDiv.querySelector('.rounded-full')).toHaveTextContent('3')
+    expect(screen.getByTestId('specs-status-count-all')).toHaveTextContent('3')
+    const row1 = screen.getByText('Specs').closest('[data-row="primary"]')!
+    expect(row1.querySelector('.rounded-full')).toBeNull()
   })
 
-  it('does not show active specs count badge when no tickets', () => {
+  it('shows zero counts (not hidden) and no filter row when there are no specs', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    // The Specs header should not show a count badge for 0 active tickets
-    const heading = screen.getByText('Spec')
-    const headerDiv = heading.closest('div.flex')!
-    expect(headerDiv.querySelector('.rounded-full')).toBeNull()
+    expect(screen.getByTestId('specs-status-count-all')).toHaveTextContent('0')
+    expect(screen.queryByTestId('specs-active-filters')).toBeNull()
   })
 
   it('opens ProposeSpecModal when Add Spec is clicked', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
     expect(screen.queryByTestId('propose-spec-modal')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^Add$/i }))
+    fireEvent.click(screen.getByTestId('specs-new-spec'))
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
   })
 
@@ -208,7 +205,7 @@ describe('SpecsBoard', () => {
 
   it('closes ProposeSpecModal when onClose is called', () => {
     render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByRole('button', { name: /^Add$/i }))
+    fireEvent.click(screen.getByTestId('specs-new-spec'))
     expect(screen.getByTestId('propose-spec-modal')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close modal'))
     expect(screen.queryByTestId('propose-spec-modal')).not.toBeInTheDocument()
@@ -264,7 +261,7 @@ describe('SpecsBoard', () => {
       { route: '/?status=all' },
     )
     expect(screen.queryByText('No specs yet')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Click "\+ Add" to get started/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Click "New spec" to get started/i)).not.toBeInTheDocument()
     expect(screen.getByText('Done · 1')).toBeInTheDocument()
   })
 

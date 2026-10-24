@@ -1,18 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Hier ablegen",
     "emptyNoSpecs": "Noch keine Specs",
     "emptyNoLabelMatch": "Keine Specs entsprechen den aktiven Labels",
     "emptyNoActiveSpecs": "Keine aktiven Specs",
-    "emptyHint": "Klicke auf „+ Hinzufügen“, um loszulegen",
+    "emptyHint": "Klicke auf „Neue Spec“, um loszulegen",
     "dropToMarkDone": "Ablegen, um als fertig zu markieren",
     "emptyNoDoneLabelMatch": "Keine fertigen Specs entsprechen den aktiven Labels",
     "emptyNoCompleted": "Noch keine abgeschlossenen Specs",
     "emptyNoStatusMatch": "Keine Specs entsprechen dem ausgewählten Status",
     "untitledSpec": "Unbenannte Spec",
     "doneHeading": "Erledigt · {{count}}",
-    "clearFilters": "Filter zurücksetzen"
+    "clearFilters": "Filter zurücksetzen",
+    "emptyNoSearchMatch": "Keine Spec passt zu „{{query}}“"
   },
   "status": {
     "todo": "To-do",
@@ -94,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "Nach Status filtern",
     "all": "Alle",
-    "active": "Aktiv"
+    "active": "Aktiv",
+    "more": "Mehr",
+    "moreSelected": "Status: {{status}}. Anderen Status wählen"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Nach Jira-Status filtern",
@@ -122,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Nach Labels filtern",
-    "all": "Alle",
+    "all": "Alle Labels",
     "empty": "Keine Labels in diesem Projekt.",
     "selected_one": "{{count}} Label",
     "selected_other": "{{count}} Labels",
@@ -165,5 +168,47 @@
     "unavailableDetail": "Für die Triage ist kein Modell verfügbar ({{reason}}).",
     "failed": "Triage fehlgeschlagen",
     "failedDetail": "Die Triage konnte nicht abgeschlossen werden: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Neue Spec",
+    "newSpecTooltip": "Neue Spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Specs durchsuchen",
+    "ariaLabel": "Specs nach Titel, Nummer, Label oder Jira-Schlüssel durchsuchen",
+    "clear": "Suche löschen"
+  },
+  "filters": {
+    "trigger": "Filter",
+    "triggerActive_one": "Filter, {{count}} aktiv",
+    "triggerActive_other": "Filter, {{count}} aktiv",
+    "title": "Filter",
+    "sections": {
+      "labels": "Labels",
+      "epic": "Epic",
+      "sprint": "Sprint",
+      "jiraStatus": "Jira-Status"
+    },
+    "clearSection": "Zurücksetzen",
+    "clearAll": "Alle zurücksetzen",
+    "done": "Fertig",
+    "findLabel": "Label suchen",
+    "removeChip": "Filter entfernen: {{label}}",
+    "resultCount": "{{shown}} von {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Suche: „{{query}}“",
+      "label": "Label: {{label}}",
+      "epic": "Epic: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Sortierung und Ansicht",
+    "menuLabel": "Sortier- und Ansichtsoptionen",
+    "sortBy": "Sortieren nach",
+    "direction": "Richtung",
+    "view": "Ansicht"
   }
 }

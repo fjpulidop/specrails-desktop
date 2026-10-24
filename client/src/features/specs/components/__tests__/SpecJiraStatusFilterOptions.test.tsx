@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '../../../../test-utils'
-import { SpecJiraStatusFilterDropdown } from '../SpecJiraStatusFilterDropdown'
+import { SpecJiraStatusFilterOptions } from '../SpecJiraStatusFilterOptions'
 import type { LocalTicket, TicketStatus } from '../../../../types'
 
 function makeTicket(id: number, status: TicketStatus, jiraStatus: string | null): LocalTicket {
@@ -23,7 +23,7 @@ function makeTicket(id: number, status: TicketStatus, jiraStatus: string | null)
   }
 }
 
-describe('SpecJiraStatusFilterDropdown', () => {
+describe('SpecJiraStatusFilterOptions', () => {
   it('lists each raw status once with its count, grouped by logical state', () => {
     const tickets = [
       makeTicket(1, 'todo', 'To Do'),
@@ -33,8 +33,7 @@ describe('SpecJiraStatusFilterDropdown', () => {
       makeTicket(5, 'cancelled', "Won't Do"),
       makeTicket(6, 'todo', null), // no raw status — excluded from entries + total
     ]
-    render(<SpecJiraStatusFilterDropdown tickets={tickets} active={null} onChange={() => {}} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    render(<SpecJiraStatusFilterOptions tickets={tickets} active={null} onChange={() => {}} />)
     const panel = screen.getByTestId('spec-jira-status-filter-panel')
 
     const todoGroup = within(panel).getByTestId('spec-jira-status-group-todo')
@@ -56,8 +55,7 @@ describe('SpecJiraStatusFilterDropdown', () => {
       makeTicket(2, 'in_progress', 'QA'),
       makeTicket(3, 'done', 'QA'),
     ]
-    render(<SpecJiraStatusFilterDropdown tickets={tickets} active={null} onChange={() => {}} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    render(<SpecJiraStatusFilterOptions tickets={tickets} active={null} onChange={() => {}} />)
     const wipGroup = screen.getByTestId('spec-jira-status-group-in_progress')
     expect(within(wipGroup).getByTestId('spec-jira-status-option-QA')).toHaveTextContent('3')
     expect(screen.queryByTestId('spec-jira-status-group-done')).toBeNull()
@@ -65,8 +63,7 @@ describe('SpecJiraStatusFilterDropdown', () => {
 
   it('parks an unresolvable (tied) raw status in the muted Other group', () => {
     const tickets = [makeTicket(1, 'in_progress', 'Limbo'), makeTicket(2, 'done', 'Limbo')]
-    render(<SpecJiraStatusFilterDropdown tickets={tickets} active={null} onChange={() => {}} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    render(<SpecJiraStatusFilterOptions tickets={tickets} active={null} onChange={() => {}} />)
     const other = screen.getByTestId('spec-jira-status-group-other')
     expect(within(other).getByTestId('spec-jira-status-option-Limbo')).toHaveTextContent('2')
     expect(within(other).getByText('Other')).toBeInTheDocument()
@@ -76,26 +73,22 @@ describe('SpecJiraStatusFilterDropdown', () => {
     const onChange = vi.fn()
     const tickets = [makeTicket(1, 'in_progress', 'Code Review')]
     const { rerender } = render(
-      <SpecJiraStatusFilterDropdown tickets={tickets} active={null} onChange={onChange} />,
+      <SpecJiraStatusFilterOptions tickets={tickets} active={null} onChange={onChange} />,
     )
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
     fireEvent.click(screen.getByTestId('spec-jira-status-option-Code Review'))
     expect(onChange).toHaveBeenCalledWith('Code Review')
 
-    rerender(<SpecJiraStatusFilterDropdown tickets={tickets} active="Code Review" onChange={onChange} />)
-    // Active selection shows on the trigger.
-    expect(screen.getByTestId('spec-jira-status-filter-dropdown')).toHaveTextContent('Code Review')
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
+    rerender(<SpecJiraStatusFilterOptions tickets={tickets} active="Code Review" onChange={onChange} />)
+    // The active selection is marked on its option.
+    expect(screen.getByTestId('spec-jira-status-option-Code Review')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('spec-jira-status-filter-all')).toHaveAttribute('aria-selected', 'false')
     fireEvent.click(screen.getByTestId('spec-jira-status-filter-all'))
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
-  it('closes on Escape', () => {
+  it('renders as a labelled listbox (the Filters popover owns open/close)', () => {
     const tickets = [makeTicket(1, 'todo', 'To Do')]
-    render(<SpecJiraStatusFilterDropdown tickets={tickets} active={null} onChange={() => {}} />)
-    fireEvent.click(screen.getByTestId('spec-jira-status-filter-dropdown'))
-    expect(screen.getByTestId('spec-jira-status-filter-panel')).toBeInTheDocument()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByTestId('spec-jira-status-filter-panel')).toBeNull()
+    render(<SpecJiraStatusFilterOptions tickets={tickets} active={null} onChange={() => {}} />)
+    expect(screen.getByRole('listbox', { name: 'Filter by Jira status' })).toBeInTheDocument()
   })
 })

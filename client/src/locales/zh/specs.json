@@ -5,14 +5,15 @@
     "emptyNoSpecs": "暂无 spec",
     "emptyNoLabelMatch": "没有符合所选标签的 spec",
     "emptyNoActiveSpecs": "没有进行中的 spec",
-    "emptyHint": "点击“+ 添加”开始",
+    "emptyHint": "点击\"新建 Spec\"开始",
     "dropToMarkDone": "拖放至此标记为完成",
     "emptyNoDoneLabelMatch": "没有符合所选标签的已完成 spec",
     "emptyNoCompleted": "暂无已完成的 spec",
     "emptyNoStatusMatch": "没有符合所选状态的 spec",
     "untitledSpec": "未命名 spec",
     "doneHeading": "已完成 · {{count}}",
-    "clearFilters": "清除筛选"
+    "clearFilters": "清除筛选",
+    "emptyNoSearchMatch": "没有匹配\"{{query}}\"的 Spec"
   },
   "status": {
     "todo": "待办",
@@ -94,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "按状态筛选",
     "all": "全部",
-    "active": "活跃"
+    "active": "活跃",
+    "more": "更多",
+    "moreSelected": "状态：{{status}}。选择其他状态"
   },
   "jiraStatusFilter": {
     "ariaLabel": "按 Jira 状态筛选",
@@ -122,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "按标签筛选",
-    "all": "全部",
+    "all": "全部标签",
     "empty": "此项目没有标签。",
     "selected_one": "{{count}} 个标签",
     "selected_other": "{{count}} 个标签",
@@ -165,5 +168,47 @@
     "unavailableDetail": "没有可用于分诊的模型（{{reason}}）。",
     "failed": "分诊失败",
     "failedDetail": "无法完成分诊：{{error}}"
+  },
+  "toolbar": {
+    "newSpec": "新建 Spec",
+    "newSpecTooltip": "新建 Spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "搜索 Spec",
+    "ariaLabel": "按标题、编号、标签或 Jira 键搜索 Spec",
+    "clear": "清除搜索"
+  },
+  "filters": {
+    "trigger": "筛选",
+    "triggerActive_one": "筛选，{{count}} 项生效",
+    "triggerActive_other": "筛选，{{count}} 项生效",
+    "title": "筛选",
+    "sections": {
+      "labels": "标签",
+      "epic": "史诗",
+      "sprint": "冲刺",
+      "jiraStatus": "Jira 状态"
+    },
+    "clearSection": "清除",
+    "clearAll": "全部清除",
+    "done": "完成",
+    "findLabel": "查找标签",
+    "removeChip": "移除筛选：{{label}}",
+    "resultCount": "{{shown}} / {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "搜索：\"{{query}}\"",
+      "label": "标签：{{label}}",
+      "epic": "史诗：{{name}}",
+      "sprint": "冲刺：{{name}}",
+      "jiraStatus": "Jira：{{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "排序与视图",
+    "menuLabel": "排序与视图选项",
+    "sortBy": "排序方式",
+    "direction": "方向",
+    "view": "视图"
   }
 }

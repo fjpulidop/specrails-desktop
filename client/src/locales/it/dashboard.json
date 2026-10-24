@@ -171,10 +171,21 @@
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} in esecuzione",
-    "runningCount_other": "{{count}} in esecuzione",
     "launchAll": "Lancia tutti",
-    "launchAllTitle": "Lancia in parallelo tutti i rail pronti — ogni esecuzione è isolata nel proprio worktree git"
+    "launchAllTitle": "Lancia in parallelo tutti i rail pronti — ogni esecuzione è isolata nel proprio worktree git",
+    "addRail": "Aggiungi rail",
+    "addRailLimit": "Limite di rail raggiunto (max {{max}})",
+    "launchAllNoneReady": "Nessun rail è pronto. Trascina delle spec su un rail per lanciarlo.",
+    "summary": {
+      "running_one": "{{count}} in esecuzione",
+      "running_other": "{{count}} in esecuzione",
+      "ready_one": "{{count}} pronto",
+      "ready_other": "{{count}} pronti",
+      "failed_one": "{{count}} fallito",
+      "failed_other": "{{count}} falliti",
+      "total_one": "{{count}} rail",
+      "total_other": "{{count}} rail"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} già in esecuzione",

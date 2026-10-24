@@ -48,6 +48,25 @@ independent or that this is a hexagonal frontend. Pure models should not gain
 React, network or native-shell dependencies. Bind effects in hooks and adapters.
 <!-- audit-client-features:end -->
 
+## Board toolbar
+
+The Specs half of Board mode composes its header from
+[`components/ui/board-toolbar`](../../components/ui/board-toolbar.tsx) (shared with
+the Rails half so both rows align across the splitter):
+
+- Row 1: [`SpecSearchField`](components/SpecSearchField.tsx) (ephemeral, `/` to focus,
+  matching via [`lib/spec-search.ts`](lib/spec-search.ts)),
+  [`SpecFiltersPopover`](components/SpecFiltersPopover.tsx) (labels, epic, sprint and
+  Jira-status sections built from the `Spec*FilterOptions` lists),
+  [`SpecsDisplayControls`](components/SpecsDisplayControls.tsx) (sort + view) and New spec.
+- Row 2: [`SpecStatusFilter`](components/SpecStatusFilter.tsx), a radiogroup that
+  collapses `full → compact → menu` by measured width and never scrolls.
+- Row 3 (only while narrowed): [`SpecActiveFilters`](components/SpecActiveFilters.tsx).
+
+Width tiers come from [`useElementWidth`](../../hooks/useElementWidth.ts); a `null`
+width (jsdom) always means the roomiest tier. Persistence keys and URL params are
+unchanged; search is never persisted.
+
 ## Extension seam
 
 [`SpecExtensionsContext`](context/SpecExtensionsContext.tsx) lets a feature

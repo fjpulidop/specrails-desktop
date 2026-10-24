@@ -5,14 +5,15 @@
     "emptyNoSpecs": "スペックはまだありません",
     "emptyNoLabelMatch": "アクティブなラベルに一致するスペックはありません",
     "emptyNoActiveSpecs": "アクティブなスペックはありません",
-    "emptyHint": "「+ 追加」をクリックして開始",
+    "emptyHint": "「新規スペック」をクリックして開始",
     "dropToMarkDone": "ドロップして完了にする",
     "emptyNoDoneLabelMatch": "アクティブなラベルに一致する完了スペックはありません",
     "emptyNoCompleted": "完了したスペックはまだありません",
     "emptyNoStatusMatch": "選択したステータスに一致するスペックはありません",
     "untitledSpec": "無題のスペック",
     "doneHeading": "完了 · {{count}}",
-    "clearFilters": "フィルターをクリア"
+    "clearFilters": "フィルターをクリア",
+    "emptyNoSearchMatch": "「{{query}}」に一致するスペックはありません"
   },
   "status": {
     "todo": "未着手",
@@ -94,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "ステータスで絞り込み",
     "all": "すべて",
-    "active": "アクティブ"
+    "active": "アクティブ",
+    "more": "その他",
+    "moreSelected": "ステータス: {{status}}。別のステータスを選択"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Jira ステータスで絞り込み",
@@ -122,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "ラベルで絞り込み",
-    "all": "すべて",
+    "all": "すべてのラベル",
     "empty": "このプロジェクトにラベルはありません。",
     "selected_one": "{{count}} 件のラベル",
     "selected_other": "{{count}} 件のラベル",
@@ -165,5 +168,47 @@
     "unavailableDetail": "トリアージに使えるモデルがありません ({{reason}})。",
     "failed": "トリアージ失敗",
     "failedDetail": "トリアージを完了できませんでした: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "新規スペック",
+    "newSpecTooltip": "新規スペック (⌘↵)"
+  },
+  "search": {
+    "placeholder": "スペックを検索",
+    "ariaLabel": "タイトル・番号・ラベル・Jiraキーでスペックを検索",
+    "clear": "検索をクリア"
+  },
+  "filters": {
+    "trigger": "フィルター",
+    "triggerActive_one": "フィルター（{{count}} 件適用中）",
+    "triggerActive_other": "フィルター（{{count}} 件適用中）",
+    "title": "フィルター",
+    "sections": {
+      "labels": "ラベル",
+      "epic": "エピック",
+      "sprint": "スプリント",
+      "jiraStatus": "Jira ステータス"
+    },
+    "clearSection": "クリア",
+    "clearAll": "すべてクリア",
+    "done": "完了",
+    "findLabel": "ラベルを検索",
+    "removeChip": "フィルターを解除: {{label}}",
+    "resultCount": "{{total}} 件中 {{shown}} 件",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "検索:「{{query}}」",
+      "label": "ラベル: {{label}}",
+      "epic": "エピック: {{name}}",
+      "sprint": "スプリント: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "並べ替えと表示",
+    "menuLabel": "並べ替えと表示のオプション",
+    "sortBy": "並べ替え",
+    "direction": "順序",
+    "view": "表示"
   }
 }

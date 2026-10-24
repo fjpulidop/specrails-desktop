@@ -12,11 +12,21 @@ import { TicketContextMenu } from './TicketContextMenu'
 import type { TicketStatus, TicketPriority } from '../../../types'
 import type { RailState } from '../../rails/components/RailsBoard'
 import { useSpecExtensions } from '../context/SpecExtensionsContext'
-import { SpecLabelFilterDropdown } from './SpecLabelFilterDropdown'
-import { SpecEpicFilterDropdown } from './SpecEpicFilterDropdown'
-import { SpecSprintFilterDropdown } from './SpecSprintFilterDropdown'
 import { SpecStatusFilter } from './SpecStatusFilter'
-import { SpecJiraStatusFilterDropdown } from './SpecJiraStatusFilterDropdown'
+import { SpecSearchField } from './SpecSearchField'
+import { SpecFiltersPopover, countActiveSpecFilters, type SpecFiltersPopoverHandle } from './SpecFiltersPopover'
+import { SpecActiveFilters, type ActiveFilterChip } from './SpecActiveFilters'
+import { SpecsDisplayControls } from './SpecsDisplayControls'
+import { epicNameFor } from './SpecEpicFilterOptions'
+import { sprintNameFor } from './SpecSprintFilterOptions'
+import {
+  BoardToolbar,
+  BoardToolbarRow,
+  BoardToolbarSpacer,
+  BoardToolbarTitle,
+} from '../../../components/ui/board-toolbar'
+import { useElementWidth } from '../../../hooks/useElementWidth'
+import { normalizeSpecQuery, specMatchesQuery } from '../lib/spec-search'
 import {
   isSpecStatusFilterValue,
   loadSpecStatusFilter,
@@ -24,8 +34,6 @@ import {
   statusMatchesFilter,
   type SpecStatusFilterValue,
 } from '../lib/spec-status-filter'
-import { SpecSortControl } from './SpecSortControl'
-import { SpecsViewTierToggle } from './SpecsViewTierToggle'
 import type { SpecsViewTier } from '../lib/specs-view-tier'
 import { applySpecSort } from '../lib/spec-sort'
 import { loadSpecFilters, saveSpecFilters } from '../lib/spec-filters'
@@ -233,6 +241,11 @@ export function SpecsBoard({
   const [activeJiraStatus, setActiveJiraStatus] = useState<string | null>(
     () => searchParams.get('jiraStatus') ?? loadSpecFilters(activeProjectId).jiraStatus,
   )
+  // Ephemeral search (never persisted; cleared on project switch).
+  const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  const filtersPopoverRef = useRef<SpecFiltersPopoverHandle>(null)
+  const q = normalizeSpecQuery(search)
   const handleStatusFilterChange = useCallback((v: SpecStatusFilterValue) => {
     setStatusFilter(v)
     saveSpecStatusFilter(activeProjectId, v)
@@ -285,6 +298,7 @@ export function SpecsBoard({
   const didRestoreStatusRef = useRef(false)
   useEffect(() => {
     const f = loadSpecFilters(activeProjectId)
+    setSearch('')
     setActiveLabels(f.labels)
     setActiveEpic(f.epic)
     setActiveSprint(f.sprint)
@@ -324,8 +338,21 @@ export function SpecsBoard({
     setActiveSprint(null)
     setActiveJiraStatus(null)
     setStatusFilter('active')
+    setSearch('')
     saveSpecFilters(activeProjectId, { labels: none, epic: null, sprint: null, jiraStatus: null })
     saveSpecStatusFilter(activeProjectId, 'active')
+  }, [activeProjectId])
+
+  // Toolbar "Clear all" (chips row + Filters popover): drops search and every
+  // filter beyond status, but KEEPS the status selection (row 2 owns it).
+  const handleClearToolbarFilters = useCallback(() => {
+    const none = new Set<string>()
+    setActiveLabels(none)
+    setActiveEpic(null)
+    setActiveSprint(null)
+    setActiveJiraStatus(null)
+    setSearch('')
+    saveSpecFilters(activeProjectId, { labels: none, epic: null, sprint: null, jiraStatus: null })
   }, [activeProjectId])
 
   const matchesFilters = useCallback(
@@ -333,12 +360,12 @@ export function SpecsBoard({
       if (activeEpic !== null && t.jira_epic_key !== activeEpic) return false
       if (activeSprint !== null && t.jira_sprint_id !== activeSprint) return false
       if (activeLabels.size > 0 && !(t.labels ?? []).some((l) => activeLabels.has(l))) return false
-      return true
+      return specMatchesQuery(t, q)
     },
-    [activeLabels, activeEpic, activeSprint],
+    [activeLabels, activeEpic, activeSprint, q],
   )
 
-  const noFilters = activeLabels.size === 0 && activeEpic === null && activeSprint === null
+  const noFilters = activeLabels.size === 0 && activeEpic === null && activeSprint === null && q === ''
   const filteredTickets = useMemo(() => {
     if (noFilters) return tickets
     return tickets.filter(matchesFilters)
@@ -561,6 +588,32 @@ export function SpecsBoard({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // `/` focuses the spec search — never while typing elsewhere, with a
+  // modifier held, while a dialog is open, or while the explore shell covers
+  // the board.
+  useEffect(() => {
+    if (explore) return
+    function handleSlash(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      if (document.querySelector('[role="dialog"][data-state="open"], dialog[open], [role="dialog"][aria-modal="true"]')) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', handleSlash)
+    return () => window.removeEventListener('keydown', handleSlash)
+  }, [explore])
+
+  // Width tiers for the command row (measured on the row, not the viewport).
+  const [row1Ref, row1W] = useElementWidth<HTMLDivElement>()
+  const compactControls = row1W !== null && row1W < 560
+  const iconOnlyNew = row1W !== null && row1W < 420
+  const hideTitleIcon = row1W !== null && row1W < 400
+
+  const filterCount = countActiveSpecFilters({ labels: activeLabels, epic: activeEpic, sprint: activeSprint, jiraStatus: activeJiraStatus })
+  const narrowed = filterCount > 0 || q !== ''
   const { isOver, setNodeRef } = useDroppable({ id: 'specs' })
   const { isOver: isDoneOver, setNodeRef: setDoneNodeRef } = useDroppable({ id: 'done-specs' })
 
@@ -573,98 +626,107 @@ export function SpecsBoard({
   // states + header count pill).
   const statusNarrowed = statusFilter !== 'active' || activeJiraStatus !== null
   const hasLastGoodData = tickets.length + doneTickets.length > 0
+  const totalSpecs = tickets.length + doneTickets.length
+  const shownCount = visibleActiveTickets.length + (showDoneBucket ? visibleDoneTickets.length : 0)
+
+  // One removable chip per active narrowing value (status is not a chip).
+  const filterSourceTickets = useMemo(() => [...tickets, ...doneTickets], [tickets, doneTickets])
+  const activeChips: ActiveFilterChip[] = []
+  if (q !== '') {
+    activeChips.push({ key: 'search', label: t('filters.chip.search', { query: search.trim() }), onRemove: () => setSearch('') })
+  }
+  for (const label of activeLabels) {
+    activeChips.push({
+      key: `label-${label}`,
+      label: t('filters.chip.label', { label }),
+      onRemove: () => {
+        const next = new Set(activeLabels)
+        next.delete(label)
+        handleLabelsChange(next)
+      },
+    })
+  }
+  if (activeEpic !== null) {
+    activeChips.push({ key: 'epic', label: t('filters.chip.epic', { name: epicNameFor(filterSourceTickets, activeEpic) }), onRemove: () => handleEpicChange(null) })
+  }
+  if (activeSprint !== null) {
+    activeChips.push({ key: 'sprint', label: t('filters.chip.sprint', { name: sprintNameFor(filterSourceTickets, activeSprint) }), onRemove: () => handleSprintChange(null) })
+  }
+  if (activeJiraStatus !== null) {
+    activeChips.push({ key: 'jira-status', label: t('filters.chip.jiraStatus', { status: activeJiraStatus }), onRemove: () => handleJiraStatusChange(null) })
+  }
 
   return (
     <section aria-labelledby="specs-board-title" className="flex flex-col h-full" onClick={handleBackgroundClick}>
-      {/* Header — a single row (aligns with the rails header): title + the
-          premium status selector, a separator, then filters + sort + view + add. */}
-      <div className="flex items-center px-4 h-12 border-b border-border/40 shrink-0 gap-2">
-        <div className="flex items-center gap-2 shrink-0">
-          <FileText className="w-4 h-4 text-muted-foreground" aria-hidden />
-          <h2 id="specs-board-title" className="text-sm font-semibold text-foreground">{t('board.title')}</h2>
-          {tickets.length + doneTickets.length > 0 && (
-            <span className="text-[11px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5">
-              {!noFilters || activeJiraStatus !== null
-                ? `${filteredTickets.filter(matchesJiraStatus).length + filteredDoneTickets.filter(matchesJiraStatus).length}/${tickets.length + doneTickets.length}`
-                : tickets.length + doneTickets.length}
-            </span>
-          )}
-        </div>
-
-        {/* Premium status selector — every state with a live count. Shrinks
-            (and scrolls) before anything else in the row does. */}
-        <SpecStatusFilter
-          value={statusFilter}
-          onChange={handleStatusFilterChange}
-          counts={statusCounts}
-        />
-
-        {/* Jira dimension — the board's REAL workflow statuses (raw names),
-            present only once the inbound sync materialized at least one. */}
-        {hasJiraStatuses && (
-          <SpecJiraStatusFilterDropdown
-            tickets={[...filteredTickets, ...filteredDoneTickets]}
-            active={activeJiraStatus}
-            onChange={handleJiraStatusChange}
+      {/* Toolbar — rows 1 and 2 line up with the Rails toolbar across the
+          splitter. Row 1: title, search, Filters, display, New spec. Row 2:
+          the status selector. Row 3 (only while narrowed): active chips. */}
+      <BoardToolbar data-testid="specs-toolbar">
+        <BoardToolbarRow size="primary" ref={row1Ref}>
+          <BoardToolbarTitle id="specs-board-title" icon={FileText} hideIconBelow={hideTitleIcon}>
+            {t('board.title')}
+          </BoardToolbarTitle>
+          <SpecSearchField ref={searchRef} value={search} onChange={setSearch} />
+          <BoardToolbarSpacer />
+          <SpecFiltersPopover
+            ref={filtersPopoverRef}
+            tickets={filterSourceTickets}
+            jiraStatusTickets={[...filteredTickets, ...filteredDoneTickets]}
+            labels={activeLabels}
+            onLabelsChange={handleLabelsChange}
+            epic={activeEpic}
+            onEpicChange={handleEpicChange}
+            sprint={activeSprint}
+            onSprintChange={handleSprintChange}
+            jiraStatus={activeJiraStatus}
+            onJiraStatusChange={handleJiraStatusChange}
+            showEpic={hasEpics}
+            showSprint={hasSprints}
+            showJiraStatus={hasJiraStatuses}
+            onClearAll={handleClearToolbarFilters}
+            compact={compactControls}
+          />
+          <SpecsDisplayControls
+            compact={compactControls}
+            sortMode={sortMode}
+            sortDir={sortDir}
+            onSortChange={onSortChange}
+            showJiraSort={hasJiraKeys}
+            viewTier={viewTier}
+            onViewTierChange={onViewTierChange}
+          />
+          <Button
+            size="sm"
+            variant="default"
+            onClick={(e) => { e.stopPropagation(); setProposeOpen(true) }}
+            data-tour="add-spec-btn"
+            data-testid="specs-new-spec"
+            aria-label={iconOnlyNew ? t('toolbar.newSpec') : undefined}
+            title={t('toolbar.newSpecTooltip')}
+            className="h-8 gap-1.5 px-3 text-xs font-semibold shrink-0 bg-accent-primary text-background hover:bg-accent-primary/90 focus-visible:ring-offset-1"
+          >
+            <Plus className="w-3.5 h-3.5" aria-hidden />
+            {!iconOnlyNew && t('toolbar.newSpec')}
+          </Button>
+        </BoardToolbarRow>
+        <BoardToolbarRow size="secondary">
+          <SpecStatusFilter
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            counts={statusCounts}
+            loading={isLoading && !hasLastGoodData}
+          />
+        </BoardToolbarRow>
+        {narrowed && (
+          <SpecActiveFilters
+            chips={activeChips}
+            shown={shownCount}
+            total={totalSpecs}
+            onClearAll={handleClearToolbarFilters}
+            onOverflowClick={() => filtersPopoverRef.current?.open()}
           />
         )}
-
-        {/* Separator between the status selector and the filters */}
-        <div className="h-5 w-px bg-border/60 shrink-0" aria-hidden />
-
-        {/* Filters are direct children (NO overflow wrapper — an overflow
-            ancestor clips their absolute dropdown panels). */}
-        <SpecLabelFilterDropdown
-          tickets={[...tickets, ...doneTickets]}
-          active={activeLabels}
-          onChange={handleLabelsChange}
-        />
-        {hasEpics && (
-          <SpecEpicFilterDropdown
-            tickets={[...tickets, ...doneTickets]}
-            active={activeEpic}
-            onChange={handleEpicChange}
-          />
-        )}
-        {hasSprints && (
-          <SpecSprintFilterDropdown
-            tickets={[...tickets, ...doneTickets]}
-            active={activeSprint}
-            onChange={handleSprintChange}
-          />
-        )}
-
-        {/* Separator between the Jira/label filters and the sort/view controls.
-            `ml-auto` pushes the whole action cluster to the right edge. */}
-        <div className="h-5 w-px bg-border/60 shrink-0 ml-auto" aria-hidden />
-
-        <SpecSortControl
-          mode={sortMode}
-          dir={sortDir}
-          onChange={onSortChange}
-          showJiraSort={hasJiraKeys}
-          className="shrink-0"
-        />
-        {onViewTierChange && (
-          <div className="shrink-0">
-            <SpecsViewTierToggle tier={viewTier} onChange={onViewTierChange} />
-          </div>
-        )}
-
-        {/* Separator before the primary Add action */}
-        <div className="h-5 w-px bg-border/60 shrink-0" aria-hidden />
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-xs gap-1 shrink-0 border-accent-primary/50 text-accent-primary hover:bg-accent-primary/10 hover:text-accent-primary"
-          onClick={() => setProposeOpen(true)}
-          data-tour="add-spec-btn"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t('common:actions.add')}
-        </Button>
-      </div>
+      </BoardToolbar>
 
       {/* Content area — single scrollable list. Status filter decides which
           buckets render; in `all` mode todo specs come first and the done
@@ -706,6 +768,8 @@ export function SpecsBoard({
                     ? t('board.dropHere')
                     : tickets.length + doneTickets.length === 0
                       ? t('board.emptyNoSpecs')
+                      : q !== ''
+                        ? t('board.emptyNoSearchMatch', { query: search.trim() })
                       : filteredTickets.length === 0 && activeLabels.size > 0
                         ? t('board.emptyNoLabelMatch')
                         : statusNarrowed

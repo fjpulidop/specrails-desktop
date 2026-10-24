@@ -4,6 +4,12 @@ import { render, screen, fireEvent } from '../../test-utils'
 import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 import type { LocalTicket } from '../../types'
 
+/** Opens the toolbar Filters popover (idempotent: single-selects keep it open). */
+function openFilters() {
+  if (!screen.queryByTestId('specs-filters-panel')) fireEvent.click(screen.getByTestId('specs-filters-trigger'))
+  return screen.getByTestId('specs-filters-panel')
+}
+
 vi.mock('@dnd-kit/core', () => ({ useDroppable: () => ({ isOver: false, setNodeRef: vi.fn() }) }))
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -27,7 +33,8 @@ describe('SpecsBoard sprint filter', () => {
 
   it('hides the sprint filter when no spec has a sprint', () => {
     render(<SpecsBoard tickets={[makeTicket(1, 'Local')]} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.queryByTestId('spec-sprint-filter-dropdown')).toBeNull()
+    openFilters()
+    expect(screen.queryByTestId('spec-filters-section-sprint')).toBeNull()
   })
 
   it('shows the sprint filter and filters the board to the chosen sprint', () => {
@@ -40,7 +47,7 @@ describe('SpecsBoard sprint filter', () => {
     expect(screen.getByText('Spec in S42')).toBeInTheDocument()
     expect(screen.getByText('Spec in S43')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('spec-sprint-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Sprint 42/ }))
 
     expect(screen.getByText('Spec in S42')).toBeInTheDocument()
@@ -54,7 +61,7 @@ describe('SpecsBoard sprint filter', () => {
       makeTicket(2, 'Active spec', '43', 'Sprint 43', 'active'),
     ]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-sprint-filter-dropdown'))
+    openFilters()
     // Exactly one "Current" badge, on the active sprint.
     const badges = screen.getAllByTestId('spec-sprint-current-badge')
     expect(badges).toHaveLength(1)
@@ -64,10 +71,10 @@ describe('SpecsBoard sprint filter', () => {
   it('clears the filter with "All sprints"', () => {
     const tickets = [makeTicket(1, 'Spec A', '42', 'Sprint 42'), makeTicket(2, 'Spec B', '43', 'Sprint 43')]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-sprint-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Sprint 43/ }))
     expect(screen.queryByText('Spec A')).toBeNull()
-    fireEvent.click(screen.getByTestId('spec-sprint-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-sprint-filter-all'))
     expect(screen.getByText('Spec A')).toBeInTheDocument()
     expect(screen.getByText('Spec B')).toBeInTheDocument()

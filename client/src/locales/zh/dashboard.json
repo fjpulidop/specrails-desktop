@@ -171,10 +171,21 @@
   },
   "railsBoard": {
     "title": "Rails",
-    "runningCount_one": "{{count}} 个运行中",
-    "runningCount_other": "{{count}} 个运行中",
     "launchAll": "全部启动",
-    "launchAllTitle": "并行启动所有就绪的 Rail — 每次运行都隔离在自己的 git worktree 中"
+    "launchAllTitle": "并行启动所有就绪的 Rail — 每次运行都隔离在自己的 git worktree 中",
+    "addRail": "添加 Rail",
+    "addRailLimit": "已达 Rail 上限（最多 {{max}}）",
+    "launchAllNoneReady": "没有就绪的 Rail。将 Spec 拖到 Rail 上即可启动。",
+    "summary": {
+      "running_one": "{{count}} 运行中",
+      "running_other": "{{count}} 运行中",
+      "ready_one": "{{count}} 就绪",
+      "ready_other": "{{count}} 就绪",
+      "failed_one": "{{count}} 失败",
+      "failed_other": "{{count}} 失败",
+      "total_one": "{{count}} 个 Rail",
+      "total_other": "{{count}} 个 Rail"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} 个已在运行",

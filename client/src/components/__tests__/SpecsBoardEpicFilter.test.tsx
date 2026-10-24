@@ -4,6 +4,12 @@ import { render, screen, fireEvent } from '../../test-utils'
 import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 import type { LocalTicket } from '../../types'
 
+/** Opens the toolbar Filters popover (idempotent: single-selects keep it open). */
+function openFilters() {
+  if (!screen.queryByTestId('specs-filters-panel')) fireEvent.click(screen.getByTestId('specs-filters-trigger'))
+  return screen.getByTestId('specs-filters-panel')
+}
+
 vi.mock('@dnd-kit/core', () => ({ useDroppable: () => ({ isOver: false, setNodeRef: vi.fn() }) }))
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -27,7 +33,8 @@ describe('SpecsBoard epic filter', () => {
 
   it('hides the epic filter when no spec has an epic', () => {
     render(<SpecsBoard tickets={[makeTicket(1, 'Local')]} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    expect(screen.queryByTestId('spec-epic-filter-dropdown')).toBeNull()
+    openFilters()
+    expect(screen.queryByTestId('spec-filters-section-epic')).toBeNull()
   })
 
   it('shows the epic filter and filters the board to the chosen epic', () => {
@@ -43,7 +50,7 @@ describe('SpecsBoard epic filter', () => {
     expect(screen.getByText('Billing spec')).toBeInTheDocument()
 
     // Open the epic dropdown and pick the Authentication epic.
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Authentication/ }))
 
     // Only the two Authentication specs remain.
@@ -57,10 +64,10 @@ describe('SpecsBoard epic filter', () => {
   it('clears the filter with "All epics"', () => {
     const tickets = [makeTicket(1, 'Auth spec', 'PROJ-100', 'Authentication'), makeTicket(2, 'Billing spec', 'PROJ-200', 'Billing')]
     render(<SpecsBoard tickets={tickets} doneTickets={[]} isLoading={false} onTicketClick={onTicketClick} />)
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByRole('option', { name: /Billing/ }))
     expect(screen.queryByText('Auth spec')).toBeNull()
-    fireEvent.click(screen.getByTestId('spec-epic-filter-dropdown'))
+    openFilters()
     fireEvent.click(screen.getByTestId('spec-epic-filter-all'))
     expect(screen.getByText('Auth spec')).toBeInTheDocument()
     expect(screen.getByText('Billing spec')).toBeInTheDocument()

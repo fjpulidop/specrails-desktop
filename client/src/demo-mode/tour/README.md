@@ -61,5 +61,5 @@ Total ≈ 18 s. Loops forever. `prefers-reduced-motion: reduce` skips
 ## Selectors
 
 Selectors live in `selectors.ts`. Every cursor target uses `data-tour="…"`.
-Real DOM: `SpecsBoard` Add button (`data-tour="add-spec-btn"`). Everything else
+Real DOM: `SpecsBoard` New spec button (`data-tour="add-spec-btn"`). Everything else
 targets elements inside `TourOverlay` fakes.

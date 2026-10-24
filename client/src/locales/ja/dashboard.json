@@ -171,10 +171,21 @@
   },
   "railsBoard": {
     "title": "レール",
-    "runningCount_one": "{{count}} 件実行中",
-    "runningCount_other": "{{count}} 件実行中",
     "launchAll": "すべて起動",
-    "launchAllTitle": "準備完了のレールをすべて並列で起動します — 各実行は専用の git worktree に隔離されます"
+    "launchAllTitle": "準備完了のレールをすべて並列で起動します — 各実行は専用の git worktree に隔離されます",
+    "addRail": "レールを追加",
+    "addRailLimit": "レール数の上限に達しました（最大 {{max}}）",
+    "launchAllNoneReady": "準備済みのレールはありません。スペックをレールにドラッグして起動します。",
+    "summary": {
+      "running_one": "{{count}} 実行中",
+      "running_other": "{{count}} 実行中",
+      "ready_one": "{{count}} 準備完了",
+      "ready_other": "{{count}} 準備完了",
+      "failed_one": "{{count}} 失敗",
+      "failed_other": "{{count}} 失敗",
+      "total_one": "{{count}} レール",
+      "total_other": "{{count}} レール"
+    }
   },
   "launchAll": {
     "skipRunning_one": "{{count}} 件は既に実行中",

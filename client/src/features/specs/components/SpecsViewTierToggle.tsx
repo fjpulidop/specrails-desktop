@@ -29,10 +29,7 @@ export function SpecsViewTierToggle({ tier, onChange, className }: SpecsViewTier
       <div
         role="radiogroup"
         aria-label={t('viewTier.ariaLabel')}
-        className={cn(
-          'inline-flex items-center rounded-md border border-accent-secondary/30 bg-accent-secondary/10 p-0.5 shrink-0',
-          className,
-        )}
+        className={cn('inline-flex items-center gap-0.5 shrink-0', className)}
       >
         {OPTIONS.map(({ value, Icon, labelKey }) => {
           const active = tier === value
@@ -46,14 +43,14 @@ export function SpecsViewTierToggle({ tier, onChange, className }: SpecsViewTier
                   aria-label={t(labelKey)}
                   onClick={() => onChange(value)}
                   className={cn(
-                    'inline-flex items-center justify-center h-6 w-6 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+                    'inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     active
-                      ? 'bg-accent-secondary/40 text-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent-secondary/20',
+                      ? 'bg-background text-foreground shadow-sm ring-1 ring-border/70'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
                   )}
                   data-testid={`specs-view-tier-${value}`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className="w-3.5 h-3.5" aria-hidden />
                 </button>
               </TooltipTrigger>
               <TooltipContent>{t(labelKey)}</TooltipContent>

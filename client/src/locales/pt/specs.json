@@ -1,18 +1,19 @@
 {
   "board": {
-    "title": "Spec",
+    "title": "Specs",
     "dropHere": "Largar aqui",
     "emptyNoSpecs": "Ainda não há specs",
     "emptyNoLabelMatch": "Nenhuma spec corresponde às etiquetas ativas",
     "emptyNoActiveSpecs": "Sem specs ativas",
-    "emptyHint": "Clique em \"+ Adicionar\" para começar",
+    "emptyHint": "Clique em \"Nova spec\" para começar",
     "dropToMarkDone": "Largue para marcar como concluída",
     "emptyNoDoneLabelMatch": "Nenhuma spec concluída corresponde às etiquetas ativas",
     "emptyNoCompleted": "Ainda não há specs concluídas",
     "emptyNoStatusMatch": "Nenhuma spec corresponde ao estado selecionado",
     "untitledSpec": "Spec sem título",
     "doneHeading": "Concluídas · {{count}}",
-    "clearFilters": "Limpar filtros"
+    "clearFilters": "Limpar filtros",
+    "emptyNoSearchMatch": "Nenhuma spec corresponde a \"{{query}}\""
   },
   "status": {
     "todo": "Por fazer",
@@ -94,7 +95,9 @@
   "statusFilter": {
     "ariaLabel": "Filtrar por estado",
     "all": "Todos",
-    "active": "Ativas"
+    "active": "Ativas",
+    "more": "Mais",
+    "moreSelected": "Estado: {{status}}. Escolher outro estado"
   },
   "jiraStatusFilter": {
     "ariaLabel": "Filtrar por estado do Jira",
@@ -122,7 +125,7 @@
   },
   "labelFilter": {
     "ariaLabel": "Filtrar por etiquetas",
-    "all": "Todas",
+    "all": "Todas as etiquetas",
     "empty": "Não há etiquetas neste projeto.",
     "selected_one": "{{count}} etiqueta",
     "selected_other": "{{count}} etiquetas",
@@ -165,5 +168,47 @@
     "unavailableDetail": "Nenhum modelo disponível para a triagem ({{reason}}).",
     "failed": "Falha na triagem",
     "failedDetail": "Não foi possível concluir a triagem: {{error}}"
+  },
+  "toolbar": {
+    "newSpec": "Nova spec",
+    "newSpecTooltip": "Nova spec (⌘↵)"
+  },
+  "search": {
+    "placeholder": "Pesquisar specs",
+    "ariaLabel": "Pesquisar specs por título, número, etiqueta ou chave do Jira",
+    "clear": "Limpar pesquisa"
+  },
+  "filters": {
+    "trigger": "Filtros",
+    "triggerActive_one": "Filtros, {{count}} ativo",
+    "triggerActive_other": "Filtros, {{count}} ativos",
+    "title": "Filtros",
+    "sections": {
+      "labels": "Etiquetas",
+      "epic": "Épico",
+      "sprint": "Sprint",
+      "jiraStatus": "Estado no Jira"
+    },
+    "clearSection": "Limpar",
+    "clearAll": "Limpar tudo",
+    "done": "Concluído",
+    "findLabel": "Procurar etiqueta",
+    "removeChip": "Remover filtro: {{label}}",
+    "resultCount": "{{shown}} de {{total}}",
+    "more": "+{{count}}",
+    "chip": {
+      "search": "Pesquisa: \"{{query}}\"",
+      "label": "Etiqueta: {{label}}",
+      "epic": "Épico: {{name}}",
+      "sprint": "Sprint: {{name}}",
+      "jiraStatus": "Jira: {{status}}"
+    }
+  },
+  "display": {
+    "ariaLabel": "Ordenação e vista",
+    "menuLabel": "Opções de ordenação e vista",
+    "sortBy": "Ordenar por",
+    "direction": "Direção",
+    "view": "Vista"
   }
 }

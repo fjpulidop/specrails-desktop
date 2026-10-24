@@ -126,6 +126,10 @@ describe('DashboardPage — Launch all control', () => {
     render(<DashboardPage />)
     const btn = screen.getByText('Launch all').closest('button')!
     expect(btn).toBeDisabled()
+    // Disabled reads as neutral (not faded green) and explains itself.
+    expect(btn).toBe(screen.getByTestId('rails-launch-all'))
+    expect(btn.className).not.toMatch(/bg-accent-success/)
+    expect(screen.getByText('No rail is ready. Drag specs onto a rail to launch it.')).toBeInTheDocument()
   })
 
   it('shows the eligible count and opens the confirm dialog', async () => {
@@ -377,7 +381,7 @@ describe('DashboardPage — server-backed add rail (dynamic rails)', () => {
       },
     })
     render(<DashboardPage />)
-    fireEvent.click(screen.getByText('Add').closest('button')!)
+    fireEvent.click(screen.getByTestId('rails-add'))
     await waitFor(() => {
       const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
       expect(rails).toHaveLength(4)
@@ -398,7 +402,7 @@ describe('DashboardPage — server-backed add rail (dynamic rails)', () => {
       },
     })
     render(<DashboardPage />)
-    fireEvent.click(screen.getByText('Add').closest('button')!)
+    fireEvent.click(screen.getByTestId('rails-add'))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Rail limit reached (12 max)'))
     const raw = localStorage.getItem('specrails-desktop:rails:proj-1')
     if (raw) expect(JSON.parse(raw)).toHaveLength(3)

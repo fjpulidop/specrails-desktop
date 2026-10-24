@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Tag } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { hashLabelToTone } from './SpecLabelFilterStrip'
 import type { LocalTicket } from '../../../types'
 
-interface SpecLabelFilterDropdownProps {
+interface SpecLabelFilterOptionsProps {
   tickets: LocalTicket[]
-  /** Empty set ⇒ "All" (no filter). Non-empty ⇒ multi-selection (OR-match). */
+  /** Empty set ⇒ "All labels" (no filter). Non-empty ⇒ multi-selection (OR-match). */
   active: Set<string>
   onChange: (next: Set<string>) => void
-  className?: string
 }
 
 const TONE_CHIP: Record<string, string> = {
@@ -22,154 +21,119 @@ const TONE_CHIP: Record<string, string> = {
   'accent-highlight': 'bg-accent-highlight/20 text-accent-highlight',
 }
 
+/** Shared option-row skin for every Filters-popover section. */
+export const FILTER_OPTION_CLASS =
+  'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs text-foreground hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+export function FilterOptionCheck({ selected }: { selected: boolean }) {
+  return (
+    <span className="inline-flex w-4 h-4 shrink-0 items-center justify-center" aria-hidden>
+      {selected && <Check className="w-3.5 h-3.5 text-accent-primary" />}
+    </span>
+  )
+}
+
+/** Labels with more entries than this get a local "Find a label" input. */
+const FIND_THRESHOLD = 8
+
 /**
- * Dropdown replacement for the inline carousel `SpecLabelFilterStrip`.
- * Shows `All` (default, no filter) and a checkbox-style multi-select list
- * of every label present in the current ticket set. At least one label must
- * stay selected once the user leaves "All"; toggling the last selected
- * label off snaps back to "All".
+ * Labels section of the Filters popover: "All labels" plus a checkbox-style
+ * multi-select of every label present in the board's tickets (OR-match).
+ * Toggling the last selected label off returns to "All labels".
  */
-export function SpecLabelFilterDropdown({ tickets, active, onChange, className }: SpecLabelFilterDropdownProps) {
+export function SpecLabelFilterOptions({ tickets, active, onChange }: SpecLabelFilterOptionsProps) {
   const { t } = useTranslation('specs')
-  const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
+  const [find, setFind] = useState('')
 
   const entries = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const t of tickets) {
-      for (const raw of t.labels ?? []) {
+    for (const tk of tickets) {
+      for (const raw of tk.labels ?? []) {
         const label = raw.trim()
         if (!label) continue
         counts.set(label, (counts.get(label) ?? 0) + 1)
       }
     }
-    return Array.from(counts.entries()).sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1]
-      return a[0].localeCompare(b[0])
-    })
+    return Array.from(counts.entries()).sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
   }, [tickets])
 
-  // Close on outside-click / Escape.
-  useEffect(() => {
-    if (!open) return
-    function onPointer(e: PointerEvent) {
-      if (panelRef.current?.contains(e.target as Node)) return
-      if (triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  const needle = find.trim().toLowerCase()
+  const shown = needle ? entries.filter(([label]) => label.toLowerCase().includes(needle)) : entries
 
   function toggleLabel(label: string) {
     const next = new Set(active)
-    if (next.has(label)) {
-      next.delete(label)
-    } else {
-      next.add(label)
-    }
+    if (next.has(label)) next.delete(label)
+    else next.add(label)
     onChange(next)
   }
 
-  function selectAll() {
-    onChange(new Set())
-  }
-
-  const triggerLabel = active.size === 0
-    ? t('labelFilter.all')
-    : active.size === 1
-      ? Array.from(active)[0]
-      : t('labelFilter.selected', { count: active.size })
-
   return (
-    <div className={cn('relative shrink-0', className)}>
+    <div
+      role="listbox"
+      aria-multiselectable="true"
+      aria-label={t('labelFilter.ariaLabel')}
+      data-testid="spec-label-filter-panel"
+      className="space-y-0.5"
+    >
       <button
-        ref={triggerRef}
         type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={t('labelFilter.ariaLabel')}
-        data-testid="spec-label-filter-dropdown"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs bg-accent-secondary/10 border border-accent-secondary/30 hover:bg-accent-secondary/20 text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-secondary/50"
+        role="option"
+        aria-selected={active.size === 0}
+        onClick={() => onChange(new Set())}
+        data-testid="spec-label-filter-all"
+        className={FILTER_OPTION_CLASS}
       >
-        <Tag className="w-3 h-3 text-muted-foreground" />
-        <span className="truncate max-w-[120px]">{triggerLabel}</span>
-        {active.size > 0 && (
-          <span className="text-[11px] text-muted-foreground/80">·&nbsp;{active.size}</span>
-        )}
+        <FilterOptionCheck selected={active.size === 0} />
+        <span className="flex-1">{t('labelFilter.all')}</span>
+        <span className="tabular-nums text-muted-foreground">{tickets.length}</span>
       </button>
 
-      {open && (
-        <div
-          ref={panelRef}
-          role="listbox"
-          aria-multiselectable="true"
-          data-testid="spec-label-filter-panel"
-          className="absolute z-40 left-0 mt-1 w-56 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-popover shadow-xl shadow-black/30 p-1"
-        >
-          {/* All — clears the active set */}
-          <button
-            type="button"
-            role="option"
-            aria-selected={active.size === 0}
-            onClick={selectAll}
-            data-testid="spec-label-filter-all"
-            className={cn(
-              'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs hover:bg-accent-info/10 transition-colors',
-              active.size === 0 && 'bg-accent-info/10 text-accent-info',
-            )}
-          >
-            <span className="inline-flex w-4 h-4 items-center justify-center">
-              {active.size === 0 && <Check className="w-3 h-3 text-accent-info" />}
-            </span>
-            <span className="flex-1">{t('labelFilter.all')}</span>
-            <span className="text-[11px] text-muted-foreground/70">{tickets.length}</span>
-          </button>
+      {entries.length === 0 && (
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{t('labelFilter.empty')}</p>
+      )}
 
-          {entries.length === 0 && (
-            <div className="px-2 py-2 text-[11px] text-muted-foreground italic">{t('labelFilter.empty')}</div>
-          )}
-
-          {entries.length > 0 && (
-            <div className="my-1 h-px bg-border/40" aria-hidden />
-          )}
-
-          {entries.map(([label, count]) => {
-            const selected = active.has(label)
-            const tone = TONE_CHIP[hashLabelToTone(label)] ?? 'bg-muted/40 text-foreground'
-            return (
-              <button
-                key={label}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onClick={() => toggleLabel(label)}
-                className={cn(
-                  'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs hover:bg-muted/30 transition-colors',
-                  selected && 'bg-accent-info/5',
-                )}
-              >
-                <span className="inline-flex w-4 h-4 items-center justify-center">
-                  {selected && <Check className="w-3 h-3 text-accent-info" />}
-                </span>
-                <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium', tone)}>
-                  {label}
-                </span>
-                <span className="ml-auto text-[11px] text-muted-foreground">{count}</span>
-              </button>
-            )
-          })}
+      {entries.length > FIND_THRESHOLD && (
+        <div className="px-1 py-1">
+          <input
+            type="search"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            onKeyDown={(e) => {
+              // Escape clears the local find first; a second press closes the popover.
+              if (e.key === 'Escape' && find) {
+                e.preventDefault()
+                e.stopPropagation()
+                setFind('')
+              }
+            }}
+            placeholder={t('filters.findLabel')}
+            aria-label={t('filters.findLabel')}
+            data-testid="spec-label-filter-find"
+            className="h-7 w-full rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:appearance-none"
+          />
         </div>
       )}
+
+      {shown.map(([label, count]) => {
+        const selected = active.has(label)
+        const tone = TONE_CHIP[hashLabelToTone(label)] ?? 'bg-muted/40 text-foreground'
+        return (
+          <button
+            key={label}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            onClick={() => toggleLabel(label)}
+            className={FILTER_OPTION_CLASS}
+          >
+            <FilterOptionCheck selected={selected} />
+            <span className={cn('inline-flex min-w-0 items-center px-1.5 py-0.5 rounded-full text-xs font-medium truncate', tone)}>
+              {label}
+            </span>
+            <span className="ml-auto tabular-nums text-muted-foreground">{count}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
