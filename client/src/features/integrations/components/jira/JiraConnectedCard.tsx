@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { Switch } from '../../../../components/ui/switch'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { JiraOutboxPanel } from './JiraOutboxPanel'
 import { jiraApi, type ConnectionState, type JiraStatusOption, type SpecLogicalState } from '../../lib/jira-api'
@@ -35,6 +37,7 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
   const [enabled, setEnabled] = useState(connection.enabled)
   const [syncing, setSyncing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [outboxRefresh, setOutboxRefresh] = useState(0)
   const [statuses, setStatuses] = useState<JiraStatusOption[]>([])
   const [discardStatus, setDiscardStatus] = useState(connection.discardStatus ?? '')
@@ -129,7 +132,6 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
   }
 
   async function disconnect() {
-    if (!window.confirm(t('status.disconnectConfirm'))) return
     setBusy(true)
     try {
       if (apiBase) await jiraApi.disconnect(apiBase)
@@ -163,17 +165,13 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
           <p className="text-sm font-medium">{t('status.enabledLabel')}</p>
           <p className="text-xs text-muted-foreground">{enabled ? t('status.enabledHelp') : t('status.pausedHelp')}</p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
+        <Switch
+          checked={enabled}
+          onCheckedChange={() => void toggle()}
+          onClassName="bg-accent-success"
           aria-label={t('status.enabledLabel')}
           disabled={busy}
-          onClick={toggle}
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${enabled ? 'bg-accent-success' : 'bg-input'}`}
-        >
-          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-        </button>
+        />
       </div>
 
       <div className="rounded-md border border-border p-3" data-testid="jira-status-map">
@@ -232,12 +230,24 @@ function JiraConnectedCardContent({ state, onChanged, apiBase }: Props) {
         <Button variant="outline" size="sm" onClick={syncNow} disabled={syncing}>
           {syncing ? t('status.syncing') : t('status.syncNow')}
         </Button>
-        <Button variant="ghost" size="sm" onClick={disconnect} disabled={busy} className="text-destructive">
+        <Button variant="ghost" size="sm" onClick={() => setConfirmDisconnect(true)} disabled={busy} className="text-destructive">
           {t('status.disconnect')}
         </Button>
       </div>
 
       <JiraOutboxPanel projectId={connection.projectId} baseUrl={connection.baseUrl} apiBase={apiBase} initialCounts={state.outbox} refreshToken={outboxRefresh} />
+
+      <ConfirmDialog
+        open={confirmDisconnect}
+        onOpenChange={setConfirmDisconnect}
+        title={t('status.disconnectConfirmTitle')}
+        description={t('status.disconnectConfirm')}
+        confirmLabel={t('status.disconnect')}
+        onConfirm={() => {
+          setConfirmDisconnect(false)
+          void disconnect()
+        }}
+      />
     </div>
   )
 }

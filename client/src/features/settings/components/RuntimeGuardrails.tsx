@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Compass, Hammer, ShieldCheck, Terminal, type LucideIcon } from 'lucide-react'
 import { cn } from '../../../lib/utils'
+import { Switch } from '../../../components/ui/switch'
 import { repositoryApiBase } from '../../projects/lib/project-repositories'
 import { GUARDRAIL_PHASES, isGuardrailsCatalogResponse, setGuardrail, type GuardrailDescriptor, type GuardrailPhase } from '../lib/agent-runtime'
 
@@ -95,17 +96,13 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
                 const why = known(item.id) ? t(`guardrails.items.${item.id}.why`) : null
                 const labelId = `guardrail-${item.id}-title`
                 return <li key={item.id} className="flex items-start gap-3 px-3 py-2">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enabled}
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={(next) => onChange(setGuardrail(guardrails, item.id, next))}
                     aria-labelledby={labelId}
                     data-testid={`guardrail-${item.id}`}
-                    onClick={() => onChange(setGuardrail(guardrails, item.id, !enabled))}
-                    className={cn('relative mt-0.5 inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors', enabled ? 'bg-accent-primary/70' : 'bg-muted-foreground/30')}
-                  >
-                    <span className={cn('absolute h-3 w-3 rounded-full bg-background shadow transition-transform', enabled ? 'translate-x-3.5' : 'translate-x-0.5')} />
-                  </button>
+                    className="mt-0.5"
+                  />
                   <div className="min-w-0 flex-1">
                     <p id={labelId} className={cn('text-xs font-medium', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
                     <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p>

@@ -20,6 +20,8 @@ import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, Refre
 import { cn } from '../../../lib/utils'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
+import { Switch } from '../../../components/ui/switch'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import {
   Dialog,
   DialogContent,
@@ -71,7 +73,7 @@ function ProjectListItem({
   onRemove,
 }: {
   project: DesktopProject
-  onRemove: (id: string) => void
+  onRemove: (project: DesktopProject) => void
 }) {
   const { t } = useTranslation('settings')
   return (
@@ -83,8 +85,8 @@ function ProjectListItem({
       <Button
         size="sm"
         variant="ghost"
-        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive shrink-0"
-        onClick={() => onRemove(project.id)}
+        className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive shrink-0"
+        onClick={() => onRemove(project)}
       >
         {t('common:actions.remove')}
       </Button>
@@ -124,6 +126,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
   const [desktopDailyBudget, setDesktopDailyBudget] = useState('')
   const [isSavingDesktopBudget, setIsSavingDesktopBudget] = useState(false)
+
+  // Destructive-action confirmations
+  const [pendingRemoveProject, setPendingRemoveProject] = useState<DesktopProject | null>(null)
+  const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<WebhookRow | null>(null)
 
   // Webhook state
   const [webhooks, setWebhooks] = useState<WebhookRow[]>([])
@@ -421,7 +427,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                     <ProjectListItem
                       key={project.id}
                       project={project}
-                      onRemove={handleRemoveProject}
+                      onRemove={setPendingRemoveProject}
                     />
                   ))}
                 </div>
@@ -569,27 +575,33 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                             <p className="text-[10px] text-muted-foreground">{events.join(', ')}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => void handleToggleWebhook(wh.id, !wh.enabled)}
-                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${wh.enabled ? 'bg-green-500/10 aurora-light:bg-accent-success/10 text-green-600 aurora-light:text-accent-success dark:text-green-400' : 'bg-muted text-muted-foreground'}`}
+                            <Switch
+                              checked={!!wh.enabled}
+                              onCheckedChange={(next) => void handleToggleWebhook(wh.id, next)}
+                              onClassName="bg-accent-success"
+                              aria-label={t('webhooks.enable')}
                               title={wh.enabled ? t('webhooks.disable') : t('webhooks.enable')}
-                            >
-                              {wh.enabled ? t('webhooks.statusOn') : t('webhooks.statusOff')}
-                            </button>
-                            <button
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               onClick={() => void handleTestWebhook(wh.id)}
-                              className="text-muted-foreground hover:text-foreground p-0.5"
                               title={t('webhooks.sendTestPing')}
+                              aria-label={t('webhooks.sendTestPing')}
                             >
-                              <Zap className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => void handleDeleteWebhook(wh.id)}
-                              className="text-muted-foreground hover:text-destructive p-0.5"
+                              <Zap className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => setPendingDeleteWebhook(wh)}
                               title={t('common:actions.remove')}
+                              aria-label={t('common:actions.remove')}
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         </div>
                       )
@@ -707,6 +719,30 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
             </div>{/* /section content */}
           </div>
         )}
+        <ConfirmDialog
+          open={pendingRemoveProject !== null}
+          onOpenChange={(next) => { if (!next) setPendingRemoveProject(null) }}
+          title={t('desktop.removeProjectConfirmTitle', { name: pendingRemoveProject?.name ?? '' })}
+          description={t('desktop.removeProjectConfirmBody', { name: pendingRemoveProject?.name ?? '' })}
+          confirmLabel={t('common:actions.remove')}
+          onConfirm={() => {
+            const target = pendingRemoveProject
+            setPendingRemoveProject(null)
+            if (target) void handleRemoveProject(target.id)
+          }}
+        />
+        <ConfirmDialog
+          open={pendingDeleteWebhook !== null}
+          onOpenChange={(next) => { if (!next) setPendingDeleteWebhook(null) }}
+          title={t('webhooks.removeConfirmTitle')}
+          description={t('webhooks.removeConfirmBody', { url: pendingDeleteWebhook?.url ?? '' })}
+          confirmLabel={t('common:actions.remove')}
+          onConfirm={() => {
+            const target = pendingDeleteWebhook
+            setPendingDeleteWebhook(null)
+            if (target) void handleDeleteWebhook(target.id)
+          }}
+        />
       </DialogContent>
     </Dialog>
   )

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -154,7 +154,6 @@ describe('McpSettingsSection', () => {
   })
 
   it('Regenerate confirms then POSTs and toasts success', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     mockApi([
       { match: (u) => u.endsWith('/mcp-admin/status'), body: STATUS_ON },
       { match: (u) => u.endsWith('/mcp-admin/config'), body: CONFIG },
@@ -163,6 +162,9 @@ describe('McpSettingsSection', () => {
     render(<McpSettingsSection />)
     const regen = await screen.findByTestId('mcp-regenerate-token')
     fireEvent.click(regen)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Regenerate access token?')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Regenerate' }))
     await waitFor(() => {
       const calls = (global.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls
       const post = calls.find(
@@ -171,11 +173,9 @@ describe('McpSettingsSection', () => {
       expect(post).toBeTruthy()
     })
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
-    confirmSpy.mockRestore()
   })
 
   it('does not regenerate when the confirm is dismissed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     mockApi([
       { match: (u) => u.endsWith('/mcp-admin/status'), body: STATUS_ON },
       { match: (u) => u.endsWith('/mcp-admin/config'), body: CONFIG },
@@ -183,13 +183,15 @@ describe('McpSettingsSection', () => {
     render(<McpSettingsSection />)
     const regen = await screen.findByTestId('mcp-regenerate-token')
     fireEvent.click(regen)
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => {
       const calls = (global.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls
       expect(
         calls.find((c) => String(c[0]).endsWith('/mcp-admin/regenerate-token'))
       ).toBeFalsy()
     })
-    confirmSpy.mockRestore()
   })
 
   it('toasts on enable failure', async () => {

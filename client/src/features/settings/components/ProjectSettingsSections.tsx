@@ -7,6 +7,7 @@ import { notifyReviewWipLimitChanged, parseReviewWipLimitInput, REVIEW_WIP_LIMIT
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
+import { Switch } from '../../../components/ui/switch'
 import { Input } from '../../../components/ui/input'
 import { Badge, type BadgeProps } from '../../../components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
@@ -92,23 +93,12 @@ export function ProjectTelemetrySection() {
               />
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
+          <Switch
+            checked={telemetryEnabled}
+            onCheckedChange={(next) => saveToggle(next)}
             aria-label={t('telemetry.toggleLabel')}
-            aria-checked={telemetryEnabled}
             disabled={isSaving}
-            onClick={() => saveToggle(!telemetryEnabled)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 ${
-              telemetryEnabled ? 'bg-primary' : 'bg-input'
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${
-                telemetryEnabled ? 'translate-x-4' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
+          />
         </div>
       </CardContent>
     </Card>

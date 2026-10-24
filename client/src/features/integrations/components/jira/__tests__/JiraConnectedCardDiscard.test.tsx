@@ -231,3 +231,37 @@ describe('JiraConnectedCard — discard status picker', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })
 })
+
+describe('JiraConnectedCard — disconnect confirmation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    desktop.activeProjectId = null
+    api.listOutbox.mockResolvedValue({ ops: [], counts: { pending: 0, inflight: 0, done: 0, dead: 0 } })
+    api.listStatuses.mockResolvedValue({ statuses: STATUSES })
+    api.disconnect.mockResolvedValue({ ok: true })
+  })
+
+  it('asks before disconnecting and only calls the API after confirming', async () => {
+    const onChanged = vi.fn()
+    render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
+    await waitFor(() => expect(api.listStatuses).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Disconnect from Jira?')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(api.disconnect).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Disconnect' }))
+    await waitFor(() => expect(api.disconnect).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('renders sync enabled as a labelled switch', async () => {
+    render(<JiraConnectedCard state={makeState(null)} onChanged={vi.fn()} />)
+    const sw = await screen.findByRole('switch', { name: 'Sync enabled' })
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+  })
+})

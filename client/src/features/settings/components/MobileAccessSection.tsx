@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Smartphone, ShieldCheck, Trash2, Globe } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { PairWebCompanionModal } from './PairWebCompanionModal'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 
@@ -37,6 +38,7 @@ export function MobileAccessSection() {
   const [status, setStatus] = useState<MobileStatus | null>(null)
   const [devices, setDevices] = useState<MobileDevice[]>([])
   const [busy, setBusy] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [webPairOpen, setWebPairOpen] = useState(false)
 
   const loadStatus = useCallback(async () => {
@@ -98,7 +100,6 @@ export function MobileAccessSection() {
   }
 
   async function resetIdentity(): Promise<void> {
-    if (!window.confirm(t('mobile.resetConfirm'))) return
     setBusy(true)
     try {
       const r = await fetch('/api/mobile/cert/rotate', { method: 'POST' })
@@ -144,7 +145,7 @@ export function MobileAccessSection() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
               <span title={status.certFingerprint ?? ''}>{shortFp(status.certFingerprint)}</span>
-              <button type="button" className="underline" onClick={resetIdentity} disabled={busy}>{t('mobile.reset')}</button>
+              <button type="button" className="underline" onClick={() => setConfirmReset(true)} disabled={busy}>{t('mobile.reset')}</button>
             </div>
           </div>
 
@@ -180,6 +181,17 @@ export function MobileAccessSection() {
       )}
 
       <PairWebCompanionModal open={webPairOpen} onClose={() => setWebPairOpen(false)} onPaired={loadDevices} />
+      <ConfirmDialog
+        open={confirmReset}
+        onOpenChange={setConfirmReset}
+        title={t('mobile.resetConfirmTitle')}
+        description={t('mobile.resetConfirm')}
+        confirmLabel={t('mobile.reset')}
+        onConfirm={() => {
+          setConfirmReset(false)
+          void resetIdentity()
+        }}
+      />
     </div>
   )
 }

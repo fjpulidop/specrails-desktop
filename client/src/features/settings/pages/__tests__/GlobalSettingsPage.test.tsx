@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '../../../../test-utils'
+import { render, screen, waitFor, fireEvent, within } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import GlobalSettingsPage from '../GlobalSettingsPage'
 
@@ -178,6 +178,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    // Removal is destructive: it only happens after the confirmation dialog.
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+    fireEvent.click(within(await screen.findByRole('dialog', { name: /Remove .*\?/ })).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(mockRemoveProject).toHaveBeenCalledWith('p1')
@@ -205,6 +208,9 @@ describe('GlobalSettingsPage (Desktop Settings dialog)', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    // Removal is destructive: it only happens after the confirmation dialog.
+    expect(mockRemoveProject).not.toHaveBeenCalled()
+    fireEvent.click(within(await screen.findByRole('dialog', { name: /Remove .*\?/ })).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
@@ -532,9 +538,9 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Disable')).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: 'Enable' })).toHaveAttribute('aria-checked', 'true')
     })
-    await user.click(screen.getByTitle('Disable'))
+    await user.click(screen.getByRole('switch', { name: 'Enable' }))
     // Patch call should have been made
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/webhooks/wh-1'),
@@ -556,9 +562,13 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Remove')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
     })
-    await user.click(screen.getByTitle('Remove'))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove webhook?' })
+    expect(dialog).toHaveTextContent('https://example.com/hook will stop receiving Desktop events.')
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/api/webhooks/wh-1'), expect.objectContaining({ method: 'DELETE' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Webhook removed')
     })
@@ -578,9 +588,9 @@ describe('GlobalSettingsPage — Outbound Webhooks', () => {
     })
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByTitle('Send test ping')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Send test ping' })).toBeInTheDocument()
     })
-    await user.click(screen.getByTitle('Send test ping'))
+    await user.click(screen.getByRole('button', { name: 'Send test ping' }))
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Test ping sent')
     })

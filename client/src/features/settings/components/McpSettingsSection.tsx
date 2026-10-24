@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Plug, Copy, Check, RefreshCw } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { API_ORIGIN } from '../../../lib/origin'
 import { ExternalMcpServersCard } from './ExternalMcpServersCard'
 
@@ -80,6 +81,7 @@ export function McpSettingsSection() {
   const [status, setStatus] = useState<McpStatus | null>(null)
   const [config, setConfig] = useState<McpConfig | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [copied, setCopied] = useState<'config' | 'token' | null>(null)
 
   const loadStatus = useCallback(async () => {
@@ -184,7 +186,6 @@ export function McpSettingsSection() {
   }, [t])
 
   const regenerateToken = useCallback(async () => {
-    if (!window.confirm(t('token.regenerateConfirm'))) return
     setBusy(true)
     try {
       const r = await fetch(`${API_ORIGIN}/api/mcp-admin/regenerate-token`, { method: 'POST' })
@@ -328,7 +329,7 @@ export function McpSettingsSection() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void regenerateToken()}
+                  onClick={() => setConfirmRegenerate(true)}
                   disabled={busy}
                   className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                   data-testid="mcp-regenerate-token"
@@ -345,6 +346,18 @@ export function McpSettingsSection() {
           panel above (app AS consumer, not app AS server), so it renders
           regardless of the embedded server's enabled state. */}
       <ExternalMcpServersCard />
+
+      <ConfirmDialog
+        open={confirmRegenerate}
+        onOpenChange={setConfirmRegenerate}
+        title={t('token.regenerateConfirmTitle')}
+        description={t('token.regenerateConfirm')}
+        confirmLabel={t('token.regenerate')}
+        onConfirm={() => {
+          setConfirmRegenerate(false)
+          void regenerateToken()
+        }}
+      />
     </div>
   )
 }

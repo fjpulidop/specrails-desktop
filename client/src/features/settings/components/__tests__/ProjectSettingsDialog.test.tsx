@@ -36,9 +36,20 @@ describe('ProjectSettingsDialog', () => {
   it('shows the project name in the title and the section entries', async () => {
     render(<ProjectSettingsDialog open onClose={vi.fn()} />)
     expect(screen.getByText('acme-api — Settings')).toBeInTheDocument()
-    for (const label of ['General', 'Branch', 'Environment', 'Budget', 'Telemetry', 'Terminal']) {
+    for (const label of ['General', 'Branch', 'Environment', 'Budget', 'Telemetry', 'Rules', 'Terminal']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
+    await waitForSelfFetchingSections()
+  })
+
+  it('renders Anchoring and Rules together under the Rules section', async () => {
+    render(<ProjectSettingsDialog open onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Rules' }))
+    const anchoring = await screen.findByTestId('project-anchoring-section')
+    const rules = await screen.findByTestId('project-rules-section')
+    const pane = anchoring.closest('div.space-y-5')!
+    expect(pane.className).not.toContain('hidden')
+    expect(pane.contains(rules)).toBe(true)
     await waitForSelfFetchingSections()
   })
 

@@ -6,6 +6,7 @@ import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
+import { Switch as UiSwitch } from '../../../components/ui/switch'
 
 // ─── Anchoring in existing projects (feedback-2026-10 phase 3 / task 4.4) ────
 // Each surface gates on the active Core's capability: without it the toggle is
@@ -36,20 +37,7 @@ function usePhase3Capabilities(projectId: string | null): Phase3Capabilities | n
 }
 
 function Switch({ checked, disabled, label, onChange, testId }: { checked: boolean; disabled?: boolean; label: string; onChange: (next: boolean) => void; testId: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-label={label}
-      aria-checked={checked}
-      disabled={disabled}
-      data-testid={testId}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 ${checked ? 'bg-primary' : 'bg-input'}`}
-    >
-      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-background shadow-sm transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
-    </button>
-  )
+  return <UiSwitch checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label} data-testid={testId} />
 }
 
 type AnchoringKey = 'jiraPostClarifications' | 'baselineOnTouch'

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
 import { setEffectsPrefs, useEffectsPrefs } from '../lib/effects-prefs'
-import { cn } from '../../../lib/utils'
+import { Switch } from '../../../components/ui/switch'
 
 // Settings ▸ Effects: app-level visual flourishes. Each row is a switch plus
 // a LIVE preview so the user sees exactly what they are turning on or off.
@@ -20,21 +20,15 @@ export function EffectsSection() {
         <p className="text-[10px] text-muted-foreground">{t('effects.description')}</p>
 
         <div className="flex items-start gap-3">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={prefs.agentThinkingHalo}
-            onClick={() => setEffectsPrefs({ agentThinkingHalo: !prefs.agentThinkingHalo })}
-            className={cn(
-              'relative mt-0.5 inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors',
-              prefs.agentThinkingHalo ? 'bg-accent-primary/70' : 'bg-muted-foreground/30',
-            )}
+          <Switch
+            checked={prefs.agentThinkingHalo}
+            onCheckedChange={(next) => setEffectsPrefs({ agentThinkingHalo: next })}
+            aria-labelledby="effects-thinking-halo-label"
+            className="mt-0.5"
             data-testid="effects-thinking-halo-toggle"
-          >
-            <span className={cn('absolute h-3 w-3 rounded-full bg-background shadow transition-transform', prefs.agentThinkingHalo ? 'translate-x-3.5' : 'translate-x-0.5')} />
-          </button>
+          />
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-xs font-medium">
+            <p id="effects-thinking-halo-label" className="flex items-center gap-1.5 text-xs font-medium">
               <Sparkles className="h-3.5 w-3.5 text-accent-primary" aria-hidden />
               {t('effects.thinkingHalo.label')}
             </p>

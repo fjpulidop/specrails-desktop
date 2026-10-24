@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Check, Globe, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { API_ORIGIN } from '../../../lib/origin'
 
 /** Mirror of the server-side registry types (server/external-mcp.ts). */
@@ -78,6 +79,7 @@ export function ExternalMcpServersCard() {
   const { t } = useTranslation('mcp')
   const [payload, setPayload] = useState<ExternalMcpPayload | null>(null)
   const [busy, setBusy] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [formName, setFormName] = useState('')
   const [formCommand, setFormCommand] = useState('')
@@ -503,7 +505,7 @@ export function ExternalMcpServersCard() {
                 {row.stored && (
                   <button
                     type="button"
-                    onClick={() => removeEntry(row.id)}
+                    onClick={() => setPendingRemove({ id: row.id, name: row.name })}
                     disabled={busy}
                     className="text-muted-foreground hover:text-destructive"
                     aria-label={t('external.remove')}
@@ -530,6 +532,19 @@ export function ExternalMcpServersCard() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        onOpenChange={(next) => { if (!next) setPendingRemove(null) }}
+        title={t('external.removeConfirmTitle', { name: pendingRemove?.name ?? '' })}
+        description={t('external.removeConfirmBody')}
+        confirmLabel={t('external.remove')}
+        onConfirm={() => {
+          const target = pendingRemove
+          setPendingRemove(null)
+          if (target) removeEntry(target.id)
+        }}
+      />
     </div>
   )
 }

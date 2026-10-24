@@ -1,24 +1,11 @@
-import { ProjectSubagentsSection } from '../components/SubagentsSettingsSection'
-import { ProjectAgentEnvModeSection } from '../components/AgentEnvModeSection'
 import { useEffect, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
 import { useDesktop } from '../../../hooks/useDesktop'
 import type { ProjectConfig } from '../../../types'
-import { TerminalSettingsSection } from '../components/TerminalSettingsSection'
-import { ProjectRepositoriesSection } from '../components/ProjectRepositoriesSection'
-import { AgentRuntimeSettingsSection } from '../components/AgentRuntimeSettingsSection'
-import { ProjectAnchoringSection, ProjectRulesSection } from '../components/ProjectAnchoringSections'
-import {
-  ProjectTelemetrySection,
-  ProjectPrePromptsSection,
-  ProjectBudgetSection,
-  ProjectAgentAuditSection,
-  ProjectIntegrationBranchSection,
-  ProjectWorktreeEnvSection,
-  ProjectReviewWipSection,
-} from '../components/ProjectSettingsSections'
+import { PROJECT_SETTINGS_SECTIONS } from '../components/project-settings-sections'
+import { ProjectTelemetrySection } from '../components/ProjectSettingsSections'
 
 export default function SettingsPage() {
   const { t } = useTranslation('settings')
@@ -109,35 +96,13 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Pipeline Telemetry Section — Super mode only */}
-      {isSuperMode && <ProjectTelemetrySection />}
-
-      <ProjectPrePromptsSection />
-
-      <ProjectRepositoriesSection />
-
-      <AgentRuntimeSettingsSection />
-
-      <ProjectSubagentsSection />
-
-      <ProjectIntegrationBranchSection />
-
-      <ProjectWorktreeEnvSection />
-
-      <ProjectAgentEnvModeSection />
-
-      <ProjectBudgetSection />
-
-      <ProjectReviewWipSection />
-
-      <ProjectAgentAuditSection />
-
-      <ProjectAnchoringSection />
-
-      <ProjectRulesSection />
-
-      <TerminalSettingsSection mode="project" />
-
+      {/* Same sections, same order as the Agent-mode project settings dialog.
+          Pipeline telemetry stays Super-mode only. */}
+      {PROJECT_SETTINGS_SECTIONS.flatMap((section) =>
+        section.panes
+          .filter((Pane) => isSuperMode || Pane !== ProjectTelemetrySection)
+          .map((Pane, i) => <Pane key={`${section.id}-${i}`} />),
+      )}
     </div>
   )
 }

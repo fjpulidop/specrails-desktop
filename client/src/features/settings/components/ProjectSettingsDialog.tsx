@@ -1,7 +1,6 @@
-import { ProjectSubagentsSection } from './SubagentsSettingsSection'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Settings, SlidersHorizontal, Wallet, Activity, TerminalSquare, KeyRound, GitBranch, Bot, Network } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useDesktop } from '../../../hooks/useDesktop'
 import {
@@ -11,32 +10,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog'
-import { TerminalSettingsSection } from './TerminalSettingsSection'
-import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
-import { AgentRuntimeSettingsSection } from './AgentRuntimeSettingsSection'
-import { ProjectAgentEnvModeSection } from './AgentEnvModeSection'
-import {
-  ProjectTelemetrySection,
-  ProjectPrePromptsSection,
-  ProjectIntegrationBranchSection,
-  ProjectBudgetSection,
-  ProjectAgentAuditSection,
-  ProjectWorktreeEnvSection,
-  ProjectReviewWipSection,
-} from './ProjectSettingsSections'
+import { PROJECT_SETTINGS_SECTIONS, type ProjectSettingsSectionId } from './project-settings-sections'
 
-const PROJECT_SETTINGS_SECTIONS = [
-  { id: 'general', icon: SlidersHorizontal, labelKey: 'projectDialog.nav.general' },
-  { id: 'agentRuntime', icon: Bot, labelKey: 'projectDialog.nav.agentRuntime' },
-  { id: 'subagents', icon: Network, labelKey: 'projectDialog.nav.subagents' },
-  { id: 'branch', icon: GitBranch, labelKey: 'projectDialog.nav.branch' },
-  { id: 'environment', icon: KeyRound, labelKey: 'projectDialog.nav.environment' },
-  { id: 'budget', icon: Wallet, labelKey: 'projectDialog.nav.budget' },
-  { id: 'telemetry', icon: Activity, labelKey: 'projectDialog.nav.telemetry' },
-  { id: 'terminal', icon: TerminalSquare, labelKey: 'projectDialog.nav.terminal' },
-] as const
-
-type SectionId = (typeof PROJECT_SETTINGS_SECTIONS)[number]['id']
+type SectionId = ProjectSettingsSectionId
 
 /**
  * Project settings as a MODAL (Agent Mode — the /settings route belongs to the
@@ -90,34 +66,11 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
           {/* Active section content — fills the fixed-height dialog and scrolls,
               so switching sections never resizes the modal. */}
           <div className="min-w-0 flex-1 overflow-y-auto pr-1">
-            <div className={paneCls('general')}>
-              <ProjectRepositoriesSection />
-              <ProjectPrePromptsSection />
-            </div>
-            <div className={paneCls('agentRuntime')}>
-              <AgentRuntimeSettingsSection />
-            </div>
-            <div className={paneCls('subagents')}>
-              <ProjectSubagentsSection />
-            </div>
-            <div className={paneCls('branch')}>
-              <ProjectIntegrationBranchSection />
-            </div>
-            <div className={paneCls('environment')}>
-              <ProjectWorktreeEnvSection />
-              <ProjectAgentEnvModeSection />
-            </div>
-            <div className={paneCls('budget')}>
-              <ProjectBudgetSection />
-              <ProjectReviewWipSection />
-            </div>
-            <div className={paneCls('telemetry')}>
-              <ProjectTelemetrySection />
-              <ProjectAgentAuditSection />
-            </div>
-            <div className={paneCls('terminal')}>
-              <TerminalSettingsSection mode="project" />
-            </div>
+            {PROJECT_SETTINGS_SECTIONS.map((section) => (
+              <div key={section.id} className={paneCls(section.id)}>
+                {section.panes.map((Pane, i) => <Pane key={i} />)}
+              </div>
+            ))}
           </div>
         </div>
       </DialogContent>
