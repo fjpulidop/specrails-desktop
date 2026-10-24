@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { Maximize2, Minimize2, X, Loader2, Briefcase } from 'lucide-react'
@@ -147,7 +148,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isFirstLoad ? (
           <div className="flex h-24 items-center justify-center text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         ) : jobs.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">

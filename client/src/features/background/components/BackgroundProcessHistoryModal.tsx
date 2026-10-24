@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, ChevronRight, Loader2, RefreshCw, Search, Terminal } from 'lucide-react'
+import { AlertCircle, ChevronRight, RefreshCw, Search, Terminal } from 'lucide-react'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { BackgroundProcessLogsModal, sanitizeBackgroundLog } from './BackgroundProcessLogsModal'
 import { isBackgroundProcessFinished } from './BackgroundProcessChip'
@@ -55,7 +56,7 @@ export function BackgroundProcessHistoryModal({ processes, loading, error, onRef
           <span data-chip="" className={`inline-flex h-5 max-w-[35%] shrink-0 items-center rounded-full px-2 text-caption ${process.status === 'failed' ? 'bg-destructive/10 text-destructive' : isBackgroundProcessFinished(process) ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>{t(`backgroundProcess.status.${process.status}`)}</span>
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         </button>)}
-        {loading && !processes.length ? <p role="status" className="flex justify-center gap-2 py-12 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.history.loading')}</p>
+        {loading && !processes.length ? <p role="status" className="flex justify-center gap-2 py-12 text-xs text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('backgroundProcess.history.loading')}</p>
           : !error && !filtered.length && <p className="px-4 py-12 text-center text-xs text-muted-foreground">{t(query.trim() ? 'backgroundProcess.history.noMatches' : 'backgroundProcess.history.empty')}</p>}
         {filtered.length > limit && <div className="py-2 text-center"><button type="button" className={control} onClick={() => setLimit(value => value + 100)}>{t('backgroundProcess.history.showMore')}</button></div>}
       </DialogBody>

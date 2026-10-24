@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { BookOpen, ChevronRight, FileText, Loader2 } from 'lucide-react'
+import { BookOpen, ChevronRight, FileText } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { DocView, docsUrl, type DocCategory, type DocsIndex as DocsIndexData } from '../components/DocView'
 
@@ -166,7 +167,7 @@ export default function DocsPage() {
       {/* Sidebar */}
       {indexLoading ? (
         <div className="w-56 flex-shrink-0 border-r border-border flex items-center justify-center" role="status" aria-label={t('docs.loading')}>
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden />
+          <RailTrack running className="w-16 shrink-0" />
         </div>
       ) : (
         <DocsSidebar

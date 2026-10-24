@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, memo } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { API_ORIGIN } from '../../../lib/origin'
 import { Button } from '../../../components/ui/button'
@@ -151,7 +152,7 @@ export function DocView({
   if (!doc && error === null) {
     return (
       <div className="flex items-center justify-center h-full" role="status" aria-label={t('docs.loading')}>
-        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-hidden />
+        <RailTrack running className="w-16 shrink-0" />
       </div>
     )
   }

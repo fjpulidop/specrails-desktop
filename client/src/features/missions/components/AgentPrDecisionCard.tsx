@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
@@ -957,7 +958,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             ? <AlertTriangle className="h-3.5 w-3.5 text-accent-warning" />
             : existingPrContinuation
               ? <GitPullRequest className="h-3.5 w-3.5 text-accent-info" />
-              : <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-primary/70" />}
+              : <RailTrack running className="w-16 shrink-0" />}
           <span className={cn('min-w-0 flex-1 truncate', !existingPrContinuation && !buildingPaused && 'motion-safe:animate-pulse', buildingPaused && 'text-accent-warning')}>
             {buildingPaused
               ? t('prCard.title.paused')
@@ -1067,7 +1068,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   // deliver. It shows the run outcome honestly, the failure (if any) with its
   // recovery actions, and Dismiss.
   if (runOnly) {
-    const runOnlyIcon = runStatus === 'succeeded' ? CheckCircle2 : runStatus === 'failed' || runStatus === 'stalled' ? AlertTriangle : runStatus === 'cancelled' ? XCircle : Loader2
+    const runOnlyIcon = runStatus === 'succeeded' ? CheckCircle2 : runStatus === 'failed' || runStatus === 'stalled' ? AlertTriangle : runStatus === 'cancelled' ? XCircle : null
     const RunOnlyIcon = runOnlyIcon
     const runOnlyBusy = busy !== null || runtimeBusy
     return (
@@ -1079,7 +1080,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         className={cn('rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 shadow-lg transition-shadow', runStatus === 'succeeded' && 'border-accent-success/30', runStatus === 'cancelled' && 'opacity-70', embedded && EMBEDDED_CARD, flashClass)}
       >
         <div className="flex items-center gap-2">
-          <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50', runStatus === 'running' && 'animate-spin text-accent-primary/70')} />
+          {RunOnlyIcon
+            ? <RunOnlyIcon className={cn('h-4 w-4 shrink-0', runStatus === 'succeeded' ? 'text-accent-success' : runStatus === 'failed' || runStatus === 'stalled' ? 'text-destructive' : 'text-foreground/50')} />
+            : <RailTrack running className="w-10 shrink-0" />}
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t(`runCard.title.${runStatus}`)}</span>
           <MissionRunStatusPill status={runStatus} />
           <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>{projectName}</span>
@@ -1438,7 +1441,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
 
       {envelope.operation && (
         <p className="mt-2 flex items-center gap-1.5 text-label font-medium text-accent-info" data-testid="agent-pr-operation">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          <RailTrack running className="w-16 shrink-0" />
           {t(`prCard.operation.${envelope.operation}`)}
         </p>
       )}

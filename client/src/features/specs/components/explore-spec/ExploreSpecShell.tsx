@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
@@ -937,7 +938,7 @@ export function ExploreSpecShell({
             )}
             {!conversation && !editTicket && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <RailTrack running className="w-16 shrink-0" />
                 {t('shell.startingConversation')}
               </div>
             )}

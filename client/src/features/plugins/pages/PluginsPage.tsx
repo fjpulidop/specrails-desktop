@@ -1,4 +1,5 @@
 import { toast } from 'sonner'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { isPluginWindowRoute, openPluginWindow } from '../lib/plugin-windows'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import {
@@ -1281,7 +1282,7 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <RailTrack running className="w-16 shrink-0" />
         {t('plugins.jira.loading')}
       </div>
     )
@@ -1398,7 +1399,7 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
     : plugin?.description
 
   if (!plugin && !error) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('plugins.serena.loading')}</div>
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground"><RailTrack running className="w-16 shrink-0" /> {t('plugins.serena.loading')}</div>
   }
 
   return (

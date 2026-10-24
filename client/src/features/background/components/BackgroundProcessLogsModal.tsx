@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, ArrowDownToLine, ArrowLeft, Check, Copy, Download, Loader2, Pause, Play, Search, Square, Terminal } from 'lucide-react'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
@@ -207,7 +208,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
       <DialogBody ref={listRef} data-testid="background-process-log-output" aria-label={t('backgroundProcess.output')} role="region" tabIndex={0}
         onScroll={event => { const node = event.currentTarget; if (node.scrollHeight - node.clientHeight - node.scrollTop > 40) setFollow(false) }}
         className="overflow-auto bg-background/80 px-3 py-3 font-mono text-xs leading-5 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50">
-        {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
+        {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
           <span className="select-none whitespace-nowrap tabular-nums text-muted-foreground">{new Date(entry.at).toLocaleTimeString(i18n.language, { hour12: false })}</span>
           <span className={`select-none ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground'}`}>{entry.source}</span>
           <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>

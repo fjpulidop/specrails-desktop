@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { CheckCircle2, XCircle, Ban, Loader2, Activity, Zap } from 'lucide-react'
+import { CheckCircle2, XCircle, Ban, Activity, Zap } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useActivity } from '../hooks/useActivity'
 import type { ActivityItem } from '../hooks/useActivity'
@@ -81,7 +82,7 @@ export default function ActivityFeedPage() {
       <div className="flex-1 overflow-y-auto">
         {loading && items.length === 0 ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
@@ -122,7 +123,7 @@ export default function ActivityFeedPage() {
 
         {loading && items.length > 0 && (
           <div className="flex justify-center py-3">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <RailTrack running className="w-16 shrink-0" />
           </div>
         )}
 

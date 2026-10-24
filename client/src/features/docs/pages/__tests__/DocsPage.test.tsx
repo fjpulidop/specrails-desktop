@@ -133,7 +133,7 @@ describe('DocsPage', () => {
       ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}))
       renderWithRoute('/docs/engineering/architecture')
       // The spinner is rendered during load
-      const spinners = document.querySelectorAll('.animate-spin')
+      const spinners = document.querySelectorAll('[data-testid="rail-track"]')
       expect(spinners.length).toBeGreaterThanOrEqual(1)
     })
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
@@ -76,7 +77,7 @@ export function SubagentActivity({ conversationId, node, liveEvents }: { convers
   }, [history, liveEvents, hasMore])
 
   if (failed) return <p className="px-3 py-2 text-xs text-destructive">{t('subagents.activityFailed')}</p>
-  if (!history) return <p className="flex items-center gap-1.5 px-3 py-2 text-xs text-foreground/65"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t('subagents.loadingActivity')}</p>
+  if (!history) return <p className="flex items-center gap-1.5 px-3 py-2 text-xs text-foreground/65"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('subagents.loadingActivity')}</p>
   if (events.length === 0) return <p className="px-3 py-2 text-xs text-foreground/65">{t('subagents.noActivity')}</p>
 
   return (

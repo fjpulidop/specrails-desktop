@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { FileMinus2, FilePlus2, FileText, GitCommitHorizontal, History, Loader2, RefreshCw } from 'lucide-react'
+import { FileMinus2, FilePlus2, FileText, GitCommitHorizontal, History, RefreshCw } from 'lucide-react'
 import { repositoryApiBase } from '../../../projects/lib/project-repositories'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import { useCodeRepository } from './CodeRepositoryContext'
@@ -116,7 +117,7 @@ export function CodeActivity({ projectId, repositoryName, multipleRepositories, 
           </button>
         </li>
       })}</ol>
-      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('activity.loading')}</p>}
+      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('activity.loading')}</p>}
       {data?.nextCursor && !loading && !failed && <button type="button" onClick={() => { void load(data.nextCursor!) }} className="m-3 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted/50">{t('activity.loadMore')}</button>}
     </div>
   </section>

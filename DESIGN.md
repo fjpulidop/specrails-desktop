@@ -265,7 +265,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 - **Do** add new copy to all eight locales and add new semantic tokens to every `[data-theme]` block.
 
 ### Don't:
-- **Don't** introduce spinners, bouncing dots or a second ping implementation; use `LiveDot` or `RailTrack`.
+- **Don't** introduce spinners, bouncing dots or a second ping implementation; use `LiveDot` or `RailTrack`. Exception: a 12–14 px `Loader2` inside a pending button is allowed; content-area waits use `<RailTrack running />` (indeterminate) or `Skeleton`.
 - **Don't** use gradient text, glass as decoration, hard offset shadows or coloured side-borders.
 - **Don't** pick random radii or `shadow-sm` to `2xl`; use the four radius and three elevation roles.
 - **Don't** use monospace to look technical, and don't swap the system sans for a decorative face.

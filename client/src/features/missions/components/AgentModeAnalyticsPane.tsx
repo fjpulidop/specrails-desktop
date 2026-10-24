@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useState } from 'react'
+import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { Maximize2, Minimize2, X, Loader2 } from 'lucide-react'
+import { Maximize2, Minimize2, X } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 
@@ -88,7 +89,7 @@ export function AgentModeAnalyticsPane() {
         <Suspense
           fallback={
             <div className="flex h-24 items-center justify-center text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <RailTrack running className="w-16 shrink-0" />
             </div>
           }
         >

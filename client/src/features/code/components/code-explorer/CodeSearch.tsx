@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { RailTrack } from '../../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
-import { FileSearch, Loader2, Search } from 'lucide-react'
+import { FileSearch, Search } from 'lucide-react'
 import { useCodeRepository } from './CodeRepositoryContext'
 import { repositoryApiBase } from '../../../projects/lib/project-repositories'
 import type { ExplorerLocation } from './explorer-types'
@@ -100,7 +101,7 @@ export function CodeSearch({ projectId, repositoryName, multipleRepositories, ac
     </div>
     <div className="min-h-0 flex-1 overflow-auto" aria-busy={loading}>
       {!query.trim() && <div className="space-y-2 px-5 py-8 text-center text-xs text-muted-foreground"><FileSearch className="mx-auto h-7 w-7 opacity-50" /><p>{t('search.hint')}</p></div>}
-      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('search.loading')}</p>}
+      {loading && <p role="status" className="flex items-center gap-2 p-4 text-xs text-muted-foreground"><span aria-hidden className="w-16 shrink-0"><RailTrack running /></span>{t('search.loading')}</p>}
       {failed && <div role="alert" className="space-y-2 p-4 text-xs"><p>{t('search.failed')}</p><button type="button" className="text-accent-primary underline" onClick={() => setRetry(value => value + 1)}>{t('explore.retry')}</button></div>}
       {results && <>
         <div role="status" className="space-y-1 border-b border-border/50 px-3 py-2 text-caption text-muted-foreground">
