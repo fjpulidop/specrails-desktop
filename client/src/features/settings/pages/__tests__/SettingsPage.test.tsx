@@ -60,7 +60,7 @@ describe('SettingsPage', () => {
   it('shows loading skeleton initially when fetch is in-flight', () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
     const { container } = render(<SettingsPage />)
-    const pulseElements = container.querySelectorAll('.animate-pulse')
+    const pulseElements = container.querySelectorAll('.motion-safe\\:animate-pulse')
     expect(pulseElements.length).toBeGreaterThan(0)
   })
 

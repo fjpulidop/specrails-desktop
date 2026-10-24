@@ -48,11 +48,13 @@
     "tokensTooltip": "Total des tokens = entrée fraîche + sortie + lecture cache + création cache, sur toutes les invocations de cette période.",
     "usageUnavailable": "· utilisation des tokens indisponible",
     "usageUnavailableTooltip": "Le fournisseur a terminé ces invocations sans exposer de télémétrie des tokens.",
-    "usagePartiallyUnavailable": "· {{tokens}} tokens connus ; sans données : {{count}}",
+    "usagePartiallyUnavailable_one": "· {{tokens}} tokens connus ; sans données : {{count}}",
+    "usagePartiallyUnavailable_other": "· {{tokens}} tokens connus ; sans données : {{count}}",
     "usagePartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines invocations n'exposent pas de télémétrie des tokens.",
     "costUnavailable": "coût indisponible",
     "costUnavailableTooltip": "Le fournisseur a terminé ces invocations sans exposer assez de télémétrie pour déterminer leur coût.",
-    "costPartiallyUnavailable": "· sous-total connu ; sans coût : {{count}}",
+    "costPartiallyUnavailable_one": "· sous-total connu ; sans coût : {{count}}",
+    "costPartiallyUnavailable_other": "· sous-total connu ; sans coût : {{count}}",
     "costPartiallyUnavailableTooltip": "Sous-total connu uniquement ; certaines invocations n'exposent pas assez de télémétrie pour déterminer leur coût.",
     "includesEstimated": "· inclut ~{{amount}} estimés",
     "includesEstimatedTooltip": "Inclut {{amount}} de coût estimé pour les fournisseurs sans champ de coût natif (ex. codex via la table de tarifs locale).",
@@ -113,7 +115,8 @@
     "costLabel": "coût",
     "truncated": "Affichage de {{shown}} sur {{total}} — le point le plus coûteux est conservé, mais les points précédents sont masqués",
     "costUnavailable": "Des invocations ont été enregistrées, mais aucune télémétrie de coût n'est disponible pour le graphique.",
-    "costPartiallyUnavailable": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}."
+    "costPartiallyUnavailable_one": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}.",
+    "costPartiallyUnavailable_other": "Le graphique ne contient que les exécutions tarifées ; coûts indisponibles : {{count}}."
   },
   "topTickets": {
     "title": "Top tickets",
@@ -200,7 +203,8 @@
     "statusBarEstimatedTooltip": "Inclut un coût estimé par la table de tarifs (codex/gemini), non facturé par le fournisseur.",
     "costUnavailable": "Des invocations ont été enregistrées, mais la télémétrie de coût est indisponible.",
     "costUnavailableShort": "indisponible",
-    "costPartiallyUnavailable": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
+    "costPartiallyUnavailable_one": "Sous-total des coûts connus ; invocations sans coût : {{count}}.",
+    "costPartiallyUnavailable_other": "Sous-total des coûts connus ; invocations sans coût : {{count}}."
   },
   "windowLabels": {
     "7d": "7 derniers jours",

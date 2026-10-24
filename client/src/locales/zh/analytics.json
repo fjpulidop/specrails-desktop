@@ -48,11 +48,13 @@
     "tokensTooltip": "总 token 数 = 此时间窗口内所有调用的新输入 + 输出 + 缓存读取 + 缓存创建之和。",
     "usageUnavailable": "· token 使用量不可用",
     "usageUnavailableTooltip": "提供方已完成这些调用，但未提供 token 遥测数据。",
-    "usagePartiallyUnavailable": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
+    "usagePartiallyUnavailable_one": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
+    "usagePartiallyUnavailable_other": "· 已知 {{tokens}} 个 token；{{count}} 次调用无数据",
     "usagePartiallyUnavailableTooltip": "仅显示已知 token 小计；部分调用未提供 token 遥测数据。",
     "costUnavailable": "成本不可用",
     "costUnavailableTooltip": "提供方已完成这些调用，但未提供足以确定成本的遥测数据。",
-    "costPartiallyUnavailable": "· 已知小计；{{count}} 次调用无成本数据",
+    "costPartiallyUnavailable_one": "· 已知小计；{{count}} 次调用无成本数据",
+    "costPartiallyUnavailable_other": "· 已知小计；{{count}} 次调用无成本数据",
     "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供足以确定成本的遥测数据。",
     "includesEstimated": "· 含约 {{amount}} 估算值",
     "includesEstimatedTooltip": "包含 {{amount}} 的估算成本，来自不原生上报成本的提供方（例如 codex，按本地价格表估算）。",
@@ -113,7 +115,8 @@
     "costLabel": "成本",
     "truncated": "显示 {{total}} 中的 {{shown}} 个 — 保留成本最高的点，但隐藏较早的点",
     "costUnavailable": "已记录调用，但没有可供绘图的成本遥测数据。",
-    "costPartiallyUnavailable": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
+    "costPartiallyUnavailable_one": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。",
+    "costPartiallyUnavailable_other": "图表仅包含有成本数据的运行；{{count}} 次运行的成本不可用。"
   },
   "topTickets": {
     "title": "热门工单",
@@ -200,7 +203,8 @@
     "statusBarEstimatedTooltip": "包含价格表估算成本（codex/gemini），非提供商计费。",
     "costUnavailable": "已记录调用，但成本遥测数据不可用。",
     "costUnavailableShort": "不可用",
-    "costPartiallyUnavailable": "已知成本小计；{{count}} 次调用不可用。"
+    "costPartiallyUnavailable_one": "已知成本小计；{{count}} 次调用不可用。",
+    "costPartiallyUnavailable_other": "已知成本小计；{{count}} 次调用不可用。"
   },
   "windowLabels": {
     "7d": "最近 7 天",

@@ -72,8 +72,7 @@
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "coste no disponible",
     "costUnavailableTooltip": "Este proveedor se ejecutó pero no expuso telemetría suficiente para determinar el coste.",
-    "costPartiallyUnavailable_one": "· {{count}} no disponible",
-    "costPartiallyUnavailable_other": "· {{count}} no disponibles",
+    "costPartiallyUnavailable": "· no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones no tienen coste disponible."
   },
   "timeline": {
@@ -81,8 +80,7 @@
     "subtitle": "apilada por superficie",
     "empty": "Sin gasto en este periodo.",
     "costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible.",
-    "costPartiallyUnavailable_one": "costes conocidos · {{count}} no disponible",
-    "costPartiallyUnavailable_other": "costes conocidos · {{count}} no disponibles"
+    "costPartiallyUnavailable": "costes conocidos · no disponibles: {{count}}"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -107,8 +105,7 @@
     "others": "Otros",
     "costUnavailableWithRuns": "— · {{count}}",
     "costUnavailableTooltip": "El coste no está disponible para ninguna ejecución de este modelo.",
-    "costPartiallyUnavailable_one": "· {{count}} no disponible",
-    "costPartiallyUnavailable_other": "· {{count}} no disponibles",
+    "costPartiallyUnavailable": "· no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones de este modelo no tienen telemetría de coste."
   },
   "scatter": {
@@ -118,7 +115,8 @@
     "costLabel": "coste",
     "truncated": "Mostrando {{shown}} de {{total}} — se conserva el punto más costoso, pero se ocultan los anteriores",
     "costUnavailable": "Hay invocaciones registradas, pero no existe telemetría de coste para representarlas.",
-    "costPartiallyUnavailable": "La gráfica solo incluye ejecuciones con precio; {{count}} no tienen coste disponible."
+    "costPartiallyUnavailable_one": "La gráfica solo incluye ejecuciones con precio; {{count}} no tiene coste disponible.",
+    "costPartiallyUnavailable_other": "La gráfica solo incluye ejecuciones con precio; {{count}} no tienen coste disponible."
   },
   "topTickets": {
     "title": "Tickets principales",
@@ -128,8 +126,7 @@
     "deletedTicket": "ticket eliminado #{{id}}",
     "costUnavailable": "coste no disponible",
     "costUnavailableTooltip": "Ninguna ejecución de este ticket expuso telemetría de coste.",
-    "costPartiallyUnavailable_one": "{{count}} no disponible",
-    "costPartiallyUnavailable_other": "{{count}} no disponibles",
+    "costPartiallyUnavailable": "no disponibles: {{count}}",
     "costPartiallyUnavailableTooltip": "Solo subtotal conocido; algunas ejecuciones de este ticket no tienen coste disponible."
   },
   "table": {
