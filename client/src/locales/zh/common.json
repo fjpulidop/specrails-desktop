@@ -216,5 +216,20 @@
       "inbox": "“待你处理”收件箱",
       "specsBoard": "规格与待办列表"
     }
+  },
+  "forecast": {
+    "label": "启动预估",
+    "usually": "同类运行通常 {{time}} · {{cost}}",
+    "usuallyTime": "同类运行通常 {{time}}",
+    "minutesRange": "{{low}}–{{high}} 分钟",
+    "minutesSingle": "{{value}} 分钟",
+    "insufficient": "历史记录尚不足",
+    "insufficientHint": "在此项目和引擎上，至少需要 {{count}} 次已完成的同类运行。",
+    "estimateHint": "根据过去 {{count}} 次运行估算 — 不是已计费的费用",
+    "estimateHintCost": "根据过去 {{count}} 次运行估算（费用取自 {{costCount}} 次）— 不是已计费的费用",
+    "budgetCaution": "可能因预算而暂停",
+    "budgetReached": "已达到每日预算",
+    "budgetCautionHint": "今天的花费加上此估算的上限可能达到每日预算。打开预算设置。",
+    "budgetReachedHint": "今天的花费已达到每日预算，在重置或提高预算之前将拒绝启动。打开预算设置。"
   }
 }

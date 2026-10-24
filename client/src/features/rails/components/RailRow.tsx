@@ -9,6 +9,7 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
+import { LaunchForecast } from '../../../components/LaunchForecast'
 import { deriveRailMode, effectiveLoopId, offeredRecommendation } from '../lib/rail-loops'
 import { recommendedLoopForTickets } from '../../specs/lib/spec-triage'
 import { SpecCard } from '../../specs/components/SpecCard'
@@ -195,6 +196,11 @@ export function RailRow({
   // has no profiles, so it can't trigger an empty row — it rides along the
   // second row when one exists, else stays inline on the top row.
   const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel || showRolesChip
+  // Launch forecast ("Usually 6-9 min · $2-4 for runs like this"): only for an idle rail
+  // with specs and one engine that will run it (the hybrid roles engine has none).
+  const forecastEl = status !== 'running' && tickets.length > 0 && !rolesEngine && activeProjectId
+    ? <LaunchForecast projectId={activeProjectId} loopId={railLoopId} provider={effectiveProvider} className="px-0.5" />
+    : null
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -529,6 +535,7 @@ export function RailRow({
             onToggle={onToggle}
             launchBlockedReason={launchBlockedReason}
           />
+          {forecastEl}
         </div>
 
         {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
@@ -702,6 +709,8 @@ export function RailRow({
             )}
           </div>
           </div>
+
+          {forecastEl && <div className="px-3 pb-1.5">{forecastEl}</div>}
 
           {/* Live execution metrics (elapsed · steps · lines) — same WS source as Jobs */}
           {isRunning && <RailTrack running className="mx-3 mb-1" aria-label={t('railRow.status.running')} />}

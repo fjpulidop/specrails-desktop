@@ -216,5 +216,20 @@
       "inbox": "the Needs you inbox",
       "specsBoard": "specs and the backlog"
     }
+  },
+  "forecast": {
+    "label": "Launch forecast",
+    "usually": "Usually {{time}} · {{cost}} for runs like this",
+    "usuallyTime": "Usually {{time}} for runs like this",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Not enough history yet",
+    "insufficientHint": "Needs at least {{count}} finished runs like this in this project and engine.",
+    "estimateHint": "Estimate from {{count}} past runs — not billed cost",
+    "estimateHintCost": "Estimate from {{count}} past runs (cost from {{costCount}}) — not billed cost",
+    "budgetCaution": "May pause at budget",
+    "budgetReached": "Daily budget reached",
+    "budgetCautionHint": "Today’s spend plus the top of this estimate could reach your daily budget. Open budget settings.",
+    "budgetReachedHint": "Today’s spend has reached your daily budget, so a launch is refused until it resets or you raise it. Open budget settings."
   }
 }

@@ -216,5 +216,20 @@
       "inbox": "a caixa Precisam de você",
       "specsBoard": "as specs e o backlog"
     }
+  },
+  "forecast": {
+    "label": "Previsão de lançamento",
+    "usually": "Normalmente {{time}} · {{cost}} em execuções como esta",
+    "usuallyTime": "Normalmente {{time}} em execuções como esta",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Ainda sem histórico suficiente",
+    "insufficientHint": "Precisa de pelo menos {{count}} execuções concluídas como esta neste projeto e motor.",
+    "estimateHint": "Estimativa de {{count}} execuções anteriores — não é custo cobrado",
+    "estimateHintCost": "Estimativa de {{count}} execuções anteriores (custo de {{costCount}}) — não é custo cobrado",
+    "budgetCaution": "Pode pausar no orçamento",
+    "budgetReached": "Orçamento diário atingido",
+    "budgetCautionHint": "O gasto de hoje mais o topo desta estimativa pode atingir seu orçamento diário. Abrir configurações de orçamento.",
+    "budgetReachedHint": "O gasto de hoje atingiu seu orçamento diário, então um lançamento é recusado até a redefinição ou até você aumentá-lo. Abrir configurações de orçamento."
   }
 }

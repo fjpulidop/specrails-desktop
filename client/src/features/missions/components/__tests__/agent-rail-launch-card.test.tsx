@@ -19,6 +19,7 @@ import type { AgentMessage as ApiAgentMessage, AgentMessageIntent } from '../../
 import type { ProjectRepository } from '../../../projects/lib/project-repositories'
 import { StrictMode } from 'react'
 import { setActiveProjectId } from '../../../../lib/api'
+import { resetLaunchForecastCache } from '../../../../lib/launch-forecast'
 
 vi.mock('../../../jobs/components/JobDetailModal', () => ({
   JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => (
@@ -89,6 +90,28 @@ function renderCard(over: Partial<RailLaunchProposal> = {}, intent: AgentMessage
     <AgentRailLaunchCard proposal={proposal(over)} proposalIndex={0} messageId="m1" conversationId="c1" projectId={projectId} intent={intent} />,
   )
 }
+
+describe('AgentRailLaunchCard launch forecast', () => {
+  const forecast = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: null }
+
+  it('forecasts what Play would start (loop and engine), above the actions', async () => {
+    resetLaunchForecastCache()
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: forecast }) })
+    renderCard({ loopId: 'factory:implement', aiEngine: 'codex' })
+    expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+    const url = calls.find((c) => c.url.includes('/launch-forecast'))!.url
+    expect(url).toMatch(/\/projects\/p1\/launch-forecast\?loopId=factory%3Aimplement&provider=codex$/)
+    // It never changes what Play sends.
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+  })
+
+  it('says nothing once the launch is decided', async () => {
+    resetLaunchForecastCache()
+    mockFetch({ '/launch-forecast': () => ({ status: 200, body: forecast }) })
+    renderCard({}, { kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: '2026-09-18T00:00:00Z' } as AgentMessageIntent)
+    await waitFor(() => expect(screen.queryByTestId('launch-forecast')).toBeNull())
+  })
+})
 
 describe('AgentRailLaunchCard', () => {
   it('shows saved historical assignments even in a single-repository project', async () => {

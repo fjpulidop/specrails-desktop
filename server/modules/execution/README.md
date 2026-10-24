@@ -56,3 +56,5 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/execution` and any affected consumers.
+
+[launch-forecast](runtime/launch-forecast.ts) is the read model behind `GET /launch-forecast`: the interquartile time band of [run-duration-stats](runtime/run-duration-stats.ts) samples narrowed to one provider, plus a cost band built only from provider-reported costs (a run whose cost was estimated, or has none, still informs the time band but never the cost band). Both are null below `MIN_DURATION_SAMPLES`. `createDailyBudgetHeadroom` in [daily-budget-gate](runtime/daily-budget-gate.ts) exposes the tightest budget (project or app-wide) read-only as `ProjectContext.dailyBudgetHeadroom`, so the UI can warn *before* the gate would refuse.

@@ -1495,6 +1495,7 @@
       "runtime/job-listing.ts",
       "runtime/job-phase-breakdown.ts",
       "runtime/job-spawn-idempotency.ts",
+      "runtime/launch-forecast.ts",
       "runtime/queue-manager.ts",
       "runtime/revision-seed.ts",
       "runtime/run-duration-stats.ts",
@@ -1584,6 +1585,10 @@
       "runtime/job-spawn-idempotency.ts": [
         "../../../db",
         "crypto"
+      ],
+      "runtime/launch-forecast.ts": [
+        "../../../db",
+        "./run-duration-stats"
       ],
       "runtime/queue-manager.ts": [
         "..",

@@ -95,6 +95,29 @@ layer, so it also opens over the floating chat). The accessible name always name
 - **Cheatsheet search:** the `?` cheatsheet filters shortcuts and asks `GET /api/docs/search` (current
   locale titles/headings) for guide matches that open in the guide at the heading.
 
+## Launch forecast ("Usually 6–9 min · $2–4")
+
+`components/LaunchForecast.tsx` sits next to a Launch action: the rail row (idle, with specs, one
+engine), the mission rail card and the Flow hand-off card (`AgentRailLaunchCard`) and the Run-a-loop
+dialog. It reads `GET /api/projects/:id/launch-forecast` ([API](../../../docs/internals/api-reference.md)):
+the **same measured samples** as the job story's "Runs like this have taken…" band
+(`server/modules/execution/runtime/run-duration-stats.ts`), narrowed to the provider about to run, plus a
+cost band and the tightest daily budget's headroom. Rules, all in `lib/launch-forecast.ts`:
+
+- **Honest unknowns.** Below the server's 5-sample floor there is no band: the line says "Not enough
+  history yet" (tooltip: what it needs). Nothing is averaged, defaulted or guessed; an unreachable endpoint
+  renders nothing.
+- **Estimate, never a bill.** The tooltip says "Estimate from N past runs — not billed cost". The cost band is
+  built server-side from provider-reported costs only (estimated costs and runs without a cost never enter it) and
+  is never summed with a billed figure.
+- **Plans show time only.** `isPlanBilled` reads the machine's subscription-usage snapshot (`GET /api/subscription-usage`:
+  signed in with a plan or usage windows, not enterprise on-demand). The dollar figure waits for that answer, so it never
+  flashes for a plan user. Unknown billing (API keys, other providers) is not a plan: the figure shows, as an estimate.
+- **Budget caution.** `budgetOutlook` compares, in integer cents, today's spend plus the top of the cost band with the
+  daily budget: "May pause at budget" (or "Daily budget reached" when the gate would already refuse). It links to
+  `openProjectSettings('budget')` or `openAppSettings('advanced')` for an app-wide budget.
+- Forecasts are cached 30 s per project/loop/provider (`fetchLaunchForecast`) and shared between rails.
+
 ## Undo instead of confirm
 
 Reversible actions (delete a spec or mission, remove a spec from a rail, move a

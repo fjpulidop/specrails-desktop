@@ -145,3 +145,22 @@ describe('LoopRunModal', () => {
     expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Execute/i })).toBeDisabled()
   })
 })
+
+describe('LoopRunModal launch forecast', () => {
+  it('forecasts the loop for the chosen project and engine, and follows a project change', async () => {
+    const { TooltipProvider } = await import('../../../../components/ui/tooltip')
+    const { resetLaunchForecastCache } = await import('../../../../lib/launch-forecast')
+    resetLaunchForecastCache()
+    const body = { time: { p25Ms: 360_000, medianMs: 450_000, p75Ms: 540_000, sampleCount: 6 }, cost: null, minSamples: 5, budget: null }
+    const calls: string[] = []
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      calls.push(String(url))
+      return String(url).includes('/launch-forecast') ? { ok: true, json: async () => body } : { ok: true, json: async () => ({}) }
+    }) as typeof fetch
+    render(<TooltipProvider><LoopRunModal loop={{ id: 'l1', name: 'CI Watch' }} projects={PROJECTS} onClose={() => {}} onExecute={() => {}} /></TooltipProvider>)
+    expect(await screen.findByText('Usually 6–9 min for runs like this')).toBeInTheDocument()
+    expect(calls.find((u) => u.includes('/launch-forecast'))).toMatch(/\/api\/projects\/p1\/launch-forecast\?loopId=l1&provider=claude$/)
+    fireEvent.change(screen.getByTestId('run-project-select'), { target: { value: 'p3' } })
+    await vi.waitFor(() => expect(calls.some((u) => /\/projects\/p3\/launch-forecast\?loopId=l1&provider=kimi$/.test(u))).toBe(true))
+  })
+})

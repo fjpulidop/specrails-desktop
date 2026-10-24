@@ -4,6 +4,7 @@ import { Play } from 'lucide-react'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { HelpHint } from '../../../components/HelpHint'
+import { LaunchForecast } from '../../../components/LaunchForecast'
 import {
   defaultReasoningEffortForProvider,
   providerLabel,
@@ -175,6 +176,7 @@ export function LoopRunModal({
                 </select>
               </>
             )}
+            <LaunchForecast projectId={selected?.id} loopId={loop.id} provider={effectiveProvider || null} className="pt-1" />
             </DialogBody>
 
             <DialogFooter>

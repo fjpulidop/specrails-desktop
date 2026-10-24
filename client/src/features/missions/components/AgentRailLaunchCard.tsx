@@ -49,6 +49,7 @@ import { dailyBudgetActionMessage, dailyBudgetExceededMessage, readDailyBudgetRe
 import { readReviewWipRejection, reviewWipActionMessage, reviewWipRejectionMessage } from '../../../lib/review-wip'
 import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
+import { LaunchForecast } from '../../../components/LaunchForecast'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -434,6 +435,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   const decided = intent ?? localIntent
+  // Forecast ("Usually 6-9 min · $2-4 for runs like this") for what Play would start;
+  // hidden once decided and for the hybrid roles engine (no single provider).
+  const forecastEl = projectId && !decided && !rolesEngine && catalogProvider
+    ? <LaunchForecast projectId={projectId} loopId={effectiveLoop} provider={catalogProvider} />
+    : null
   const blockReason: string | null = !projectId
     ? t('railCard.block.noProject')
     : loadError ? t('railCard.block.loadFailed')
@@ -691,6 +697,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         </p>
         {handOff.note && <p data-testid="rail-card-hand-off-note" className="text-label leading-4 text-foreground/75">{handOff.note}</p>}
         {handOff.lineNote}
+        {forecastEl}
         {notes}
         {inlineError && (
           <div data-testid="rail-card-error" role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
@@ -1074,6 +1081,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         {loadError && projectId && <button type="button" data-agent-interactive disabled={!!busy} className="inline-flex items-center gap-1 text-xs text-accent-primary" onClick={() => setRefreshVersion(version => version + 1)}>
           <RefreshCw className="h-3 w-3" />{t('railCard.repositories.retry')}
         </button>}
+        {forecastEl}
         <div className="flex items-center justify-between gap-2 pt-0.5">
           <span className="min-w-0 flex-1 text-caption text-foreground/45">
             {blockReason ?? t('railCard.playHint')}

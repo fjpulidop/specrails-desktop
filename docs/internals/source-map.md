@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1245 source/build files. Nearby tests are linked where names
+Includes 1249 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -37,6 +37,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [InitialCommitButton.tsx](../../client/src/components/InitialCommitButton.tsx)
 - [KeepAwakeControl.tsx](../../client/src/components/KeepAwakeControl.tsx) · [test](../../client/src/components/__tests__/KeepAwakeControl.test.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
+- [LaunchForecast.tsx](../../client/src/components/LaunchForecast.tsx) · [test](../../client/src/components/__tests__/LaunchForecast.test.tsx)
 - [PlaceNavButtons.tsx](../../client/src/components/PlaceNavButtons.tsx) · [test](../../client/src/components/__tests__/PlaceNavButtons.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
@@ -916,6 +917,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
 - [useElementWidth.ts](../../client/src/hooks/useElementWidth.ts)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
+- [useLaunchForecast.ts](../../client/src/hooks/useLaunchForecast.ts)
 - [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
 - [useOsNotifications.ts](../../client/src/hooks/useOsNotifications.ts) · [test](../../client/src/hooks/__tests__/useOsNotifications.test.ts)
@@ -953,6 +955,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [initial-commit.ts](../../client/src/lib/initial-commit.ts)
 - [json-tolerant.ts](../../client/src/lib/json-tolerant.ts) · [test](../../client/src/lib/__tests__/json-tolerant.test.ts)
 - [keyboard-label.ts](../../client/src/lib/keyboard-label.ts)
+- [launch-forecast.ts](../../client/src/lib/launch-forecast.ts) · [test](../../client/src/lib/__tests__/launch-forecast.test.ts)
 - [layers.ts](../../client/src/lib/layers.ts)
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
@@ -1506,6 +1509,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [job-listing.ts](../../server/modules/execution/runtime/job-listing.ts) · [test](../../server/modules/execution/runtime/job-listing.test.ts)
 - [job-phase-breakdown.ts](../../server/modules/execution/runtime/job-phase-breakdown.ts) · [test](../../server/modules/execution/runtime/job-phase-breakdown.test.ts)
 - [job-spawn-idempotency.ts](../../server/modules/execution/runtime/job-spawn-idempotency.ts)
+- [launch-forecast.ts](../../server/modules/execution/runtime/launch-forecast.ts) · [test](../../server/modules/execution/runtime/launch-forecast.test.ts)
 - [queue-manager.ts](../../server/modules/execution/runtime/queue-manager.ts) · [test](../../server/modules/execution/runtime/queue-manager.test.ts)
 - [revision-seed.ts](../../server/modules/execution/runtime/revision-seed.ts) · [test](../../server/modules/execution/runtime/revision-seed.test.ts)
 - [run-duration-stats.ts](../../server/modules/execution/runtime/run-duration-stats.ts) · [test](../../server/modules/execution/runtime/run-duration-stats.test.ts)

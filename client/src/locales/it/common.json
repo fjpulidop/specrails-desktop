@@ -216,5 +216,20 @@
       "inbox": "la casella Serve il tuo intervento",
       "specsBoard": "le spec e il backlog"
     }
+  },
+  "forecast": {
+    "label": "Previsione di avvio",
+    "usually": "Di solito {{time}} · {{cost}} per esecuzioni come questa",
+    "usuallyTime": "Di solito {{time}} per esecuzioni come questa",
+    "minutesRange": "{{low}}–{{high}} min",
+    "minutesSingle": "{{value}} min",
+    "insufficient": "Cronologia ancora insufficiente",
+    "insufficientHint": "Servono almeno {{count}} esecuzioni completate come questa in questo progetto e con questo motore.",
+    "estimateHint": "Stima da {{count}} esecuzioni passate — non è un costo addebitato",
+    "estimateHintCost": "Stima da {{count}} esecuzioni passate (costo da {{costCount}}) — non è un costo addebitato",
+    "budgetCaution": "Potrebbe fermarsi al budget",
+    "budgetReached": "Budget giornaliero raggiunto",
+    "budgetCautionHint": "La spesa di oggi più il limite alto di questa stima potrebbe raggiungere il tuo budget giornaliero. Apri le impostazioni del budget.",
+    "budgetReachedHint": "La spesa di oggi ha raggiunto il tuo budget giornaliero: un avvio viene rifiutato fino al reset o finché non lo aumenti. Apri le impostazioni del budget."
   }
 }

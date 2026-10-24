@@ -372,6 +372,8 @@ provides no authoritative token/USD envelope, so those values remain null.
 |--------|------|-------|
 | `GET` | `/budget` | Daily cap + per-job alert |
 | `PATCH` | `/budget` | Update |
+| `GET` | `/run-duration-range?loopId=\|command=` | Measured p25/median/p75 of this project's settled runs of a loop or job-command shape (`{ range, minSamples }`); `range` is `null` below 5 samples. Feeds the job story's "Runs like this have taken…" |
+| `GET` | `/launch-forecast?loopId=\|command=&provider=` | Read-only launch forecast: `{ time, cost, minSamples, budget }`. Same samples as `run-duration-range`, narrowed to `provider`. `time` is `{ p25Ms, medianMs, p75Ms, sampleCount }`. `cost` is `{ lowUsd, highUsd, sampleCount }` (cents), built **only** from provider-reported costs (estimated costs and runs without a cost are excluded) and is an estimate, never a billed figure. Each is `null` below the 5-sample floor (render "Not enough history yet"). `factory:implement`/`factory:batch`/`factory:freestyle` read the `/specrails:implement`/`/specrails:freestyle` jobs; any other loop id reads `loop_runs`. `budget` is the tightest configured daily budget `{ scope, budgetUsd, spentUsd, exhausted, resetsAt }` (the same figures the launch gate enforces) or `null`. `400` without `loopId`/`command` or on a malformed `provider` |
 
 ### Tickets
 

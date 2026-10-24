@@ -216,5 +216,20 @@
       "inbox": "den Eingang „Braucht dich“",
       "specsBoard": "Specs und das Backlog"
     }
+  },
+  "forecast": {
+    "label": "Startprognose",
+    "usually": "Üblicherweise {{time}} · {{cost}} für solche Läufe",
+    "usuallyTime": "Üblicherweise {{time}} für solche Läufe",
+    "minutesRange": "{{low}}–{{high}} Min.",
+    "minutesSingle": "{{value}} Min.",
+    "insufficient": "Noch nicht genug Verlauf",
+    "insufficientHint": "Braucht mindestens {{count}} abgeschlossene Läufe dieser Art in diesem Projekt und mit dieser Engine.",
+    "estimateHint": "Schätzung aus {{count}} früheren Läufen — keine abgerechneten Kosten",
+    "estimateHintCost": "Schätzung aus {{count}} früheren Läufen (Kosten aus {{costCount}}) — keine abgerechneten Kosten",
+    "budgetCaution": "Könnte am Budget pausieren",
+    "budgetReached": "Tagesbudget erreicht",
+    "budgetCautionHint": "Die heutigen Ausgaben plus das obere Ende dieser Schätzung könnten dein Tagesbudget erreichen. Budgeteinstellungen öffnen.",
+    "budgetReachedHint": "Die heutigen Ausgaben haben dein Tagesbudget erreicht; ein Start wird abgelehnt, bis es zurückgesetzt oder erhöht wird. Budgeteinstellungen öffnen."
   }
 }

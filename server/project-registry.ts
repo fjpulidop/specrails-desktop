@@ -8,7 +8,7 @@ import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
 import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
-import { createDailyBudgetGate } from './modules/execution/runtime/daily-budget-gate'
+import { createDailyBudgetGate, createDailyBudgetHeadroom, type DailyBudgetHeadroom } from './modules/execution/runtime/daily-budget-gate'
 import { createReviewWipGate, type ReviewWipGate } from './modules/delivery/runtime/review-wip-gate'
 import type { DailyBudgetRejection } from './modules/execution'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
@@ -177,6 +177,9 @@ export interface ProjectContext {
    *  queue (rail launches, loop resumes): the 409 body while the project or
    *  app-wide daily budget is exhausted, else null. Absent in bare test contexts. */
   dailyBudgetRejection?: () => DailyBudgetRejection | null
+  /** Read-only headroom of the tightest daily budget, for warnings before a
+   *  launch (launch forecast). Absent in bare test contexts. */
+  dailyBudgetHeadroom?: () => DailyBudgetHeadroom | null
   /** Review WIP limit admission for rail launches (review-wip-limit): bound
    *  to this project's connection and `reviewWipLimit` setting. Absent in
    *  bare test contexts. */
@@ -1241,6 +1244,7 @@ export class ProjectRegistry {
     // Same budget state the queue auto-pause enforces; bound to THIS project's
     // connection (project budget) plus the app-wide snapshot.
     const dailyBudgetRejection = createDailyBudgetGate({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
+    const dailyBudgetHeadroom = createDailyBudgetHeadroom({ db, projectId: project.id, desktop: () => this._desktopDailyBudgetSnapshot() })
     const reviewWipGate = createReviewWipGate({ db, readLimit: () => getProjectSettings(db).reviewWipLimit })
     // Architect clarifications (feedback-2026-10 task 3.2): after a Core
     // invocation pauses or ends, post the run's clarifications record to the
@@ -1597,7 +1601,7 @@ export class ProjectRegistry {
       broadcast: boundBroadcast,
     })
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, reviewWipGate, agentAudit }
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress, dailyBudgetRejection, dailyBudgetHeadroom, reviewWipGate, agentAudit }
     ctx.milestoneChains = milestoneChains
     // Spec triage (launch-triage): cheap per-spec loop recommendation. Seeded
     // now so the existing backlog is only triaged on edit or on demand.
