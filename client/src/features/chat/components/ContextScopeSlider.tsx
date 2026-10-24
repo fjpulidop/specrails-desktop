@@ -17,6 +17,7 @@ import {
   estimateCostUsd, estimateInputTokens, tierFromScope, timeHintForTier,
   type ContextBudget, type ContextScope,
 } from '../types/context-scope'
+import { formatUsd } from '../../../lib/format-usd'
 
 interface Preset {
   id: 'minimal' | 'light' | 'standard' | 'rich' | 'max' | 'desktop'
@@ -108,8 +109,7 @@ function formatTokens(n: number): string {
 }
 
 function formatCost(n: number): string {
-  if (n < 0.01) return `~$${n.toFixed(4)}`
-  return `~$${n.toFixed(2)}`
+  return `~${formatUsd(n)}`
 }
 
 export function ContextScopeSlider({

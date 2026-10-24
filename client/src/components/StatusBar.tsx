@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '../lib/utils'
 import { getApiBase } from '../lib/api'
+import { formatUsd } from '../lib/format-usd'
 
 interface Stats {
   totalJobs?: number
@@ -143,7 +144,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
             >
               {unavailable
                 ? tAnalytics('desktop.costUnavailableShort')
-                : `${estimated ? '~' : ''}${partial ? '≥' : ''}$${stats.totalCostUsd.toFixed(2)}`}
+                : `${estimated ? '~' : ''}${partial ? '≥' : ''}${formatUsd(stats.totalCostUsd)}`}
             </span>
           )
         })()}

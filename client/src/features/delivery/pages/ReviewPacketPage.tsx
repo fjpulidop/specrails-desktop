@@ -40,6 +40,7 @@ import { notifyGitChanged } from '../../code/lib/git-refresh'
 import type {
   AcceptCapability, PacketProofItem, PacketTicketSection, ProofTier, ReviewPacket, ReviewPacketResponse,
 } from '../../../types'
+import { formatUsd } from '../../../lib/format-usd'
 
 const TIER_ORDER: ProofTier[] = ['app-verified', 'ai-reported', 'reviewer-score']
 
@@ -326,7 +327,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
     ? baselineCosts.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null
   const costLabel = packet.cost.totalUsd === null
     ? '—'
-    : `${packet.cost.estimated ? '~' : ''}$${packet.cost.totalUsd.toFixed(2)}`
+    : `${packet.cost.estimated ? '~' : ''}${formatUsd(packet.cost.totalUsd)}`
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
@@ -402,7 +403,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             <CircleDollarSign className="size-3.5" aria-hidden />
             {t('cost.thisBuild', { amount: costLabel })}
             {baselineCostUsd !== null ? (
-              <span className="text-muted-foreground/80" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: `$${baselineCostUsd.toFixed(2)}` })}</span>
+              <span className="text-muted-foreground/80" data-testid="packet-cost-baseline">{t('cost.baselinePart', { amount: formatUsd(baselineCostUsd) })}</span>
             ) : null}
           </span>
           {packet.prUrl ? (
@@ -611,7 +612,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     </span>
                   ) : null}
                   <span className="text-[11px] text-muted-foreground">
-                    {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}$${version.costUsd.toFixed(2)}`}
+                    {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}${formatUsd(version.costUsd)}`}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">
@@ -624,7 +625,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
             {t('cost.allVersions', {
               amount: packet.chainCostUsd === null
                 ? '—'
-                : `${packet.chainCostEstimated ? '~' : ''}$${packet.chainCostUsd.toFixed(2)}`,
+                : `${packet.chainCostEstimated ? '~' : ''}${formatUsd(packet.chainCostUsd)}`,
             })}
           </p>
         </Section>

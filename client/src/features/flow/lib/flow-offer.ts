@@ -8,6 +8,7 @@
 // into (workspace and multi-repository projects); the entry card preselects it.
 
 import type { FlowCapability, FlowCost } from './flow-api'
+import { formatUsd } from '../../../lib/format-usd'
 
 export type FlowMode = 'flow' | 'implement'
 
@@ -58,5 +59,5 @@ export function flowCostDisplay(cost: FlowCost | null): { usd: string | null; pa
   if (!cost) return { usd: null, partial: false }
   const priced = cost.turns - cost.unpricedTurns
   if (priced <= 0) return { usd: null, partial: cost.unpricedTurns > 0 }
-  return { usd: `$${cost.costUsd.toFixed(cost.costUsd < 1 ? 3 : 2)}`, partial: cost.unpricedTurns > 0 }
+  return { usd: formatUsd(cost.costUsd), partial: cost.unpricedTurns > 0 }
 }

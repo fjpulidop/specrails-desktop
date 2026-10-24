@@ -49,7 +49,7 @@ describe('flow-offer protocol', () => {
     expect(flowCostDisplay(null)).toEqual({ usd: null, partial: false })
     expect(flowCostDisplay({ flowId: 'f', costUsd: 0, turns: 0, unpricedTurns: 0 })).toEqual({ usd: null, partial: false })
     expect(flowCostDisplay({ flowId: 'f', costUsd: 0, turns: 2, unpricedTurns: 2 })).toEqual({ usd: null, partial: true })
-    expect(flowCostDisplay({ flowId: 'f', costUsd: 0.42, turns: 3, unpricedTurns: 1 })).toEqual({ usd: '$0.420', partial: true })
+    expect(flowCostDisplay({ flowId: 'f', costUsd: 0.42, turns: 3, unpricedTurns: 1 })).toEqual({ usd: '$0.42', partial: true })
     expect(flowCostDisplay({ flowId: 'f', costUsd: 2.5, turns: 3, unpricedTurns: 0 })).toEqual({ usd: '$2.50', partial: false })
   })
 })

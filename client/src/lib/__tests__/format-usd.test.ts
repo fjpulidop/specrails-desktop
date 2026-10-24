@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatUsd } from '../format'
+import { formatUsd } from '../format-usd'
 
 describe('formatUsd', () => {
   it('uses two fraction digits from one cent up', () => {

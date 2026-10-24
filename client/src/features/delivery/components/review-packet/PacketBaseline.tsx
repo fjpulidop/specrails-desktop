@@ -7,11 +7,12 @@
 import { useTranslation } from 'react-i18next'
 import { Landmark } from 'lucide-react'
 import type { PacketBaseline as Baseline } from '../../../../types'
+import { formatUsd } from '../../../../lib/format-usd'
 
 const MAX_FILES = 6
 
 function money(value: number | null): string | null {
-  return value === null ? null : `$${value.toFixed(2)}`
+  return value === null ? null : formatUsd(value)
 }
 
 export function PacketBaseline({ entries, multiTicket }: { entries: Baseline[]; multiTicket: boolean }) {

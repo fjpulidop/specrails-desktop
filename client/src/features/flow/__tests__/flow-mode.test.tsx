@@ -302,7 +302,7 @@ describe('Flow mode in the conversation', () => {
     const panel = within(await openFlowPanel())
     expect(panel.getByTestId('flow-bar-branch')).toHaveTextContent('feat/7-calm-dashboard')
     await waitFor(() => expect(panel.getByTestId('flow-bar-stats')).toHaveTextContent('3 files+10−2'))
-    expect(panel.getByTestId('flow-bar-cost')).toHaveTextContent('$0.420')
+    expect(panel.getByTestId('flow-bar-cost')).toHaveTextContent('$0.42')
     expect(panel.getByTestId('flow-bar-discard')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('flow-bar-changes'))
     const dialog = await screen.findByTestId('flow-changes-dialog')
@@ -429,7 +429,7 @@ describe('Flow mode in the conversation', () => {
       : base(input, init))
     render(<Providers><FlowStrip /></Providers>)
     await openFlowPanel()
-    await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.500*'))
+    await waitFor(() => expect(screen.getByTestId('flow-bar-cost')).toHaveTextContent('$0.50*'))
     expect(screen.getByTestId('flow-bar-cost-partial')).toHaveTextContent('1 turn has no provider-reported cost and is not included')
   })
 
@@ -441,11 +441,11 @@ describe('Flow mode in the conversation', () => {
     render(<Providers><FlowStrip /></Providers>)
     fireEvent.click(await screen.findByTestId('flow-bar-hand-off'))
     const line = await screen.findByTestId('rail-card-hand-off-line')
-    await waitFor(() => expect(within(line).getByTestId('flow-hand-off-cost')).toHaveTextContent('$0.500* so far'))
+    await waitFor(() => expect(within(line).getByTestId('flow-hand-off-cost')).toHaveTextContent('$0.50* so far'))
     // Without opening "Change how": the asterisk is explained visibly and for screen readers.
     expect(within(line).getByTestId('flow-hand-off-cost')).toHaveTextContent('(2 turns have no provider-reported cost and are not included)')
     expect(screen.getByTestId('flow-hand-off-cost-partial')).toHaveTextContent('* 2 turns have no provider-reported cost and are not included')
-    expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('$0.500* so far (2 turns have no provider-reported cost')
+    expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('$0.50* so far (2 turns have no provider-reported cost')
   })
 
   it('Pause and Hand off carry their strip letters (P, H) in the tooltip; P works only with the strip focused', async () => {
@@ -571,7 +571,7 @@ describe('Flow mode in the conversation', () => {
     expect(within(card).getByTestId('rail-card-hand-off-settings')).toBeVisible()
     expect(within(card).getByTestId('rail-card-rail')).toBeInTheDocument()
     // What the Flow changed and cost so far lives there too.
-    await waitFor(() => expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('3 files +10 −2 · $0.420 so far'))
+    await waitFor(() => expect(screen.getByTestId('flow-hand-off-recap')).toHaveTextContent('3 files +10 −2 · $0.42 so far'))
     expect(screen.queryByTestId('rail-card-repositories')).toBeNull()
     expect(screen.queryByTestId('rail-card-target-pr')).toBeNull()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
