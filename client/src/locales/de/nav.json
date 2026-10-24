@@ -10,30 +10,36 @@
       "pinnedOpen": "Rechte Seitenleiste einklappen (angepinnt lassen)",
       "pinnedCollapsed": "Rechte Seitenleiste lösen",
       "unpinned": "Rechte Seitenleiste offen anpinnen"
-    }
+    },
+    "resize": "Seitenleiste skalieren"
   },
   "projects": {
     "addProject": "Projekt hinzufügen",
     "remove": "{{name}} entfernen",
     "confirmRemove": "Entfernen von {{name}} bestätigen",
-    "confirmShort": "bestätigen?",
+    "confirmShort": "Entfernen?",
     "added": "Projekt hinzugefügt: {{name}}",
     "removed": "Projekt entfernt",
     "expand": "{{name}} aufklappen",
     "collapse": "{{name}} einklappen",
     "settings": "Einstellungen für {{name}}",
     "assembling": "Workspace wird eingerichtet…",
-    "assembleFailed": "Workspace-Einrichtung fehlgeschlagen — zum Wiederholen klicken"
+    "assembleFailed": "Workspace-Einrichtung fehlgeschlagen — zum Wiederholen klicken",
+    "retrySetup": "Einrichtung wiederholen"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Doku",
-    "analytics": "Analytics",
+    "analytics": "Analytics aller Projekte",
     "companion": "Companion",
-    "settings": "Einstellungen",
+    "settings": "App-Einstellungen",
     "plugins": "Plugins",
-    "review": "Review"
+    "review": "Review",
+    "landmark": "Projekte und Missionen",
+    "resize": "Seitenleiste skalieren",
+    "sectionTools": "Arbeitsbereich",
+    "sectionProjects": "Projekte"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops ist als Mission-Modal geöffnet.",
@@ -48,7 +54,8 @@
     "agents": "Agenten",
     "code": "Code",
     "integrations": "Integrationen",
-    "settings": "Einstellungen"
+    "settings": "Projekteinstellungen",
+    "landmark": "Projektnavigation"
   },
   "navbar": {
     "home": "Start",

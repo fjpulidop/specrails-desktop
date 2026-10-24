@@ -2,10 +2,13 @@ import { useSidebarPin } from '../context/SidebarPinContext'
 import { keyboardLabel } from '../lib/keyboard-label'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Copy, Minus, PanelLeft, PanelRight, Search, Square, X } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { useUiMode } from '../context/UiModeContext'
+import { hasRightSidebar } from '../lib/sidebar-layout'
+import { cn } from '../lib/utils'
 
 // ─── Detect Tauri environment ─────────────────────────────────────────────────
 
@@ -169,13 +172,41 @@ function SidebarWindowButton({ side }: { side: 'left' | 'right' }) {
   const key = mode === 'pinned-open' ? 'pinnedOpen' : mode === 'pinned-collapsed' ? 'pinnedCollapsed' : 'unpinned'
   const label = t(`sidebarPin.${side}.${key}`)
   const Icon = side === 'left' ? PanelLeft : PanelRight
-  return <button type="button" aria-label={label} title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌥⌘B' : '⌘B') })} onClick={side === 'left' ? cycleLeftMode : cycleRightMode} className="flex h-6 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline focus-visible:outline-ring" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}><Icon className="h-4 w-4" /></button>
+  const pinned = mode !== 'unpinned'
+  // ⌘B = left sidebar, ⌥⌘B = right sidebar (VS Code / Cursor convention).
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pinned}
+      title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌘B' : '⌥⌘B') })}
+      onClick={side === 'left' ? cycleLeftMode : cycleRightMode}
+      className={cn(
+        'flex h-6 w-7 shrink-0 items-center justify-center rounded focus-visible:outline focus-visible:outline-ring',
+        pinned ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+      )}
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  )
+}
+
+/** The right sidebar button only exists while a right sidebar is mounted
+ *  (none on global routes, nor on the board without an active project). */
+function useRightSidebarMounted(): boolean {
+  const { pathname } = useLocation()
+  const { uiMode } = useUiMode()
+  const { activeProjectId, projects } = useDesktop()
+  const hasActiveProject = !!activeProjectId && projects.some((p) => p.id === activeProjectId)
+  return hasRightSidebar({ uiMode, pathname, hasActiveProject })
 }
 
 function MacTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const showRight = useRightSidebarMounted()
 
   return (
     <div
@@ -194,7 +225,7 @@ function MacTitleBar() {
     >
       <div className="ml-[80px] flex items-center gap-2"><SidebarWindowButton side="left" /></div>
       <SearchPill projectName={activeProject?.name ?? null} hidden={uiMode === 'agent'} />
-      <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>
+      {showRight && <div className="ml-auto mr-2"><SidebarWindowButton side="right" /></div>}
     </div>
   )
 }
@@ -204,6 +235,7 @@ function DefaultTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const showRight = useRightSidebarMounted()
   const appWindow = useMemo(() => getCurrentWindow(), [])
   const [maximized, setMaximized] = useState(false)
   useEffect(() => {
@@ -271,7 +303,7 @@ function DefaultTitleBar() {
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
-        <SidebarWindowButton side="right" />
+        {showRight && <SidebarWindowButton side="right" />}
         <WinButton
           onClick={handleMinimize}
           icon={<Minus size={14} strokeWidth={1.8} />}

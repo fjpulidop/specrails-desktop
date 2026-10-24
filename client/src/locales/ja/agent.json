@@ -223,7 +223,7 @@
   "switchToAgent": "ミッションセンターに切り替え",
   "switchToKanban": "ボードに切り替え",
   "search": "検索",
-  "home": "ホーム",
+  "home": "未割り当てのミッション",
   "favoriteMissions": "お気に入りミッション",
   "untitled": "無題",
   "workspace": {
@@ -1286,5 +1286,15 @@
       "discarded": "破棄",
       "closed": "閉じました（ブランチは保持）"
     }
+  },
+  "unread": "未読",
+  "unreadCount": "未読 {{count}} 件",
+  "live": "エージェント作業中",
+  "deleteFailed": "ミッションを削除できませんでした。もう一度お試しください。",
+  "modeSwitch": {
+    "label": "インターフェースモード",
+    "mission": "ミッション",
+    "board": "ボード",
+    "current": "現在のモード: {{mode}}。クリックで切り替え。"
   }
 }

@@ -223,7 +223,7 @@
   "switchToAgent": "Passer au Contrôle des missions",
   "switchToKanban": "Passer au tableau",
   "search": "Rechercher",
-  "home": "Accueil",
+  "home": "Missions non attribuées",
   "favoriteMissions": "Missions favorites",
   "untitled": "Sans titre",
   "workspace": {
@@ -252,7 +252,7 @@
   "confirmDeleteConversation": "Confirmer la suppression de « {{title}} »",
   "addFavoriteConversation": "Ajouter « {{title}} » aux favorites",
   "removeFavoriteConversation": "Retirer « {{title}} » des favorites",
-  "confirmShort": "confirmer ?",
+  "confirmShort": "Supprimer ?",
   "imagesUnsupported": "Ce fournisseur ne lit pas encore les images. Joignez plutôt des fichiers texte",
   "effort": {
     "label": "Effort",
@@ -1286,5 +1286,15 @@
       "discarded": "abandonné",
       "closed": "fermé, branche conservée"
     }
+  },
+  "unread": "Non lu",
+  "unreadCount": "{{count}} non lus",
+  "live": "Agent au travail",
+  "deleteFailed": "Impossible de supprimer la mission. Réessayez.",
+  "modeSwitch": {
+    "label": "Mode d'interface",
+    "mission": "Mission",
+    "board": "Tableau",
+    "current": "Mode actuel : {{mode}}. Cliquez pour changer."
   }
 }

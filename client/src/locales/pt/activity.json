@@ -98,7 +98,8 @@
     "familyHeader_other": "Família ({{count}} Sub-Specs)",
     "noSiblings": "Sem irmãs.",
     "openParentEpic": "Abrir Epic pai {{title}}",
-    "openSubSpec": "Abrir Sub-Spec {{title}}"
+    "openSubSpec": "Abrir Sub-Spec {{title}}",
+    "priority": "Prioridade: {{p}}"
   },
   "epicChildren": {
     "header": "Sub-Specs ({{count}})",

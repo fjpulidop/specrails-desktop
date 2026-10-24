@@ -58,6 +58,7 @@ import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
+import { hasRightSidebar, isGlobalRoute } from './lib/sidebar-layout'
 import { TerminalsProvider, useTerminals, useProjectTerminals } from './features/terminals/context/TerminalsContext'
 import { usePipeline } from './features/jobs/hooks/usePipeline'
 import { BottomPanel } from './features/terminals/components/terminal/BottomPanel'
@@ -306,12 +307,10 @@ function DesktopApp() {
   useEffect(() => { dropLegacySequentialPlans() }, [])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
-  const onLoopsRoute = location.pathname.startsWith('/loops')
-  const onPluginsRoute = location.pathname.startsWith('/plugins')
-  const onDocsRoute = location.pathname.startsWith('/docs')
   // Docs remains an in-place global route in both modes. Loops and Plugins are
   // board pages in Kanban mode and modal surfaces over the current mission.
-  const onGlobalRoute = onDocsRoute || (uiMode !== 'agent' && (onLoopsRoute || onPluginsRoute))
+  const onGlobalRoute = isGlobalRoute(location.pathname, uiMode)
+  const showRightSidebar = hasRightSidebar({ uiMode, pathname: location.pathname, hasActiveProject: !!activeProject })
 
   useLayoutEffect(() => {
     const transition = getGlobalRouteModeTransition({
@@ -405,7 +404,7 @@ function DesktopApp() {
   if (isLoading) {
     return (
       <div className="flex h-full">
-        <div className="w-11 border-r border-border bg-card/50 animate-pulse flex-shrink-0" />
+        <div className="w-11 border-r border-border bg-background flex-shrink-0" />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm text-muted-foreground">{t('states.loading')}</p>
         </div>
@@ -437,7 +436,7 @@ function DesktopApp() {
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
           {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
             // to <Routes>; Loops and Plugins open modals with an optional window action.
@@ -480,7 +479,7 @@ function DesktopApp() {
               </Routes>
             </Suspense>
           )}
-        </div>
+        </main>
 
         {/* Hoisted terminal panel — single instance shared by both modes.
             Footer status/chevron chrome is Kanban-only; in Agent Mode the
@@ -500,9 +499,7 @@ function DesktopApp() {
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
           toolbar; in Kanban it's the project sidebar. Hidden on global routes. */}
-      {uiMode === 'agent'
-        ? !onGlobalRoute && <AgentWorkspaceSidebar />
-        : activeProject && !onGlobalRoute && <ProjectRightSidebar />}
+      {showRightSidebar && (uiMode === 'agent' ? <AgentWorkspaceSidebar /> : <ProjectRightSidebar />)}
 
       {/* New-project path (reskin): the chooser's New card puts the AGENT into
           builder mode (floating panel in board mode; mission surface + sidebar

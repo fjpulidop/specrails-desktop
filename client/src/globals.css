@@ -53,7 +53,7 @@
   --color-secondary:            hsl(232 14% 31%);
   --color-secondary-foreground: hsl(60 30% 96%);
   --color-muted:                hsl(232 14% 31%);
-  --color-muted-foreground:     hsl(225 27% 51%);
+  --color-muted-foreground:     hsl(225 27% 66%);  /* ≥4.5:1 on the background (5.3:1) */
   --color-accent:               hsl(232 14% 31%);
   --color-accent-foreground:    hsl(60 30% 96%);
   --color-destructive:          hsl(0 100% 67%);
@@ -445,31 +445,12 @@ select {
   .title-shimmer { animation: none; }
 }
 
-@keyframes conversation-unread-breathe {
-  0%, 100% {
-    filter: drop-shadow(0 0 0 color-mix(in srgb, var(--color-destructive) 0%, transparent));
-  }
-  50% {
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-destructive) 72%, transparent));
-  }
-}
-
+/* Unread mission icon: the accent colour, steady. A breathing destructive glow
+   read as an error; the unread dot after the title carries the cue too. */
 .conversation-unread-glow {
-  color: var(--color-destructive);
+  color: var(--color-accent-primary);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .conversation-unread-glow {
-    animation: conversation-unread-breathe 0.9s ease-in-out infinite;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .conversation-unread-glow {
-    animation: none;
-    filter: none;
-  }
-}
 
 /* Glow effects — theme-aware via CSS-var-driven box-shadow */
 @utility glow-primary    { box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-primary) 22%, transparent); }

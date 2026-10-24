@@ -10,30 +10,36 @@
       "pinnedOpen": "收起右侧边栏（保持固定）",
       "pinnedCollapsed": "取消固定右侧边栏",
       "unpinned": "固定并展开右侧边栏"
-    }
+    },
+    "resize": "调整侧边栏大小"
   },
   "projects": {
     "addProject": "添加项目",
     "remove": "移除 {{name}}",
     "confirmRemove": "确认移除 {{name}}",
-    "confirmShort": "确认？",
+    "confirmShort": "移除？",
     "added": "已添加项目：{{name}}",
     "removed": "项目已移除",
     "expand": "展开 {{name}}",
     "collapse": "折叠 {{name}}",
     "settings": "{{name}} 的设置",
     "assembling": "正在准备工作区…",
-    "assembleFailed": "工作区准备失败 — 点击重试"
+    "assembleFailed": "工作区准备失败 — 点击重试",
+    "retrySetup": "重试设置"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "文档",
-    "analytics": "分析",
+    "analytics": "所有项目分析",
     "companion": "Companion",
-    "settings": "设置",
+    "settings": "应用设置",
     "plugins": "插件",
-    "review": "审阅"
+    "review": "审阅",
+    "landmark": "项目与任务",
+    "resize": "调整侧边栏大小",
+    "sectionTools": "工作区",
+    "sectionProjects": "项目"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops 已作为 Mission 模态窗口打开。",
@@ -48,7 +54,8 @@
     "agents": "Agent",
     "code": "代码",
     "integrations": "集成",
-    "settings": "设置"
+    "settings": "项目设置",
+    "landmark": "项目导航"
   },
   "navbar": {
     "home": "首页",

@@ -192,6 +192,6 @@ describe('ProjectLayout (extended: cost alerts + terminal panel)', () => {
   it('does not render the ChatPanel when chat is feature-flagged off', () => {
     render(<ProjectLayout project={mockProject} />)
     expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument()
-    expect(screen.getByRole('main')).toBeInTheDocument()
+    expect(screen.getByTestId('project-content')).toBeInTheDocument()
   })
 })

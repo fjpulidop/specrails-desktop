@@ -223,7 +223,7 @@
   "switchToAgent": "Switch to Mission Control",
   "switchToKanban": "Switch to Board",
   "search": "Search",
-  "home": "Home",
+  "home": "Unassigned missions",
   "favoriteMissions": "Favorite missions",
   "untitled": "Untitled",
   "workspace": {
@@ -252,7 +252,7 @@
   "confirmDeleteConversation": "Confirm delete \"{{title}}\"",
   "addFavoriteConversation": "Add \"{{title}}\" to favorites",
   "removeFavoriteConversation": "Remove \"{{title}}\" from favorites",
-  "confirmShort": "confirm?",
+  "confirmShort": "Delete?",
   "imagesUnsupported": "This provider can't read images yet. Attach text files instead",
   "effort": {
     "label": "Effort",
@@ -1286,5 +1286,15 @@
       "discarded": "discarded",
       "closed": "closed, branch kept"
     }
+  },
+  "unread": "Unread",
+  "unreadCount": "{{count}} unread",
+  "live": "Agent working",
+  "deleteFailed": "Couldn't delete the mission. Try again.",
+  "modeSwitch": {
+    "label": "Interface mode",
+    "mission": "Mission",
+    "board": "Board",
+    "current": "Current mode: {{mode}}. Click to switch."
   }
 }

@@ -430,15 +430,16 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Pin left sidebar open')).toBeInTheDocument()
+      // New users start with the left sidebar pinned open.
+      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Pin left sidebar open'))
+    await user.click(screen.getByText('Collapse left sidebar (keep pinned)'))
 
     // Palette closes; reopen and verify the label advanced one step in the cycle
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Collapse left sidebar (keep pinned)')).toBeInTheDocument()
+      expect(screen.getByText('Unpin left sidebar')).toBeInTheDocument()
     })
   })
 

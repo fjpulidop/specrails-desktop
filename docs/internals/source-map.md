@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1167 source/build files. Nearby tests are linked where names
+Includes 1170 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -839,11 +839,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [useDesktop.tsx](../../client/src/hooks/useDesktop.tsx) · [test](../../client/src/hooks/__tests__/useDesktop.test.tsx)
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
+- [useMediaQuery.ts](../../client/src/hooks/useMediaQuery.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
 - [useOsNotifications.ts](../../client/src/hooks/useOsNotifications.ts) · [test](../../client/src/hooks/__tests__/useOsNotifications.test.ts)
 - [useProjectCache.ts](../../client/src/hooks/useProjectCache.ts) · [test](../../client/src/hooks/__tests__/useProjectCache.test.ts)
 - [useResizableSidebar.ts](../../client/src/hooks/useResizableSidebar.ts)
 - [useSharedWebSocket.tsx](../../client/src/hooks/useSharedWebSocket.tsx) · [test](../../client/src/hooks/__tests__/useSharedWebSocket.test.tsx)
+- [useSidebarHoverIntent.ts](../../client/src/hooks/useSidebarHoverIntent.ts)
 - [useSuppressNativeContextMenu.ts](../../client/src/hooks/useSuppressNativeContextMenu.ts) · [test](../../client/src/hooks/__tests__/useSuppressNativeContextMenu.test.ts)
 - [useTrayLabels.tsx](../../client/src/hooks/useTrayLabels.tsx) · [test](../../client/src/hooks/__tests__/useTrayLabels.test.tsx)
 - [useWebSocket.ts](../../client/src/hooks/useWebSocket.ts) · [test](../../client/src/hooks/__tests__/useWebSocket.test.ts)
@@ -875,6 +877,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [review-wip.ts](../../client/src/lib/review-wip.ts) · [test](../../client/src/lib/__tests__/review-wip.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
+- [sidebar-layout.ts](../../client/src/lib/sidebar-layout.ts) · [test](../../client/src/lib/__tests__/sidebar-layout.test.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
 - [tauri-shell.ts](../../client/src/lib/tauri-shell.ts)

@@ -24,14 +24,20 @@ vi.mock('../../../../hooks/useDesktop', async () => {
 })
 
 vi.mock('../../../terminals/context/TerminalsContext', () => ({
-  useTerminals: () => ({ togglePanel: vi.fn() }),
+  useTerminals: () => ({ togglePanel: vi.fn(), getState: () => ({ visibility: 'hidden' }) }),
 }))
 
+const workspaceState = vi.hoisted(() => ({ jobsPaneOpen: false, codePaneOpen: false }))
 vi.mock('../../context/AgentWorkspaceContext', () => ({
   useAgentWorkspace: () => ({
     toggleJobsPane: vi.fn(),
+    toggleAnalyticsPane: vi.fn(),
     openBrowser: vi.fn(),
     toggleCodePane: vi.fn(),
+    jobsPaneOpen: workspaceState.jobsPaneOpen,
+    codePaneOpen: workspaceState.codePaneOpen,
+    analyticsPaneOpen: false,
+    browserOpen: false,
   }),
 }))
 
@@ -42,15 +48,33 @@ vi.mock('../../context/AgentChatContext', () => ({
 describe('AgentWorkspaceSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    workspaceState.jobsPaneOpen = false
+    workspaceState.codePaneOpen = false
   })
 
   it('shows workspace tools without the old Integrations entry', () => {
-    const { container } = render(<AgentWorkspaceSidebar />)
-
-    fireEvent.mouseEnter(container.firstChild as Element)
+    localStorage.setItem('specrails-desktop:sidebar-mode:right', 'pinned-open')
+    render(<AgentWorkspaceSidebar />)
 
     const toolLabels = screen.getAllByRole('button').map((button) => button.textContent)
     expect(toolLabels).toEqual(expect.arrayContaining(['Jobs', 'Files']))
     expect(screen.queryByRole('button', { name: /integrations/i })).not.toBeInTheDocument()
+  })
+
+  it('shows which workspace pane is open (aria-pressed + lit row)', () => {
+    workspaceState.jobsPaneOpen = true
+    localStorage.setItem('specrails-desktop:sidebar-mode:right', 'pinned-open')
+    render(<AgentWorkspaceSidebar />)
+    expect(screen.getByRole('complementary', { name: 'On workspace' })).toBeInTheDocument()
+    const jobs = screen.getByRole('button', { name: 'Jobs' })
+    expect(jobs).toHaveAttribute('aria-pressed', 'true')
+    expect(jobs.className).toContain('bg-muted')
+    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps icon-only tools named on the collapsed rail', () => {
+    render(<AgentWorkspaceSidebar />)
+    expect(screen.getByRole('button', { name: 'Jobs' })).toBeInTheDocument()
   })
 })

@@ -10,7 +10,8 @@
       "pinnedOpen": "右サイドバーを折りたたむ (ピン留めは維持)",
       "pinnedCollapsed": "右サイドバーのピン留めを解除",
       "unpinned": "右サイドバーを開いた状態でピン留め"
-    }
+    },
+    "resize": "サイドバーのサイズを変更"
   },
   "projects": {
     "addProject": "プロジェクトを追加",
@@ -23,17 +24,22 @@
     "collapse": "{{name}} を折りたたむ",
     "settings": "{{name}} の設定",
     "assembling": "ワークスペースを準備中…",
-    "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行"
+    "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行",
+    "retrySetup": "セットアップを再試行"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "ドキュメント",
-    "analytics": "分析",
+    "analytics": "全プロジェクトの分析",
     "companion": "Companion",
-    "settings": "設定",
+    "settings": "アプリ設定",
     "plugins": "プラグイン",
-    "review": "レビュー"
+    "review": "レビュー",
+    "landmark": "プロジェクトとミッション",
+    "resize": "サイドバーのサイズを変更",
+    "sectionTools": "ワークスペース",
+    "sectionProjects": "プロジェクト"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のモーダルとして開いています。",
@@ -48,7 +54,8 @@
     "agents": "エージェント",
     "code": "コード",
     "integrations": "インテグレーション",
-    "settings": "設定"
+    "settings": "プロジェクト設定",
+    "landmark": "プロジェクトナビゲーション"
   },
   "navbar": {
     "home": "ホーム",

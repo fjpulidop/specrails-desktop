@@ -333,13 +333,13 @@ export default function DocsPage() {
       )}
 
       {/* Content */}
-      <main ref={scrollRef} className="flex-1 overflow-y-auto">
+      <section ref={scrollRef} className="flex-1 overflow-y-auto">
         {isDocView && category && slug ? (
           <DocView category={category} slug={slug} lang={lang} scrollContainerRef={scrollRef} />
         ) : (
           index && <DocsIndex categories={index.categories} />
         )}
-      </main>
+      </section>
     </div>
   )
 }

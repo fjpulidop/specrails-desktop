@@ -98,7 +98,8 @@
     "familyHeader_other": "ファミリー (サブスペック {{count}} 件)",
     "noSiblings": "兄弟スペックはありません。",
     "openParentEpic": "親エピック {{title}} を開く",
-    "openSubSpec": "サブスペック {{title}} を開く"
+    "openSubSpec": "サブスペック {{title}} を開く",
+    "priority": "優先度: {{p}}"
   },
   "epicChildren": {
     "header": "サブスペック ({{count}})",

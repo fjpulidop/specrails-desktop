@@ -223,7 +223,7 @@
   "switchToAgent": "切换到任务中心",
   "switchToKanban": "切换到看板",
   "search": "搜索",
-  "home": "主页",
+  "home": "未分配的任务",
   "favoriteMissions": "收藏任务",
   "untitled": "未命名",
   "workspace": {
@@ -252,7 +252,7 @@
   "confirmDeleteConversation": "确认删除「{{title}}」",
   "addFavoriteConversation": "将「{{title}}」添加到收藏",
   "removeFavoriteConversation": "从收藏中移除「{{title}}」",
-  "confirmShort": "确认？",
+  "confirmShort": "删除？",
   "imagesUnsupported": "该提供商暂不支持读取图片。请改为附加文本文件",
   "effort": {
     "label": "推理强度",
@@ -1286,5 +1286,15 @@
       "discarded": "已丢弃",
       "closed": "已关闭，分支已保留"
     }
+  },
+  "unread": "未读",
+  "unreadCount": "{{count}} 条未读",
+  "live": "代理工作中",
+  "deleteFailed": "无法删除该任务，请重试。",
+  "modeSwitch": {
+    "label": "界面模式",
+    "mission": "任务",
+    "board": "看板",
+    "current": "当前模式：{{mode}}。点击切换。"
   }
 }

@@ -81,9 +81,9 @@ export function ProjectLayout({ project }: ProjectLayoutProps) {
           </div>
         )}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          <main className="flex-1 overflow-auto">
+          <div data-testid="project-content" data-project-content className="flex-1 overflow-auto">
             <Outlet />
-          </main>
+          </div>
           {FEATURE_CHAT_ENABLED && <ChatPanel chat={chat} project={project} />}
         </div>
       </div>

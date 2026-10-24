@@ -21,7 +21,8 @@
   },
   "sidebar": {
     "rename": "Renomear {{name}}",
-    "close": "Fechar {{name}}"
+    "close": "Fechar {{name}}",
+    "label": "Sessões de terminal"
   },
   "emptyState": {
     "noTerminals": "Ainda não há terminais para este projeto.",

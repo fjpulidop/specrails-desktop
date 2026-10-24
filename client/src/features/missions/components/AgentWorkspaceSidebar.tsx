@@ -1,5 +1,5 @@
 import { isTauri } from '../../../lib/tauri-shell'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
 import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, BarChart3 } from 'lucide-react'
@@ -8,6 +8,9 @@ import { BlueprintReadiness } from '../../builder/components/project-builder/Blu
 import { cn } from '../../../lib/utils'
 import { useResizableSidebar } from '../../../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from '../../../components/SidebarResizeGrip'
+import { useSidebarHoverIntent } from '../../../hooks/useSidebarHoverIntent'
+import { keyboardLabel } from '../../../lib/keyboard-label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSidebarPin } from '../../../context/SidebarPinContext'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useTerminals } from '../../terminals/context/TerminalsContext'
@@ -33,35 +36,43 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
   const { t } = useTranslation('agent')
   const { t: tNav } = useTranslation('nav')
   const { t: tBuilder } = useTranslation('builder')
-  const { rightMode, cycleRightMode } = useSidebarPin()
+  const { rightMode, effectiveRightMode, cycleRightMode } = useSidebarPin()
   const { activeProjectId } = useDesktop()
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
   const { builderMode } = useAgentChat()
-  const [hovered, setHovered] = useState(false)
+  const unpinned = effectiveRightMode === 'unpinned'
   // Builder mode transforms this rail into the live blueprint panel (reskin
-  // D4) — force it expanded for the duration so the panel is readable.
-  const expanded = builderMode.active || rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
-  // Imperative drag-resize (208px expanded, 44px collapsed rail). The mouseleave
-  // guard keeps `hovered` true during a drag so an unpinned rail can't collapse.
+  // D4) — force it expanded AND docked for the duration so the panel is readable.
+  const docked = builderMode.active || effectiveRightMode === 'pinned-open'
+  const [dragging, setDragging] = useState(false)
+  const hover = useSidebarHoverIntent({ enabled: unpinned && !builderMode.active, dragging })
+  const expanded = docked || (unpinned && hover.hovered)
+  // Imperative drag-resize (208px expanded, 44px collapsed rail). A hover-
+  // expanded unpinned rail overlays the content; the wrapper keeps 44px.
   const resize = useResizableSidebar('right-workspace', {
-    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 44, expanded,
+    side: 'right', defaultWidth: 208, min: 180, max: 460, collapsedWidth: 44, expanded, docked,
   })
+  useEffect(() => { setDragging(resize.dragging) }, [resize.dragging])
+  const overlaying = expanded && !docked
   const lit = rightMode !== 'unpinned'
   const pinLabel = tNav(RIGHT_PIN_LABEL_KEY[rightMode])
   const noProject = !activeProjectId
-  const tools = [
+  const terminalOpen = !!activeProjectId && terminals.getState(activeProjectId).visibility !== 'hidden'
+  const tools: Array<{ key: string; icon: typeof Globe; label: string; onClick: () => void; disabled: boolean; disabledTitle: string; active: boolean }> = [
     // Jobs sits ABOVE Browser: the executions the agent launches are the first
     // thing the user reaches for from Agent Mode.
     {
       key: 'jobs', icon: Briefcase, label: t('workspace.jobs'),
       onClick: () => workspace.toggleJobsPane(),
       disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+      active: workspace.jobsPaneOpen,
     },
     {
       key: 'analytics', icon: BarChart3, label: t('workspace.analytics'),
       onClick: () => workspace.toggleAnalyticsPane(),
       disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+      active: workspace.analyticsPaneOpen,
     },
     ...(isBrowserCaptureEnabled()
       ? [{
@@ -72,13 +83,15 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           // conversation is no longer a precondition.
           disabled: noProject,
           disabledTitle: t('workspace.requiresProject'),
+          active: workspace.browserOpen,
         }]
       : []),
     ...(FEATURE_TERMINAL_PANEL
       ? [{
           key: 'terminal', icon: TerminalSquare, label: t('workspace.terminal'),
-          onClick: () => activeProjectId && terminals.togglePanel(activeProjectId),
+          onClick: () => { if (activeProjectId) terminals.togglePanel(activeProjectId) },
           disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+          active: terminalOpen,
         }]
       : []),
     ...(FEATURE_CODE_EXPLORER
@@ -86,19 +99,27 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           key: 'files', icon: FileCode2, label: t('workspace.files'),
           onClick: () => workspace.toggleCodePane(),
           disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+          active: workspace.codePaneOpen,
         }]
       : []),
   ]
 
   return (
+    <aside
+      ref={resize.wrapperRef}
+      aria-label={t('workspace.title')}
+      className="relative h-full flex-shrink-0 transition-[width] duration-200 ease-in-out"
+      {...hover.handlers}
+    >
     <div
       ref={resize.panelRef}
+      data-testid="workspace-sidebar-panel"
+      data-overlay={overlaying || undefined}
       className={cn(
-        'relative flex flex-col h-full border-l border-border bg-background flex-shrink-0 overflow-hidden',
-        'transition-[width] duration-200 ease-in-out',
+        'absolute inset-y-0 right-0 z-30 flex flex-col border-l border-border bg-background overflow-hidden',
+        'transition-[width,box-shadow] duration-200 ease-in-out',
+        overlaying && 'shadow-xl',
       )}
-      onMouseEnter={() => { if (rightMode === 'unpinned') setHovered(true) }}
-      onMouseLeave={() => { if (rightMode === 'unpinned' && !resize.dragging) setHovered(false) }}
     >
       {expanded && (
         <SidebarResizeGrip
@@ -107,7 +128,7 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           width={resize.width}
           min={180}
           max={460}
-          label={tNav('sidebarPin.resize', { defaultValue: 'Resize sidebar' })}
+          label={tNav('sidebarPin.resize')}
           onPointerDown={resize.onGripPointerDown}
           onKeyDown={resize.onGripKeyDown}
         />
@@ -117,22 +138,24 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
         expanded ? 'px-3 justify-between' : 'justify-center',
       )}>
         {expanded && (
-          <span className="font-mono text-sm font-bold whitespace-nowrap overflow-hidden text-accent-secondary">
+          <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-muted-foreground">
             {t('workspace.title')}
           </span>
         )}
-        {!isTauri() && <button
+        <button
           type="button"
           onClick={cycleRightMode}
           className={cn(
             'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
-            lit ? 'text-foreground bg-muted' : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50',
+            lit ? 'text-foreground bg-muted' : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/50',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
           )}
           aria-label={pinLabel}
-          title={tNav('sidebarPin.withShortcut', { label: pinLabel, shortcut: '⌘B' })}
+          aria-pressed={lit}
+          title={tNav('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
         >
           <PanelRight className="w-4 h-4" />
-        </button>}
+        </button>
       </div>}
 
       {builderMode.active ? (
@@ -163,29 +186,51 @@ export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: b
           </motion.div>
         </AnimatePresence>
       ) : (
-      <nav className="flex-1 py-2 px-1.5 space-y-0.5">
+      <TooltipProvider delayDuration={150}>
+      <nav aria-label={t('workspace.title')} className="flex-1 py-2 px-1.5 space-y-0.5">
         {!missionOnly && <BuilderSidebarEntry expanded={expanded} />}
-        {tools.map(({ key, icon: Icon, label, onClick, disabled, disabledTitle }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className={cn(
-              'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
-              expanded ? 'px-2' : 'px-0 justify-center',
-              disabled
-                ? 'text-muted-foreground/40 cursor-not-allowed'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-            title={disabled ? disabledTitle : (!expanded ? label : undefined)}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {expanded && <span className="text-xs truncate">{label}</span>}
-          </button>
-        ))}
+        {tools.map(({ key, icon: Icon, label, onClick, disabled, disabledTitle, active }) => {
+          const reasonId = `workspace-tool-${key}-disabled-reason`
+          const button = (
+            <button
+              key={key}
+              type="button"
+              onClick={disabled ? undefined : onClick}
+              aria-disabled={disabled || undefined}
+              aria-pressed={disabled ? undefined : active}
+              aria-label={!expanded ? label : undefined}
+              aria-describedby={disabled ? reasonId : undefined}
+              className={cn(
+                'flex items-center gap-2 w-full h-8 rounded-md transition-colors',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2',
+                expanded ? 'px-2' : 'px-0 justify-center',
+                disabled
+                  ? 'text-muted-foreground/60 cursor-not-allowed'
+                  : active
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              )}
+              title={!disabled && !expanded ? label : undefined}
+              data-active={active || undefined}
+            >
+              <Icon className={cn('w-4 h-4 flex-shrink-0', active && !disabled && 'text-accent-primary')} aria-hidden />
+              {expanded && <span className="text-xs truncate">{label}</span>}
+              {disabled && <span id={reasonId} className="sr-only">{disabledTitle}</span>}
+            </button>
+          )
+          if (!disabled) return button
+          // The reason is visible too: a tooltip on hover AND keyboard focus.
+          return (
+            <Tooltip key={key}>
+              <TooltipTrigger asChild>{button}</TooltipTrigger>
+              <TooltipContent side="left">{disabledTitle}</TooltipContent>
+            </Tooltip>
+          )
+        })}
       </nav>
+      </TooltipProvider>
       )}
     </div>
+    </aside>
   )
 }

@@ -21,7 +21,8 @@
   },
   "sidebar": {
     "rename": "{{name}} の名前を変更",
-    "close": "{{name}} を閉じる"
+    "close": "{{name}} を閉じる",
+    "label": "ターミナルセッション"
   },
   "emptyState": {
     "noTerminals": "このプロジェクトにはまだターミナルがありません。",

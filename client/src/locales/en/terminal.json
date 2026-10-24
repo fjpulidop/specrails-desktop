@@ -21,7 +21,8 @@
   },
   "sidebar": {
     "rename": "Rename {{name}}",
-    "close": "Close {{name}}"
+    "close": "Close {{name}}",
+    "label": "Terminal sessions"
   },
   "emptyState": {
     "noTerminals": "No terminals yet for this project.",

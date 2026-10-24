@@ -10,30 +10,36 @@
       "pinnedOpen": "Comprimi barra laterale destra (mantieni fissata)",
       "pinnedCollapsed": "Sblocca barra laterale destra",
       "unpinned": "Fissa aperta la barra laterale destra"
-    }
+    },
+    "resize": "Ridimensiona barra laterale"
   },
   "projects": {
     "addProject": "Aggiungi progetto",
     "remove": "Rimuovi {{name}}",
     "confirmRemove": "Conferma rimozione di {{name}}",
-    "confirmShort": "confermare?",
+    "confirmShort": "Rimuovere?",
     "added": "Progetto aggiunto: {{name}}",
     "removed": "Progetto rimosso",
     "expand": "Espandi {{name}}",
     "collapse": "Comprimi {{name}}",
     "settings": "Impostazioni di {{name}}",
     "assembling": "Preparazione del workspace…",
-    "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare"
+    "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare",
+    "retrySetup": "Riprova configurazione"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analytics",
+    "analytics": "Analytics di tutti i progetti",
     "companion": "Companion",
-    "settings": "Impostazioni",
+    "settings": "Impostazioni app",
     "plugins": "Plugin",
-    "review": "Revisione"
+    "review": "Revisione",
+    "landmark": "Progetti e missioni",
+    "resize": "Ridimensiona barra laterale",
+    "sectionTools": "Area di lavoro",
+    "sectionProjects": "Progetti"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops è aperto come modale Mission.",
@@ -48,7 +54,8 @@
     "agents": "Agenti",
     "code": "Codice",
     "integrations": "Integrazioni",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni progetto",
+    "landmark": "Navigazione del progetto"
   },
   "navbar": {
     "home": "Home",

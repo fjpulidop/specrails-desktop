@@ -98,7 +98,8 @@
     "familyHeader_other": "家族（{{count}} 个子 Spec）",
     "noSiblings": "没有同级。",
     "openParentEpic": "打开父级 Epic {{title}}",
-    "openSubSpec": "打开子 Spec {{title}}"
+    "openSubSpec": "打开子 Spec {{title}}",
+    "priority": "优先级：{{p}}"
   },
   "epicChildren": {
     "header": "子 Spec（{{count}}）",

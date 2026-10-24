@@ -21,7 +21,8 @@
   },
   "sidebar": {
     "rename": "重命名 {{name}}",
-    "close": "关闭 {{name}}"
+    "close": "关闭 {{name}}",
+    "label": "终端会话"
   },
   "emptyState": {
     "noTerminals": "此项目还没有终端。",

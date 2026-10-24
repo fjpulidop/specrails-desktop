@@ -95,12 +95,12 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
     <div data-testid="epic-family-sidebar">
       <div className="flex items-center gap-1.5 mb-1.5">
         <Split className="w-3 h-3 text-accent-highlight" aria-hidden />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {header}
         </span>
       </div>
       {rows.length === 0 ? (
-        <p className="text-[10px] text-foreground/50 italic">{emptyMessage}</p>
+        <p className="text-xs text-foreground/75 italic">{emptyMessage}</p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {rows.map((row) => {
@@ -121,14 +121,14 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                     'w-full flex items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors',
                     isCurrent
                       ? 'bg-accent-highlight/15 cursor-default'
-                      : 'hover:bg-muted/30 cursor-pointer',
+                      : 'hover:bg-muted/50 cursor-pointer',
                   ].join(' ')}
                   data-testid={`epic-family-row-${row.id}`}
                 >
                   {isEpicRow ? (
                     <ArrowUp className="w-3 h-3 text-accent-highlight flex-shrink-0" aria-hidden />
                   ) : (
-                    <span className="text-[9px] tabular-nums text-foreground/40 w-3 text-center flex-shrink-0">
+                    <span className="text-[11px] tabular-nums text-foreground/70 w-3 text-center flex-shrink-0">
                       {row.execution_order ?? '–'}
                     </span>
                   )}
@@ -136,6 +136,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
                     className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityDotClass(row.priority)}`}
                     aria-hidden
                   />
+                  {row.priority && <span className="sr-only">{t('family.priority', { p: row.priority })}</span>}
                   <span
                     className={`text-[11px] truncate ${
                       isCurrent ? 'text-foreground font-medium' : 'text-foreground/80'

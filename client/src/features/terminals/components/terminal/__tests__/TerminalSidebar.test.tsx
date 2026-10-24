@@ -29,13 +29,17 @@ describe('TerminalSidebar', () => {
     expect(onActivate).toHaveBeenCalledWith('b')
   })
 
-  it('activates via Enter key', () => {
+  it('activates from a real session button (keyboard-native), with sibling actions', () => {
     const onActivate = vi.fn()
     const s = makeSession('a', 'only')
-    const { getByText } = render(
-      <TerminalSidebar sessions={[s]} activeId={null} onActivate={onActivate} onRename={() => {}} onKill={() => {}} />,
+    const { getByText, getByRole } = render(
+      <TerminalSidebar sessions={[s]} activeId="a" onActivate={onActivate} onRename={() => {}} onKill={() => {}} />,
     )
-    fireEvent.keyDown(getByText('only').parentElement as HTMLElement, { key: 'Enter' })
+    const button = getByText('only').closest('button') as HTMLElement
+    expect(button).toHaveAttribute('aria-current', 'true')
+    expect(button.querySelector('button')).toBeNull()
+    expect(getByRole('complementary', { name: 'Terminal sessions' })).toBeInTheDocument()
+    fireEvent.click(button)
     expect(onActivate).toHaveBeenCalledWith('a')
   })
 

@@ -29,9 +29,13 @@ vi.mock('../../features/settings/components/ProjectSettingsDialog', () => ({
     open ? <div data-testid="project-settings-dialog" /> : null,
 }))
 
+const mockToggleUiMode = vi.fn()
 vi.mock('../../context/UiModeContext', () => ({
-  useUiMode: () => ({ uiMode: 'agent', setUiMode: vi.fn(), toggleUiMode: vi.fn() }),
+  useUiMode: () => ({ uiMode: 'agent', setUiMode: vi.fn(), toggleUiMode: mockToggleUiMode }),
 }))
+
+const toastMocks = vi.hoisted(() => ({ error: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { error: toastMocks.error, success: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 
 function conv(id: string, title: string | null, pinned: string | null): AgentConversation {
   return {
@@ -40,7 +44,7 @@ function conv(id: string, title: string | null, pinned: string | null): AgentCon
   }
 }
 
-const mockDeleteConversation = vi.fn(() => Promise.resolve())
+const mockDeleteConversation = vi.fn((): Promise<void> => Promise.resolve())
 const mockSelectConversation = vi.fn(() => Promise.resolve())
 const mockToggleFavoriteConversation = vi.fn()
 
@@ -87,9 +91,13 @@ const defaultProps = {
 }
 
 function renderExpanded() {
+  // New users start pinned open, so the tree labels render.
   render(<ArcSidebar {...defaultProps} />)
-  // unpinned → pinned-open so the tree labels render
-  fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
+}
+
+function renderCollapsed() {
+  window.localStorage.setItem('specrails-desktop:sidebar-mode:left', 'pinned-collapsed')
+  render(<ArcSidebar {...defaultProps} />)
 }
 
 beforeEach(() => {
@@ -104,7 +112,7 @@ beforeEach(() => {
 })
 
 function conversationIcon(title: string): SVGElement {
-  const row = screen.getAllByText(title)[0].closest('[role="button"]')
+  const row = screen.getAllByText(title)[0].closest('button')
   const icon = row?.querySelector('svg')
   expect(icon).toBeInTheDocument()
   return icon as SVGElement
@@ -131,13 +139,15 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     expect(mockSelectConversation).not.toHaveBeenCalled()
   })
 
-  it('confirm state expires after 3 seconds without a second click', () => {
+  it('confirm state expires after 5 seconds without a second click', () => {
     vi.useFakeTimers()
     try {
       renderExpanded()
       fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
-      expect(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' })).toHaveTextContent('Delete?')
       act(() => { vi.advanceTimersByTime(3100) })
+      expect(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' })).toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(2000) })
       expect(screen.queryByRole('button', { name: 'Confirm delete "Fix the build"' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Delete "Fix the build"' })).toBeInTheDocument()
       expect(mockDeleteConversation).not.toHaveBeenCalled()
@@ -170,7 +180,7 @@ describe('ArcSidebar agent-mode conversation rows', () => {
 
   it('collapses favorite missions behind a single favorites icon when the sidebar is collapsed', () => {
     agentChatState.favoriteIds = new Set(['c-1'])
-    render(<ArcSidebar {...defaultProps} />)
+    renderCollapsed()
     const favoritesButton = screen.getByRole('button', { name: 'Favorite missions' })
     expect(favoritesButton).toBeInTheDocument()
     expect(favoritesButton.parentElement?.className).toContain('border-b')
@@ -200,7 +210,7 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   it('untitled Home conversation gets a delete button labelled with the fallback title', () => {
     renderExpanded()
     // Home group renders null-pinned conversations behind its own toggle.
-    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete "Untitled"' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete "Untitled"' }))
     expect(mockDeleteConversation).toHaveBeenCalledWith('c-2')
@@ -237,7 +247,7 @@ describe('ArcSidebar agent-mode conversation rows', () => {
   it('marks a mission waiting for the person’s decision with a dot AND words (not color alone)', () => {
     agentChatState.attentionIds = new Set(['c-1'])
     renderExpanded()
-    const row = screen.getAllByText('Fix the build')[0].closest('[role="button"]') as HTMLElement
+    const row = screen.getAllByText('Fix the build')[0].closest('button') as HTMLElement
     const mark = row.querySelector('[data-testid="mission-attention-mark"]') as HTMLElement
     expect(mark).toBeInTheDocument()
     expect(mark).toHaveAttribute('title', 'Waiting for your decision')
@@ -260,18 +270,21 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     const { MissionExtensionsProvider } = await import('../../features/missions/context/MissionExtensionsContext')
     const marks = new Map([['c-1', { label: 'In Flow', description: 'Flow mode' }]])
     render(<MissionExtensionsProvider value={{ useConversationMarks: () => marks }}><ArcSidebar {...defaultProps} /></MissionExtensionsProvider>)
-    fireEvent.click(screen.getByRole('button', { name: /Pin left sidebar open/i }))
-    const row = screen.getAllByText('Fix the build')[0].closest('[role="button"]') as HTMLElement
+    const row = screen.getAllByText('Fix the build')[0].closest('button') as HTMLElement
     expect(row.querySelector('[data-testid="mission-mode-row-mark"]')).toHaveTextContent('In Flow')
   })
 
-  it('renders unread background conversation icons with the alert glow', () => {
+  it('marks unread background conversations calmly: accent icon, dot and words', () => {
     agentChatState.active = conv('c-2', null, null)
     agentChatState.unreadIds = new Set(['c-1'])
     renderExpanded()
     const icon = conversationIcon('Fix the build')
-    expect(icon.className.baseVal).toContain('text-destructive')
+    expect(icon.className.baseVal).not.toContain('text-destructive')
     expect(icon.className.baseVal).toContain('conversation-unread-glow')
+    const row = screen.getAllByText('Fix the build')[0].closest('button') as HTMLElement
+    expect(row.querySelector('[data-testid="conversation-unread-dot"]')).toBeInTheDocument()
+    expect(row).toHaveTextContent('Unread')
+    expect(screen.getAllByText('Fix the build')[0].className).toContain('font-medium')
   })
 
   it('keeps the streaming title shimmer when a row is also unread', () => {
@@ -281,7 +294,6 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     renderExpanded()
     const icon = conversationIcon('Fix the build')
     const overlay = document.querySelector('.title-shimmer')
-    expect(icon.className.baseVal).toContain('text-destructive')
     expect(icon.className.baseVal).toContain('conversation-unread-glow')
     expect(icon.className.baseVal).not.toContain('animate-pulse')
     expect(overlay).toBeInTheDocument()
@@ -303,5 +315,62 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     agentChatState.streamingIds = new Set()
     renderExpanded()
     expect(document.querySelector('.title-shimmer')).not.toBeInTheDocument()
+  })
+
+  it('conversation rows are real buttons with the actions as siblings (no nested controls)', () => {
+    renderExpanded()
+    const row = screen.getAllByText('Fix the build')[0].closest('button') as HTMLElement
+    expect(row.querySelector('button')).toBeNull()
+    expect(document.querySelector('[role="button"]')).toBeNull()
+  })
+
+  it('rolls a waiting mission up to its project row while the tree is closed', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    agentChatState.attentionKinds = new Map([['c-1', 'failed']])
+    renderExpanded()
+    // Close the auto-expanded tree.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Project Alpha' }))
+    const projectRow = screen.getByText('Project Alpha').closest('button') as HTMLElement
+    const mark = projectRow.querySelector('[data-testid="mission-attention-mark"]') as HTMLElement
+    expect(mark).toHaveAttribute('data-kind', 'failed')
+    expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
+  })
+
+  it('shows the rolled-up attention as a badge on the collapsed rail', () => {
+    agentChatState.attentionIds = new Set(['c-1'])
+    renderCollapsed()
+    expect(screen.getByTestId('project-attention-badge')).toBeInTheDocument()
+  })
+
+  it('opening Unassigned missions from the collapsed rail pins the sidebar open on that group', () => {
+    renderCollapsed()
+    fireEvent.click(screen.getByRole('button', { name: 'Unassigned missions' }))
+    expect(window.localStorage.getItem('specrails-desktop:sidebar-mode:left')).toBe('pinned-open')
+    expect(screen.getByRole('button', { name: 'Delete "Untitled"' })).toBeInTheDocument()
+  })
+
+  it('reports a failed delete with a toast', async () => {
+    mockDeleteConversation.mockImplementationOnce(() => Promise.reject(new Error('offline')))
+    renderExpanded()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete "Fix the build"' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete "Fix the build"' }))
+    await act(async () => { await Promise.resolve() })
+    expect(toastMocks.error).toHaveBeenCalledWith("Couldn't delete the mission. Try again.")
+  })
+
+  it('names the current mode in a labelled segmented control', () => {
+    renderExpanded()
+    const group = screen.getByRole('radiogroup', { name: 'Interface mode' })
+    expect(group).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Mission' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('radio', { name: 'Mission' }))
+    expect(mockToggleUiMode).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('radio', { name: 'Board' }))
+    expect(mockToggleUiMode).toHaveBeenCalledOnce()
+  })
+
+  it('shows the current mode as one icon button on the collapsed rail', () => {
+    renderCollapsed()
+    expect(screen.getByRole('button', { name: 'Current mode: Mission. Click to switch.' })).toBeInTheDocument()
   })
 })

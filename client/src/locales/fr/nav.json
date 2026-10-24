@@ -10,30 +10,36 @@
       "pinnedOpen": "Replier la barre latérale droite (garder épinglée)",
       "pinnedCollapsed": "Désépingler la barre latérale droite",
       "unpinned": "Épingler la barre latérale droite ouverte"
-    }
+    },
+    "resize": "Redimensionner la barre latérale"
   },
   "projects": {
     "addProject": "Ajouter un projet",
     "remove": "Supprimer {{name}}",
     "confirmRemove": "Confirmer la suppression de {{name}}",
-    "confirmShort": "confirmer ?",
+    "confirmShort": "Retirer ?",
     "added": "Projet ajouté : {{name}}",
     "removed": "Projet supprimé",
     "expand": "Développer {{name}}",
     "collapse": "Réduire {{name}}",
     "settings": "Paramètres de {{name}}",
     "assembling": "Préparation du workspace…",
-    "assembleFailed": "Échec de préparation du workspace — cliquer pour réessayer"
+    "assembleFailed": "Échec de préparation du workspace — cliquer pour réessayer",
+    "retrySetup": "Relancer la configuration"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
     "loops": "Loops",
     "docs": "Docs",
-    "analytics": "Analytics",
+    "analytics": "Analytics de tous les projets",
     "companion": "Companion",
-    "settings": "Paramètres",
+    "settings": "Paramètres de l'app",
     "plugins": "Plugins",
-    "review": "Revue"
+    "review": "Revue",
+    "landmark": "Projets et missions",
+    "resize": "Redimensionner la barre latérale",
+    "sectionTools": "Espace de travail",
+    "sectionProjects": "Projets"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops est ouvert comme modal Mission.",
@@ -48,7 +54,8 @@
     "agents": "Agents",
     "code": "Code",
     "integrations": "Intégrations",
-    "settings": "Paramètres"
+    "settings": "Paramètres du projet",
+    "landmark": "Navigation du projet"
   },
   "navbar": {
     "home": "Accueil",

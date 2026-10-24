@@ -691,7 +691,7 @@ export function AgentsCatalogTab() {
       </aside>
 
       {/* Right: selected body */}
-      <main className="flex-1 min-w-0 overflow-auto">
+      <div className="flex-1 min-w-0 overflow-auto">
         {error && (
           <div className="m-4 px-3 py-2 text-xs rounded border border-red-500/30 aurora-light:border-destructive/30 bg-red-500/10 aurora-light:bg-destructive/10 text-red-400 aurora-light:text-destructive">
             {error}
@@ -770,7 +770,7 @@ export function AgentsCatalogTab() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
     </>
   )

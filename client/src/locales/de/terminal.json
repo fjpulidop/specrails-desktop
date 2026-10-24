@@ -21,7 +21,8 @@
   },
   "sidebar": {
     "rename": "{{name}} umbenennen",
-    "close": "{{name}} schließen"
+    "close": "{{name}} schließen",
+    "label": "Terminal-Sitzungen"
   },
   "emptyState": {
     "noTerminals": "Noch keine Terminals für dieses Projekt.",

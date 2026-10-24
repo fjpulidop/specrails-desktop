@@ -168,7 +168,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
           {mode === 'activity' && activeProjectId && <CodeActivity projectId={activeProjectId} repositoryName={repository?.name} multipleRepositories={repositories.length > 1} jobId={jobId} ticketId={ticketId} onOpen={openLocation} />}
         </aside>}
         {showSidebar && !compact && <div role="separator" aria-orientation="vertical" aria-label={t('page.resizeFileTree')} onPointerDown={beginResize} onDoubleClick={() => { const next = clampTreeWidth(DEFAULT_TREE_WIDTH, containerRef.current?.clientWidth || window.innerWidth); setTreeWidth(next); saveTreeWidth(activeProjectId, next) }} className="w-1.5 shrink-0 cursor-col-resize touch-none select-none border-x border-border/40 hover:bg-accent-primary/20" title={t('resizer.hint')} data-testid="code-tree-resizer" />}
-        {<main hidden={!showReader} className={`${showReader ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
+        {<div hidden={!showReader} className={`${showReader ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
           {location.path && <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 text-[11px]" aria-label={t('explore.breadcrumb')}>
             <FileText className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             {breadcrumb.map((part, index) => <span key={index} className={`flex shrink-0 items-center gap-1 ${index === breadcrumb.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{index > 0 && <ChevronRight className="h-3 w-3" />}{part}</span>)}
@@ -184,7 +184,7 @@ function CodeWorkspace({ embedded = false, initialPath = null, initialRepository
               <p className="text-[11px] leading-relaxed text-muted-foreground/80">{t('explore.sourceHint')}</p>
             </div>
           </div>}
-        </main>}
+        </div>}
       </div>}
     </div>
   </CodeRepositoryContext.Provider>
