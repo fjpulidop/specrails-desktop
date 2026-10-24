@@ -131,7 +131,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
           <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 text-foreground/65 transition-transform', open && 'rotate-90')} aria-hidden />
           <PhaseGlyph node={node} />
           {shell ? <Terminal className="h-3.5 w-3.5 shrink-0 text-foreground/65" aria-hidden /> : <Bot className="h-3.5 w-3.5 shrink-0 text-foreground/65" aria-hidden />}
-          <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
+          <span className={cn('min-w-0 flex-1 truncate text-label', live ? 'text-foreground' : 'text-foreground/75')}>{node.description}</span>
           <span className="sr-only">{phaseLabel}{reason ? ` — ${reason}` : ''}</span>
           {node.delegated ? (
             <span className="shrink-0 rounded-full border border-accent-primary/30 bg-accent-primary/[0.06] px-1.5 py-0.5 text-caption text-accent-primary/80"
@@ -203,7 +203,7 @@ function SubagentResultMarkdown({ text }: { text: string }) {
   return (
     <div className={cn(
       'prose prose-invert prose-sm max-w-none text-label leading-relaxed text-foreground/80',
-      'prose-p:my-1 prose-headings:mb-1 prose-headings:mt-2 prose-headings:text-[12.5px] prose-headings:font-semibold',
+      'prose-p:my-1 prose-headings:mb-1 prose-headings:mt-2 prose-headings:text-label prose-headings:font-semibold',
       'prose-strong:text-foreground prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-li:marker:text-accent-primary/70',
       'prose-pre:my-1.5 prose-pre:rounded-md prose-pre:border prose-pre:border-border/50 prose-pre:bg-background-deep/60 prose-pre:text-xs',
     )}>

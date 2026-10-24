@@ -32,16 +32,16 @@ import { extensionFenceTags, modeAccent, useMissionExtensions, type MissionModeB
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
 const MD = cn(
-  'text-sm leading-7 text-foreground',
+  'max-w-[72ch] text-body leading-relaxed text-foreground',
   '[&_p]:my-3.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
-  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold',
-  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-[15px] [&_h2]:font-semibold',
+  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-title [&_h1]:font-semibold',
+  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-strong [&_h2]:font-semibold',
   '[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold',
   '[&_strong]:font-semibold [&_strong]:text-foreground',
   '[&_em]:italic',
   '[&_a]:text-accent-info [&_a]:underline [&_a]:underline-offset-2',
   '[&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1',
-  '[&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-accent-info',
+  '[&_code]:rounded-control [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground',
   '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-surface [&_pre]:p-3',
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground',
   '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/80',
@@ -240,7 +240,7 @@ function AgentAttachmentDialog({
         </DialogHeader>
         <DialogBody className="space-y-3">
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium text-foreground">{attachment.filename}</p>
+            <p className="truncate text-body font-medium text-foreground">{attachment.filename}</p>
             <p className="text-xs text-muted-foreground">{[formatBytes(attachment.size), attachment.mimeType].filter(Boolean).join(' · ')}</p>
           </div>
           {loadError && (

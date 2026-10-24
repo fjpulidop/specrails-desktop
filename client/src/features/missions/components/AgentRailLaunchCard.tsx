@@ -684,7 +684,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     )
     return (
       <div role="group" aria-label={handOff.heading} data-testid="agent-rail-launch-card" data-hand-off="true" className="space-y-2 px-0.5 text-xs">
-        <p data-testid="rail-card-hand-off-line" className="text-[13px] leading-5 text-foreground/90">
+        <p data-testid="rail-card-hand-off-line" className="text-body text-foreground/90">
           {handOff.summary(railWords)}
           {handOff.lineAside}
         </p>

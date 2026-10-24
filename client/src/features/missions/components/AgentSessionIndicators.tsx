@@ -36,7 +36,7 @@ export function AgentDeferredChangeNotice({ onApplyNow }: { onApplyNow: () => Pr
   const { t } = useTranslation('agent')
   const [busy, setBusy] = useState(false)
   return (
-    <div role="status" data-testid="agent-deferred-change" className="flex items-center gap-2 rounded-lg border border-accent-highlight/30 bg-accent-highlight/[0.07] px-3 py-1.5 text-[11.5px] text-foreground/70">
+    <div role="status" data-testid="agent-deferred-change" className="flex items-center gap-2 rounded-lg border border-accent-highlight/30 bg-accent-highlight/[0.07] px-3 py-1.5 text-label text-foreground/70">
       <Settings2 className="h-3.5 w-3.5 shrink-0 text-accent-highlight" aria-hidden />
       <span className="min-w-0 flex-1">{t('subagents.deferred')}</span>
       <button type="button" disabled={busy} onClick={() => { setBusy(true); void onApplyNow().finally(() => setBusy(false)) }}
