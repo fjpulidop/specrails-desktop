@@ -447,7 +447,26 @@
     "retryDelivery": "Relancer la livraison",
     "retryDeliveryHint": "Ne refait que la dernière étape (commit, push et PR) sur la branche de cette exécution. Aucun travail d’IA n’est refait.",
     "retryDeliverySent": "Nouvelle tentative de livraison…",
-    "retryDeliveryFailed": "Impossible de relancer la livraison"
+    "retryDeliveryFailed": "Impossible de relancer la livraison",
+    "mergedLocallyRestored": "Vos modifications locales ont été mises de côté, {{tickets}} a été intégré, puis elles ont été restaurées.",
+    "mergedLocallyStashConflict": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; l'agent résout les conflits.",
+    "mergedLocallyStashKept": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; restaurez-les quand vous voulez.",
+    "localStash": {
+      "title": "Vos modifications locales sont enregistrées dans un stash",
+      "conflictBody": "Les réappliquer sur le résultat intégré a provoqué des conflits ; {{branch}} est donc resté exactement tel qu'intégré. L'agent les restaure sur {{restoreBranch}}.",
+      "savedBody": "Elles n'ont pas encore été restaurées. Restaurez-les pendant que {{branch}} est extrait.",
+      "files": "Fichiers en conflit",
+      "restore": "Restaurer mes modifications",
+      "restoring": "Restauration…",
+      "copy": "Copier le nom du stash",
+      "copied": "Nom du stash copié",
+      "restoredToast": "Vos modifications locales sont de retour sur {{branch}}.",
+      "stillConflicting": "Vos modifications locales sont toujours en conflit avec {{branch}} ; elles restent en sécurité dans le stash.",
+      "released": "Ce stash n'existe plus : il n'y a plus rien à restaurer.",
+      "blockedBranch": "Passez d'abord sur {{base}} (vous êtes sur {{current}}), puis restaurez.",
+      "blockedDirty": "Certains de ces fichiers ont encore changé depuis leur sauvegarde. Commitez ou déplacez ces modifications, puis restaurez.",
+      "failed": "Impossible de restaurer vos modifications locales"
+    }
   },
   "specDraft": {
     "heading": "Brouillon de spec",

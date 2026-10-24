@@ -104,11 +104,55 @@ them to the backlog. Existing-PR no-change cards only dismiss their borrowed fol
 **`merge-local` (remote-less acceptance).** Legal only without a real PR. Both surfaces confirm
 because it advances the local integration branch. Exact delivered commits are first assembled away
 from the user's checkout; only a complete conflict-free result may advance the still-at-the-original-
-HEAD integration branch. Compatible staged, unstaged, untracked and ignored local files survive;
-Git refuses an overwrite with a retryable `merge_local_blocked` response. If the user is on another
-branch or detached HEAD, a temporary checkout claims the base without switching the user's checkout.
-A base already held by another worktree remains untouched and reports `integration_branch_busy`.
-Both temporary checkouts use non-force cleanup, including after a Git runner exception.
+HEAD integration branch. Compatible staged, unstaged, untracked and ignored local files survive.
+If the user is on another branch or detached HEAD, a temporary checkout claims the base without
+switching the user's checkout. A base already held by another worktree remains untouched and
+reports `integration_branch_busy`. Both temporary checkouts use non-force cleanup, including after a
+Git runner exception.
+
+**Uncommitted work that overlaps the delivery (proactive local integration,
+[local-stash.ts](../../server/modules/delivery/runtime/local-stash.ts),
+[local-changes.ts](../../server/modules/delivery/adapters/decisions/local-changes.ts)).** Still under
+the repository lock and the decision lease, after the isolated assembly and before the fast-forward:
+
+1. The checkout's dirty paths (`git status -z --untracked-files=all`, never ignored, minus
+   `PR_NEVER_STAGE_PATHSPEC_ROOTS`) are compared with `git diff --name-only <head> <assembled>`
+   (exact, nested and case-folded). No overlap ⇒ today's behaviour: Git's non-forced fast-forward
+   keeps the work in place. Overlap (or a fast-forward refused for local changes) ⇒
+   `git stash push --include-untracked -m "specrails: before integrating #<ids> (<deliveryId>)"`
+   with the same exclusions. The entry is proven by `refs/stash` moving to a commit whose subject
+   carries the delivery id, and recorded by **commit sha** in `rail_pr_deliveries.local_stash`
+   (migration 83, `LocalStashRecord`) *before* the branch moves. That write is lease-independent
+   (`setPrDeliveryLocalStash`), like a safety archive. Ignored files are never stashed, so an ignored
+   collision still returns `merge_local_blocked` / `dirty`.
+2. The fast-forward runs exactly as before. If it fails, the branch did not move and the stash is
+   applied straight back.
+3. After the verified advance, `git stash apply <sha>` (never `pop`). A clean apply drops the entry
+   located by sha (`stash@{n}` is resolved at that moment, never stored) ⇒ `restored`. If the apply
+   conflicts or refuses, only the stash's own paths (index, worktree and untracked trees) that were
+   clean right before the apply are put back to `HEAD`. Other files, including newer edits, are not
+   touched, and the stash is **kept** ⇒ `needs_attention`, `restoreBranch =
+   specrails/restore-local-<sha8>`, the terminal transition stays `merged` / `delivered` with
+   `status_code = local_changes_attention`, and one automatic turn (`local-changes:<deliveryId>`
+   turn key, the same `startAutomaticTurn` path the Flow return briefing uses) asks the origin
+   mission agent to re-apply the stash in a separate worktree on that new branch, resolve, commit
+   there and report back. It must never touch the target branch or drop the stash.
+4. `POST /rails/pr-local-changes/restore` ("Restore my changes") re-attempts the apply under the
+   repository lock and refuses while any decision lease is held (`operation_in_progress`). A wrong
+   branch or re-dirtied stash paths answer `409 local_restore_blocked` without touching anything.
+   An already-applied stash (crash between apply and drop) is only dropped; a stash the person
+   dropped is `released`. Leaving the held states moves `local_changes_attention` back to
+   `merged` / `cleanup_incomplete`.
+5. Startup recovery (`recoverLocalStashes`, after ticket-effect replay, before admission opens)
+   re-applies every `saved` record while the same branch is checked out. It first adopts a
+   Specrails stash whose record never landed (crash right after `git stash push`) from its
+   message. Conflicts follow step 3.
+
+Response bodies carry `localChanges { state, stashName, stashSha, restoreBranch, conflictPaths }`;
+snapshots/cards carry `localStash` (no filesystem path). The mission card renders
+`LocalStashNotice` (note, conflicting files, Restore, copyable stash name). The dashboard strip
+closes on `merged`, so it only shows the toast. Multi-repo children record the stash on the child
+row; the group card does not surface it yet.
 
 ## Launch and recovery wiring (`server/modules/delivery/runtime/rail-isolated-launch.ts`)
 
@@ -380,7 +424,8 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   reopening the stale attachment. A valid reopen returns to draft or ready according to GitHub;
   an exact merge racing the action terminalizes, while an exact still-closed result reports failure.
 - **merge-local** — builds the complete merge in an isolated temporary checkout and advances the
-  revalidated base only after all branches succeed, preserving compatible local work. A missing
+  revalidated base only after all branches succeed, preserving compatible local work (overlapping
+  uncommitted work is stashed by sha, re-applied, and kept on conflict; see above). A missing
   immutable delivery object never falls back to a branch that may have moved.
 
 Terminal discard/merge/completion inserts `rail_pr_ticket_effects` in the same SQLite transaction

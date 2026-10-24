@@ -882,6 +882,7 @@
       "runtime/pr-publisher.ts",
       "runtime/rail-isolated-launch.ts",
       "runtime/rail-isolation.ts",
+      "runtime/rail-pr-decision.ts",
       "runtime/rail-pr-store.ts",
       "runtime/rail-pr-ticket-effects.ts",
       "runtime/rails-router.ts",
@@ -959,15 +960,25 @@
         "fs",
         "path"
       ],
+      "adapters/decisions/local-changes.ts": [
+        "../../../../repo-lock",
+        "../../../missions/runtime/agent-chat-registry",
+        "../../runtime/local-stash",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "./transitions"
+      ],
       "adapters/decisions/merge-local.ts": [
         "../../../../ids",
         "../../../../integration-branch",
         "../../../../repo-lock",
+        "../../runtime/local-stash",
         "../../runtime/rail-pr-store",
         "../../runtime/rail-worktree-release",
         "./chains",
         "./contracts",
         "./evidence",
+        "./local-changes",
         "./metadata",
         "./ownership",
         "./transitions",
@@ -1139,6 +1150,12 @@
         "./pr-naming",
         "path"
       ],
+      "runtime/local-stash.ts": [
+        "../../../worktree-manager",
+        "./rail-pr-store",
+        "fs",
+        "path"
+      ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
       ],
@@ -1298,7 +1315,8 @@
         "..",
         "../adapters/decisions/chains",
         "../adapters/decisions/contracts",
-        "../adapters/decisions/dispatch"
+        "../adapters/decisions/dispatch",
+        "../adapters/decisions/local-changes"
       ],
       "runtime/rail-pr-delivery.ts": [
         "../../../worktree-manager",

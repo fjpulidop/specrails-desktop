@@ -65,6 +65,8 @@ import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolati
 import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtime/rail-pr-ticket-effects'
+import { recoverLocalStashes } from './modules/delivery/runtime/rail-pr-decision'
+import { defaultExec } from './modules/delivery/runtime/pr-publisher'
 import {
   getLoopTerminalRecovery,
   getLoopRun,
@@ -1677,6 +1679,12 @@ export class ProjectRegistry {
                 },
               })
               if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
+              // "Integrate locally" saved the person's uncommitted work as a
+              // stash and the app stopped before restoring it: re-apply now,
+              // before admission opens (never throws; conflicts keep the stash).
+              const restoredLocalChanges = await recoverLocalStashes({ ...effectDeps, git: defaultGitRunner, exec: defaultExec })
+              for (const deliveryId of restoredLocalChanges) emitRecoveredPrDelivery(ctx, deliveryId)
+              if (this._contexts.get(project.id) !== ctx) return
               reprojectActivePrDeliveries(ctx)
               openProjectProcessAdmission(project.id)
               // Flow -> Spec deliveries settled as a generic failure before the

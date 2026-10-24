@@ -124,6 +124,7 @@
   },
   "delivery": {
     "publicEntries": [
+      "components/LocalStashNotice.tsx",
       "components/LoopChip.tsx",
       "components/RailPrDecisionStrip.tsx",
       "components/RepositoryDeliveries.tsx",
@@ -407,6 +408,7 @@
       "browser",
       "chat",
       "code",
+      "delivery",
       "integrations",
       "loops",
       "missions",

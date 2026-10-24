@@ -86,6 +86,16 @@ Se algo parecer errado:
 - **Autopausa por orçamento** — defina um orçamento diário e a fila se pausa sozinha quando o gasto do dia atinge o teto.
 - **Tudo** — feche o app desktop, ou rode `specrails-desktop stop`.
 
+## Integrar localmente com alterações sem commit
+
+**Integrar localmente** junta uma entrega aprovada no seu branch de integração (por exemplo `main`) neste computador, sem PR. Não precisa de um checkout limpo:
+
+- As alterações sem commit que não tocam nos ficheiros entregues ficam onde estão.
+- Se as suas alterações tocam nos mesmos ficheiros, o Specrails guarda-as num git stash chamado `specrails: before integrating #N (…)`, integra e volta a colocá-las. O aviso diz *Guardei as suas alterações locais, integrei #N e restaurei-as.*
+- Se ao voltar a colocá-las houver conflitos com o código integrado, o Specrails deixa o branch exatamente como integrado e **mantém o stash**: nada se perde. O cartão mostra *As suas alterações locais estão guardadas num stash* com os ficheiros em conflito, **Restaurar as minhas alterações** (nova tentativa, por exemplo depois de alterar o código) e o nome do stash para copiar. Nas entregas iniciadas a partir de uma missão, pede-se ao agente que volte a aplicar o stash num novo branch `specrails/restore-local-<id>`, resolva aí os conflitos e informe; nunca faz commit diretamente no seu branch nem descarta o stash.
+- Os ficheiros ignorados nunca vão para o stash: se algum colidir com a entrega, o Specrails pede-lhe que o mova primeiro.
+- Se a app parar entre guardar e restaurar, restaura as suas alterações da próxima vez que o projeto abrir (só se o mesmo branch estiver em checkout).
+
 ## Para onde ir agora
 
 - [O Loop Builder](the-loop-builder) — o que um rail roda, e como construir seus próprios loops.

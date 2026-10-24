@@ -85,7 +85,8 @@
     "ref_mismatch": "La referencia de la rama no coincide",
     "restart_pending": "Esperando la recuperación del workflow",
     "review_changes_requested": "El revisor solicitó cambios",
-    "returned_to_flow": "Devuelto a Flow"
+    "returned_to_flow": "Devuelto a Flow",
+    "local_changes_attention": "Integrado — los cambios locales necesitan atención"
   },
   "prRecovery": {
     "inProgress": "La recuperación del proyecto sigue en curso. Tu entrega está a salvo; vuelve a intentarlo en unos instantes.",

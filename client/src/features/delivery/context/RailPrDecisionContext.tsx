@@ -38,6 +38,8 @@ export interface RailPrActResult {
   remoteHeadSha?: string | null
   pushed?: boolean
   recoveryUnavailable?: boolean
+  /** "Integrate locally" saved the person's uncommitted work as a stash. */
+  localChanges?: { state?: string; stashName?: string } | null
   current?: string
   /** merge_local_blocked precondition (`wrong_branch` | `dirty`). */
   reason?: string

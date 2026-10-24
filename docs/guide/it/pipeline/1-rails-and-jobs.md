@@ -87,6 +87,16 @@ Se qualcosa sembra non andare:
 - **Pausa automatica sul budget** — imposta un budget giornaliero e la coda si mette in pausa da sola quando la spesa della giornata raggiunge il limite.
 - **Tutto** — chiudi l'app desktop, oppure esegui `specrails-desktop stop`.
 
+## Integrare in locale con modifiche non committate
+
+**Integra in locale** unisce una consegna approvata nel tuo branch di integrazione (ad esempio `main`) su questo computer, senza PR. Non serve un checkout pulito:
+
+- Le modifiche non committate che non toccano i file consegnati restano dove sono.
+- Se le tue modifiche toccano gli stessi file, Specrails le salva in un git stash chiamato `specrails: before integrating #N (…)`, integra e le rimette al loro posto. La notifica dice *Ho salvato le tue modifiche locali, integrato #N e le ho ripristinate.*
+- Se rimetterle va in conflitto con il codice integrato, Specrails lascia il branch esattamente come integrato e **conserva lo stash**: non si perde nulla. La scheda mostra *Le tue modifiche locali sono salvate in uno stash* con i file in conflitto, **Ripristina le mie modifiche** (nuovo tentativo, ad esempio dopo aver cambiato il codice) e il nome dello stash da copiare. Per le consegne avviate da una missione, all'agente viene chiesto di riapplicare lo stash su un nuovo branch `specrails/restore-local-<id>`, risolvere lì i conflitti e riferire; non fa mai commit direttamente sul tuo branch e non elimina mai lo stash.
+- I file ignorati non vengono mai messi nello stash: se uno di essi entra in conflitto con la consegna, Specrails ti chiede di spostarlo prima.
+- Se l'app si ferma tra il salvataggio e il ripristino, ripristina le tue modifiche alla successiva apertura del progetto (solo se è ancora attivo lo stesso branch).
+
 ## Dove andare ora
 
 - [Il Loop Builder](the-loop-builder) — cosa esegue un rail e come costruire i tuoi loop.

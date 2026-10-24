@@ -447,7 +447,26 @@
     "retryDelivery": "Tentar a entrega de novo",
     "retryDeliveryHint": "Repete apenas o passo final (commit, push e PR) no branch desta execução. Nenhum trabalho de IA é refeito.",
     "retryDeliverySent": "Tentando a entrega de novo…",
-    "retryDeliveryFailed": "Não foi possível tentar a entrega de novo"
+    "retryDeliveryFailed": "Não foi possível tentar a entrega de novo",
+    "mergedLocallyRestored": "Guardei as suas alterações locais, integrei {{tickets}} e restaurei-as.",
+    "mergedLocallyStashConflict": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; o agente está a resolver os conflitos.",
+    "mergedLocallyStashKept": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; restaure-as quando quiser.",
+    "localStash": {
+      "title": "As suas alterações locais estão guardadas num stash",
+      "conflictBody": "Reaplicá-las sobre o resultado integrado gerou conflitos, por isso {{branch}} ficou exatamente como integrado. O agente está a restaurá-las em {{restoreBranch}}.",
+      "savedBody": "Ainda não foram restauradas. Restaure-as com {{branch}} em checkout.",
+      "files": "Ficheiros em conflito",
+      "restore": "Restaurar as minhas alterações",
+      "restoring": "A restaurar…",
+      "copy": "Copiar nome do stash",
+      "copied": "Nome do stash copiado",
+      "restoredToast": "As suas alterações locais voltaram a {{branch}}.",
+      "stillConflicting": "As suas alterações locais continuam em conflito com {{branch}}; continuam seguras no stash.",
+      "released": "Esse stash já não existe, por isso não há nada para restaurar.",
+      "blockedBranch": "Mude primeiro para {{base}} (está em {{current}}) e depois restaure.",
+      "blockedDirty": "Alguns desses ficheiros voltaram a mudar desde que foram guardados. Faça commit ou mova essas edições e depois restaure.",
+      "failed": "Não foi possível restaurar as suas alterações locais"
+    }
   },
   "specDraft": {
     "heading": "Rascunho da spec",

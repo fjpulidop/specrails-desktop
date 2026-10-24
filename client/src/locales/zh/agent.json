@@ -447,7 +447,26 @@
     "retryDelivery": "重试交付",
     "retryDeliveryHint": "只在此运行的分支上重复最后一步（提交、推送和 PR），不会重做任何 AI 工作。",
     "retryDeliverySent": "正在重试交付…",
-    "retryDeliveryFailed": "无法重试交付"
+    "retryDeliveryFailed": "无法重试交付",
+    "mergedLocallyRestored": "已保存你的本地更改，集成了 {{tickets}}，并已恢复这些更改。",
+    "mergedLocallyStashConflict": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；代理正在解决冲突。",
+    "mergedLocallyStashKept": "已集成 {{tickets}}。你的本地更改安全保存在 stash 中；准备好后再恢复。",
+    "localStash": {
+      "title": "你的本地更改已保存为 stash",
+      "conflictBody": "在集成结果上重新应用时发生冲突，因此 {{branch}} 保持为集成后的状态。代理正在 {{restoreBranch}} 上恢复它们。",
+      "savedBody": "这些更改尚未恢复。请在检出 {{branch}} 时恢复。",
+      "files": "冲突的文件",
+      "restore": "恢复我的更改",
+      "restoring": "正在恢复…",
+      "copy": "复制 stash 名称",
+      "copied": "已复制 stash 名称",
+      "restoredToast": "你的本地更改已回到 {{branch}}。",
+      "stillConflicting": "你的本地更改仍与 {{branch}} 冲突；它们仍安全保存在 stash 中。",
+      "released": "该 stash 已不存在，没有可恢复的内容。",
+      "blockedBranch": "请先检出 {{base}}（当前在 {{current}}），然后再恢复。",
+      "blockedDirty": "其中一些文件在保存后又被修改了。请先提交或移走这些编辑，然后再恢复。",
+      "failed": "无法恢复你的本地更改"
+    }
   },
   "specDraft": {
     "heading": "规格草稿",

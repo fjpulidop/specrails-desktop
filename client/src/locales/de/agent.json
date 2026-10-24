@@ -447,7 +447,26 @@
     "retryDelivery": "Auslieferung wiederholen",
     "retryDeliveryHint": "Wiederholt nur den letzten Schritt (Commit, Push und PR) auf dem Branch dieses Laufs. Keine KI-Arbeit wird wiederholt.",
     "retryDeliverySent": "Auslieferung wird wiederholt…",
-    "retryDeliveryFailed": "Die Auslieferung konnte nicht wiederholt werden"
+    "retryDeliveryFailed": "Die Auslieferung konnte nicht wiederholt werden",
+    "mergedLocallyRestored": "Deine lokalen Änderungen wurden gesichert, {{tickets}} integriert und anschließend wiederhergestellt.",
+    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; der Agent löst die Konflikte.",
+    "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist.",
+    "localStash": {
+      "title": "Deine lokalen Änderungen sind als Stash gesichert",
+      "conflictBody": "Beim erneuten Anwenden auf das integrierte Ergebnis gab es Konflikte, daher blieb {{branch}} genau wie integriert. Der Agent stellt sie auf {{restoreBranch}} wieder her.",
+      "savedBody": "Sie wurden noch nicht wiederhergestellt. Stelle sie wieder her, während {{branch}} ausgecheckt ist.",
+      "files": "Dateien mit Konflikten",
+      "restore": "Meine Änderungen wiederherstellen",
+      "restoring": "Wird wiederhergestellt…",
+      "copy": "Stash-Namen kopieren",
+      "copied": "Stash-Name kopiert",
+      "restoredToast": "Deine lokalen Änderungen sind wieder auf {{branch}}.",
+      "stillConflicting": "Deine lokalen Änderungen stehen weiterhin im Konflikt mit {{branch}}; sie bleiben sicher im Stash.",
+      "released": "Dieser Stash existiert nicht mehr, es gibt nichts mehr wiederherzustellen.",
+      "blockedBranch": "Wechsle zuerst zu {{base}} (du bist auf {{current}}) und stelle dann wieder her.",
+      "blockedDirty": "Einige dieser Dateien wurden seit dem Sichern erneut geändert. Committe oder verschiebe diese Änderungen und stelle dann wieder her.",
+      "failed": "Deine lokalen Änderungen konnten nicht wiederhergestellt werden"
+    }
   },
   "specDraft": {
     "heading": "Spec-Entwurf",

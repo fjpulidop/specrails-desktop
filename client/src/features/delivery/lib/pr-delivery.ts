@@ -1,5 +1,6 @@
 import type {
   PrDeliveryFlowReview,
+  PrDeliveryLocalStash,
   PrDeliveryRiskSummary,
   ReviewRiskSeverity,
   RailDeliveryOutcome,
@@ -30,7 +31,7 @@ const STATUS_CODES: ReadonlySet<string> = new Set([
   'commit_failed', 'branch_verification_failed', 'push_failed',
   'settlement_interrupted', 'recovery_unavailable', 'operation_interrupted', 'delivery_failed', 'pr_draft_ready', 'pr_ready',
   'pr_closed', 'merged', 'discarded', 'superseded', 'cleanup_incomplete',
-  'review_changes_requested', 'returned_to_flow',
+  'review_changes_requested', 'returned_to_flow', 'local_changes_attention',
   // Conservative legacy aliases retained by old recovered rows.
   'status_failed', 'ref_mismatch',
 ])
@@ -155,6 +156,31 @@ export function coerceFlowReview(v: unknown): PrDeliveryFlowReview | null {
   }
 }
 
+const LOCAL_STASH_STATES: ReadonlySet<string> = new Set(['saved', 'restored', 'needs_attention', 'released'])
+
+/** Defensive parse of the saved-local-changes record; null when absent or malformed. */
+export function coerceLocalStash(v: unknown): PrDeliveryLocalStash | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.sha !== 'string' || !/^[0-9a-f]{40,64}$/i.test(o.sha)) return null
+  if (typeof o.state !== 'string' || !LOCAL_STASH_STATES.has(o.state)) return null
+  return {
+    sha: o.sha,
+    name: typeof o.name === 'string' ? o.name : '',
+    branch: typeof o.branch === 'string' ? o.branch : '',
+    state: o.state as PrDeliveryLocalStash['state'],
+    restoreBranch: asNullableString(o.restoreBranch),
+    conflictPaths: Array.isArray(o.conflictPaths) ? o.conflictPaths.filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, 20) : [],
+    savedAt: typeof o.savedAt === 'string' ? o.savedAt : '',
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : '',
+  }
+}
+
+/** The saved stash still holds the person's work (Restore / copy name apply). */
+export function localStashHeld(stash: PrDeliveryLocalStash | null | undefined): stash is PrDeliveryLocalStash {
+  return !!stash && (stash.state === 'saved' || stash.state === 'needs_attention')
+}
+
 export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number): RailPrStateSnapshot | null {
   if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
@@ -188,6 +214,7 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
     originConversationId: asNullableString(o.originConversationId),
     ...(() => { const riskSummary = coerceRiskSummary(o.riskSummary); return riskSummary ? { riskSummary } : {} })(),
     ...(() => { const flowReview = coerceFlowReview(o.flowReview); return flowReview ? { flowReview } : {} })(),
+    ...(() => { const localStash = coerceLocalStash(o.localStash); return localStash ? { localStash } : {} })(),
     ...(asString(o.loopId) ? { loopId: asString(o.loopId) } : {}),
     ...(asString(o.loopName) ? { loopName: asString(o.loopName) } : {}),
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : undefined,

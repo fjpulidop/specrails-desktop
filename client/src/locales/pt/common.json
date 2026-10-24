@@ -85,7 +85,8 @@
     "ref_mismatch": "A referência do branch não corresponde",
     "restart_pending": "A aguardar a recuperação do workflow",
     "review_changes_requested": "O revisor solicitou alterações",
-    "returned_to_flow": "Devolvido ao Flow"
+    "returned_to_flow": "Devolvido ao Flow",
+    "local_changes_attention": "Integrado — as alterações locais precisam de atenção"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",

@@ -85,7 +85,8 @@
     "ref_mismatch": "ブランチ参照が一致しません",
     "restart_pending": "ワークフローの復旧を待機中",
     "review_changes_requested": "レビュアーが変更を依頼",
-    "returned_to_flow": "Flow に戻しました"
+    "returned_to_flow": "Flow に戻しました",
+    "local_changes_attention": "統合済み — ローカル変更の確認が必要です"
   },
   "prRecovery": {
     "inProgress": "プロジェクトの復旧が進行中です。配信内容は安全に保たれています。しばらくしてから再試行してください。",

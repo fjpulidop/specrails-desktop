@@ -85,6 +85,16 @@ If something looks wrong:
 - **Auto-pause on budget** — set a daily budget and the queue pauses itself when that day's spend hits the cap.
 - **Everything** — quit the desktop app, or run `specrails-desktop stop`.
 
+## Integrate locally with uncommitted changes
+
+**Integrate locally** merges an approved delivery into your integration branch (for example `main`) on this computer, without a PR. You do not need a clean checkout first:
+
+- Uncommitted changes that do not touch the delivered files simply stay where they are.
+- If your changes touch the same files, Specrails saves them as a git stash named `specrails: before integrating #N (…)`, integrates, and puts them back. The toast reads *Saved your local changes, integrated #N, and restored them.*
+- If putting them back conflicts with the integrated code, Specrails leaves the branch exactly as integrated and **keeps the stash** — nothing is lost. The card shows *Your local changes are saved as a stash* with the conflicting files, **Restore my changes** (try again, for example after you changed the code) and the stash name to copy. For deliveries started from a mission, the agent is asked to re-apply the stash on a new branch `specrails/restore-local-<id>`, resolve the conflicts there and report back; it never commits to your branch directly and never drops the stash.
+- Ignored files are never stashed: if one of them collides with the delivery, Specrails asks you to move it first.
+- If the app stops between saving and restoring, it restores your changes the next time the project opens (only while the same branch is checked out).
+
 ## Where to go next
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.

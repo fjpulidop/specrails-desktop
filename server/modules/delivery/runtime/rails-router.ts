@@ -47,7 +47,7 @@ import { composeReviewPacket } from './review-packet'
 import { readSettleEvidence, healRuntimeEvidence, coreAnnouncesReviewBrief } from './delivery-evidence'
 import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
-import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
+import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS, runRestoreLocalChanges } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { RepositoryHasNoCommitsError } from './isolated-worktree'
@@ -1737,6 +1737,40 @@ export function createRailsRouter(): Router {
       if (err instanceof RepositoryValidationError) { res.status(err.status).json({ error: err.message }); return }
       console.error('[rails-router] pr-decision error:', err)
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
+    }
+  })
+
+  // POST /rails/pr-local-changes/restore — "Restore my changes": re-apply the
+  // uncommitted work "Integrate locally" saved as a stash (by commit sha). A
+  // clean apply drops the stash; a conflict restores the integrated tree and
+  // keeps it. Takes the repository lock and refuses while a decision lease is
+  // held (proactive-local-integration).
+  router.post('/pr-local-changes/restore', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const { prDeliveryId } = req.body ?? {}
+    if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
+      res.status(400).json({ error: 'prDeliveryId is required' }); return
+    }
+    try {
+      const admission = captureProcessAdmission(c.project.id)
+      const result = await runRestoreLocalChanges({
+        db: c.db,
+        project: { id: c.project.id, slug: c.project.slug, path: c.project.path },
+        git: defaultGitRunner,
+        exec: defaultExec,
+        broadcast: c.broadcast,
+        jiraSyncManager: c.jiraSyncManager,
+        assertAdmission: () => admission.assertCurrent(),
+      }, prDeliveryId)
+      const current = getPrDelivery(c.db, prDeliveryId)
+      const shown = current?.parent_delivery_id ? getPrDelivery(c.db, current.parent_delivery_id) : current
+      res.status(result.status).json({ ...result.body, ...(shown ? { snapshot: toPrDeliverySnapshot(shown) } : {}) })
+    } catch (err) {
+      if (err instanceof ProcessAdmissionClosedError) {
+        res.status(409).json({ error: 'project_recovery_in_progress' }); return
+      }
+      console.error('[rails-router] restore local changes error:', err)
+      res.status(500).json({ error: 'restore failed', detail: (err as Error).message })
     }
   })
 

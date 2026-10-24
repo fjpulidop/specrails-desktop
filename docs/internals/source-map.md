@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1203 source/build files. Nearby tests are linked where names
+Includes 1207 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -302,6 +302,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/delivery/components
 
+- [LocalStashNotice.tsx](../../client/src/features/delivery/components/LocalStashNotice.tsx)
 - [LoopChip.tsx](../../client/src/features/delivery/components/LoopChip.tsx) · [test](../../client/src/features/delivery/components/__tests__/LoopChip.test.tsx)
 - [RailPrDecisionStrip.tsx](../../client/src/features/delivery/components/RailPrDecisionStrip.tsx) · [test](../../client/src/features/delivery/components/__tests__/RailPrDecisionStrip.test.tsx)
 - [RepositoryDeliveries.tsx](../../client/src/features/delivery/components/RepositoryDeliveries.tsx) · [test](../../client/src/features/delivery/components/__tests__/RepositoryDeliveries.test.tsx)
@@ -433,6 +434,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/jobs/lib
 
 - [cancel-job.ts](../../client/src/features/jobs/lib/cancel-job.ts) · [test](../../client/src/features/jobs/lib/__tests__/cancel-job.test.ts)
+- [humanise-command.ts](../../client/src/features/jobs/lib/humanise-command.ts) · [test](../../client/src/features/jobs/lib/__tests__/humanise-command.test.ts)
 - [job-event-buffer.ts](../../client/src/features/jobs/lib/job-event-buffer.ts) · [test](../../client/src/features/jobs/lib/__tests__/job-event-buffer.test.ts)
 - [job-log-mode.ts](../../client/src/features/jobs/lib/job-log-mode.ts)
 - [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
@@ -1362,6 +1364,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [discard.ts](../../server/modules/delivery/adapters/decisions/discard.ts)
 - [dispatch.ts](../../server/modules/delivery/adapters/decisions/dispatch.ts)
 - [evidence.ts](../../server/modules/delivery/adapters/decisions/evidence.ts)
+- [local-changes.ts](../../server/modules/delivery/adapters/decisions/local-changes.ts)
 - [merge-local.ts](../../server/modules/delivery/adapters/decisions/merge-local.ts)
 - [metadata.ts](../../server/modules/delivery/adapters/decisions/metadata.ts)
 - [observations.ts](../../server/modules/delivery/adapters/decisions/observations.ts)
@@ -1389,6 +1392,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [isolated-settlement-reconstruction.ts](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.ts) · [test](../../server/modules/delivery/runtime/isolated-settlement-reconstruction.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [isolated-worktree.ts](../../server/modules/delivery/runtime/isolated-worktree.ts) · [test](../../server/modules/delivery/runtime/isolated-worktree.test.ts)
+- [local-stash.ts](../../server/modules/delivery/runtime/local-stash.ts) · [test](../../server/modules/delivery/runtime/local-stash.test.ts)
 - [merge-manager.ts](../../server/modules/delivery/runtime/merge-manager.ts) · [test](../../server/modules/delivery/runtime/merge-manager.test.ts)
 - [multi-repo-bases.ts](../../server/modules/delivery/runtime/multi-repo-bases.ts) · [test](../../server/modules/delivery/runtime/multi-repo-bases.test.ts)
 - [multi-repo-checkout.ts](../../server/modules/delivery/runtime/multi-repo-checkout.ts)

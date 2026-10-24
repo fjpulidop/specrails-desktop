@@ -447,7 +447,26 @@
     "retryDelivery": "納品を再試行",
     "retryDeliveryHint": "この実行のブランチで最後のステップ（コミット、プッシュ、PR）だけを繰り返します。AI の作業はやり直しません。",
     "retryDeliverySent": "納品を再試行しています…",
-    "retryDeliveryFailed": "納品を再試行できませんでした"
+    "retryDeliveryFailed": "納品を再試行できませんでした",
+    "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
+    "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。エージェントが競合を解決しています。",
+    "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。",
+    "localStash": {
+      "title": "ローカル変更は stash として保存されています",
+      "conflictBody": "統合結果の上に再適用すると競合したため、{{branch}} は統合したままの状態です。エージェントが {{restoreBranch}} で復元しています。",
+      "savedBody": "まだ復元されていません。{{branch}} をチェックアウトした状態で復元してください。",
+      "files": "競合しているファイル",
+      "restore": "変更を復元",
+      "restoring": "復元中…",
+      "copy": "stash 名をコピー",
+      "copied": "stash 名をコピーしました",
+      "restoredToast": "ローカル変更が {{branch}} に戻りました。",
+      "stillConflicting": "ローカル変更はまだ {{branch}} と競合しています。stash に安全に残っています。",
+      "released": "その stash はもう存在しないため、復元するものはありません。",
+      "blockedBranch": "先に {{base}} をチェックアウトしてください（現在は {{current}}）。その後で復元します。",
+      "blockedDirty": "保存後にこれらのファイルの一部が再び変更されました。その編集をコミットするか移動してから復元してください。",
+      "failed": "ローカル変更を復元できませんでした"
+    }
   },
   "specDraft": {
     "heading": "スペック下書き",

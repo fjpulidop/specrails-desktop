@@ -86,6 +86,16 @@ Si quelque chose semble anormal :
 - **Auto-suspension sur budget** — définissez un budget quotidien et la file se suspend d'elle-même quand la dépense du jour atteint le plafond.
 - **Tout** — quittez l'application desktop, ou lancez `specrails-desktop stop`.
 
+## Intégrer en local avec des modifications non commitées
+
+**Intégrer en local** fusionne une livraison approuvée dans votre branche d'intégration (par exemple `main`) sur cet ordinateur, sans PR. Pas besoin d'un checkout propre :
+
+- Les modifications non commitées qui ne touchent pas les fichiers livrés restent en place.
+- Si vos modifications touchent les mêmes fichiers, Specrails les met de côté dans un git stash nommé `specrails: before integrating #N (…)`, intègre, puis les réapplique. La notification indique que vos modifications ont été mises de côté, #N intégré, puis restaurées.
+- Si la réapplication entre en conflit avec le code intégré, Specrails laisse la branche exactement telle qu'intégrée et **conserve le stash** : rien n'est perdu. La carte affiche *Vos modifications locales sont enregistrées dans un stash* avec les fichiers en conflit, **Restaurer mes modifications** (nouvel essai, par exemple après avoir modifié le code) et le nom du stash à copier. Pour les livraisons lancées depuis une mission, l'agent est chargé de réappliquer le stash sur une nouvelle branche `specrails/restore-local-<id>`, d'y résoudre les conflits et de rendre compte ; il ne commite jamais directement sur votre branche et ne supprime jamais le stash.
+- Les fichiers ignorés ne sont jamais mis dans le stash : si l'un d'eux entre en collision avec la livraison, Specrails vous demande de le déplacer d'abord.
+- Si l'application s'arrête entre la mise de côté et la restauration, elle restaure vos modifications à la prochaine ouverture du projet (uniquement si la même branche est extraite).
+
 ## Où aller ensuite
 
 - [Le Loop Builder](the-loop-builder) — ce qu'un rail exécute, et comment construire vos propres loops.

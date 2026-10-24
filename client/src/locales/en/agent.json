@@ -447,7 +447,26 @@
     "retryDelivery": "Retry delivery",
     "retryDeliveryHint": "Repeats only the final step (commit, push and PR) on this run's own branch. No AI work is redone.",
     "retryDeliverySent": "Retrying the delivery…",
-    "retryDeliveryFailed": "Could not retry the delivery"
+    "retryDeliveryFailed": "Could not retry the delivery",
+    "mergedLocallyRestored": "Saved your local changes, integrated {{tickets}}, and restored them.",
+    "mergedLocallyStashConflict": "Integrated {{tickets}}. Your local changes are safe in a stash; the agent is resolving the conflicts.",
+    "mergedLocallyStashKept": "Integrated {{tickets}}. Your local changes are safe in a stash; restore them when you're ready.",
+    "localStash": {
+      "title": "Your local changes are saved as a stash",
+      "conflictBody": "Re-applying them on top of the integrated result conflicted, so {{branch}} was left exactly as integrated. The agent is restoring them on {{restoreBranch}}.",
+      "savedBody": "They have not been restored yet. Restore them while {{branch}} is checked out.",
+      "files": "Conflicting files",
+      "restore": "Restore my changes",
+      "restoring": "Restoring…",
+      "copy": "Copy stash name",
+      "copied": "Stash name copied",
+      "restoredToast": "Your local changes are back on {{branch}}.",
+      "stillConflicting": "Your local changes still conflict with {{branch}}; they stay safe in the stash.",
+      "released": "That stash is no longer there, so there is nothing left to restore.",
+      "blockedBranch": "Check out {{base}} first (you are on {{current}}), then restore.",
+      "blockedDirty": "Some of those files changed again since they were saved. Commit or move those edits, then restore.",
+      "failed": "Could not restore your local changes"
+    }
   },
   "specDraft": {
     "heading": "Spec draft",

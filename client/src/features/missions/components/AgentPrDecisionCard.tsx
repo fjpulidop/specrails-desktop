@@ -17,6 +17,7 @@ import { AgentFlowReviewBlock, AgentFlowReturnedNote } from './AgentFlowReviewBl
 import { useMissionExtensions } from '../context/MissionExtensionsContext'
 import { RepositoryDeliveries } from '../../delivery/components/RepositoryDeliveries'
 import { TopRiskLine } from '../../delivery/components/TopRiskLine'
+import { LocalStashNotice } from '../../delivery/components/LocalStashNotice'
 import { FLOW_SPEC_LOOP_ID, LoopChip } from '../../delivery/components/LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
@@ -25,6 +26,7 @@ import { useRunVitals, formatRunElapsed } from '../../jobs/hooks/useRunVitals'
 import {
   postRailPrDecision,
   postRailPrCheckout,
+  postRestoreLocalChanges,
   agentEnvelopeFromSnapshot,
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
@@ -430,6 +432,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const { openRef } = useAgentRefActions()
   const [busy, setBusy] = useState<AgentPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
+  const [restoringLocal, setRestoringLocal] = useState(false)
   // Confirm layer: inside a dialog (e.g. Job detail, entity 65) climb one
   // layer as usual; outside any dialog the card lives in the floating agent
   // chat (60), so a base (50) confirm would paint BEHIND it — use `stacked`.
@@ -688,7 +691,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       } else if (action === 'poll-merge' && !r.merged && r.decision !== 'pr_closed') {
         toast.info(t('prCard.notMergedYet'))
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
-        toast.success(t('prCard.mergedLocally', { base: targetBase }))
+        const tickets = envelope.ticketIds.map((id) => `#${id}`).join(', ')
+        if (r.localChanges?.state === 'restored') toast.success(t('prCard.mergedLocallyRestored', { tickets }))
+        else if (r.localChanges?.state === 'needs_attention') toast.warning(t('prCard.mergedLocallyStashConflict', { tickets }), { description: r.localChanges.stashName })
+        else if (r.localChanges?.state === 'saved') toast.warning(t('prCard.mergedLocallyStashKept', { tickets }), { description: r.localChanges.stashName })
+        else toast.success(t('prCard.mergedLocally', { base: targetBase }))
       }
       // Repo-mutating decisions (branch created/pushed, branches deleted,
       // local merge commit) → git-state surfaces refresh immediately.
@@ -699,6 +706,39 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
     } finally {
       setBusy(null)
+    }
+  }
+
+  /** "Restore my changes": re-apply the stash "Integrate locally" saved. */
+  const restoreLocalChanges = async () => {
+    if (restoringLocal || busy || envelope.operation) return
+    setRestoringLocal(true)
+    const branch = envelope.localStash?.branch || envelope.baseBranch
+    try {
+      const r = await postRestoreLocalChanges(envelope.projectId, envelope.prDeliveryId)
+      if ((r.kind === 'ok' || r.kind === 'blocked' || r.kind === 'busy') && r.snapshot) {
+        const next = agentEnvelopeFromSnapshot(envelope, r.snapshot)
+        if (applyPrDecisionSnapshot(next) !== 'stale') setLocalEnvelope(next)
+      }
+      if (r.kind === 'ok') {
+        const state = r.localChanges?.state
+        if (state === 'restored') toast.success(t('prCard.localStash.restoredToast', { branch }))
+        else if (state === 'released') toast.info(t('prCard.localStash.released'))
+        else toast.warning(t('prCard.localStash.stillConflicting', { branch }))
+        notifyGitChanged(envelope.projectId)
+      } else if (r.kind === 'blocked') {
+        if (r.reason === 'wrong_branch') toast.warning(t('prCard.localStash.blockedBranch', { base: r.base || branch, current: r.current ?? '?' }))
+        else if (r.reason === 'dirty') toast.warning(t('prCard.localStash.blockedDirty'))
+        else toast.error(t('prCard.localStash.failed'))
+      } else if (r.kind === 'busy') {
+        toast.info(t('prCard.operation.inProgress'))
+      } else if (r.kind === 'recovering') {
+        toast.info(t('common:prRecovery.inProgress'))
+      } else {
+        toast.error(t('prCard.localStash.failed'), { description: r.detail })
+      }
+    } finally {
+      setRestoringLocal(false)
     }
   }
 
@@ -1527,6 +1567,14 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           </ul>
         </div>
       )}
+
+      <LocalStashNotice
+        stash={envelope.localStash}
+        onRestore={() => void restoreLocalChanges()}
+        restoring={restoringLocal}
+        disabled={anyBusy}
+        agentBriefed
+      />
 
       {presentation.safetyArchives.length > 0 && (
         <details

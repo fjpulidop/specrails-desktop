@@ -447,7 +447,26 @@
     "retryDelivery": "Reintentar la entrega",
     "retryDeliveryHint": "Repite solo el paso final (commit, push y PR) sobre la rama de este run. No se rehace trabajo de IA.",
     "retryDeliverySent": "Reintentando la entrega…",
-    "retryDeliveryFailed": "No se pudo reintentar la entrega"
+    "retryDeliveryFailed": "No se pudo reintentar la entrega",
+    "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
+    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; el agente está resolviendo los conflictos.",
+    "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras.",
+    "localStash": {
+      "title": "Tus cambios locales están guardados en un stash",
+      "conflictBody": "Al volver a aplicarlos sobre el resultado integrado hubo conflictos, así que {{branch}} quedó exactamente como se integró. El agente los está restaurando en {{restoreBranch}}.",
+      "savedBody": "Todavía no se han restaurado. Restáuralos con {{branch}} en tu checkout.",
+      "files": "Archivos en conflicto",
+      "restore": "Restaurar mis cambios",
+      "restoring": "Restaurando…",
+      "copy": "Copiar nombre del stash",
+      "copied": "Nombre del stash copiado",
+      "restoredToast": "Tus cambios locales vuelven a estar en {{branch}}.",
+      "stillConflicting": "Tus cambios locales siguen en conflicto con {{branch}}; continúan a salvo en el stash.",
+      "released": "Ese stash ya no existe, así que no queda nada por restaurar.",
+      "blockedBranch": "Cambia primero a {{base}} (estás en {{current}}) y después restaura.",
+      "blockedDirty": "Algunos de esos archivos han vuelto a cambiar desde que se guardaron. Haz commit o mueve esas ediciones y después restaura.",
+      "failed": "No se pudieron restaurar tus cambios locales"
+    }
   },
   "specDraft": {
     "heading": "Borrador de spec",

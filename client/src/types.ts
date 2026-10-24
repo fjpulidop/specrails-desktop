@@ -416,6 +416,8 @@ export interface RailPrStateSnapshot {
   riskSummary?: PrDeliveryRiskSummary
   /** Flow → Spec stopped with requested changes (absent otherwise). */
   flowReview?: PrDeliveryFlowReview
+  /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
+  localStash?: PrDeliveryLocalStash
   /** The loop that produced this delivery (absent on older snapshots). */
   loopId?: string | null
   loopName?: string | null
@@ -586,6 +588,20 @@ export interface PrDeliveryRiskSummary {
   lowCount: number
   top: { severity: ReviewRiskSeverity; area: string | null; whatToLookAt: string; ref: string | null } | null
   diagnostic: boolean
+}
+
+/** The person's uncommitted work "Integrate locally" saved as a git stash
+ *  (by commit sha); mirrors server PrDeliveryLocalStash. `needs_attention`:
+ *  re-applying it conflicted, so the stash is kept. */
+export interface PrDeliveryLocalStash {
+  sha: string
+  name: string
+  branch: string
+  state: 'saved' | 'restored' | 'needs_attention' | 'released'
+  restoreBranch: string | null
+  conflictPaths: string[]
+  savedAt: string
+  updatedAt: string
 }
 
 /** Flow → Spec stopped with requested changes; mirrors server PrDeliveryFlowReview.

@@ -182,8 +182,102 @@ export interface RailPrDeliveryRow {
   follow_up: string | null
   /** JSON SpecAddendaSnapshotEntry[] frozen at launch (migration 63); NULL when the specs carried no addenda. */
   spec_addenda: string | null
+  /** JSON LocalStashRecord (migration 83): the user's uncommitted work saved
+   * by "Integrate locally"; NULL when nothing was stashed. */
+  local_stash?: string | null
   created_at: string
   updated_at: string
+}
+
+/**
+ * The user's own uncommitted work that "Integrate locally" saved as a git
+ * stash before advancing the target branch (proactive-local-integration).
+ * The stash is identified by its COMMIT sha — never `stash@{n}`, which shifts
+ * whenever anyone stashes — and is only dropped after a clean apply.
+ *  - `saved`: stashed, not yet restored (integration running, or interrupted;
+ *    startup recovery re-applies it).
+ *  - `restored`: applied cleanly and dropped.
+ *  - `needs_attention`: the apply conflicted with the integrated result; the
+ *    integrated tree was restored and the stash is KEPT for the agent / user.
+ *  - `released`: the stash entry is no longer present (the person applied or
+ *    dropped it themselves); Specrails holds nothing anymore.
+ */
+export type LocalStashState = 'saved' | 'restored' | 'needs_attention' | 'released'
+
+export interface LocalStashRecord {
+  sha: string
+  /** The stash message (`specrails: before integrating #… (<deliveryId>)`). */
+  name: string
+  /** The checkout the stash was taken from and must be restored into. */
+  checkoutPath: string
+  /** The branch that checkout was on (the integration target). */
+  branch: string
+  state: LocalStashState
+  /** Where the agent re-applies a conflicting stash (`specrails/restore-local-<short>`). */
+  restoreBranch: string | null
+  /** Bounded list of paths whose restore conflicted. */
+  conflictPaths: string[]
+  savedAt: string
+  updatedAt: string
+}
+
+/** The wire shape (no filesystem path). */
+export type LocalStashSnapshot = Omit<LocalStashRecord, 'checkoutPath'>
+
+const LOCAL_STASH_STATES: ReadonlySet<string> = new Set(['saved', 'restored', 'needs_attention', 'released'])
+
+export function readLocalStash(raw: string | null | undefined): LocalStashRecord | null {
+  if (!raw) return null
+  try {
+    const value = JSON.parse(raw) as Partial<LocalStashRecord> | null
+    if (!value || typeof value.sha !== 'string' || !/^[0-9a-f]{40,64}$/i.test(value.sha)) return null
+    if (typeof value.state !== 'string' || !LOCAL_STASH_STATES.has(value.state)) return null
+    return {
+      sha: value.sha,
+      name: typeof value.name === 'string' ? value.name : '',
+      checkoutPath: typeof value.checkoutPath === 'string' ? value.checkoutPath : '',
+      branch: typeof value.branch === 'string' ? value.branch : '',
+      state: value.state as LocalStashState,
+      restoreBranch: typeof value.restoreBranch === 'string' ? value.restoreBranch : null,
+      conflictPaths: Array.isArray(value.conflictPaths) ? value.conflictPaths.filter((p): p is string => typeof p === 'string').slice(0, 20) : [],
+      savedAt: typeof value.savedAt === 'string' ? value.savedAt : '',
+      updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Persist the local-stash record independently of the decision lease, like a
+ * safety archive: it points at the person's own work, so a raced decision CAS
+ * must never be able to lose it. Optionally move `status_code` off/onto
+ * `local_changes_attention` in the same statement (only from `fromStatus`).
+ */
+export function setPrDeliveryLocalStash(
+  db: DbInstance,
+  id: string,
+  record: LocalStashRecord,
+  status?: { from: PrDeliveryStatusCode; to: PrDeliveryStatusCode },
+): boolean {
+  const value = JSON.stringify({ ...record, conflictPaths: record.conflictPaths.slice(0, 20) })
+  if (status) {
+    db.prepare(`
+      UPDATE rail_pr_deliveries
+         SET status_code = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}
+       WHERE id = ? AND status_code = ?
+    `).run(status.to, id, status.from)
+  }
+  return db.prepare(`
+    UPDATE rail_pr_deliveries
+       SET local_stash = ?, updated_at = ${NEXT_PR_UPDATED_AT_SQL}
+     WHERE id = ?
+  `).run(value, id).changes > 0
+}
+
+/** Every delivery that still references a stash Specrails must restore or keep. */
+export function listPrDeliveriesWithLocalStash(db: DbInstance): RailPrDeliveryRow[] {
+  return db.prepare(`SELECT * FROM rail_pr_deliveries WHERE local_stash IS NOT NULL ORDER BY created_at`).all() as RailPrDeliveryRow[]
 }
 
 export interface CreatePrDeliveryInput {
@@ -965,6 +1059,8 @@ export interface PrDeliverySnapshot {
   riskSummary?: PrDeliveryRiskSummary
   /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks (absent otherwise). */
   flowReview?: FlowReviewOutcome
+  /** "Integrate locally" saved the person's uncommitted work as a stash (absent otherwise). */
+  localStash?: LocalStashSnapshot
   createdAt: string
   updatedAt: string
 }
@@ -1039,6 +1135,12 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
     ...(() => { const riskSummary = readDeliveryRiskSummary(row.settle_evidence); return riskSummary ? { riskSummary } : {} })(),
     ...(() => { const flowReview = legacyFlowReview?.flowReview ?? readFlowReviewOutcome(row); return flowReview ? { flowReview } : {} })(),
+    ...(() => {
+      const stash = readLocalStash(row.local_stash)
+      if (!stash) return {}
+      const { checkoutPath: _checkoutPath, ...localStash } = stash
+      return { localStash }
+    })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -1081,6 +1183,7 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     originConversationId: snap.originConversationId,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    ...(snap.localStash ? { localStash: snap.localStash } : {}),
     loopId: snap.loopId,
     loopName: snap.loopName || null,
     createdAt: snap.createdAt,
@@ -1123,6 +1226,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     runIds: snap.runIds,
     ...(snap.riskSummary ? { riskSummary: snap.riskSummary } : {}),
     ...(snap.flowReview ? { flowReview: snap.flowReview } : {}),
+    ...(snap.localStash ? { localStash: snap.localStash } : {}),
     loopId: snap.loopId,
     loopName: snap.loopName || null,
     createdAt: snap.createdAt,

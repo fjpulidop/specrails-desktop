@@ -478,6 +478,8 @@ export interface AgentPrDecisionEnvelope {
   riskSummary?: import('../../../types').PrDeliveryRiskSummary
   /** Flow → Spec stopped with requested changes: the reviewer's issues and failing checks. */
   flowReview?: import('../../../types').PrDeliveryFlowReview
+  /** "Integrate locally" saved the person's uncommitted work as a stash. */
+  localStash?: import('../../../types').PrDeliveryLocalStash
   /** The loop that produced the delivery (absent on older cards). */
   loopId?: string | null
   loopName?: string | null
@@ -579,6 +581,7 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
     ...(snapshot.riskSummary ? { riskSummary: snapshot.riskSummary } : {}),
     ...(snapshot.flowReview ? { flowReview: snapshot.flowReview } : {}),
+    ...(snapshot.localStash ? { localStash: snapshot.localStash } : {}),
     ...(snapshot.loopId ? { loopId: snapshot.loopId } : {}),
     ...(snapshot.loopName ? { loopName: snapshot.loopName } : {}),
   }
@@ -599,6 +602,70 @@ const PR_DECISION_ACTION_VALUES: readonly AgentPrDecisionAction[] = [
   'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
 ]
 
+/** The saved-local-changes part of an integrate / restore response. */
+export interface LocalChangesOutcome {
+  state: 'saved' | 'restored' | 'needs_attention' | 'released'
+  stashName: string
+  stashSha: string
+  branch: string
+  restoreBranch: string | null
+  conflictPaths: string[]
+}
+
+const LOCAL_CHANGES_STATES: readonly string[] = ['saved', 'restored', 'needs_attention', 'released']
+
+export function coerceLocalChanges(v: unknown): LocalChangesOutcome | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.state !== 'string' || !LOCAL_CHANGES_STATES.includes(o.state)) return null
+  return {
+    state: o.state as LocalChangesOutcome['state'],
+    stashName: typeof o.stashName === 'string' ? o.stashName : '',
+    stashSha: typeof o.stashSha === 'string' ? o.stashSha : '',
+    branch: typeof o.branch === 'string' ? o.branch : '',
+    restoreBranch: typeof o.restoreBranch === 'string' && o.restoreBranch ? o.restoreBranch : null,
+    conflictPaths: Array.isArray(o.conflictPaths) ? o.conflictPaths.filter((p): p is string => typeof p === 'string') : [],
+  }
+}
+
+export type RestoreLocalChangesOutcome =
+  | { kind: 'ok'; localChanges: LocalChangesOutcome | null; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty' | 'unavailable'; current: string | null; base: string; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'busy'; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'recovering' }
+  | { kind: 'failed'; detail: string }
+
+/**
+ * "Restore my changes": re-apply the stash "Integrate locally" saved. Project
+ * base from the card's own `projectId` (see postRailPrDecision). Never throws
+ * on HTTP errors.
+ */
+export async function postRestoreLocalChanges(projectId: string, prDeliveryId: string): Promise<RestoreLocalChangesOutcome> {
+  let res: Response
+  let data: Record<string, unknown> | null = null
+  try {
+    res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-local-changes/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prDeliveryId }),
+    })
+    data = await parseApiJson<Record<string, unknown>>(res)
+  } catch (error) {
+    return { kind: 'failed', detail: error instanceof Error ? error.message : i18n.t('network.invalidResponse', { ns: 'common' }) }
+  }
+  const snapshot = coerceRailPrStateSnapshot(data?.snapshot)
+  if (res.ok) return { kind: 'ok', localChanges: coerceLocalChanges(data?.localChanges), snapshot }
+  if (res.status === 409) {
+    if (data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
+    if (data?.error === 'operation_in_progress') return { kind: 'busy', snapshot }
+    if (data?.error === 'local_restore_blocked') {
+      const reason = data.reason === 'wrong_branch' || data.reason === 'dirty' ? data.reason : 'unavailable'
+      return { kind: 'blocked', reason, current: typeof data.current === 'string' ? data.current : null, base: typeof data.base === 'string' ? data.base : '', snapshot }
+    }
+  }
+  return { kind: 'failed', detail: String(data?.detail ?? data?.error ?? `HTTP ${res.status}`) }
+}
+
 export type AgentPrDecisionOutcome =
   | {
       kind: 'ok'
@@ -612,6 +679,8 @@ export type AgentPrDecisionOutcome =
       remoteHeadSha: string | null
       pushed: boolean | null
       recoveryUnavailable: boolean
+      /** "Integrate locally" saved the person's uncommitted work (absent otherwise). */
+      localChanges: LocalChangesOutcome | null
       snapshot: RailPrStateSnapshot | null
     }
   /** Startup reconciliation owns the project; no decision effect was run. */
@@ -663,6 +732,7 @@ export async function postRailPrDecision(
       remoteHeadSha: typeof data?.remoteHeadSha === 'string' ? data.remoteHeadSha : null,
       pushed: typeof data?.pushed === 'boolean' ? data.pushed : null,
       recoveryUnavailable: data?.recoveryUnavailable === true,
+      localChanges: coerceLocalChanges(data?.localChanges),
       snapshot,
     }
   }
@@ -734,6 +804,7 @@ export function agentEnvelopeFromSnapshot(
     repositoryDeliveries: snapshot.repositoryDeliveries,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
+    localStash: snapshot.localStash,
   }
 }
 

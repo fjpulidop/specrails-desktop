@@ -447,7 +447,26 @@
     "retryDelivery": "Riprova la consegna",
     "retryDeliveryHint": "Ripete solo l’ultimo passo (commit, push e PR) sul branch di questa esecuzione. Nessun lavoro dell’IA viene rifatto.",
     "retryDeliverySent": "Nuovo tentativo di consegna…",
-    "retryDeliveryFailed": "Impossibile riprovare la consegna"
+    "retryDeliveryFailed": "Impossibile riprovare la consegna",
+    "mergedLocallyRestored": "Ho salvato le tue modifiche locali, integrato {{tickets}} e le ho ripristinate.",
+    "mergedLocallyStashConflict": "{{tickets}} integrato. Le tue modifiche locali sono al sicuro in uno stash; l'agente sta risolvendo i conflitti.",
+    "mergedLocallyStashKept": "{{tickets}} integrato. Le tue modifiche locali sono al sicuro in uno stash; ripristinale quando vuoi.",
+    "localStash": {
+      "title": "Le tue modifiche locali sono salvate in uno stash",
+      "conflictBody": "Riapplicarle sul risultato integrato ha generato conflitti, quindi {{branch}} è rimasto esattamente come integrato. L'agente le sta ripristinando su {{restoreBranch}}.",
+      "savedBody": "Non sono ancora state ripristinate. Ripristinale mentre {{branch}} è in checkout.",
+      "files": "File in conflitto",
+      "restore": "Ripristina le mie modifiche",
+      "restoring": "Ripristino…",
+      "copy": "Copia nome dello stash",
+      "copied": "Nome dello stash copiato",
+      "restoredToast": "Le tue modifiche locali sono di nuovo su {{branch}}.",
+      "stillConflicting": "Le tue modifiche locali sono ancora in conflitto con {{branch}}; restano al sicuro nello stash.",
+      "released": "Quello stash non esiste più, quindi non c'è nulla da ripristinare.",
+      "blockedBranch": "Passa prima a {{base}} (sei su {{current}}), poi ripristina.",
+      "blockedDirty": "Alcuni di quei file sono cambiati di nuovo da quando sono stati salvati. Fai commit o sposta quelle modifiche, poi ripristina.",
+      "failed": "Impossibile ripristinare le tue modifiche locali"
+    }
   },
   "specDraft": {
     "heading": "Bozza della spec",

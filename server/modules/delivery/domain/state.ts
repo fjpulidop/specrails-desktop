@@ -71,6 +71,8 @@ export type PrDeliveryStatusCode =
   | 'review_changes_requested'
   /** The adopted Flow worktree went back to its Flow ("Back to Flow"); this delivery is closed. */
   | 'returned_to_flow'
+  /** Integrated locally, but re-applying the person's stashed uncommitted work conflicted; the stash is kept. */
+  | 'local_changes_attention'
 
 export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 

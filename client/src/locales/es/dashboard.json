@@ -168,7 +168,10 @@
     },
     "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo.",
     "reviewChangesRequested": "Cambios solicitados",
-    "reviewChangesRequestedHint": "El paso de Flow a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar."
+    "reviewChangesRequestedHint": "El paso de Flow a un rail aún necesita cambios. Abre su tarjeta de misión para volver a Flow o relanzar.",
+    "mergedLocallyRestored": "Guardé tus cambios locales, integré {{tickets}} y los restauré.",
+    "mergedLocallyStashConflict": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; el agente está resolviendo los conflictos.",
+    "mergedLocallyStashKept": "Integrado {{tickets}}. Tus cambios locales están a salvo en un stash; restáuralos cuando quieras."
   },
   "railsBoard": {
     "title": "Rails",

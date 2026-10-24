@@ -85,7 +85,8 @@
     "ref_mismatch": "分支引用不匹配",
     "restart_pending": "等待工作流恢复",
     "review_changes_requested": "审阅者要求修改",
-    "returned_to_flow": "已退回 Flow"
+    "returned_to_flow": "已退回 Flow",
+    "local_changes_attention": "已集成 — 本地更改需要处理"
   },
   "prRecovery": {
     "inProgress": "项目恢复仍在进行中。你的交付内容是安全的，请稍后重试。",

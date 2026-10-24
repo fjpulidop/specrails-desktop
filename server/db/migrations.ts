@@ -1920,6 +1920,15 @@ const MIGRATIONS: Migration[] = [
     if (!cols.has('spec_origin')) db.exec("ALTER TABLE flow_sessions ADD COLUMN spec_origin TEXT CHECK (spec_origin IS NULL OR spec_origin IN ('placeholder','existing'))")
   },
 
+  // Migration 83: rail_pr_deliveries.local_stash — JSON LocalStashRecord of the
+  // user's own uncommitted changes that "Integrate locally" saved as a git stash
+  // (by commit sha) before advancing the target branch. Durable so a restart
+  // between stash and restore re-applies them; NULL on every other delivery.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(rail_pr_deliveries)').all() as Array<{ name: string }>).map((c) => c.name))
+    if (!cols.has('local_stash')) db.exec('ALTER TABLE rail_pr_deliveries ADD COLUMN local_stash TEXT')
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

@@ -168,7 +168,10 @@
     "mergedLocally": "ローカルで {{base}} に統合しました",
     "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。",
     "reviewChangesRequested": "変更依頼",
-    "reviewChangesRequestedHint": "Flow の引き渡しにはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。"
+    "reviewChangesRequestedHint": "Flow の引き渡しにはまだ変更が必要です。ミッションカードから Flow に戻るか再実行してください。",
+    "mergedLocallyRestored": "ローカル変更を退避し、{{tickets}} を統合してから元に戻しました。",
+    "mergedLocallyStashConflict": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。エージェントが競合を解決しています。",
+    "mergedLocallyStashKept": "{{tickets}} を統合しました。ローカル変更は stash に安全に保存されています。準備ができたら復元してください。"
   },
   "railsBoard": {
     "title": "レール",

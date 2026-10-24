@@ -16,6 +16,20 @@ Run `npx vitest run server/modules/delivery server/modules/delivery/runtime/rail
 [Pure policy tests](__tests__/decision-policy.test.ts) protect remote PR authority,
 degraded drafts and continuation recovery prerequisites.
 
+## Local integration with uncommitted work
+
+`merge-local` stashes the person's uncommitted work when it overlaps the
+delivery, integrates, then re-applies it. The stash is identified by commit
+sha, recorded in `rail_pr_deliveries.local_stash` (migration 83), applied
+(never popped) and dropped only after a clean apply. On conflict, only the
+stash's own paths go back to `HEAD`. The stash is kept, the delivery becomes
+`merged` / `local_changes_attention`, and the origin mission agent is briefed.
+Git effects: [`runtime/local-stash.ts`](runtime/local-stash.ts). Body, briefing,
+`POST /rails/pr-local-changes/restore` and startup recovery:
+[`adapters/decisions/local-changes.ts`](adapters/decisions/local-changes.ts).
+Real-Git tests: [`runtime/local-stash.test.ts`](runtime/local-stash.test.ts). See the
+[safe PR guide](../../../docs/internals/safe-pr-review-flow.md).
+
 ## Review WIP limit
 
 [`domain/review-wip.ts`](domain/review-wip.ts) is the pure rule. `countPendingReview` counts
@@ -43,6 +57,7 @@ the daily budget gate. Tests: [`__tests__/review-wip.test.ts`](__tests__/review-
 - [runtime/pr-publisher.ts](runtime/pr-publisher.ts)
 - [runtime/rail-isolated-launch.ts](runtime/rail-isolated-launch.ts)
 - [runtime/rail-isolation.ts](runtime/rail-isolation.ts)
+- [runtime/rail-pr-decision.ts](runtime/rail-pr-decision.ts)
 - [runtime/rail-pr-store.ts](runtime/rail-pr-store.ts)
 - [runtime/rail-pr-ticket-effects.ts](runtime/rail-pr-ticket-effects.ts)
 - [runtime/rails-router.ts](runtime/rails-router.ts)

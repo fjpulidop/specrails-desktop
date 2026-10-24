@@ -168,7 +168,10 @@
     "mergedLocally": "Intégré dans {{base}} en local",
     "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail.",
     "reviewChangesRequested": "Modifications demandées",
-    "reviewChangesRequestedHint": "La remise du Flow a encore besoin de modifications. Ouvrez sa carte de mission pour revenir dans Flow ou relancer."
+    "reviewChangesRequestedHint": "La remise du Flow a encore besoin de modifications. Ouvrez sa carte de mission pour revenir dans Flow ou relancer.",
+    "mergedLocallyRestored": "Vos modifications locales ont été mises de côté, {{tickets}} a été intégré, puis elles ont été restaurées.",
+    "mergedLocallyStashConflict": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; l'agent résout les conflits.",
+    "mergedLocallyStashKept": "{{tickets}} intégré. Vos modifications locales sont en sécurité dans un stash ; restaurez-les quand vous voulez."
   },
   "railsBoard": {
     "title": "Rails",

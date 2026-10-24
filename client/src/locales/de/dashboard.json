@@ -168,7 +168,10 @@
     "mergedLocally": "Lokal in {{base}} integriert",
     "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit.",
     "reviewChangesRequested": "Änderungen angefordert",
-    "reviewChangesRequestedHint": "Die Flow-Übergabe braucht noch Änderungen. Öffne die Missionskarte, um zum Flow zurückzukehren oder neu zu starten."
+    "reviewChangesRequestedHint": "Die Flow-Übergabe braucht noch Änderungen. Öffne die Missionskarte, um zum Flow zurückzukehren oder neu zu starten.",
+    "mergedLocallyRestored": "Deine lokalen Änderungen wurden gesichert, {{tickets}} integriert und anschließend wiederhergestellt.",
+    "mergedLocallyStashConflict": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; der Agent löst die Konflikte.",
+    "mergedLocallyStashKept": "{{tickets}} integriert. Deine lokalen Änderungen sind sicher in einem Stash; stelle sie wieder her, wenn du so weit bist."
   },
   "railsBoard": {
     "title": "Rails",

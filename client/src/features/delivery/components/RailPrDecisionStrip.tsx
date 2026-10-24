@@ -199,7 +199,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         toast.info(t('railPr.notMergedYet'))
       }
       if (action === 'merge-local' && res.decision === 'merged') {
-        toast.success(t('railPr.mergedLocally', { base: targetBase }))
+        const tickets = decision.ticketIds.map((id) => `#${id}`).join(', ')
+        const stash = res.localChanges
+        const agent = !!decision.originConversationId
+        if (stash?.state === 'restored') toast.success(t('railPr.mergedLocallyRestored', { tickets }))
+        else if (stash?.state === 'needs_attention' && agent) toast.warning(t('railPr.mergedLocallyStashConflict', { tickets }), { description: stash.stashName })
+        else if (stash?.state === 'needs_attention' || stash?.state === 'saved') toast.warning(t('railPr.mergedLocallyStashKept', { tickets }), { description: stash.stashName })
+        else toast.success(t('railPr.mergedLocally', { base: targetBase }))
       }
       if (action === 'recover-and-retry') {
         if (res.deliveryVerified) {

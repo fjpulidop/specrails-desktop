@@ -168,7 +168,10 @@
     "mergedLocally": "Integrado em {{base}} localmente",
     "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho.",
     "reviewChangesRequested": "Alterações solicitadas",
-    "reviewChangesRequestedHint": "A passagem do Flow a um rail ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar."
+    "reviewChangesRequestedHint": "A passagem do Flow a um rail ainda precisa de alterações. Abra o cartão da missão para voltar ao Flow ou relançar.",
+    "mergedLocallyRestored": "Guardei as suas alterações locais, integrei {{tickets}} e restaurei-as.",
+    "mergedLocallyStashConflict": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; o agente está a resolver os conflitos.",
+    "mergedLocallyStashKept": "{{tickets}} integrado. As suas alterações locais estão seguras num stash; restaure-as quando quiser."
   },
   "railsBoard": {
     "title": "Rails",
