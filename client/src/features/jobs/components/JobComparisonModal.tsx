@@ -39,8 +39,8 @@ function CompareRow({ label, a, b, highlight }: RowProps) {
   return (
     <div className="grid grid-cols-3 gap-2 py-2 border-b border-border/20 last:border-0 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`tabular-nums text-right ${highlight === 'a' ? 'text-accent-success font-semibold' : ''}`}>{a}</span>
-      <span className={`tabular-nums text-right ${highlight === 'b' ? 'text-accent-success font-semibold' : ''}`}>{b}</span>
+      <span className={`num text-right ${highlight === 'a' ? 'text-accent-success font-semibold' : ''}`}>{a}</span>
+      <span className={`num text-right ${highlight === 'b' ? 'text-accent-success font-semibold' : ''}`}>{b}</span>
     </div>
   )
 }

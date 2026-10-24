@@ -292,14 +292,14 @@ export function InteractiveJobComposer({
             </span>
           )}
           {state.queued > 0 && (
-            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[11px] tabular-nums text-accent-info u-fade">
+            <span className="rounded-full border border-accent-info/30 bg-accent-info/10 px-1.5 py-px text-[11px] num text-accent-info u-fade">
               {t('detail.interactive.queued', { count: state.queued })}
             </span>
           )}
         </span>
         <span className="flex shrink-0 items-center gap-3">
           {state.totals && (
-            <span className="tabular-nums">
+            <span className="num">
               {t('detail.interactive.liveTotals', {
                 turns: state.totals.num_turns ?? t('completion.unavailable'),
                 cost: state.totals.total_cost_usd?.toFixed(4) ?? t('completion.unavailable'),

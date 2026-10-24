@@ -165,7 +165,7 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     <section className="rounded-xl border border-border/50 bg-card p-4 space-y-3" aria-label={t('loopEconomics.title')} data-testid="loop-economics-card">
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-accent-highlight" aria-hidden="true" />
-        <h3 className="text-sm font-medium">{t('loopEconomics.title')}</h3>
+        <h3 className="text-strong">{t('loopEconomics.title')}</h3>
         <span className="text-[11px] text-muted-foreground">{t('loopEconomics.subtitle')}</span>
       </div>
       {failed && <p role="status" className="text-xs text-destructive">{t('loopEconomics.unavailable')}</p>}
@@ -190,7 +190,7 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
                 <tr key={loop.loopId ?? `name:${loop.loopName}`} className="border-t border-border/30" data-testid="loop-economics-row">
                   <th scope="row" className="py-1.5 pr-3 text-left font-normal whitespace-nowrap">{loop.loopName || t('loopEconomics.unnamedLoop')}</th>
                   {loop.hasData
-                    ? cells(loop).map((cell, index) => <td key={columns[index]} className="py-1.5 pr-3 text-right tabular-nums whitespace-nowrap">{cell}</td>)
+                    ? cells(loop).map((cell, index) => <td key={columns[index]} className="py-1.5 pr-3 text-right num whitespace-nowrap">{cell}</td>)
                     : <td colSpan={columns.length} className="py-1.5 pr-3 text-left text-muted-foreground">{t('loopEconomics.noData')}</td>}
                 </tr>
               ))}

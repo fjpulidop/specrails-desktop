@@ -70,7 +70,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
       aria-label={t('spendingLine.ariaLabel')}
     >
       <span
-        className="tabular-nums font-medium text-foreground"
+        className="num font-medium text-foreground"
         data-testid={costUnavailable ? 'ticket-cost-unavailable' : undefined}
         title={
           costUnavailable
@@ -88,7 +88,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
       </span>
       <span className="text-muted-foreground">·</span>
       <span
-        className="tabular-nums"
+        className="num"
         data-testid={turnsUnavailable ? 'ticket-turns-unavailable' : undefined}
         title={
           turnsUnavailable
@@ -103,7 +103,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
           : `${turnsPartiallyUnavailable ? '≥' : ''}${t('spendingLine.turns', { count: summary.totalTurns })}`}
       </span>
       <span className="text-muted-foreground">·</span>
-      <span className="tabular-nums">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
+      <span className="num">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
       {breakdown && (
         <>
           <span className="text-muted-foreground">·</span>

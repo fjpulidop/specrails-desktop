@@ -75,7 +75,7 @@ export default function ActivityFeedPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-background/50">
         <Activity className="w-4 h-4 text-muted-foreground" />
-        <h1 className="text-sm font-medium">{t('feed.title')}</h1>
+        <h1 className="text-headline">{t('feed.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -109,7 +109,7 @@ export default function ActivityFeedPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground flex-shrink-0 tabular-nums">
+                <span className="text-xs text-muted-foreground flex-shrink-0 num">
                   {formatRelativeTime(item.timestamp, t)}
                 </span>
               </li>

@@ -314,7 +314,7 @@ export default function AnalyticsPage() {
       <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border/40">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-base font-semibold tracking-tight">{t('page.title')}</h1>
+            <h1 className="text-headline">{t('page.title')}</h1>
             {filters.ticketId && (
               <button
                 type="button"

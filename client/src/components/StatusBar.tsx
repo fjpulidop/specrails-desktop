@@ -133,6 +133,7 @@ export function StatusBar({ connectionStatus, rightSlot, minimal = false }: Stat
           return (
             <span
               data-estimated={estimated ? 'true' : undefined}
+              className="num"
               data-testid={unavailable ? 'statusbar-cost-unavailable' : undefined}
               title={
                 unavailable

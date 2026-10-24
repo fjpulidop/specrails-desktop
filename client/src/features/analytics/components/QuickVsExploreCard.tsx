@@ -61,7 +61,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
       ) : (
         <>
           <div
-            className="text-3xl font-semibold tabular-nums tracking-tight"
+            className="text-3xl font-semibold num tracking-tight"
             data-estimated={isEstimated ? 'true' : undefined}
             title={
               costUnavailable
@@ -78,7 +78,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
             {costUnavailable ? t('quickVsExplore.costUnavailable') : t('quickVsExplore.perSpec')}
           </div>
           <div className="mt-3"><Sparkline values={mode.sparkline.length > 0 ? mode.sparkline : [0]} /></div>
-          <div className="mt-3 space-y-0.5 text-xs tabular-nums text-muted-foreground">
+          <div className="mt-3 space-y-0.5 text-xs num text-muted-foreground">
             <div>
               <Trans
                 ns="analytics"
@@ -119,7 +119,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40">
       <div className="px-4 pt-3 pb-1">
-        <h2 className="text-xs font-medium text-muted-foreground">{t('quickVsExplore.title')}</h2>
+        <h2 className="text-strong">{t('quickVsExplore.title')}</h2>
       </div>
       <div className="flex divide-x divide-border/40">
         <ModeColumn mode={quick} label={t('quickVsExplore.quick')} accentClass="bg-accent-secondary" />
@@ -127,7 +127,7 @@ export function QuickVsExploreCard({ data, loading }: Props) {
       </div>
       {showRatio && (
         <div className="px-4 pb-3 -mt-1">
-          <div className="text-center text-[11px] text-muted-foreground tabular-nums">
+          <div className="text-center text-[11px] text-muted-foreground num">
             <span className="px-2">━━━━━━ {t('quickVsExplore.ratio', { ratio: ratio!.toFixed(1) })} ━━━━━━</span>
           </div>
         </div>

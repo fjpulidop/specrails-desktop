@@ -396,7 +396,7 @@ const PhaseGroupSection = memo(function PhaseGroupSection({
           {phaseContent}
         </span>
         {group.header.timestamp && (
-          <span className="text-[11px] text-muted-foreground font-mono tabular-nums shrink-0">
+          <span className="text-[11px] text-muted-foreground font-mono num shrink-0">
             {new Date(group.header.timestamp).toLocaleTimeString(i18n.language, {
               hour: '2-digit',
               minute: '2-digit',
@@ -505,7 +505,7 @@ export const LogLine = memo(function LogLine({
       )}
     >
       {line.timestamp && (
-        <span className="text-[11px] text-muted-foreground shrink-0 mt-0.5 w-[52px] font-mono tabular-nums">
+        <span className="text-[11px] text-muted-foreground shrink-0 mt-0.5 w-[52px] font-mono num">
           {new Date(line.timestamp).toLocaleTimeString(i18n.language, {
             hour: '2-digit',
             minute: '2-digit',

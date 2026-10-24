@@ -20,7 +20,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-      <h2 className="text-xs font-medium text-muted-foreground mb-3">{t('topTickets.title')}</h2>
+      <h2 className="text-strong mb-3">{t('topTickets.title')}</h2>
       {list.length === 0 ? (
         <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">{t('topTickets.empty')}</div>
       ) : (
@@ -52,7 +52,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                     <div className="text-sm truncate">{label}</div>
                     <div className="text-[11px] text-muted-foreground truncate">{breakdown || '—'}</div>
                   </div>
-                  <div className="text-right tabular-nums">
+                  <div className="text-right num">
                     <div
                       className="text-sm font-medium"
                       title={

@@ -435,8 +435,8 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
             <Puzzle className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-normal">{t('plugins.page.title')}</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <h1 className="text-headline">{t('plugins.page.title')}</h1>
+            <p className="mt-0.5 text-caption text-muted-foreground">
               {t('plugins.page.subtitle')}
             </p>
           </div>

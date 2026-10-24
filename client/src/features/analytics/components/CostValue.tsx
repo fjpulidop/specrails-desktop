@@ -24,9 +24,9 @@ export function CostValue({ usd, estimated = false, unavailable = false, placeho
     return <span className={className}>{placeholder}</span>
   }
   const amount = formatUsd(usd, i18n?.language)
-  if (!estimated) return <span className={cn('tabular-nums', className)}>{amount}</span>
+  if (!estimated) return <span className={cn('num', className)}>{amount}</span>
   return (
-    <span className={cn('tabular-nums', className)} title={t('table.estimatedCostTooltip')}>
+    <span className={cn('num', className)} title={t('table.estimatedCostTooltip')}>
       <span aria-hidden>~</span>
       {amount}
       <span className="sr-only"> {t('common:estimated')}</span>

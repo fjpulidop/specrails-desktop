@@ -146,7 +146,7 @@ export default function JobsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-sm font-semibold">{t('page.title')}</h1>
+        <h1 className="text-headline">{t('page.title')}</h1>
         <ExportDropdown
           baseUrl={`${getApiBase()}/jobs/export`}
           label={t('page.exportJobs')}

@@ -129,7 +129,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
     <div className="flex items-center gap-2.5 rounded-md border border-border/30 px-2.5 py-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${providerAccent(entry.provider)}`} />
       <span className="text-xs font-medium">{providerLabel(entry.provider)}</span>
-      <span className="text-[11px] text-muted-foreground tabular-nums">
+      <span className="text-[11px] text-muted-foreground num">
         {t('runs', { count: entry.count })}
       </span>
       {costUnavailable ? (
@@ -141,7 +141,7 @@ function ProviderRow({ entry }: { entry: ByProviderEntry }) {
         </span>
       ) : (
         <span
-          className="ml-auto text-xs font-medium tabular-nums"
+          className="ml-auto text-xs font-medium num"
           title={costPartiallyUnavailable ? t('providerCard.costPartiallyUnavailableTooltip') : undefined}
         >
           {allEstimated ? '~' : ''}{fmtUsd(sum)}

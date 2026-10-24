@@ -290,8 +290,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
           <div className="flex items-center gap-2.5">
             <Workflow className="w-5 h-5 text-accent-primary" />
             <div>
-              <h1 className="text-lg font-semibold text-foreground">{t('title')}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">{t('subtitle')}</p>
+              <h1 className="text-headline text-foreground">{t('title')}</h1>
+              <p className="text-caption text-muted-foreground mt-0.5">{t('subtitle')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

@@ -104,7 +104,7 @@ function DesktopKpiCards({ kpi }: { kpi: EstimatedKpi }) {
             data-estimated={card.estimated ? 'true' : undefined}
           >
             <p className="text-xs text-muted-foreground mb-1">{card.label}</p>
-            <p className="text-xl font-semibold tabular-nums">{card.value}</p>
+            <p className="text-xl font-semibold num">{card.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
           </div>
         ))}
@@ -151,7 +151,7 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium">{t('desktop.costOverTime')}</h3>
+        <h3 className="text-strong">{t('desktop.costOverTime')}</h3>
         {anyEstimated && (
           <span
             data-testid="timeline-estimated-note"
@@ -232,7 +232,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
   if (projects.length === 0) {
     return (
       <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-        <h3 className="text-sm font-medium mb-3">{t('desktop.projectComparison')}</h3>
+        <h3 className="text-strong mb-3">{t('desktop.projectComparison')}</h3>
         <p className="text-xs text-muted-foreground">{t('desktop.noProjects')}</p>
       </div>
     )
@@ -242,7 +242,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-      <h3 className="text-sm font-medium mb-4">{t('desktop.projectComparison')}</h3>
+      <h3 className="text-strong mb-4">{t('desktop.projectComparison')}</h3>
       <div className="space-y-3">
         {projects.map((p, idx) => {
           const estimated = p.estimatedCostUsd ?? 0
@@ -262,7 +262,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
                 <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
                 <span>{t('desktop.successPct', { pct: (p.successRate * 100).toFixed(0) })}</span>
                 <span
-                  className="tabular-nums text-foreground"
+                  className="num text-foreground"
                   title={costPartiallyUnavailable ? t('desktop.costPartiallyUnavailable', { count: unpricedRuns }) : undefined}
                 >
                   {costUnavailable
@@ -300,7 +300,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
 
   return (
     <div className="rounded-lg border border-border/40 bg-card/50 p-4">
-      <h3 className="text-sm font-medium mb-3">{t('desktop.costByProject')}</h3>
+      <h3 className="text-strong mb-3">{t('desktop.costByProject')}</h3>
       {!hasKnownCost && hasUnavailableCost ? (
         <div
           data-testid="desktop-project-cost-unavailable"
@@ -485,7 +485,7 @@ export default function DesktopAnalyticsPage({ inDialog = false }: { inDialog?: 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            <h1 className="text-sm font-semibold">{t('desktop.title')}</h1>
+            <h1 className="text-headline">{t('desktop.title')}</h1>
             <span data-testid="analytics-window-label" className="text-xs text-muted-foreground">{windowLabel}</span>
           </div>
           <div className="flex items-center gap-3">{headerActions}</div>

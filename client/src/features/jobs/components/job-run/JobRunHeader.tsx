@@ -169,7 +169,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
         </Tooltip>
         <span
-          className={cn('inline-flex items-center gap-1.5 text-xs tabular-nums', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
+          className={cn('inline-flex items-center gap-1.5 text-xs num', isRunning ? 'text-accent-info font-medium' : 'text-muted-foreground')}
           title={isRunning ? t('statusPanel.liveTooltip') : t('statusPanel.duration')}
         >
           {isRunning && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-info motion-safe:animate-pulse" aria-hidden />}
@@ -182,7 +182,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </span>
         )}
         {!liveLine && <span className="flex-1" />}
-        {stepsLabel && <span className="text-xs text-muted-foreground tabular-nums shrink-0">{stepsLabel}</span>}
+        {stepsLabel && <span className="text-xs text-muted-foreground num shrink-0">{stepsLabel}</span>}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {runtimeActions}
           {actions}
@@ -325,7 +325,7 @@ function Metric({ label, value, valueClass, naCaption, naTooltip }: {
   return (
     <div className="bg-muted/20 rounded-lg px-2.5 py-1.5" title={value == null ? naTooltip : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('text-sm font-semibold tabular-nums', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
+      <p className={cn('text-sm font-semibold num', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
       {value == null && naCaption && <p className="text-xs text-muted-foreground">{naCaption}</p>}
     </div>
   )

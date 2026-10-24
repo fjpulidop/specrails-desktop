@@ -130,13 +130,13 @@ export function SpendingHero({ data, loading, period }: Props) {
     <section aria-labelledby="spending-hero-title" className="rounded-xl border border-border/50 bg-card/60 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <h2 id="spending-hero-title" className="text-sm font-medium text-foreground mb-1">
+          <h2 id="spending-hero-title" className="text-strong text-foreground mb-1">
             {t('hero.spending')}
             {windowLabel && <span data-testid="hero-window-label"> · {windowLabel}</span>}
           </h2>
           <div className="flex items-baseline gap-3">
             <div
-              className="text-4xl font-semibold tabular-nums tracking-tight"
+              className="text-4xl font-semibold num tracking-tight"
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
@@ -151,7 +151,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               </span>
             )}
           </div>
-          <div className="text-xs text-muted-foreground mt-1 tabular-nums flex items-center gap-2">
+          <div className="text-xs text-muted-foreground mt-1 num flex items-center gap-2">
             <span>{t('hero.invocations', { count: totalRuns })}</span>
             {usageUnavailable ? (
               <span
@@ -247,7 +247,7 @@ export function SpendingHero({ data, loading, period }: Props) {
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
             {segments.filter((s) => s.costUsd > 0).map((seg) => (
-              <span key={seg.surface} className="inline-flex items-center gap-1.5 tabular-nums">
+              <span key={seg.surface} className="inline-flex items-center gap-1.5 num">
                 <span className={`w-2 h-2 rounded-full ${SURFACE_ACCENT[seg.surface].dot}`} />
                 <span className="text-muted-foreground">{SURFACE_LABEL[seg.surface]}</span>
                 <span className="text-foreground font-medium">{fmtUsd(seg.costUsd)}</span>

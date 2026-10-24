@@ -87,9 +87,9 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="text-base font-semibold">{t('page.title')}</h1>
+        <h1 className="text-headline">{t('page.title')}</h1>
         {config && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             {config.project.name}
             {config.project.repo && ` · ${config.project.repo}`}
           </p>

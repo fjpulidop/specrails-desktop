@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from '../../../../components/ui/dialog'
 
 /** Matches a CostValue estimate (`~` + amount + sr-only "estimated"). */
 const estimatedCost = (amount: string) => (_content: string, el: Element | null) =>
-  !!el && el.getAttribute('title') != null && el.classList.contains('tabular-nums')
+  !!el && el.getAttribute('title') != null && el.classList.contains('num')
   && (el.textContent ?? '').replace(/\s*estimated$/, '') === `~${amount}`
 
 // Mock recharts

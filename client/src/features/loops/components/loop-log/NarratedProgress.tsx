@@ -81,7 +81,7 @@ export function NarratedProgress({
             })}
           </span>
         ) : null}
-        <span className="ml-auto italic opacity-70">{t('aiNote')}</span>
+        <span className="ml-auto text-caption text-muted-foreground">{t('aiNote')}</span>
       </div>
 
       <ol className={`flex-1 space-y-1 px-3 py-2 ${variant === 'glass' ? 'overflow-y-auto' : ''}`} data-testid="narration-list">

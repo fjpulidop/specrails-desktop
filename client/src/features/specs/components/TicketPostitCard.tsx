@@ -225,7 +225,7 @@ export function TicketPostitCard({
         {/* Header: id + parent-epic chip (left) · priority pills (right) */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-mono text-muted-foreground shrink-0">#{ticket.id}</span>
+            <span className="text-[11px] font-mono num text-muted-foreground shrink-0">#{ticket.id}</span>
             {isChildOfEpic && parentEpicTitle && ticket.parent_epic_id != null && (
               <button
                 type="button"
@@ -316,7 +316,7 @@ export function TicketPostitCard({
         </div>
 
         {/* Title — up to 2 lines */}
-        <h3 className="text-sm font-medium leading-snug line-clamp-2 text-foreground">
+        <h3 className="text-strong leading-snug line-clamp-2 text-foreground">
           {ticket.title}
         </h3>
 
@@ -324,7 +324,7 @@ export function TicketPostitCard({
         {summary && (
           <p
             data-testid="postit-short-summary"
-            className="text-xs text-muted-foreground leading-relaxed line-clamp-3 italic"
+            className="text-xs text-muted-foreground leading-relaxed line-clamp-3"
           >
             {summary}
           </p>

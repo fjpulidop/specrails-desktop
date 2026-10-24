@@ -464,7 +464,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               </div>
 
               {/* Meta */}
-              <div className="flex items-center gap-3 text-[11px] tabular-nums text-muted-foreground shrink-0">
+              <div className="flex items-center gap-3 text-[11px] num text-muted-foreground shrink-0">
                 <span className="w-14 text-right" title={t('recent.colDuration')}>{duration ?? '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colTokens')}>{tokens ? `${tokens}` : '—'}</span>
                 <span className="w-12 text-right" title={t('recent.colCost')}>

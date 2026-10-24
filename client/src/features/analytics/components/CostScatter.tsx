@@ -111,7 +111,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-medium text-muted-foreground">{t('scatter.title')}</h2>
+        <h2 className="text-strong">{t('scatter.title')}</h2>
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           {datasets.filter((d) => d.points.length > 0).map((d) => (
             <span key={d.surface} className="inline-flex items-center gap-1">
