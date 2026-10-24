@@ -413,7 +413,7 @@ function DesktopApp() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden font-sans">
+    <div className="flex h-full overflow-hidden">
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
         onOpenCompanion={() => { setSettingsSection('mobile'); setSettingsOpen(true) }}
@@ -509,6 +509,7 @@ function DesktopApp() {
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+          <DialogTitle className="sr-only">{t('nav:arcSidebar.analytics')}</DialogTitle>
           <div className="flex-1 overflow-auto">
             <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
               <DesktopAnalyticsPage />
@@ -574,7 +575,11 @@ function DesktopApp() {
         onOpenDocs={() => setDocsOpen(true)}
       />
       <KeyboardShortcutsCheatsheet open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
-      <OnboardingWizard open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
+      <OnboardingWizard
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onFinish={() => { if (projects.length === 0) setAddDialogOpen(true) }}
+      />
     </div>
   )
 }
@@ -656,15 +661,16 @@ function ThemedToaster() {
           title: 'font-medium text-sm',
           description: 'text-muted-foreground mt-0.5',
           actionButton:
-            'text-[11px] px-2.5 py-1 rounded-md bg-accent-primary text-white hover:bg-accent-primary/90 whitespace-nowrap shrink-0 self-start',
+            'text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 whitespace-nowrap shrink-0 self-start',
           cancelButton:
             'text-[11px] px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 whitespace-nowrap shrink-0 self-start',
           closeButton:
             'text-muted-foreground hover:text-foreground rounded-md p-0.5',
-          success: 'border-l-4 border-l-[var(--toast-success-border)]',
-          error: 'border-l-4 border-l-[var(--toast-error-border)]',
-          warning: 'border-l-4 border-l-[var(--toast-warning-border)]',
-          info: 'border-l-4 border-l-[var(--toast-info-border)]',
+          // Full 1px tinted border (no coloured side stripe on alerts).
+          success: 'border-[color:var(--toast-success-border)]!',
+          error: 'border-[color:var(--toast-error-border)]!',
+          warning: 'border-[color:var(--toast-warning-border)]!',
+          info: 'border-[color:var(--toast-info-border)]!',
           loading: '',
         },
       }}
