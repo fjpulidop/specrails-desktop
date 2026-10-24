@@ -142,7 +142,8 @@
       "providerUnsupported": "{{provider}} 不支持此功能",
       "contractLabel": "用 Contract Layer 增强",
       "contractHint": "提交后增强 · 启用 SMASH"
-    }
+    },
+    "costTier": "成本档位：{{tier}}"
   },
   "aiEngine": {
     "label": "AI 引擎",

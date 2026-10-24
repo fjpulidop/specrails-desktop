@@ -103,8 +103,8 @@ export function ProjectAnchoringSection() {
           <div key={key} className="flex items-start justify-between gap-4">
             <div className="space-y-0.5">
               <p className="text-xs font-medium">{t(`anchoring.${key}.label`)}</p>
-              <p className="text-[11px] text-muted-foreground">{t(`anchoring.${key}.description`)}</p>
-              {!supported ? <p className="text-[11px] text-accent-warning" data-testid={`anchoring-${key}-unsupported`}>{t('anchoring.coreRequired')}</p> : null}
+              <p className="text-xs text-muted-foreground">{t(`anchoring.${key}.description`)}</p>
+              {!supported ? <p className="text-xs text-accent-warning" data-testid={`anchoring-${key}-unsupported`}>{t('anchoring.coreRequired')}</p> : null}
             </div>
             <Switch
               checked={values[key]}
@@ -234,21 +234,21 @@ export function ProjectRulesSection() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!data.supported ? <p className="text-[11px] text-accent-warning" data-testid="rules-unsupported">{t('rules.coreRequired')}</p> : null}
+        {!data.supported ? <p className="text-xs text-accent-warning" data-testid="rules-unsupported">{t('rules.coreRequired')}</p> : null}
         {data.running && !running ? <p role="status" className="text-xs text-muted-foreground" data-testid="rules-auto-running">{t('rules.autoRunning')}</p> : null}
         {!busy && data.lastRun && !data.lastRun.ok ? (
           <div role="alert" className="space-y-1 rounded-md border border-accent-warning/40 bg-accent-warning/5 p-2.5 text-xs" data-testid="rules-last-run-failed">
             <p className="font-medium text-foreground">{t(data.lastRun.trigger === 'setup' ? 'rules.lastRun.setupFailed' : 'rules.lastRun.manualFailed', { date: new Date(data.lastRun.at).toLocaleString(i18n.language) })}</p>
-            {data.lastRun.output ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">{data.lastRun.output.split('\n').slice(-6).join('\n')}</pre> : null}
+            {data.lastRun.output ? <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-foreground/75">{data.lastRun.output.split('\n').slice(-6).join('\n')}</pre> : null}
             <p className="text-foreground/75">{t('rules.lastRun.retryHint')}</p>
           </div>
         ) : null}
-        {!busy && data.lastRun?.ok && data.lastRun.trigger === 'setup' ? <p className="text-[11px] text-muted-foreground" data-testid="rules-last-run-setup">{t('rules.lastRun.setupDone')}</p> : null}
+        {!busy && data.lastRun?.ok && data.lastRun.trigger === 'setup' ? <p className="text-xs text-muted-foreground" data-testid="rules-last-run-setup">{t('rules.lastRun.setupDone')}</p> : null}
         {data.state === 'missing' ? <p className="text-xs text-muted-foreground" data-testid="rules-missing">{t('rules.missing')}</p> : null}
         {data.state === 'invalid' ? <p className="text-xs text-accent-warning" data-testid="rules-invalid">{t('rules.invalid', { message: data.message })}</p> : null}
         {data.state === 'ok' ? (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground" data-testid="rules-summary">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="rules-summary">
               {STATUS_ORDER.map((status) => (
                 <span key={status} className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5">
                   {t(`rules.status.${status}`)} · {data.inventory.counts[status] ?? 0}
@@ -257,7 +257,7 @@ export function ProjectRulesSection() {
               {generatedAt ? <span>{t('rules.generatedAt', { date: generatedAt.toLocaleString(i18n.language) })}</span> : null}
             </div>
             {data.inventory.classification && !['classified', 'cached'].includes(data.inventory.classification.status) ? (
-              <p className="text-[11px] text-accent-warning" data-testid="rules-classification">
+              <p className="text-xs text-accent-warning" data-testid="rules-classification">
                 {t(`rules.classification.${['offline', 'unavailable', 'failed', 'empty'].includes(data.inventory.classification.status) ? data.inventory.classification.status : 'unknown'}`)}
                 {data.inventory.classification.reason ? ` ${data.inventory.classification.reason}` : ''}
               </p>
@@ -270,11 +270,11 @@ export function ProjectRulesSection() {
                     <li key={gate.id} className="flex items-center gap-2 text-xs">
                       <FileCode2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                       <span className="text-muted-foreground">{gate.kind}</span>
-                      <code className="min-w-0 truncate rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[11px]" title={gate.command}>{gate.command}</code>
+                      <code className="min-w-0 truncate rounded bg-muted/40 px-1.5 py-0.5 font-mono text-xs" title={gate.command}>{gate.command}</code>
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1 text-[11px] text-muted-foreground">{t('rules.gatesHint')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('rules.gatesHint')}</p>
               </div>
             ) : null}
             {grouped.map(({ status, rules }) => {
@@ -289,7 +289,7 @@ export function ProjectRulesSection() {
                     {rules.map((rule) => (
                       <li key={rule.index} className="rounded-md border border-border/40 bg-muted/10 px-3 py-2">
                         <p className="text-xs text-foreground">{rule.text}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           {rule.source ? <span className="font-mono">{rule.source}</span> : null}
                           {rule.enforcedBy ? <span>{t('rules.enforcedBy', { check: rule.enforcedBy })}</span> : null}
                           {rule.proposedCheck ? <span>{t('rules.proposedCheck', { check: rule.proposedCheck })}</span> : null}
@@ -297,11 +297,11 @@ export function ProjectRulesSection() {
                         {status === 'automatable' ? (
                           <div className="mt-2">
                             {created[rule.index] !== undefined ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-accent-success" data-testid={`rules-created-${rule.index}`}>
+                              <span className="inline-flex items-center gap-1 text-xs text-accent-success" data-testid={`rules-created-${rule.index}`}>
                                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {t('rules.specCreated', { id: created[rule.index] })}
                               </span>
                             ) : (
-                              <Button size="sm" variant="secondary" className="h-7 text-[11px]" disabled={!data.supported || creating !== null} onClick={() => void createSpec(rule)} data-testid={`rules-create-${rule.index}`}>
+                              <Button size="sm" variant="secondary" className="h-7 text-xs" disabled={!data.supported || creating !== null} onClick={() => void createSpec(rule)} data-testid={`rules-create-${rule.index}`}>
                                 {creating === rule.index ? <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden /> : <Sparkles className="mr-1 h-3 w-3" aria-hidden />}
                                 {t('rules.createSpec')}
                               </Button>
@@ -315,7 +315,7 @@ export function ProjectRulesSection() {
               )
             })}
             {data.inventory.dropped > 0 ? (
-              <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><CircleSlash className="h-3 w-3" aria-hidden />{t('rules.dropped', { count: data.inventory.dropped })}</p>
+              <p className="flex items-center gap-1 text-xs text-muted-foreground"><CircleSlash className="h-3 w-3" aria-hidden />{t('rules.dropped', { count: data.inventory.dropped })}</p>
             ) : null}
           </>
         ) : null}

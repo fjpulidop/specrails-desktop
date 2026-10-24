@@ -24,6 +24,13 @@ describe('presetIndexFor', () => {
 })
 
 describe('ContextScopeSlider', () => {
+  it('labels the cost tier explicitly so it never reads as a second preset name', () => {
+    render(<ContextScopeSlider value={PRESETS[1].scope} onChange={() => {}} />)
+    const tier = screen.getByTestId('context-awareness-tier')
+    expect(tier).toHaveTextContent(/^Cost tier: (Light|Medium|Heavy|Deep)$/)
+    expect(tier.className).toMatch(/text-xs/)
+  })
+
   it('renders all six stop labels', () => {
     render(<ContextScopeSlider value={STANDARD} onChange={() => {}} />)
     for (const p of PRESETS) {

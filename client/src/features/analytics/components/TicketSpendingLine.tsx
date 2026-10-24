@@ -66,7 +66,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
         closeTicketDetail()
         navigate(`/analytics?ticketId=${ticketId}`)
       }}
-      className="mt-1.5 group inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      className="mt-1.5 group inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       aria-label={t('spendingLine.ariaLabel')}
     >
       <span

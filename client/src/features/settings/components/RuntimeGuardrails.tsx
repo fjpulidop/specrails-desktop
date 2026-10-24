@@ -65,7 +65,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
       </span>
       <span className="text-xs font-medium">{t('guardrails.title')}</span>
       <span className="ml-auto flex items-center gap-2">
-        {state.status === 'ready' && supported && <span data-testid="guardrails-active" className={cn('inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] leading-4', offCount ? 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning' : 'border-accent-success/30 bg-accent-success/10 text-accent-success')}>
+        {state.status === 'ready' && supported && <span data-testid="guardrails-active" data-chip className={cn('inline-flex h-5 items-center rounded-md border px-1.5 text-[11px] leading-4', offCount ? 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning' : 'border-accent-success/30 bg-accent-success/10 text-accent-success')}>
           {t('guardrails.active', { on: total - offCount, total })}
         </span>}
         <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden />
@@ -78,7 +78,7 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
         <p role="status" className="rounded-md border border-accent-warning/40 p-3 text-xs text-accent-warning">{t('guardrails.unsupported')}</p>}
       {state.status === 'ready' && <fieldset disabled={!supported} className="space-y-3 disabled:opacity-60">
         {offCount > 0 && <div className="flex justify-end">
-          <button type="button" className="text-[11px] text-accent-primary underline-offset-2 hover:underline" onClick={() => onChange(undefined)}>{t('guardrails.reset')}</button>
+          <button type="button" className="text-xs text-accent-primary underline-offset-2 hover:underline" onClick={() => onChange(undefined)}>{t('guardrails.reset')}</button>
         </div>}
         {GUARDRAIL_PHASES.map((phase) => {
           const items = catalog.filter((item) => item.phase === phase)
@@ -105,8 +105,8 @@ export function RuntimeGuardrails({ projectId, catalogUrl, guardrails, onChange 
                   />
                   <div className="min-w-0 flex-1">
                     <p id={labelId} className={cn('text-xs font-medium', !enabled && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{title}</p>
-                    <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p>
-                    {why && <p className="mt-0.5 text-[11px] italic leading-4 text-muted-foreground/70">{why}</p>}
+                    <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{description}</p>
+                    {why && <p className="mt-0.5 text-xs italic leading-4 text-muted-foreground/70">{why}</p>}
                   </div>
                 </li>
               })}

@@ -56,7 +56,7 @@ export function CommandListEditor({ rows, repositories, onChange, keys, placehol
       <div className="space-y-1 text-xs">
         <label className="block space-y-1">{t(`${keys}.command`)}<Input className="font-mono" spellCheck={false} placeholder={placeholder} value={row.line} onChange={(event) => update(index, { line: event.target.value, reason: undefined })} /></label>
         <label className="block space-y-1">{t(`${keys}.label`)}<Input maxLength={256} value={row.label ?? ''} onChange={event => update(index, { label: event.target.value })} /></label>
-        {row.reason && <span className="block text-[11px] text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
+        {row.reason && <span className="block text-xs text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
       </div>
       <div className="flex items-end gap-1">
         <Button size="sm" variant="ghost" aria-label={`${t(`${keys}.moveUp`)} ${index + 1}`} disabled={index === 0} onClick={() => swap(index, index - 1)}><ArrowUp className="h-3.5 w-3.5" aria-hidden /></Button>

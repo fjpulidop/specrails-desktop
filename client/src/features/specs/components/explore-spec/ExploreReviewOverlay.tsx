@@ -231,15 +231,15 @@ function DiffText({ parts }: { parts: DiffSegment[] }) {
 
 function DiffChip<T extends string>({ entry }: { entry: ArrayDiffEntry<T> }) {
   const { t } = useTranslation('explore')
-  const base = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px]'
   if (entry.status === 'added') {
-    return <span className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>+ {entry.value}</span>
+    return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>+ {entry.value}</span>
   }
   if (entry.status === 'removed') {
-    return <span className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>− {entry.value}</span>
+    return <span data-chip="" className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>− {entry.value}</span>
   }
   return (
-    <span
+    <span data-chip=""
       className={`${base} bg-card/60 text-muted-foreground border border-border/40`}
       aria-label={t('reviewOverlay.unchanged')}
     >
@@ -284,14 +284,14 @@ function PriorityPill({
 }) {
   const { t } = useTranslation('explore')
   if (!value) {
-    return <span className="text-[11px] text-muted-foreground italic">{t('reviewOverlay.noPriority')}</span>
+    return <span className="text-xs text-muted-foreground italic">{t('reviewOverlay.noPriority')}</span>
   }
-  const base = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] capitalize border'
+  const base = 'inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px] capitalize border'
   if (added) {
-    return <span className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>{t(`priority.${value}`)}</span>
+    return <span data-chip="" className={`${base} diff-chip-added`} aria-label={t('reviewOverlay.added')}>{t(`priority.${value}`)}</span>
   }
   if (removed) {
-    return <span className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>{t(`priority.${value}`)}</span>
+    return <span data-chip="" className={`${base} diff-chip-removed`} aria-label={t('reviewOverlay.removed')}>{t(`priority.${value}`)}</span>
   }
-  return <span className={`${base} bg-card/60 text-muted-foreground border-border/40`}>{t(`priority.${value}`)}</span>
+  return <span data-chip="" className={`${base} bg-card/60 text-muted-foreground border-border/40`}>{t(`priority.${value}`)}</span>
 }

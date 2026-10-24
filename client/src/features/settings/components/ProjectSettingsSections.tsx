@@ -85,7 +85,7 @@ export function ProjectTelemetrySection() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-xs font-medium">{t('telemetry.toggleLabel')}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               <Trans
                 ns="settings"
                 i18nKey="telemetry.toggleDescription"
@@ -172,7 +172,7 @@ export function ProjectIntegrationBranchSection() {
           data-testid="integration-branch-input"
         />
         {resolved && (
-          <p className="text-[11px] text-muted-foreground" data-testid="integration-branch-resolved">
+          <p className="text-xs text-muted-foreground" data-testid="integration-branch-resolved">
             <Trans
               ns="settings"
               i18nKey="integrationBranch.resolved"
@@ -432,9 +432,9 @@ export function ProjectWorktreeEnvSection() {
             </Button>
           </div>
           {error ? (
-            <p className="text-[11px] text-destructive" data-testid="worktree-env-error">{error}</p>
+            <p className="text-xs text-destructive" data-testid="worktree-env-error">{error}</p>
           ) : (
-            <p className="text-[11px] text-muted-foreground">{t('worktreeEnv.helper')}</p>
+            <p className="text-xs text-muted-foreground">{t('worktreeEnv.helper')}</p>
           )}
         </div>
 
@@ -444,7 +444,7 @@ export function ProjectWorktreeEnvSection() {
               key={name}
               type="button"
               onClick={() => addNames(name)}
-              className="rounded-md border border-border bg-muted/30 px-2 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md border border-border bg-muted/30 px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {name}
             </button>
@@ -459,7 +459,7 @@ export function ProjectWorktreeEnvSection() {
                 return (
                   <span
                     key={name}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-2 pr-1 font-mono text-[11px]"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-2 pr-1 font-mono text-xs"
                   >
                     {name}
                     {entry && report && <EnvStatusChip entry={entry} report={report} />}
@@ -484,7 +484,7 @@ export function ProjectWorktreeEnvSection() {
 
         {report && unresolved.length > 0 && (
           <ul
-            className="space-y-1.5 rounded-md border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground border-accent-warning/30 bg-accent-warning/5"
+            className="space-y-1.5 rounded-md border px-3 py-2 text-xs leading-relaxed text-muted-foreground border-accent-warning/30 bg-accent-warning/5"
             data-testid="worktree-env-unresolved"
           >
             <li className="font-medium text-foreground">{t('worktreeEnv.unresolvedTitle')}</li>
@@ -499,7 +499,7 @@ export function ProjectWorktreeEnvSection() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-muted-foreground" data-testid="worktree-env-status-meta" aria-live="polite">
+          <p className="text-xs text-muted-foreground" data-testid="worktree-env-status-meta" aria-live="polite">
             {statusError
               ? t('worktreeEnv.statusUnavailable')
               : isRechecking || report?.checking
@@ -978,7 +978,7 @@ export function ProjectAgentAuditSection() {
           />
           <span className="text-muted-foreground">{t('agentAudit.daysUnit')}</span>
         </label>
-        <p className="text-[11px] text-muted-foreground">{t('agentAudit.caveat')}</p>
+        <p className="text-xs text-muted-foreground">{t('agentAudit.caveat')}</p>
         <Button size="sm" onClick={save} disabled={isSaving} data-testid="agent-audit-retention-save">
           {t('agentAudit.save')}
         </Button>

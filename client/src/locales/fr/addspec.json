@@ -142,7 +142,8 @@
       "providerUnsupported": "Indisponible pour {{provider}}",
       "contractLabel": "Enrichir avec le Contract Layer",
       "contractHint": "affinage post-commit · active SMASH"
-    }
+    },
+    "costTier": "Niveau de coût : {{tier}}"
   },
   "aiEngine": {
     "label": "Moteur IA",

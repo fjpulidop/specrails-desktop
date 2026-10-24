@@ -182,7 +182,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
           </span>
         )}
         {!liveLine && <span className="flex-1" />}
-        {stepsLabel && <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{stepsLabel}</span>}
+        {stepsLabel && <span className="text-xs text-muted-foreground tabular-nums shrink-0">{stepsLabel}</span>}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {runtimeActions}
           {actions}
@@ -191,7 +191,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               type="button"
               onClick={() => toggleDetails(!detailsOpen)}
               aria-expanded={detailsOpen}
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors"
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-surface/60 transition-colors"
             >
               {t('runHeader.details')}
               <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-150', detailsOpen && 'rotate-180')} aria-hidden />
@@ -216,7 +216,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
                 <Metric label={t('statusPanel.turns')} value={String(activity.turns)} />
                 <Metric label={t('statusPanel.tokens')} value={formatTokens(activity.tokens)} />
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">{t('runHeader.liveReported')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('runHeader.liveReported')}</p>
             </div>
           )}
 
@@ -244,15 +244,15 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
                 <Metric label={t('statusPanel.totalTokens')} value={formatPipelineTokens(pipelineTotals)} />
               </div>
               {pipelineTotals.hasNullCost && !pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-partial-hint" className="text-[11px] text-muted-foreground mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
+                <p data-testid="pipeline-partial-hint" className="text-xs text-muted-foreground mt-1.5" title={t('statusPanel.pipelinePartialTooltip')}>
                   {t('statusPanel.pipelinePartial', { count: pipelineTotals.nullCostCount ?? 0 })}
                 </p>
               )}
               {pipelineTotals.costUnavailable && (
-                <p data-testid="pipeline-cost-unavailable" className="text-[11px] text-muted-foreground mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
+                <p data-testid="pipeline-cost-unavailable" className="text-xs text-muted-foreground mt-1.5">{t('statusPanel.pipelineCostUnavailable')}</p>
               )}
               {(pipelineTotals.nullTokenCount ?? 0) > 0 && (
-                <p data-testid="pipeline-usage-coverage-hint" className="text-[11px] text-muted-foreground mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
+                <p data-testid="pipeline-usage-coverage-hint" className="text-xs text-muted-foreground mt-1" title={t('statusPanel.pipelineUsageTooltip')}>
                   {pipelineTotals.tokensUnavailable
                     ? t('statusPanel.pipelineUsageUnavailable')
                     : t('statusPanel.pipelineUsagePartial', { count: pipelineTotals.nullTokenCount ?? 0 })}
@@ -266,7 +266,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               <p className="text-xs text-muted-foreground mb-1.5">{t('statusPanel.filesModified')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {modifiedFiles.map((f) => (
-                  <code key={f} className="text-[11px] font-mono bg-muted/30 px-2 py-0.5 rounded text-accent-info">{f}</code>
+                  <code key={f} className="text-xs font-mono bg-muted/30 px-2 py-0.5 rounded text-accent-info">{f}</code>
                 ))}
               </div>
             </div>
@@ -326,7 +326,7 @@ function Metric({ label, value, valueClass, naCaption, naTooltip }: {
     <div className="bg-muted/20 rounded-lg px-2.5 py-1.5" title={value == null ? naTooltip : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn('text-sm font-semibold tabular-nums', value != null ? valueClass : 'text-muted-foreground')}>{value ?? '—'}</p>
-      {value == null && naCaption && <p className="text-[11px] text-muted-foreground">{naCaption}</p>}
+      {value == null && naCaption && <p className="text-xs text-muted-foreground">{naCaption}</p>}
     </div>
   )
 }

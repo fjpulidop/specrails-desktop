@@ -529,9 +529,8 @@ export function TicketDetailModal({
                 </span>
               )}
             </div>
-            {/* Plain-language gloss for the "~$x · ≥N turns · 1 quick + 3 loops"
-                line; the 12px override lifts its 11px runs to the modal floor. */}
-            <div title={t('detailModal.spendingLineHint')} className="[&>button]:text-xs" data-testid="ticket-spending-line">
+            {/* Plain-language gloss for the "~$x · ≥N turns · 1 quick + 3 loops" line. */}
+            <div title={t('detailModal.spendingLineHint')} data-testid="ticket-spending-line">
               <TicketSpendingLine ticketId={ticket.id} />
             </div>
           </div>

@@ -27,7 +27,7 @@ export function ConnectionRow({ provider, onChange, onRemove }: Props) {
       <legend className="flex items-center gap-2 px-1.5 text-sm font-medium">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         {runtimeProviderDisplayName(provider)}
-        <span className="rounded-full border border-border bg-muted/40 px-2 py-px text-[11px] font-normal text-muted-foreground">{t(local ? 'providers.localBadge' : 'providers.cliBadge')}</span>
+        <span data-chip className="inline-flex h-5 items-center rounded-full border border-border bg-muted/40 px-2 text-[11px] font-normal text-muted-foreground">{t(local ? 'providers.localBadge' : 'providers.cliBadge')}</span>
       </legend>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">

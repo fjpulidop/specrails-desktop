@@ -33,16 +33,16 @@ export function CliProviderRow({ provider, status, onRemove }: Props) {
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-foreground">{t(`cliNames.${provider.cli as RuntimeCli}`)}</span>
-        {status?.version && <span className="font-mono text-[11px] text-muted-foreground tabular-nums">v{status.version}</span>}
-        <span className="font-mono text-[11px] text-muted-foreground">{provider.id}</span>
+        {status?.version && <span className="font-mono text-xs text-muted-foreground tabular-nums">v{status.version}</span>}
+        <span className="font-mono text-xs text-muted-foreground">{provider.id}</span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {detected
           ? <>
             <ConnectionStatusPill state={pillStateFor(status)} />
-            <span className={cn('hidden text-[11px] sm:inline', status?.authState === 'authenticated' ? 'text-muted-foreground' : 'text-accent-warning')}>{t(`providers.auth.${status!.authState}`)}</span>
+            <span className={cn('hidden text-xs sm:inline', status?.authState === 'authenticated' ? 'text-muted-foreground' : 'text-accent-warning')}>{t(`providers.auth.${status!.authState}`)}</span>
           </>
-          : <span className="text-[11px] text-muted-foreground">{t('providers.notDetected')}</span>}
+          : <span className="text-xs text-muted-foreground">{t('providers.notDetected')}</span>}
         <OverflowMenu label={t('providers.overflow')} items={[
           { id: 'remove', label: t('providers.remove'), icon: <Trash2 className="h-3.5 w-3.5" aria-hidden />, destructive: true, onSelect: onRemove },
         ]} />

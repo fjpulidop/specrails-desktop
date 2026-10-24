@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, AlertTriangle, CircleDashed, Loader2, Rocket, Sparkles, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { cn } from '../../../../lib/utils'
 import { useAgentChat } from '../../../missions/context/AgentChatContext'
 import { cutUnterminatedBlock } from '../../lib/blueprint-draft'
@@ -272,34 +273,21 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
         </div>
       )}
 
-      {/* Exit confirmation — rendered in-surface (not a Radix portal) so it
-          stacks correctly inside the floating panel. */}
-      {confirmExit && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm" data-testid="builder-exit-confirm">
-          <div
-            className="w-72 rounded-lg border border-border/60 bg-card p-4 shadow-xl"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="builder-exit-confirm-title"
-          >
-            <p id="builder-exit-confirm-title" className="text-sm font-medium">{t('mode.exitConfirmTitle')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{t('mode.exitConfirmBody')}</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setConfirmExit(false)} data-testid="builder-exit-cancel">
-                {t('mode.exitConfirmCancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => { setConfirmExit(false); builderMode.exit() }}
-                data-testid="builder-exit-confirm-btn"
-              >
-                {t('mode.exitConfirmDiscard')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Exit confirmation (modal standard): ConfirmDialog on the stacked
+          layer, above the floating panel this conversation lives in. */}
+      <ConfirmDialog
+        open={confirmExit}
+        onOpenChange={setConfirmExit}
+        layer="stacked"
+        title={t('mode.exitConfirmTitle')}
+        description={t('mode.exitConfirmBody')}
+        cancelLabel={t('mode.exitConfirmCancel')}
+        confirmLabel={t('mode.exitConfirmDiscard')}
+        onConfirm={() => { setConfirmExit(false); builderMode.exit() }}
+        testId="builder-exit-confirm"
+        cancelTestId="builder-exit-cancel"
+        confirmTestId="builder-exit-confirm-btn"
+      />
     </div>
   )
 }

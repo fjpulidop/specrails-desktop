@@ -142,7 +142,8 @@
       "providerUnsupported": "Für {{provider}} nicht verfügbar",
       "contractLabel": "Mit Contract Layer anreichern",
       "contractHint": "Verfeinerung nach dem Commit · aktiviert SMASH"
-    }
+    },
+    "costTier": "Kostenstufe: {{tier}}"
   },
   "aiEngine": {
     "label": "KI-Engine",

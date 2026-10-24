@@ -39,12 +39,12 @@ export function ConnectionStatusPill({ state, latencyMs, className }: Props) {
       data-testid="connection-status-pill"
       data-state={state}
       role="status"
-      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors', style.pill, className)}
+      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors', style.pill, className)}
     >
       <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
       {t(`providers.status.${state}`)}
       {state === 'reachable' && typeof latencyMs === 'number' && (
-        <span className="text-[11px] font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
+        <span className="text-xs font-normal opacity-70 tabular-nums">· {latencyMs} ms</span>
       )}
     </span>
   )

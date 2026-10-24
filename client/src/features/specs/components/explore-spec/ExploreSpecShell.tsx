@@ -834,7 +834,8 @@ export function ExploreSpecShell({
             <span
               data-testid="explore-context-pill"
               title={t('shell.contextPillTitle')}
-              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border/50 bg-card/60 text-[11px] text-muted-foreground"
+              data-chip
+              className="hidden md:inline-flex h-5 items-center gap-1 px-2 rounded-full border border-border/50 bg-card/60 text-[11px] text-muted-foreground"
             >
               {t('shell.contextPill', {
                 scopes: [
@@ -876,7 +877,7 @@ export function ExploreSpecShell({
           )}
           {jira.connected && !isRealSpecEdit && (
             <span
-              className="inline-flex items-center gap-1.5 text-[11px] text-accent-info mr-1"
+              className="inline-flex items-center gap-1.5 text-xs text-accent-info mr-1"
               data-testid="jira-create-indicator"
               title={tj('addSpec.willCreate', { key: jira.jiraProjectKey ?? '' })}
             >
@@ -968,7 +969,7 @@ export function ExploreSpecShell({
                   key={chip}
                   type="button"
                   onClick={() => sendComposer(chip)}
-                  className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-card/40 hover:bg-card/80 hover:border-primary/40 transition-colors"
+                  className="text-xs px-2.5 py-1 rounded-full border border-border/60 bg-card/40 hover:bg-card/80 hover:border-primary/40 transition-colors"
                 >
                   {chip}
                 </button>
@@ -1027,7 +1028,7 @@ export function ExploreSpecShell({
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="explore-capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[11px] font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-xs font-medium text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('shell.captureResponsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -1039,7 +1040,7 @@ export function ExploreSpecShell({
                                   alt={`${b.key} (${b.width}px)`}
                                   className="max-h-28 w-auto max-w-[9rem] object-contain rounded border border-border/60 bg-background-deep block"
                                 />
-                                <span className="text-[11px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                                <span className="text-xs text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
                               </div>
                             ))}
                           </div>
@@ -1052,7 +1053,7 @@ export function ExploreSpecShell({
                         />
                       )}
                       {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title={c.dom.url}>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={c.dom.url}>
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">{c.dom.url}</span>
                         </div>
@@ -1077,7 +1078,7 @@ export function ExploreSpecShell({
                   data-testid="explore-stop-button"
                 >
                   {t('shell.stop')}
-                  <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               ) : (
                 <Button
@@ -1088,7 +1089,7 @@ export function ExploreSpecShell({
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t('shell.send')}
-                  <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+                  <span data-chip className="inline-flex h-5 items-center text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               )}
             </div>
@@ -1237,7 +1238,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
             {isUser ? t('shell.you') : providerLabel(provider)}
           </div>
           {timeLabel && (
-            <div className="text-[11px] text-muted-foreground font-mono tabular-nums">
+            <div className="text-xs text-muted-foreground font-mono tabular-nums">
               {timeLabel}
             </div>
           )}
