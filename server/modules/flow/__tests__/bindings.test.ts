@@ -14,7 +14,7 @@ import { isolatedWorktreesRoot } from '../../delivery/runtime/isolated-worktree'
 import { setRailTickets } from '../../delivery/runtime/rails-store'
 import { FLOW_SYSTEM_PROMPT } from '../../missions/runtime/agent-flow-prompt'
 import { isFlowHeldTicket, mutateStore, readStore, type Ticket } from '../../specs/runtime/ticket-store'
-import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { buildSpecAddendum, readSpecAddenda, ticketStorePathForProject, type SpecAddendum } from '../../specs/runtime/spec-addenda'
 import { FlowConflictError, FlowLaunchRejectedError, FlowUnavailableError, FlowValidationError, type FlowSession } from '..'
 import { createFlowService } from '../application'
 import { registerFlowHttp } from '../adapters/http'
@@ -172,6 +172,33 @@ describe('existing spec binding (Flow from an existing spec)', () => {
     // Another Flow's request is ignored.
     tickets.preserveOriginal(id, 'flow-9')
     expect(read(ctx, id).comments).toHaveLength(2)
+  })
+
+  it('marks the live addenda applied at settlement, like a completed rail run (idempotent, this Flow only)', () => {
+    const ctx = context()
+    const addendum = (title: string, status: SpecAddendum['status'], runId: string | null = null): SpecAddendum =>
+      ({ ...buildSpecAddendum({ version: 1, kind: 'change-request', title, body: `${title} body` }, { createdBy: 'me', now: 't0' }), status, run_id: runId })
+    const id = seedSpec(ctx, { addenda: [addendum('Open at start', 'open'), addendum('Claimed by hand-off', 'in_flight', 'run-handoff'), addendum('Dismissed', 'dismissed'), addendum('Old', 'applied', 'run-0')] } as Partial<Ticket>)
+    const tickets = createFlowTickets(ctx, at, railOfTicket(ctx.db))
+    tickets.adoptExisting({ ticketId: id, flowId: 'flow-1', conversationId: 'conv-1', startedAt: 't1' })
+    // Another Flow's settlement never touches this spec.
+    tickets.applyAddenda(id, 'flow-9', 'delivery-9')
+    expect(readSpecAddenda(read(ctx, id).addenda).map(a => a.status)).toEqual(['open', 'in_flight', 'dismissed', 'applied'])
+    const broadcasts = (ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls.length
+    tickets.applyAddenda(id, 'flow-1', 'delivery-1')
+    const applied = readSpecAddenda(read(ctx, id).addenda)
+    expect(applied.map(a => [a.title, a.status, a.run_id, a.applied_at])).toEqual([
+      ['Open at start', 'applied', 'delivery-1', '2026-10-24T10:00:00.000Z'],
+      ['Claimed by hand-off', 'applied', 'run-handoff', '2026-10-24T10:00:00.000Z'],
+      ['Dismissed', 'dismissed', null, null],
+      ['Old', 'applied', 'run-0', null],
+    ])
+    expect((ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls.length).toBe(broadcasts + 1)
+    // Replay: nothing left to apply, no rewrite and no broadcast.
+    const revision = readStore(ticketStorePathForProject(ctx.project)).revision
+    tickets.applyAddenda(id, 'flow-1', 'delivery-1')
+    expect(readStore(ticketStorePathForProject(ctx.project)).revision).toBe(revision)
+    expect((ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls.length).toBe(broadcasts + 1)
   })
 })
 

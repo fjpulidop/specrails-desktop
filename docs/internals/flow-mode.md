@@ -123,7 +123,11 @@ already has (Flow and Implement are offered with equal weight for any spec):
   ONE comment "Original spec before Flow" (`preserveOriginal`, idempotent via
   `metadata.flow.originalCommentId`), then rewrites the spec ENTIRELY from what
   was built (current format + awaited Contract Layer), quoting the original as
-  context only. `jira-create` of a spec already linked to an issue enqueues an
+  context only. After a successful rewrite the spec's live addenda (open — the
+  ones the first turn showed, or added since — or in flight on the hand-off
+  run) become `applied` like a completed rail run's (`applyAddenda` →
+  `applyFlowSpecAddenda`; an open one records the Flow's delivery id as
+  `run_id`). A failed rewrite leaves them untouched; a replay is a no-op. `jira-create` of a spec already linked to an issue enqueues an
   idempotent outbox `update` of THAT issue (`flow:<flowId>:update`,
   `JiraSyncManager.enqueueSpecUpdate`: summary, description, labels,
   priority; note `updated`), never a create; `jira-review` then moves it to the
@@ -520,7 +524,7 @@ ones after it, and a failure never reverts the delivery.
 
 | Effect | Does | Gives up |
 | --- | --- | --- |
-| `rewrite-spec` | (Flow from an existing spec: first keeps the original as an "Original spec before Flow" comment.) Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer | 3 attempts → `failed`: the spec keeps its Flow draft and the packet says so |
+| `rewrite-spec` | (Flow from an existing spec: first keeps the original as an "Original spec before Flow" comment.) Reads the derived change from the delivered commit (`proposal.md`, `design.md` of the archived change, diffstat), sets `metadata.flow.state = 'delivered'`, `metadata.openspecChangeName` and status `on_review`, then rewrites the spec in place with `generateSpecFromText({ ticketId })` (current format, surface `flow`) and an awaited Contract Layer; once rewritten, the spec's open/in-flight addenda become `applied` | 3 attempts → `failed`: the spec keeps its Flow draft and the packet says so |
 | `jira-create` | Projects with an active Jira connection only: `enqueuePromote(ticketId, 'flow:<flowId>:create')` (durable outbox create with marker recovery); a Flow from an existing spec already linked to an issue enqueues `enqueueSpecUpdate(ticketId, 'flow:<flowId>:update')` instead (note `updated`) | 8 attempts; `skipped` when not connected |
 | `jira-review` | Once the issue link exists: `onRailReview([ticketId], deliveryId)` → the status mapped for `on_review` | 60 polls while the outbox creates the issue; `skipped` when no issue was created |
 

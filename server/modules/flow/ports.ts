@@ -75,6 +75,10 @@ export interface FlowTickets {
    * spec's current content as a comment ("Original spec before Flow").
    * Idempotent by Flow. */
   preserveOriginal(ticketId: number, flowId: string): void
+  /** Settlement, AFTER a successful rewrite: the spec's live addenda (open, or
+   * in flight on the Flow's hand-off run) become applied, recording `causalId`
+   * (the Flow's delivery). Only the spec THIS Flow holds; idempotent. */
+  applyAddenda(ticketId: number, flowId: string, causalId: string): void
 }
 
 export interface ReservedWorktree {

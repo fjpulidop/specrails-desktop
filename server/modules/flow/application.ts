@@ -620,7 +620,11 @@ export function createFlowService(ports: FlowPorts, log: Pick<Console, 'warn'> =
           ticketId,
           text: buildSpecRewriteText({ title: ticket.title, derived, summary, ...(existingSpec ? { original: { title: ticket.title, description: ticket.description } } : {}) }),
         })
-        return result.ok ? finishedEffect(effect, 'done', now) : failedAttempt(effect, result.error, now, 'rewrite_failed')
+        if (!result.ok) return failedAttempt(effect, result.error, now, 'rewrite_failed')
+        // The rewritten spec now describes the work the Flow did for its addenda
+        // (shown to the Flow agent at start): they are applied, like a rail run's.
+        ports.tickets.applyAddenda(ticketId, session.id, session.deliveryId ?? session.id)
+        return finishedEffect(effect, 'done', now)
       }
       case 'jira-create': {
         if (!ports.publication.jira.connected()) return finishedEffect(effect, 'skipped', now, 'jira_not_connected')

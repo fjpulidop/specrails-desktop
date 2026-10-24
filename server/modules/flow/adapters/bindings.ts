@@ -41,8 +41,8 @@ import { buildFlowSystemPrompt } from '../../missions/runtime/agent-flow-prompt'
 import { FAILURE_BRIEFING_REF_KIND } from '../../missions/runtime/agent-failure-briefing'
 import { FLOW_SESSION_BOUNDARY, type FlowTurn, type FlowTurnContext } from '../../missions/runtime/flow-turn-context'
 import { isFlowHeldTicket, mutateStore, readStore, type Ticket, type TicketStatus } from '../../specs/runtime/ticket-store'
-import { ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
-import { openAddenda } from '../../specs/runtime/spec-addenda-core'
+import { applyFlowSpecAddenda, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { openAddenda, readSpecAddenda } from '../../specs/runtime/spec-addenda-core'
 import { getRails } from '../../delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from '../../delivery/runtime/rail-pr-store'
 import {
@@ -312,6 +312,19 @@ export function createFlowTickets(ctx: Pick<ProjectContext, 'project' | 'broadca
         ticket.metadata = { ...ticket.metadata, flow: { ...flow, originalCommentId: id } }
         ticket.updated_at = now
         updated = ticket
+      })
+      if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
+    },
+    applyAddenda(ticketId, flowId, causalId) {
+      // Read-only probe first: a spec without live addenda (or a replay) never rewrites the store.
+      const probe = readStore(file()).tickets[String(ticketId)]
+      if (probe?.metadata?.flow?.flowId !== flowId || !readSpecAddenda(probe.addenda).some((a) => a.status === 'open' || a.status === 'in_flight')) return
+      let updated: Ticket | undefined
+      const store = mutateStore(file(), (s) => {
+        const ticket = s.tickets[String(ticketId)]
+        // Only the spec this Flow holds (the label stays through settlement).
+        if (!ticket || ticket.metadata?.flow?.flowId !== flowId) return
+        if (applyFlowSpecAddenda(s, ticketId, causalId, clock.now())) updated = ticket
       })
       if (updated) announce(store.revision, { type: 'ticket_updated', ticket: updated as never, projectId: ctx.project.id, timestamp: clock.now() })
     },

@@ -66,6 +66,7 @@ function setup(overrides: Partial<FlowPorts> = {}) {
     adoptExisting: vi.fn((_input: { ticketId: number; flowId: string; conversationId: string; startedAt: string }) => existingSpec),
     restoreExisting: vi.fn(),
     preserveOriginal: vi.fn(),
+    applyAddenda: vi.fn(),
   }
   const effects = memoryEffects()
   const jira = {
@@ -589,6 +590,8 @@ describe('settlement (arch 4.6)', () => {
     for (let i = 0; i < 3; i++) { ctx.timeShift.ms += 10 * 60_000; await ctx.service.runDueSettlements() }
     expect(statuses(ctx)).toEqual({ 'rewrite-spec': 'failed', 'jira-create': 'done', 'jira-review': 'done' })
     expect(ctx.publication.rewriteSpec).toHaveBeenCalledTimes(3)
+    // A failed rewrite never marks the addenda applied: the spec does not describe the work.
+    expect(ctx.tickets.applyAddenda).not.toHaveBeenCalled()
     // The delivered label and change name never wait for the rewrite.
     expect(ctx.tickets.markDelivered).toHaveBeenCalledWith(7, { openspecChangeName: 'kanban-board' })
     expect(ctx.service.settlementForDelivery('delivery-1')).toEqual({ specRewrite: 'failed', jiraCreate: 'done', jiraReview: 'done' })
@@ -1024,6 +1027,9 @@ describe('Flow from an existing spec', () => {
     await ctx.service.runSettlement('flow-1')
     expect(order).toEqual(['preserve', 'rewrite'])
     expect(ctx.tickets.preserveOriginal).toHaveBeenCalledWith(12, 'flow-1')
+    // The rewritten spec covers the addenda the Flow was shown: applied, once.
+    expect(ctx.tickets.applyAddenda).toHaveBeenCalledTimes(1)
+    expect(ctx.tickets.applyAddenda).toHaveBeenCalledWith(12, 'flow-1', 'delivery-1')
     const text = ctx.publication.rewriteSpec.mock.calls[0]![0].text
     expect(text).toContain('Rewrite the spec ENTIRELY from what was built')
     expect(text).toContain('ORIGINAL BODY')

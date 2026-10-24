@@ -267,6 +267,35 @@ export function settleSpecAddenda(store: TicketStore, ticketIds: readonly number
   return changed
 }
 
+/**
+ * Flow settlement (the spec was rewritten from what the Flow built): the addenda
+ * the Flow worked on become applied, as a completed rail run settles its claim.
+ * That is every LIVE addendum — open (shown to the Flow agent at start, or added
+ * since) or in_flight (claimed by the Flow's hand-off run): a Flow holds its spec
+ * exclusively, so no other run can own them. An in_flight addendum keeps its
+ * claiming run id; an open one records `causalId` (the Flow's delivery). Dismissed
+ * and applied addenda are untouched, so a replay is a no-op. True when changed.
+ */
+export function applyFlowSpecAddenda(store: TicketStore, ticketId: number, causalId: string, now = new Date().toISOString()): boolean {
+  const ticket = store.tickets[String(ticketId)]
+  if (!ticket) return false
+  const addenda = readSpecAddenda(ticket.addenda)
+  let touched = false
+  for (const a of addenda) {
+    if (a.status !== 'open' && a.status !== 'in_flight') continue
+    a.run_id = a.status === 'in_flight' && a.run_id ? a.run_id : causalId
+    a.status = 'applied'
+    a.applied_at = now
+    a.updated_at = now
+    touched = true
+  }
+  if (touched) {
+    ticket.addenda = addenda
+    ticket.updated_at = now
+  }
+  return touched
+}
+
 export function settleSpecAddendaAt(storePath: string, ticketIds: readonly number[], runId: string, outcome: SpecAddendaSettleOutcome): { changedTicketIds: number[]; store: TicketStore | null } {
   if (ticketIds.length === 0) return { changedTicketIds: [], store: null }
   try {
