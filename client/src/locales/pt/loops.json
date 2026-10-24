@@ -150,7 +150,8 @@
       "add": "Adicionar",
       "builtinBadge": "Integradas",
       "deleteConfirmTitle": "Excluir a constante {{name}}?",
-      "deleteConfirmBody": "As constantes são compartilhadas por todos os loops. Etapas que ainda a referenciam não conseguirão mais resolvê-la."
+      "deleteConfirmBody": "As constantes são compartilhadas por todos os loops. Etapas que ainda a referenciam não conseguirão mais resolvê-la.",
+      "description": "Valores reutilizáveis compartilhados por todos os loops. Insira um em uma etapa como token; ele é resolvido na execução."
     },
     "paste": {
       "done_one": "{{count}} passo colado",
@@ -381,5 +382,7 @@
   "window": {
     "open": "Abrir numa janela",
     "openFailed": "Não foi possível abrir a janela do loop"
-  }
+  },
+  "confirmDeleteTitle": "Excluir “{{name}}”?",
+  "confirmDeleteAction": "Excluir loop"
 }

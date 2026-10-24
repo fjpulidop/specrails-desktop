@@ -150,7 +150,8 @@
       "add": "追加",
       "builtinBadge": "組み込み",
       "deleteConfirmTitle": "定数 {{name}} を削除しますか?",
-      "deleteConfirmBody": "定数はすべてのループで共有されます。この定数を参照しているステップでは解決できなくなります。"
+      "deleteConfirmBody": "定数はすべてのループで共有されます。この定数を参照しているステップでは解決できなくなります。",
+      "description": "すべてのループで共有される再利用可能な値です。トークンとしてステップに挿入すると、実行時に解決されます。"
     },
     "paste": {
       "done_one": "{{count}} 個のステップを貼り付けました",
@@ -381,5 +382,7 @@
   "window": {
     "open": "ウィンドウで開く",
     "openFailed": "ループウィンドウを開けませんでした"
-  }
+  },
+  "confirmDeleteTitle": "「{{name}}」を削除しますか？",
+  "confirmDeleteAction": "ループを削除"
 }

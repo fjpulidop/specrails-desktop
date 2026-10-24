@@ -150,7 +150,8 @@
       "add": "Hinzufügen",
       "builtinBadge": "Integriert",
       "deleteConfirmTitle": "Konstante {{name}} löschen?",
-      "deleteConfirmBody": "Konstanten werden von allen Loops geteilt. Schritte, die noch auf diese verweisen, können sie nicht mehr auflösen."
+      "deleteConfirmBody": "Konstanten werden von allen Loops geteilt. Schritte, die noch auf diese verweisen, können sie nicht mehr auflösen.",
+      "description": "Wiederverwendbare Werte, die alle Loops teilen. Als Token in einen Schritt einfügen; sie werden zur Laufzeit aufgelöst."
     },
     "paste": {
       "done_one": "{{count}} Schritt eingefügt",
@@ -381,5 +382,7 @@
   "window": {
     "open": "In Fenster öffnen",
     "openFailed": "Das Loop-Fenster konnte nicht geöffnet werden"
-  }
+  },
+  "confirmDeleteTitle": "„{{name}}“ löschen?",
+  "confirmDeleteAction": "Loop löschen"
 }

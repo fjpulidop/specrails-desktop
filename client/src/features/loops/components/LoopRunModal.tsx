@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Play } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import {
   defaultReasoningEffortForProvider,
@@ -79,7 +79,7 @@ export function LoopRunModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent movableResizable className="max-w-sm">
+      <DialogContent size="form" showCloseButton={false}>
         {loop && (
           <>
             <DialogHeader>
@@ -87,7 +87,8 @@ export function LoopRunModal({
               <DialogDescription>{t('run.subtitle')}</DialogDescription>
             </DialogHeader>
 
-            <label className="block text-[11px] font-medium text-muted-foreground">{t('run.project')}</label>
+            <DialogBody className="space-y-2">
+            <label className="block text-xs font-medium text-muted-foreground">{t('run.project')}</label>
             {projects.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('run.noProjects')}</p>
             ) : (
@@ -108,7 +109,7 @@ export function LoopRunModal({
 
             {providerList.length > 1 && (
               <>
-                <label className="block text-[11px] font-medium text-muted-foreground">{t('run.provider')}</label>
+                <label className="block text-xs font-medium text-muted-foreground">{t('run.provider')}</label>
                 <select
                   aria-label={t('run.provider')}
                   value={effectiveProvider}
@@ -124,7 +125,7 @@ export function LoopRunModal({
 
             {modelOptions.length > 0 && (
               <>
-                <label className="block text-[11px] font-medium text-muted-foreground">{t('run.model')}</label>
+                <label className="block text-xs font-medium text-muted-foreground">{t('run.model')}</label>
                 {customModelAliases ? (
                   <CustomModelAliasInput
                     value={effectiveModel}
@@ -159,7 +160,7 @@ export function LoopRunModal({
 
             {showEffort && (
               <>
-                <label className="block text-[11px] font-medium text-muted-foreground">{t('run.effort')}</label>
+                <label className="block text-xs font-medium text-muted-foreground">{t('run.effort')}</label>
                 <select
                   aria-label={t('run.effort')}
                   value={effectiveEffort}
@@ -172,6 +173,7 @@ export function LoopRunModal({
                 </select>
               </>
             )}
+            </DialogBody>
 
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>{t('common:actions.cancel')}</Button>

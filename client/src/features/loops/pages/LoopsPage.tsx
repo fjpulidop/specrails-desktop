@@ -14,7 +14,7 @@ import { LegacyConversionModal } from '../components/LegacyConversionModal'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Button } from '../../../components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import {
@@ -33,8 +33,9 @@ function StatusBadge({ status }: { status: LoopDefinition['status'] }) {
   const { t } = useTranslation('loops')
   return (
     <span
+      data-chip=""
       className={cn(
-        'inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ring-1 ring-inset',
+        'inline-flex h-5 items-center px-1.5 rounded text-[11px] font-medium ring-1 ring-inset',
         STATUS_BADGE[status]
       )}
     >
@@ -441,7 +442,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         aria-pressed={active}
                         onClick={() => toggleCategory(category)}
                         className={cn(
-                          'inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] border transition-colors',
+                          'inline-flex items-center gap-1 h-6 px-2 rounded-full text-xs border transition-colors',
                           active
                             ? 'border-accent-primary bg-accent-primary/15 text-accent-primary'
                             : 'border-border bg-surface/40 text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -456,7 +457,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                     <button
                       type="button"
                       onClick={clearTemplateFilter}
-                      className="inline-flex items-center h-6 px-2 rounded-full text-[11px] text-accent-primary hover:underline"
+                      className="inline-flex items-center h-6 px-2 rounded-full text-xs text-accent-primary hover:underline"
                     >
                       {t('gallery.clearFilter')}
                     </button>
@@ -482,7 +483,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                           <Sparkles className="w-3.5 h-3.5 text-accent-highlight flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate">{locName(tmpl.id, tmpl.name)}</span>
                           {tmpl.category && (
-                            <span className="ml-auto px-1.5 py-0.5 rounded text-[11px] bg-accent-info/15 text-accent-info flex-shrink-0">
+                            <span data-chip="" className="ml-auto inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-info/15 text-accent-info flex-shrink-0">
                               {t(`categories.${tmpl.category}`, { defaultValue: tmpl.category })}
                             </span>
                           )}
@@ -490,16 +491,16 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
                         <div className="flex flex-wrap items-center gap-1">
                           {loopNeedsTicket(tmpl.graph) ? (
-                            <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
+                            <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
                               {t('gallery.needsSpec')}
                             </span>
                           ) : (
-                            <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
+                            <span title={t('gallery.standaloneHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
                               {t('gallery.standalone')}
                             </span>
                           )}
                           {tmpl.tags.map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground">{tag}</span>
+                            <span key={tag} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-muted text-muted-foreground">{tag}</span>
                           ))}
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -531,46 +532,27 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
       </div>
 
       {/* In-app delete confirm (replaces the native window.confirm). */}
-      <Dialog open={confirmDeleteId !== null} onOpenChange={(o) => { if (!o) setConfirmDeleteId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-4 h-4 text-destructive" />
-              {loops.find((l) => l.id === confirmDeleteId)?.name ?? t('actions.delete')}
-            </DialogTitle>
-            <DialogDescription>{t('confirmDelete')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive" onClick={() => void doDelete()}>
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteId(null) }}
+        title={t('confirmDeleteTitle', { name: loops.find((l) => l.id === confirmDeleteId)?.name ?? '' })}
+        description={t('confirmDelete')}
+        confirmLabel={t('confirmDeleteAction')}
+        confirmTestId="confirm-delete-loop"
+        onConfirm={() => doDelete()}
+      />
 
       {/* Restore-original confirm for an edited built-in. */}
-      <Dialog open={confirmRestoreId !== null} onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="w-4 h-4" />
-              {t('builder.builtin.confirmTitle')}
-            </DialogTitle>
-            <DialogDescription>{t('builder.builtin.confirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmRestoreId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button data-testid="confirm-restore-builtin" onClick={() => void doRestore()}>
-              {t('actions.restoreBuiltin')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmRestoreId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}
+        title={t('builder.builtin.confirmTitle')}
+        description={t('builder.builtin.confirmBody')}
+        confirmLabel={t('actions.restoreBuiltin')}
+        tone="default"
+        confirmTestId="confirm-restore-builtin"
+        onConfirm={() => doRestore()}
+      />
 
       {/* Read-only preview of a starter template before cloning it (fromTemplate). */}
       <TemplatePreviewModal
@@ -658,7 +640,7 @@ function LoopCard({
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {builtIn && (
-            <span className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground" data-testid="builtin-badge">
+            <span data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-muted text-muted-foreground" data-testid="builtin-badge">
               {t('builtInBadge')}
             </span>
           )}

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Play, Brain, Terminal, GitBranch, Square, Download } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import type { LoopTemplateSummary, LoopNode, LoopNodeType } from '../lib/loops-api'
@@ -45,40 +45,38 @@ export function TemplatePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent movableResizable className="max-w-lg">
+      <DialogContent size="wide" showCloseButton={false}>
         {template && (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-accent-highlight" />
-                {template.name}
-              </DialogTitle>
+            <DialogHeader icon={<Brain className="text-accent-highlight" />}>
+              <DialogTitle>{template.name}</DialogTitle>
               <DialogDescription>{template.description}</DialogDescription>
             </DialogHeader>
 
+            <DialogBody className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
               {loopNeedsTicket(template.graph) ? (
-                <span title={t('gallery.needsSpecHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
+                <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-secondary/15 text-accent-secondary">
                   {t('gallery.needsSpec')}
                 </span>
               ) : (
-                <span title={t('gallery.standaloneHint')} className="px-1.5 py-0.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
+                <span title={t('gallery.standaloneHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-success/15 text-accent-success">
                   {t('gallery.standalone')}
                 </span>
               )}
               {template.category && (
-                <span className="px-1.5 py-0.5 rounded text-[11px] bg-accent-info/15 text-accent-info">
+                <span data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-accent-info/15 text-accent-info">
                   {t(`categories.${template.category}`, { defaultValue: template.category })}
                 </span>
               )}
               {template.tags.map((tag) => (
-                <span key={tag} className="px-1.5 py-0.5 rounded text-[11px] bg-muted text-muted-foreground">
+                <span key={tag} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-[11px] bg-muted text-muted-foreground">
                   {tag}
                 </span>
               ))}
             </div>
 
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {template.graph.config.timeoutMinutes > 0
                 ? t('preview.limits', {
                     iterations: template.graph.config.maxIterations,
@@ -89,7 +87,7 @@ export function TemplatePreviewModal({
                   })}
             </p>
 
-            <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">
+            <div className="space-y-1.5">
               <span className="block text-xs font-medium text-muted-foreground">
                 {t('preview.steps')}
               </span>
@@ -99,12 +97,12 @@ export function TemplatePreviewModal({
                 return (
                   <div key={node.id} className="rounded border border-border bg-surface/30 p-2">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <span className="text-[11px] text-muted-foreground tabular-nums">{i + 1}.</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">{i + 1}.</span>
                       <Icon className="w-3.5 h-3.5 text-accent-primary" />
                       {t(node.type === 'core' ? `builder.core.pieces.${node.data?.kind}` : `builder.nodes.${node.type}`)}
                     </div>
                     {detail && (
-                      <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] text-muted-foreground font-mono">
+                      <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono">
                         {detail}
                       </pre>
                     )}
@@ -112,6 +110,7 @@ export function TemplatePreviewModal({
                 )
               })}
             </div>
+            </DialogBody>
 
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>

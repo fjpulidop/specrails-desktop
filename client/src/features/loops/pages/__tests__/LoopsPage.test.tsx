@@ -222,7 +222,7 @@ describe('LoopsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete loop' }))
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('d'))
   })
 

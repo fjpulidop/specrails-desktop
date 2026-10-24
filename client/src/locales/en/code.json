@@ -54,7 +54,9 @@
     "save": "Save",
     "saving": "Saving…",
     "saved": "File saved",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "budgetPromptBody": "The AI budget cap for file summaries has been reached. Regenerating anyway runs one more summary beyond the cap.",
+    "budgetPromptConfirm": "Regenerate anyway"
   },
   "summary": {
     "generationFailed": "Summary generation failed",

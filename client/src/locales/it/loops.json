@@ -150,7 +150,8 @@
       "add": "Aggiungi",
       "builtinBadge": "Integrate",
       "deleteConfirmTitle": "Eliminare la costante {{name}}?",
-      "deleteConfirmBody": "Le costanti sono condivise da tutti i loop. I passaggi che la usano ancora non potranno più risolverla."
+      "deleteConfirmBody": "Le costanti sono condivise da tutti i loop. I passaggi che la usano ancora non potranno più risolverla.",
+      "description": "Valori riutilizzabili condivisi da tutti i loop. Inseriscili in un passaggio come token; vengono risolti in esecuzione."
     },
     "paste": {
       "done_one": "{{count}} passo incollato",
@@ -381,5 +382,7 @@
   "window": {
     "open": "Apri in una finestra",
     "openFailed": "Impossibile aprire la finestra del loop"
-  }
+  },
+  "confirmDeleteTitle": "Eliminare «{{name}}»?",
+  "confirmDeleteAction": "Elimina loop"
 }

@@ -114,10 +114,13 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
     details.open = true; fireEvent(details, new Event('toggle'))
     await user.click(await screen.findByRole('button', { name: 'Full screen' }))
     const dialog = screen.getByRole('dialog', { name: 'Run graph' })
-    expect(dialog).toHaveClass('z-[2147483647]')
+    // Capture layer (z-80): above the entity log modal (z-65) and the dock.
+    expect(dialog).toHaveClass('z-[80]')
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'capture')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'fullscreen')
     expect(container).not.toContainElement(dialog)
     const backdrop = dialog.previousElementSibling!
-    expect(backdrop).toHaveClass('z-[2147483646]')
+    expect(backdrop).toHaveClass('z-[80]')
     await user.keyboard('{Escape}')
     expect(escape).toHaveBeenCalledWith(expect.objectContaining({ key: 'Escape', defaultPrevented: true }))
     expect(screen.queryByRole('dialog', { name: 'Run graph' })).not.toBeInTheDocument()

@@ -150,7 +150,8 @@
       "add": "添加",
       "builtinBadge": "内置",
       "deleteConfirmTitle": "删除常量 {{name}}？",
-      "deleteConfirmBody": "常量由所有循环共享。仍引用此常量的步骤将无法再解析它。"
+      "deleteConfirmBody": "常量由所有循环共享。仍引用此常量的步骤将无法再解析它。",
+      "description": "所有循环共享的可复用值。以令牌形式插入步骤，运行时解析。"
     },
     "paste": {
       "done_one": "已粘贴 {{count}} 个步骤",
@@ -381,5 +382,7 @@
   "window": {
     "open": "在窗口中打开",
     "openFailed": "无法打开循环窗口"
-  }
+  },
+  "confirmDeleteTitle": "删除“{{name}}”？",
+  "confirmDeleteAction": "删除循环"
 }

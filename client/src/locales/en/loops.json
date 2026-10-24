@@ -150,7 +150,8 @@
       "add": "Add",
       "builtinBadge": "Built-in",
       "deleteConfirmTitle": "Delete constant {{name}}?",
-      "deleteConfirmBody": "Constants are shared by every loop. Steps that still reference this one will no longer resolve it."
+      "deleteConfirmBody": "Constants are shared by every loop. Steps that still reference this one will no longer resolve it.",
+      "description": "Reusable values shared by every loop. Insert one into a step as a token; it resolves at run time."
     },
     "paste": {
       "done_one": "Pasted {{count}} step",
@@ -381,5 +382,7 @@
   "window": {
     "open": "Open in window",
     "openFailed": "Couldn’t open the loop window"
-  }
+  },
+  "confirmDeleteTitle": "Delete “{{name}}”?",
+  "confirmDeleteAction": "Delete loop"
 }

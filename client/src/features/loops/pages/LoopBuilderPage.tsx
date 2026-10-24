@@ -34,7 +34,7 @@ import { coreNodeData, effectiveOutcomes, pieceGroup, nodeAgentRoles } from '../
 import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
@@ -120,19 +120,19 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
       <div className="flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5 text-foreground flex-shrink-0" />
         <span className="text-xs font-semibold text-foreground truncate max-w-[150px]">{label || t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>
-        {label && <span className="text-[11px] text-muted-foreground flex-shrink-0">{t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>}
+        {label && <span className="text-xs text-muted-foreground flex-shrink-0">{t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>}
         {severity && <AlertTriangle role="img" aria-label={t(`builder.problems.severity.${severity}`)} className={cn('w-3 h-3 flex-shrink-0', severity === 'error' ? 'text-destructive' : 'text-accent-warning')} />}
       </div>
-      {summary && <p className="text-[11px] text-muted-foreground mt-1 truncate max-w-[160px]">{summary}</p>}
+      {summary && <p className="text-xs text-muted-foreground mt-1 truncate max-w-[160px]">{summary}</p>}
       {kind === 'core' ? (<>
-        <div className="flex justify-around gap-2 mt-2 text-[11px] text-accent-primary">{outcomes.map(outcome => <span key={outcome}>{outcome}</span>)}</div>
+        <div className="flex justify-around gap-2 mt-2 text-xs text-accent-primary">{outcomes.map(outcome => <span key={outcome}>{outcome}</span>)}</div>
         {outcomes.map((outcome, index) => <Handle key={outcome} id={outcome} type="source" position={Position.Bottom} style={{ left: `${(index + 1) * 100 / (outcomes.length + 1)}%` }} aria-label={outcome} />)}
       </>) : kind === 'decider' ? (
         <>
           {/* Two named, colour-coded outputs at the bottom (layout-agnostic): the
               continue branch loops back, the stop branch exits. The edges route
               orthogonally (smoothstep) to whichever node the layout places them. */}
-          <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] font-medium">
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-xs font-medium">
             <span className="text-accent-highlight">{t('builder.branch.continue')}</span>
             <span className="text-accent-success">{t('builder.branch.stop')}</span>
           </div>
@@ -558,22 +558,20 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       </div>
 
       {builtin && (
-        <div role="note" data-testid="builder-builtin-note" className="px-4 py-1.5 border-b border-border bg-accent-info/10 text-[11px] text-accent-info flex-shrink-0">
+        <div role="note" data-testid="builder-builtin-note" className="px-4 py-1.5 border-b border-border bg-accent-info/10 text-xs text-accent-info flex-shrink-0">
           {t('builder.builtin.note')}
         </div>
       )}
-      <Dialog open={confirmRestore} onOpenChange={(open) => { if (!open) setConfirmRestore(false) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('builder.builtin.confirmTitle')}</DialogTitle>
-            <DialogDescription>{t('builder.builtin.confirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmRestore(false)}>{t('common:actions.cancel')}</Button>
-            <Button data-testid="builder-restore-confirm" onClick={() => void restoreOriginal()}>{t('actions.restoreBuiltin')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmRestore}
+        onOpenChange={setConfirmRestore}
+        title={t('builder.builtin.confirmTitle')}
+        description={t('builder.builtin.confirmBody')}
+        confirmLabel={t('actions.restoreBuiltin')}
+        tone="default"
+        confirmTestId="builder-restore-confirm"
+        onConfirm={() => restoreOriginal()}
+      />
 
       <ConfirmDialog
         open={confirmLeave}
@@ -678,7 +676,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] border border-border bg-card text-muted-foreground hover:text-foreground">
+                      <button type="button" className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-xs border border-border bg-card text-muted-foreground hover:text-foreground">
                         <Info className="w-3 h-3" />
                         {t('builder.edgesHelp.label')}
                       </button>
@@ -839,7 +837,8 @@ function TokenChip({ token, label, description, icon: Icon, onInsert }: { token:
       onDragStart={(e) => e.dataTransfer.setData('text/plain', token)}
       onClick={() => onInsert(token)}
       title={description ? `${token} — ${description}` : token}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-surface/40 text-[11px] font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
+      data-chip=""
+      className="inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-surface/40 text-[11px] font-mono text-accent-primary hover:bg-accent-primary/10 cursor-grab active:cursor-grabbing"
     >
       {Icon && <Icon className="w-3 h-3 flex-shrink-0" aria-hidden />}
       {label}
@@ -917,7 +916,7 @@ function ConstantRow({ c, onSave, onDelete }: { c: LoopConstant; onSave: (v: str
   const [v, setV] = useState(c.value)
   return (
     <div className="flex items-center gap-1.5">
-      <code className="text-[11px] font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
+      <code className="text-xs font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
       <input className="flex-1 text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground" value={v} onChange={(e) => setV(e.target.value)} aria-label={c.name} />
       <button type="button" disabled={v === c.value || !v} onClick={() => onSave(v)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={t('common:actions.save')} title={t('common:actions.save')}><Save className="w-3.5 h-3.5" aria-hidden /></button>
       <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label={t('common:actions.delete')} title={t('common:actions.delete')}><Trash2 className="w-3.5 h-3.5" aria-hidden /></button>
@@ -966,11 +965,12 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
   const input = 'text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40'
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="form" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('builder.constants.title')}</DialogTitle>
+          <DialogDescription>{t('builder.constants.description')}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <DialogBody className="space-y-3">
           <div className="space-y-1.5">
             {custom.length === 0 && <p className="text-xs text-muted-foreground">{t('builder.constants.empty')}</p>}
             {custom.map((c) => (
@@ -986,7 +986,7 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
           <div className="flex items-center gap-1.5 border-t border-border pt-2">
             <input className={`${input} w-28`} placeholder={t('builder.constants.name')} value={name} onChange={(e) => setName(e.target.value)} />
             <input className={`${input} flex-1`} placeholder={t('builder.constants.value')} value={value} onChange={(e) => setValue(e.target.value)} />
-            <Button size="sm" disabled={busy || !name.trim() || !value} onClick={() => void add()}>{t('builder.constants.add')}</Button>
+            <Button disabled={busy || !name.trim() || !value} onClick={() => void add()}>{t('builder.constants.add')}</Button>
           </div>
           {err && <p role="alert" className="text-xs text-destructive">{err}</p>}
           {/* Built-ins (read-only) */}
@@ -994,14 +994,14 @@ function LoopConstantsManager({ open, onClose, constants, onChanged }: {
             <div className="border-t border-border pt-2 space-y-1">
               <span className="block text-xs font-medium text-muted-foreground">{t('builder.constants.builtinBadge')}</span>
               {builtins.map((c) => (
-                <div key={c.id} className="flex items-center gap-1.5 text-[11px]">
+                <div key={c.id} className="flex items-center gap-1.5 text-xs">
                   <code className="font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
                   <span className="text-muted-foreground truncate">{c.value}</span>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{t('common:actions.close')}</Button>
         </DialogFooter>
@@ -1027,23 +1027,23 @@ function LoopPreviewModal({ steps, onClose, t }: {
 }) {
   return (
     <Dialog open={steps !== null} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="wide" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('builder.preview.title')}</DialogTitle>
+          <DialogDescription>{t('builder.preview.sampleNote')}</DialogDescription>
         </DialogHeader>
-        <p className="text-[11px] text-muted-foreground">{t('builder.preview.sampleNote')}</p>
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+        <DialogBody className="space-y-2">
           {steps && steps.length === 0 && <p className="text-xs text-muted-foreground">{t('builder.preview.empty')}</p>}
           {steps?.map((s, i) => (
             <div key={`${s.nodeId}-${i}`} className="rounded-md border border-border">
-              <div className="px-2.5 py-1 text-[11px] border-b border-border flex items-center gap-1.5">
+              <div className="px-2.5 py-1 text-xs border-b border-border flex items-center gap-1.5">
                 <span className="font-medium text-foreground">{s.label || t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
                 <span className="text-muted-foreground">· {t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
               </div>
-              <pre className="px-2.5 py-2 text-[11px] text-foreground whitespace-pre-wrap break-words font-mono">{s.text || '—'}</pre>
+              <pre className="px-2.5 py-2 text-xs text-foreground whitespace-pre-wrap break-words font-mono">{s.text || '—'}</pre>
             </div>
           ))}
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{t('common:actions.close')}</Button>
         </DialogFooter>
@@ -1126,7 +1126,7 @@ function NodeInspector({
             value={String(data.prompt ?? '')}
             onChange={(e) => onChange({ prompt: e.target.value })}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">{t('builder.inspector.promptHint')}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('builder.inspector.promptHint')}</p>
         </div>
       )}
 
@@ -1174,7 +1174,7 @@ function NodeInspector({
         </div>
       )}
 
-      {kind === 'start' && <p className="text-[11px] text-muted-foreground">{t('builder.inspector.startNote')}</p>}
+      {kind === 'start' && <p className="text-xs text-muted-foreground">{t('builder.inspector.startNote')}</p>}
     </div>
   )
 }

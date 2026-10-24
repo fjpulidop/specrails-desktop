@@ -7,8 +7,7 @@ import { providerSupportsPureOutput } from '../../../providers/lib/provider-capa
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../../../hooks/useSharedWebSocket'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
-import { Button } from '../../../../components/ui/button'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
 import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
@@ -616,21 +615,16 @@ function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, 
         </>
       )}
 
-      <Dialog open={budgetPromptOpen} onOpenChange={setBudgetPromptOpen}>
-        <DialogContent className="max-w-sm" data-testid="budget-prompt">
-          <DialogHeader>
-            <DialogTitle className="text-sm">{t('viewer.budgetPrompt')}</DialogTitle>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setBudgetPromptOpen(false)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button size="sm" onClick={() => { setBudgetPromptOpen(false); handleRegenerate(true) }}>
-              {t('common:actions.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={budgetPromptOpen}
+        onOpenChange={setBudgetPromptOpen}
+        testId="budget-prompt"
+        title={t('viewer.budgetPrompt')}
+        description={t('viewer.budgetPromptBody')}
+        confirmLabel={t('viewer.budgetPromptConfirm')}
+        tone="default"
+        onConfirm={() => { setBudgetPromptOpen(false); void handleRegenerate(true) }}
+      />
     </div>
   )
 }

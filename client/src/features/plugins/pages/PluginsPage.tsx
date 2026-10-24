@@ -22,7 +22,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Switch } from '../../../components/ui/switch'
 import { JiraConnectWizard } from '../../integrations/components/jira/JiraConnectWizard'
@@ -529,13 +529,14 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
       </div>
 
       <Dialog open={headroomOpen} onOpenChange={setHeadroomOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl overflow-x-hidden p-4 sm:p-6">
+        <DialogContent size="wide">
           <DialogHeader>
             <DialogTitle>{t('plugins.headroom.title')}</DialogTitle>
             <DialogDescription>
               {t('plugins.headroom.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
+          <DialogBody className="overflow-x-hidden">
           <HeadroomPanel
             state={headroom}
             loading={loadingHeadroom}
@@ -575,6 +576,7 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
             )}
             onOpenDiagnostics={() => setDiagnosticsOpen(true)}
           />
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -658,7 +660,7 @@ function PluginGroupHeader({
       )} />
       <div className="flex items-center gap-2 rounded-md border border-border bg-card/70 px-2 py-1">
         <span className="text-xs font-medium">{title}</span>
-        <span className="hidden text-[11px] text-muted-foreground sm:inline">{detail}</span>
+        <span className="hidden text-xs text-muted-foreground sm:inline">{detail}</span>
       </div>
       <div className={cn(
         'h-px flex-1',
@@ -688,7 +690,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         ? AlertTriangle
         : Settings2
   const statusClassName = cn(
-    'shrink-0 rounded border px-1.5 py-0.5 text-[11px] leading-none',
+    'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px] leading-none',
     isAttention
       ? 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
       : plugin.installed
@@ -710,7 +712,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
         <h3 className="truncate text-sm font-semibold leading-5">{plugin.title}</h3>
         <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">{plugin.description}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
-          <span className={statusClassName}>{plugin.statusLabel}</span>
+          <span data-chip="" className={statusClassName}>{plugin.statusLabel}</span>
         </div>
       </div>
       <button
@@ -838,7 +840,7 @@ function HeadroomPanel({
       {state.installed && <HeadroomMetricsPanel state={state} />}
 
       <div className="mb-4 rounded-lg border border-border bg-background/45 p-3">
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('plugins.headroom.port.label')}</label>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">{t('plugins.headroom.port.label')}</label>
         <div className="flex gap-2">
           <input
             value={portDraft}
@@ -857,7 +859,7 @@ function HeadroomPanel({
       </div>
 
       {logs.length > 0 && (
-        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-[11px] text-muted-foreground">
+        <pre className="mb-3 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background/60 p-2 text-xs text-muted-foreground">
           {logs.join('\n')}
         </pre>
       )}
@@ -885,7 +887,7 @@ function HeadroomPanel({
             </button>
           ) : (
             <div className="space-y-2">
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {externalInstall
                   ? t('plugins.headroom.confirmDetach')
                   : t('plugins.headroom.confirmUninstall')}
@@ -920,7 +922,7 @@ function HeadroomPanel({
 function Metric({ label, value, good }: { label: string; value: string; good: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-background/45 p-2">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn('mt-0.5 font-medium', good ? 'text-foreground' : 'text-accent-warning')}>{value}</div>
     </div>
   )
@@ -938,8 +940,8 @@ function IssueBox({ issue }: { issue: HeadroomIssue }) {
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-warning" />
         <div className="min-w-0">
           <div className="text-xs font-medium">{title}</div>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{guidance}</p>
-          <div className="mt-1 text-[11px] text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{guidance}</p>
+          <div className="mt-1 text-xs text-muted-foreground">{t('plugins.headroom.issueCode', { code: issue.code })}</div>
         </div>
       </div>
     </div>
@@ -983,8 +985,8 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
           <BarChart3 className="h-3.5 w-3.5 text-accent-primary" />
           <div className="truncate text-xs font-medium">{t('plugins.headroom.savings.title')}</div>
         </div>
-        <span className={cn(
-          'shrink-0 rounded border px-1.5 py-0.5 text-[11px]',
+        <span data-chip="" className={cn(
+          'inline-flex h-5 shrink-0 items-center rounded border px-1.5 text-[11px]',
           statusEmphasis
             ? 'border-accent-success/25 bg-accent-success/10 text-accent-success'
             : hasActiveProvider
@@ -1022,7 +1024,7 @@ function HeadroomMetricsPanel({ state }: { state: HeadroomState }) {
         ))}
       </div>
 
-      <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
         {metrics.updatedAt
           ? t('plugins.headroom.savings.updatedLive')
           : t('plugins.headroom.savings.baselineSamples', { count: state.learning.baselineSamples })}
@@ -1048,7 +1050,7 @@ function TokenStatsColumn({
   return (
     <div className={cn('min-w-0', align === 'right' && 'text-right')}>
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="mt-1 space-y-0.5 text-[11px]">
+      <div className="mt-1 space-y-0.5 text-xs">
         <div className="flex min-w-0 items-baseline justify-between gap-2">
           <span className="shrink-0 text-muted-foreground">{t('plugins.headroom.savings.processed')}</span>
           <span className="truncate font-semibold tabular-nums text-foreground">{processed}</span>
@@ -1058,7 +1060,7 @@ function TokenStatsColumn({
           <span className="truncate font-semibold tabular-nums text-foreground">{saved}</span>
         </div>
       </div>
-      {detail && <div className="mt-1 truncate text-[11px] text-muted-foreground">{detail}</div>}
+      {detail && <div className="mt-1 truncate text-xs text-muted-foreground">{detail}</div>}
     </div>
   )
 }
@@ -1100,12 +1102,12 @@ function ProviderMetricRow({
       <div className="flex min-w-0 items-center gap-1.5">
           <span className="text-xs font-medium">{metric.label}</span>
           {metric.detectedRoute && (
-            <span className="rounded bg-accent-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-accent-primary">
+            <span data-chip="" className="inline-flex h-5 items-center rounded bg-accent-primary/10 px-1.5 text-[11px] font-medium text-accent-primary">
               {t('plugins.headroom.savings.detected')}
             </span>
           )}
       </div>
-      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{detail}</div>
+      <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>
 
       <div className="mt-2 grid grid-cols-2 gap-3">
         <TokenStatsColumn
@@ -1163,7 +1165,7 @@ function ProviderToggle({
       </div>
       <div className="min-w-0 flex-1">
         <div id={labelId} className="text-xs font-medium capitalize">{provider}</div>
-        <div id={statusId} className="text-[11px] text-muted-foreground">
+        <div id={statusId} className="text-xs text-muted-foreground">
           {statusText}
         </div>
       </div>
@@ -1196,13 +1198,14 @@ function ProjectPluginWizard({
 
   return (
     <Dialog open={!!plugin} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl overflow-x-hidden p-4 sm:p-6">
+      <DialogContent size="workspace">
         <DialogHeader>
           <DialogTitle>{plugin === 'jira' ? t('plugins.projectWizard.configureJira') : t('plugins.projectWizard.installSerena')}</DialogTitle>
           <DialogDescription>
             {t('plugins.projectWizard.description')}
           </DialogDescription>
         </DialogHeader>
+        <DialogBody className="overflow-x-hidden">
         <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
           <div className="rounded-lg border border-border bg-card/70 p-3">
             <div className="mb-2 text-xs font-medium text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
@@ -1223,7 +1226,7 @@ function ProjectPluginWizard({
                     )}
                   >
                     <div className="truncate text-xs font-medium">{project.name}</div>
-                    <div className="truncate text-[11px]">
+                    <div className="truncate text-xs">
                       {disabled
                         ? t('plugins.projectWizard.requiresSupportedProvider')
                         : project.path}
@@ -1245,6 +1248,7 @@ function ProjectPluginWizard({
             )}
           </div>
         </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )
@@ -1488,16 +1492,18 @@ function DiagnosticsDialog({ open, onClose }: { open: boolean; onClose: () => vo
   }, [open])
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Settings2 className="h-4 w-4" /> {t('plugins.diagnostics.title')}</DialogTitle>
+      <DialogContent size="wide">
+        <DialogHeader icon={<Settings2 />}>
+          <DialogTitle>{t('plugins.diagnostics.title')}</DialogTitle>
           <DialogDescription>
             {t('plugins.diagnostics.description')}
           </DialogDescription>
         </DialogHeader>
-        <pre className="max-h-[62vh] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-3 text-xs">
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <DialogBody>
+          <pre className="overflow-x-hidden whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-3 text-xs">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

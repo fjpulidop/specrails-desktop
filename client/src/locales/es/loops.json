@@ -150,7 +150,8 @@
       "add": "Añadir",
       "builtinBadge": "Integradas",
       "deleteConfirmTitle": "¿Eliminar la constante {{name}}?",
-      "deleteConfirmBody": "Las constantes se comparten entre todos los loops. Los pasos que aún la usen dejarán de resolverla."
+      "deleteConfirmBody": "Las constantes se comparten entre todos los loops. Los pasos que aún la usen dejarán de resolverla.",
+      "description": "Valores reutilizables compartidos por todos los loops. Insértalos en un paso como token; se resuelven al ejecutar."
     },
     "paste": {
       "done_one": "{{count}} paso pegado",
@@ -381,5 +382,7 @@
   "window": {
     "open": "Abrir en ventana",
     "openFailed": "No se pudo abrir la ventana del loop"
-  }
+  },
+  "confirmDeleteTitle": "¿Eliminar «{{name}}»?",
+  "confirmDeleteAction": "Eliminar loop"
 }

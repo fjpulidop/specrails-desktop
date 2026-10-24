@@ -150,7 +150,8 @@
       "add": "Ajouter",
       "builtinBadge": "Intégrées",
       "deleteConfirmTitle": "Supprimer la constante {{name}} ?",
-      "deleteConfirmBody": "Les constantes sont partagées par toutes les boucles. Les étapes qui y font encore référence ne pourront plus la résoudre."
+      "deleteConfirmBody": "Les constantes sont partagées par toutes les boucles. Les étapes qui y font encore référence ne pourront plus la résoudre.",
+      "description": "Valeurs réutilisables partagées par toutes les boucles. Insérez-en une dans une étape sous forme de jeton ; elle est résolue à l’exécution."
     },
     "paste": {
       "done_one": "{{count}} étape collée",
@@ -381,5 +382,7 @@
   "window": {
     "open": "Ouvrir dans une fenêtre",
     "openFailed": "Impossible d’ouvrir la fenêtre de la boucle"
-  }
+  },
+  "confirmDeleteTitle": "Supprimer « {{name}} » ?",
+  "confirmDeleteAction": "Supprimer la boucle"
 }

@@ -1,6 +1,6 @@
 import { keyboardLabel } from '../../../../lib/keyboard-label'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
   Sparkles,
@@ -17,6 +17,9 @@ import {
 import { Button } from '../../../../components/ui/button'
 import { useMovableResizableModal } from '../../../../hooks/useMovableResizableModal'
 import { ResizeGrips } from '../../../../components/ui/ResizeGrips'
+import { ConfirmDialog } from '../../../../components/ui/confirm-dialog'
+import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../../components/ui/dialog'
+import { DIALOG_LAYER_CLASS } from '../../../../lib/layers'
 
 /**
  * Detect Tauri-on-Mac so we can reserve ~80px on the left for the native
@@ -122,15 +125,22 @@ export interface AiEditShellProps {
  *
  * Owns: layout, header chrome, keyboard shortcuts (⌘⏎/Esc), discard confirmation,
  * focus trap. Delegates: composer rendering, diff rendering, state/actions.
+ *
+ * Built on the Radix dialog primitives (base layer): FocusScope trap,
+ * `hideOthers`, Escape stacking (the discard confirm closes before the shell).
  */
 export function AiEditShell(props: AiEditShellProps) {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const previousFocusRef = useRef<Element | null>(null)
+  // Captured during the first render: Radix moves focus into the panel in a
+  // child effect, before this component's own effects run.
+  const [openerFocus] = useState<Element | null>(() =>
+    typeof document !== 'undefined' ? document.activeElement : null,
+  )
+  const previousFocusRef = useRef<Element | null>(openerFocus)
   const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating } =
     useMovableResizableModal()
 
   useEffect(() => {
-    previousFocusRef.current = document.activeElement
     return () => {
       const el = previousFocusRef.current
       if (el && el instanceof HTMLElement) el.focus()
@@ -150,13 +160,11 @@ export function AiEditShell(props: AiEditShellProps) {
     props.onDiscard()
   }, [props])
 
+  // Escape is routed through Radix (`onEscapeKeyDown`) so an open discard
+  // confirm consumes it first; the window listener keeps the other shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestDiscard()
-        return
-      }
+      if (e.key === 'Escape') return
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (props.uiPhase === 'reviewing' && props.canApply && !props.applyConflict) {
           e.preventDefault()
@@ -176,19 +184,30 @@ export function AiEditShell(props: AiEditShellProps) {
     props.uiPhase === 'error'
   const isSplit = props.uiPhase === 'reviewing' || props.uiPhase === 'applied'
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+  return (
+    <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) requestDiscard() }}>
+    <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay
+      className={`${DIALOG_SCRIM_CLASS} ${DIALOG_LAYER_CLASS.base}`}
       data-testid="ai-edit-backdrop"
-    >
-    <div
+    />
+    <DialogPrimitive.Content
       ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${props.eyebrow} · ${props.targetLabel}`}
-      className="m-auto w-full h-full max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-2xl overflow-hidden"
+      aria-describedby={undefined}
+      // Full-window workspace (top gutter clears the titlebar), capped at
+      // 1600px: geometry specific to the AI Edit takeover.
+      className={`modal-panel fixed inset-x-3 top-10 bottom-3 sm:inset-x-6 sm:top-12 sm:bottom-6 mx-auto max-w-[1600px] flex flex-col bg-background rounded-xl border border-border/40 shadow-xl overflow-hidden outline-none ${DIALOG_LAYER_CLASS.base}`}
       style={panelStyle}
+      onEscapeKeyDown={(e) => { e.preventDefault(); requestDiscard() }}
+      // A click outside never discards an AI edit; close via Esc, back or Discard.
+      onPointerDownOutside={(e) => e.preventDefault()}
+      onCloseAutoFocus={(e) => {
+        // Focus return is owned by previousFocusRef (unmount effect above).
+        e.preventDefault()
+      }}
     >
+    <DialogPrimitive.Title className="sr-only">{`${props.eyebrow} · ${props.targetLabel}`}</DialogPrimitive.Title>
+    <DialogLayerProvider layer="base">
       <Header
         eyebrow={props.eyebrow}
         targetLabel={props.targetLabel}
@@ -226,16 +245,16 @@ export function AiEditShell(props: AiEditShellProps) {
         />
       )}
 
-      {confirmDiscard && (
-        <ConfirmDiscardDialog
-          onCancel={() => setConfirmDiscard(false)}
-          onConfirm={confirmDiscardAndClose}
-        />
-      )}
-    </div>
-    <ResizeGrips handles={resizeHandles} />
-    </div>,
-    document.body,
+      <ConfirmDiscardDialog
+        open={confirmDiscard}
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={confirmDiscardAndClose}
+      />
+    </DialogLayerProvider>
+    <ResizeGrips handles={resizeHandles} placement="inset" />
+    </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -283,7 +302,7 @@ function Header({
       >
         <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
         <div className="text-left min-w-0">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70 leading-none">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground/70 leading-none">
             {eyebrow}
           </div>
           {targetLabelMono ? (
@@ -317,7 +336,7 @@ function Header({
         {showApply && (
           <Button size="sm" onClick={onApply} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> {t('shell.apply')}
-            <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
+            <span className="text-xs opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
           </Button>
         )}
       </div>
@@ -432,7 +451,7 @@ function SuggestionChips({
   const { t } = useTranslation('aiedit')
   return (
     <div className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground/70">
         {t('shell.quickPrompts')}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -475,7 +494,7 @@ function ConversationHistory({ history }: { history: AiEditHistoryTurn[] }) {
   if (history.length === 0) return null
   return (
     <div className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground/70">
         {t('shell.history')}
       </div>
       <div className="space-y-2">
@@ -500,7 +519,7 @@ function CurrentBodyDisclosure({ body, label }: { body: string; label: string })
         {label}
       </button>
       {open && (
-        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-[11px] font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground/80">
+        <pre className="mt-2 p-3 rounded-md bg-muted/40 border border-border text-xs font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto text-foreground/80">
           {body}
         </pre>
       )}
@@ -572,7 +591,7 @@ function ChatColumn({
           <button
             type="button"
             onClick={secondaryAction.onClick}
-            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground py-1.5 rounded hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+            className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground py-1.5 rounded hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
             {secondaryAction.icon ?? <ExternalLink className="w-3 h-3" />}
             {secondaryAction.label}
@@ -598,7 +617,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   if (turn.role === 'user') {
     return (
       <div className="flex flex-col items-end">
-        <div className="text-[11px] text-muted-foreground mb-1">{t('shell.you')}</div>
+        <div className="text-xs text-muted-foreground mb-1">{t('shell.you')}</div>
         <div className="max-w-[90%] rounded-2xl rounded-br-sm bg-accent-primary/15 text-foreground text-sm px-3 py-2 whitespace-pre-wrap break-words">
           {turn.content}
         </div>
@@ -611,7 +630,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
         <div className="flex items-center gap-1.5 font-medium mb-1 text-accent-info">
           <Sparkles className="w-3 h-3" /> {t('shell.autoTestResult')}
         </div>
-        <pre className="text-[11px] font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
+        <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
           {turn.content}
         </pre>
       </div>
@@ -619,7 +638,7 @@ function ChatTurn({ turn }: { turn: AiEditHistoryTurn }) {
   }
   return (
     <div className="flex flex-col items-start">
-      <div className="text-[11px] text-muted-foreground mb-1 inline-flex items-center gap-1">
+      <div className="text-xs text-muted-foreground mb-1 inline-flex items-center gap-1">
         <Sparkles className="w-3 h-3 text-accent-primary" /> {t('shell.ai')}
       </div>
       <div className="max-w-[90%] rounded-2xl rounded-bl-sm border border-border bg-muted/30 text-xs px-3 py-2 text-muted-foreground italic">
@@ -647,7 +666,7 @@ function DiffPane({
         <span className="text-xs font-mono text-muted-foreground truncate">
           {label ?? t('shell.proposedChanges')}
         </span>
-        <span className="text-[11px] text-muted-foreground">{t('shell.wordLevelDiff')}</span>
+        <span className="text-xs text-muted-foreground">{t('shell.wordLevelDiff')}</span>
       </div>
       {applyConflict === 'disk_changed' && (
         <ConflictBanner
@@ -694,38 +713,25 @@ function ConflictBanner({
 }
 
 function ConfirmDiscardDialog({
+  open,
   onCancel,
   onConfirm,
 }: {
+  open: boolean
   onCancel: () => void
   onConfirm: () => void
 }) {
   const { t } = useTranslation('aiedit')
   return (
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={t('shell.discardDialog.ariaLabel')}
-      className="absolute inset-0 z-10 flex items-center justify-center bg-black/40"
-    >
-      <div className="rounded-lg border border-border bg-card p-5 max-w-sm shadow-xl">
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-accent-warning" />
-          <h2 className="text-sm font-medium">{t('shell.discardDialog.title')}</h2>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          {t('shell.discardDialog.body')}
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            {t('shell.discardDialog.keepEditing')}
-          </Button>
-          <Button size="sm" onClick={onConfirm}>
-            {t('common:actions.discard')}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => { if (!next) onCancel() }}
+      title={t('shell.discardDialog.title')}
+      description={t('shell.discardDialog.body')}
+      cancelLabel={t('shell.discardDialog.keepEditing')}
+      confirmLabel={t('common:actions.discard')}
+      onConfirm={onConfirm}
+    />
   )
 }
 
@@ -913,11 +919,11 @@ export function PlainComposer({
           )}
         </button>
       </div>
-      <div className="flex items-center justify-end text-[11px] text-muted-foreground/70">
+      <div className="flex items-center justify-end text-xs text-muted-foreground/70">
         <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[11px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-[11px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
           <span className="mx-1.5">·</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[11px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
+          <kbd data-chip="" className="inline-flex h-5 items-center px-1.5 rounded bg-muted/60 text-[11px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
         </span>
       </div>
     </div>
