@@ -515,18 +515,11 @@ select {
 .hljs-emphasis              { font-style: italic; }
 .hljs-strong                { font-weight: 700; }
 
-/* Command palette (cmdk) */
-[cmdk-overlay] {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: hsl(0 0% 0% / 0.6);
-  backdrop-filter: blur(4px);
-}
-
+/* Command palette (cmdk). The overlay itself is styled by the modal standard
+   classes in CommandPalette.tsx (shared scrim token + base layer). */
 [cmdk-group-heading] {
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;

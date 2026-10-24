@@ -389,9 +389,8 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       shouldFilter={false}
       label={t('palette.dialogTitle')}
       // cmdk renders a Radix dialog: style its Content as a standard `form`
-      // panel and its Overlay with the shared scrim. `!` beats the unlayered
-      // `[cmdk-overlay]` rule in globals.css (Tailwind utilities are layered).
-      overlayClassName={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.base, 'bg-scrim!')}
+      // panel and its Overlay with the shared scrim.
+      overlayClassName={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS.base)}
       contentClassName={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS.base, DIALOG_SIZE_CLASS.form)}
       className="flex min-h-0 flex-col"
     >
@@ -415,7 +414,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       </div>
 
       {/* Results list — group order follows the UI mode (D6) */}
-      <Command.List className="max-h-80 overflow-y-auto p-2 [&_[cmdk-group-heading]]:text-xs!">
+      <Command.List className="max-h-80 overflow-y-auto p-2">
         <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
           {t('palette.noResults')}
         </Command.Empty>

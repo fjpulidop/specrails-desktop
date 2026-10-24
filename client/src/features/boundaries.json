@@ -78,6 +78,7 @@
   },
   "chat": {
     "publicEntries": [
+      "components/AttachmentPreviewLightbox.tsx",
       "components/AttachmentsSection.tsx",
       "components/ChatPanel.tsx",
       "components/ContextScopeChecks.tsx",
@@ -262,6 +263,7 @@
       "background",
       "browser",
       "builder",
+      "chat",
       "code",
       "delivery",
       "jobs",

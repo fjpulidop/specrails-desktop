@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AlertCircle, ArrowLeft, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
+import { AlertCircle, AtSign, Bot, BriefcaseBusiness, Check, Copy, Download, File, FileText, GitPullRequest, Hash, Image as ImageIcon, Loader2, Paperclip, Sparkles, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { toDate } from '../../../lib/relative-time'
 import { cn } from '../../../lib/utils'
 import { useWebViewModal } from '../../browser/context/WebViewModalContext'
+import { MediaLightbox } from '../../chat/components/AttachmentPreviewLightbox'
+import { Button } from '../../../components/ui/button'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { extractAgentOptions } from './agent-options'
 import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import { extractAgentSpecDraft } from './agent-spec-draft'
@@ -134,20 +136,6 @@ function AgentAttachmentDialog({
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!attachment) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previousOverflow
-    }
-  }, [attachment, onClose])
-
-  useEffect(() => {
     if (!attachment) {
       setObjectUrl(null)
       setLoadError(null)
@@ -178,115 +166,62 @@ function AgentAttachmentDialog({
 
   if (!attachment) return null
 
-  const image = isImageAttachment(attachment)
-  const downloadLabel = t('attachment.download')
-  const downloadAction = objectUrl ? (
-    <a
-      href={objectUrl}
-      download={attachment.filename}
-      onClick={(event) => event.stopPropagation()}
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-      data-agent-interactive
-    >
-      <Download className="h-4 w-4" />
-      {downloadLabel}
-    </a>
-  ) : (
-    <button
-      type="button"
-      disabled
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-primary px-3 py-2 text-sm font-medium text-white opacity-45"
-    >
-      {loadError ? <Download className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
-      {downloadLabel}
-    </button>
-  )
+  if (isImageAttachment(attachment)) {
+    // One lightbox for the whole app (modal standard): Radix on the media layer.
+    return (
+      <MediaLightbox
+        open
+        onClose={onClose}
+        filename={attachment.filename}
+        subtitle={formatBytes(attachment.size) || attachment.mimeType}
+        src={objectUrl}
+        mimeType={attachment.mimeType}
+        error={loadError ? t('attachment.loadError', { error: loadError }) : null}
+      />
+    )
+  }
 
-  const dialog = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={image ? t('attachment.previewTitle', { name: attachment.filename }) : t('attachment.downloadTitle')}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in-0 duration-150"
-      onClick={onClose}
-    >
-      {image ? (
-        <div className="flex h-full w-full flex-col overflow-hidden" onClick={(event) => event.stopPropagation()}>
-          <div className="flex items-center gap-3 border-b border-white/10 bg-black/30 px-3 py-2 text-white">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('close')}
-              className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-              data-agent-interactive
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t('close')}
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <div className="truncate text-sm font-medium text-white/95">{attachment.filename}</div>
-              <div className="text-[11px] text-white/45">{formatBytes(attachment.size) || attachment.mimeType}</div>
-            </div>
-            {downloadAction}
+  // Non-image attachment: a short download confirm on the modal standard.
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent size="confirm" layer="media" showCloseButton={false}>
+        <DialogHeader icon={<File />}>
+          <DialogTitle>{t('attachment.downloadTitle')}</DialogTitle>
+          <DialogDescription>{t('attachment.downloadPrompt')}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium text-foreground">{attachment.filename}</p>
+            <p className="text-xs text-muted-foreground">{[formatBytes(attachment.size), attachment.mimeType].filter(Boolean).join(' · ')}</p>
           </div>
-          <div className="flex flex-1 items-center justify-center overflow-auto p-6">
-            {loadError ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-8 py-7 text-center text-sm text-white/80">
-                {t('attachment.loadError', { error: loadError })}
-              </div>
-            ) : !objectUrl ? (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm text-white/70">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('attachment.loading')}
-              </div>
-            ) : (
-              <img
-                src={objectUrl}
-                alt={attachment.filename}
-                className="max-h-full max-w-full rounded-xl object-contain shadow-2xl animate-in zoom-in-95 duration-150"
-              />
-            )}
-          </div>
-        </div>
-      ) : (
-        <div
-          className="w-full max-w-sm rounded-2xl border border-border/70 bg-card p-4 text-foreground shadow-2xl"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-surface/70">
-              <File className="h-5 w-5 text-accent-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold">{t('attachment.downloadTitle')}</h2>
-              <p className="mt-1 truncate text-xs font-medium text-foreground/70">{attachment.filename}</p>
-              <p className="mt-0.5 text-[11px] text-foreground/45">{[formatBytes(attachment.size), attachment.mimeType].filter(Boolean).join(' · ')}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-foreground/70">{t('attachment.downloadPrompt')}</p>
           {loadError && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{t('attachment.loadError', { error: loadError })}</span>
             </div>
           )}
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-border/70 bg-surface/70 px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-surface hover:text-foreground"
-              data-agent-interactive
-            >
-              {t('attachment.cancelDownload')}
-            </button>
-            {downloadAction}
-          </div>
-        </div>
-      )}
-    </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onClose} data-agent-interactive>
+            {t('attachment.cancelDownload')}
+          </Button>
+          {objectUrl ? (
+            <Button asChild data-agent-interactive>
+              <a href={objectUrl} download={attachment.filename}>
+                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                {t('attachment.download')}
+              </a>
+            </Button>
+          ) : (
+            <Button type="button" disabled>
+              {loadError ? <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden /> : <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}
+              {t('attachment.download')}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
-
-  return createPortal(dialog, document.body)
 }
 
 export function AgentAttachmentChips({
