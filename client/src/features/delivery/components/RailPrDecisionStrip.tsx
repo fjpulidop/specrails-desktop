@@ -4,15 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
 import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen, MessageSquareWarning } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-} from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
@@ -877,170 +869,105 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
 
       {/* Merge-local confirmation — it writes merge commits into the user's
           checkout of the base branch. Constructive but repo-touching. */}
-      <Dialog open={confirmationIsOpen('merge-local')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-merge-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('railPr.mergeLocalConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.mergeLocalConfirmBody', { base: decision.baseBranch })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-merge-local-confirm-btn"
-              onClick={() => confirmAction('merge-local', 'merge-local')}
-            >
-              {t('railPr.mergeLocal')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmationIsOpen('merge-local')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="default"
+        testId="rail-pr-merge-local-confirm"
+        confirmTestId="rail-pr-merge-local-confirm-btn"
+        title={t('railPr.mergeLocalConfirmTitle')}
+        description={t('railPr.mergeLocalConfirmBody', { base: decision.baseBranch })}
+        confirmLabel={t('railPr.mergeLocal')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('merge-local', 'merge-local')}
+      />
 
       {/* Fresh discard is consequence-specific: failed implementations keep
           recoverable local work for inspection and clean up only safe state. */}
-      <Dialog open={confirmationIsOpen('discard')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-discard-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(d === 'implementation_failed'
-              ? 'railPr.implementationFailedDiscardTitle'
-              : 'railPr.discardConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t(d === 'implementation_failed'
-              ? 'railPr.implementationFailedDiscardBody'
-              : 'railPr.discardConfirmBody')}</DialogDescription>
-            {isStackedHead && (
-              <p className="mt-2 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="rail-pr-discard-stacked-note">
-                {t('railPr.discardStackedNote')}
-              </p>
-            )}
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-discard-confirm-btn"
-              onClick={() => confirmAction('discard', 'discard')}
-            >
-              {t('railPr.discard')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmationIsOpen('discard')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="destructive"
+        testId="rail-pr-discard-confirm"
+        confirmTestId="rail-pr-discard-confirm-btn"
+        title={t(d === 'implementation_failed' ? 'railPr.implementationFailedDiscardTitle' : 'railPr.discardConfirmTitle')}
+        description={t(d === 'implementation_failed' ? 'railPr.implementationFailedDiscardBody' : 'railPr.discardConfirmBody')}
+        confirmLabel={t('railPr.discard')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('discard', 'discard')}
+      >
+        {isStackedHead && (
+          <p className="rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="rail-pr-discard-stacked-note">
+            {t('railPr.discardStackedNote')}
+          </p>
+        )}
+      </ConfirmDialog>
 
       {/* A continuation borrows the user's existing PR. Dismiss only clears
           this follow-up generation; it does not close/delete external state. */}
-      <Dialog open={confirmationIsOpen('dismiss')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-dismiss-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('railPr.dismissConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.dismissConfirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-dismiss-confirm-btn"
-              onClick={() => confirmAction('dismiss', 'dismiss')}
-            >
-              {t('railPr.dismiss')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmationIsOpen('dismiss')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="default"
+        testId="rail-pr-dismiss-confirm"
+        confirmTestId="rail-pr-dismiss-confirm-btn"
+        title={t('railPr.dismissConfirmTitle')}
+        description={t('railPr.dismissConfirmBody')}
+        confirmLabel={t('railPr.dismiss')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('dismiss', 'dismiss')}
+      />
 
       {/* Blocked work can contain the only recoverable local result. Name that
           consequence separately from dismissing a clean continuation. */}
-      <Dialog open={confirmationIsOpen('discard-local')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-discard-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('railPr.discardLocalConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.discardLocalConfirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-discard-local-confirm-btn"
-              onClick={() => confirmAction('discard-local', 'discard')}
-            >
-              {t('railPr.discardLocalResult')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={confirmationIsOpen('no-changes-done')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-no-changes-done-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('railPr.markDoneConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.markDoneConfirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-no-changes-done-confirm-btn"
-              onClick={() => confirmAction('no-changes-done', 'acknowledge-no-changes')}
-            >
-              {t('railPr.markDone')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={confirmationIsOpen('refine')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-refine-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('railPr.refineConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t('railPr.refineConfirmBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={busy}
-              data-testid="rail-pr-refine-confirm-btn"
-              onClick={() => confirmAction('refine', 'discard')}
-            >
-              {t('railPr.refine')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={confirmationIsOpen('recover-and-retry')} onOpenChange={(open) => { if (!open) closeConfirmation() }}>
-        <DialogContent className="max-w-sm" data-testid="rail-pr-recover-and-retry-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmTitle' : 'railPr.recoverAndRetryConfirmTitle')}</DialogTitle>
-            <DialogDescription>{t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmBody' : 'railPr.recoverAndRetryConfirmBody', { branch: decision.branch ?? '' })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeConfirmation}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={busy} onClick={() => confirmAction('recover-and-retry', 'recover-and-retry')}>
-              {t(recoveryIsRecheck ? 'railPr.recheckRecovery' : 'railPr.recoverAndRetry')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmationIsOpen('discard-local')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="destructive"
+        testId="rail-pr-discard-local-confirm"
+        confirmTestId="rail-pr-discard-local-confirm-btn"
+        title={t('railPr.discardLocalConfirmTitle')}
+        description={t('railPr.discardLocalConfirmBody')}
+        confirmLabel={t('railPr.discardLocalResult')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('discard-local', 'discard')}
+      />
+      <ConfirmDialog
+        open={confirmationIsOpen('no-changes-done')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="default"
+        testId="rail-pr-no-changes-done-confirm"
+        confirmTestId="rail-pr-no-changes-done-confirm-btn"
+        title={t('railPr.markDoneConfirmTitle')}
+        description={t('railPr.markDoneConfirmBody')}
+        confirmLabel={t('railPr.markDone')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('no-changes-done', 'acknowledge-no-changes')}
+      />
+      <ConfirmDialog
+        open={confirmationIsOpen('refine')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="destructive"
+        testId="rail-pr-refine-confirm"
+        confirmTestId="rail-pr-refine-confirm-btn"
+        title={t('railPr.refineConfirmTitle')}
+        description={t('railPr.refineConfirmBody')}
+        confirmLabel={t('railPr.refine')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('refine', 'discard')}
+      />
+      <ConfirmDialog
+        open={confirmationIsOpen('recover-and-retry')}
+        onOpenChange={(open) => { if (!open) closeConfirmation() }}
+        tone="default"
+        testId="rail-pr-recover-and-retry-confirm"
+        confirmTestId="rail-pr-recover-and-retry-confirm-btn"
+        title={t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmTitle' : 'railPr.recoverAndRetryConfirmTitle')}
+        description={t(recoveryIsRecheck ? 'railPr.recheckRecoveryConfirmBody' : 'railPr.recoverAndRetryConfirmBody', { branch: decision.branch ?? '' })}
+        confirmLabel={t(recoveryIsRecheck ? 'railPr.recheckRecovery' : 'railPr.recoverAndRetry')}
+        confirmDisabled={busy}
+        onConfirm={() => confirmAction('recover-and-retry', 'recover-and-retry')}
+      />
     </div>
   )
 }

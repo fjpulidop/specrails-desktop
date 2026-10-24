@@ -306,6 +306,9 @@ describe('Flow mode in the conversation', () => {
     expect(panel.getByTestId('flow-bar-discard')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('flow-bar-changes'))
     const dialog = await screen.findByTestId('flow-changes-dialog')
+    // Opened from the Flow strip (possibly inside the floating chat): stacked layer, fixed geometry.
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'stacked')
+    expect(dialog).toHaveAttribute('data-dialog-size', 'wide')
     await waitFor(() => expect(dialog.querySelectorAll('[data-testid="flow-changes-file"]')).toHaveLength(3))
     expect(dialog).toHaveTextContent('src/App.tsx')
     expect(dialog).toHaveTextContent('—')
@@ -483,6 +486,10 @@ describe('Flow mode in the conversation', () => {
     await openFlowPanel()
     fireEvent.click(await screen.findByTestId('flow-bar-discard'))
     const dialog = await screen.findByTestId('flow-discard-dialog')
+    // Shared ConfirmDialog on the stacked layer, destructive primary focused on open.
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'stacked')
+    expect(screen.getByTestId('flow-discard-confirm').className).toMatch(/bg-destructive/)
+    await waitFor(() => expect(screen.getByTestId('flow-discard-confirm')).toHaveFocus())
     // It names what is lost: the changed files with their lines, the branch and the spec.
     expect(dialog).toHaveTextContent('cannot be undone')
     await waitFor(() => expect(screen.getByTestId('flow-discard-files')).toHaveTextContent('3 changed files+10−2'))
@@ -528,6 +535,9 @@ describe('Flow mode in the conversation', () => {
     expect(screen.queryByTestId('flow-bar-changes')).toBeNull()
     fireEvent.click(screen.getByTestId('flow-bar-close'))
     const dialog = await screen.findByTestId('flow-close-dialog')
+    // Nothing is lost: a default-tone confirm, still stacked above the floating chat.
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'stacked')
+    expect(screen.getByTestId('flow-close-confirm').className).not.toMatch(/bg-destructive/)
     expect(dialog).toHaveTextContent('Nothing is deleted')
     expect(screen.getByTestId('flow-close-kept')).toHaveTextContent('Branch kept:feat/7-calm-dashboard')
     expect(screen.queryByTestId('flow-discard-dialog')).toBeNull()

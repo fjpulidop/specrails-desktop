@@ -261,7 +261,8 @@
     "autonomyBody": "{{provider}} はネイティブエージェントと動的ワークフローを使って自律的に作業します。",
     "costTitle": "コストは変動します。",
     "costBody": "支出は {{provider}} の判断に依存し、想定より高くなることがあります。",
-    "continue": "続行"
+    "continue": "続行",
+    "gloss": "Freestyle では各スペックを {{provider}} に直接渡します。スペックごとに 1 回の自律実行で、OpenSpec の計画・レビューのパイプラインは使いません。"
   },
   "useRails": {
     "fetchFailed": "レールの取得に失敗しました: {{status}}"

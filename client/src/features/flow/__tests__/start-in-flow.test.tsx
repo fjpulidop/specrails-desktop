@@ -114,6 +114,7 @@ describe('Start in Flow in a project with several Git repositories', () => {
     await waitFor(() => expect(screen.getByTestId('spec-start-in-flow')).toBeEnabled())
     await act(async () => { fireEvent.click(screen.getByTestId('spec-start-in-flow')) })
     const dialog = await screen.findByTestId('flow-start-repository-dialog')
+    expect(dialog).toHaveAttribute('data-dialog-layer', 'stacked')
     expect(dialog).toHaveTextContent('Where should this Flow run?')
     expect(dialog).toHaveTextContent('Calmer onboarding')
     const radios = screen.getAllByRole('radio')

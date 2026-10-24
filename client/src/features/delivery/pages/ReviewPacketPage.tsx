@@ -66,7 +66,7 @@ function ProofRow({ item }: { item: PacketProofItem }) {
         {t(item.code, { ...(item.values ?? {}), defaultValue: item.code })}
       </span>
       {item.rawExcerpt ? (
-        <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+        <pre className="max-h-32 overflow-auto rounded border border-border/60 bg-background-deep/60 p-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
           {item.rawExcerpt}
         </pre>
       ) : null}
@@ -577,7 +577,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 {t('requestChanges.submit')}
               </Button>
               {/* No duration promise: nothing measured yet for revision runs. */}
-              <span className="text-[11px] text-muted-foreground">{t('requestChanges.hint')}</span>
+              <span className="text-xs text-muted-foreground">{t('requestChanges.hint')}</span>
             </div>
             {revisionError ? (
               <p className="text-xs text-accent-warning">{t(`error.${revisionError}`)}</p>
@@ -611,7 +611,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               <li key={nudge.code}>{t(nudge.code, { ...nudge.values, defaultValue: nudge.code })}</li>
             ))}
           </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">{t('drift.advisory')}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t('drift.advisory')}</p>
         </div>
       ) : null}
 
@@ -628,11 +628,11 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     {t('versions.label', { version: version.version })}
                   </span>
                   {version.current ? (
-                    <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[11px] text-accent-primary">
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[11px] text-accent-primary">
                       {t('versions.current')}
                     </span>
                   ) : null}
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}${formatUsd(version.costUsd)}`}
                   </span>
                 </span>
@@ -698,12 +698,12 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               return (
                 <li key={comment.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-surface/70 px-1 font-mono text-[11px] text-muted-foreground">{comment.id}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded bg-surface/70 px-1 font-mono text-[11px] text-muted-foreground">{comment.id}</span>
                     {comment.path ? <span className="font-mono text-xs text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''}</span> : null}
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
                       {t(`followUp.verdict.${verdictKey}`)}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
+                    <span className="text-xs text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
                   </div>
                   <PacketMarkdown muted className="mt-1">{comment.body}</PacketMarkdown>
                   {report ? (
@@ -737,9 +737,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <li key={entry.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-accent-primary">#{entry.ticketId}</span>
-                    <span className="rounded-full border border-border/50 px-1.5 py-px text-[11px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
+                    <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border/50 px-1.5 text-[11px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
                     <span className="font-medium">{entry.title}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
+                    <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
                       {t(`addenda.verdict.${verdictKey}`)}
                     </span>
                   </div>
@@ -770,7 +770,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 <span className="font-medium text-foreground">#{section.ticketId}</span>
                 {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
                 {(() => { const key = outcomeKey(section); return (
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
+                  <span data-chip="" className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
                     {t(`outcome.${key}`)}
                   </span>
                 ) })()}
@@ -795,7 +795,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground group-open:text-foreground/80">
                     {t('planned.title')}
                   </summary>
-                  <p className="mt-1 text-[11px] italic text-muted-foreground/80">{t('planned.caveat')}</p>
+                  <p className="mt-1 text-xs italic text-muted-foreground/80">{t('planned.caveat')}</p>
                   <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
                 </details>
               ) : (
@@ -810,7 +810,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <Section
           title={t('sections.whatTheAgentDid')}
           badge={(
-            <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+            <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-[11px] tabular-nums text-muted-foreground">
               {t('agentActions.total', { count: packet.agentActions.total })}
             </span>
           )}
@@ -822,7 +822,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       <Section
         title={t('sections.howItWasChecked')}
         badge={packet.evidenceUnavailable ? (
-          <span className="rounded-full border border-border bg-background-deep/50 px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span data-chip="" className="inline-flex h-5 items-center rounded-full border border-border bg-background-deep/50 px-2 text-[11px] text-muted-foreground">
             {t('proof.evidenceUnavailable')}
           </span>
         ) : undefined}
@@ -836,7 +836,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                   <Icon className="size-3.5" aria-hidden />
                   {t(`tier.${tier}.title`)}
                 </h3>
-                <p className="mb-2 text-[11px] opacity-80">{t(`tier.${tier}.caveat`)}</p>
+                <p className="mb-2 text-xs opacity-80">{t(`tier.${tier}.caveat`)}</p>
                 <ul className="space-y-1">
                   {items.map((item, index) => <ProofRow key={`${item.code}-${index}`} item={item} />)}
                 </ul>

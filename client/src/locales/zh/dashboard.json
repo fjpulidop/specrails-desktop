@@ -261,7 +261,8 @@
     "autonomyBody": "{{provider}} 使用原生 Agent 和动态工作流自主工作。",
     "costTitle": "成本不固定。",
     "costBody": "花费取决于 {{provider}} 的决策 — 可能高于预期。",
-    "continue": "继续"
+    "continue": "继续",
+    "gloss": "Freestyle 会把每个 Spec 直接交给 {{provider}}：每个 Spec 一次自主运行，不经过 OpenSpec 的规划与审查流水线。"
   },
   "useRails": {
     "fetchFailed": "获取 Rails 失败：{{status}}"

@@ -14,7 +14,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Waves } from 'lucide-react'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import type { FlowRepositoryOption } from '../lib/flow-api'
 import { FlowRepositoryPicker } from './FlowRepositoryPicker'
@@ -77,31 +77,30 @@ function FlowRepositoryDialog({ request, onSettle }: { request: FlowRepositoryRe
   const [selectedId, setSelectedId] = useState<string | null>(specRepositoryId ?? (has(request.fallbackId) ? request.fallbackId : null))
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onSettle(null) }}>
-      <DialogContent className="z-[70] max-w-md" overlayClassName="z-[70]" data-testid="flow-start-repository-dialog">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Waves className="h-4 w-4 text-accent-flow" aria-hidden />
-            {t('flow.startFromSpec.repository.title')}
-          </DialogTitle>
+      {/* Opened from the spec detail (entity) or the board menu, possibly over the floating chat: stacked layer. */}
+      <DialogContent size="form" layer="stacked" data-testid="flow-start-repository-dialog">
+        <DialogHeader icon={<Waves className="text-accent-flow" />}>
+          <DialogTitle>{t('flow.startFromSpec.repository.title')}</DialogTitle>
           <DialogDescription>{t('flow.startFromSpec.repository.body')}</DialogDescription>
         </DialogHeader>
-        <p className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs text-foreground/90">
-          <FileText className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
-          <span className="shrink-0 font-mono text-foreground/70">{t('flow.entry.existingSpec.label', { id: request.spec.id })}</span>
-          <span className="min-w-0 truncate font-medium" title={request.spec.title}>{request.spec.title}</span>
-        </p>
-        <FlowRepositoryPicker
-          idPrefix="flow-start-repository"
-          candidates={request.candidates}
-          selectedId={selectedId}
-          suggestedId={specRepositoryId}
-          suggestedLabel={t('flow.startFromSpec.repository.fromSpec')}
-          onSelect={setSelectedId}
-        />
+        <DialogBody className="space-y-3">
+          <p className="flex min-w-0 items-center gap-1.5 rounded-lg border border-border/40 bg-surface/40 px-3 py-2 text-xs text-foreground/90">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-foreground/70" aria-hidden />
+            <span className="shrink-0 font-mono text-foreground/70">{t('flow.entry.existingSpec.label', { id: request.spec.id })}</span>
+            <span className="min-w-0 truncate font-medium" title={request.spec.title}>{request.spec.title}</span>
+          </p>
+          <FlowRepositoryPicker
+            idPrefix="flow-start-repository"
+            candidates={request.candidates}
+            selectedId={selectedId}
+            suggestedId={specRepositoryId}
+            suggestedLabel={t('flow.startFromSpec.repository.fromSpec')}
+            onSelect={setSelectedId}
+          />
+        </DialogBody>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onSettle(null)}>{t('flow.entry.cancel')}</Button>
+          <Button variant="ghost" onClick={() => onSettle(null)}>{t('flow.entry.cancel')}</Button>
           <Button
-            size="sm"
             data-testid="flow-start-repository-confirm"
             disabled={!selectedId}
             onClick={() => { if (selectedId) onSettle(selectedId) }}

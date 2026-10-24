@@ -29,7 +29,7 @@ describe('BackgroundProcessHistoryModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to processes' }))
     expect(screen.getByRole('searchbox')).toHaveValue('Web')
     expect(screen.getByText('npm run build')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Close process history' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(view.props.onClose).toHaveBeenCalledOnce()
     expect(view.props.onKill).not.toHaveBeenCalled()
   })

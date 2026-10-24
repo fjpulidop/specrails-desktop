@@ -105,7 +105,7 @@ describe('grouped RailPrDecisionStrip actions', () => {
     expect(dialog.getByText(/api-main/)).toBeInTheDocument()
     expect(screen.queryByText(/unrelated-parent-base/)).toBeNull()
     expect(caller).not.toHaveBeenCalled()
-    fireEvent.click(dialog.getByRole('button', { name: 'Confirm' }))
+    fireEvent.click(dialog.getByRole('button', { name: 'Integrate locally' }))
     await waitFor(() => expect(caller).toHaveBeenCalledWith('merge-local', 'on_review', 'del-1', 'api'))
     await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith(expect.stringContaining('api-main')))
   })
@@ -1031,6 +1031,9 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     const dialog = screen.getByTestId('rail-pr-discard-local-confirm')
     expect(dialog).toHaveTextContent('recoverable local iteration')
     expect(act).not.toHaveBeenCalled()
+    // Shared ConfirmDialog, destructive tone: ghost Cancel then a destructive primary.
+    expect(within(dialog).getByTestId('rail-pr-discard-local-confirm-btn').className).toMatch(/bg-destructive/)
+    expect(within(dialog).getByRole('button', { name: 'Cancel' }).className).not.toMatch(/border/)
     fireEvent.click(within(dialog).getByTestId('rail-pr-discard-local-confirm-btn'))
     await waitFor(() => expect(act).toHaveBeenCalledWith('discard', 'pr_failed', 'del-1'))
   })
@@ -1098,7 +1101,11 @@ describe('merge-local action', () => {
     render(<RailPrDecisionStrip decision={snapshot({ decision: 'on_review' })} density="normal" act={act} />)
     fireEvent.click(screen.getByTestId('rail-pr-merge-local'))
     expect(act).not.toHaveBeenCalled() // confirm dialog first
-    fireEvent.click(screen.getByTestId('rail-pr-merge-local-confirm-btn'))
+    // Non-destructive confirm: default tone, focus starts on the primary.
+    const confirmBtn = screen.getByTestId('rail-pr-merge-local-confirm-btn')
+    expect(confirmBtn.className).not.toMatch(/bg-destructive/)
+    await waitFor(() => expect(confirmBtn).toHaveFocus())
+    fireEvent.click(confirmBtn)
     await waitFor(() => expect(act).toHaveBeenCalledWith('merge-local', 'on_review', 'del-1'))
     await waitFor(() => expect(mockToast.success).toHaveBeenCalled())
   })

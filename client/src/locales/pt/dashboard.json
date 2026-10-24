@@ -261,7 +261,8 @@
     "autonomyBody": "O {{provider}} trabalha por conta própria com agentes nativos e workflows dinâmicos.",
     "costTitle": "Custo variável.",
     "costBody": "O gasto depende do que o {{provider}} decidir fazer — pode ser superior ao esperado.",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "gloss": "O Freestyle entrega cada spec diretamente ao {{provider}}: uma execução autônoma por spec, sem o pipeline de planejamento e revisão do OpenSpec."
   },
   "useRails": {
     "fetchFailed": "Falha ao obter os rails: {{status}}"

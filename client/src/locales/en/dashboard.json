@@ -261,7 +261,8 @@
     "autonomyBody": "{{provider}} works on its own using native agents and dynamic workflows.",
     "costTitle": "Variable cost.",
     "costBody": "Spend depends on what {{provider}} decides to do — it can be higher than expected.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "gloss": "Freestyle hands each spec straight to {{provider}}: one autonomous run per spec, without the OpenSpec plan-and-review pipeline."
   },
   "useRails": {
     "fetchFailed": "Failed to fetch rails: {{status}}"

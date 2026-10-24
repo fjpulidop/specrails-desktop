@@ -1,18 +1,20 @@
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { CheckCircle2, FileText, X } from 'lucide-react'
+import { CheckCircle2, FileText } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
 import type { BlueprintM1Spec, BlueprintSpecPriority } from '../../lib/blueprint-draft'
 
 // Read-only preview of ONE blueprint spec (reskin follow-up). At day 0 the M1
 // specs are NOT tickets yet — they live only in the blueprint snapshot — so
 // this is a lightweight markdown preview, not the heavy TicketDetailModal.
 //
-// Built on ui/dialog (focus trap, Escape, dialog semantics) but raised to
-// z-[65]: it must layer ABOVE the floating agent panel (z-[60]/[61]) and stay
-// below the MinimizedChatsDock (z-[70]).
+// Built on ui/dialog (focus trap, Escape, dialog semantics) on the `entity`
+// layer: it must sit ABOVE the floating agent panel (floating-chat 60/61) and
+// below the minimized chats dock (see lib/layers).
+
+const CHIP = 'inline-flex h-5 items-center rounded px-1.5 text-[11px]'
 
 // Token-based markdown prose (mirrors AgentMessage's MD — theme-safe, no
 // prose-invert). Renders the spec's five-section description cleanly.
@@ -49,68 +51,53 @@ const PRIORITY_PILL: Record<BlueprintSpecPriority, string> = {
 export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose }: BlueprintSpecModalProps) {
   const { t } = useTranslation('builder')
   const { t: tTickets } = useTranslation('tickets')
-  const summaryId = `blueprint-spec-summary-${index}`
-
   const hasSummary = spec.shortSummary.trim().length > 0
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent
         data-testid="blueprint-spec-modal"
-        showCloseButton={false}
-        overlayClassName="z-[65]"
-        aria-describedby={hasSummary ? summaryId : undefined}
-        className="z-[65] flex max-h-[82vh] max-w-2xl flex-col gap-0 overflow-hidden rounded-xl border-border/40 p-0 shadow-2xl"
+        size="wide"
+        layer="entity"
+        {...(hasSummary ? {} : { 'aria-describedby': undefined })}
       >
-        <div className="flex items-start gap-3 border-b border-border/40 px-5 py-4">
-          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-accent-primary" />
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="text-base font-semibold text-foreground">{spec.title}</DialogTitle>
-            {hasSummary && (
-              <DialogDescription id={summaryId} className="mt-1 text-xs leading-5 text-muted-foreground" data-testid="blueprint-spec-summary">
-                <span className="sr-only">{t('specModal.summary')}: </span>
-                {spec.shortSummary}
-              </DialogDescription>
-            )}
-            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-xs text-muted-foreground" data-testid="blueprint-spec-position">
-                {t('specModal.eyebrow', { milestone: milestoneLabel, index: index + 1 })}
-              </span>
-              <span
-                className={cn(
-                  'rounded-full border px-1.5 py-px text-[11px] font-medium uppercase tracking-wide',
-                  PRIORITY_PILL[spec.priority],
-                )}
-                data-testid="blueprint-spec-priority"
-                aria-label={`${t('specModal.priority')}: ${tTickets(`priority.${spec.priority}`)}`}
-              >
-                {tTickets(`priority.${spec.priority}`)}
-              </span>
-              {spec.labels.map((label) => (
-                <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-[11px] text-accent-primary">
-                  {label}
-                </span>
-              ))}
-              {spec.dependsOnIndex !== undefined && (
-                <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">
-                  {t('panel.dependsOn', { index: spec.dependsOnIndex + 1 })}
-                </span>
+        <DialogHeader icon={<FileText />}>
+          <DialogTitle>{spec.title}</DialogTitle>
+          {hasSummary && (
+            <DialogDescription data-testid="blueprint-spec-summary">
+              <span className="sr-only">{t('specModal.summary')}: </span>
+              {spec.shortSummary}
+            </DialogDescription>
+          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-xs text-muted-foreground" data-testid="blueprint-spec-position">
+              {t('specModal.eyebrow', { milestone: milestoneLabel, index: index + 1 })}
+            </span>
+            <span
+              data-chip=""
+              className={cn(
+                'inline-flex h-5 items-center rounded-full border px-1.5 text-[11px] font-medium uppercase tracking-wide',
+                PRIORITY_PILL[spec.priority],
               )}
-            </div>
+              data-testid="blueprint-spec-priority"
+              aria-label={`${t('specModal.priority')}: ${tTickets(`priority.${spec.priority}`)}`}
+            >
+              {tTickets(`priority.${spec.priority}`)}
+            </span>
+            {spec.labels.map((label) => (
+              <span key={label} data-chip="" className={cn(CHIP, 'bg-accent-primary/10 text-accent-primary')}>
+                {label}
+              </span>
+            ))}
+            {spec.dependsOnIndex !== undefined && (
+              <span data-chip="" className={cn(CHIP, 'bg-muted text-muted-foreground')}>
+                {t('panel.dependsOn', { index: spec.dependsOnIndex + 1 })}
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('specModal.close')}
-            data-agent-interactive
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-surface hover:text-foreground"
-            data-testid="blueprint-spec-modal-close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+        <DialogBody className="space-y-5">
           <section aria-label={t('specModal.description')} data-testid="blueprint-spec-description">
             {spec.description.trim() ? (
               <div className={MD}>
@@ -127,7 +114,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
               className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-foreground/80"
             >
               <span>{t('specModal.acceptanceCriteria')}</span>
-              <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+              <span data-chip="" className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-[11px] tabular-nums text-muted-foreground">
                 {spec.acceptanceCriteria.length}
               </span>
             </h3>
@@ -148,7 +135,7 @@ export function BlueprintSpecModal({ spec, index, milestoneLabel = 'M1', onClose
               <p className="text-xs italic text-muted-foreground">{t('specModal.criteriaEmpty')}</p>
             )}
           </section>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

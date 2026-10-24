@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { GitPullRequest, GitBranch } from 'lucide-react'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogFooter,
@@ -46,52 +47,46 @@ export function TargetPrLaunchDialog({ open, target, onConfirm, onCancel }: Prop
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel() }}>
       <DialogContent
-        movableResizable
+        size="confirm"
         showCloseButton={false}
-        className="max-w-md gap-5"
         onOpenAutoFocus={(e) => { e.preventDefault(); confirmRef.current?.focus() }}
       >
-        <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-info/15 text-accent-info ring-1 ring-accent-info/30">
-              <GitPullRequest className="h-4.5 w-4.5" />
-            </span>
-            <div className="text-left">
-              <DialogTitle className="text-base">{t('targetPr.confirmTitle')}</DialogTitle>
-              <DialogDescription>{t('targetPr.confirmBody')}</DialogDescription>
-            </div>
-          </div>
+        <DialogHeader icon={<GitPullRequest className="text-accent-info" />}>
+          <DialogTitle>{t('targetPr.confirmTitle')}</DialogTitle>
+          <DialogDescription>{t('targetPr.confirmBody')}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-          <div className="flex items-start gap-2">
-            <GitPullRequest className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
-            <span className="min-w-0 font-medium text-foreground">
-              #{target.number}
-              {target.title ? ` · ${target.title}` : ''}
-            </span>
-          </div>
-          {target.headRefName && (
-            <div className="flex items-start gap-2 text-muted-foreground">
-              <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 truncate">
-                {t('targetPr.confirmBranch')}: <span className="font-mono">{target.headRefName}</span>
+        <DialogBody>
+          <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+            <div className="flex items-start gap-2">
+              <GitPullRequest className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" aria-hidden />
+              <span className="min-w-0 font-medium text-foreground">
+                #{target.number}
+                {target.title ? ` · ${target.title}` : ''}
               </span>
             </div>
-          )}
-        </div>
+            {target.headRefName && (
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="min-w-0 truncate">
+                  {t('targetPr.confirmBranch')}: <span className="font-mono">{target.headRefName}</span>
+                </span>
+              </div>
+            )}
+          </div>
+        </DialogBody>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" className="h-9" onClick={onCancel}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel}>
             {t('common:actions.cancel')}
           </Button>
           <Button
             ref={confirmRef}
-            className="h-9 gap-2 bg-accent-info text-background hover:bg-accent-info/85 focus-visible:ring-accent-info"
+            className="gap-2 bg-accent-info text-background hover:bg-accent-info/85 focus-visible:ring-accent-info"
             onClick={onConfirm}
           >
             {t('targetPr.confirmLaunch', { number: target.number })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-[11px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-xs font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>
