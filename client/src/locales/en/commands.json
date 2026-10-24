@@ -53,7 +53,7 @@
       "moveSpecN": "Move #{{id}} to",
       "openReview": "Open review",
       "openReviewN": "Open review for #{{id}}",
-      "handOffFlow": "Hand off to Flow",
+      "handOffFlow": "Hand off Flow",
       "pauseFlow": "Pause Flow",
       "resumeFlow": "Resume Flow",
       "newMission": "New mission",
