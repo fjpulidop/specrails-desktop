@@ -63,7 +63,6 @@
   --color-border:               hsl(225 27% 51% / 0.3);
   --color-input:                hsl(232 14% 31%);
   --color-ring:                 hsl(265 89% 78%);
-  --radius:                     0.75rem;
 
   /* Brand-mirror semantic tokens (used when shadcn token is too generic) */
   --color-accent-primary:    hsl(265 89% 78%);  /* purple */
@@ -123,13 +122,22 @@
   --text-display-xl--font-weight:     600;
   --text-display-xl--letter-spacing:  -0.025em;
   --color-rail-end:                   var(--color-accent-secondary);  /* rail pill gradient end */
-  --font-display:                     inherit;     /* code-rain overrides with mono */
+  --font-display:                     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;  /* code-rain overrides with mono */
 
   /* Radius roles (per-theme overridable). Utilities: rounded-control/card/panel/pill. */
   --radius-control:  6px;
   --radius-card:     10px;
   --radius-panel:    14px;
   --radius-pill:     9999px;
+
+  /* Legacy Tailwind radius/shadow scale aliased to the roles, so any
+     rounded-sm…3xl / shadow-sm…2xl utility resolves to a role value. */
+  --radius-sm:  var(--radius-control);
+  --radius-md:  var(--radius-control);
+  --radius-lg:  var(--radius-card);
+  --radius-xl:  var(--radius-panel);
+  --radius-2xl: var(--radius-panel);
+  --radius-3xl: var(--radius-panel);
 
   /* Elevation roles. Utilities: shadow-1/2/3. */
   --shadow-color:         hsl(234 16% 6% / 0.45);
@@ -138,6 +146,11 @@
   --shadow-1: 0 1px 2px var(--shadow-color), var(--edge-highlight);
   --shadow-2: 0 6px 16px -4px var(--shadow-color), var(--edge-highlight);
   --shadow-3: 0 24px 64px -16px var(--shadow-color-strong), 0 0 0 1px var(--color-border);
+  --shadow-sm:  var(--shadow-1);
+  --shadow-md:  var(--shadow-2);
+  --shadow-lg:  var(--shadow-2);
+  --shadow-xl:  var(--shadow-3);
+  --shadow-2xl: var(--shadow-3);
 
   /* Motion */
   --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
@@ -454,6 +467,13 @@ select {
   *::before,
   *::after {
     box-sizing: border-box;
+  }
+
+  /* Display roles pick up the theme display face (--font-display). */
+  .text-headline,
+  .text-display,
+  .text-display-xl {
+    font-family: var(--font-display);
   }
 
   body {
