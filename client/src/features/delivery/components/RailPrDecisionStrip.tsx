@@ -10,6 +10,7 @@ import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
 import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
+import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
 import { LoopChip } from './LoopChip'
@@ -322,7 +323,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
   const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
 
-  const linkChip = decision.prUrl ? (
+  const plainLinkChip = decision.prUrl ? (
     <a
       href={decision.prUrl}
       target="_blank"
@@ -338,6 +339,17 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <ExternalLink className={compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} aria-hidden />
     </a>
   ) : null
+  // Peak: a PR that awaits review gets the arrival (once per delivery).
+  const linkChip = decision.prUrl && (d === 'pr_draft' || d === 'pr_ready') && !presentation.partial ? (
+    <DeliveryArrival
+      deliveryId={decision.prDeliveryId}
+      prNumber={decision.prNumber}
+      prUrl={decision.prUrl}
+      onOpen={(e) => e.stopPropagation()}
+      linkTestId="rail-pr-link"
+      compact
+    />
+  ) : plainLinkChip
   const branchChip = decision.branch ? (
     <span
       data-testid="rail-pr-branch"

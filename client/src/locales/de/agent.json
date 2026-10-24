@@ -1359,5 +1359,10 @@
     "plan": "Eine neue Spec planen",
     "planSpec": "Hilf mir, eine neue Spec zu planen: "
   },
-  "emptyLegend": "⇧⇥ ändert, was der Agent darf · ↑ holt deinen letzten Prompt zurück"
+  "emptyLegend": "⇧⇥ ändert, was der Agent darf · ↑ holt deinen letzten Prompt zurück",
+  "delivery": {
+    "arrived": "Zur Prüfung angekommen — PR #{{number}}",
+    "arrivedNoNumber": "Zur Prüfung angekommen",
+    "openPr": "PR öffnen"
+  }
 }

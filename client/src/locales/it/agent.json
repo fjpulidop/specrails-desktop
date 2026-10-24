@@ -1359,5 +1359,10 @@
     "plan": "Pianifica una nuova spec",
     "planSpec": "Aiutami a pianificare una nuova spec: "
   },
-  "emptyLegend": "⇧⇥ cambia cosa può fare l’agente · ↑ richiama il tuo ultimo prompt"
+  "emptyLegend": "⇧⇥ cambia cosa può fare l’agente · ↑ richiama il tuo ultimo prompt",
+  "delivery": {
+    "arrived": "Arrivato in revisione — PR #{{number}}",
+    "arrivedNoNumber": "Arrivato in revisione",
+    "openPr": "Apri PR"
+  }
 }

@@ -1359,5 +1359,10 @@
     "plan": "新しいスペックを計画",
     "planSpec": "新しいスペックの計画を手伝って: "
   },
-  "emptyLegend": "⇧⇥ でエージェントの権限を変更 · ↑ で前回のプロンプトを呼び出し"
+  "emptyLegend": "⇧⇥ でエージェントの権限を変更 · ↑ で前回のプロンプトを呼び出し",
+  "delivery": {
+    "arrived": "レビューに到着 — PR #{{number}}",
+    "arrivedNoNumber": "レビューに到着",
+    "openPr": "PR を開く"
+  }
 }

@@ -1063,6 +1063,15 @@ select {
 @keyframes u-check-draw {
   to { stroke-dashoffset: 0; }
 }
+/* Arrival peak: the check draws in once the pill has settled. */
+.u-arrive-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: u-check-draw 420ms var(--ease-out) calc(var(--duration-peak) * 0.7) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-arrive-check path { animation: none; stroke-dashoffset: 0; }
+}
 .u-update-card[data-state='ready'] .u-badge {
   animation: u-pop 0.3s ease-out;
 }

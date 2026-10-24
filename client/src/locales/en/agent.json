@@ -1359,5 +1359,10 @@
     "plan": "Plan a new spec",
     "planSpec": "Help me plan a new spec: "
   },
-  "emptyLegend": "⇧⇥ changes what the agent may do · ↑ recalls your last prompt"
+  "emptyLegend": "⇧⇥ changes what the agent may do · ↑ recalls your last prompt",
+  "delivery": {
+    "arrived": "Arrived at review — PR #{{number}}",
+    "arrivedNoNumber": "Arrived at review",
+    "openPr": "Open PR"
+  }
 }

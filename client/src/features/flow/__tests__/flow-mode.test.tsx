@@ -740,6 +740,17 @@ describe('FlowOfferCard through the AgentMessage extension chain', () => {
     expect(screen.getByTestId('flow-offer-stub-flow')).toHaveTextContent('Flow handed off to Rail 2')
   })
 
+  it('the hand-off slides its chip along a track once, static under reduced motion', async () => {
+    render(<Providers><FlowOfferCard tag="flow-offer" payload={{ idea: 'x', recommended: 'flow' }} index={0} messageId="m1" conversationId="c1" projectId="p1" isLatest={false} isStreaming={false}
+      intents={[
+        { kind: 'flow-offer', proposalIndex: 0, status: 'accepted', at: 't', chosenMode: 'flow', recommendedMode: 'flow', config: { flowId: 'f-slide' } },
+        { kind: 'flow-hand-off', proposalIndex: 0, status: 'launched', at: 't', railIndex: 1 },
+      ]} /></Providers>)
+    const track = screen.getByTestId('flow-hand-off-track')
+    await waitFor(() => expect(track).toHaveAttribute('data-arrived', 'true'))
+    expect(track.innerHTML).toContain('motion-reduce:transition-none')
+  })
+
   it('the hand-off record links to its run card', () => {
     const focused = vi.fn()
     window.addEventListener('specrails:focus-pr-card', focused)

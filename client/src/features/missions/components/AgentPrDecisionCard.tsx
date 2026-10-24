@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
@@ -547,6 +548,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const existingPrContinuation = decision === 'building' && prState === 'pr-created' && Boolean(envelope.branch)
   const displayedPrNumber = envelope.prNumber ? `#${envelope.prNumber}` : prUrl ? prNumberFromUrl(prUrl) : null
   const terminal = presentation.terminal
+  // Peak: the delivery arrived at review (a PR exists and awaits the person).
+  const showArrival = Boolean(prUrl) && (decision === 'pr_draft' || decision === 'pr_ready')
   const statusLabel = isKnownPrDeliveryStatusCode(envelope.statusCode)
     ? t(`common:prDeliveryStatus.${envelope.statusCode}`)
     : null
@@ -1388,6 +1391,16 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {/* Reviewer risk brief: the single top risk (absent without a brief). */}
       <TopRiskLine summary={envelope.riskSummary} className="mt-2" />
 
+      {showArrival && prUrl && (
+        <DeliveryArrival
+          deliveryId={envelope.prDeliveryId}
+          prNumber={displayedPrNumber}
+          prUrl={prUrl}
+          onOpen={(e) => openPr(e, prUrl)}
+          className="mt-2"
+        />
+      )}
+
       {/* Body: base-branch chip + spec count + PR link */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {!hasRepositoryDeliveries && <span
@@ -1404,7 +1417,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           {t('prCard.specCount', { count: envelope.ticketIds.length })}
         </span>
         {ticketChips}
-        {prLink}
+        {!showArrival && prLink}
         {envelope.deliverySha && (
           <span
             data-testid="agent-pr-delivery-sha"

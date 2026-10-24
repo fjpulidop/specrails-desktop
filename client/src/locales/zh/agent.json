@@ -1359,5 +1359,10 @@
     "plan": "规划新规格",
     "planSpec": "帮我规划一个新规格："
   },
-  "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示"
+  "emptyLegend": "⇧⇥ 更改智能体的权限 · ↑ 调出上一条提示",
+  "delivery": {
+    "arrived": "已送达评审 — PR #{{number}}",
+    "arrivedNoNumber": "已送达评审",
+    "openPr": "打开 PR"
+  }
 }

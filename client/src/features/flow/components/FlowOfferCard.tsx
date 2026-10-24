@@ -10,7 +10,7 @@
 // renders frozen after a reload. It is also the timeline anchor of the Flow's
 // hand-off decision (`flow-hand-off`).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight, Ban, CheckCircle2, FileText, Hammer, Waves } from 'lucide-react'
@@ -164,6 +164,35 @@ export function FlowOfferCard({ payload, index, messageId, conversationId, proje
   )
 }
 
+/** Flows whose hand-off slide already played (no replay on remount). */
+const slidFlows = new Set<string>()
+
+/**
+ * Peak: the hand-off chip slides along a short track to its rail station.
+ * 300 ms; static under reduced motion and on replays.
+ */
+function HandOffTrack({ flowId }: { flowId: string }) {
+  const [slid, setSlid] = useState(() => slidFlows.has(flowId))
+  useEffect(() => {
+    if (slid) return
+    slidFlows.add(flowId)
+    const id = window.setTimeout(() => setSlid(true), 16)
+    return () => window.clearTimeout(id)
+  }, [flowId, slid])
+  return (
+    <span data-testid="flow-hand-off-track" data-arrived={slid ? 'true' : 'false'} aria-hidden className="relative inline-flex h-3 w-24 shrink-0 items-center">
+      <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+      <span
+        className={cn(
+          'absolute left-0 top-1/2 h-1.5 w-6 -translate-y-1/2 rounded-full bg-gradient-to-r from-accent-flow to-[var(--color-rail-end)]',
+          'transition-transform duration-[var(--duration-slow)] ease-[var(--ease-rail)] motion-reduce:transition-none',
+          slid && 'translate-x-[4.5rem]',
+        )}
+      />
+    </span>
+  )
+}
+
 /** Frozen record of the decision (and of the Flow's hand-off when it happened). */
 function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: AgentMessageIntent; handOff: AgentMessageIntent | null; flow: Flow | null; conversationId: string | null }) {
   const { t } = useTranslation('agent')
@@ -192,6 +221,9 @@ function FlowOfferStub({ intent, handOff, flow, conversationId }: { intent: Agen
       <span className="min-w-0 flex-1 truncate">
         {dismissed ? t('flow.offer.stub.dismissed') : chosen === 'flow' ? flowLabel : t('flow.offer.stub.implement')}
       </span>
+      {launched && typeof handOff?.railIndex === 'number' && (
+        <HandOffTrack flowId={String(intent.config?.flowId ?? '')} />
+      )}
       {runTarget && (runTarget.prDeliveryId || runTarget.runIds.length > 0) && (
         <button
           type="button"
