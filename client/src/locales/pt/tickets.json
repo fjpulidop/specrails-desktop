@@ -59,7 +59,7 @@
     "assignee": "Responsável",
     "continueEditing": "Continuar a editar",
     "ticketFallbackLabel": "Ticket #{{id}}",
-    "spendingLineHint": "Tudo o que foi gasto nesta spec até agora: custo total · turnos do agente (≥ indica que algumas execuções não informaram turnos) · tempo ativo · execuções por tipo (ex.: “1 quick + 3 loops” = uma geração Quick da spec e três execuções de loop). Clique para abrir em Analytics."
+    "spendingLineHint": "Tudo o que foi gasto nesta spec até agora: custo total · turnos do agente (um + no final indica que algumas execuções não informaram turnos) · tempo ativo · execuções por tipo (ex.: “1 quick, 3 loops” = uma geração Quick da spec e três execuções de loop). Clique para abrir em Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "Ver os gastos do ticket em Analytics",
-    "turns_one": "{{count}} turno",
-    "turns_other": "{{count}} turnos",
+    "turns_one": "{{count}} turno do agente",
+    "turns_other": "{{count}} turnos do agente",
+    "turnsAtLeast_one": "{{count}}+ turno do agente",
+    "turnsAtLeast_other": "{{count}}+ turnos do agente",
     "active": "{{duration}} ativo",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimado a partir da tabela de preços local — este provedor não informa o custo nativamente.",

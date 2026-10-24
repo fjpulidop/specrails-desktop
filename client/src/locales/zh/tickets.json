@@ -59,7 +59,7 @@
     "assignee": "负责人",
     "continueEditing": "继续编辑",
     "ticketFallbackLabel": "工单 #{{id}}",
-    "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（≥ 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick + 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
+    "spendingLineHint": "到目前为止在此规格上的全部消耗：总成本 · 智能体轮次（末尾的 + 表示部分运行未报告轮次）· 活跃时间 · 按类型统计的运行（例如“1 quick, 3 loops”= 一次 Quick 规格生成和三次 loop 运行）。点击可在 Analytics 中打开。"
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "在分析页查看此工单的支出",
-    "turns_one": "{{count}} 轮",
-    "turns_other": "{{count}} 轮",
+    "turns_one": "{{count}} 轮智能体交互",
+    "turns_other": "{{count}} 轮智能体交互",
+    "turnsAtLeast_one": "{{count}}+ 轮智能体交互",
+    "turnsAtLeast_other": "{{count}}+ 轮智能体交互",
     "active": "活跃 {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",

@@ -288,7 +288,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
   })
 
@@ -300,7 +300,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
   })
 
@@ -314,7 +314,7 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /Re-execute/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Run again/i })).not.toBeInTheDocument()
   })
 
   it('Re-execute spawns new job and navigates to new job detail', async () => {
@@ -325,10 +325,10 @@ describe('JobDetailPage', () => {
 
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run again/i })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /Re-execute/i }))
+    await user.click(screen.getByRole('button', { name: /Run again/i }))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/spawn',
@@ -357,7 +357,7 @@ describe('JobDetailPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'kimi-rerun' }) })
 
     render(<JobDetailPage />)
-    await user.click(await screen.findByRole('button', { name: /Re-execute/i }))
+    await user.click(await screen.findByRole('button', { name: /Run again/i }))
 
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1] as [string, RequestInit]
     const payload = JSON.parse(String(init.body)) as Record<string, unknown>
@@ -375,7 +375,7 @@ describe('JobDetailPage', () => {
       .mockImplementationOnce(() => pendingSpawn)
 
     render(<JobDetailPage />)
-    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    const button = await screen.findByRole('button', { name: /Run again/i })
     fireEvent.click(button)
     fireEvent.click(button)
 
@@ -393,7 +393,7 @@ describe('JobDetailPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-2' }) })
 
     render(<JobDetailPage />)
-    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    const button = await screen.findByRole('button', { name: /Run again/i })
     await user.click(button)
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-1'))
     await user.click(button)

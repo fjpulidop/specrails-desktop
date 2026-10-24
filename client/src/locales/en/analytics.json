@@ -4,7 +4,7 @@
     "quickSpec": "Quick",
     "exploreSpec": "Explore",
     "aiEdit": "Refine",
-    "smash": "SMASH",
+    "smash": "Split",
     "fileSummary": "File summaries",
     "loop": "Loops",
     "chatSidebar": "Chat",
@@ -47,11 +47,13 @@
     "tokensTooltip": "Total tokens = fresh input + output + cache-read + cache-create across all invocations in this window.",
     "usageUnavailable": "· token usage unavailable",
     "usageUnavailableTooltip": "The provider completed these invocations but did not expose token telemetry.",
-    "usagePartiallyUnavailable": "· {{tokens}} known tokens; {{count}} run(s) unavailable",
+    "usagePartiallyUnavailable_one": "· {{tokens}} known tokens; {{count}} run unavailable",
+    "usagePartiallyUnavailable_other": "· {{tokens}} known tokens; {{count}} runs unavailable",
     "usagePartiallyUnavailableTooltip": "Known token subtotal only; some invocations did not expose token telemetry.",
     "costUnavailable": "cost unavailable",
     "costUnavailableTooltip": "The provider completed these invocations but did not expose enough telemetry to determine their cost.",
-    "costPartiallyUnavailable": "· known subtotal; {{count}} run(s) without cost",
+    "costPartiallyUnavailable_one": "· known subtotal; {{count}} run without cost",
+    "costPartiallyUnavailable_other": "· known subtotal; {{count}} runs without cost",
     "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose enough telemetry to determine cost.",
     "includesEstimated": "· includes ~{{amount}} estimated",
     "includesEstimatedTooltip": "Includes {{amount}} of estimated cost from providers without a native cost field (e.g. codex via the local pricing table).",
@@ -112,7 +114,8 @@
     "costLabel": "cost",
     "truncated": "Showing {{shown}} of {{total}} — the costliest point is kept, but earlier points are hidden",
     "costUnavailable": "Invocations were recorded, but no cost telemetry is available to plot.",
-    "costPartiallyUnavailable": "Plot includes priced runs only; {{count}} run(s) have unavailable cost."
+    "costPartiallyUnavailable_one": "Plot includes priced runs only; {{count}} run has unavailable cost.",
+    "costPartiallyUnavailable_other": "Plot includes priced runs only; {{count}} runs have unavailable cost."
   },
   "topTickets": {
     "title": "Top tickets",
@@ -199,7 +202,8 @@
     "statusBarEstimatedTooltip": "Includes rate-card estimated cost (codex/gemini), not provider-billed.",
     "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
     "costUnavailableShort": "unavailable",
-    "costPartiallyUnavailable": "Known cost subtotal; {{count}} invocation(s) unavailable."
+    "costPartiallyUnavailable_one": "Known cost subtotal; {{count}} invocation unavailable.",
+    "costPartiallyUnavailable_other": "Known cost subtotal; {{count}} invocations unavailable."
   },
   "windowLabels": {
     "7d": "Last 7 days",

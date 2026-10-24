@@ -60,7 +60,7 @@
     "exportDiagnostic": "診断をエクスポート",
     "exportDiagnosticAria": "診断バンドルをエクスポート",
     "exportDiagnosticTooltip": "このジョブのテレメトリ、ログ、サマリーを含む ZIP をダウンロード",
-    "reExecute": "再実行",
+    "reExecute": "もう一度実行",
     "reExecuteTooltip": "同じコマンドで新しいジョブを起動",
     "cancelJob": "ジョブをキャンセル",
     "cancelJobTooltip": "実行中のプロセスに SIGTERM を送信します。ジョブはキャンセル済みとしてマークされます。",

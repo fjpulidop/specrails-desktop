@@ -59,7 +59,7 @@
     "assignee": "担当者",
     "continueEditing": "編集を続ける",
     "ticketFallbackLabel": "チケット #{{id}}",
-    "spendingLineHint": "これまでにこのスペックで使った内容: 合計コスト · エージェントのターン数（≥ は一部の実行がターン数を報告しなかったことを示します）· アクティブ時間 · 種類別の実行数（例:「1 quick + 3 loops」= Quick によるスペック生成 1 回とループ実行 3 回）。クリックすると Analytics で開きます。"
+    "spendingLineHint": "これまでにこのスペックで使った内容: 合計コスト · エージェントのターン数（末尾の + は一部の実行がターン数を報告しなかったことを示します）· アクティブ時間 · 種類別の実行数（例:「1 quick, 3 loops」= Quick によるスペック生成 1 回とループ実行 3 回）。クリックすると Analytics で開きます。"
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "アナリティクスでチケットの支出を表示",
-    "turns_one": "{{count}} ターン",
-    "turns_other": "{{count}} ターン",
+    "turns_one": "エージェント {{count}} ターン",
+    "turns_other": "エージェント {{count}} ターン",
+    "turnsAtLeast_one": "エージェント {{count}}+ ターン",
+    "turnsAtLeast_other": "エージェント {{count}}+ ターン",
     "active": "アクティブ {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "ローカルの料金表からの推定値 — このプロバイダーはコストをネイティブに報告しません。",

@@ -60,7 +60,7 @@
     "exportDiagnostic": "导出诊断",
     "exportDiagnosticAria": "导出诊断包",
     "exportDiagnosticTooltip": "下载包含此任务遥测、日志和摘要的 ZIP",
-    "reExecute": "重新执行",
+    "reExecute": "再次运行",
     "reExecuteTooltip": "用相同命令启动一个新任务",
     "cancelJob": "取消任务",
     "cancelJobTooltip": "向运行中的进程发送 SIGTERM。任务将被标记为已取消。",

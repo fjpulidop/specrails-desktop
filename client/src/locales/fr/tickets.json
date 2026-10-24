@@ -59,7 +59,7 @@
     "assignee": "Assigné à",
     "continueEditing": "Continuer l'édition",
     "ticketFallbackLabel": "Ticket #{{id}}",
-    "spendingLineHint": "Tout ce qui a été dépensé pour cette spec jusqu’ici : coût total · tours de l’agent (≥ signifie que certaines exécutions n’ont pas signalé leurs tours) · temps actif · exécutions par type (p. ex. « 1 quick + 3 loops » = une génération Quick de la spec et trois exécutions de loop). Cliquez pour l’ouvrir dans Analytics."
+    "spendingLineHint": "Tout ce qui a été dépensé pour cette spec jusqu’ici : coût total · tours de l’agent (un + à la fin signifie que certaines exécutions n’ont pas signalé leurs tours) · temps actif · exécutions par type (p. ex. « 1 quick, 3 loops » = une génération Quick de la spec et trois exécutions de loop). Cliquez pour l’ouvrir dans Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "Voir les dépenses du ticket dans Analytics",
-    "turns_one": "{{count}} tour",
-    "turns_other": "{{count}} tours",
+    "turns_one": "{{count}} tour d'agent",
+    "turns_other": "{{count}} tours d'agent",
+    "turnsAtLeast_one": "{{count}}+ tour d'agent",
+    "turnsAtLeast_other": "{{count}}+ tours d'agent",
     "active": "{{duration}} actif",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimé à partir de la table de tarifs locale — ce fournisseur ne signale pas le coût de manière native.",

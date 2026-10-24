@@ -59,7 +59,7 @@
     "assignee": "Assignee",
     "continueEditing": "Continue Editing",
     "ticketFallbackLabel": "Ticket #{{id}}",
-    "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (≥ means some runs did not report turns) · active time · runs by kind (e.g. “1 quick + 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
+    "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (a trailing + means some runs did not report turns) · active time · runs by kind (e.g. “1 quick, 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "View ticket spending in Analytics",
-    "turns_one": "{{count}} turn",
-    "turns_other": "{{count}} turns",
+    "turns_one": "{{count}} agent turn",
+    "turns_other": "{{count}} agent turns",
+    "turnsAtLeast_one": "{{count}}+ agent turn",
+    "turnsAtLeast_other": "{{count}}+ agent turns",
     "active": "{{duration}} active",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively.",

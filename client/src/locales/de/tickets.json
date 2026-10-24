@@ -59,7 +59,7 @@
     "assignee": "Zugewiesen an",
     "continueEditing": "Weiter bearbeiten",
     "ticketFallbackLabel": "Ticket #{{id}}",
-    "spendingLineHint": "Alles, was bisher für diese Spec angefallen ist: Gesamtkosten · Agenten-Turns (≥ bedeutet, dass einige Läufe keine Turns gemeldet haben) · aktive Zeit · Läufe nach Art (z. B. „1 quick + 3 loops“ = eine Quick-Spec-Erstellung und drei Loop-Läufe). Klicken, um es in Analytics zu öffnen."
+    "spendingLineHint": "Alles, was bisher für diese Spec angefallen ist: Gesamtkosten · Agenten-Turns (ein + dahinter bedeutet, dass einige Läufe keine Turns gemeldet haben) · aktive Zeit · Läufe nach Art (z. B. „1 quick, 3 loops“ = eine Quick-Spec-Erstellung und drei Loop-Läufe). Klicken, um es in Analytics zu öffnen."
   },
   "contractLayer": {
     "title": "Contract Layer",
@@ -106,8 +106,10 @@
   },
   "spendingLine": {
     "ariaLabel": "Ticket-Ausgaben in Analytics anzeigen",
-    "turns_one": "{{count}} Turn",
-    "turns_other": "{{count}} Turns",
+    "turns_one": "{{count}} Agent-Schritt",
+    "turns_other": "{{count}} Agent-Schritte",
+    "turnsAtLeast_one": "{{count}}+ Agent-Schritt",
+    "turnsAtLeast_other": "{{count}}+ Agent-Schritte",
     "active": "{{duration}} aktiv",
     "breakdownItem": "{{n}} {{label}}",
     "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ.",

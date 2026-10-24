@@ -60,7 +60,7 @@
     "exportDiagnostic": "Esporta diagnostica",
     "exportDiagnosticAria": "Esporta bundle diagnostico",
     "exportDiagnosticTooltip": "Scarica uno ZIP con telemetria, log e riepilogo di questo job",
-    "reExecute": "Riesegui",
+    "reExecute": "Esegui di nuovo",
     "reExecuteTooltip": "Avvia un nuovo job con lo stesso comando",
     "cancelJob": "Annulla job",
     "cancelJobTooltip": "Invia SIGTERM al processo in esecuzione. Il job verrà contrassegnato come annullato.",

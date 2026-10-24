@@ -47,7 +47,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
   const breakdown = (Object.entries(summary.bySurface) as Array<[Surface, { count: number; costUsd: number }]>)
     .filter(([, v]) => v.count > 0)
     .map(([s, v]) => t('spendingLine.breakdownItem', { n: v.count, label: SURFACE_LABEL[s].toLowerCase() }))
-    .join(' + ')
+    .join(', ')
   const unpricedRuns = summary.unpricedRuns ?? 0
   const pricedRuns = summary.pricedRuns
     ?? Math.max(0, summary.totalRuns - unpricedRuns)
@@ -100,7 +100,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
       >
         {turnsUnavailable
           ? '—'
-          : `${turnsPartiallyUnavailable ? '≥' : ''}${t('spendingLine.turns', { count: summary.totalTurns })}`}
+          : t(turnsPartiallyUnavailable ? 'spendingLine.turnsAtLeast' : 'spendingLine.turns', { count: summary.totalTurns })}
       </span>
       <span className="text-muted-foreground">·</span>
       <span className="num">{t('spendingLine.active', { duration: fmtDur(summary.activeDurationMs) })}</span>
