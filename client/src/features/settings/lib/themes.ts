@@ -83,6 +83,8 @@ export interface ThemeDescriptor {
     background: string
     foreground: string
     accents: [string, string, string, string]
+    /** End colour of the rail-pill gradient (matches `--color-rail-end`); defaults to accents[1]. */
+    railEnd?: string
   }
   /** xterm.js terminal palette. */
   xterm: XtermTheme
@@ -117,6 +119,7 @@ const DRACULA: ThemeDescriptor = {
     background: DRACULA_PALETTE.bg,
     foreground: DRACULA_PALETTE.fg,
     accents: [DRACULA_PALETTE.purple, DRACULA_PALETTE.pink, DRACULA_PALETTE.cyan, DRACULA_PALETTE.green],
+    railEnd: DRACULA_PALETTE.pink,
   },
   xterm: {
     background: DRACULA_PALETTE.bg,
@@ -176,6 +179,7 @@ const AURORA_LIGHT: ThemeDescriptor = {
     background: AURORA_PALETTE.bg,
     foreground: AURORA_PALETTE.fg,
     accents: [AURORA_PALETTE.primary, AURORA_PALETTE.secondary, AURORA_PALETTE.info, AURORA_PALETTE.success],
+    railEnd: AURORA_PALETTE.secondary,
   },
   xterm: {
     background: AURORA_PALETTE.bg,
@@ -229,12 +233,13 @@ const OBSIDIAN_PALETTE = {
 const OBSIDIAN_DARK: ThemeDescriptor = {
   id: 'obsidian-dark',
   displayName: 'Obsidian Dark',
-  tagline: 'Premium dark — near-black blue-tinted with electric accents',
+  tagline: 'Graphite pro — neutral near-black with one muted violet accent',
   scheme: 'dark',
   previewSwatches: {
     background: OBSIDIAN_PALETTE.bg,
     foreground: OBSIDIAN_PALETTE.fg,
     accents: [OBSIDIAN_PALETTE.primary, OBSIDIAN_PALETTE.info, OBSIDIAN_PALETTE.secondary, OBSIDIAN_PALETTE.success],
+    railEnd: OBSIDIAN_PALETTE.secondary,
   },
   xterm: {
     background: OBSIDIAN_PALETTE.bg,
@@ -298,6 +303,7 @@ const CODE_RAIN: ThemeDescriptor = {
     background: CODE_RAIN_PALETTE.bg,
     foreground: CODE_RAIN_PALETTE.fg,
     accents: [CODE_RAIN_PALETTE.primary, CODE_RAIN_PALETTE.info, CODE_RAIN_PALETTE.highlight, CODE_RAIN_PALETTE.destructive],
+    railEnd: CODE_RAIN_PALETTE.info,
   },
   xterm: {
     background: CODE_RAIN_PALETTE.bg,
@@ -358,6 +364,7 @@ const SPECRAILS: ThemeDescriptor = {
     background: SPECRAILS_PALETTE.bg,
     foreground: SPECRAILS_PALETTE.fg,
     accents: [SPECRAILS_PALETTE.primary, SPECRAILS_PALETTE.highlight, SPECRAILS_PALETTE.secondary, SPECRAILS_PALETTE.success],
+    railEnd: SPECRAILS_PALETTE.secondary,
   },
   xterm: {
     background:          SPECRAILS_PALETTE.bg,
@@ -418,6 +425,7 @@ const GALAXY: ThemeDescriptor = {
     background: GALAXY_PALETTE.bg,
     foreground: GALAXY_PALETTE.fg,
     accents: [GALAXY_PALETTE.primary, GALAXY_PALETTE.destructive, GALAXY_PALETTE.highlight, GALAXY_PALETTE.success],
+    railEnd: GALAXY_PALETTE.highlight,
   },
   xterm: {
     background:          GALAXY_PALETTE.bg,
