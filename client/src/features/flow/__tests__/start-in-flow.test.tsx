@@ -188,6 +188,41 @@ describe('the rail-launch card\'s Flow path', () => {
     expect(posts.find((post) => post.url.endsWith('/flow'))!.body).toEqual({ conversationId: 'c1', idea: '', ticketId: 12 })
   })
 
+  it('asks where the Flow runs in a project with several Git repositories, and starts there in this mission', async () => {
+    repositories = [
+      { id: 'repo-app', name: 'app', path: '/w/app', isPrimary: true, kind: 'git' },
+      { id: 'repo-api', name: 'api', path: '/w/api', isPrimary: false, kind: 'git' },
+    ]
+    const onChosen = vi.fn()
+    render(<Providers><FlowRailLaunchAlternative projectId="p1" conversationId="c1" ticketId={12} ticketTitle="Calmer onboarding" ticketRepositoryIds={['repo-app', 'repo-api']} disabled={false} onChosen={onChosen} /></Providers>)
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-start-in-flow')) })
+    const dialog = await screen.findByTestId('flow-start-repository-dialog')
+    expect(dialog).toHaveTextContent('Calmer onboarding')
+    expect(screen.getByTestId('flow-start-repository-repo-app')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('flow-start-repository-repo-app')).toHaveTextContent('Named in the spec')
+    expect(onChosen).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('flow-start-repository-repo-api'))
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-start-repository-confirm')) })
+    await waitFor(() => expect(onChosen).toHaveBeenCalled())
+    expect(posts.find((post) => post.url.endsWith('/flow'))!.body).toEqual({ conversationId: 'c1', idea: '', ticketId: 12, repositoryId: 'repo-api' })
+  })
+
+  it('keeps the card and starts nothing when the repository dialog is cancelled', async () => {
+    repositories = [
+      { id: 'repo-app', name: 'app', path: '/w/app', isPrimary: true, kind: 'git' },
+      { id: 'repo-api', name: 'api', path: '/w/api', isPrimary: false, kind: 'git' },
+    ]
+    const onChosen = vi.fn()
+    render(<Providers><FlowRailLaunchAlternative projectId="p1" conversationId="c1" ticketId={12} disabled={false} onChosen={onChosen} /></Providers>)
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-start-in-flow')) })
+    await screen.findByTestId('flow-start-repository-dialog')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Cancel' })) })
+    await waitFor(() => expect(screen.queryByTestId('flow-start-repository-dialog')).not.toBeInTheDocument())
+    expect(posts.filter((post) => post.url.endsWith('/flow'))).toEqual([])
+    expect(onChosen).not.toHaveBeenCalled()
+    expect(screen.getByTestId('rail-card-start-in-flow')).toBeEnabled()
+  })
+
   it('keeps the card when the server refuses, saying why', async () => {
     flowResponses.push(() => respond(409, { error: 'spec_in_flow' }))
     const onChosen = vi.fn()

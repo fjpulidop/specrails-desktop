@@ -1088,7 +1088,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           </button>
           {/* One existing spec: the extension's other way to work on it (Flow), equal weight. */}
           {RailLaunchAlternative && projectId && conversationId && validTicketIds.length === 1 && (
-            <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} disabled={!!busy} onChosen={() => void dismiss()} />
+            <RailLaunchAlternative projectId={projectId} conversationId={conversationId} ticketId={validTicketIds[0]!} ticketTitle={ticketById.get(validTicketIds[0]!)?.title} ticketRepositoryIds={ticketById.get(validTicketIds[0]!)?.repositoryIds} disabled={!!busy} onChosen={() => void dismiss()} />
           )}
           {/* Launching starts a delivery: outward, the strip only points at it. */}
           <RunPrimaryButton

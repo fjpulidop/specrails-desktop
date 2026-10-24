@@ -111,6 +111,8 @@ already has (Flow and Implement are offered with equal weight for any spec):
   nothing), and sends the pick as `repositoryId`; Cancel starts nothing.
   Otherwise (one repository, a spec naming exactly one Git member, the list
   failing to load) no dialog shows and the server triages as below.
+  The rail-launch card's door asks the same way: the card passes its spec's
+  `ticketTitle` / `ticketRepositoryIds` through `RailLaunchAlternative`.
 - **Eligibility** (before any write; `FlowTickets.inspectExisting`, re-checked
   atomically by `adoptExisting`): the spec exists, is not done/cancelled, is
   not held by another Flow and is on no rail (`spec_on_rail`, or

@@ -53,7 +53,7 @@ export function startInFlowBlock(spec: Pick<StartInFlowSpec, 'status' | 'metadat
  * unknown member list, no prompt mounted); a string ⇒ the person's pick;
  * null ⇒ the person cancelled. Only several Git members ask.
  */
-export async function chooseSpecRepository(projectId: string, spec: Pick<StartInFlowSpec, 'id' | 'title' | 'repositoryIds'>, prompt: FlowRepositoryPrompt | null, onPrompt?: () => void): Promise<string | null | undefined> {
+export async function chooseSpecRepository(projectId: string, spec: { id: number; title: string; repositoryIds?: readonly string[] }, prompt: FlowRepositoryPrompt | null, onPrompt?: () => void): Promise<string | null | undefined> {
   if (!prompt) return undefined
   const repositories = await flowApi.repositories(projectId).catch(() => null)
   if (!repositories) return undefined
@@ -185,9 +185,12 @@ export function StartInFlowMenuItem({ spec, rail, onDone }: StartInFlowProps & {
  * RailLaunchAlternative slot): start that spec in Flow in THIS mission.
  * Same weight as the card's own launch; the server checks the spec.
  */
-export function FlowRailLaunchAlternative({ projectId, conversationId, ticketId, disabled, onChosen }: MissionRailLaunchAlternativeProps) {
+export function FlowRailLaunchAlternative({ projectId, conversationId, ticketId, ticketTitle, ticketRepositoryIds, disabled, onChosen }: MissionRailLaunchAlternativeProps) {
   const { t } = useTranslation('agent')
   const ctx = useFlowContext()
+  const prompt = useFlowRepositoryPrompt()
+  // Re-entrancy guard (the repository dialog may be open while `busy` is false).
+  const startingRef = useRef(false)
   const availability = useFlowAvailability(projectId)
   const { flow } = useConversationFlow(conversationId, projectId)
   const [busy, setBusy] = useState(false)
@@ -195,15 +198,20 @@ export function FlowRailLaunchAlternative({ projectId, conversationId, ticketId,
   const blocked = !ctx ? 'unavailable' : isOpenFlow(flow) ? 'missionInFlow' : availability && !availability.available ? 'unavailable' : null
   const reason = blocked ? t(`flow.startFromSpec.blocked.${blocked}`) : null
   const start = async () => {
-    if (!ctx || busy || disabled || blocked) return
-    setBusy(true)
+    if (!ctx || busy || startingRef.current || disabled || blocked) return
+    startingRef.current = true
     setError(null)
     try {
-      await ctx.start(projectId, conversationId, '', null, null, ticketId)
+      // Several Git repositories and a spec that names none (or several): ask where.
+      const repositoryId = await chooseSpecRepository(projectId, { id: ticketId, title: ticketTitle ?? '', repositoryIds: ticketRepositoryIds }, prompt)
+      if (repositoryId === null) return
+      setBusy(true)
+      await ctx.start(projectId, conversationId, '', null, repositoryId ?? null, ticketId)
       onChosen()
     } catch (err) {
       setError(flowErrorMessage(t, err).message)
     } finally {
+      startingRef.current = false
       setBusy(false)
     }
   }

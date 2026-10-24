@@ -212,6 +212,9 @@ export interface MissionRailLaunchAlternativeProps {
   conversationId: string
   /** The one existing spec the card would launch. */
   ticketId: number
+  /** That spec's title and repositories, when the card has loaded them. */
+  ticketTitle?: string
+  ticketRepositoryIds?: readonly string[]
   /** Disabled while the card itself is busy or decided. */
   disabled: boolean
   /** The person took this path: the card records itself as dismissed. */
