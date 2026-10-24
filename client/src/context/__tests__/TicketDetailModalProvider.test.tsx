@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useSyncExternalStore } from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 // ── A tiny external store standing in for DesktopProvider's active project ────
 const desktop = vi.hoisted(() => {
@@ -65,9 +66,11 @@ function Opener() {
 }
 
 const ui = () => (
-  <TicketDetailModalProvider>
-    <Opener />
-  </TicketDetailModalProvider>
+  <MemoryRouter>
+    <TicketDetailModalProvider>
+      <Opener />
+    </TicketDetailModalProvider>
+  </MemoryRouter>
 )
 
 beforeEach(() => {
