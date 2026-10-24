@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -13,7 +14,7 @@ import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
-import { LoopChip } from './LoopChip'
+import { LoopChip, useLoopLabel } from './LoopChip'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -73,6 +74,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const d = decision.decision
   const hasRepositoryDeliveries = Boolean(decision.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(decision)
+  const loopLabel = useLoopLabel(decision.loopId, decision.loopName)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
   const recoveredInterruptedOperation = decision.operation == null && interruptedOperationDetail
   // The status-code chip repeats the state pill when both say the same thing.
@@ -495,11 +497,19 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   ))
 
-  const unitEvidence = (decision.units ?? []).map((unit) => {
+  // One status pill: per-unit evidence folds into its tooltip. A unit that
+  // failed or is blocked stays visible as its own chip — never hidden.
+  const unitState = (unit: NonNullable<typeof decision.units>[number]) => {
     const failed = unit.implementationOutcome === 'failed' || (unit.implementationOutcome == null && !unit.succeeded)
     const blocked = unit.deliveryOutcome === 'blocked'
     const noChanges = unit.deliveryOutcome === 'no_changes' || unit.changed === false
-    return (
+    return { failed, blocked, label: t(failed ? 'railPr.unit.failed' : blocked ? 'railPr.unit.blocked' : noChanges ? 'railPr.unit.noChanges' : 'railPr.unit.succeeded') }
+  }
+  const unitSummary = (decision.units ?? []).map((unit) => `#${unit.ticketId} · ${unitState(unit).label}`).join('\n')
+  const unitEvidence = (decision.units ?? []).flatMap((unit) => {
+    const { failed, blocked, label } = unitState(unit)
+    if (!failed && !blocked) return []
+    return [(
       <span
         key={`${unit.ticketId}-${unit.runId ?? unit.branch}`}
         data-testid="rail-pr-unit-evidence"
@@ -507,14 +517,12 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         className={`${pillBase} ${
           failed
             ? 'border-destructive/30 bg-destructive/10 text-destructive'
-            : blocked
-              ? 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
-              : 'border-accent-success/30 bg-accent-success/10 text-accent-success'
+            : 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
         }`}
       >
-        #{unit.ticketId} · {t(failed ? 'railPr.unit.failed' : blocked ? 'railPr.unit.blocked' : noChanges ? 'railPr.unit.noChanges' : 'railPr.unit.succeeded')}
+        #{unit.ticketId} · {label}
       </span>
-    )
+    )]
   })
 
   const dismissBtn = (
@@ -625,10 +633,28 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   )
   /** Checkout / integrate locally / discard behind "More actions". A lone
    *  discard stays a plain button so the only way out is never hidden. */
+  const runLogItems = (decision.runIds ?? []).map((runId, index) => {
+    const ref = decision.ticketIds[index] != null ? `#${decision.ticketIds[index]}` : runId.slice(0, 8)
+    return (
+      <DropdownMenuItem
+        key={`run-${runId}`}
+        data-testid="rail-pr-run-log"
+        className={itemCls}
+        onSelect={() => navigate(`/jobs/${runId}`)}
+      >
+        <ScrollText className={iconCls} aria-hidden />
+        {t('railPr.viewRunLog', { ref })}
+      </DropdownMenuItem>
+    )
+  })
+  // True once the "More actions" menu is on screen: the run log and the loop
+  // label then live behind it instead of adding more controls to the strip.
+  let menuRendered = false
   const secondary = (withCheckout: boolean, withMerge: boolean) => {
-    if (!(withCheckout && checkoutItem) && !(withMerge && mergeLocalItem)) {
+    if (!(withCheckout && checkoutItem) && !(withMerge && mergeLocalItem) && runLogItems.length === 0) {
       return presentation.continuation ? dismissBtn : discardBtn
     }
+    menuRendered = true
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -643,6 +669,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         <DropdownMenuContent align="end">
           {withCheckout && checkoutItem}
           {withMerge && mergeLocalItem}
+          {runLogItems}
           {endItem}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -862,6 +889,17 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
   }
 
+  // Status pill tooltip: its own detail, the producing loop and every unit.
+  const loopTooltip = menuRendered && d !== 'building' && (decision.loopId || decision.loopName) ? loopLabel.label : ''
+  const pillTooltip = [
+    React.isValidElement(pill) ? (pill.props as { title?: string }).title : undefined,
+    loopTooltip,
+    unitSummary,
+  ].filter(Boolean).join('\n')
+  const pillWithEvidence = React.isValidElement(pill) && pillTooltip
+    ? React.cloneElement(pill as React.ReactElement<{ title?: string }>, { title: pillTooltip })
+    : pill
+
   return (
     <div
       data-testid="rail-pr-strip"
@@ -873,9 +911,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       <RepositoryDeliveries deliveryId={decision.prDeliveryId} repositories={decision.repositoryDeliveries} busy={busy}
         onAct={(action, repositoryId) => run(action, decision.decision, decision.prDeliveryId, repositoryId)}
         onCheckout={checkout ? runCheckout : undefined} />
-      {pill}
-      {/* Which loop produced this delivery (the rail's current loop may differ). */}
-      {d !== 'building' && (decision.loopId || decision.loopName) ? <LoopChip loopId={decision.loopId} loopName={decision.loopName} /> : null}
+      {pillWithEvidence}
+      {/* Which loop produced this delivery (the rail's current loop may differ).
+          Behind the status pill's tooltip whenever the menu is on screen. */}
+      {d !== 'building' && !menuRendered && (decision.loopId || decision.loopName) ? <LoopChip loopId={decision.loopId} loopName={decision.loopName} /> : null}
       {decision.operation && (
         <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`} data-testid="rail-pr-operation">
           <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
@@ -893,7 +932,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
           {t('railPr.deliveryCommit', { sha: decision.deliverySha.slice(0, 8) })}
         </span>
       )}
-      {runLogChips}
+      {menuRendered ? null : runLogChips}
       {unitEvidence}
       {!compact && d !== 'building' ? <TopRiskLine summary={decision.riskSummary} className="basis-full" /> : null}
       {statusLabel && (

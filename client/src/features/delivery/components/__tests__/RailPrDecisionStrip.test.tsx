@@ -219,7 +219,10 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
 
       it('names the delivery loop when the snapshot carries it (custom loops by name); absent otherwise', () => {
         renderRail(snapshot({ decision: 'on_review', loopId: 'custom:hardening', loopName: 'Hardening' }), density)
-        expect(within(screen.getByTestId('rail-pr-strip')).getByTestId('loop-chip')).toHaveTextContent('Hardening')
+        // The loop folds into the one status pill's tooltip (the menu is on screen).
+        const strip = screen.getByTestId('rail-pr-strip')
+        expect(within(strip).queryByTestId('loop-chip')).toBeNull()
+        expect(within(strip).getByText('Ready for review').closest('span')).toHaveAttribute('title', expect.stringContaining('Hardening'))
         cleanup()
         renderRail(snapshot({ decision: 'on_review' }), density)
         expect(within(screen.getByTestId('rail-pr-strip')).queryByTestId('loop-chip')).toBeNull()
