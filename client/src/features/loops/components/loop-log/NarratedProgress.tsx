@@ -68,7 +68,8 @@ export function NarratedProgress({
         {typeof elapsedMs === 'number' && elapsedMs > 0 ? (
           <span className="inline-flex items-center gap-1">
             <Clock className="size-3" aria-hidden />
-            {t('waiting.elapsed', { minutes: Math.max(1, Math.round(elapsedMs / 60_000)) })}
+            {/* A settled run reports its total, never a live "running for". */}
+            {t(settled ? 'waiting.took' : 'waiting.elapsed', { minutes: Math.max(1, Math.round(elapsedMs / 60_000)) })}
           </span>
         ) : null}
         {durationRange ? (

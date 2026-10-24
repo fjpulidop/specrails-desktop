@@ -26,7 +26,7 @@ export function CommandTimingBadge({ sessionId }: Props) {
   const elapsed = now - openStart
   if (elapsed < 500) return null
   return (
-    <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-mono bg-[#44475a] text-[#f8f8f2] z-10 pointer-events-none">
+    <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-mono bg-popover border border-border text-popover-foreground z-10 pointer-events-none">
       {formatElapsed(elapsed, t)}
     </div>
   )

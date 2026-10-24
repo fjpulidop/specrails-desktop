@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { render, fireEvent, within } from '@testing-library/react'
 import { TerminalSidebar } from '../TerminalSidebar'
+import { ingestMark, disposeSession } from '../../../../../lib/command-mark-store'
 import type { TerminalRef } from '../../../context/TerminalsContext'
 
 function makeSession(id: string, name = 'zsh'): TerminalRef {
@@ -87,5 +88,26 @@ describe('TerminalSidebar', () => {
     )
     fireEvent.click(getByLabelText(/close target/i))
     expect(onKill).toHaveBeenCalledWith('a')
+  })
+
+  it('asks for confirmation before closing a session with a running command', () => {
+    const onKill = vi.fn()
+    const s = makeSession('busy', 'server')
+    ingestMark('busy', { kind: 'pre-exec', ts: Date.now() })
+    try {
+      const { getByLabelText, getByRole } = render(
+        <TerminalSidebar sessions={[s]} activeId="busy" onActivate={() => {}} onRename={() => {}} onKill={onKill} />,
+      )
+      fireEvent.click(getByLabelText(/close server/i))
+      expect(onKill).not.toHaveBeenCalled()
+      const dialog = getByRole('dialog')
+      expect(dialog).toHaveTextContent('server')
+      // The footer confirm (not the dialog's own X, whose label is sr-only).
+      const confirm = within(dialog).getAllByRole('button', { name: 'Close' }).find((b) => !b.querySelector('.sr-only'))!
+      fireEvent.click(confirm)
+      expect(onKill).toHaveBeenCalledWith('busy')
+    } finally {
+      disposeSession('busy')
+    }
   })
 })

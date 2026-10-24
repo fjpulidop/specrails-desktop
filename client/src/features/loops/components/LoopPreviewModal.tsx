@@ -1,9 +1,8 @@
-import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Brain, Square, Pencil } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { cn } from '../../../lib/utils'
 import type { AgentLoopRef } from '../../missions/hooks/useAgentRefActions'
 import { NODE_ICON, nodeDetail } from './TemplatePreviewModal'
@@ -13,11 +12,9 @@ import { NODE_ICON, nodeDetail } from './TemplatePreviewModal'
  * loop's steps (same visual language as `TemplatePreviewModal`), run limits and
  * status, plus an "Open in builder" jump for every stored loop (built-ins included).
  *
- * Hand-rolled portal modal (NOT ui/dialog): it must layer ABOVE the floating
- * agent panel, and Radix `DialogContent` is pinned at z-50 (< the panel's
- * z-[60]). Same pattern + tier as the board-mode overlays: portal to
- * `document.body` at z-[65] — above the panel (z-[60]/z-[61]), below the
- * MinimizedChatsDock (z-[70]).
+ * Built on ui/dialog (focus trap, Escape, dialog semantics). It must layer
+ * ABOVE the floating agent panel (z-[60]/z-[61]), so both the overlay and the
+ * content are raised to z-[65] — below the MinimizedChatsDock (z-[70]).
  */
 export function LoopPreviewModal({
   loop,
@@ -29,42 +26,25 @@ export function LoopPreviewModal({
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   const openInBuilder = () => {
     onClose()
     navigate(`/loops/${encodeURIComponent(loop.id)}/edit`)
   }
 
-  return createPortal(
-    <div
-      data-testid="loop-preview-modal"
-      className="fixed inset-0 z-[65] flex items-center justify-center p-4"
-    >
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={loop.name}
-        className="relative flex max-h-[80vh] w-full max-w-lg flex-col gap-4 overflow-hidden rounded-xl border border-border/30 bg-popover p-6 shadow-xl backdrop-blur-md"
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
+        data-testid="loop-preview-modal"
+        overlayClassName="z-[65]"
+        className="z-[65] flex max-h-[80vh] max-w-lg flex-col gap-4 overflow-hidden"
       >
-        <div className="flex flex-col gap-1.5">
+        <DialogHeader className="gap-1.5 space-y-0">
           <div className="flex items-center gap-2 pr-6">
-            <Brain className="h-4 w-4 shrink-0 text-accent-highlight" />
-            <span className="min-w-0 truncate text-base font-semibold text-foreground">{loop.name}</span>
+            <Brain className="h-4 w-4 shrink-0 text-accent-highlight" aria-hidden />
+            <DialogTitle className="min-w-0 truncate text-base">{loop.name}</DialogTitle>
             <span
               className={cn(
-                'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide',
+                'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[11px] font-medium',
                 loop.builtin
                   ? 'border-accent-info/40 bg-accent-info/10 text-accent-info'
                   : loop.status === 'published'
@@ -77,10 +57,12 @@ export function LoopPreviewModal({
                 : t(`status.${loop.status ?? 'draft'}`, { defaultValue: loop.status ?? '' })}
             </span>
           </div>
-          {loop.description && (
-            <p className="text-sm text-muted-foreground">{loop.description}</p>
+          {loop.description ? (
+            <DialogDescription className="text-sm">{loop.description}</DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">{t('preview.steps')}</DialogDescription>
           )}
-        </div>
+        </DialogHeader>
 
         <p className="text-[11px] text-muted-foreground">
           {loop.graph.config.timeoutMinutes > 0
@@ -117,7 +99,7 @@ export function LoopPreviewModal({
           })}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2">
+        <DialogFooter className="shrink-0 gap-2 sm:gap-0">
           <Button variant="ghost" onClick={onClose}>
             {t('common:actions.close')}
           </Button>
@@ -127,9 +109,8 @@ export function LoopPreviewModal({
               {t('preview.openInBuilder')}
             </Button>
           )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

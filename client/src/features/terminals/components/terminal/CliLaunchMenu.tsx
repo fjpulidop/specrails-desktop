@@ -42,7 +42,7 @@ export function CliLaunchMenu({ x, y, providers, onSelect, onClose }: Props) {
       role="menu"
       data-cli-launch-menu
       style={{ position: 'fixed', left: flippedX, top: flippedY, minWidth: 180 }}
-      className="bg-[#1f1f29] border border-[#44475a] rounded-md shadow-lg py-1 z-50 text-sm"
+      className="bg-popover border border-border rounded-md shadow-lg py-1 z-50 text-sm"
     >
       {providers.map((p) => (
         <button
@@ -50,7 +50,7 @@ export function CliLaunchMenu({ x, y, providers, onSelect, onClose }: Props) {
           type="button"
           role="menuitem"
           onClick={() => { onSelect(p); onClose() }}
-          className="w-full text-left px-3 py-1.5 text-[#f8f8f2] hover:bg-[#44475a]"
+          className="w-full text-left px-3 py-1.5 text-popover-foreground hover:bg-accent"
         >
           {t('cliMenu.open', { name: providerLabel(p) })}
         </button>

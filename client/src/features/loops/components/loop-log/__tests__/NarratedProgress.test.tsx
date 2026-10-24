@@ -83,6 +83,12 @@ describe('NarratedProgress', () => {
     expect(screen.getByText('Running for 5 min')).toBeInTheDocument()
   })
 
+  it('reports the total duration once the run has settled', () => {
+    render(<NarratedProgress events={[step(1, 'x')]} settled elapsedMs={300_000} />)
+    expect(screen.getByText('Took 5 min')).toBeInTheDocument()
+    expect(screen.queryByText('Running for 5 min')).toBeNull()
+  })
+
   it('distinguishes an empty live run from an empty settled one', () => {
     const live = render(<NarratedProgress events={[]} settled={false} />)
     expect(screen.getByText('Nothing has happened yet.')).toBeInTheDocument()

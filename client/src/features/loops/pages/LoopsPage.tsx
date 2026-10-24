@@ -328,7 +328,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
             <button
               type="button"
               onClick={handleNew}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-accent-primary text-white hover:bg-accent-primary/90"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="w-3.5 h-3.5" />
               {t('newLoop')}

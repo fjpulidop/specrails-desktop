@@ -36,6 +36,7 @@ import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { layoutLoop, type LayoutMode } from '../lib/loop-layout'
 import { cn } from '../../../lib/utils'
 import { loopsApi, LoopPublishError, type LoopDefinition, type LoopNodeType, type LoopConstant, type LoopPreviewStep, type LoopGraph, type WorkflowPieceDescriptor, type GraphValidationError } from '../lib/loops-api'
@@ -151,10 +152,21 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
   // in as props instead of the route — the builder is not mounted under
   // /loops/:id/edit there.
   const id = loopId ?? routeId
-  const exitBuilder = useCallback(() => {
+  // Raw exit (after a publish or a hand-off to the loop window). The Back
+  // button goes through `exitBuilder`, which guards unsaved edits first.
+  const leaveBuilder = useCallback(() => {
     if (onExit) onExit()
     else navigate('/loops')
   }, [onExit, navigate])
+  // Unsaved edits: set by every user edit (graph, name, limits, inspectors),
+  // cleared when a loop is (re)loaded and after a successful save.
+  const [dirty, setDirty] = useState(false)
+  const markDirty = useCallback(() => setDirty(true), [])
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const exitBuilder = useCallback(() => {
+    if (dirty) setConfirmLeave(true)
+    else leaveBuilder()
+  }, [dirty, leaveBuilder])
   const theme = useActiveTheme()
   const { fitView, screenToFlowPosition } = useReactFlow()
   const { activeProjectId } = useDesktop()
@@ -231,6 +243,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     setTimeoutMinutes(loop.graph.config?.timeoutMinutes ?? 30)
     setMaxCostUsd(typeof loop.graph.config?.maxCostUsd === 'number' ? loop.graph.config!.maxCostUsd! : null)
     setBuiltin(Boolean(loop.builtinId))
+    setDirty(false)
   }, [setNodes, setEdges])
 
   useEffect(() => {
@@ -261,7 +274,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
   // Connections drawn from a Decider's named handle ('continue' / 'stop') are
   // colour-coded and carry the branch so the engine routes by it.
   const onConnect = useCallback((params: Connection) => {
-    setPublicationErrors([])
+    setPublicationErrors([]); setDirty(true)
     if (nodes.find(node => node.id === params.source)?.data.kind === 'core') { setEdges(eds => addEdge({ ...params, label: params.sourceHandle, data: { label: params.sourceHandle } }, eds)); return }
     const branch = params.sourceHandle === 'continue' || params.sourceHandle === 'stop' ? params.sourceHandle : undefined
     const edge = branch
@@ -296,6 +309,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     // 'default' = drop back to manual placement (restore loaded positions); the
     // others record the auto-arrange decision so it persists on Save + re-opens.
     setLayoutMode(mode === 'default' ? 'manual' : mode)
+    setDirty(true)
     setNodes((nds) =>
       mode === 'default'
         ? nds.map((n) => {
@@ -312,8 +326,14 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
   // via setNodes does NOT flow through onNodesChange, so it never trips this.)
   const handleNodesChange = useCallback((changes: Parameters<typeof onNodesChange>[0]) => {
     if (changes.some((c) => c.type === 'position' && c.dragging === false)) setLayoutMode('manual')
+    // Selection and measurement changes are not edits.
+    if (changes.some((c) => c.type === 'position' || c.type === 'remove' || c.type === 'add' || c.type === 'replace')) setDirty(true)
     onNodesChange(changes)
   }, [onNodesChange])
+  const handleEdgesChange = useCallback((changes: Parameters<typeof onEdgesChange>[0]) => {
+    if (changes.some((c) => c.type === 'remove' || c.type === 'add' || c.type === 'replace')) setDirty(true)
+    onEdgesChange(changes)
+  }, [onEdgesChange])
 
   // Copy/paste steps via the system clipboard — works ACROSS loops (the payload
   // travels as tagged JSON text). Uses the copy/paste DOM events (no clipboard
@@ -346,6 +366,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...cloned.nodes])
       setEdges((eds) => [...eds, ...cloned.edges])
       setLayoutMode('manual') // pasted nodes are hand-placed
+      setDirty(true)
       toast.success(t('builder.paste.done', { count: cloned.nodes.length }))
     }
     window.addEventListener('copy', onCopy)
@@ -360,6 +381,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     (kind: LoopNodeType) => {
       const node = makeNode(kind, { x: 120 + Math.random() * 120, y: 80 + Math.random() * 240 })
       setNodes((nds) => [...nds, node])
+      setDirty(true)
       setShowLoopSettings(false); setSelectedId(node.id)
     },
     [setNodes]
@@ -367,7 +389,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
 
   const updateSelectedData = useCallback(
     (patch: Partial<LoopNodeData>) => {
-      setPublicationErrors([])
+      setPublicationErrors([]); setDirty(true)
       setNodes((nds) => nds.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...patch } } : n)))
     },
     [selectedId, setNodes]
@@ -377,7 +399,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     if (!selectedId) return
     setNodes((nds) => nds.filter((n) => n.id !== selectedId))
     setEdges((eds) => eds.filter((e) => e.source !== selectedId && e.target !== selectedId))
-    setSelectedId(null)
+    setSelectedId(null); setDirty(true)
   }, [selectedId, setNodes, setEdges])
 
   const coreMode = !!document && !nodes.some(node => !['start', 'core', 'end'].includes(node.data.kind))
@@ -408,7 +430,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
       setDocument({ ...document, config: { ...document.config, agents: { ...agents, roles: { ...agents.roles, [roleId]: { provider, access: 'write', artifacts: 'none', prompt: '' } } } } })
     }
     if (piece.kind === 'prompt' && choices.providers?.length) node.data.params!.engine = { provider: choices.providers[0] }
-    setNodes(previous => [...previous, node]); setShowLoopSettings(false); setSelectedId(node.id)
+    setNodes(previous => [...previous, node]); setDirty(true); setShowLoopSettings(false); setSelectedId(node.id)
   }, [nodes.length, setNodes, choices.providers, document, t])
 
   // Dry-run: resolve the CURRENT (unsaved) graph's tokens and show what would run.
@@ -431,6 +453,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     try {
       const graph = snapshot()
       await loopsApi.update(id, { name, graph })
+      setDirty(false)
       return true
     } catch (err) {
       // Surface the server reason (e.g. "Loop is running; stop the run before
@@ -449,7 +472,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
     try {
       await loopsApi.publish(id)
       toast.success(t('builder.published'))
-      exitBuilder()
+      leaveBuilder()
     } catch (err) {
       if (err instanceof LoopPublishError) {
         setPublicationErrors(err.errors); setShowProblems(true)
@@ -458,7 +481,21 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
         toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
       }
     }
-  }, [id, save, exitBuilder, t])
+  }, [id, save, leaveBuilder, t])
+
+  // ⌘S / Ctrl+S saves in place (also while typing in a field).
+  const saveRef = useRef<() => void>(() => {})
+  saveRef.current = () => { if (!saving) void save().then((ok) => { if (ok) toast.success(t('builder.saved')) }) }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        saveRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
 
@@ -474,9 +511,9 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
           </button>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); markDirty() }}
             className="text-sm font-semibold bg-transparent text-foreground border-b border-transparent focus:border-border focus:outline-none min-w-0"
-            aria-label="name"
+            aria-label={t('builder.nameLabel')}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -491,7 +528,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.maxIterationsHint')}</TooltipContent>
               </Tooltip>
-              <input type="number" min={1} value={maxIterations} onChange={(e) => setMaxIterations(Math.max(1, Number(e.target.value) || 1))} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
+              <input type="number" min={1} value={maxIterations} onChange={(e) => { setMaxIterations(Math.max(1, Number(e.target.value) || 1)); markDirty() }} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
             </label>
             <label className="text-[10px] text-muted-foreground flex items-center gap-1">
               {t('builder.config.timeout')}
@@ -503,7 +540,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.timeoutHint')}</TooltipContent>
               </Tooltip>
-              <input type="number" min={0} aria-label={t('builder.config.timeout')} value={timeoutMinutes} onChange={(e) => setTimeoutMinutes(Math.max(0, Number(e.target.value) || 0))} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
+              <input type="number" min={0} aria-label={t('builder.config.timeout')} value={timeoutMinutes} onChange={(e) => { setTimeoutMinutes(Math.max(0, Number(e.target.value) || 0)); markDirty() }} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
             </label>
             <label className="text-[10px] text-muted-foreground flex items-center gap-1">
               {t('builder.config.maxCost')}
@@ -524,6 +561,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
                 onChange={(e) => {
                   const v = Number(e.target.value)
                   setMaxCostUsd(e.target.value === '' || !(v > 0) ? null : v)
+                  markDirty()
                 }}
                 className="w-16 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground"
               />
@@ -542,15 +580,15 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
           </button>
           {!isLoopWindowRoute() && <button type="button" disabled={saving} onClick={() => void save().then(async ok => {
             if (!ok || !id) return
-            try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else exitBuilder() }
+            try { await openLoopWindow(activeProjectId, id); if (onWindowOpened) onWindowOpened(); else leaveBuilder() }
             catch (error) { toast.error(String(error)) }
           })} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted disabled:opacity-50">
             <ExternalLink className="w-3 h-3" />{t('window.open')}
           </button>}
-          <button type="button" onClick={() => void save().then((ok) => ok && toast.success(t('builder.saved')))} disabled={saving} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
+          <button type="button" onClick={() => saveRef.current()} disabled={saving} title={`${t('builder.save')} (${/Mac/i.test(navigator.platform || '') ? '⌘S' : 'Ctrl+S'})`} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
             <Save className="w-3 h-3" /> {t('builder.save')}
           </button>
-          <button type="button" onClick={() => void publish()} disabled={saving} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50">
+          <button type="button" onClick={() => void publish()} disabled={saving} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             <Upload className="w-3 h-3" /> {t('builder.publish')}
           </button>
         </div>
@@ -573,6 +611,27 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmLeave}
+        onOpenChange={setConfirmLeave}
+        title={t('builder.unsaved.title')}
+        description={t('builder.unsaved.body')}
+        confirmLabel={t('builder.unsaved.discard')}
+        busy={saving}
+        onConfirm={() => { setConfirmLeave(false); leaveBuilder() }}
+        secondaryAction={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            data-testid="builder-unsaved-save"
+            onClick={() => void save().then((ok) => { if (ok) { setConfirmLeave(false); leaveBuilder() } })}
+          >
+            {t('builder.unsaved.save')}
+          </Button>
+        }
+      />
 
       <div className="flex-1 flex min-h-0">
         {/* Palette */}
@@ -604,7 +663,7 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
               nodes={nodes}
               edges={edges}
               onNodesChange={handleNodesChange}
-              onEdgesChange={onEdgesChange}
+              onEdgesChange={handleEdgesChange}
               onConnect={onConnect}
               isValidConnection={isValidConnection}
               onNodeClick={(_, n) => { setShowLoopSettings(false); setSelectedId(n.id) }}
@@ -714,9 +773,9 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
               onManageConstants={() => setShowConstants(true)}
             />
           ))}
-          {!showLoopSettings && coreMode && document && selected && (nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {}).length > 0 || selected.data.coreKind === 'implementation-step' && selected.data.params?.phase === 'archive') && <LoopAgentsEditor mode={selected.data.coreKind === 'implementation' ? 'all' : 'step'} key={`${id}:${selected.id}`} graph={snapshot()} value={document.config.agents} selectedRole={String(selected.data.params?.phase ?? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] ?? '')} onChange={agents => setDocument({ ...document, config: { ...document.config, agents } })} />}
-          {showLoopSettings && coreMode && document && <LoopAgentsEditor mode="workflow" key={id} graph={snapshot()} value={document.config.agents} selectedRole={selected ? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] : undefined} onChange={agents => setDocument({ ...document, config: { ...document.config, agents } })} />}
-          {showLoopSettings && coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={setDocument} onOpenCanvas={openCanvas} />}
+          {!showLoopSettings && coreMode && document && selected && (nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {}).length > 0 || selected.data.coreKind === 'implementation-step' && selected.data.params?.phase === 'archive') && <LoopAgentsEditor mode={selected.data.coreKind === 'implementation' ? 'all' : 'step'} key={`${id}:${selected.id}`} graph={snapshot()} value={document.config.agents} selectedRole={String(selected.data.params?.phase ?? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] ?? '')} onChange={agents => { setDocument({ ...document, config: { ...document.config, agents } }); markDirty() }} />}
+          {showLoopSettings && coreMode && document && <LoopAgentsEditor mode="workflow" key={id} graph={snapshot()} value={document.config.agents} selectedRole={selected ? nodeAgentRoles(selected.id, selected.data.coreKind, selected.data.params ?? {})[0] : undefined} onChange={agents => { setDocument({ ...document, config: { ...document.config, agents } }); markDirty() }} />}
+          {showLoopSettings && coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={value => { setDocument(value); markDirty() }} onOpenCanvas={openCanvas} />}
         </div>
       </div>
 
@@ -725,7 +784,6 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
         onClose={() => setShowConstants(false)}
         constants={constants}
         onChanged={reloadConstants}
-        t={t}
       />
       <LoopPreviewModal steps={preview} onClose={() => setPreview(null)} t={t} />
     </div>
@@ -839,26 +897,42 @@ function ConstantPalette({ t, constants, onInsert, onManage }: {
 // One editable custom-constant row in the manager (value-only edit; name is the
 // immutable token key). Local value state so typing doesn't refetch.
 function ConstantRow({ c, onSave, onDelete }: { c: LoopConstant; onSave: (v: string) => void; onDelete: () => void }) {
+  const { t } = useTranslation('loops')
   const [v, setV] = useState(c.value)
   return (
     <div className="flex items-center gap-1.5">
       <code className="text-[10px] font-mono text-accent-primary w-28 truncate" title={c.name}>{c.name}</code>
-      <input className="flex-1 text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground" value={v} onChange={(e) => setV(e.target.value)} />
-      <button type="button" disabled={v === c.value || !v} onClick={() => onSave(v)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label="save"><Save className="w-3.5 h-3.5" /></button>
-      <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label="delete"><Trash2 className="w-3.5 h-3.5" /></button>
+      <input className="flex-1 text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground" value={v} onChange={(e) => setV(e.target.value)} aria-label={c.name} />
+      <button type="button" disabled={v === c.value || !v} onClick={() => onSave(v)} className="text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={t('common:actions.save')} title={t('common:actions.save')}><Save className="w-3.5 h-3.5" aria-hidden /></button>
+      <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label={t('common:actions.delete')} title={t('common:actions.delete')}><Trash2 className="w-3.5 h-3.5" aria-hidden /></button>
     </div>
   )
 }
 
 // Global constants manager: built-ins (read-only) + custom CRUD. Mutations call
 // the API then `onChanged()` to refetch the lifted list (so palettes update live).
-function LoopConstantsManager({ open, onClose, constants, onChanged, t }: {
+function LoopConstantsManager({ open, onClose, constants, onChanged }: {
   open: boolean
   onClose: () => void
   constants: LoopConstant[]
   onChanged: () => Promise<void> | void
-  t: (key: string) => string
 }) {
+  const { t } = useTranslation('loops')
+  const [pendingDelete, setPendingDelete] = useState<LoopConstant | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    setDeleting(true)
+    try {
+      await loopsApi.deleteConstant(pendingDelete.id)
+      await onChanged()
+      setPendingDelete(null)
+    } catch {
+      toast.error(t('errors.save'))
+    } finally {
+      setDeleting(false)
+    }
+  }
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
   const [err, setErr] = useState<string | null>(null)
@@ -887,8 +961,8 @@ function LoopConstantsManager({ open, onClose, constants, onChanged, t }: {
               <ConstantRow
                 key={c.id}
                 c={c}
-                onSave={(v) => void loopsApi.updateConstant(c.id, v).then(onChanged)}
-                onDelete={() => void loopsApi.deleteConstant(c.id).then(onChanged)}
+                onSave={(v) => void loopsApi.updateConstant(c.id, v).then(onChanged).catch(() => toast.error(t('errors.save')))}
+                onDelete={() => setPendingDelete(c)}
               />
             ))}
           </div>
@@ -915,6 +989,14 @@ function LoopConstantsManager({ open, onClose, constants, onChanged, t }: {
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{t('common:actions.close')}</Button>
         </DialogFooter>
+        <ConfirmDialog
+          open={pendingDelete !== null}
+          onOpenChange={(next) => { if (!next) setPendingDelete(null) }}
+          title={t('builder.constants.deleteConfirmTitle', { name: pendingDelete?.name ?? '' })}
+          description={t('builder.constants.deleteConfirmBody')}
+          busy={deleting}
+          onConfirm={confirmDelete}
+        />
       </DialogContent>
     </Dialog>
   )
