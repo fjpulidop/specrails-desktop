@@ -200,7 +200,7 @@ export function AgentContextPalette({
             return (
               <div key={item.id} role="presentation">
                 {showGroup && (
-                  <div role="presentation" className="px-3 pb-1 pt-2 text-label uppercase tracking-wide text-foreground/60">
+                  <div role="presentation" className="px-3 pb-1 pt-2 text-label text-muted-foreground">
                     {item.group}
                   </div>
                 )}
@@ -226,7 +226,7 @@ export function AgentContextPalette({
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-sm font-medium">{item.title}</span>
                       {item.risk && (
-                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-caption uppercase text-foreground/70">
+                        <span className="shrink-0 rounded-sm border border-border/60 px-1 py-0.5 text-caption text-foreground/70">
                           {item.risk}
                         </span>
                       )}

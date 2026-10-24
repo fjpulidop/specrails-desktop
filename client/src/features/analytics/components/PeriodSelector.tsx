@@ -71,7 +71,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             value={from}
             onChange={(e) => handleFromChange(e.target.value)}
             aria-label={t('periods.startDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit] focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <span className="text-xs text-muted-foreground">{t('periods.to')}</span>
           <input
@@ -79,7 +79,7 @@ export function PeriodSelector({ period, from, to, onChange }: PeriodSelectorPro
             value={to}
             onChange={(e) => handleToChange(e.target.value)}
             aria-label={t('periods.endDate')}
-            className="h-7 px-2 rounded-md text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit] focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       )}

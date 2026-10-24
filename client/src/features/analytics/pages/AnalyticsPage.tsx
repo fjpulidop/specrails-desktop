@@ -1,3 +1,4 @@
+import { PageHeader } from '../../../components/ui/page-header'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -313,9 +314,9 @@ export default function AnalyticsPage() {
     <div className="flex flex-col gap-6 p-4 pb-12">
       {/* Sticky filter header */}
       <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background border-b border-border/40">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-headline">{t('page.title')}</h1>
+        <PageHeader
+          title={t('page.title')}
+          titleExtra={<>
             {filters.ticketId && (
               <button
                 type="button"
@@ -337,8 +338,8 @@ export default function AnalyticsPage() {
                 <span aria-hidden className="opacity-70">×</span>
               </button>
             )}
-          </div>
-          <div className="flex items-center gap-2">
+          </>}
+          actions={<>
             <div className="flex items-center gap-1 rounded-md border border-border/60 bg-card/40 p-0.5">
               {PERIODS.map((p) => (
                 <button
@@ -364,8 +365,8 @@ export default function AnalyticsPage() {
               title={t('common:actions.refresh')}
               aria-label={t('common:actions.refresh')}
             ><RefreshCw className="w-3 h-3" /></button>
-          </div>
-        </div>
+          </>}
+        />
         {/* Surface chips */}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {SURFACE_CHIPS.map((c) => {

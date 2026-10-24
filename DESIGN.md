@@ -197,7 +197,7 @@ Tailwind utilities `text-micro` through `text-display-xl` come from `--text-*` t
 - **Strong** (600, 0.875rem/1.25rem): emphasised rows.
 - **Body** (400, 0.8125rem/1.25rem): default text; keep prose to 65 to 75ch.
 - **Label** (500, 0.75rem/1rem): controls and form labels.
-- **Caption** (400, 0.6875rem/1rem) and **Micro** (500, 0.65625rem/0.875rem, +0.01em): metadata and badge text only; 11 px is the floor for readable text.
+- **Caption** (400, 0.6875rem/1rem) and **Micro** (500, 0.65625rem/0.875rem, +0.01em): metadata text. Micro (10.5 px) is badge-only; readable text is 11 px or larger.
 
 ### Named Rules
 **The Role Rule.** Pick a role token, never a raw `text-[Npx]`. Hierarchy comes from the step between roles.

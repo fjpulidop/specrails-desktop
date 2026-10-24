@@ -40,7 +40,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
       )}
       {review.issues.length > 0 && (
         <div className="mt-1.5">
-          <p className="flex items-center gap-1 text-caption font-medium uppercase tracking-wide text-foreground/70">
+          <p className="flex items-center gap-1 text-label text-muted-foreground">
             <ListChecks className="h-3 w-3" aria-hidden />
             {t('runCard.review.issues', { count: review.issues.length + review.issuesOmitted })}
           </p>
@@ -67,7 +67,7 @@ export function AgentFlowReviewBlock({ review, children, hideNext = false }: { r
       )}
       {review.failingChecks.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1" data-testid="mission-flow-review-checks">
-          <span className="text-caption font-medium uppercase tracking-wide text-foreground/70">{t('runCard.review.failingChecks')}</span>
+          <span className="text-label text-muted-foreground">{t('runCard.review.failingChecks')}</span>
           {review.failingChecks.map((check, index) => (
             <span key={index} className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-px font-mono text-caption text-destructive">
               <SquareTerminal className="h-2.5 w-2.5" aria-hidden />

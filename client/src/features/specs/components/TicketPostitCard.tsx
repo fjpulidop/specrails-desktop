@@ -11,7 +11,7 @@ import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
 import { canRefineTicket } from '../lib/ticket-refine'
 import { genPendingSpecId } from '../lib/pending-spec-id'
 import type { LocalTicket } from '../../../types'
-import { PRIORITY_TONE } from '../lib/priority'
+import { PriorityBadge } from './PriorityBadge'
 import type { RailState } from '../../rails/components/RailsBoard'
 
 interface TicketPostitCardProps {
@@ -287,9 +287,7 @@ export function TicketPostitCard({
               </Badge>
             )}
             {ticket.priority && !isDraft && !isOnReview && (
-              <Badge variant={PRIORITY_TONE[ticket.priority]} className="h-5 px-1.5 text-caption">
-                {t(`priority.${ticket.priority}`)}
-              </Badge>
+              <PriorityBadge priority={ticket.priority} />
             )}
             {isDraft && (
               <Badge variant="outline" className="h-5 px-1.5 text-caption border-accent-secondary/50 text-accent-secondary">

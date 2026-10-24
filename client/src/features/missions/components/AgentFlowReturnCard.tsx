@@ -101,7 +101,7 @@ export function AgentFlowReturnCard({ row, conversationId = null }: { row: FlowR
               </p>
               {files.length > 0 && (
                 <>
-                  <p className="mt-1 text-caption font-medium uppercase tracking-wide text-foreground/70">{t('flowReturn.unexplained')}</p>
+                  <p className="mt-1 text-label text-muted-foreground">{t('flowReturn.unexplained')}</p>
                   <ul className="mt-0.5 space-y-0.5" data-testid="agent-flow-return-unexplained">
                     {files.map((file) => <li key={file} className="truncate font-mono text-caption text-foreground/70" title={file}>{file}</li>)}
                   </ul>

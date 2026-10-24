@@ -14,11 +14,11 @@
  * Theme system
  *
  * Six first-class themes selectable via `<html data-theme="...">`:
- *   - dracula        (default — legacy palette, byte-equivalent visuals)
+ *   - dracula        (legacy palette; the base `@theme` block below carries these values)
  *   - aurora-light   (premium light, Linear-ish frío profesional)
  *   - obsidian-dark  (premium dark, Tokyo-Night-ish negro-azulado)
  *   - code-rain      (phosphor terminal — green-tinted near-black)
- *   - specrails      (brand near-black)
+ *   - specrails      (brand near-black; the runtime default, see DEFAULT_THEME)
  *   - galaxy         (deep-space near-black)
  *
  * Components use SEMANTIC tokens only (e.g. `text-accent-primary`,
@@ -929,59 +929,15 @@ select {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Toast loading halo. Sonner's default loading state shows an inline spinner
- * inside the toast; we suppress that (see App.tsx `ToastLoadingSpinner`) and
- * instead spin a conic-gradient ring around the entire toast card. The ring
- * is painted via a ::before pseudo, masked to a thin border to keep the
- * glass-card chrome visible underneath.
+ * Toast loading state. Sonner's default loading spinner is suppressed (see
+ * App.tsx `ToastLoadingSpinner`); a loading toast is marked by a static
+ * accent hairline border. No spinning halo: motion stays on the work, not the chrome.
  * ──────────────────────────────────────────────────────────────────────────── */
-/* Toast loading halo. Sonner's default loading state shows an inline spinner
- * inside the toast; we suppress that (see App.tsx `ToastLoadingSpinner`) and
- * instead spin a conic-gradient ring around the entire toast card. */
-[data-sonner-toast][data-type="loading"] {
-  position: relative;
-  overflow: visible !important;
-}
 [data-sonner-toast][data-type="loading"] [data-icon] {
   display: none;
 }
-@property --toast-halo-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-[data-sonner-toast][data-type="loading"]::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 0.65rem;
-  padding: 2px;
-  background: conic-gradient(from var(--toast-halo-angle), transparent 0deg, var(--accent) 80deg, transparent 160deg, transparent 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  animation: toast-halo-spin 1.4s linear infinite;
-  pointer-events: none;
-}
-[data-sonner-toast][data-type="loading"]::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  border-radius: 0.65rem;
-  border: 1px solid var(--accent);
-  opacity: 0.25;
-  pointer-events: none;
-}
-@keyframes toast-halo-spin {
-  to { --toast-halo-angle: 360deg; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-sonner-toast][data-type="loading"]::before {
-    animation: none;
-    background: var(--accent);
-    opacity: 0.4;
-  }
+[data-sonner-toast][data-type="loading"] {
+  border-color: var(--accent) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
 import type { LocalTicket } from '../../../types'
-import { PRIORITY_TONE } from '../lib/priority'
+import { PriorityBadge } from './PriorityBadge'
 
 const LONG_PRESS_MS = 700
 
@@ -299,9 +299,7 @@ export function SpecCard({
           {t('badges.contract')}
         </Badge>
       ) : ticket.priority ? (
-        <Badge variant={PRIORITY_TONE[ticket.priority]} className="text-caption shrink-0">
-          {t(`priority.${ticket.priority}`)}
-        </Badge>
+        <PriorityBadge priority={ticket.priority} />
       ) : null}
 
       {/* Jiggle-mode delete button */}

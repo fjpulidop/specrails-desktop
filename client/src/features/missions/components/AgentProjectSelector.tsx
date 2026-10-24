@@ -181,7 +181,7 @@ export function AgentProjectSelector({ pinnedProjectId, onSelect }: Props) {
               aria-label={t('project.allProjects')}
               className="min-h-0 max-h-72 overflow-y-auto py-1"
             >
-              <div className="px-3 py-1 text-caption uppercase tracking-wide text-foreground/40">{t('project.recents')}</div>
+              <div className="px-3 py-1 text-label text-muted-foreground">{t('project.recents')}</div>
               <Row
                 id={`${listboxId}-option-0`}
                 icon={<Home className="h-4 w-4" />}

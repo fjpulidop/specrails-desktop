@@ -348,7 +348,7 @@ function AgentProjectGitBar({ projectId }: { projectId: string }) {
               ))}
               {inWorktrees.length > 0 && (
                 <>
-                  <div className="mt-1 border-t border-border/50 px-3 pb-0.5 pt-1.5 text-xs uppercase tracking-wide text-foreground/60">
+                  <div className="mt-1 border-t border-border/50 px-3 pb-0.5 pt-1.5 text-label text-muted-foreground">
                     {t('git.worktrees')}
                   </div>
                   {inWorktrees.map((b, i) => {

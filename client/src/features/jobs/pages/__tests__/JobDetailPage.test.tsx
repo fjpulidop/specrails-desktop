@@ -277,7 +277,7 @@ describe('JobDetailPage', () => {
     })
     render(<JobDetailPage />)
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Jobs/i })).toBeInTheDocument()
     })
   })
 

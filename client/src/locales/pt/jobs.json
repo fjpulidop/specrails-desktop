@@ -50,6 +50,7 @@
   },
   "detail": {
     "breadcrumbDashboard": "Dashboard",
+    "breadcrumbJobs": "Jobs",
     "breadcrumbJob": "Job #{{id}}",
     "notFound": "Job não encontrado",
     "notFoundDescription": "O ID de job \"{{id}}\" não existe",

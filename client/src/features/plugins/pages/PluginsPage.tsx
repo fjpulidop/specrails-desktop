@@ -1,3 +1,4 @@
+import { PageHeader } from '../../../components/ui/page-header'
 import { toast } from 'sonner'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { isPluginWindowRoute, openPluginWindow } from '../lib/plugin-windows'
@@ -431,16 +432,11 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="border-b border-border px-6 py-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-primary/25 bg-accent-primary/10 text-accent-primary">
-            <Puzzle className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-headline">{t('plugins.page.title')}</h1>
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              {t('plugins.page.subtitle')}
-            </p>
-          </div>
+        <PageHeader
+          icon={<Puzzle />}
+          title={t('plugins.page.title')}
+          description={t('plugins.page.subtitle')}
+          actions={<>
           {!isPluginWindowRoute() && <button type="button" onClick={() => void openPluginWindow().then(() => onWindowOpened?.()).catch((error: unknown) => toast.error(t('plugins.page.openWindowFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />{t('plugins.page.openWindow')}
           </button>}
@@ -448,7 +444,8 @@ export default function PluginsPage({ onWindowOpened }: { onWindowOpened?: () =>
             <ShieldCheck className="h-3.5 w-3.5 text-accent-success" />
             <span className="text-muted-foreground">{t('plugins.page.readyCount', { count: installedCount })}</span>
           </div>
-        </div>
+          </>}
+        />
 
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
           <label className="relative flex-1">
@@ -710,7 +707,7 @@ function PluginCard({ plugin }: { plugin: CatalogPlugin }) {
       </div>
       <div className="min-w-0">
         <h3 className="truncate text-strong leading-5">{plugin.title}</h3>
-        <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">{plugin.description}</p>
+        <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">{plugin.description}</p>
         <div className="mt-1.5 flex items-center gap-1.5">
           <span data-chip="" className={statusClassName}>{plugin.statusLabel}</span>
         </div>

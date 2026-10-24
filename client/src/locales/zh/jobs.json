@@ -50,6 +50,7 @@
   },
   "detail": {
     "breadcrumbDashboard": "仪表盘",
+    "breadcrumbJobs": "任务",
     "breadcrumbJob": "任务 #{{id}}",
     "notFound": "未找到任务",
     "notFoundDescription": "任务 ID“{{id}}”不存在",

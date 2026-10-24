@@ -50,6 +50,7 @@
   },
   "detail": {
     "breadcrumbDashboard": "ダッシュボード",
+    "breadcrumbJobs": "ジョブ",
     "breadcrumbJob": "ジョブ #{{id}}",
     "notFound": "ジョブが見つかりません",
     "notFoundDescription": "ジョブ ID「{{id}}」は存在しません",

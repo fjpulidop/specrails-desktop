@@ -18,6 +18,7 @@ import type { JobSummary } from '../../../types'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { PageHeader } from '../../../components/ui/page-header'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
 const PROPOSAL_STATUS_LABEL_KEYS: Record<string, string> = {
@@ -165,13 +166,16 @@ export default function JobsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-headline">{t('page.title')}</h1>
-        <ExportDropdown
-          baseUrl={`${getApiBase()}/jobs/export`}
-          label={t('page.exportJobs')}
-        />
-      </div>
+      <PageHeader
+        className="mb-4"
+        title={t('page.title')}
+        actions={
+          <ExportDropdown
+            baseUrl={`${getApiBase()}/jobs/export`}
+            label={t('page.exportJobs')}
+          />
+        }
+      />
 
       {activeProjectId && <details className="group mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
         <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">

@@ -153,7 +153,7 @@ function ActivityEntry({ entry, formatted }: { entry: AgentLiveTool; formatted: 
       )}
       {entry.output !== undefined && (
         <div className="mt-1.5">
-          <p className={cn('mb-0.5 text-xs uppercase tracking-wider', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
+          <p className={cn('mb-0.5 text-xs', entry.isError ? 'text-destructive' : 'text-muted-foreground')}>
             {entry.isError ? t('activity.error') : t('activity.output')}
           </p>
           <pre

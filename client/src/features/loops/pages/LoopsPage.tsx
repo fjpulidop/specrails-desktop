@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { PageHeader } from '../../../components/ui/page-header'
 import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw, MoreHorizontal } from 'lucide-react'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
@@ -286,15 +287,12 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-2.5">
-            <Workflow className="w-5 h-5 text-accent-primary" />
-            <div>
-              <h1 className="text-headline text-foreground">{t('title')}</h1>
-              <p className="text-caption text-muted-foreground mt-0.5">{t('subtitle')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          className="mb-6"
+          icon={<Workflow />}
+          title={t('title')}
+          description={t('subtitle')}
+          actions={<>
             {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(t('window.openFailed'), { description: error instanceof Error ? error.message : undefined }))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
               <ExternalLink className="w-3.5 h-3.5" />{t('window.open')}
             </button>}
@@ -335,8 +333,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
               <Plus className="w-3.5 h-3.5" />
               {t('newLoop')}
             </button>
-          </div>
-        </div>
+          </>}
+        />
 
         {loading ? (
           <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3" data-testid="loops-loading">
@@ -480,7 +478,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         data-testid="template-card"
                       >
                         <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 text-accent-highlight flex-shrink-0" />
+                          <Sparkles className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                           <span className="text-sm font-medium text-foreground truncate">{locName(tmpl.id, tmpl.name)}</span>
                           {tmpl.category && (
                             <span data-chip="" className="ml-auto inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-info/15 text-accent-info flex-shrink-0">
@@ -491,7 +489,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPagePr
                         <p className="text-xs text-muted-foreground flex-1">{locDesc(tmpl.id, tmpl.description)}</p>
                         <div className="flex flex-wrap items-center gap-1">
                           {loopNeedsTicket(tmpl.graph) ? (
-                            <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-accent-secondary/15 text-accent-secondary">
+                            <span title={t('gallery.needsSpecHint')} data-chip="" className="inline-flex h-5 items-center px-1.5 rounded text-caption bg-muted text-muted-foreground">
                               {t('gallery.needsSpec')}
                             </span>
                           ) : (

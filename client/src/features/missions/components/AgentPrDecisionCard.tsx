@@ -244,7 +244,7 @@ function MissionRunStatusPill({ status }: { status: MissionRunStatus }) {
     <span
       data-testid="mission-run-status"
       data-status={status}
-      className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium uppercase tracking-wide', RUN_STATUS_TONE[status])}
+      className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-caption font-medium', RUN_STATUS_TONE[status])}
     >
       {(status === 'running' || status === 'paused') && (
         <LiveDot size="xs" tone={status === 'running' ? 'info' : 'warning'} pulsing={status === 'running'} aria-hidden />
@@ -969,7 +969,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           </span>
           {FEATURE_MISSION_RAIL_CARDS && <MissionRunStatusPill status={runStatus} />}
           {FEATURE_MISSION_RAIL_CARDS && (
-            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-foreground/70">
+            <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
               {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
             </span>
           )}
@@ -1086,7 +1086,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t(`runCard.title.${runStatus}`)}</span>
           <MissionRunStatusPill status={runStatus} />
           <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>{projectName}</span>
-          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-foreground/70">
+          <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
             {envelope.railName ? envelope.railName : t('prCard.rail', { index: envelope.railIndex + 1 })}
           </span>
         </div>
@@ -1381,7 +1381,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
         <span className="max-w-[140px] shrink-0 truncate text-label text-foreground/70" title={projectName}>
           {projectName}
         </span>
-        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-foreground/70">
+        <span className="shrink-0 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-caption font-medium text-foreground/70">
           {t('prCard.rail', { index: envelope.railIndex + 1 })}
         </span>
       </div>
@@ -1469,7 +1469,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
       {runtimeError}
 
       {statusLabel && flowOutcome === null && (
-        <p className="mt-2 text-caption font-medium uppercase tracking-wide text-foreground/70" data-testid="agent-pr-status-code">
+        <p className="mt-2 text-label text-muted-foreground" data-testid="agent-pr-status-code">
           {statusLabel}
         </p>
       )}

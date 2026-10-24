@@ -262,7 +262,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
             type="button"
             onClick={() => setStatusFilter(null)}
             aria-pressed={statusFilter === null}
-            className={`px-2 py-0.5 rounded text-caption font-medium transition-colors ${
+            className={`px-2 py-0.5 rounded text-caption font-medium capitalize transition-colors ${
               statusFilter === null
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -279,7 +279,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
                 type="button"
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}
                 aria-pressed={statusFilter === s}
-                className={`px-2 py-0.5 rounded text-caption font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-caption font-medium capitalize transition-colors ${
                   statusFilter === s
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -296,7 +296,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-caption text-foreground"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             title={t('recent.fromDate')}
             aria-label={t('recent.fromDate')}
           />
@@ -304,7 +304,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-6 rounded border border-border bg-input px-1.5 text-caption text-foreground"
+            className="h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             title={t('recent.toDate')}
             aria-label={t('recent.toDate')}
           />
@@ -542,7 +542,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
             type="date"
             value={clearFrom}
             onChange={(e) => setClearFrom(e.target.value)}
-            className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+            className="flex-1 h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             placeholder={t('recent.clearModal.fromPlaceholder')}
             aria-label={t('recent.clearModal.fromPlaceholder')}
           />
@@ -550,7 +550,7 @@ export function RecentJobs({ jobs, ticketTitles, isLoading, error, onRetry, onJo
             type="date"
             value={clearTo}
             onChange={(e) => setClearTo(e.target.value)}
-            className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+            className="flex-1 h-7 rounded-control border border-input bg-background px-2 text-label text-foreground [color-scheme:inherit]"
             placeholder={t('recent.clearModal.toPlaceholder')}
             aria-label={t('recent.clearModal.toPlaceholder')}
           />

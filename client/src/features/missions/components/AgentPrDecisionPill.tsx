@@ -24,7 +24,7 @@ export function PrDecisionPill({ decision }: { decision: AgentPrDecisionValue })
     <span
       data-testid="pr-decision-pill"
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-medium uppercase tracking-wide',
+        'inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-caption font-medium',
         PILL_TONE[decision],
       )}
     >

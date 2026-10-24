@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1202 source/build files. Nearby tests are linked where names
+Includes 1203 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -64,6 +64,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [empty-state.tsx](../../client/src/components/ui/empty-state.tsx)
 - [input.tsx](../../client/src/components/ui/input.tsx)
 - [live-dot.tsx](../../client/src/components/ui/live-dot.tsx)
+- [page-header.tsx](../../client/src/components/ui/page-header.tsx)
 - [select.tsx](../../client/src/components/ui/select.tsx) · [test](../../client/src/components/ui/__tests__/select.test.tsx)
 - [skeleton.tsx](../../client/src/components/ui/skeleton.tsx)
 - [switch.tsx](../../client/src/components/ui/switch.tsx)
@@ -750,6 +751,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
 - [NonGoalsSection.tsx](../../client/src/features/specs/components/NonGoalsSection.tsx) · [test](../../client/src/features/specs/components/__tests__/NonGoalsSection.test.tsx)
+- [PriorityBadge.tsx](../../client/src/features/specs/components/PriorityBadge.tsx)
 - [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
 - [RegressionOfPicker.tsx](../../client/src/features/specs/components/RegressionOfPicker.tsx) · [test](../../client/src/features/specs/components/__tests__/RegressionOfPicker.test.tsx)
 - [SpecActiveFilters.tsx](../../client/src/features/specs/components/SpecActiveFilters.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecActiveFilters.test.tsx)
@@ -812,7 +814,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [active-explore-spec.ts](../../client/src/features/specs/lib/active-explore-spec.ts)
 - [pending-spec-id.ts](../../client/src/features/specs/lib/pending-spec-id.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-spec-id.test.ts)
 - [pending-specs.ts](../../client/src/features/specs/lib/pending-specs.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-specs.test.ts)
-- [priority.ts](../../client/src/features/specs/lib/priority.ts)
 - [spec-addenda-core.ts](../../client/src/features/specs/lib/spec-addenda-core.ts)
 - [spec-draft.ts](../../client/src/features/specs/lib/spec-draft.ts)
 - [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)

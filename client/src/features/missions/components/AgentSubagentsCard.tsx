@@ -177,7 +177,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
             )}
             {node.resultSummary && (
               <section className="border-b border-border/20 px-3 py-2.5" aria-label={t('subagents.result')} data-testid="agent-subagent-result">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-foreground/65">{t('subagents.result')}</p>
+                <p className="mb-1 text-label text-muted-foreground">{t('subagents.result')}</p>
                 <SubagentResultMarkdown text={node.resultSummary} />
               </section>
             )}

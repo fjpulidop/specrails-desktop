@@ -414,9 +414,9 @@ export default function JobDetailPage() {
       <div className="px-4 pt-3 pb-2 space-y-2">
         {/* Breadcrumb */}
         <nav aria-label={t('detail.breadcrumbAria')} className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-foreground transition-colors flex items-center gap-1">
+          <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
             <Home className="w-3 h-3" aria-hidden />
-            {t('detail.breadcrumbDashboard')}
+            {t('detail.breadcrumbJobs')}
           </Link>
           <ChevronRight className="w-3 h-3" aria-hidden />
           <span aria-current="page" className="text-foreground font-mono">{t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}</span>

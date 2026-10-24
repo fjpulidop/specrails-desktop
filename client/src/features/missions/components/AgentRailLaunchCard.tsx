@@ -808,14 +808,14 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     >
       {/* Header: identity + status pill */}
       <div className="flex items-center gap-2 border-b border-border/40 bg-accent-primary/[0.06] px-3.5 py-2">
-        <span className="flex shrink-0 items-center gap-1.5 text-caption font-semibold uppercase tracking-widest text-accent-primary/90">
+        <span className="flex shrink-0 items-center gap-1.5 text-caption font-semibold text-accent-primary/90">
           <Rocket className="h-3 w-3" />
           {t('railCard.heading')}
         </span>
         <span className="min-w-0 flex-1 truncate text-caption text-foreground/55">
           {validTicketIds.map((id) => `#${id}`).join(' ')}
         </span>
-        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-caption font-medium uppercase tracking-wide', statusPill.tone)}>
+        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-caption font-medium', statusPill.tone)}>
           {statusPill.label}
         </span>
       </div>
