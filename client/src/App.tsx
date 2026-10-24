@@ -133,6 +133,17 @@ function isNonProjectRoute(path: string): boolean {
 const LEGACY_ROUTE_MEMORY_KEY = 'specrails-desktop:routeMemory'
 try { localStorage.removeItem(LEGACY_ROUTE_MEMORY_KEY) } catch { /* ignore */ }
 
+// A page reload (dev refresh, webview reload) keeps the current surface; only a
+// genuine cold start resets to Dashboard. Navigation timing tells them apart.
+const RESTORED_BY_RELOAD = (() => {
+  try {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    return nav?.type === 'reload'
+  } catch {
+    return false
+  }
+})()
+
 function useProjectRouteMemory(activeProjectId: string | null) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -158,7 +169,7 @@ function useProjectRouteMemory(activeProjectId: string | null) {
   useEffect(() => {
     if (didColdStartReset.current) return
     didColdStartReset.current = true
-    if (location.pathname !== '/') {
+    if (location.pathname !== '/' && !RESTORED_BY_RELOAD) {
       navigate('/', { replace: true })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,7 +191,10 @@ function useProjectRouteMemory(activeProjectId: string | null) {
     // no in-session memory exists, or when the remembered route is a global one).
     if (activeProjectId && activeProjectId !== prevProjectId.current) {
       const savedRoute = routeMemory.current.get(activeProjectId)
-      const targetRoute = savedRoute && !isNonProjectRoute(savedRoute) ? savedRoute : '/'
+      const keepReloadedRoute = RESTORED_BY_RELOAD && prevProjectId.current === null && !savedRoute
+      const targetRoute = savedRoute && !isNonProjectRoute(savedRoute)
+        ? savedRoute
+        : keepReloadedRoute ? location.pathname : '/'
       if (location.pathname !== targetRoute) {
         navigate(targetRoute, { replace: true })
       }

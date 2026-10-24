@@ -16,7 +16,7 @@ export function AppearanceSection() {
   if (!ctx) return null
 
   return (
-    <SettingsCard title={tr('appearance.heading')}>
+    <SettingsCard title={tr('appearance.heading')} className="border-0 bg-transparent shadow-none" contentClassName="p-0">
       <ThemePickerGrid />
     </SettingsCard>
   )

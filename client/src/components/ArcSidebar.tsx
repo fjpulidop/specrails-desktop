@@ -780,6 +780,14 @@ export function ArcSidebar({
     // never navigates routes (the center is the agent surface, not a route).
     if (agentMode) {
       setActiveProjectId(projectId)
+      if (!expanded) {
+        // Collapsed rail (including a pinned sidebar auto-collapsed in a narrow
+        // window): reveal the project's mission list instead of toggling a tree
+        // nobody can see.
+        hover.setHovered(true)
+        openTree(projectId)
+        return
+      }
       toggleTree(projectId)
       return
     }
