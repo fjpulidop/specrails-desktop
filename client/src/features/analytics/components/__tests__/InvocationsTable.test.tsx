@@ -199,3 +199,27 @@ describe('InvocationsTable', () => {
     expect(screen.getAllByTestId('cost-unknown-local')).toHaveLength(1)
   })
 })
+
+describe('InvocationsTable — keyboard row toggle', () => {
+  it('exposes a focusable toggle button in the first cell with aria-expanded', () => {
+    render(
+      <InvocationsTable rows={[row({ id: 'a' })]} loading={false} truncated={false} totalAvailable={1}
+        tableFilters={{}} onTableFiltersChange={() => {}} />
+    )
+    const toggle = screen.getByRole('button', { expanded: false })
+    expect(toggle).toHaveAttribute('type', 'button')
+    fireEvent.click(toggle)
+    expect(screen.getByRole('button', { expanded: true })).toBe(toggle)
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('renders an estimated cost through CostValue (~ plus sr-only "estimated")', () => {
+    render(
+      <InvocationsTable rows={[row({ id: 'a', total_cost_usd: 0.5, total_cost_usd_estimated: 1 })]} loading={false}
+        truncated={false} totalAvailable={1} tableFilters={{}} onTableFiltersChange={() => {}} />
+    )
+    const cost = screen.getByText('$0.50', { exact: false })
+    expect(cost.textContent).toMatch(/^~\$0\.50\s*estimated$/)
+  })
+})

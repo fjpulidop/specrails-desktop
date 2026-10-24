@@ -12,6 +12,7 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => <div />,
   Tooltip: () => <div />,
   ZAxis: () => <div />,
+  Symbols: ({ type }: { type: string }) => <g data-testid={`legend-symbol-${type}`} />,
 }))
 
 function emptyData(
@@ -64,6 +65,10 @@ describe('CostScatter', () => {
     expect(screen.getByTestId('scatter-chart')).toBeInTheDocument()
     expect(screen.getByTestId('scatter-set-2')).toBeInTheDocument() // 2 jobs
     expect(screen.getByTestId('scatter-set-1')).toBeInTheDocument() // 1 explore
+    // Legend lists only surfaces that have points, each with its own shape.
+    expect(screen.getByTestId('legend-symbol-circle')).toBeInTheDocument() // job
+    expect(screen.getByTestId('legend-symbol-triangle')).toBeInTheDocument() // explore
+    expect(screen.queryByText('Loops')).not.toBeInTheDocument()
   })
 
   it('BUG-ANALYTICS-15: plots file-summary + loop points (previously dropped)', () => {

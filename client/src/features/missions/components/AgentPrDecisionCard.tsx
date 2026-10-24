@@ -46,6 +46,7 @@ import type { RuntimeRun } from '../../settings/lib/agent-runtime'
 import { FOCUS_PR_CARD_EVENT, focusInConversation, focusMatchesCard, focusScrollBehavior, type FocusPrCardDetail } from './agent-run-failure'
 import type { MissionRunCardSummary, MissionRunVitalsSnapshot } from './mission-run-strip'
 import { PRIMARY_ACTION, RunPrimaryButton } from './run-primary'
+import { formatUsd } from '../../analytics/lib/format'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -391,7 +392,7 @@ function RunLogChip({
           {dot}
           <span
             className="tabular-nums"
-            aria-label={t('prCard.runCostAria', { cost: `$${vitals.costUsd!.toFixed(2)}` })}
+            aria-label={t('prCard.runCostAria', { cost: formatUsd(vitals.costUsd!) })}
           >
             ${vitals.costUsd!.toFixed(2)}
           </span>

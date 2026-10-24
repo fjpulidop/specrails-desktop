@@ -10,9 +10,11 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
+- [components/CostValue.tsx](components/CostValue.tsx)
 - [components/ExportDropdown.tsx](components/ExportDropdown.tsx)
 - [components/TicketSpendingLine.tsx](components/TicketSpendingLine.tsx)
 - [hooks/useActivity.ts](hooks/useActivity.ts)
+- [lib/format.ts](lib/format.ts)
 - [pages/ActivityFeedPage.tsx](pages/ActivityFeedPage.tsx)
 - [pages/AnalyticsPage.tsx](pages/AnalyticsPage.tsx)
 - [pages/DesktopAnalyticsPage.tsx](pages/DesktopAnalyticsPage.tsx)

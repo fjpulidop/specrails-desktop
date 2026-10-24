@@ -14,8 +14,7 @@ import { JobComparisonModal } from './JobComparisonModal'
 import type { JobSummary, JobStatus, JobPriority } from '../../../types'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { formatCommandForProvider } from '../../../lib/format-command'
-import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
-import { ResizeGrips } from '../../../components/ui/ResizeGrips'
+import { CostValue } from '../../analytics/components/CostValue'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
@@ -37,12 +36,6 @@ const PRIORITY_STYLES: Record<JobPriority, { className: string; labelKey: string
   high: { className: 'bg-orange-500/15 aurora-light:bg-accent-warning/10 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30', labelKey: 'recent.priority.high' },
   normal: { className: '', labelKey: 'recent.priority.normal' },
   low: { className: 'bg-gray-500/15 aurora-light:bg-muted text-gray-400 aurora-light:text-muted-foreground border-gray-500/30 aurora-light:border-border', labelKey: 'recent.priority.low' },
-}
-
-function formatCost(cost: number | null | undefined): string | null {
-  if (cost == null || cost === 0) return null
-  if (cost < 0.01) return `$${cost.toFixed(4)}`
-  return `$${cost.toFixed(3)}`
 }
 
 /** Wall-clock duration from started_at / finished_at timestamps */
@@ -136,9 +129,6 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
   const [compareMode, setCompareMode] = useState(false)
   const [compareSelection, setCompareSelection] = useState<string[]>([])
   const [compareJobIds, setCompareJobIds] = useState<[string, string] | null>(null)
-
-  // Movable + resizable geometry for the clear-history confirm modal.
-  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
 
   // Reset display limit when jobs list changes (new job added, etc.)
   useEffect(() => {
@@ -310,6 +300,8 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 size="sm"
                 className={`h-6 w-6 p-0 transition-colors ${compareMode ? 'text-foreground bg-accent' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={toggleCompareMode}
+                aria-label={compareMode ? t('recent.exitCompareMode') : t('recent.compareTwoJobs')}
+                aria-pressed={compareMode}
               >
                 <GitCompareArrows className="w-3.5 h-3.5" />
               </Button>
@@ -323,6 +315,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                 size="sm"
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                 onClick={() => setShowClearModal(true)}
+                aria-label={t('recent.clearJobs')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
@@ -368,7 +361,6 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       <div className="space-y-0.5">
         {filteredJobs.slice(0, displayLimit).map((job) => {
           const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
-          const cost = formatCost(job.total_cost_usd)
           const duration = formatWallDuration(job.started_at, job.finished_at)
           const tokens = formatTokens(
             ((job.tokens_in ?? 0) +
@@ -467,7 +459,11 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground shrink-0">
                 <span className="w-14 text-right">{duration ?? '—'}</span>
                 <span className="w-12 text-right">{tokens ? `${tokens}` : '—'}</span>
-                <span className="w-12 text-right">{cost ?? '—'}</span>
+                <CostValue
+                  className="w-12 text-right"
+                  usd={job.total_cost_usd || null}
+                  estimated={Boolean(job.total_cost_usd_estimated)}
+                />
                 <span className="w-20 text-right">
                   {job.status === 'queued' ? '—' : formatRelTime(job.started_at)}
                 </span>
@@ -477,6 +473,7 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
                     className="w-4 h-4 md:opacity-0 md:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteProposalId(proposalId) }}
                     title={t('recent.deleteProposal')}
+                    aria-label={t('recent.deleteProposal')}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -501,75 +498,66 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       )}
 
       {/* Clear jobs modal */}
-      {showClearModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={guardBackdrop(() => setShowClearModal(false))}>
-          <div
-            ref={panelRef}
-            className="w-80 rounded-xl border border-border/30 bg-popover p-4 shadow-lg space-y-4"
-            onClick={(e) => e.stopPropagation()}
-            style={panelStyle}
-          >
-            <div
-              {...headerHandleProps}
-              className={isFloating ? 'cursor-grab active:cursor-grabbing' : undefined}
-            >
-              <h3 className="text-sm font-semibold">{t('recent.clearModal.title')}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t('recent.clearModal.jobsInHistory', { count: jobs.length })}
-              </p>
-            </div>
+      <Dialog open={showClearModal} onOpenChange={(o) => { if (!isClearing) setShowClearModal(o) }}>
+        <DialogContent className="max-w-sm" movableResizable>
+          <DialogHeader>
+            <DialogTitle>{t('recent.clearModal.title')}</DialogTitle>
+            <DialogDescription>
+              {t('recent.clearModal.jobsInHistory', { count: jobs.length })}
+            </DialogDescription>
+          </DialogHeader>
 
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={clearFrom}
+                onChange={(e) => setClearFrom(e.target.value)}
+                className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+                placeholder={t('recent.clearModal.fromPlaceholder')}
+                aria-label={t('recent.clearModal.fromPlaceholder')}
+              />
+              <input
+                type="date"
+                value={clearTo}
+                onChange={(e) => setClearTo(e.target.value)}
+                className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+                placeholder={t('recent.clearModal.toPlaceholder')}
+                aria-label={t('recent.clearModal.toPlaceholder')}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={isClearing || (!clearFrom && !clearTo)}
+              onClick={() => handleClear('range')}
+            >
+              {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
+            </Button>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isClearing}
+              onClick={() => setShowClearModal(false)}
+            >
+              {t('common:actions.cancel')}
+            </Button>
             <Button
               variant="destructive"
               size="sm"
-              className="w-full"
               disabled={isClearing}
               onClick={() => handleClear('all')}
             >
               {t('recent.clearModal.clearAll', { count: jobs.length })}
             </Button>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={clearFrom}
-                  onChange={(e) => setClearFrom(e.target.value)}
-                  className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                  placeholder={t('recent.clearModal.fromPlaceholder')}
-                />
-                <input
-                  type="date"
-                  value={clearTo}
-                  onChange={(e) => setClearTo(e.target.value)}
-                  className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                  placeholder={t('recent.clearModal.toPlaceholder')}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled={isClearing || (!clearFrom && !clearTo)}
-                onClick={() => handleClear('range')}
-              >
-                {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
-              </Button>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => setShowClearModal(false)}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-          </div>
-          <ResizeGrips handles={resizeHandles} />
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete proposal confirmation */}
       <Dialog open={confirmDeleteProposalId !== null} onOpenChange={(o) => !o && setConfirmDeleteProposalId(null)}>
@@ -602,6 +590,10 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
       {compareJobIds && (
         <JobComparisonModal
           jobIds={compareJobIds}
+          estimatedCost={[
+            Boolean(jobs.find((j) => j.id === compareJobIds[0])?.total_cost_usd_estimated),
+            Boolean(jobs.find((j) => j.id === compareJobIds[1])?.total_cost_usd_estimated),
+          ]}
           onClose={() => {
             setCompareJobIds(null)
             setCompareSelection([])

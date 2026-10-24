@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { InvocationRow, Surface } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
+import { formatUsd } from '../lib/format'
+import { CostValue } from './CostValue'
 
 interface TableFilters {
   model?: string
@@ -34,8 +36,7 @@ function isLocalEngine(id: string | null | undefined): boolean {
 
 function fmtCost(v: number | null): string {
   if (v == null) return '—'
-  if (v < 0.005) return `$${v.toFixed(4)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 function fmtNum(v: number | null): string {
   if (v == null) return '—'
@@ -159,13 +160,20 @@ export function InvocationsTable({
                   <tr
                     key={r.id}
                     onClick={() => setOpenId(openId === r.id ? null : r.id)}
-                    className="border-t border-border/30 hover:bg-accent/30 cursor-pointer"
+                    className={`border-t border-border/30 hover:bg-accent/30 cursor-pointer ${openId === r.id ? 'bg-accent/30' : ''}`}
                   >
                     <td className="px-2 py-2">
-                      <span className={`inline-flex items-center gap-1.5 px-2 h-5 rounded-full text-[10px] font-medium ${accent.bg} ${accent.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
-                        {surfaceLabel}
-                      </span>
+                      <button
+                        type="button"
+                        aria-expanded={openId === r.id}
+                        onClick={(e) => { e.stopPropagation(); setOpenId(openId === r.id ? null : r.id) }}
+                        className="text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className={`inline-flex items-center gap-1.5 px-2 h-5 rounded-full text-[11px] font-medium ${accent.bg} ${accent.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+                          {surfaceLabel}
+                        </span>
+                      </button>
                     </td>
                     <td className="px-2 py-2 max-w-[260px]">
                       {r.ticket_id != null
@@ -186,12 +194,7 @@ export function InvocationsTable({
                     </td>
                     <td className="px-2 py-2 text-right font-medium">
                       {r.total_cost_usd_estimated === 1 && r.total_cost_usd != null ? (
-                        <span
-                          title={t('table.estimatedCostTooltip')}
-                          className="text-muted-foreground/90"
-                        >
-                          ~{fmtCost(r.total_cost_usd)}
-                        </span>
+                        <CostValue usd={r.total_cost_usd} estimated className="text-muted-foreground/90" />
                       ) : r.total_cost_usd == null && isLocalEngine(r.provider) ? (
                         <span title={t('table.costUnknownLocalTooltip')} data-testid="cost-unknown-local" className="text-muted-foreground/70">—</span>
                       ) : (

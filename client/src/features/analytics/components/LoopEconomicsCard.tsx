@@ -4,6 +4,7 @@ import { Scale } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import type { Period } from '../types/spending'
 import { durationParts, type DecisionTimeGroup } from './DecisionTimesCard'
+import { CostValue } from './CostValue'
 
 export interface LoopEconomicsGroup {
   hasData: boolean
@@ -65,12 +66,6 @@ export function parseLoopEconomics(value: unknown): LoopEconomicsResponse {
   return body
 }
 
-function fmtUsd(value: number): string {
-  if (value >= 100) return `$${value.toFixed(0)}`
-  if (value >= 0.01) return `$${value.toFixed(2)}`
-  return `$${value.toFixed(4)}`
-}
-
 const fmtRatio = (value: number) => (Math.round(value * 10) / 10).toString()
 const fmtPercent = (value: number) => `${Math.round(value * 100)}%`
 
@@ -129,9 +124,9 @@ export function LoopEconomicsCard({ projectId, period, from, to }: Props) {
     const share = group.cost.estimatedShare
     return (
       <span className="inline-flex flex-col items-end leading-tight">
-        <span>{fmtUsd(group.cost.avgCostUsd)}</span>
+        <CostValue usd={group.cost.avgCostUsd} estimated={share !== null && share > 0} />
         {share !== null && share > 0 && (
-          <span className="text-[10px] text-amber-600 dark:text-amber-400">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
+          <span className="text-[10px] text-accent-warning">{t('loopEconomics.estimatedShare', { share: fmtPercent(share) })}</span>
         )}
         {group.cost.unpricedDeliveries > 0 && (
           <span className="text-[10px] text-muted-foreground">{t('loopEconomics.unpriced', { count: group.cost.unpricedDeliveries })}</span>

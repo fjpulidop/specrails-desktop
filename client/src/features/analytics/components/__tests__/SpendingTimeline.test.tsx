@@ -5,12 +5,13 @@ import type { SpendingResponse, DailyEntry } from '../../types/spending'
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="bar-chart">{children}</div>,
-  Bar: () => <div data-testid="bar" />,
+  BarChart: ({ children, data }: { children: React.ReactNode; data: unknown }) => <div data-testid="bar-chart" data-chart={JSON.stringify(data)}>{children}</div>,
+  Bar: ({ dataKey, fill }: { dataKey: string; fill: string }) => <div data-testid="bar" data-key={dataKey} data-fill={fill} />,
   XAxis: () => <div />,
   YAxis: () => <div />,
   Tooltip: () => <div />,
   CartesianGrid: () => <div />,
+  Legend: () => <div data-testid="legend" />,
 }))
 
 function day(date: string, over: Partial<DailyEntry> = {}): DailyEntry {
@@ -75,8 +76,20 @@ describe('SpendingTimeline', () => {
     ])
     render(<SpendingTimeline data={data} loading={false} />)
     expect(screen.getByTestId('bar-chart')).toBeInTheDocument()
-    // BUG-ANALYTICS-13: jobs, explore, quick, refine, fileSummaries, smash, loop = 7.
-    expect(screen.getAllByTestId('bar').length).toBe(7)
+    // BUG-ANALYTICS-13: jobs, explore, quick, refine, fileSummaries, smash, loop + Others = 8.
+    const bars = screen.getAllByTestId('bar')
+    expect(bars.length).toBe(8)
+    // No two series share a colour.
+    const fills = bars.map((b) => b.getAttribute('data-fill'))
+    expect(new Set(fills).size).toBe(fills.length)
+    expect(screen.getByTestId('legend')).toBeInTheDocument()
+  })
+
+  it('stacks the unbroken-down remainder as Others so each day reconciles with its total', () => {
+    const data = emptyData([day('2026-05-01', { jobsCostUsd: 4, totalCostUsd: 10 })])
+    render(<SpendingTimeline data={data} loading={false} />)
+    const chart = JSON.parse(screen.getByTestId('bar-chart').getAttribute('data-chart') ?? '[]') as Array<Record<string, number>>
+    expect(chart[0].Others).toBeCloseTo(6)
   })
 
   it('BUG-ANALYTICS-13: renders the chart (not empty) for a smash-only day', () => {

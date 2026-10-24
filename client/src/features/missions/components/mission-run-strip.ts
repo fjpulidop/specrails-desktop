@@ -11,6 +11,7 @@
 
 import type { AgentPrDecisionEnvelope, MissionRunRuntime } from '../lib/agent-api'
 import { isPrEnvelopePinned } from './agent-pr-pinning'
+import { formatUsd } from '../../analytics/lib/format'
 
 /**
  * How the strip renders a run. `launching` is a skeleton, the rest carry data.
@@ -94,9 +95,9 @@ export function missionRunTotals(runIds: readonly string[], vitals: ReadonlyMap<
   }
 }
 
-/** `$0.84` — two decimals, the run chips' format. */
+/** `$0.84` — locale-aware USD, the run chips' format. */
 export function formatRunCost(costUsd: number): string {
-  return `$${costUsd.toFixed(2)}`
+  return formatUsd(costUsd)
 }
 
 /** A Flow → Spec run stopped because the review still asks for changes. */

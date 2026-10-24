@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import type { SpendingResponse, Surface, Period } from '../types/spending'
 import { SURFACE_LABEL, SURFACE_ACCENT } from '../types/spending'
+import { formatUsd as fmtUsd } from '../lib/format'
+import { CostValue } from './CostValue'
 
 interface Props {
   data: SpendingResponse | null
@@ -10,18 +12,6 @@ interface Props {
   /** Active window (period) so the headline states the range it covers
    *  explicitly — a 30-day figure must never read as an all-time total. */
   period?: Period
-}
-
-function fmtUsd(v: number): string {
-  if (v >= 100) return `$${v.toFixed(0)}`
-  if (v >= 10) return `$${v.toFixed(1)}`
-  return `$${v.toFixed(2)}`
-}
-
-function fmtUsdLarge(v: number): string {
-  if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`
-  if (v >= 100) return `$${v.toFixed(2)}`
-  return `$${v.toFixed(2)}`
 }
 
 function fmtTokens(v: number): string {
@@ -152,7 +142,7 @@ export function SpendingHero({ data, loading, period }: Props) {
               data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
               title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
             >
-              {costUnavailable ? '—' : fmtUsdLarge(displayedTotal)}
+              <CostValue usd={displayedTotal} estimated={hasEstimatedCost} unavailable={costUnavailable} />
             </div>
             {delta !== null && (
               <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${

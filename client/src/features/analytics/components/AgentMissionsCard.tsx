@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Bot } from 'lucide-react'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import type { SpendingResponse } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -10,9 +11,7 @@ interface Props {
 }
 
 function fmtUsd(v: number): string {
-  if (v < 0.005 && v > 0) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtTokens(v: number): string {

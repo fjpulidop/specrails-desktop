@@ -373,7 +373,8 @@ describe('LoopPreviewModal', () => {
         <LoopPreviewModal loop={loop} onClose={onClose} />
       </MemoryRouter>,
     )
-    fireEvent.keyDown(window, { key: 'Escape' })
+    // ui/dialog (Radix) listens for Escape on the document.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
 })

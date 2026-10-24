@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor, fireEvent } from '@testing-library/react'
 import { render } from '../../../../test-utils'
 
+/** Matches a CostValue estimate (`~` + amount + sr-only "estimated"). */
+const estimatedCost = (amount: string) => (_content: string, el: Element | null) =>
+  !!el && el.getAttribute('title') != null && el.classList.contains('tabular-nums')
+  && (el.textContent ?? '').replace(/\s*estimated$/, '') === `~${amount}`
+
 // Mock recharts
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -162,7 +167,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('$2.5000')).toBeInTheDocument()
+      expect(screen.getByText('$2.50')).toBeInTheDocument()
     })
   })
 
@@ -203,7 +208,7 @@ describe('DesktopAnalyticsPage', () => {
     })
     expect(screen.getByTestId('desktop-timeline-cost-unavailable')).toBeInTheDocument()
     expect(screen.getByTestId('desktop-project-cost-unavailable')).toBeInTheDocument()
-    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
   })
 
   it('renders "No projects registered." when projectBreakdown is empty', async () => {
@@ -269,7 +274,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('~$3.0000')).toBeInTheDocument()
+      expect(screen.getByText(estimatedCost('$3.00'))).toBeInTheDocument()
     })
     expect(screen.getByTestId('kpi-estimated-footnote')).toBeInTheDocument()
   })
@@ -282,13 +287,13 @@ describe('DesktopAnalyticsPage', () => {
     const DesktopAnalyticsPage = (await import('../DesktopAnalyticsPage')).default
     render(<DesktopAnalyticsPage />)
 
-    // 3.0 / 40 = 0.07500
+    // 3.0 / 40 = 0.075
     await waitFor(() => {
-      expect(screen.getByText('~$0.07500')).toBeInTheDocument()
+      expect(screen.getByText(estimatedCost('$0.08'))).toBeInTheDocument()
     })
   })
 
-  it('badges estimate-heavy project rows and prefixes ~ (BUG-25)', async () => {
+  it('marks estimate-heavy project rows with ~ via CostValue, no EST badge (BUG-25)', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       json: async () => estimatedData,
@@ -299,12 +304,11 @@ describe('DesktopAnalyticsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Codex Project')).toBeInTheDocument()
     })
-    // The codex project is wholly estimated → exactly one estimated badge + ~ figure
-    const badges = screen.getAllByTestId('project-estimated-badge')
-    expect(badges).toHaveLength(1)
-    expect(screen.getByText('~$2.0000')).toBeInTheDocument()
+    // The codex project is wholly estimated → ~ figure (sr-only "estimated"), no badge
+    expect(screen.queryByTestId('project-estimated-badge')).not.toBeInTheDocument()
+    expect(screen.getByText(estimatedCost('$2.00'))).toBeInTheDocument()
     // Claude project shows an authoritative figure (no ~)
-    expect(screen.getByText('$1.0000')).toBeInTheDocument()
+    expect(screen.getByText('$1.00')).toBeInTheDocument()
   })
 
   it('shows the timeline estimated note when any day is estimated (BUG-26)', async () => {
@@ -366,7 +370,7 @@ describe('DesktopAnalyticsPage', () => {
     render(<DesktopAnalyticsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('$2.5000')).toBeInTheDocument()
+      expect(screen.getByText('$2.50')).toBeInTheDocument()
     })
     expect(screen.queryByTestId('kpi-estimated-footnote')).not.toBeInTheDocument()
     expect(screen.queryByTestId('timeline-estimated-note')).not.toBeInTheDocument()

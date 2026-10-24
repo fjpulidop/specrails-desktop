@@ -12,6 +12,7 @@ import { ExportDropdown } from '../../analytics/components/ExportDropdown'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import type { JobSummary } from '../../../types'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
@@ -129,9 +130,17 @@ export default function JobsPage() {
       if (res.ok) {
         toast.success(t('page.proposalDeleted'))
         await refreshProposals()
+      } else {
+        toast.error(t('page.proposalDeleteFailed'))
       }
-    } catch { /* ignore */ }
+    } catch {
+      toast.error(t('page.proposalDeleteFailed'))
+    }
   }, [refreshProposals, t])
+
+  // The detail dialog's Delete routes through the same confirmation the list
+  // row uses (recent.deleteProposalConfirm.*) — never a one-click delete.
+  const [confirmDeleteProposalId, setConfirmDeleteProposalId] = useState<string | null>(null)
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -174,7 +183,7 @@ export default function JobsPage() {
               </div>
               {detailProposal.result_markdown ? (
                 <div className="max-h-[400px] overflow-y-auto rounded-lg px-3 py-2 text-xs bg-muted/40">
-                  <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-cyan-300 prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80">
+                  <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailProposal.result_markdown}</ReactMarkdown>
                   </div>
                 </div>
@@ -193,7 +202,7 @@ export default function JobsPage() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => { handleProposalDelete(detailProposal.id); setDetailProposal(null) }}
+                  onClick={() => setConfirmDeleteProposalId(detailProposal.id)}
                 >
                   {t('common:actions.delete')}
                 </Button>
@@ -203,6 +212,19 @@ export default function JobsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDeleteProposalId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteProposalId(null) }}
+        title={t('recent.deleteProposalConfirm.title')}
+        description={t('recent.deleteProposalConfirm.description')}
+        onConfirm={() => {
+          const id = confirmDeleteProposalId
+          setConfirmDeleteProposalId(null)
+          setDetailProposal(null)
+          if (id) void handleProposalDelete(id)
+        }}
+      />
     </div>
   )
 }

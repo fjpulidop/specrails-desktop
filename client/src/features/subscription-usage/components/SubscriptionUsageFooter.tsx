@@ -45,7 +45,7 @@ export function SubscriptionUsageFooter() {
             ?? provider.windows.find(window => window.scope === 'account')
             ?? provider.windows[0]
           const percent = provider.spend ? provider.spend.usedPercent === null ? '—' : formatSpendPercent(provider.spend.usedPercent, i18n.language) : window.usedPercent === null ? '—' : `${window.usedPercent}%`
-          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-white" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="tabular-nums">{percent}</span></span>
+          return <span key={provider.providerId} className="flex items-center gap-1.5" title={provider.providerId === 'claude' ? 'Claude' : 'Codex'}><UsageProviderIcon provider={provider.providerId} className="h-3.5 w-3.5 shrink-0 text-foreground" /><span>{provider.providerId === 'claude' ? 'Claude' : 'Codex'}</span><span className="tabular-nums">{percent}</span></span>
         })}</span>
       </button>
     </Dialog.Trigger>

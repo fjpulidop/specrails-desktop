@@ -177,13 +177,13 @@ describe('JobRunHeader', () => {
     const startedAt = new Date(Date.now() - 5000).toISOString()
     const events = [assistantTool(1, 'Edit', { file_path: 'a.ts' })]
     const { rerender } = renderHeader({ ...runningJob, started_at: startedAt }, events)
-    expect(screen.queryByText('$0.4200')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.42')).not.toBeInTheDocument()
 
     const completed: JobSummary = { ...runningJob, started_at: startedAt, finished_at: new Date().toISOString(), status: 'completed', total_cost_usd: 0.42, tokens_in: 100, tokens_out: 100, num_turns: 1 }
     rerender(<JobRunHeader job={completed} events={events} phases={{}} phaseDefinitions={[]} variant="page" />)
     expect(screen.getByText('completed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('$0.4200')).toBeInTheDocument()
+    expect(screen.getByText('$0.42')).toBeInTheDocument()
     expect(screen.getByText('Turns').nextElementSibling).toHaveTextContent('1')
     expect(screen.getByText('Tokens').nextElementSibling).toHaveTextContent('0.2k')
   })
@@ -191,7 +191,7 @@ describe('JobRunHeader', () => {
   it('prefixes ~ for an estimated (codex) cost and includes cache tokens in the total', () => {
     renderHeader({ ...completedJob, total_cost_usd_estimated: 1, tokens_cache_read: 90_000, tokens_cache_create: 2_000 })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByText('~$0.0234')).toBeInTheDocument()
+    expect(screen.getByText('~$0.02')).toBeInTheDocument()
     expect(screen.getByText('100.0k')).toBeInTheDocument()
   })
 
@@ -222,7 +222,7 @@ describe('JobRunHeader', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByText('src/components/MyComponent.tsx')).toBeInTheDocument()
     expect(screen.getByText('Pipeline total (3 phases)')).toBeInTheDocument()
-    expect(screen.getByText('≥$28.0000')).toBeInTheDocument()
+    expect(screen.getByText('≥$28.00')).toBeInTheDocument()
     expect(screen.getByText('≥1.5k')).toBeInTheDocument()
     expect(screen.getByTestId('pipeline-partial-hint')).toBeInTheDocument()
     expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/1 phase/i)
@@ -234,7 +234,7 @@ describe('JobRunHeader', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
-    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
     expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
   })
 

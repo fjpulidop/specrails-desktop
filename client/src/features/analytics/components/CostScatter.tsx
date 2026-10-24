@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ZAxis } from 'recharts'
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ZAxis, Symbols } from 'recharts'
 import type { SpendingResponse, ScatterPoint, Surface } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -24,20 +25,49 @@ interface ChartPoint {
 // Tailwind class names). Keyed on the full Surface union so file-summary + loop
 // points are never silently dropped from the plot or the legend.
 const COLOR: Record<Surface, string> = {
-  job: 'var(--accent-info, #5fa8d3)',
-  'quick-spec': 'var(--accent-secondary, #f7768e)',
-  'explore-spec': 'var(--accent-highlight, #c084fc)',
-  'ai-edit': 'var(--accent-success, #50fa7b)',
-  smash: 'var(--accent-highlight, #c084fc)',
-  'file-summary': 'var(--accent-warning, #f1fa8c)',
-  loop: 'var(--accent-primary, #7aa2f7)',
-  'chat-sidebar': 'var(--accent-info, #5fa8d3)',
-  'spec-launcher': 'var(--accent-secondary, #f7768e)',
-  proposal: 'var(--accent-highlight, #c084fc)',
-  'agent-studio': 'var(--accent-success, #50fa7b)',
-  setup: 'var(--accent-primary, #7aa2f7)',
-  flow: 'var(--accent-info, #5fa8d3)',
-  triage: 'var(--accent-info, #5fa8d3)',
+  job: 'var(--color-accent-info)',
+  'quick-spec': 'var(--color-accent-secondary)',
+  'explore-spec': 'var(--color-accent-highlight)',
+  'ai-edit': 'var(--color-accent-success)',
+  smash: 'var(--color-accent-warning)',
+  'file-summary': 'var(--color-accent-flow)',
+  loop: 'var(--color-accent-primary)',
+  'chat-sidebar': 'var(--color-accent-info)',
+  'spec-launcher': 'var(--color-accent-secondary)',
+  proposal: 'var(--color-accent-highlight)',
+  'agent-studio': 'var(--color-accent-success)',
+  setup: 'var(--color-accent-primary)',
+  flow: 'var(--color-accent-flow)',
+  triage: 'var(--color-accent-warning)',
+}
+
+type PointShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'cross' | 'star' | 'wye'
+
+// Shape per surface so the plot never relies on colour alone: surfaces that
+// share a colour always differ in shape.
+const SHAPE: Record<Surface, PointShape> = {
+  job: 'circle',
+  'quick-spec': 'square',
+  'explore-spec': 'triangle',
+  'ai-edit': 'diamond',
+  smash: 'cross',
+  'file-summary': 'star',
+  loop: 'wye',
+  'chat-sidebar': 'square',
+  'spec-launcher': 'triangle',
+  proposal: 'diamond',
+  'agent-studio': 'cross',
+  setup: 'star',
+  flow: 'circle',
+  triage: 'wye',
+}
+
+function LegendGlyph({ surface }: { surface: Surface }) {
+  return (
+    <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8" aria-hidden>
+      <Symbols type={SHAPE[surface] ?? 'circle'} cx={4} cy={4} size={40} sizeType="area" fill={COLOR[surface] ?? 'var(--color-muted-foreground)'} />
+    </svg>
+  )
 }
 
 // All surfaces, drawn in a stable order. Derived from SURFACE_LABEL keys so a
@@ -81,11 +111,11 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('scatter.title')}</h2>
-        <div className="flex flex-wrap items-center gap-2 text-[10px]">
-          {surfaces.map((s) => (
-            <span key={s} className="inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLOR[s] }} />
-              <span className="text-muted-foreground">{SURFACE_LABEL[s]}</span>
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          {datasets.filter((d) => d.points.length > 0).map((d) => (
+            <span key={d.surface} className="inline-flex items-center gap-1">
+              <LegendGlyph surface={d.surface} />
+              <span className="text-muted-foreground">{SURFACE_LABEL[d.surface]}</span>
             </span>
           ))}
         </div>
@@ -130,15 +160,15 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
               <YAxis
                 type="number" dataKey="y" name="cost"
                 tick={{ fontSize: 10 }} stroke="currentColor" className="text-muted-foreground"
-                tickFormatter={(v) => `$${v.toFixed(v < 1 ? 2 : 0)}`}
+                tickFormatter={(v: number) => formatUsd(v)}
               />
               <ZAxis range={[40, 80]} />
               <Tooltip
                 cursor={{ strokeDasharray: '3 3' }}
-                contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', fontSize: 11, borderRadius: 6 }}
+                contentStyle={{ backgroundColor: 'var(--color-popover)', border: '1px solid var(--color-border)', color: 'var(--color-popover-foreground)', fontSize: 11, borderRadius: 6 }}
                 formatter={(value: unknown, name: unknown) => {
                   const n = String(name)
-                  if (n === 'cost' && typeof value === 'number') return [`$${value.toFixed(3)}`, t('scatter.costLabel')]
+                  if (n === 'cost' && typeof value === 'number') return [formatUsd(value), t('scatter.costLabel')]
                   return [String(value), n === 'turns' ? t('scatter.turnsLabel') : n]
                 }}
               />
@@ -147,6 +177,7 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
                   key={d.surface}
                   data={d.points}
                   fill={COLOR[d.surface]}
+                  shape={SHAPE[d.surface] ?? 'circle'}
                   onClick={(point) => {
                     const cp = point as unknown as ChartPoint
                     if (cp?.raw) onSelectPoint(cp.raw)

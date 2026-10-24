@@ -8,6 +8,8 @@ import type { DesktopAnalyticsResponse, AnalyticsPeriod } from '../../../types'
 import { PeriodSelector } from '../components/PeriodSelector'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
+import { CostValue } from '../components/CostValue'
+import { formatUsd } from '../lib/format'
 
 // Server now splits authoritative (claude, provider-billed) vs estimated
 // (codex/gemini rate-card) cost. These fields are populated by
@@ -57,10 +59,10 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       label: t('desktop.totalCost'),
       value: costUnavailable
         ? '—'
-        : `${totalIsEstimated ? '~' : ''}$${kpi.totalCostUsd.toFixed(4)}`,
+        : <CostValue usd={kpi.totalCostUsd} estimated={totalIsEstimated} />,
       sub: todayCostUnavailable
         ? t('desktop.costTodayUnavailable')
-        : t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}$${kpi.costToday.toFixed(4)}` }),
+        : t('desktop.costToday', { value: `${todayIsEstimated ? '~' : ''}${formatUsd(kpi.costToday)}` }),
       estimated: totalIsEstimated,
       // The KPI is windowed (default 7d) but labelled "Total cost" — state the
       // window explicitly so it is never read as a grand all-time total (MED-10).
@@ -84,7 +86,7 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
       key: 'avgCostPerJob',
       label: t('desktop.avgCostPerJob'),
       value: kpi.totalJobs > 0 && unpricedRuns === 0
-        ? `${totalIsEstimated ? '~' : ''}$${(kpi.totalCostUsd / kpi.totalJobs).toFixed(5)}`
+        ? <CostValue usd={kpi.totalCostUsd / kpi.totalJobs} estimated={totalIsEstimated} />
         : '—',
       sub: unpricedRuns > 0 ? t('desktop.averageUnavailable') : t('desktop.periodAverage'),
       estimated: totalIsEstimated && kpi.totalJobs > 0,
@@ -120,9 +122,9 @@ function DesktopKpiCards({ kpi, windowLabel }: { kpi: EstimatedKpi; windowLabel:
         <p
           data-testid="kpi-estimated-footnote"
           className="text-[10px] text-muted-foreground/70 italic"
-          title={t('desktop.includesEstimatedTooltip', { amount: `$${estimatedTotal.toFixed(4)}` })}
+          title={t('desktop.includesEstimatedTooltip', { amount: formatUsd(estimatedTotal) })}
         >
-          {t('desktop.includesEstimated', { amount: `$${estimatedTotal.toFixed(4)}` })}
+          {t('desktop.includesEstimated', { amount: formatUsd(estimatedTotal) })}
         </p>
       )}
       {(costUnavailable || costPartiallyUnavailable) && (
@@ -198,7 +200,7 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
               tickLine={false}
             />
             <YAxis
-              tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+              tickFormatter={(v: number) => formatUsd(v)}
               tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
               axisLine={false}
               tickLine={false}
@@ -211,7 +213,7 @@ function DesktopCostTimeline({ data }: { data: EstimatedTimelinePoint[] }) {
                 return (
                   <div className="bg-popover border border-border/30 rounded-lg p-2 text-xs shadow-lg">
                     <p className="text-muted-foreground mb-1">{label}</p>
-                    <p className="font-medium">{dayEstimated ? '~' : ''}${(payload[0].value as number).toFixed(4)}</p>
+                    <p className="font-medium"><CostValue usd={payload[0].value as number} estimated={dayEstimated} /></p>
                   </div>
                 )
               }}
@@ -264,15 +266,6 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium truncate max-w-[160px] flex items-center gap-1" title={p.projectName}>
                 {p.projectName}
-                {isEstimated && (
-                  <span
-                    data-testid="project-estimated-badge"
-                    className="text-[9px] uppercase tracking-wide text-muted-foreground/70 not-italic border border-border/40 rounded px-1"
-                    title={t('desktop.projectEstimatedTooltip', { amount: `$${estimated.toFixed(4)}` })}
-                  >
-                    {t('desktop.estimatedBadge')}
-                  </span>
-                )}
               </span>
               <div className="flex items-center gap-4 text-muted-foreground">
                 <span>{t('desktop.jobsCount', { count: p.totalJobs })}</span>
@@ -283,7 +276,7 @@ function ProjectBreakdown({ projects }: { projects: EstimatedProjectStats[] }) {
                 >
                   {costUnavailable
                     ? t('desktop.costUnavailableShort')
-                    : `${isEstimated ? '~' : ''}$${p.totalCostUsd.toFixed(4)}`}
+                    : <CostValue usd={p.totalCostUsd} estimated={isEstimated} />}
                 </span>
               </div>
             </div>
@@ -335,7 +328,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
             tickLine={false}
           />
           <YAxis
-            tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+            tickFormatter={(v: number) => formatUsd(v)}
             tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
             axisLine={false}
             tickLine={false}
@@ -346,7 +339,7 @@ function ProjectCostBar({ projects }: { projects: EstimatedProjectStats[] }) {
               active && payload?.length ? (
                 <div className="bg-popover border border-border/30 rounded-lg p-2 text-xs shadow-lg">
                   <p className="text-muted-foreground mb-1">{label}</p>
-                  <p className="font-medium">${(payload[0].value as number).toFixed(4)}</p>
+                  <p className="font-medium">{formatUsd(payload[0].value as number)}</p>
                 </div>
               ) : null
             }

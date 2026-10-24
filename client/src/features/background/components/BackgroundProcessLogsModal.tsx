@@ -188,8 +188,8 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
         </dl>
         {!finished && <BackgroundProcessAppLinks process={displayedProcess.appUrls ? displayedProcess : process} />}
         {displayedProcess.error && <p role="alert" className="border-b border-border/40 bg-destructive/5 px-4 py-2 text-xs text-destructive">{sanitizeBackgroundLog(displayedProcess.error).slice(0, 1000)}</p>}
-        {displayedProcess.status === 'interrupted' && <p role="status" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.interruptedHint')}</p>}
-        {displayedProcess.persistenceError && <p role="alert" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">{t('backgroundProcess.persistenceFailed')}</p>}
+        {displayedProcess.status === 'interrupted' && <p role="status" className="border-b border-border/40 bg-accent-warning/5 px-4 py-2 text-xs text-accent-warning">{t('backgroundProcess.interruptedHint')}</p>}
+        {displayedProcess.persistenceError && <p role="alert" className="border-b border-border/40 bg-accent-warning/5 px-4 py-2 text-xs text-accent-warning">{t('backgroundProcess.persistenceFailed')}</p>}
         <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-2.5">
           <label className="relative min-w-[150px] flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" aria-hidden />
@@ -205,7 +205,7 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
           <button type="button" className={control} disabled={!filtered.length} onClick={download} aria-label={t('backgroundProcess.download')} title={t('backgroundProcess.download')}><Download className="h-3.5 w-3.5" /></button>
           {!finished && <button type="button" className={`${control} text-destructive`} disabled={busy} onClick={() => void stop()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Square className="h-3.5 w-3.5" aria-hidden />}{t(busy ? 'backgroundProcess.status.stopping' : 'backgroundProcess.stop')}</button>}
         </div>
-        {truncated && <p role="status" className="border-b border-border/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-600 dark:text-amber-400">{t('backgroundProcess.truncated')}</p>}
+        {truncated && <p role="status" className="border-b border-border/40 bg-accent-warning/5 px-4 py-2 text-xs text-accent-warning">{t('backgroundProcess.truncated')}</p>}
         {paused && !finished && <p role="status" className="border-b border-border/40 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">{t('backgroundProcess.paused')}</p>}
         {failed && <div role="alert" className="flex items-center gap-2 border-b border-border/40 bg-destructive/5 px-4 py-2 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1">{t('backgroundProcess.loadFailed')}</span><button type="button" className={control} onClick={() => { setPaused(false); setRetry(value => value + 1) }}>{t('backgroundProcess.retry')}</button></div>}
         {(stopFailed || process.stopError) && <p role="alert" className="bg-destructive/5 px-4 py-2 text-xs text-destructive">{t('backgroundProcess.stopFailed')}</p>}
@@ -215,8 +215,8 @@ function BackgroundProcessLogs({ process, onClose, onKill, onBack }: {
           className="min-h-0 flex-1 overflow-auto bg-background/80 px-3 py-3 font-mono text-[11px] leading-5 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50">
           {loading && !lines.length ? <p role="status" className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('backgroundProcess.loading')}</p> : filtered.length ? filtered.map(entry => <div key={entry.sequence} data-log-source={entry.source} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 hover:bg-muted/20">
             <span className="select-none whitespace-nowrap text-[10px] text-muted-foreground/70">{new Date(entry.at).toLocaleTimeString(undefined, { hour12: false })}</span>
-            <span className={`select-none text-[10px] ${entry.source === 'stderr' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/60'}`}>{entry.source}</span>
-            <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-amber-700 dark:text-amber-200' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>
+            <span className={`select-none text-[10px] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-muted-foreground/60'}`}>{entry.source}</span>
+            <span className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${entry.source === 'stderr' ? 'text-accent-warning' : 'text-foreground/90'}`}>{entry.line || '\u00a0'}</span>
           </div>) : !failed && <p className="py-12 text-center font-sans text-xs text-muted-foreground">{t(lines.length ? 'backgroundProcess.noMatches' : 'backgroundProcess.empty')}</p>}
         </div>
         <footer className="flex flex-wrap justify-between gap-1 border-t border-border/50 px-4 py-2 text-[10px] text-muted-foreground"><span>{t('backgroundProcess.lineCount', { count: filtered.length, total: lines.length })}</span><span>{t('backgroundProcess.exportHint')}</span></footer>

@@ -86,15 +86,15 @@ describe('ProviderBreakdownCard', () => {
     expect(screen.getByText('12 runs')).toBeInTheDocument()
     expect(screen.getByText('1 run')).toBeInTheDocument()
 
-    // fmtUsd branches: >= 100 → no decimals; >= 10 → one decimal
-    expect(screen.getByText('$150')).toBeInTheDocument()
+    // formatUsd: two fraction digits, four below one cent
+    expect(screen.getByText('$150.00')).toBeInTheDocument()
     // codex row is fully estimated → tilde prefix
-    expect(screen.getByText('~$12.3')).toBeInTheDocument()
+    expect(screen.getByText('~$12.34')).toBeInTheDocument()
 
     // Stacked bar: one segment per provider with a cost, titled label: value (count)
-    const claudeSegment = container.querySelector('[title="Claude: $150 (12)"]')
+    const claudeSegment = container.querySelector('[title="Claude: $150.00 (12)"]')
     // codex is wholly estimated → tooltip carries the ~ marker (BUG-ANALYTICS-10)
-    const codexSegment = container.querySelector('[title="Codex: ~$12.3 (1)"]')
+    const codexSegment = container.querySelector('[title="Codex: ~$12.34 (1)"]')
     expect(claudeSegment).toBeInTheDocument()
     expect(codexSegment).toBeInTheDocument()
     expect(claudeSegment).toHaveClass('bg-accent-info')
@@ -111,8 +111,8 @@ describe('ProviderBreakdownCard', () => {
     expect(screen.getByText('mystery')).toBeInTheDocument()
     // fmtUsd branches: >= 0.01 → two decimals; tiny → four decimals
     expect(screen.getByText('$0.50')).toBeInTheDocument()
-    expect(screen.getByText('$0.0050')).toBeInTheDocument()
-    const segment = container.querySelector('[title="mystery: $0.0050 (3)"]')
+    expect(screen.getByText('$0.005')).toBeInTheDocument()
+    const segment = container.querySelector('[title="mystery: $0.005 (3)"]')
     expect(segment).toBeInTheDocument()
     expect(segment).toHaveClass('bg-accent-secondary')
   })
@@ -139,7 +139,7 @@ describe('ProviderBreakdownCard', () => {
     // Only one segment in the stacked bar (codex pct === 0 → skipped)
     const segments = container.querySelectorAll('[title*=":"]')
     expect(segments).toHaveLength(1)
-    expect(segments[0]).toHaveAttribute('title', 'Claude: $10.0 (5)')
+    expect(segments[0]).toHaveAttribute('title', 'Claude: $10.00 (5)')
 
     // Both rows still render
     expect(screen.getByText('Claude')).toBeInTheDocument()

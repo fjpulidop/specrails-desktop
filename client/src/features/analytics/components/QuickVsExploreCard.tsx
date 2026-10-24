@@ -1,5 +1,6 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { SpendingResponse, ByModeEntry } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -8,9 +9,7 @@ interface Props {
 
 function fmtUsd(v: number | null): string {
   if (v == null) return '—'
-  if (v < 0.005) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtDur(ms: number | null): string {

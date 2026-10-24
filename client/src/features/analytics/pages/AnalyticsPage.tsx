@@ -360,6 +360,7 @@ export default function AnalyticsPage() {
               onClick={() => { cacheRef.current.clear(); fetchSpending(); fetchInvocations() }}
               className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border/60 bg-card/50 text-muted-foreground hover:text-foreground hover:bg-accent/60"
               title={t('common:actions.refresh')}
+              aria-label={t('common:actions.refresh')}
             ><RefreshCw className="w-3 h-3" /></button>
           </div>
         </div>
@@ -425,7 +426,8 @@ export default function AnalyticsPage() {
 
       {/* Block 1: Hero */}
       <SpendingHero data={data} loading={loading} period={filters.period} />
-      {activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
+      {/* Internal telemetry: development builds only. */}
+      {import.meta.env.DEV && activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
 
       {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
       <ProviderBreakdownCard data={data} loading={loading} />

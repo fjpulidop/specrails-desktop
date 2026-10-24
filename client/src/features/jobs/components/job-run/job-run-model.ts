@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from 'react'
 import { ARG_ACTIONS, deriveFrameActivity } from '../../../browser/lib/frame-activity'
 import { parseJobTimestamp } from '../../lib/job-time'
 import type { EventRow, JobSummary } from '../../../../types'
+import { formatUsd } from '../../../analytics/lib/format'
 
 // ─── Pure model behind JobRunHeader ──────────────────────────────────────────
 //
@@ -157,7 +158,7 @@ export function formatTokens(total: number): string {
 
 export function finalMetricsFor(job: JobSummary): FinalMetrics {
   const costEstimated = !!job.total_cost_usd_estimated
-  const cost = job.total_cost_usd != null ? `${costEstimated ? '~' : ''}$${job.total_cost_usd.toFixed(4)}` : null
+  const cost = job.total_cost_usd != null ? `${costEstimated ? '~' : ''}${formatUsd(job.total_cost_usd)}` : null
   const turns = job.num_turns != null ? String(job.num_turns) : null
   const tokensTotal = job.tokens_in != null
     ? (job.tokens_in ?? 0) + (job.tokens_out ?? 0) + (job.tokens_cache_read ?? 0) + (job.tokens_cache_create ?? 0)
@@ -208,7 +209,7 @@ export function computePipelineTotals(pipelineJobs: JobSummary[]): PipelineTotal
 
 export function formatPipelineCost(p: PipelineTotals): string {
   if (p.costUnavailable) return '—'
-  return `${p.costEstimated ? '~' : ''}${p.hasNullCost ? '≥' : ''}$${p.totalCostUsd.toFixed(4)}`
+  return `${p.costEstimated ? '~' : ''}${p.hasNullCost ? '≥' : ''}${formatUsd(p.totalCostUsd)}`
 }
 
 export function formatPipelineTokens(p: PipelineTotals): string {

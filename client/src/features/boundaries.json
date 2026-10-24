@@ -19,9 +19,11 @@
   },
   "analytics": {
     "publicEntries": [
+      "components/CostValue.tsx",
       "components/ExportDropdown.tsx",
       "components/TicketSpendingLine.tsx",
       "hooks/useActivity.ts",
+      "lib/format.ts",
       "pages/ActivityFeedPage.tsx",
       "pages/AnalyticsPage.tsx",
       "pages/DesktopAnalyticsPage.tsx"

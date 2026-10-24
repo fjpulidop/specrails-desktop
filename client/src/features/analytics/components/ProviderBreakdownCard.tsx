@@ -1,5 +1,6 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { ByProviderEntry, SpendingResponse } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -21,10 +22,7 @@ const PROVIDER_ACCENT: Record<string, string> = {
 }
 
 function fmtUsd(v: number): string {
-  if (v >= 100) return `$${v.toFixed(0)}`
-  if (v >= 10) return `$${v.toFixed(1)}`
-  if (v >= 0.01) return `$${v.toFixed(2)}`
-  return `$${v.toFixed(4)}`
+  return formatUsd(v)
 }
 
 function providerLabel(id: string): string {

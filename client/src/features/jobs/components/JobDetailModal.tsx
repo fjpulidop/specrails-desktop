@@ -264,7 +264,10 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
       {/* Panel */}
       <div
         ref={panelRef}
-        className="relative w-full min-w-0 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        {...(job ? { 'aria-labelledby': 'job-modal-title' } : { 'aria-label': t('common:states.loading') })}
+        className="relative w-full min-w-0 rounded-xl bg-popover border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
         style={panelStyle}
       >
         {/* Header */}
@@ -275,7 +278,7 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           <div className="flex items-center gap-3 min-w-0">
             {job && (
               <>
-                <code className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
+                <code id="job-modal-title" className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
                 <span className="text-[10px] text-muted-foreground shrink-0">
                   {activityTime
                     ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
@@ -287,7 +290,9 @@ export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobD
           </div>
 
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('common:actions.close')}
             className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />

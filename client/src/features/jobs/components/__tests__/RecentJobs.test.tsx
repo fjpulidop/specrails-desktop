@@ -206,8 +206,8 @@ describe('RecentJobs', () => {
 
   it('shows cost when available', () => {
     render(<RecentJobs jobs={mockJobs} />)
-    // job-1 has total_cost_usd: 0.05 → "$0.050"
-    expect(screen.getByText('$0.050')).toBeInTheDocument()
+    // job-1 has total_cost_usd: 0.05 → "$0.05"
+    expect(screen.getByText('$0.05')).toBeInTheDocument()
   })
 
   it('renders tokens when available', () => {
@@ -347,6 +347,34 @@ describe('RecentJobs', () => {
       }
       render(<RecentJobs jobs={[canceledJob]} />)
       expect(screen.getByText('canceled')).toBeInTheDocument()
+    })
+  })
+
+  describe('audit: dialog semantics, names and estimated cost', () => {
+    it('names the icon-only compare and clear buttons', () => {
+      render(<RecentJobs jobs={mockJobs} />)
+      expect(screen.getByRole('button', { name: 'Compare 2 jobs' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Clear jobs' })).toBeInTheDocument()
+    })
+
+    it('opens the clear history as a labelled dialog with Cancel before Clear all', async () => {
+      const user = userEvent.setup()
+      render(<RecentJobs jobs={mockJobs} />)
+      await user.click(screen.getByRole('button', { name: 'Clear jobs' }))
+      const dialog = screen.getByRole('dialog', { name: 'Clear Jobs' })
+      const buttons = within(dialog).getAllByRole('button').map((b) => b.textContent)
+      const cancelIdx = buttons.indexOf('Cancel')
+      const clearAllIdx = buttons.findIndex((t) => /clear all/i.test(t ?? ''))
+      expect(cancelIdx).toBeGreaterThanOrEqual(0)
+      expect(clearAllIdx).toBeGreaterThan(cancelIdx)
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog', { name: 'Clear Jobs' })).not.toBeInTheDocument()
+    })
+
+    it('marks a pricing-table estimate with ~ and sr-only "estimated"', () => {
+      render(<RecentJobs jobs={[{ ...mockJobs[0], total_cost_usd_estimated: 1 }]} />)
+      const cost = screen.getByText('$0.05', { exact: false })
+      expect(cost.textContent).toMatch(/^~\$0\.05\s*estimated$/)
     })
   })
 })

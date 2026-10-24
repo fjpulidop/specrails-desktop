@@ -7,13 +7,12 @@ import { useDesktop } from '../../../hooks/useDesktop'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import type { TicketSpendingSummary, Surface } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props { ticketId: number }
 
 function fmtCost(v: number): string {
-  if (v < 0.005) return `$${v.toFixed(4)}`
-  if (v < 1) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(2)}`
+  return formatUsd(v)
 }
 
 function fmtDur(ms: number): string {

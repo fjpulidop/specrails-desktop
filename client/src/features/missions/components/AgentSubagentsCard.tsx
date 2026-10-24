@@ -11,6 +11,7 @@ import { getMissionSubagentEvents, type AgentSubagent, type AgentSubagentEvent }
 import { isInterruptedSubagent, isLiveSubagent } from '../lib/mission-sessions'
 import { resultPreview } from '../lib/subagent-result'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
+import { formatUsd } from '../../analytics/lib/format'
 
 /** Live elapsed time while running; the final duration once it ended. */
 export function useElapsed(node: AgentSubagent): string {
@@ -171,7 +172,7 @@ function SubagentRow({ conversationId, node, liveEvents, depth, onStop, onRelaun
                   // Usage is revealed once the sub-agent finished (no approximate live numbers).
                   !live && tokens !== null && t('subagents.tokens', { tokens: formatTokens(tokens) }),
                   !live && node.toolUses ? t('subagents.toolUses', { count: node.toolUses }) : null,
-                  !live && node.usage?.costUsd != null ? `${node.usage.costEstimated ? '≈ ' : ''}$${node.usage.costUsd.toFixed(2)}` : null,
+                  !live && node.usage?.costUsd != null ? `${node.usage.costEstimated ? '≈ ' : ''}${formatUsd(node.usage.costUsd)}` : null,
                 ].filter(Boolean).join(' · ')}
               </p>
             )}

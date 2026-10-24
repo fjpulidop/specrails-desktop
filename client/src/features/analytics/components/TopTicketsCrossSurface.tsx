@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { SpendingResponse } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
+import { formatUsd } from '../lib/format'
 
 interface Props {
   data: SpendingResponse | null
@@ -63,7 +64,7 @@ export function TopTicketsCrossSurface({ data, loading, onSelectTicket }: Props)
                     >
                       {costUnavailable
                         ? t('topTickets.costUnavailable')
-                        : `$${tk.totalCostUsd.toFixed(2)}`}
+                        : formatUsd(tk.totalCostUsd)}
                     </div>
                     {costPartiallyUnavailable && (
                       <div className="text-[10px] text-muted-foreground italic">
