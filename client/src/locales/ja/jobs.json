@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "実行は次のステップ境界で停止します",
       "cancelFailed": "キャンセルに失敗しました",
       "networkError": "ネットワークエラー"
-    }
+    },
+    "title": "{{kind}} ジョブ · #{{id}}",
+    "titleLoop": "ループ実行 · #{{id}}",
+    "titleGeneric": "ジョブ · #{{id}}"
   },
   "comparison": {
     "title": "ジョブ比較",
@@ -189,7 +192,8 @@
     "model": "モデル",
     "phasesDone": "完了フェーズ",
     "betterValueHint": "緑のハイライトはより良い値を示します",
-    "loading": "比較を読み込み中…"
+    "loading": "比較を読み込み中…",
+    "description": "2 つの実行の所要時間・コスト・トークン使用量を並べて比較します。緑はより良い値を示します。"
   },
   "recent": {
     "emptyTitle": "ジョブはまだありません",

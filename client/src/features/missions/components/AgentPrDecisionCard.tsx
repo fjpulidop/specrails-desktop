@@ -31,10 +31,9 @@ import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnown
 import { cancelJob } from '../../jobs/lib/cancel-job'
 import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { useAgentChat } from '../context/AgentChatContext'
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
+import { useDialogLayer } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { nestedDialogLayer } from '../../../lib/layers'
 import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../code/lib/git-refresh'
 import { forceProjectRoute } from '../../../lib/route-memory'
@@ -50,7 +49,7 @@ import { formatUsd } from '../../analytics/lib/format'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
-// job-ref chips; the modal itself portals to document.body at z-[65]).
+// job-ref chips; the modal itself portals to document.body on the entity layer, 65).
 const JobDetailModal = lazy(() =>
   import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
 )
@@ -431,6 +430,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
   const { openRef } = useAgentRefActions()
   const [busy, setBusy] = useState<AgentPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
+  // Confirm layer: inside a dialog (e.g. Job detail, entity 65) climb one
+  // layer as usual; outside any dialog the card lives in the floating agent
+  // chat (60), so a base (50) confirm would paint BEHIND it — use `stacked`.
+  const parentDialogLayer = useDialogLayer()
+  const confirmLayer = parentDialogLayer ? nestedDialogLayer(parentDialogLayer) : 'stacked'
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [confirmingDismiss, setConfirmingDismiss] = useState(false)
   const [confirmingDiscardLocal, setConfirmingDiscardLocal] = useState(false)
@@ -1115,20 +1119,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </button>
           )}
         </motion.div>
-        <Dialog open={confirmingDismiss} onOpenChange={setConfirmingDismiss}>
-          <DialogContent className="max-w-sm" data-testid="agent-pr-dismiss-confirm">
-            <DialogHeader>
-              <DialogTitle>{t('prCard.confirm.dismissTitle')}</DialogTitle>
-              <DialogDescription>{t('prCard.confirm.dismissBody')}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setConfirmingDismiss(false)}>{t('common:actions.cancel')}</Button>
-              <Button size="sm" disabled={runOnlyBusy} data-testid="agent-pr-dismiss-confirm-btn" onClick={() => { setConfirmingDismiss(false); void act('dismiss') }}>
-                {t('prCard.dismiss')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={confirmingDismiss}
+          onOpenChange={setConfirmingDismiss}
+          layer={confirmLayer}
+          tone="default"
+          testId="agent-pr-dismiss-confirm"
+          confirmTestId="agent-pr-dismiss-confirm-btn"
+          title={t('prCard.confirm.dismissTitle')}
+          description={t('prCard.confirm.dismissBody')}
+          confirmLabel={t('prCard.dismiss')}
+          confirmDisabled={runOnlyBusy}
+          onConfirm={() => { setConfirmingDismiss(false); void act('dismiss') }}
+        />
         {logModal}
       </div>
     )
@@ -1685,113 +1688,104 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId, em
             </p>
           )}
       </motion.div>
-      <Dialog open={!hasRepositoryDeliveries && confirmingMergeLocal} onOpenChange={setConfirmingMergeLocal}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-merge-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.mergeLocalTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.mergeLocalBody', { base: envelope.baseBranch })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingMergeLocal(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-merge-local-confirm-btn" onClick={() => { setConfirmingMergeLocal(false); void act('merge-local') }}>
-              {t('prCard.mergeLocal')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingRecoverAndRetry} onOpenChange={setConfirmingRecoverAndRetry}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-recover-and-retry-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}</DialogTitle>
-            <DialogDescription>{t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingRecoverAndRetry(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-recover-and-retry-confirm-btn" onClick={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}>
-              {t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDiscard} onOpenChange={setConfirmingDiscard}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-discard-confirm">
-          <DialogHeader>
-            <DialogTitle>{t(decision === 'implementation_failed'
-              ? 'prCard.confirm.implementationFailedDiscardTitle'
-              : 'prCard.confirm.freshDiscardTitle')}</DialogTitle>
-            <DialogDescription>{t(decision === 'implementation_failed'
-              ? 'prCard.confirm.implementationFailedDiscardBody'
-              : 'prCard.confirm.freshDiscardBody')}</DialogDescription>
-            {isStackedHead && (
-              <p className="mt-2 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="agent-pr-discard-stacked-note">
-                {t('prCard.discardStackedNote')}
-              </p>
-            )}
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDiscard(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-discard-confirm-btn" onClick={() => { setConfirmingDiscard(false); void act('discard') }}>
-              {t('prCard.discard')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDismiss} onOpenChange={setConfirmingDismiss}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-dismiss-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.dismissTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.dismissBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDismiss(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-dismiss-confirm-btn" onClick={() => { setConfirmingDismiss(false); void act('dismiss') }}>
-              {t('prCard.dismiss')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingDiscardLocal} onOpenChange={setConfirmingDiscardLocal}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-discard-local-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.discardLocalTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.discardLocalBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingDiscardLocal(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-discard-local-confirm-btn" onClick={() => { setConfirmingDiscardLocal(false); void act('discard') }}>
-              {t('prCard.discardLocalResult')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!hasRepositoryDeliveries && confirmingNoChangesDone} onOpenChange={setConfirmingNoChangesDone}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-no-changes-done-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.noChangesDoneTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.noChangesDoneBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingNoChangesDone(false)}>{t('common:actions.cancel')}</Button>
-            <Button size="sm" disabled={anyBusy} data-testid="agent-pr-no-changes-done-confirm-btn" onClick={() => { setConfirmingNoChangesDone(false); void act('acknowledge-no-changes') }}>
-              {t('prCard.markDone')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmingRefine} onOpenChange={setConfirmingRefine}>
-        <DialogContent className="max-w-sm" data-testid="agent-pr-refine-confirm">
-          <DialogHeader>
-            <DialogTitle>{t('prCard.confirm.refineTitle')}</DialogTitle>
-            <DialogDescription>{t('prCard.confirm.refineBody')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmingRefine(false)}>{t('common:actions.cancel')}</Button>
-            <Button variant="destructive" size="sm" disabled={anyBusy} data-testid="agent-pr-refine-confirm-btn" onClick={() => { setConfirmingRefine(false); void act('discard') }}>
-              {t('prCard.refine')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!hasRepositoryDeliveries && confirmingMergeLocal}
+        onOpenChange={setConfirmingMergeLocal}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-merge-local-confirm"
+        confirmTestId="agent-pr-merge-local-confirm-btn"
+        title={t('prCard.confirm.mergeLocalTitle')}
+        description={t('prCard.confirm.mergeLocalBody', { base: envelope.baseBranch })}
+        confirmLabel={t('prCard.mergeLocal')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingMergeLocal(false); void act('merge-local') }}
+      />
+      <ConfirmDialog
+        open={confirmingRecoverAndRetry}
+        onOpenChange={setConfirmingRecoverAndRetry}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-recover-and-retry-confirm"
+        confirmTestId="agent-pr-recover-and-retry-confirm-btn"
+        title={t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryTitle' : 'prCard.confirm.recoverAndRetryTitle')}
+        description={t(recoveryIsRecheck ? 'prCard.confirm.recheckRecoveryBody' : 'prCard.confirm.recoverAndRetryBody', { branch: envelope.branch ?? '' })}
+        confirmLabel={t(recoveryIsRecheck ? 'prCard.recheckRecovery' : 'prCard.recoverAndRetry')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingRecoverAndRetry(false); void act('recover-and-retry') }}
+      />
+      <ConfirmDialog
+        open={confirmingDiscard}
+        onOpenChange={setConfirmingDiscard}
+        layer={confirmLayer}
+        testId="agent-pr-discard-confirm"
+        confirmTestId="agent-pr-discard-confirm-btn"
+        title={t(decision === 'implementation_failed'
+          ? 'prCard.confirm.implementationFailedDiscardTitle'
+          : 'prCard.confirm.freshDiscardTitle')}
+        description={t(decision === 'implementation_failed'
+          ? 'prCard.confirm.implementationFailedDiscardBody'
+          : 'prCard.confirm.freshDiscardBody')}
+        confirmLabel={t('prCard.discard')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDiscard(false); void act('discard') }}
+      >
+        {isStackedHead ? (
+          <p className="rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="agent-pr-discard-stacked-note">
+            {t('prCard.discardStackedNote')}
+          </p>
+        ) : null}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirmingDismiss}
+        onOpenChange={setConfirmingDismiss}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-dismiss-confirm"
+        confirmTestId="agent-pr-dismiss-confirm-btn"
+        title={t('prCard.confirm.dismissTitle')}
+        description={t('prCard.confirm.dismissBody')}
+        confirmLabel={t('prCard.dismiss')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDismiss(false); void act('dismiss') }}
+      />
+      <ConfirmDialog
+        open={confirmingDiscardLocal}
+        onOpenChange={setConfirmingDiscardLocal}
+        layer={confirmLayer}
+        testId="agent-pr-discard-local-confirm"
+        confirmTestId="agent-pr-discard-local-confirm-btn"
+        title={t('prCard.confirm.discardLocalTitle')}
+        description={t('prCard.confirm.discardLocalBody')}
+        confirmLabel={t('prCard.discardLocalResult')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingDiscardLocal(false); void act('discard') }}
+      />
+      <ConfirmDialog
+        open={!hasRepositoryDeliveries && confirmingNoChangesDone}
+        onOpenChange={setConfirmingNoChangesDone}
+        layer={confirmLayer}
+        tone="default"
+        testId="agent-pr-no-changes-done-confirm"
+        confirmTestId="agent-pr-no-changes-done-confirm-btn"
+        title={t('prCard.confirm.noChangesDoneTitle')}
+        description={t('prCard.confirm.noChangesDoneBody')}
+        confirmLabel={t('prCard.markDone')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingNoChangesDone(false); void act('acknowledge-no-changes') }}
+      />
+      <ConfirmDialog
+        open={confirmingRefine}
+        onOpenChange={setConfirmingRefine}
+        layer={confirmLayer}
+        testId="agent-pr-refine-confirm"
+        confirmTestId="agent-pr-refine-confirm-btn"
+        title={t('prCard.confirm.refineTitle')}
+        description={t('prCard.confirm.refineBody')}
+        confirmLabel={t('prCard.refine')}
+        confirmDisabled={anyBusy}
+        onConfirm={() => { setConfirmingRefine(false); void act('discard') }}
+      />
       {logModal}
     </div>
   )

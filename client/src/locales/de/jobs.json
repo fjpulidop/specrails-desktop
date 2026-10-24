@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "Der Lauf stoppt an der nächsten Schrittgrenze",
       "cancelFailed": "Abbrechen fehlgeschlagen",
       "networkError": "Netzwerkfehler"
-    }
+    },
+    "title": "{{kind}}-Job · #{{id}}",
+    "titleLoop": "Loop-Lauf · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Job-Vergleich",
@@ -189,7 +192,8 @@
     "model": "Modell",
     "phasesDone": "Abgeschlossene Phasen",
     "betterValueHint": "Grün hervorgehoben = besserer Wert",
-    "loading": "Vergleich wird geladen…"
+    "loading": "Vergleich wird geladen…",
+    "description": "Dauer, Kosten und Token-Verbrauch beider Läufe nebeneinander. Grün markiert den besseren Wert."
   },
   "recent": {
     "emptyTitle": "Noch keine Jobs",

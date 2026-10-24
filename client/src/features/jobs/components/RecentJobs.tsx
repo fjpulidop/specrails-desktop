@@ -8,7 +8,7 @@ import { Trash2, ClipboardList, GitCompareArrows, Link2, AlertTriangle } from 'l
 import { toast } from 'sonner'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobComparisonModal } from './JobComparisonModal'
 import type { JobSummary, JobStatus, JobPriority } from '../../../types'
@@ -506,94 +506,58 @@ export function RecentJobs({ jobs, isLoading, error, onRetry, onJobsCleared, onP
         </div>
       )}
 
-      {/* Clear jobs modal */}
-      <Dialog open={showClearModal} onOpenChange={(o) => { if (!isClearing) setShowClearModal(o) }}>
-        <DialogContent className="max-w-sm" movableResizable>
-          <DialogHeader>
-            <DialogTitle>{t('recent.clearModal.title')}</DialogTitle>
-            <DialogDescription>
-              {t('recent.clearModal.jobsInHistory', { count: jobs.length })}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
-            <div className="flex gap-2">
-              <input
-                type="date"
-                value={clearFrom}
-                onChange={(e) => setClearFrom(e.target.value)}
-                className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                placeholder={t('recent.clearModal.fromPlaceholder')}
-                aria-label={t('recent.clearModal.fromPlaceholder')}
-              />
-              <input
-                type="date"
-                value={clearTo}
-                onChange={(e) => setClearTo(e.target.value)}
-                className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
-                placeholder={t('recent.clearModal.toPlaceholder')}
-                aria-label={t('recent.clearModal.toPlaceholder')}
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              disabled={isClearing || (!clearFrom && !clearTo)}
-              onClick={() => handleClear('range')}
-            >
-              {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
-            </Button>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isClearing}
-              onClick={() => setShowClearModal(false)}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={isClearing}
-              onClick={() => handleClear('all')}
-            >
-              {t('recent.clearModal.clearAll', { count: jobs.length })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Clear jobs confirmation (range controls ride in the body) */}
+      <ConfirmDialog
+        open={showClearModal}
+        onOpenChange={setShowClearModal}
+        title={t('recent.clearModal.title')}
+        description={t('recent.clearModal.jobsInHistory', { count: jobs.length })}
+        confirmLabel={t('recent.clearModal.clearAll', { count: jobs.length })}
+        busy={isClearing}
+        onConfirm={() => handleClear('all')}
+      >
+        <p className="text-xs text-muted-foreground">{t('recent.clearModal.orByRange')}</p>
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={clearFrom}
+            onChange={(e) => setClearFrom(e.target.value)}
+            className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+            placeholder={t('recent.clearModal.fromPlaceholder')}
+            aria-label={t('recent.clearModal.fromPlaceholder')}
+          />
+          <input
+            type="date"
+            value={clearTo}
+            onChange={(e) => setClearTo(e.target.value)}
+            className="flex-1 h-7 rounded-md border border-border bg-input px-2 text-xs text-foreground"
+            placeholder={t('recent.clearModal.toPlaceholder')}
+            aria-label={t('recent.clearModal.toPlaceholder')}
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={isClearing || (!clearFrom && !clearTo)}
+          onClick={() => handleClear('range')}
+        >
+          {(clearFrom || clearTo) ? t('recent.clearModal.clearInRange', { count: clearRangeCount }) : t('recent.clearModal.clearRange')}
+        </Button>
+      </ConfirmDialog>
 
       {/* Delete proposal confirmation */}
-      <Dialog open={confirmDeleteProposalId !== null} onOpenChange={(o) => !o && setConfirmDeleteProposalId(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t('recent.deleteProposalConfirm.title')}</DialogTitle>
-            <DialogDescription>
-              {t('recent.deleteProposalConfirm.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteProposalId(null)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (confirmDeleteProposalId) onProposalDelete?.(confirmDeleteProposalId)
-                setConfirmDeleteProposalId(null)
-              }}
-            >
-              {t('common:actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDeleteProposalId !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDeleteProposalId(null) }}
+        title={t('recent.deleteProposalConfirm.title')}
+        description={t('recent.deleteProposalConfirm.description')}
+        confirmLabel={t('common:actions.delete')}
+        onConfirm={() => {
+          if (confirmDeleteProposalId) onProposalDelete?.(confirmDeleteProposalId)
+          setConfirmDeleteProposalId(null)
+        }}
+      />
 
       {/* Job comparison modal */}
       {compareJobIds && (

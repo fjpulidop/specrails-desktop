@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "运行将在下一个步骤边界停止",
       "cancelFailed": "取消失败",
       "networkError": "网络错误"
-    }
+    },
+    "title": "{{kind}} 任务 · #{{id}}",
+    "titleLoop": "循环运行 · #{{id}}",
+    "titleGeneric": "任务 · #{{id}}"
   },
   "comparison": {
     "title": "任务对比",
@@ -189,7 +192,8 @@
     "model": "模型",
     "phasesDone": "完成阶段数",
     "betterValueHint": "绿色高亮表示更优值",
-    "loading": "正在加载对比…"
+    "loading": "正在加载对比…",
+    "description": "并排比较两次运行的时长、成本和 token 用量。绿色表示更优的值。"
   },
   "recent": {
     "emptyTitle": "暂无任务",

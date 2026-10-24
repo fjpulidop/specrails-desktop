@@ -1,7 +1,8 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../../test-utils'
-import { AttachmentPreviewLightbox } from '../AttachmentPreviewLightbox'
+import userEvent from '@testing-library/user-event'
+import { AttachmentPreviewLightbox, MediaLightbox } from '../AttachmentPreviewLightbox'
 import type { Attachment } from '../../../../types'
 import { fetchAttachmentBlob } from '../../lib/attachments'
 
@@ -61,10 +62,10 @@ describe('AttachmentPreviewLightbox', () => {
   })
 
   it('renders iframe for pdf mime type', async () => {
-    const { container } = render(
+    render(
       <AttachmentPreviewLightbox ticketKey="1" attachment={makeAttachment({ mimeType: 'application/pdf', filename: 'doc.pdf' })} onClose={onClose} />,
     )
-    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
+    await waitFor(() => expect(document.querySelector('iframe')).toBeInTheDocument())
   })
 
   it('renders download fallback for unknown mime type', async () => {
@@ -82,12 +83,66 @@ describe('AttachmentPreviewLightbox', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('calls onClose on Escape keydown', () => {
+  it('calls onClose on Escape keydown (Radix dismiss)', async () => {
     render(
       <AttachmentPreviewLightbox ticketKey="1" attachment={makeAttachment()} onClose={onClose} />,
     )
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  it('sits on the media layer with the media scrim', () => {
+    render(
+      <AttachmentPreviewLightbox ticketKey="1" attachment={makeAttachment()} onClose={onClose} />,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'photo.png' })
+    expect(dialog.getAttribute('data-dialog-layer')).toBe('media')
+    expect(dialog.className).toContain('z-[100]')
+    const scrim = document.querySelector('.bg-scrim-media')
+    expect(scrim).not.toBeNull()
+    expect(scrim!.className).toContain('z-[100]')
+  })
+
+  it('traps Tab focus inside the lightbox', async () => {
+    const user = userEvent.setup()
+    render(
+      <AttachmentPreviewLightbox ticketKey="1" attachment={makeAttachment()} onClose={onClose} />,
+    )
+    const dialog = screen.getByRole('dialog')
+    await screen.findByRole('img')
+    for (let i = 0; i < 6; i++) {
+      await user.tab()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    }
+  })
+
+  it('returns focus to the trigger on close', async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [att, setAtt] = React.useState<Attachment | null>(null)
+      return (
+        <>
+          <button type="button" onClick={() => setAtt(makeAttachment())}>Open preview</button>
+          <AttachmentPreviewLightbox ticketKey="1" attachment={att} onClose={() => setAtt(null)} />
+        </>
+      )
+    }
+    render(<Harness />)
+    const trigger = screen.getByRole('button', { name: 'Open preview' })
+    trigger.focus()
+    await user.click(trigger)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
+  })
+
+  it('MediaLightbox shows a plain image src (no attachment fetch)', () => {
+    render(<MediaLightbox open onClose={onClose} filename="diagram.png" subtitle="12 KB" src="https://example.test/diagram.png" />)
+    expect(screen.getByRole('dialog', { name: 'diagram.png' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'diagram.png' })).toHaveAttribute('src', 'https://example.test/diagram.png')
+    expect(screen.getByText('12 KB')).toBeInTheDocument()
+    expect(fetchAttachmentBlob).not.toHaveBeenCalled()
   })
 
   it('does not close when clicking inside the top bar', () => {
@@ -124,11 +179,11 @@ describe('AttachmentPreviewLightbox', () => {
   })
 
   it('does not propagate click from iframe to dialog backdrop', async () => {
-    const { container } = render(
+    render(
       <AttachmentPreviewLightbox ticketKey="1" attachment={makeAttachment({ mimeType: 'application/pdf', filename: 'doc.pdf' })} onClose={onClose} />,
     )
-    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
-    const iframe = container.querySelector('iframe')!
+    await waitFor(() => expect(document.querySelector('iframe')).toBeInTheDocument())
+    const iframe = document.querySelector('iframe')!
     fireEvent.click(iframe)
     expect(onClose).not.toHaveBeenCalled()
   })

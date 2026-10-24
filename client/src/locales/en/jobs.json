@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "The run will stop at the next step boundary",
       "cancelFailed": "Failed to cancel",
       "networkError": "Network error"
-    }
+    },
+    "title": "{{kind}} job · #{{id}}",
+    "titleLoop": "Loop run · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Job Comparison",
@@ -189,7 +192,8 @@
     "model": "Model",
     "phasesDone": "Phases done",
     "betterValueHint": "Green highlights indicate better value",
-    "loading": "Loading comparison…"
+    "loading": "Loading comparison…",
+    "description": "Duration, cost and token usage of both runs side by side. Green marks the better value."
   },
   "recent": {
     "emptyTitle": "No jobs yet",

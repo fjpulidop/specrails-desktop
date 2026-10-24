@@ -78,6 +78,7 @@ import * as agentApi from '../../lib/agent-api'
 import type { AgentPrDecisionEnvelope, AgentMessage as ApiAgentMessage } from '../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../context/AgentChatContext'
 import { AgentPrDecisionCard } from '../AgentPrDecisionCard'
+import { DialogLayerProvider } from '../../../../components/ui/dialog'
 import type { RepositoryDeliverySnapshot } from '../../../projects/types/multi-repo'
 
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
@@ -712,7 +713,8 @@ describe('AgentPrDecisionCard actions', () => {
     const dialog = within(screen.getByRole('dialog'))
     expect(dialog.getByText(/api-main/)).toBeInTheDocument()
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes('/pr-decision'))).toHaveLength(0)
-    await act(async () => { fireEvent.click(dialog.getByRole('button', { name: 'Confirm' })) })
+    // RepositoryDeliveries' confirm now names its verb (modal standard) — select by test id.
+    await act(async () => { fireEvent.click(dialog.getByTestId('repository-delivery-confirm')) })
     expect(fetch).toHaveBeenCalledWith('/api/projects/p2/rails/pr-decision', expect.objectContaining({
       body: JSON.stringify({ prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review', repositoryId: 'api' }),
     }))
@@ -1087,6 +1089,55 @@ describe('AgentPrDecisionCard actions', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
       body: JSON.stringify({ prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review' }),
     }))
+  })
+
+  it('confirms use the shared ConfirmDialog: destructive discard, default-tone merge-local', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, { ok: true, decision: 'merged' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env()} />)
+
+    // Destructive path: Discard.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    const discard = screen.getByTestId('agent-pr-discard-confirm')
+    expect(discard.getAttribute('data-dialog-size')).toBe('confirm')
+    // Outside any dialog the card lives in the floating chat (z-60): stacked (70).
+    expect(discard.getAttribute('data-dialog-layer')).toBe('stacked')
+    const discardBtn = screen.getByTestId('agent-pr-discard-confirm-btn')
+    expect(discardBtn.className).toContain('bg-destructive')
+    await waitFor(() => expect(document.activeElement).toBe(discardBtn))
+    // Footer order: ghost Cancel, then the primary verb.
+    const discardButtons = within(discard).getAllByRole('button').map((b) => b.textContent)
+    expect(discardButtons.indexOf('Cancel')).toBeLessThan(discardButtons.indexOf(discardBtn.textContent))
+    fireEvent.click(within(discard).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByTestId('agent-pr-discard-confirm')).not.toBeInTheDocument())
+
+    // Default-tone path: Integrate locally (non-destructive).
+    fireEvent.click(screen.getByRole('button', { name: 'Integrate locally' }))
+    const mergeBtn = await screen.findByTestId('agent-pr-merge-local-confirm-btn')
+    expect(screen.getByTestId('agent-pr-merge-local-confirm').getAttribute('data-dialog-layer')).toBe('stacked')
+    expect(mergeBtn.className).not.toContain('bg-destructive')
+    await act(async () => { fireEvent.click(mergeBtn) })
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review' }),
+    }))
+  })
+
+  it('a confirm opened inside a dialog derives its layer from it (entity → stacked, capture → capture)', () => {
+    const { unmount } = render(
+      <DialogLayerProvider layer="entity">
+        <AgentPrDecisionCard envelope={env()} />
+      </DialogLayerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.getByTestId('agent-pr-discard-confirm').getAttribute('data-dialog-layer')).toBe('stacked')
+    unmount()
+
+    render(
+      <DialogLayerProvider layer="capture">
+        <AgentPrDecisionCard envelope={env()} />
+      </DialogLayerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.getByTestId('agent-pr-discard-confirm').getAttribute('data-dialog-layer')).toBe('capture')
   })
 
   it('confirms both fresh no-change outcomes and posts their distinct actions', async () => {

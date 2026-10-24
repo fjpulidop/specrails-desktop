@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "L'esecuzione si fermerà al prossimo confine di step",
       "cancelFailed": "Annullamento non riuscito",
       "networkError": "Errore di rete"
-    }
+    },
+    "title": "Job {{kind}} · #{{id}}",
+    "titleLoop": "Esecuzione del loop · #{{id}}",
+    "titleGeneric": "Job · #{{id}}"
   },
   "comparison": {
     "title": "Confronto job",
@@ -189,7 +192,8 @@
     "model": "Modello",
     "phasesDone": "Fasi completate",
     "betterValueHint": "Le evidenziazioni verdi indicano il valore migliore",
-    "loading": "Caricamento del confronto…"
+    "loading": "Caricamento del confronto…",
+    "description": "Durata, costo e uso dei token delle due esecuzioni a confronto. Il verde indica il valore migliore."
   },
   "recent": {
     "emptyTitle": "Ancora nessun job",

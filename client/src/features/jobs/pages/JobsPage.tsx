@@ -10,7 +10,7 @@ import { usePipeline } from '../hooks/usePipeline'
 import { useProjectCache } from '../../../hooks/useProjectCache'
 import { RecentJobs } from '../components/RecentJobs'
 import { ExportDropdown } from '../../analytics/components/ExportDropdown'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
@@ -171,46 +171,47 @@ export default function JobsPage() {
       />
 
       <Dialog open={detailProposal !== null} onOpenChange={(o) => !o && setDetailProposal(null)}>
-        <DialogContent className="max-w-3xl glass-card">
+        <DialogContent size="wide" showCloseButton={false}>
           {detailProposal && (
             <>
-              <DialogHeader>
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="flex-1 min-w-0">{t('page.proposal.title')}</DialogTitle>
+              <DialogHeader
+                actions={(
                   <Badge variant={detailProposal.status === 'created' ? 'success' : detailProposal.status === 'cancelled' ? 'destructive' : 'secondary'}>
                     {t(PROPOSAL_STATUS_LABEL_KEYS[detailProposal.status] ?? 'page.proposal.status.unknown', { status: detailProposal.status })}
                   </Badge>
-                </div>
+                )}
+              >
+                <DialogTitle>{t('page.proposal.title')}</DialogTitle>
+                {/* The consequence-free summary of this proposal: the idea it came from. */}
+                <DialogDescription className="italic">{detailProposal.idea}</DialogDescription>
               </DialogHeader>
-              <div className="text-xs text-muted-foreground bg-muted/20 rounded px-2 py-1 italic">
-                {detailProposal.idea}
-              </div>
-              {detailProposal.result_markdown ? (
-                <div className="max-h-[400px] overflow-y-auto rounded-lg px-3 py-2 text-xs bg-muted/40">
-                  <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailProposal.result_markdown}</ReactMarkdown>
+              <DialogBody className="space-y-3">
+                {detailProposal.result_markdown ? (
+                  <div className="rounded-lg px-3 py-2 text-xs bg-muted/40">
+                    <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailProposal.result_markdown}</ReactMarkdown>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground py-4 text-center">{t('page.proposal.noContent')}</p>
-              )}
-              {detailProposal.issue_url && (
-                <div className="text-xs">
-                  {t('page.proposal.githubIssue')}{' '}
-                  <a href={detailProposal.issue_url} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
-                    {detailProposal.issue_url}
-                  </a>
-                </div>
-              )}
-              <DialogFooter>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setConfirmDeleteProposalId(detailProposal.id)}
-                >
-                  {t('common:actions.delete')}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDetailProposal(null)}>{t('common:actions.close')}</Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-4 text-center">{t('page.proposal.noContent')}</p>
+                )}
+                {detailProposal.issue_url && (
+                  <div className="text-xs">
+                    {t('page.proposal.githubIssue')}{' '}
+                    <a href={detailProposal.issue_url} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+                      {detailProposal.issue_url}
+                    </a>
+                  </div>
+                )}
+              </DialogBody>
+              <DialogFooter
+                start={(
+                  <Button variant="destructive" onClick={() => setConfirmDeleteProposalId(detailProposal.id)}>
+                    {t('common:actions.delete')}
+                  </Button>
+                )}
+              >
+                <Button variant="ghost" onClick={() => setDetailProposal(null)}>{t('common:actions.close')}</Button>
               </DialogFooter>
             </>
           )}

@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "A execução será interrompida no próximo limite de etapa",
       "cancelFailed": "Falha ao cancelar",
       "networkError": "Erro de rede"
-    }
+    },
+    "title": "Tarefa {{kind}} · #{{id}}",
+    "titleLoop": "Execução de loop · #{{id}}",
+    "titleGeneric": "Tarefa · #{{id}}"
   },
   "comparison": {
     "title": "Comparação de jobs",
@@ -189,7 +192,8 @@
     "model": "Modelo",
     "phasesDone": "Fases concluídas",
     "betterValueHint": "Os destaques a verde indicam melhor valor",
-    "loading": "Carregando comparação…"
+    "loading": "Carregando comparação…",
+    "description": "Duração, custo e uso de tokens das duas execuções lado a lado. O verde marca o melhor valor."
   },
   "recent": {
     "emptyTitle": "Ainda não há jobs",

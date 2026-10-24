@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getApiBase } from '../../../lib/api'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { CostValue } from '../../analytics/components/CostValue'
 import type { JobCompareEntry, JobCompareResponse } from '../../../types'
 
@@ -77,27 +77,30 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
     return (
       <div className="text-center space-y-1">
         <p className="text-xs font-medium text-muted-foreground">{t('comparison.jobN', { n: idx + 1 })}</p>
-        <code className="text-[11px] text-foreground block truncate max-w-[160px] mx-auto">
+        <code className="text-xs text-foreground block truncate max-w-[160px] mx-auto">
           {job.command}
         </code>
-        <div className="flex items-center justify-center gap-1 text-[11px]">
+        <div className="flex items-center justify-center gap-1 text-xs">
           {job.status === 'completed'
             ? <CheckCircle2 className="w-3 h-3 text-accent-success" aria-hidden />
             : <XCircle className="w-3 h-3 text-destructive" aria-hidden />
           }
           <span className="text-muted-foreground">{t(`statusLabel.${job.status}`, { defaultValue: job.status })}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
+        <p className="text-xs text-muted-foreground font-mono">{job.id.slice(0, 8)}</p>
       </div>
     )
   }
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-lg p-5 space-y-4 gap-0" movableResizable>
+      <DialogContent size="form">
         <DialogHeader>
-          <DialogTitle className="text-sm font-semibold">{t('comparison.title')}</DialogTitle>
+          <DialogTitle>{t('comparison.title')}</DialogTitle>
+          <DialogDescription>{t('comparison.description')}</DialogDescription>
         </DialogHeader>
+
+        <DialogBody className="space-y-4">
 
         {loading && (
           <div role="status" aria-busy="true" aria-label={t('comparison.loading')} className="space-y-2">
@@ -183,11 +186,7 @@ export function JobComparisonModal({ jobIds, onClose, estimatedCost }: JobCompar
           )
         })()}
 
-        {data && (
-          <p className="text-[11px] text-muted-foreground text-center">
-            {t('comparison.betterValueHint')}
-          </p>
-        )}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

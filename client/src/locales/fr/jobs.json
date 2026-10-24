@@ -175,7 +175,10 @@
       "stopSignalSentDescription": "L'exécution s'arrêtera à la prochaine limite d'étape",
       "cancelFailed": "Échec de l'annulation",
       "networkError": "Erreur réseau"
-    }
+    },
+    "title": "Tâche {{kind}} · #{{id}}",
+    "titleLoop": "Exécution de boucle · #{{id}}",
+    "titleGeneric": "Tâche · #{{id}}"
   },
   "comparison": {
     "title": "Comparaison de jobs",
@@ -189,7 +192,8 @@
     "model": "Modèle",
     "phasesDone": "Phases terminées",
     "betterValueHint": "Les surlignages verts indiquent la meilleure valeur",
-    "loading": "Chargement de la comparaison…"
+    "loading": "Chargement de la comparaison…",
+    "description": "Durée, coût et consommation de tokens des deux exécutions côte à côte. Le vert indique la meilleure valeur."
   },
   "recent": {
     "emptyTitle": "Aucun job pour l'instant",
