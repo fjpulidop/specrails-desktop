@@ -376,6 +376,10 @@ export function useMovableResizableModal(
           maxHeight: 'none',
           margin: 0,
           transform: 'none',
+          // Tailwind v4 centers with the standalone `translate` property, which
+          // `transform: none` does not reset.
+          translate: 'none',
+          scale: 'none',
           // Kill any lingering entry animation so it can't override the fixed
           // position with its own transform keyframes.
           animation: 'none',

@@ -83,6 +83,10 @@
   --color-prose-table-header:     hsl(232 14% 31% / 0.5);
   --color-toast-shadow:           hsl(231 15% 6% / 0.5);
   --glass-card-opacity:           30%;
+
+  /* Modal scrims (modal standard): one dialog scrim, one media scrim. */
+  --color-scrim:                  rgb(0 0 0 / 0.6);
+  --color-scrim-media:            rgb(0 0 0 / 0.85);
 }
 
 /* ─── Aurora Light (premium light theme) ─── */
@@ -122,6 +126,7 @@
   --color-prose-table-stripe:    hsl(220 18% 96% / 0.6);
   --color-prose-table-header:    hsl(220 18% 92% / 0.8);
   --color-toast-shadow:          hsl(225 30% 30% / 0.18);
+  --color-scrim:                 rgb(15 15 40 / 0.35);  /* lighter scrim on the light theme */
   --glass-card-opacity:          92%;
 }
 
@@ -1041,4 +1046,31 @@ select {
     animation-duration: 1s !important;
     animation-iteration-count: infinite !important;
   }
+}
+
+/* ─── Modal standard: one entrance, one exit (docs/internals/modal-standard.md) ───
+   Fade + 0.98 scale using the standalone `scale` property so it composes with
+   Tailwind v4's `translate` centering. Radix waits for the exit animation
+   before unmounting. Floating (resized) panels set `animation: none` inline. */
+@keyframes modal-panel-enter {
+  from { opacity: 0; scale: 0.98; }
+  to   { opacity: 1; scale: 1; }
+}
+@keyframes modal-panel-exit {
+  from { opacity: 1; scale: 1; }
+  to   { opacity: 0; scale: 0.98; }
+}
+@keyframes modal-scrim-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-scrim-exit  { from { opacity: 1; } to { opacity: 0; } }
+
+.modal-panel[data-state="open"]   { animation: modal-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-panel[data-state="closed"] { animation: modal-panel-exit 120ms ease-in forwards; }
+.modal-scrim[data-state="open"]   { animation: modal-scrim-enter 180ms ease-out; }
+.modal-scrim[data-state="closed"] { animation: modal-scrim-exit 120ms ease-in forwards; }
+/* Non-Radix surfaces (no data-state) opt in with the bare class. */
+.modal-enter { animation: modal-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-scrim-enter { animation: modal-scrim-enter 180ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel, .modal-scrim, .modal-enter, .modal-scrim-enter { animation: none !important; }
 }
