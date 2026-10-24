@@ -3,10 +3,10 @@ import { ChevronRight, Split } from 'lucide-react'
 import type { LocalTicket, TicketPriority } from '../../../../types'
 
 const PRIORITY_DOT: Record<TicketPriority, string> = {
-  critical: 'bg-red-400',
-  high: 'bg-orange-400',
-  medium: 'bg-yellow-400',
-  low: 'bg-slate-400',
+  critical: 'bg-destructive',
+  high: 'bg-accent-warning',
+  medium: 'bg-accent-warning/60',
+  low: 'bg-muted-foreground/60',
 }
 
 export interface EpicChildrenSectionProps {
@@ -59,7 +59,7 @@ export function EpicChildrenSection({ epicId, allTickets, onOpenChild }: EpicChi
               className="w-full flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30 transition-colors text-left"
               data-testid={`epic-child-row-${child.id}`}
             >
-              <span className="text-[10px] text-foreground/50 tabular-nums w-6 flex-shrink-0">
+              <span className="text-[11px] text-foreground/50 tabular-nums w-6 flex-shrink-0">
                 {child.execution_order ?? '–'}
               </span>
               <span

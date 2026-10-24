@@ -168,7 +168,7 @@ export function RailRow({
     <span
       data-testid="rail-roles-chip"
       title={t('agents:railSelectors.rolesChipTitle')}
-      className="inline-flex items-center gap-1 h-5 px-1.5 text-[10px] rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
+      className="inline-flex items-center gap-1 h-5 px-1.5 text-[11px] rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -355,13 +355,13 @@ export function RailRow({
               : isRunning
                 ? 'border-accent-success/40 shadow-sm'
                 : 'border-border/40 hover:border-accent-info/30 hover:shadow-md'
-        } ${jiggleMode && canDelete ? 'animate-jiggle' : ''}`}
+        } ${jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''}`}
       >
         {/* Header line: drag grip + status dot + label */}
         <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
-            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/70 transition-colors shrink-0"
+            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors shrink-0"
             aria-label={t('railRow.dragHandle', { label })}
             {...dragHandleListeners}
             {...dragHandleAttributes}
@@ -369,14 +369,15 @@ export function RailRow({
             <GripVertical className="w-3 h-3" />
           </button>
           <div
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300 ${
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-200 ${
               isRunning
-                ? 'bg-accent-success shadow-[0_0_4px_hsl(var(--accent-success)/0.8)] animate-pulse'
+                ? 'bg-accent-success motion-safe:animate-pulse'
                 : status === 'failed'
-                  ? 'bg-accent-warning shadow-[0_0_4px_hsl(var(--accent-warning)/0.6)]'
-                  : 'bg-muted-foreground/25'
+                  ? 'bg-destructive'
+                  : 'bg-muted-foreground/40'
             }`}
-            aria-hidden
+            role="img"
+            aria-label={t(`railRow.status.${status}`)}
           />
           {editing ? (
             <form
@@ -449,7 +450,7 @@ export function RailRow({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 title={`#${ticket.id} ${ticket.title}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-mono font-medium border border-accent-info/30 bg-accent-info/10 text-accent-info hover:bg-accent-info/20 hover:border-accent-info/60 transition-colors"
               >
                 #{ticket.id}
               </button>
@@ -466,7 +467,7 @@ export function RailRow({
           <div
             role="menu"
             data-testid={`rail-row-compact-context-menu-${id}`}
-            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/40 p-1"
+            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
             style={{
               top: Math.min(ticketCtxMenu.y, window.innerHeight - 60),
               left: Math.min(ticketCtxMenu.x, window.innerWidth - 180),
@@ -536,7 +537,7 @@ export function RailRow({
 
         {/* Parallel/isolated merge-back progress */}
         {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-          <div className="mt-1 flex items-center gap-2 text-[10px]" data-testid="rail-worktree-summary">
+          <div className="mt-1 flex items-center gap-2 text-[11px]" data-testid="rail-worktree-summary">
             {worktreeSummary.merged > 0 && (
               <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
             )}
@@ -583,14 +584,14 @@ export function RailRow({
     >
       {/* Swipe-revealed delete button (behind the rail) */}
       {canDelete && (showSwipeDelete || swipeX < 0) && (
-        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500/90 rounded-r-xl z-0">
+        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-destructive rounded-r-xl z-0">
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="flex flex-col items-center gap-1 text-white"
+            className="flex flex-col items-center gap-1 text-destructive-foreground"
           >
             <Trash2 className="w-5 h-5" />
-            <span className="text-[9px] font-medium">{t('common:actions.delete')}</span>
+            <span className="text-[11px] font-medium">{t('common:actions.delete')}</span>
           </button>
         </div>
       )}
@@ -600,7 +601,7 @@ export function RailRow({
           regardless of the page-background gradient behind it. */}
       <div
         className={`relative z-10 flex flex-col rounded-xl border overflow-hidden bg-card ${
-          jiggleMode && canDelete ? 'animate-jiggle' : ''
+          jiggleMode && canDelete ? 'motion-safe:animate-jiggle' : ''
         } ${
           isOver
             ? 'border-primary/50 shadow-[0_0_0_1px_hsl(var(--primary)/0.25),0_0_12px_hsl(var(--primary)/0.08)]'
@@ -608,18 +609,18 @@ export function RailRow({
         }`}
         style={{
           transform: swipeX < 0 ? `translateX(${swipeX}px)` : undefined,
-          transition: swiping ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)',
+          transition: swiping ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
           ...(railJigglePhaseMs !== undefined ? { animationDelay: `${railJigglePhaseMs}ms` } : {}),
         }}
       >
         {/* Row header — name + mode/play on top, secondary selectors on a
             recessed config strip below so nothing crams together. */}
-        <div className="flex flex-col border-b border-border/30 bg-gradient-to-r from-muted/30 to-transparent shrink-0">
+        <div className="flex flex-col border-b border-border/30 bg-muted/20 shrink-0">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
-              className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors -ml-1"
+              className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors -ml-1"
               aria-label={t('railRow.dragHandle', { label })}
               {...dragHandleListeners}
               {...dragHandleAttributes}
@@ -627,9 +628,11 @@ export function RailRow({
               <GripVertical className="w-3.5 h-3.5" />
             </button>
             <div
-              className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300 ${
-                status === 'running' ? 'bg-emerald-400 shadow-[0_0_4px_hsl(142_70%_56%/0.8)] animate-pulse' : status === 'failed' ? 'bg-amber-400 shadow-[0_0_4px_hsl(38_92%_50%/0.6)]' : 'bg-muted-foreground/25'
+              className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-200 ${
+                status === 'running' ? 'bg-accent-success motion-safe:animate-pulse' : status === 'failed' ? 'bg-destructive' : 'bg-muted-foreground/40'
               }`}
+              role="img"
+              aria-label={t(`railRow.status.${status}`)}
             />
             {editing ? (
               <form
@@ -641,7 +644,7 @@ export function RailRow({
                   setEditing(false)
                 }}
               >
-                <span className="text-xs font-medium text-foreground/50">Rail </span>
+                <span className="text-xs font-medium text-muted-foreground">Rail </span>
                 <input
                   ref={inputRef}
                   type="text"
@@ -674,7 +677,7 @@ export function RailRow({
               </button>
             )}
             {tickets.length > 0 && (
-              <span className="text-[9px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="text-[11px] tabular-nums text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5 leading-none">
                 {tickets.length}
               </span>
             )}
@@ -706,7 +709,7 @@ export function RailRow({
           )}
           {/* Parallel/isolated merge-back progress */}
           {worktreeSummary && (worktreeSummary.merged > 0 || worktreeSummary.needsReview > 0) && (
-            <div className="px-3 pb-1 flex items-center gap-2 text-[10px]">
+            <div className="px-3 pb-1 flex items-center gap-2 text-[11px]">
               {worktreeSummary.merged > 0 && (
                 <span className="text-accent-success">{t('railControls.worktreesMerged', { count: worktreeSummary.merged })}</span>
               )}
@@ -776,13 +779,13 @@ export function RailRow({
             <div
               className={`h-10 flex items-center justify-center rounded-lg border border-dashed transition-all duration-150 ${
                 isOver
-                  ? 'border-accent-info/60 text-accent-info/80 bg-accent-info/[0.06]'
+                  ? 'border-accent-info/60 text-accent-info bg-accent-info/[0.06]'
                   : ticketDragActive
-                    ? 'border-accent-info/35 text-accent-info/60'
-                    : 'border-border/25 text-muted-foreground/30'
+                    ? 'border-accent-info/35 text-accent-info'
+                    : 'border-border/25 text-muted-foreground'
               }`}
             >
-              <span className="text-[10px] select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dragSpecsHere')}</span>
+              <span className="text-xs select-none">{isOver ? t('railRow.dropHere') : ticketDragActive ? t('railRow.dropOnThisRail') : t('railRow.dragSpecsHere')}</span>
             </div>
           ) : (
             <SortableContext items={tickets.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -816,7 +819,7 @@ export function RailRow({
           <div
             role="menu"
             data-testid={`rail-row-normal-context-menu-${id}`}
-            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/40 p-1"
+            className="fixed z-[200] min-w-[160px] rounded-lg border border-border/60 bg-popover shadow-xl shadow-black/40 p-1"
             style={{
               top: Math.min(ticketCtxMenu.y, window.innerHeight - 60),
               left: Math.min(ticketCtxMenu.x, window.innerWidth - 180),

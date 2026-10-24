@@ -15,14 +15,14 @@ const STATUS_ITEMS: { value: TicketStatus; labelKey: string; icon: React.ReactNo
   {
     value: 'todo',
     labelKey: 'ticketStatus.todo',
-    icon: <Circle className="w-3.5 h-3.5 text-slate-400 aurora-light:text-muted-foreground" />,
-    className: 'text-slate-400 aurora-light:text-muted-foreground',
+    icon: <Circle className="w-3.5 h-3.5 text-muted-foreground" />,
+    className: 'text-muted-foreground',
   },
   {
     value: 'done',
     labelKey: 'ticketStatus.done',
-    icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 aurora-light:text-accent-success" />,
-    className: 'text-emerald-400 aurora-light:text-accent-success',
+    icon: <CheckCircle2 className="w-3.5 h-3.5 text-accent-success" />,
+    className: 'text-accent-success',
   },
 ]
 
@@ -30,26 +30,26 @@ const PRIORITY_ITEMS: { value: TicketPriority; labelKey: string; icon: React.Rea
   {
     value: 'critical',
     labelKey: 'priority.critical',
-    icon: <AlertCircle className="w-3.5 h-3.5 text-red-400 aurora-light:text-destructive" />,
-    className: 'text-red-400 aurora-light:text-destructive',
+    icon: <AlertCircle className="w-3.5 h-3.5 text-destructive" />,
+    className: 'text-destructive',
   },
   {
     value: 'high',
     labelKey: 'priority.high',
-    icon: <ArrowUp className="w-3.5 h-3.5 text-orange-400 aurora-light:text-accent-warning" />,
-    className: 'text-orange-400 aurora-light:text-accent-warning',
+    icon: <ArrowUp className="w-3.5 h-3.5 text-accent-warning" />,
+    className: 'text-accent-warning',
   },
   {
     value: 'medium',
     labelKey: 'priority.medium',
-    icon: <ArrowRight className="w-3.5 h-3.5 text-yellow-400 aurora-light:text-accent-warning" />,
-    className: 'text-yellow-400 aurora-light:text-accent-warning',
+    icon: <ArrowRight className="w-3.5 h-3.5 text-accent-warning" />,
+    className: 'text-accent-warning',
   },
   {
     value: 'low',
     labelKey: 'priority.low',
-    icon: <ArrowDown className="w-3.5 h-3.5 text-slate-400 aurora-light:text-muted-foreground" />,
-    className: 'text-slate-400 aurora-light:text-muted-foreground',
+    icon: <ArrowDown className="w-3.5 h-3.5 text-muted-foreground" />,
+    className: 'text-muted-foreground',
   },
 ]
 
@@ -151,7 +151,7 @@ function ContextMenuPortal({
           role="menuitem"
           type="button"
           onClick={() => { onDeleteRequest(); onClose() }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-400 aurora-light:text-destructive hover:bg-red-500/10 transition-colors"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5 shrink-0" />
           {t('contextMenu.deleteTicket')}

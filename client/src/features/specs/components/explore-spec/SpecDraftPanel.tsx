@@ -44,7 +44,7 @@ export function SpecDraftPanel({
           <span
             role="status"
             aria-live="polite"
-            className="text-[10px] text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
+            className="text-[11px] text-primary/80 bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             {t('draftPanel.ready')}
@@ -127,10 +127,10 @@ export function SpecDraftPanel({
       {attachments.length > 0 && (
         <div className="flex-shrink-0 px-5 py-3 border-t border-border/40 bg-card/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+            <span className="text-xs font-medium text-muted-foreground">
               {t('draftPanel.attachmentsHeading', { count: attachments.length })}
             </span>
-            <span className="text-[10px] text-muted-foreground/60">{t('draftPanel.linkedOnCreate')}</span>
+            <span className="text-[11px] text-muted-foreground">{t('draftPanel.linkedOnCreate')}</span>
           </div>
           <AttachmentsList items={attachments} onRemove={onRemoveAttachment} />
         </div>
@@ -155,7 +155,7 @@ function Field({ label, flash, children }: { label: string; flash: boolean; chil
   }, [flash])
   return (
     <div className={`space-y-1.5 transition-colors duration-200 ${active ? 'bg-primary/[0.06] -mx-2 px-2 py-1 rounded' : ''}`}>
-      <label className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium">
+      <label className="text-xs font-medium text-muted-foreground">
         {label}
       </label>
       {children}
@@ -232,7 +232,7 @@ function AttachmentsList({ items, onRemove }: { items: Attachment[]; onRemove?: 
             <span className="flex-1 truncate" title={`${att.filename} · ${formatBytes(att.size)}`}>
               {att.filename}
             </span>
-            <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">{formatBytes(att.size)}</span>
+            <span className="text-[11px] text-muted-foreground flex-shrink-0">{formatBytes(att.size)}</span>
             {onRemove && (
               <button
                 type="button"

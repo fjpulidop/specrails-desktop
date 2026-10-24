@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { keyboardLabel } from '../../../lib/keyboard-label'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 
 interface Props {
@@ -95,7 +96,7 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = '
             onClick={onConfirm}
           >
             {t('freestyleDialog.continue')}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-[11px] font-medium leading-4">⌘↵</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-background/30 bg-background/15 px-1 text-[11px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,10 +3,10 @@ import { Split, ArrowUp } from 'lucide-react'
 import type { LocalTicket, TicketPriority } from '../../../../types'
 
 const PRIORITY_DOT: Record<TicketPriority, string> = {
-  critical: 'bg-red-400',
-  high: 'bg-orange-400',
-  medium: 'bg-yellow-400',
-  low: 'bg-slate-400',
+  critical: 'bg-destructive',
+  high: 'bg-accent-warning',
+  medium: 'bg-accent-warning/60',
+  low: 'bg-muted-foreground/60',
 }
 
 function priorityDotClass(p: TicketPriority | null | undefined): string {
@@ -95,7 +95,7 @@ function FamilyList({ header, rows, currentId, onOpenTicket, emptyMessage }: Fam
     <div data-testid="epic-family-sidebar">
       <div className="flex items-center gap-1.5 mb-1.5">
         <Split className="w-3 h-3 text-accent-highlight" aria-hidden />
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground">
           {header}
         </span>
       </div>

@@ -162,7 +162,7 @@ describe('SpecsBoard', () => {
 
   it('shows loading skeletons when isLoading is true', () => {
     render(<SpecsBoard tickets={[]} isLoading={true} onTicketClick={onTicketClick} />)
-    const skeletons = document.querySelectorAll('.animate-pulse')
+    const skeletons = document.querySelectorAll('[class*="animate-pulse"]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 
@@ -292,5 +292,29 @@ describe('SpecsBoard', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('SpecsBoard — filtered-empty Clear filters', () => {
+  it('offers Clear filters when a status filter hides every spec, and restores the default view', () => {
+    const onTicketClick = vi.fn()
+    render(
+      <SpecsBoard tickets={[makeTicket({ id: 7, title: 'Hidden spec' })]} isLoading={false} onTicketClick={onTicketClick} />,
+      { route: '/?status=draft' },
+    )
+    expect(screen.queryByText('Hidden spec')).toBeNull()
+    fireEvent.click(screen.getByTestId('specs-board-clear-filters'))
+    expect(screen.getByText('Hidden spec')).toBeInTheDocument()
+    expect(screen.queryByTestId('specs-board-clear-filters')).toBeNull()
+  })
+
+  it('does not offer Clear filters on a genuinely empty board', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={vi.fn()} />)
+    expect(screen.queryByTestId('specs-board-clear-filters')).toBeNull()
+  })
+
+  it('labels the board landmark with its title', () => {
+    render(<SpecsBoard tickets={[]} isLoading={false} onTicketClick={vi.fn()} />)
+    expect(screen.getByRole('region', { name: /spec/i })).toBeInTheDocument()
   })
 })

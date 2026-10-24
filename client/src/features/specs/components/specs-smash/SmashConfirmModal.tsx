@@ -95,7 +95,7 @@ export function SmashConfirmModal({
 
         {/* Mode picker */}
         <div className="px-5 py-4 space-y-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <p className="text-xs font-medium text-muted-foreground">
             {t('smashModal.modePickerLabel')}
           </p>
           {(['simple', 'full'] as SmashMode[]).map((m) => {
@@ -129,7 +129,7 @@ export function SmashConfirmModal({
                         {m === 'full' && <Zap className="w-3.5 h-3.5 text-accent-highlight" aria-hidden />}
                         {t(meta.titleKey)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
                         {t(meta.etaKey)}
                       </span>
                     </div>

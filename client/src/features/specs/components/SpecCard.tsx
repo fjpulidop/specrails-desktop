@@ -4,7 +4,7 @@ import { openAddenda } from '../lib/spec-addenda-core'
 import { specFlowLabel } from '../lib/spec-flow'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle, Layers, Waves } from 'lucide-react'
+import { Trash2, AlertTriangle, ArrowUp, Layers, Waves } from 'lucide-react'
 import { Badge } from '../../../components/ui/badge'
 import { SpecTriageChip } from './SpecTriageChip'
 import type { LocalTicket, TicketPriority } from '../../../types'
@@ -142,9 +142,9 @@ export function SpecCard({
     : isOnReview
       ? 'border-accent-warning/40 bg-accent-warning/5 hover:bg-accent-warning/10 hover:border-accent-warning/60'
       : contractRefining
-        ? 'border-accent-highlight/70 bg-card/70 shadow-lg shadow-accent-highlight/20 animate-pulse'
+        ? 'border-accent-highlight/70 bg-card/70 ring-1 ring-accent-highlight/50'
         : 'border-border/40 bg-card/60 hover:bg-card/80 hover:border-border/60'
-  const jiggleClass = jiggleMode ? 'animate-jiggle' : ''
+  const jiggleClass = jiggleMode ? 'motion-safe:animate-jiggle' : ''
   const cardClass = `${baseClass} ${cursorClass} ${variantClass} ${jiggleClass}`
 
   return (
@@ -178,12 +178,12 @@ export function SpecCard({
         if (!dragFrozen) listeners?.onKeyDown?.(e)
       }}
     >
-      <span className="text-[10px] font-mono text-foreground shrink-0">#{ticket.id}</span>
+      <span className="text-[11px] font-mono text-foreground shrink-0">#{ticket.id}</span>
       <span className="flex-1 text-sm truncate text-foreground">{ticket.title}</span>
       {ticket.is_epic ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-highlight/60 text-accent-highlight bg-accent-highlight/10"
+          className="text-[11px] shrink-0 border-accent-highlight/60 text-accent-highlight bg-accent-highlight/10"
           data-testid={`epic-badge-${ticket.id}`}
         >
           {t('badges.epicWithCount', { count: epicChildrenCount ?? 0 })}
@@ -204,11 +204,12 @@ export function SpecCard({
               onOpenParentEpic?.(ticket.parent_epic_id as number)
             }
           }}
-          className="inline-flex items-center rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 px-1.5 py-0.5 text-[9px] font-medium shrink-0 max-w-[12rem] truncate transition-colors cursor-pointer"
+          className="inline-flex items-center gap-0.5 rounded-md border border-accent-secondary/40 text-accent-secondary bg-accent-secondary/5 hover:bg-accent-secondary/15 hover:border-accent-secondary/60 px-1.5 py-0.5 text-[11px] font-medium shrink-0 max-w-[12rem] truncate transition-colors cursor-pointer"
           title={t('badges.openParentEpicTitle', { id: ticket.parent_epic_id, title: parentEpicTitle })}
           data-testid={`epic-child-pill-${ticket.id}`}
         >
-          ↑ #{ticket.parent_epic_id} {parentEpicTitle}
+          <ArrowUp className="w-2.5 h-2.5 shrink-0" aria-hidden />
+          <span className="truncate">#{ticket.parent_epic_id} {parentEpicTitle}</span>
         </button>
       ) : null}
       {flowLabel ? (
@@ -230,7 +231,7 @@ export function SpecCard({
           data-flow-label={flowLabel.state}
           data-testid={`flow-badge-${ticket.id}`}
           title={t(flowLabel.state === 'paused' ? 'badges.inFlowPausedTitle' : 'badges.inFlowTitle')}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold transition-colors disabled:cursor-default ${
+          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold transition-colors disabled:cursor-default ${
             flowLabel.state === 'paused'
               ? 'border-border/60 bg-surface/60 text-foreground/60 hover:border-foreground/30'
               : 'border-accent-info/50 bg-accent-info/10 text-accent-info hover:bg-accent-info/20'
@@ -243,7 +244,7 @@ export function SpecCard({
       {ticket.needs_review ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 gap-1 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          className="text-[11px] shrink-0 gap-1 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
           title={t('badges.needsReviewTitle')}
           data-testid={`needs-review-badge-${ticket.id}`}
         >
@@ -254,7 +255,7 @@ export function SpecCard({
       {ticket.source === 'free-prompt' ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 uppercase border-accent-info/50 text-accent-info"
+          className="text-[11px] shrink-0 border-accent-info/50 text-accent-info"
           title={t('badges.rawTitle')}
           data-testid={`raw-badge-${ticket.id}`}
         >
@@ -264,7 +265,7 @@ export function SpecCard({
       {ticket.jira_key ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 font-mono border-accent-info/50 text-accent-info"
+          className="text-[11px] shrink-0 font-mono border-accent-info/50 text-accent-info"
           title={ticket.jira_key}
           data-testid={`jira-badge-${ticket.id}`}
         >
@@ -274,7 +275,7 @@ export function SpecCard({
       {openAddendaCount > 0 ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-primary/50 text-accent-primary bg-accent-primary/10 gap-0.5"
+          className="text-[11px] shrink-0 border-accent-primary/50 text-accent-primary bg-accent-primary/10 gap-0.5"
           title={t('badges.addendaTitle', { count: openAddendaCount })}
           data-testid={`addenda-badge-${ticket.id}`}
         >
@@ -284,13 +285,13 @@ export function SpecCard({
       ) : null}
       {!jiggleMode && <SpecTriageChip ticket={ticket} />}
       {isDraft ? (
-        <Badge variant="outline" className="text-[9px] shrink-0 border-accent-secondary/60 text-accent-secondary">
+        <Badge variant="outline" className="text-[11px] shrink-0 border-accent-secondary/60 text-accent-secondary">
           {t('common:status.draft')}
         </Badge>
       ) : isOnReview ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
+          className="text-[11px] shrink-0 border-accent-warning/60 text-accent-warning bg-accent-warning/10"
           title={t('status.onReviewHint')}
           data-testid={`on-review-badge-${ticket.id}`}
         >
@@ -299,12 +300,12 @@ export function SpecCard({
       ) : contractRefining ? (
         <Badge
           variant="outline"
-          className="text-[9px] shrink-0 border-accent-highlight/70 text-accent-highlight bg-accent-highlight/10"
+          className="text-[11px] shrink-0 border-accent-highlight/70 text-accent-highlight bg-accent-highlight/10"
         >
           {t('badges.contract')}
         </Badge>
       ) : ticket.priority ? (
-        <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="text-[9px] shrink-0">
+        <Badge variant={PRIORITY_VARIANT[ticket.priority]} className="text-[11px] shrink-0">
           {t(`priority.${ticket.priority}`)}
         </Badge>
       ) : null}

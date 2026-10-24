@@ -36,11 +36,11 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
         <Button
           size="sm"
           variant="ghost"
-          className="group h-6 px-2 gap-1 rounded-md border border-accent-info/20 bg-accent-info/5 text-[10px] font-semibold text-accent-info transition-all duration-200 hover:-translate-y-px hover:border-accent-info/50 hover:bg-accent-info/15 hover:text-accent-info hover:shadow-[0_0_14px_hsl(191_97%_77%/0.22)] active:translate-y-0 active:scale-[0.98]"
+          className="group h-6 px-2 gap-1 rounded-md border border-accent-info/20 bg-accent-info/5 text-[11px] font-semibold text-accent-info transition-colors duration-150 hover:border-accent-info/50 hover:bg-accent-info/15 hover:text-accent-info"
           onClick={() => navigate(`/jobs/${activeJobId}`)}
           title={t('railControls.viewJobLog')}
         >
-          <ScrollText className="w-3 h-3 transition-transform duration-200 group-hover:scale-110" />
+          <ScrollText className="w-3 h-3" />
           <span>{t('railControls.log')}</span>
         </Button>
       )}
@@ -57,16 +57,16 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
       <Button
         size="sm"
         variant="ghost"
-        className={`h-5 w-5 p-0 rounded-full transition-all duration-200 ${
+        className={`h-7 w-7 p-0 rounded-full transition-colors duration-150 ${
           status === 'running'
-            ? 'text-red-400 aurora-light:text-destructive hover:text-red-300 aurora-light:hover:text-destructive hover:bg-red-400/10 aurora-light:hover:bg-destructive/10'
+            ? 'text-destructive hover:text-destructive hover:bg-destructive/10'
             : blocked
-              ? 'text-muted-foreground/40 cursor-not-allowed'
+              ? 'text-muted-foreground cursor-not-allowed'
             : status === 'failed'
-              ? 'text-amber-400 aurora-light:text-accent-warning hover:text-emerald-300 aurora-light:hover:text-accent-success hover:bg-emerald-400/10 aurora-light:hover:bg-accent-success/10'
+              ? 'text-accent-warning hover:text-accent-success hover:bg-accent-success/10'
               : canPlay
-                ? 'text-emerald-400 aurora-light:text-accent-success hover:text-emerald-300 aurora-light:hover:text-accent-success hover:bg-emerald-400/10 aurora-light:hover:bg-accent-success/10'
-                : 'text-muted-foreground/30 cursor-not-allowed'
+                ? 'text-accent-success hover:text-accent-success hover:bg-accent-success/10'
+                : 'text-muted-foreground cursor-not-allowed'
         }`}
         onClick={onToggle}
         disabled={!canPlay && status !== 'running'}
@@ -79,11 +79,11 @@ export function RailControls({ status, activeJobId, ticketCount, onToggle, launc
         }
       >
         {status === 'running' ? (
-          <Square className="w-2.5 h-2.5 fill-current" />
+          <Square className="w-3.5 h-3.5 fill-current" />
         ) : status === 'failed' ? (
-          <AlertTriangle className="w-2.5 h-2.5" />
+          <AlertTriangle className="w-3.5 h-3.5" />
         ) : (
-          <Play className="w-2.5 h-2.5 fill-current" />
+          <Play className="w-3.5 h-3.5 fill-current" />
         )}
       </Button>
       </span>

@@ -27,6 +27,7 @@ import { ExploreStatusPills } from './ExploreStatusPills'
 import { useSmoothStream } from './useSmoothStream'
 import { ExploreReviewOverlay, EMPTY_REVIEW_BASELINE, type ReviewProposed } from './ExploreReviewOverlay'
 import type { LocalTicket, Attachment } from '../../../../types'
+import { keyboardLabel } from '../../../../lib/keyboard-label'
 
 function isMacTauriOverlay(): boolean {
   if (typeof window === 'undefined') return false
@@ -799,7 +800,7 @@ export function ExploreSpecShell({
       {/* Header */}
       <div
         {...headerHandleProps}
-        className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card/60 backdrop-blur-sm${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+        className={`flex-shrink-0 flex items-center justify-between ${macPadLeft} pr-4 h-14 border-b border-border bg-card${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
       >
         <button
           type="button"
@@ -808,21 +809,21 @@ export function ExploreSpecShell({
           aria-label={t('shell.backAriaLabel')}
         >
           <ArrowLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
-          <div className="text-left min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 leading-none">
-              {editTicket ? t('shell.editingEyebrow', { id: editTicket.id }) : t('shell.exploreEyebrow')}
-            </div>
-            <span className="text-sm font-medium text-foreground truncate block">
+          <span className="flex items-baseline gap-1.5 text-left min-w-0 text-sm font-medium text-foreground">
+            {editTicket && (
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">#{editTicket.id}</span>
+            )}
+            <span className="truncate">
               {draft.title || seedDraftTitle || t('shell.newSpecPlaceholder')}
             </span>
-          </div>
+          </span>
         </button>
         <div className="flex items-center gap-2">
           {contextScope ? (
             <span
               data-testid="explore-context-pill"
               title={t('shell.contextPillTitle')}
-              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border/50 bg-card/60 text-[10px] text-muted-foreground"
+              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border/50 bg-card/60 text-[11px] text-muted-foreground"
             >
               {t('shell.contextPill', {
                 scopes: [
@@ -1015,7 +1016,7 @@ export function ExploreSpecShell({
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="explore-capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[10px] font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('shell.captureResponsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -1027,7 +1028,7 @@ export function ExploreSpecShell({
                                   alt={`${b.key} (${b.width}px)`}
                                   className="max-h-28 w-auto max-w-[9rem] object-contain rounded border border-border/60 bg-background-deep block"
                                 />
-                                <span className="text-[10px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                                <span className="text-[11px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
                               </div>
                             ))}
                           </div>
@@ -1040,7 +1041,7 @@ export function ExploreSpecShell({
                         />
                       )}
                       {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={c.dom.url}>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title={c.dom.url}>
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">{c.dom.url}</span>
                         </div>
@@ -1065,7 +1066,7 @@ export function ExploreSpecShell({
                   data-testid="explore-stop-button"
                 >
                   {t('shell.stop')}
-                  <span className="text-[10px] opacity-70 ml-1">⌘⏎</span>
+                  <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               ) : (
                 <Button
@@ -1076,7 +1077,7 @@ export function ExploreSpecShell({
                 >
                   <Send className="w-3.5 h-3.5" />
                   {t('shell.send')}
-                  <span className="text-[10px] opacity-70 ml-1">⌘⏎</span>
+                  <span className="text-[11px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
                 </Button>
               )}
             </div>
@@ -1085,10 +1086,10 @@ export function ExploreSpecShell({
 
         {/* Draft column — breathes subtly while assistant is thinking so the
             user knows the panel will update once the turn settles. */}
-        <div className={`relative min-h-0 transition-opacity duration-500 ${conversation?.isStreaming ? 'opacity-90' : 'opacity-100'}`}>
+        <div className={`relative min-h-0 transition-opacity duration-200 ${conversation?.isStreaming ? 'opacity-90' : 'opacity-100'}`}>
           {conversation?.isStreaming && (
             <div className="absolute top-0 inset-x-0 h-0.5 overflow-hidden pointer-events-none z-10">
-              <div className="h-full bg-primary/40 animate-pulse" />
+              <div className="h-full bg-primary/40 motion-safe:animate-pulse" />
             </div>
           )}
           <SpecDraftPanel
@@ -1228,11 +1229,11 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${isUser ? 'bg-primary/10 text-foreground' : 'bg-card/60 border border-border/40'}`}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+          <div className="text-xs font-medium text-muted-foreground">
             {isUser ? t('shell.you') : providerLabel(provider)}
           </div>
           {timeLabel && (
-            <div className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">
+            <div className="text-[11px] text-muted-foreground font-mono tabular-nums">
               {timeLabel}
             </div>
           )}
@@ -1240,7 +1241,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">
             {visible}
-            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />}
+            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 motion-safe:animate-pulse align-baseline" />}
           </div>
         ) : (
           <div className={[
@@ -1264,7 +1265,7 @@ function TurnBubble({ role, content, streaming, timestamp, provider }: { role: '
             '[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold',
           ].join(' ')}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{visible}</ReactMarkdown>
-            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 animate-pulse align-baseline" />}
+            {streaming && <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 motion-safe:animate-pulse align-baseline" />}
           </div>
         )}
       </div>

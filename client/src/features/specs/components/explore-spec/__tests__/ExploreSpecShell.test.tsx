@@ -126,11 +126,11 @@ describe('ExploreSpecShell', () => {
     expect(opts.attachments).toBeUndefined()
   })
 
-  it('renders eyebrow and dialog role for accessibility', async () => {
+  it('renders the dialog role and the new-spec title for accessibility', async () => {
     const ws = makeFakeWs()
     render(<ExploreSpecShell initialIdea="hi" pendingSpecId="pending-1" initialAttachmentIds={[]} onClose={onClose} />, { wrapper: wrap(ws) })
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/EXPLORE SPEC/i)).toBeInTheDocument()
+    expect(screen.queryByText(/EXPLORE SPEC/i)).toBeNull()
   })
 
   it('shows the loading state until the conversation is bootstrapped', () => {

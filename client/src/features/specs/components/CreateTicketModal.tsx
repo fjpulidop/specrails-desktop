@@ -110,8 +110,8 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
         <div className="space-y-3">
           {/* Title */}
           <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
-              {t('fields.title')} <span className="text-red-400 aurora-light:text-destructive">*</span>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
+              {t('fields.title')} <span className="text-destructive">*</span>
             </label>
             <input
               ref={titleRef}
@@ -127,7 +127,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
           {/* Description */}
           <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
               {t('fields.description')}
             </label>
             <textarea
@@ -137,13 +137,13 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               placeholder={t('fields.markdownPlaceholder')}
               className="w-full rounded border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground resize-y min-h-[80px]"
             />
-            <span className="text-[9px] text-muted-foreground mt-0.5 block">{t('fields.supportsMarkdown')}</span>
+            <span className="text-[11px] text-muted-foreground mt-0.5 block">{t('fields.supportsMarkdown')}</span>
           </div>
 
           {/* Status + Priority row */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-1">
                 {t('fields.status')}
               </label>
               <select
@@ -158,7 +158,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               </select>
             </div>
             <div className="flex-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-1">
                 {t('fields.priority')}
               </label>
               <select
@@ -178,14 +178,14 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
 
           {/* Labels */}
           <div>
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+            <label className="text-xs font-medium text-muted-foreground block mb-1">
               {t('fields.labels')}
             </label>
             <div className="flex flex-wrap gap-1 mb-1.5">
               {labels.map((label) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/60 text-foreground/70"
+                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium bg-accent/60 text-foreground/70"
                 >
                   {label}
                   <button
@@ -211,7 +211,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                   }
                 }}
                 placeholder={t('createModal.labelsPlaceholder')}
-                className="w-full h-6 rounded border border-border bg-input px-2 text-[10px] text-foreground placeholder:text-muted-foreground"
+                className="w-full h-6 rounded border border-border bg-input px-2 text-[11px] text-foreground placeholder:text-muted-foreground"
               />
               {labelSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-0.5 rounded border border-border/50 bg-popover shadow-lg z-10 py-0.5">
@@ -223,7 +223,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
                         e.preventDefault()
                         addLabel(suggestion)
                       }}
-                      className="w-full text-left px-2 py-1 text-[10px] hover:bg-accent/50 text-foreground/80"
+                      className="w-full text-left px-2 py-1 text-[11px] hover:bg-accent/50 text-foreground/80"
                     >
                       {suggestion}
                     </button>

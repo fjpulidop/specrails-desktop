@@ -28,6 +28,9 @@ vi.mock('../../../../hooks/useDesktop', () => ({
     completeSetupWizard: vi.fn(),
   }),
 }))
+vi.mock('../specs-smash/SmashActions', () => ({
+  SmashActions: () => <div data-testid="smash-actions-stub" />,
+}))
 const mockOpenExternalUrl = vi.fn()
 vi.mock('../../../../lib/tauri-shell', () => ({ openExternalUrl: (u: string) => mockOpenExternalUrl(u) }))
 
@@ -35,6 +38,12 @@ import { TicketDetailModal } from '../TicketDetailModal'
 import type { LocalTicket } from '../../../../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Radix Select: open the priority trigger from the keyboard, then pick an option. */
+function pickPriority(name: RegExp) {
+  fireEvent.keyDown(screen.getByTestId('ticket-priority-select'), { key: 'ArrowDown' })
+  fireEvent.click(screen.getByRole('option', { name }))
+}
 
 function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {
   return {
@@ -271,8 +280,7 @@ describe('TicketDetailModal', () => {
   describe('priority select', () => {
     it('shows Save button when priority is changed', async () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
-      const select = screen.getByDisplayValue('Medium') as HTMLSelectElement
-      fireEvent.change(select, { target: { value: 'high' } })
+      pickPriority(/^high$/i)
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /save/i })).toBeDefined()
       })
@@ -286,8 +294,7 @@ describe('TicketDetailModal', () => {
       render(<TicketDetailModal {...makeDefaultProps({ onSave, onClose })} />)
 
       // Change priority to make isDirty=true
-      const select = screen.getByDisplayValue('Medium') as HTMLSelectElement
-      fireEvent.change(select, { target: { value: 'high' } })
+      pickPriority(/^high$/i)
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /save/i })).toBeDefined()
@@ -305,7 +312,7 @@ describe('TicketDetailModal', () => {
       const onSave = vi.fn(async () => false)
       render(<TicketDetailModal {...makeDefaultProps({ onSave })} />)
 
-      fireEvent.change(screen.getByDisplayValue('Medium'), { target: { value: 'high' } })
+      pickPriority(/^high$/i)
 
       await waitFor(() => screen.getByRole('button', { name: /save/i }))
       fireEvent.click(screen.getByRole('button', { name: /save/i }))
@@ -607,10 +614,22 @@ describe('TicketDetailModal — Out of scope (non-goals)', () => {
   it('does not send non-goals when they did not change', async () => {
     const onSave = vi.fn(async () => true)
     render(<TicketDetailModal {...makeDefaultProps({ onSave })} />)
-    fireEvent.change(screen.getByDisplayValue('Medium'), { target: { value: 'high' } })
+    pickPriority(/^high$/i)
     await waitFor(() => screen.getByRole('button', { name: /save/i }))
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(onSave).toHaveBeenCalled())
     expect(onSave.mock.calls[0][1]).not.toHaveProperty('nonGoals')
+  })
+})
+
+describe('TicketDetailModal — Done spec header', () => {
+  it('offers SMASH for an open spec', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} />)
+    expect(screen.getByTestId('smash-actions-stub')).toBeInTheDocument()
+  })
+
+  it('hides SMASH once the spec is done', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'done' }) })} />)
+    expect(screen.queryByTestId('smash-actions-stub')).toBeNull()
   })
 })

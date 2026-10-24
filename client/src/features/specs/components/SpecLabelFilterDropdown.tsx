@@ -104,7 +104,7 @@ export function SpecLabelFilterDropdown({ tickets, active, onChange, className }
         <Tag className="w-3 h-3 text-muted-foreground" />
         <span className="truncate max-w-[120px]">{triggerLabel}</span>
         {active.size > 0 && (
-          <span className="text-[10px] text-muted-foreground/80">·&nbsp;{active.size}</span>
+          <span className="text-[11px] text-muted-foreground/80">·&nbsp;{active.size}</span>
         )}
       </button>
 
@@ -114,7 +114,7 @@ export function SpecLabelFilterDropdown({ tickets, active, onChange, className }
           role="listbox"
           aria-multiselectable="true"
           data-testid="spec-label-filter-panel"
-          className="absolute z-40 left-0 mt-1 w-56 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/30 p-1"
+          className="absolute z-40 left-0 mt-1 w-56 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-popover shadow-xl shadow-black/30 p-1"
         >
           {/* All — clears the active set */}
           <button
@@ -132,11 +132,11 @@ export function SpecLabelFilterDropdown({ tickets, active, onChange, className }
               {active.size === 0 && <Check className="w-3 h-3 text-accent-info" />}
             </span>
             <span className="flex-1">{t('labelFilter.all')}</span>
-            <span className="text-[10px] text-muted-foreground/70">{tickets.length}</span>
+            <span className="text-[11px] text-muted-foreground/70">{tickets.length}</span>
           </button>
 
           {entries.length === 0 && (
-            <div className="px-2 py-2 text-[11px] text-muted-foreground/60 italic">{t('labelFilter.empty')}</div>
+            <div className="px-2 py-2 text-[11px] text-muted-foreground italic">{t('labelFilter.empty')}</div>
           )}
 
           {entries.length > 0 && (
@@ -161,10 +161,10 @@ export function SpecLabelFilterDropdown({ tickets, active, onChange, className }
                 <span className="inline-flex w-4 h-4 items-center justify-center">
                   {selected && <Check className="w-3 h-3 text-accent-info" />}
                 </span>
-                <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium', tone)}>
+                <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium', tone)}>
                   {label}
                 </span>
-                <span className="ml-auto text-[10px] text-muted-foreground/60">{count}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{count}</span>
               </button>
             )
           })}

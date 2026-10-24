@@ -87,10 +87,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
       <div className="flex flex-col w-full max-w-5xl h-full bg-background border-x border-border/30 shadow-2xl">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/30">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
-              {t('reviewOverlay.eyebrow')}
-            </div>
-            <h2 className="text-base font-semibold mt-0.5">{t('reviewOverlay.heading')}</h2>
+            <h2 className="text-base font-semibold">{t('reviewOverlay.heading')}</h2>
           </div>
         </header>
 
@@ -109,7 +106,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
                 {priorityChanged ? (
                   <>
                     <PriorityPill value={baseline.priority} removed />
-                    <ChevronRight className="w-3 h-3 text-muted-foreground/60" aria-hidden="true" />
+                    <ChevronRight className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
                     <PriorityPill value={proposed.priority} added />
                   </>
                 ) : (
@@ -132,7 +129,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             <section data-testid="review-labels" className="space-y-2">
               <FieldHeader label={t('reviewOverlay.labelsLabel')} />
               {labelsDiff.ordered.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic">{t('reviewOverlay.noLabels')}</p>
+                <p className="text-xs text-muted-foreground italic">{t('reviewOverlay.noLabels')}</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {labelsDiff.ordered.map((entry, i) => (
@@ -145,7 +142,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
             <section data-testid="review-criteria" className="space-y-2">
               <FieldHeader label={t('reviewOverlay.acceptanceCriteriaLabel')} />
               {criteriaDiff.ordered.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic">{t('reviewOverlay.noCriteria')}</p>
+                <p className="text-xs text-muted-foreground italic">{t('reviewOverlay.noCriteria')}</p>
               ) : (
                 <ul className="space-y-1 text-sm">
                   {criteriaDiff.ordered.map((entry, i) => (
@@ -189,7 +186,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
 
 function FieldHeader({ label }: { label: string }) {
   return (
-    <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+    <div className="text-xs font-medium text-muted-foreground">
       {label}
     </div>
   )
@@ -276,7 +273,7 @@ function PriorityPill({
 }) {
   const { t } = useTranslation('explore')
   if (!value) {
-    return <span className="text-[11px] text-muted-foreground/60 italic">{t('reviewOverlay.noPriority')}</span>
+    return <span className="text-[11px] text-muted-foreground italic">{t('reviewOverlay.noPriority')}</span>
   }
   const base = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] capitalize border'
   if (added) {

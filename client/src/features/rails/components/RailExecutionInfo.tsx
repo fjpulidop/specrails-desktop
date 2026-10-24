@@ -16,7 +16,7 @@ export function RailExecutionInfo({ metric }: { metric: RailExecMetric }) {
     return () => window.clearInterval(id)
   }, [])
   return (
-    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground tabular-nums" data-testid="rail-exec-info">
+    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums" data-testid="rail-exec-info">
       <span>{formatElapsed(now - metric.startedAt)}</span>
       <span aria-hidden>·</span>
       <span>{t('railControls.execSteps', { count: metric.steps })}</span>

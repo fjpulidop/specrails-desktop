@@ -601,7 +601,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                       {labels.map((label) => (
                         <span
                           key={label}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info text-[10px] font-medium"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-info/15 text-accent-info text-[11px] font-medium"
                         >
                           {label}
                           <button
@@ -694,7 +694,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                     <div className="rounded-lg border border-accent-secondary/40 bg-accent-secondary/5 p-2 space-y-1.5">
                       {c.breakpoints ? (
                         <div className="space-y-1.5" data-testid="capture-breakpoints">
-                          <div className="flex items-center gap-1 text-[10px] font-medium text-accent-highlight">
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-accent-highlight">
                             <Ratio className="w-3 h-3 shrink-0" />
                             {t('proposeModal.capture.responsiveSizes', { count: c.breakpoints.length })}
                           </div>
@@ -706,7 +706,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                                   alt={`${b.key} (${b.width}px)`}
                                   className="max-h-36 w-auto max-w-[10rem] object-contain rounded border border-border/60 bg-background-deep block"
                                 />
-                                <span className="text-[10px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
+                                <span className="text-[11px] text-muted-foreground tabular-nums">{b.key} · {b.width}px</span>
                               </div>
                             ))}
                           </div>
@@ -719,7 +719,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                         />
                       )}
                       {c.dom.url && c.dom.url !== 'about:blank' && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={c.dom.url}>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title={c.dom.url}>
                           <Globe className="w-3 h-3 shrink-0" />
                           <span className="truncate">{c.dom.url}</span>
                         </div>
@@ -839,7 +839,7 @@ function ModeOption({
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
         disabled
-          ? 'cursor-not-allowed text-muted-foreground/50 opacity-70'
+          ? 'cursor-not-allowed text-muted-foreground opacity-70'
           : active
             ? 'bg-primary/15 text-primary'
             : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
@@ -847,7 +847,7 @@ function ModeOption({
     >
       {icon}
       {label}
-      <span className={`text-[10px] ${active ? 'text-primary/60' : 'text-muted-foreground/60'}`}>{hint}</span>
+      <span className={`text-[11px] ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{hint}</span>
     </button>
   )
 }

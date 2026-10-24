@@ -26,13 +26,13 @@ const CHIP_ACTIVE_CLASSES: Record<SpecStatusFilterValue, string> = {
   active: 'bg-accent-primary/15 border-accent-primary/40 text-accent-primary',
   all: 'bg-muted/50 border-border text-foreground',
   draft: 'bg-accent-secondary/15 border-accent-secondary/40 text-accent-secondary',
-  todo: 'bg-slate-500/15 border-slate-500/40 text-slate-400 aurora-light:bg-muted aurora-light:border-border aurora-light:text-muted-foreground',
+  todo: 'bg-muted border-border text-muted-foreground',
   in_progress:
-    'bg-blue-500/15 border-blue-500/40 text-blue-400 aurora-light:bg-accent-info/10 aurora-light:border-accent-info/30 aurora-light:text-accent-info',
+    'bg-accent-info/10 border-accent-info/30 text-accent-info',
   on_review: 'bg-accent-warning/15 border-accent-warning/40 text-accent-warning',
-  done: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 aurora-light:bg-accent-success/10 aurora-light:border-accent-success/30 aurora-light:text-accent-success',
+  done: 'bg-accent-success/10 border-accent-success/30 text-accent-success',
   cancelled:
-    'bg-red-500/10 border-red-500/30 text-red-400/80 aurora-light:bg-destructive/10 aurora-light:border-destructive/30 aurora-light:text-destructive/70',
+    'bg-destructive/10 border-destructive/30 text-destructive',
 }
 
 /** i18n label per chip — statuses reuse the exact pill labels. */
@@ -79,7 +79,7 @@ function Chip({ value, selected, count, onClick, label }: ChipProps) {
       <span>{label}</span>
       <span
         className={cn(
-          'text-[10px] tabular-nums rounded-full px-1 min-w-[16px] text-center',
+          'text-[11px] tabular-nums rounded-full px-1 min-w-[16px] text-center',
           selected ? 'bg-background/40' : 'bg-muted/30 opacity-70',
         )}
         data-testid={`specs-status-count-${value}`}

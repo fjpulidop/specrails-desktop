@@ -21,13 +21,13 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     pulsing: false,
   },
   todo: {
-    dotClass: 'bg-slate-500/70',
+    dotClass: 'bg-muted-foreground/70',
     textClass: 'text-muted-foreground',
     labelKey: 'status.todo',
     pulsing: false,
   },
   in_progress: {
-    dotClass: 'bg-blue-400 aurora-light:bg-accent-info',
+    dotClass: 'bg-accent-info',
     textClass: 'text-foreground font-semibold',
     labelKey: 'status.inProgress',
     pulsing: true,
@@ -39,14 +39,14 @@ const STATUS_CONFIG: Record<TicketStatus, StatusConfig> = {
     pulsing: false,
   },
   done: {
-    dotClass: 'text-emerald-400 aurora-light:text-accent-success',
-    textClass: 'text-emerald-400/80 aurora-light:text-accent-success',
+    dotClass: 'text-accent-success',
+    textClass: 'text-accent-success',
     labelKey: 'status.done',
     pulsing: false,
   },
   cancelled: {
-    dotClass: 'text-red-400/60 aurora-light:text-destructive/70',
-    textClass: 'text-muted-foreground/50',
+    dotClass: 'text-destructive/70',
+    textClass: 'text-muted-foreground',
     labelKey: 'status.cancelled',
     pulsing: false,
   },
@@ -93,7 +93,7 @@ export function TicketStatusDot({ status, className }: TicketStatusDotProps) {
       >
         <span
           className={cn(
-            'animate-ping absolute inline-flex h-full w-full rounded-full opacity-60',
+            'motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-60',
             cfg.dotClass
           )}
         />
@@ -134,11 +134,11 @@ export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps)
     <span
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border',
-        status === 'todo' && 'bg-slate-500/10 border-slate-500/30 text-slate-400 aurora-light:bg-muted aurora-light:border-border aurora-light:text-muted-foreground',
-        status === 'in_progress' && 'bg-blue-500/10 border-blue-500/30 text-blue-400 aurora-light:bg-accent-info/10 aurora-light:border-accent-info/30 aurora-light:text-accent-info',
+        status === 'todo' && 'bg-muted border-border text-muted-foreground',
+        status === 'in_progress' && 'bg-accent-info/10 border-accent-info/30 text-accent-info',
         status === 'on_review' && 'bg-accent-warning/10 border-accent-warning/30 text-accent-warning',
-        status === 'done' && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 aurora-light:bg-accent-success/10 aurora-light:border-accent-success/30 aurora-light:text-accent-success',
-        status === 'cancelled' && 'bg-red-500/10 border-red-500/30 text-red-400/60 aurora-light:bg-destructive/10 aurora-light:border-destructive/30 aurora-light:text-destructive/70',
+        status === 'done' && 'bg-accent-success/10 border-accent-success/30 text-accent-success',
+        status === 'cancelled' && 'bg-destructive/10 border-destructive/30 text-destructive',
         className
       )}
     >

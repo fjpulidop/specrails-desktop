@@ -315,6 +315,19 @@ export function SpecsBoard({
     saveSpecFilters(activeProjectId, { labels: activeLabels, epic: activeEpic, sprint: activeSprint, jiraStatus: next })
   }, [activeProjectId, activeLabels, activeEpic, activeSprint])
 
+  // Filtered-empty escape hatch: drop every narrowing dimension at once and
+  // persist the pristine view (status back to its `active` default).
+  const handleClearFilters = useCallback(() => {
+    const none = new Set<string>()
+    setActiveLabels(none)
+    setActiveEpic(null)
+    setActiveSprint(null)
+    setActiveJiraStatus(null)
+    setStatusFilter('active')
+    saveSpecFilters(activeProjectId, { labels: none, epic: null, sprint: null, jiraStatus: null })
+    saveSpecStatusFilter(activeProjectId, 'active')
+  }, [activeProjectId])
+
   const matchesFilters = useCallback(
     (t: LocalTicket): boolean => {
       if (activeEpic !== null && t.jira_epic_key !== activeEpic) return false
@@ -562,15 +575,15 @@ export function SpecsBoard({
   const hasLastGoodData = tickets.length + doneTickets.length > 0
 
   return (
-    <div className="flex flex-col h-full" onClick={handleBackgroundClick}>
+    <section aria-labelledby="specs-board-title" className="flex flex-col h-full" onClick={handleBackgroundClick}>
       {/* Header — a single row (aligns with the rails header): title + the
           premium status selector, a separator, then filters + sort + view + add. */}
       <div className="flex items-center px-4 h-12 border-b border-border/40 shrink-0 gap-2">
         <div className="flex items-center gap-2 shrink-0">
-          <FileText className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-accent-primary">{t('board.title')}</h2>
+          <FileText className="w-4 h-4 text-muted-foreground" aria-hidden />
+          <h2 id="specs-board-title" className="text-sm font-semibold text-foreground">{t('board.title')}</h2>
           {tickets.length + doneTickets.length > 0 && (
-            <span className="text-[10px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5">
+            <span className="text-[11px] text-muted-foreground bg-muted/30 rounded-full px-1.5 py-0.5">
               {!noFilters || activeJiraStatus !== null
                 ? `${filteredTickets.filter(matchesJiraStatus).length + filteredDoneTickets.filter(matchesJiraStatus).length}/${tickets.length + doneTickets.length}`
                 : tickets.length + doneTickets.length}
@@ -678,7 +691,7 @@ export function SpecsBoard({
             {isLoading && !hasLastGoodData ? (
               <div className="space-y-1.5">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-10 rounded-lg border border-border/40 bg-card/50 animate-pulse" />
+                  <div key={i} className="h-10 rounded-lg border border-border/40 bg-card/50 motion-safe:animate-pulse" />
                 ))}
               </div>
             ) : visibleActiveTickets.length === 0 ? (
@@ -700,7 +713,18 @@ export function SpecsBoard({
                           : t('board.emptyNoActiveSpecs')}
                 </p>
                 {!isOver && tickets.length + doneTickets.length === 0 && (
-                  <p className="text-xs mt-1 opacity-60">{t('board.emptyHint')}</p>
+                  <p className="text-xs mt-1">{t('board.emptyHint')}</p>
+                )}
+                {!isOver && tickets.length + doneTickets.length > 0 && (!noFilters || statusNarrowed) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3"
+                    onClick={(e) => { e.stopPropagation(); handleClearFilters() }}
+                    data-testid="specs-board-clear-filters"
+                  >
+                    {t('board.clearFilters')}
+                  </Button>
                 )}
               </div>
             ) : viewTier === 'postit' && onMoveToRail ? (
@@ -780,7 +804,7 @@ export function SpecsBoard({
             ref={setDoneNodeRef}
             data-testid="specs-board-done-bucket"
             className={`px-4 pt-2 pb-3 space-y-1.5 transition-colors duration-150 ${
-              isDoneOver ? 'bg-emerald-500/[0.04] aurora-light:bg-accent-success/10' : ''
+              isDoneOver ? 'bg-accent-success/10' : ''
             } ${showTodoBucket ? 'border-t border-border/30 mt-1' : ''}`}
           >
             {/* In the All view the Done bucket sits under the active list, so
@@ -794,7 +818,7 @@ export function SpecsBoard({
             {visibleDoneTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
                 <CheckCircle2 className="w-6 h-6 mb-2 opacity-15" />
-                <p className="text-xs opacity-60">
+                <p className="text-xs">
                   {isDoneOver
                     ? t('board.dropToMarkDone')
                     : activeLabels.size > 0 && doneTickets.length > 0
@@ -949,7 +973,7 @@ export function SpecsBoard({
         />
         </ShellErrorBoundary>
       )}
-    </div>
+    </section>
   )
 }
 

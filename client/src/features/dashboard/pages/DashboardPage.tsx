@@ -552,8 +552,14 @@ export default function DashboardPage() {
       // 404 = the server never knew this rail (legacy local-only) — still drop it.
       if (res.ok || res.status === 404) { removeLocally(); return }
       // 409 rail_active / pr_decision_pending, 400 last-rail:
-      // the server knows something this board doesn't — keep the rail visible.
-      toast.error(t('toasts.railDeleteFailed'))
+      // the server knows something this board doesn't — keep the rail visible
+      // and say exactly which guard refused the delete.
+      const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+      const code = typeof body?.error === 'string' ? body.error : null
+      if (code === 'rail_active') toast.error(t('toasts.railRunningStopFirst', { rail: rail.label }))
+      else if (code === 'pr_decision_pending') toast.error(t('toasts.railDeletePrPending', { rail: rail.label }))
+      else if (res.status === 400 || code === 'cannot_delete_last_rail') toast.error(t('toasts.railDeleteLastRail'))
+      else toast.error(t('toasts.railDeleteFailed'))
     } catch {
       // Unknown server state: keep the rail visible until a successful retry
       // or refresh reconciles it. Optimistic removal here can desync the board.
@@ -1644,11 +1650,11 @@ export default function DashboardPage() {
       <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
         {activeTicket ? (
           viewTier === 'postit' ? (
-            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card/95 shadow-xl shadow-black/30 backdrop-blur-sm p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
+            <div className="flex flex-col gap-2 rounded-xl border border-accent-info/40 bg-card shadow-xl shadow-black/30 p-3 rotate-1 scale-[1.02] pointer-events-none w-[260px] min-h-[180px]">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10px] font-mono text-muted-foreground/60">#{activeTicket.id}</span>
+                <span className="text-[11px] font-mono text-muted-foreground">#{activeTicket.id}</span>
                 {activeTicket.priority && (
-                  <span className="h-4 px-1.5 rounded-full text-[9px] font-medium uppercase bg-muted/40 text-foreground">
+                  <span className="h-5 px-1.5 rounded-full text-[11px] font-medium bg-muted/40 text-foreground">
                     {activeTicket.priority}
                   </span>
                 )}
@@ -1663,13 +1669,13 @@ export default function DashboardPage() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-1 scale-[1.03] pointer-events-none">
-              <span className="text-[10px] font-mono text-muted-foreground/50 shrink-0">#{activeTicket.id}</span>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-1 scale-[1.03] pointer-events-none">
+              <span className="text-[11px] font-mono text-muted-foreground shrink-0">#{activeTicket.id}</span>
               <span className="flex-1 text-sm truncate max-w-[240px]">{activeTicket.title}</span>
             </div>
           )
         ) : activeRailDragLabel ? (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm rotate-[0.5deg] scale-[1.02] pointer-events-none">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/40 bg-card shadow-xl shadow-black/20 rotate-[0.5deg] scale-[1.02] pointer-events-none">
             <span className="text-xs font-medium">{activeRailDragLabel}</span>
           </div>
         ) : null}

@@ -87,7 +87,7 @@ export function SpecEpicFilterDropdown({ tickets, active, onChange, className }:
           ref={panelRef}
           role="listbox"
           data-testid="spec-epic-filter-panel"
-          className="absolute z-40 left-0 mt-1 w-64 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/30 p-1"
+          className="absolute z-40 left-0 mt-1 w-64 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-popover shadow-xl shadow-black/30 p-1"
         >
           <button
             type="button"
@@ -104,7 +104,7 @@ export function SpecEpicFilterDropdown({ tickets, active, onChange, className }:
               {active === null && <Check className="w-3 h-3 text-accent-info" />}
             </span>
             <span className="flex-1">{t('epicFilter.all')}</span>
-            <span className="text-[10px] text-muted-foreground/70">{tickets.length}</span>
+            <span className="text-[11px] text-muted-foreground/70">{tickets.length}</span>
           </button>
 
           {entries.length > 0 && <div className="my-1 h-px bg-border/40" aria-hidden />}
@@ -126,9 +126,9 @@ export function SpecEpicFilterDropdown({ tickets, active, onChange, className }:
                 <span className="inline-flex w-4 h-4 items-center justify-center">
                   {selected && <Check className="w-3 h-3 text-accent-info" />}
                 </span>
-                <span className="font-mono text-[10px] text-accent-highlight shrink-0">{e.key}</span>
+                <span className="font-mono text-[11px] text-accent-highlight shrink-0">{e.key}</span>
                 <span className="truncate text-foreground/80">{e.name}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground/60">{e.count}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{e.count}</span>
               </button>
             )
           })}

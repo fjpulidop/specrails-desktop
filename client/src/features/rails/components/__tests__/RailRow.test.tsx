@@ -300,3 +300,15 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
     expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
   })
 })
+
+describe('RailRow status dot', () => {
+  it('names the rail status for assistive tech (not colour-only)', () => {
+    renderRailRow({ ...defaultProps, status: 'failed' as never })
+    expect(screen.getByRole('img', { name: 'Failed' })).toHaveClass('bg-destructive')
+  })
+
+  it('reports an idle rail', () => {
+    renderRailRow()
+    expect(screen.getByRole('img', { name: 'Idle' })).toBeInTheDocument()
+  })
+})

@@ -160,7 +160,7 @@ export function SpecJiraStatusFilterDropdown({
           ref={panelRef}
           role="listbox"
           data-testid="spec-jira-status-filter-panel"
-          className="absolute z-40 left-0 mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/30 p-1"
+          className="absolute z-40 left-0 mt-1 w-64 max-h-80 overflow-y-auto rounded-xl border border-border/60 bg-popover shadow-xl shadow-black/30 p-1"
         >
           <button
             type="button"
@@ -177,7 +177,7 @@ export function SpecJiraStatusFilterDropdown({
               {active === null && <Check className="w-3 h-3 text-accent-info" />}
             </span>
             <span className="flex-1">{t('jiraStatusFilter.all')}</span>
-            <span className="text-[10px] text-muted-foreground/70 tabular-nums">{total}</span>
+            <span className="text-[11px] text-muted-foreground/70 tabular-nums">{total}</span>
           </button>
 
           {GROUP_ORDER.map((g) => {
@@ -188,8 +188,8 @@ export function SpecJiraStatusFilterDropdown({
               <div key={g} data-testid={`spec-jira-status-group-${g}`}>
                 <div
                   className={cn(
-                    'flex items-center gap-1.5 px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide',
-                    muted ? 'text-muted-foreground/50' : 'text-muted-foreground/80',
+                    'flex items-center gap-1.5 px-2 pt-2 pb-1 text-xs font-medium',
+                    'text-muted-foreground',
                   )}
                   aria-hidden
                 >
@@ -216,7 +216,7 @@ export function SpecJiraStatusFilterDropdown({
                         {selected && <Check className="w-3 h-3 text-accent-info" />}
                       </span>
                       <span className="truncate text-foreground/80">{e.name}</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground/60 tabular-nums">
+                      <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
                         {e.count}
                       </span>
                     </button>

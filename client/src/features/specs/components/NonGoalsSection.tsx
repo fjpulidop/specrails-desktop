@@ -45,7 +45,7 @@ export function NonGoalsSection({ value, onChange, disabled }: NonGoalsSectionPr
   return (
     <section data-testid="ticket-non-goals" aria-labelledby="ticket-non-goals-heading">
       <div className="flex items-center justify-between mb-1.5">
-        <span id="ticket-non-goals-heading" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <span id="ticket-non-goals-heading" className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <Ban className="w-3 h-3" aria-hidden="true" />
           {t('nonGoals.title')}
         </span>
@@ -54,7 +54,7 @@ export function NonGoalsSection({ value, onChange, disabled }: NonGoalsSectionPr
             type="button"
             disabled={disabled}
             onClick={() => setEditing(true)}
-            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 disabled:opacity-50"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 disabled:opacity-50"
           >
             <Pencil className="w-2.5 h-2.5" />
             {t('common:actions.edit')}
@@ -74,10 +74,10 @@ export function NonGoalsSection({ value, onChange, disabled }: NonGoalsSectionPr
             className="w-full rounded-lg border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground resize-y"
           />
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={finish}>
+            <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={finish}>
               {t('detailModal.doneEditing')}
             </Button>
-            <span className="text-[9px] text-muted-foreground">{t('nonGoals.onePerLine')}</span>
+            <span className="text-[11px] text-muted-foreground">{t('nonGoals.onePerLine')}</span>
           </div>
         </div>
       ) : value.length > 0 ? (

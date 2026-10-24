@@ -10,6 +10,7 @@ import { openExternalUrl } from '../../../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog'
 import { AttachmentsSection } from '../../chat/components/AttachmentsSection'
 import { TicketFilesTouched } from '../../code/components/code-explorer/TicketFilesTouched'
@@ -437,12 +438,12 @@ export function TicketDetailModal({
         className={
           embedded
             ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
-            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 h-[90vh] max-h-[calc(100%-2rem)]'
+            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 duration-200 h-[90vh] max-h-[calc(100%-2rem)]'
         }
         style={{
           ...(dragOffset !== 0
             ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
-            : { transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)' }),
+            : { transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }),
           ...panelStyle,
         }}
       >
@@ -487,7 +488,7 @@ export function TicketDetailModal({
               </button>
             )}
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] text-foreground font-mono">#{ticket.id}</span>
+              <span className="text-[11px] text-foreground font-mono">#{ticket.id}</span>
               {/* Work delivered as a draft PR — awaiting the human review decision. */}
               {ticket.status === 'on_review' && (
                 <span title={t('specs:status.onReviewHint')} data-testid="ticket-modal-on-review-badge">
@@ -498,7 +499,8 @@ export function TicketDetailModal({
             <TicketSpendingLine ticketId={ticket.id} />
           </div>
 
-          {activeProjectId && (
+          {/* A Done spec is finished work — SMASHing it into Sub-Specs makes no sense. */}
+          {activeProjectId && ticket.status !== 'done' && (
             <div className="shrink-0">
               <SmashActions
                 ticket={ticket}
@@ -565,14 +567,14 @@ export function TicketDetailModal({
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     {t('fields.description')}
                   </span>
                   {!editingDescription && (
                     <button
                       type="button"
                       onClick={() => setEditingDescription(true)}
-                      className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                     >
                       <Pencil className="w-2.5 h-2.5" />
                       {t('common:actions.edit')}
@@ -593,12 +595,12 @@ export function TicketDetailModal({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[10px]"
+                        className="h-6 text-[11px]"
                         onClick={() => setEditingDescription(false)}
                       >
                         {t('detailModal.doneEditing')}
                       </Button>
-                      <span className="text-[9px] text-muted-foreground">{t('fields.supportsMarkdown')}</span>
+                      <span className="text-[11px] text-muted-foreground">{t('fields.supportsMarkdown')}</span>
                     </div>
                   </div>
                 ) : description ? (
@@ -636,14 +638,14 @@ export function TicketDetailModal({
               {/* Prerequisites */}
               {ticket.prerequisites && ticket.prerequisites.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  <span className="text-xs font-medium text-muted-foreground block mb-1.5">
                     {t('detailModal.prerequisites')}
                   </span>
                   <div className="flex flex-wrap gap-1">
                     {ticket.prerequisites.map((id) => (
                       <span
                         key={id}
-                        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono bg-accent/60 text-foreground/70"
+                        className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-mono bg-accent/60 text-foreground/70"
                       >
                         #{id}
                       </span>
@@ -670,7 +672,7 @@ export function TicketDetailModal({
               {/* Parent Jira epic — only when the issue has one */}
               {ticket.jira_epic_key && (
                 <div data-testid="jira-epic">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  <span className="text-xs font-medium text-muted-foreground block mb-1.5">
                     {tj('detail.epic')}
                   </span>
                   <button
@@ -689,79 +691,92 @@ export function TicketDetailModal({
                   (transition rides the outbox); local specs offer the manual
                   targets (never INTO on_review/draft — pipeline-owned). */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
                   {t('fields.status')}
                 </span>
                 {isJiraBacked ? (
-                  <select
-                    value={jiraStatusValue}
+                  <Select
+                    value={jiraStatusValue || undefined}
                     disabled={statusMoving || jiraStatuses === null}
-                    onChange={(e) => { void handleJiraStatusMove(e.target.value) }}
-                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
-                    data-testid="ticket-jira-status-select"
+                    onValueChange={(v) => { void handleJiraStatusMove(v) }}
                   >
-                    {jiraStatuses === null ? (
-                      <option value={jiraStatusValue}>{jiraStatusValue || t('states.loading', { ns: 'common' })}</option>
-                    ) : (
-                      <>
-                        {jiraStatusValue && !jiraStatuses.some((s) => s.name === jiraStatusValue) && (
-                          <option value={jiraStatusValue}>{jiraStatusValue}</option>
-                        )}
-                        {jiraStatuses.map((s) => (
-                          <option key={s.name} value={s.name}>{s.name}</option>
-                        ))}
-                      </>
-                    )}
-                  </select>
+                    <SelectTrigger
+                      className="h-7 w-full text-xs"
+                      aria-label={t('fields.status')}
+                      data-testid="ticket-jira-status-select"
+                    >
+                      <SelectValue placeholder={t('states.loading', { ns: 'common' })} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jiraStatusValue && !(jiraStatuses ?? []).some((s) => s.name === jiraStatusValue) && (
+                        <SelectItem value={jiraStatusValue} className="text-xs">{jiraStatusValue}</SelectItem>
+                      )}
+                      {(jiraStatuses ?? []).map((s) => (
+                        <SelectItem key={s.name} value={s.name} className="text-xs">{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <select
+                  <Select
                     value={ticket.status}
                     disabled={statusMoving}
-                    onChange={(e) => { void handleLocalStatusMove(e.target.value as TicketStatus) }}
-                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
-                    data-testid="ticket-status-select"
+                    onValueChange={(v) => { void handleLocalStatusMove(v as TicketStatus) }}
                   >
-                    {/* Current status always listed (even draft/on_review) so the
-                        select renders truthfully; manual targets exclude the
-                        pipeline-owned states. */}
-                    {!MANUAL_STATUS_TARGETS.includes(ticket.status) && (
-                      <option value={ticket.status}>{t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })}</option>
-                    )}
-                    {MANUAL_STATUS_TARGETS.map((s) => (
-                      <option key={s} value={s}>{t(STATUS_LABEL_KEY[s], { ns: 'tickets' })}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      className="h-7 w-full text-xs"
+                      aria-label={t('fields.status')}
+                      data-testid="ticket-status-select"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Current status always listed (even draft/on_review) so the
+                          trigger renders truthfully; manual targets exclude the
+                          pipeline-owned states. */}
+                      {!MANUAL_STATUS_TARGETS.includes(ticket.status) && (
+                        <SelectItem value={ticket.status} className="text-xs">{t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })}</SelectItem>
+                      )}
+                      {MANUAL_STATUS_TARGETS.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">{t(STATUS_LABEL_KEY[s], { ns: 'tickets' })}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 
               {/* Priority selector */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
                   {t('fields.priority')}
                 </span>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
-                  className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground"
-                >
-                  {PRIORITY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
-                  ))}
-                </select>
+                <Select value={priority} onValueChange={(v) => setPriority(v as TicketPriority)}>
+                  <SelectTrigger
+                    className="h-7 w-full text-xs"
+                    aria-label={t('fields.priority')}
+                    data-testid="ticket-priority-select"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">{t(opt.labelKey)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={saving} />
 
               {/* Labels */}
               <div>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                <span className="text-xs font-medium text-muted-foreground block mb-1.5">
                   {t('fields.labels')}
                 </span>
                 <div className="flex flex-wrap gap-1 mb-1.5">
                   {labels.map((label) => (
                     <span
                       key={label}
-                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/60 text-foreground/70 group"
+                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium bg-accent/60 text-foreground/70 group"
                     >
                       {label}
                       <button
@@ -797,7 +812,7 @@ export function TicketDetailModal({
                         setLabelInput('')
                       }}
                       placeholder={t('detailModal.addLabelPlaceholder')}
-                      className="w-full h-6 rounded border border-border bg-input px-2 text-[10px] text-foreground placeholder:text-muted-foreground"
+                      className="w-full h-6 rounded border border-border bg-input px-2 text-[11px] text-foreground placeholder:text-muted-foreground"
                     />
                     {labelSuggestions.length > 0 && (
                       <div className="absolute left-0 right-0 top-full mt-0.5 rounded border border-border/50 bg-popover shadow-lg z-10 py-0.5">
@@ -809,7 +824,7 @@ export function TicketDetailModal({
                               e.preventDefault()
                               addLabel(suggestion)
                             }}
-                            className="w-full text-left px-2 py-1 text-[10px] hover:bg-accent/50 text-foreground/80"
+                            className="w-full text-left px-2 py-1 text-[11px] hover:bg-accent/50 text-foreground/80"
                           >
                             {suggestion}
                           </button>
@@ -821,7 +836,7 @@ export function TicketDetailModal({
                   <button
                     type="button"
                     onClick={() => setShowLabelInput(true)}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Plus className="w-2.5 h-2.5" />
                     {t('detailModal.addLabel')}
@@ -851,7 +866,7 @@ export function TicketDetailModal({
               {/* Metadata */}
               {ticket.metadata?.effort_level && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-0.5">
+                  <span className="text-xs font-medium text-muted-foreground block mb-0.5">
                     {t('detailModal.effort')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.metadata.effort_level}</span>
@@ -860,7 +875,7 @@ export function TicketDetailModal({
 
               {ticket.assignee && (
                 <div>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-0.5">
+                  <span className="text-xs font-medium text-muted-foreground block mb-0.5">
                     {t('detailModal.assignee')}
                   </span>
                   <span className="text-xs text-foreground/70">{ticket.assignee}</span>
@@ -872,7 +887,7 @@ export function TicketDetailModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-border/30">
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span>{t('meta.createdAgo', { time: formatRelTime(ticket.created_at) })}</span>
             <span>{t('meta.updatedAgo', { time: formatRelTime(ticket.updated_at) })}</span>
             {ticket.source && (
@@ -897,7 +912,7 @@ export function TicketDetailModal({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-red-400 aurora-light:text-destructive hover:text-red-300 aurora-light:hover:text-destructive hover:bg-red-500/10 aurora-light:hover:bg-destructive/10"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 <Trash2 className="w-3 h-3 mr-1" />
@@ -1235,7 +1250,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+      <div className="prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1244,13 +1259,13 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
           className="mt-3 rounded-md border border-border/40 bg-muted/10 px-2 py-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <summary className="cursor-pointer text-[10px] font-medium text-foreground/80 select-none flex items-center gap-2">
+          <summary className="cursor-pointer text-xs font-medium text-foreground/80 select-none flex items-center gap-2">
             {t('contractLayer.title')}
-            <span className="rounded-full bg-muted/40 px-1.5 text-[9px] text-foreground/60">
+            <span className="rounded-full bg-muted/40 px-1.5 text-[11px] text-foreground/60">
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-xs max-w-none prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[10px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+          <div className="mt-2 prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-[11px] prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

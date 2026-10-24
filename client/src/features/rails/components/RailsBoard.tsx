@@ -157,7 +157,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
   const { t } = useTranslation('dashboard')
   const activeRails = rails.filter((r) => r.status === 'running').length
   const [jiggleMode, setJiggleMode] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLElement>(null)
   const [density, setDensity] = useState<'normal' | 'compact'>('normal')
 
   // Observe the panel's own width and switch to the compact rail layout when
@@ -200,14 +200,14 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
   const railLabelFor = (railIndex: number) => rails.find((r, pos) => (railIndexFromId(r.id) ?? pos) === railIndex)?.label ?? `Rail ${railIndex + 1}`
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full" data-density={density} onClick={handleBackgroundClick}>
+    <section ref={containerRef} aria-labelledby="rails-board-title" className="flex flex-col h-full" data-density={density} onClick={handleBackgroundClick}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-12 border-b border-border/40 shrink-0">
         <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-accent-secondary">{t('railsBoard.title')}</h2>
+          <Layers className="w-4 h-4 text-muted-foreground" aria-hidden />
+          <h2 id="rails-board-title" className="text-sm font-semibold text-foreground">{t('railsBoard.title')}</h2>
           {activeRails > 0 && (
-            <span className="text-[10px] text-emerald-400 aurora-light:text-accent-success bg-emerald-400/10 aurora-light:bg-accent-success/10 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">
+            <span className="text-[11px] text-accent-success bg-accent-success/10 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">
               {t('railsBoard.runningCount', { count: activeRails })}
             </span>
           )}
@@ -227,12 +227,12 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
               disabled={(launchAllCount ?? 0) === 0 && launchAllHeld === 0}
               onClick={(e) => { e.stopPropagation(); onLaunchAll() }}
               title={t('railsBoard.launchAllTitle')}
-              className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-semibold rounded-md border border-emerald-400/50 text-emerald-400 aurora-light:text-accent-success aurora-light:border-accent-success/50 bg-gradient-to-r from-emerald-400/10 to-accent-primary/10 hover:from-emerald-400/20 hover:to-accent-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-emerald-400/10 disabled:hover:to-accent-primary/10"
+              className="flex items-center gap-1.5 h-7 px-2.5 text-xs font-semibold rounded-md border border-accent-success/50 text-accent-success bg-accent-success/10 hover:bg-accent-success/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent-success/10"
             >
               <Rocket className="w-3.5 h-3.5" />
               {t('railsBoard.launchAll')}
               {(launchAllCount ?? 0) > 0 && (
-                <span className="text-[10px] font-mono rounded-full bg-emerald-400/15 px-1.5 py-0.5 leading-none">
+                <span className="text-[11px] font-mono tabular-nums rounded-full bg-accent-success/15 px-1.5 py-0.5 leading-none">
                   {launchAllCount}
                 </span>
               )}
@@ -316,6 +316,6 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
           })}
         </SortableContext>
       </div>
-    </div>
+    </section>
   )
 }

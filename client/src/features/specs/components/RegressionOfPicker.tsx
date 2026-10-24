@@ -59,7 +59,7 @@ export function RegressionOfPicker({ value, onChange, disabled }: Props) {
 
   return (
     <div data-testid="regression-of-picker">
-      <label htmlFor="regression-of-select" className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1">
+      <label htmlFor="regression-of-select" className="text-xs font-medium text-muted-foreground block mb-1">
         {t('regressionOf.label')}
       </label>
       <select
@@ -75,7 +75,7 @@ export function RegressionOfPicker({ value, onChange, disabled }: Props) {
           <option key={delivery.id} value={delivery.id}>{optionLabel(delivery)}</option>
         ))}
       </select>
-      <span className="text-[9px] text-muted-foreground mt-0.5 block">
+      <span className="text-[11px] text-muted-foreground mt-0.5 block">
         {state.error ? t('regressionOf.unavailable') : !state.loading && state.deliveries.length === 0 ? t('regressionOf.empty') : t('regressionOf.hint')}
       </span>
     </div>

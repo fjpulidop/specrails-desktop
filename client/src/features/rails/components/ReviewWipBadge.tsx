@@ -49,7 +49,7 @@ export function ReviewWipBadge({ limit, pending, railLabel, ticketTitle }: Props
         data-reached={reached ? 'true' : 'false'}
         title={reached ? t('reviewWip.reachedTitle', { limit }) : t('reviewWip.title', { limit })}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 h-6 rounded-full px-2 text-[10px] font-medium whitespace-nowrap border transition-colors ${
+        className={`flex items-center gap-1 h-6 rounded-full px-2 text-[11px] font-medium whitespace-nowrap border transition-colors ${
           reached
             ? 'border-accent-warning/50 bg-accent-warning/10 text-accent-warning hover:bg-accent-warning/20'
             : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -63,7 +63,7 @@ export function ReviewWipBadge({ limit, pending, railLabel, ticketTitle }: Props
           id={panelId}
           role="dialog"
           aria-label={t('reviewWip.panelTitle')}
-          className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-lg border border-border/60 bg-popover/95 p-3 text-xs shadow-xl backdrop-blur-sm"
+          className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-lg border border-border/60 bg-popover p-3 text-xs shadow-xl"
         >
           <p className="font-semibold text-foreground">{t('reviewWip.panelTitle')}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -79,7 +79,7 @@ export function ReviewWipBadge({ limit, pending, railLabel, ticketTitle }: Props
                   <li key={item.deliveryId} className="rounded-md border border-border/40 bg-muted/20 px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground truncate">{railLabel(item.railIndex)}</span>
-                      {since && <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{since}</span>}
+                      {since && <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{since}</span>}
                     </div>
                     <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                       {item.ticketIds.map((id) => {

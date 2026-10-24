@@ -97,7 +97,7 @@ export function SpecSprintFilterDropdown({ tickets, active, onChange, className 
           ref={panelRef}
           role="listbox"
           data-testid="spec-sprint-filter-panel"
-          className="absolute z-40 left-0 mt-1 w-64 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur shadow-xl shadow-black/30 p-1"
+          className="absolute z-40 left-0 mt-1 w-64 max-h-72 overflow-y-auto rounded-xl border border-border/60 bg-popover shadow-xl shadow-black/30 p-1"
         >
           <button
             type="button"
@@ -114,7 +114,7 @@ export function SpecSprintFilterDropdown({ tickets, active, onChange, className 
               {active === null && <Check className="w-3 h-3 text-accent-info" />}
             </span>
             <span className="flex-1">{t('sprintFilter.all')}</span>
-            <span className="text-[10px] text-muted-foreground/70">{tickets.length}</span>
+            <span className="text-[11px] text-muted-foreground/70">{tickets.length}</span>
           </button>
 
           {entries.length > 0 && <div className="my-1 h-px bg-border/40" aria-hidden />}
@@ -140,12 +140,12 @@ export function SpecSprintFilterDropdown({ tickets, active, onChange, className 
                 {e.active && (
                   <span
                     data-testid="spec-sprint-current-badge"
-                    className="shrink-0 rounded-full bg-accent-success/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent-success"
+                    className="shrink-0 rounded-full bg-accent-success/15 px-1.5 py-0.5 text-[11px] font-medium text-accent-success"
                   >
                     {t('sprintFilter.current')}
                   </span>
                 )}
-                <span className="ml-auto text-[10px] text-muted-foreground/60">{e.count}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{e.count}</span>
               </button>
             )
           })}
