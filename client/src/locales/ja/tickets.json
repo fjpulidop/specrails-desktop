@@ -40,6 +40,9 @@
     "body": "<strong>#{{id}} {{title}}</strong> を削除してもよろしいですか？この操作は元に戻せません。"
   },
   "detailModal": {
+    "moreActions": "その他の操作",
+    "openReview": "レビューを開く",
+    "viewJob": "ジョブを表示",
     "toast": {
       "updated": "チケットを更新しました",
       "updateFailed": "チケットの更新に失敗しました",

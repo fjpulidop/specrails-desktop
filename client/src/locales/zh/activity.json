@@ -62,8 +62,8 @@
     "smashFailed": "SMASH 失败：{{message}}",
     "couldNotDeleteChildren": "无法删除当前子 Spec",
     "deleteFailed": "删除失败：{{message}}",
-    "smashButton": "将 Spec SMASH 为子 Spec",
-    "reSmashButton": "重新 SMASH"
+    "smashButton": "拆分为子 Spec",
+    "reSmashButton": "重新拆分为子 Spec"
   },
   "smashModal": {
     "title": "将 Spec SMASH 为子 Spec",

@@ -40,6 +40,9 @@
     "body": "Are you sure you want to delete <strong>#{{id}} {{title}}</strong>? This action cannot be undone."
   },
   "detailModal": {
+    "moreActions": "More actions",
+    "openReview": "Open review",
+    "viewJob": "View job",
     "toast": {
       "updated": "Ticket updated",
       "updateFailed": "Failed to update ticket",

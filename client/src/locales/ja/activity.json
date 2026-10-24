@@ -62,8 +62,8 @@
     "smashFailed": "SMASH に失敗しました: {{message}}",
     "couldNotDeleteChildren": "現在のサブスペックを削除できませんでした",
     "deleteFailed": "削除に失敗しました: {{message}}",
-    "smashButton": "スペックをサブスペックに SMASH",
-    "reSmashButton": "再 SMASH"
+    "smashButton": "サブスペックに分割",
+    "reSmashButton": "サブスペックに再分割"
   },
   "smashModal": {
     "title": "スペックをサブスペックに SMASH",

@@ -40,6 +40,9 @@
     "body": "¿Seguro que quieres eliminar <strong>#{{id}} {{title}}</strong>? Esta acción no se puede deshacer."
   },
   "detailModal": {
+    "moreActions": "Más acciones",
+    "openReview": "Abrir revisión",
+    "viewJob": "Ver job",
     "toast": {
       "updated": "Ticket actualizado",
       "updateFailed": "No se pudo actualizar el ticket",

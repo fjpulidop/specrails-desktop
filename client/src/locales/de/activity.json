@@ -62,8 +62,8 @@
     "smashFailed": "SMASH fehlgeschlagen: {{message}}",
     "couldNotDeleteChildren": "Aktuelle Sub-Specs konnten nicht gelöscht werden",
     "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
-    "smashButton": "Spec per SMASH in Sub-Specs aufteilen",
-    "reSmashButton": "Re-SMASH"
+    "smashButton": "In Sub-Specs aufteilen",
+    "reSmashButton": "Erneut in Sub-Specs aufteilen"
   },
   "smashModal": {
     "title": "Spec per SMASH in Sub-Specs aufteilen",

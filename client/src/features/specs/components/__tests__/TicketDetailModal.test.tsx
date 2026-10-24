@@ -168,12 +168,12 @@ describe('TicketDetailModal', () => {
 
     it('removes the compare affordance when the viewport shrinks below the split threshold', async () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
-      expect(screen.getByTestId('ticket-modal-compare')).toBeInTheDocument()
+      expect(screen.getByTestId('ticket-modal-more')).toBeInTheDocument()
 
       window.innerWidth = 800
       fireEvent(window, new Event('resize'))
 
-      await waitFor(() => expect(screen.queryByTestId('ticket-modal-compare')).not.toBeInTheDocument())
+      await waitFor(() => expect(screen.queryByTestId('ticket-modal-more')).not.toBeInTheDocument())
     })
   })
 
@@ -729,9 +729,24 @@ describe('TicketDetailModal — modal standard', () => {
     expect(screen.queryByTestId('ticket-modal-compare')).toBeNull()
   })
 
-  it('shows Compare when another spec exists', () => {
+  it('keeps Compare in the "more actions" menu when another spec exists', async () => {
     const ticket = makeTicket()
     render(<TicketDetailModal {...makeDefaultProps({ ticket })} allTickets={[ticket, makeTicket({ id: 2, title: 'Other' })]} />)
-    expect(screen.getByTestId('ticket-modal-compare')).toBeInTheDocument()
+    expect(screen.queryByTestId('ticket-modal-compare')).toBeNull()
+    await userEvent.setup().click(screen.getByTestId('ticket-modal-more'))
+    expect(await screen.findByTestId('ticket-modal-compare')).toBeInTheDocument()
+  })
+})
+
+describe('TicketDetailModal — status primary action', () => {
+  it('offers View job for an in-progress spec running on a rail', () => {
+    const rail = { id: 'r1', label: 'Rail 1', ticketIds: [1], mode: 'implement', status: 'running', activeJobId: 'job-9' }
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ id: 1, status: 'in_progress' }), rails: [rail] as never })} />)
+    expect(screen.getByTestId('modal-primary-action')).toHaveTextContent(/view job|detailModal.viewJob/i)
+  })
+
+  it('shows no job action for a todo spec', () => {
+    render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'todo' }) })} />)
+    expect(screen.queryByTestId('modal-primary-action')).toBeNull()
   })
 })

@@ -28,6 +28,14 @@ export interface SmashActionsProps {
   featureFlagOn: boolean
   /** When true and épica has children, the action is "Re-SMASH" with confirm. */
   childrenCount: number
+  /**
+   * Overflow-menu mode: the trigger lives in the parent's "more" menu. The
+   * parent bumps `openRequest` to open the confirm modal and learns through
+   * `onAvailableChange` whether the action applies to this spec at all.
+   */
+  hideButton?: boolean
+  openRequest?: number
+  onAvailableChange?: (available: boolean) => void
 }
 
 /**
@@ -40,6 +48,9 @@ export function SmashActions({
   provider,
   featureFlagOn,
   childrenCount,
+  hideButton = false,
+  openRequest = 0,
+  onAvailableChange,
 }: SmashActionsProps) {
   const { t } = useTranslation('activity')
   const inflight = useSmashInflight(ticket.id)
@@ -85,6 +96,10 @@ export function SmashActions({
   const showInitial = !isEpic && ticketCanSmash(ticket, smashEnabled)
   const showReSmash = isEpic && smashEnabled
   const isReSmash = isEpic && childrenCount > 0
+
+  const available = showInitial || showReSmash
+  useEffect(() => { onAvailableChange?.(available) }, [available, onAvailableChange])
+  useEffect(() => { if (openRequest > 0 && available) setModalOpen(true) }, [openRequest, available])
 
   const fireSmash = useCallback(
     async (mode: SmashMode) => {
@@ -158,16 +173,18 @@ export function SmashActions({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setModalOpen(true)}
-        className="border-accent-highlight/40 text-accent-highlight hover:bg-accent-highlight/10"
-        data-testid={showReSmash ? 'resmash-button' : 'smash-button'}
-      >
-        <Split className="w-3.5 h-3.5 mr-1.5" />
-        {showReSmash ? t('smash.reSmashButton') : t('smash.smashButton')}
-      </Button>
+      {!hideButton && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setModalOpen(true)}
+          className="border-accent-highlight/40 text-accent-highlight hover:bg-accent-highlight/10"
+          data-testid={showReSmash ? 'resmash-button' : 'smash-button'}
+        >
+          <Split className="w-3.5 h-3.5 mr-1.5" />
+          {showReSmash ? t('smash.reSmashButton') : t('smash.smashButton')}
+        </Button>
+      )}
       <SmashConfirmModal
         open={modalOpen}
         ticketTitle={ticket.title}

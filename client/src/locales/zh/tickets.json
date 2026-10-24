@@ -40,6 +40,9 @@
     "body": "确定要删除 <strong>#{{id}} {{title}}</strong> 吗？此操作无法撤销。"
   },
   "detailModal": {
+    "moreActions": "更多操作",
+    "openReview": "打开评审",
+    "viewJob": "查看作业",
     "toast": {
       "updated": "工单已更新",
       "updateFailed": "更新工单失败",

@@ -5,11 +5,14 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
 import { Trans, useTranslation } from 'react-i18next'
-import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink } from 'lucide-react'
+import { X, Pencil, Trash2, Save, Plus, XCircle, MessageSquare, ArrowRight, ArrowLeft, Columns2, ExternalLink, MoreHorizontal, Split } from 'lucide-react'
+import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { openExternalUrl } from '../../../lib/tauri-shell'
 import { toast } from 'sonner'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { Button } from '../../../components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
+import { useRailPrDecisions } from '../../delivery/context/RailPrDecisionContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { DIALOG_SCRIM_CLASS, DialogLayerProvider } from '../../../components/ui/dialog'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
@@ -131,6 +134,7 @@ export function TicketDetailModal({
 }: TicketDetailModalProps) {
   const { t } = useTranslation('tickets')
   const { t: tj } = useTranslation('jira')
+  const { t: tAct } = useTranslation('activity')
   // Another way to work on the spec next to Move to Rail (Flow), from the composition root.
   const { StartAlternative } = useSpecExtensions()
   const { activeProjectId, projects } = useDesktop()
@@ -146,6 +150,8 @@ export function TicketDetailModal({
   // closed while project context is loading.
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
   const smashFlagOn = isSmashCapable(activeProvider)
+  const [smashAvailable, setSmashAvailable] = useState(false)
+  const [smashOpenRequest, setSmashOpenRequest] = useState(0)
   const childrenList = useMemo(
     () => (allTickets ?? []).filter((t) => t.parent_epic_id === ticket.id),
     [allTickets, ticket.id],
@@ -465,8 +471,8 @@ export function TicketDetailModal({
   // header doubles as the drag-to-split gesture, so it is built on the raw
   // Radix primitives instead of `DialogContent`.
   const panelClassName = embedded
-    ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-xl flex flex-col overflow-hidden'
-    : 'modal-enter relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-xl flex flex-col h-[90vh] max-h-[calc(100%-2rem)] outline-none'
+    ? 'relative w-full h-full rounded-panel bg-popover border border-border/40 shadow-3 flex flex-col overflow-hidden'
+    : 'modal-enter relative w-full max-w-[67rem] m-4 rounded-panel bg-popover border border-border/40 shadow-3 flex flex-col h-[90vh] max-h-[calc(100%-2rem)] outline-none'
   const panelInlineStyle: React.CSSProperties = {
     ...(dragOffset !== 0
       ? { transform: `translateX(${dragOffset}px)`, transition: 'none' }
@@ -476,7 +482,7 @@ export function TicketDetailModal({
   const statusLabel = t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })
   const titleHeading = (
     // No `id` key when standalone: Radix's Title (asChild) supplies the id.
-    <h2 {...(embedded ? { id: titleId } : {})} className="text-base font-semibold text-foreground truncate">{title || t('untitled')}</h2>
+    <h2 {...(embedded ? { id: titleId } : {})} className="text-headline text-foreground line-clamp-2 break-words">{title || t('untitled')}</h2>
   )
   const panelContent = (
     <>
@@ -544,11 +550,18 @@ export function TicketDetailModal({
                 provider={activeProvider}
                 featureFlagOn={smashFlagOn}
                 childrenCount={childrenList.length}
+                hideButton
+                openRequest={smashOpenRequest}
+                onAvailableChange={setSmashAvailable}
               />
             </div>
           )}
 
           <ContinueEditingButton ticket={ticket} title={title} description={description} priority={priority} labels={labels} repositoryIds={repositoryIds} onClose={onClose} />
+
+          {!isTerminal && (ticket.status === 'on_review' || ticket.status === 'in_progress') && (
+            <StatusPrimaryAction ticket={ticket} rails={rails} onClose={onClose} />
+          )}
 
           {rails && (onMoveToRail || onRemoveFromRail) && (
             <RailAssignmentButton
@@ -569,18 +582,38 @@ export function TicketDetailModal({
             />
           )}
 
-          {canDrag && hasComparable && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 mr-1 gap-1.5"
-              data-testid="ticket-modal-compare"
-              onClick={handleCompareClick}
-              title={t('detailModal.compareTooltip')}
-            >
-              <Columns2 className="w-3.5 h-3.5" />
-              {t('detailModal.compare')}
-            </Button>
+          {((activeProjectId && ticket.status !== 'done' && smashAvailable) || (canDrag && hasComparable)) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={t('detailModal.moreActions')}
+                title={t('detailModal.moreActions')}
+                data-testid="ticket-modal-more"
+                className="h-7 w-7 mr-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer shrink-0"
+              >
+                <MoreHorizontal className="w-4 h-4" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className={DIALOG_LAYER_CLASS.stacked}>
+                {activeProjectId && ticket.status !== 'done' && smashAvailable && (
+                  <DropdownMenuItem
+                    data-testid="ticket-modal-smash"
+                    onSelect={() => setSmashOpenRequest((n) => n + 1)}
+                  >
+                    <Split className="w-3.5 h-3.5" aria-hidden />
+                    {ticket.is_epic ? tAct('smash.reSmashButton') : tAct('smash.smashButton')}
+                  </DropdownMenuItem>
+                )}
+                {canDrag && hasComparable && (
+                  <DropdownMenuItem
+                    data-testid="ticket-modal-compare"
+                    onSelect={handleCompareClick}
+                    title={t('detailModal.compareTooltip')}
+                  >
+                    <Columns2 className="w-3.5 h-3.5" aria-hidden />
+                    {t('detailModal.compare')}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <button
@@ -1216,9 +1249,8 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
     <>
       <Button
         ref={buttonRef}
-        variant="outline"
         size="sm"
-        className="shrink-0 mr-2 gap-1.5 border-accent-info/30 text-accent-info hover:bg-accent-info/10 hover:text-accent-info"
+        className="shrink-0 mr-2 gap-1.5"
         data-testid="modal-move-to-rail"
         onClick={() => {
           if (!buttonRef.current) return
@@ -1237,6 +1269,49 @@ function RailAssignmentButton({ ticket, rails, onMoveToRail, onRemoveFromRail }:
         />
       )}
     </>
+  )
+}
+
+// ─── Status primary action ──────────────────────────────────────────────────
+
+/**
+ * The one primary action of a spec that is already past the rail hand-off:
+ * `on_review` opens the review packet, `in_progress` opens the running job.
+ * Renders nothing when the target cannot be resolved (no live delivery / job).
+ */
+function StatusPrimaryAction(props: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void }) {
+  const inRouter = useInRouterContext()
+  return inRouter ? <StatusPrimaryActionInner {...props} /> : null
+}
+
+function StatusPrimaryActionInner({ ticket, rails, onClose }: { ticket: LocalTicket; rails?: RailState[]; onClose: () => void }) {
+  const { t } = useTranslation('tickets')
+  const navigate = useNavigate()
+  const { decisions } = useRailPrDecisions()
+  let path: string | null = null
+  let label = ''
+  if (ticket.status === 'on_review') {
+    for (const d of decisions.values()) {
+      if (d.ticketIds.includes(ticket.id)) { path = `/review/${encodeURIComponent(d.prDeliveryId)}`; break }
+    }
+    label = t('detailModal.openReview')
+  } else {
+    const jobId = rails?.find((r) => r.ticketIds.includes(ticket.id))?.activeJobId
+    if (jobId) path = `/jobs/${encodeURIComponent(jobId)}`
+    label = t('detailModal.viewJob')
+  }
+  if (!path) return null
+  const target = path
+  return (
+    <Button
+      size="sm"
+      className="shrink-0 mr-2 gap-1.5"
+      data-testid="modal-primary-action"
+      onClick={() => { onClose(); navigate(target) }}
+    >
+      {label}
+      <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+    </Button>
   )
 }
 
@@ -1309,7 +1384,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
       role="button"
       style={{ cursor: 'pointer' }}
     >
-      <div className="prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs [&_code]:!text-xs [&_pre]:!text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+      <div className="prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-accent-info prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/90">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{userPart}</ReactMarkdown>
       </div>
       {contract && (
@@ -1324,7 +1399,7 @@ function DescriptionRender({ description, onEdit }: DescriptionRenderProps) {
               {t('contractLayer.populated', { n: countContractSubsections(contract) })}
             </span>
           </summary>
-          <div className="mt-2 prose prose-invert prose-xs max-w-[75ch] prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:text-accent-info prose-code:text-xs [&_code]:!text-xs [&_pre]:!text-xs prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/80 text-xs">
+          <div className="mt-2 prose prose-invert prose-sm text-body leading-relaxed max-w-[75ch] prose-p:my-2.5 prose-headings:text-title prose-headings:mt-5 prose-headings:mb-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-code:text-accent-info prose-code:text-label [&_code]:!text-label [&_pre]:!text-label prose-code:bg-muted/40 prose-code:px-1 prose-code:py-0.5 prose-code:rounded text-foreground/90">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{contract}</ReactMarkdown>
           </div>
         </details>

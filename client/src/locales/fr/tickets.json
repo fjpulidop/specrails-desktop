@@ -40,6 +40,9 @@
     "body": "Voulez-vous vraiment supprimer <strong>#{{id}} {{title}}</strong> ? Cette action est irréversible."
   },
   "detailModal": {
+    "moreActions": "Plus d'actions",
+    "openReview": "Ouvrir la revue",
+    "viewJob": "Voir le job",
     "toast": {
       "updated": "Ticket mis à jour",
       "updateFailed": "Échec de la mise à jour du ticket",

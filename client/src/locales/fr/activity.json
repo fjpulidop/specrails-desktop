@@ -62,8 +62,8 @@
     "smashFailed": "Échec de SMASH : {{message}}",
     "couldNotDeleteChildren": "Impossible de supprimer les Sous-Specs actuelles",
     "deleteFailed": "Échec de la suppression : {{message}}",
-    "smashButton": "SMASH : diviser la spec en Sous-Specs",
-    "reSmashButton": "Re-SMASH"
+    "smashButton": "Diviser en sous-specs",
+    "reSmashButton": "Re-diviser en sous-specs"
   },
   "smashModal": {
     "title": "SMASH : diviser la spec en Sous-Specs",

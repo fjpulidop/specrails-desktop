@@ -40,6 +40,9 @@
     "body": "Tem a certeza de que quer eliminar <strong>#{{id}} {{title}}</strong>? Esta ação não pode ser anulada."
   },
   "detailModal": {
+    "moreActions": "Mais ações",
+    "openReview": "Abrir revisão",
+    "viewJob": "Ver job",
     "toast": {
       "updated": "Ticket atualizado",
       "updateFailed": "Falha ao atualizar o ticket",
